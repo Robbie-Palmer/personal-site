@@ -12,6 +12,28 @@ describe("previewApiRequestURL", () => {
     );
   });
 
+  it("replaces a trailing-slash base path instead of creating a double slash", () => {
+    expect(
+      previewApiRequestURL(
+        new URL("https://preview-api.example.test/base/"),
+        "/health",
+      ).href,
+    ).toBe("https://preview-api.example.test/health");
+  });
+
+  it.each([
+    "/%5C%5Cattacker.example.test/collect",
+    "/%2F%2Fattacker.example.test/collect",
+    "/%00/collect",
+    "/／／attacker.example.test/collect",
+    "/раypal.example.test/collect",
+  ])("keeps encoded or Unicode path text on the configured origin: %s", (path) => {
+    const requestURL = previewApiRequestURL(apiURL, path);
+
+    expect(requestURL.origin).toBe(apiURL.origin);
+    expect(requestURL.pathname.startsWith("/")).toBe(true);
+  });
+
   it.each([
     "households/safe-id/members",
     " //attacker.example.test/collect",
