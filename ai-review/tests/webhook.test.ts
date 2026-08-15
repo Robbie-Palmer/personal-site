@@ -2,6 +2,7 @@ import { createHmac } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import {
   parseFindingInteraction,
+  parsePullRequestFinalization,
   parseReviewEvent,
   verifyGitHubSignature,
 } from "../src/webhook";
@@ -207,6 +208,52 @@ describe("parseReviewEvent", () => {
         }),
       ).toEqual({ kind: "ignored", reason: "unsupported-event" });
     }
+  });
+});
+
+describe("parsePullRequestFinalization", () => {
+  it("captures merged and unmerged PR closure without scheduling review", () => {
+    for (const merged of [true, false]) {
+      expect(
+        parsePullRequestFinalization("pull_request", `closed-${merged}`, {
+          action: "closed",
+          repository: { full_name: "Robbie-Palmer/personal-site" },
+          pull_request: {
+            number: 816,
+            merged,
+            closed_at: "2026-08-15T12:00:00Z",
+            head: { sha: "abc123" },
+          },
+        }),
+      ).toEqual({
+        kind: "accepted",
+        event: {
+          deliveryId: `closed-${merged}`,
+          eventName: "pull_request",
+          action: "closed",
+          repository: "Robbie-Palmer/personal-site",
+          pullRequestNumber: 816,
+          headSha: "abc123",
+          finalState: merged ? "merged" : "closed",
+          occurredAt: "2026-08-15T12:00:00Z",
+        },
+      });
+    }
+  });
+
+  it("rejects malformed closure evidence and ignores other events", () => {
+    expect(
+      parsePullRequestFinalization("pull_request", "delivery", {
+        action: "closed",
+        repository: { full_name: "Robbie-Palmer/personal-site" },
+        pull_request: { number: 816, head: { sha: "abc123" } },
+      }),
+    ).toEqual({ kind: "invalid", reason: "Malformed webhook payload" });
+    expect(
+      parsePullRequestFinalization("pull_request", "delivery", {
+        action: "synchronize",
+      }),
+    ).toEqual({ kind: "ignored", reason: "unsupported-event" });
   });
 });
 

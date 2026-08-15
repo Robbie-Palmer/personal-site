@@ -1464,6 +1464,8 @@ export async function completeReview(
   publication: ReviewPublication,
 ): Promise<void> {
   await coordinatorRequest(env, params, "/reviews/complete", {
+    repository: params.repository,
+    pullRequestNumber: params.pullRequestNumber,
     runId: instanceId,
     headSha: prepared.headSha,
     costUsd: publication.runCostUsd,

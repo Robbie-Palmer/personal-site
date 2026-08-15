@@ -1,6 +1,7 @@
 import {
   TRUSTED_AUTHOR_ASSOCIATIONS,
   type FindingInteractionEvent,
+  type PullRequestFinalizationEvent,
   type ReviewWorkflowParams,
 } from "./env";
 
@@ -63,6 +64,8 @@ type GitHubWebhook = {
   updated_at?: unknown;
   pull_request?: {
     number?: unknown;
+    merged?: unknown;
+    closed_at?: unknown;
     author_association?: unknown;
     user?: { login?: unknown };
     head?: {
@@ -106,6 +109,11 @@ export type ReviewEventParseResult =
 
 export type FindingInteractionParseResult =
   | { kind: "accepted"; event: FindingInteractionEvent }
+  | { kind: "ignored"; reason: "unsupported-event" }
+  | { kind: "invalid"; reason: "Malformed webhook payload" };
+
+export type PullRequestFinalizationParseResult =
+  | { kind: "accepted"; event: PullRequestFinalizationEvent }
   | { kind: "ignored"; reason: "unsupported-event" }
   | { kind: "invalid"; reason: "Malformed webhook payload" };
 
@@ -366,6 +374,51 @@ export function parseFindingInteraction(
   }
 
   return { kind: "ignored", reason: "unsupported-event" };
+}
+
+export function parsePullRequestFinalization(
+  eventName: string,
+  deliveryId: string,
+  body: unknown,
+): PullRequestFinalizationParseResult {
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
+    return { kind: "invalid", reason: "Malformed webhook payload" };
+  }
+  const event = body as GitHubWebhook;
+  if (eventName !== "pull_request" || event.action !== "closed") {
+    return { kind: "ignored", reason: "unsupported-event" };
+  }
+  const repository = event.repository?.full_name;
+  const pullRequestNumber = positiveInteger(event.pull_request?.number);
+  const headSha = event.pull_request?.head?.sha;
+  if (
+    typeof repository !== "string" ||
+    repository.length === 0 ||
+    !pullRequestNumber ||
+    typeof headSha !== "string" ||
+    headSha.length === 0 ||
+    typeof event.pull_request?.merged !== "boolean" ||
+    deliveryId.length === 0 ||
+    deliveryId.length > MAX_DELIVERY_ID_LENGTH
+  ) {
+    return { kind: "invalid", reason: "Malformed webhook payload" };
+  }
+  return {
+    kind: "accepted",
+    event: {
+      deliveryId,
+      eventName: "pull_request",
+      action: "closed",
+      repository,
+      pullRequestNumber,
+      headSha,
+      finalState: event.pull_request.merged ? "merged" : "closed",
+      occurredAt:
+        typeof event.pull_request.closed_at === "string"
+          ? event.pull_request.closed_at
+          : undefined,
+    },
+  };
 }
 
 function parsePullRequestEvent(

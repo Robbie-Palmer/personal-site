@@ -384,6 +384,8 @@ describe("PullRequestCoordinator", () => {
       new Request("https://coordinator.test/reviews/complete", {
         method: "POST",
         body: JSON.stringify({
+          repository: event.repository,
+          pullRequestNumber: event.pullRequestNumber,
           runId: "review-delivery-123",
           headSha: event.headSha,
           costUsd: 0.42,
@@ -536,6 +538,8 @@ describe("PullRequestCoordinator", () => {
       new Request("https://coordinator.test/reviews/complete", {
         method: "POST",
         body: JSON.stringify({
+          repository: event.repository,
+          pullRequestNumber: event.pullRequestNumber,
           runId: "missing-review",
           headSha: event.headSha,
           costUsd: 0.42,
@@ -569,6 +573,8 @@ describe("PullRequestCoordinator", () => {
       new Request("https://coordinator.test/reviews/complete", {
         method: "POST",
         body: JSON.stringify({
+          repository: event.repository,
+          pullRequestNumber: event.pullRequestNumber,
           runId: "review-delivery-123",
           headSha: event.headSha,
           costUsd: 0.43,
@@ -608,6 +614,8 @@ describe("PullRequestCoordinator", () => {
       new Request("https://coordinator.test/reviews/complete", {
         method: "POST",
         body: JSON.stringify({
+          repository: event.repository,
+          pullRequestNumber: event.pullRequestNumber,
           runId: "review-delivery-123",
           headSha: event.headSha,
           costUsd: 0.42,
@@ -629,6 +637,8 @@ describe("PullRequestCoordinator", () => {
       new Request("https://coordinator.test/reviews/complete", {
         method: "POST",
         body: JSON.stringify({
+          repository: event.repository,
+          pullRequestNumber: event.pullRequestNumber,
           runId: "review-delivery-123",
           headSha: event.headSha,
           costUsd: 0.42,
@@ -650,6 +660,8 @@ describe("PullRequestCoordinator", () => {
       new Request("https://coordinator.test/reviews/complete", {
         method: "POST",
         body: JSON.stringify({
+          repository: event.repository,
+          pullRequestNumber: event.pullRequestNumber,
           runId: "review-delivery-123",
           headSha: event.headSha,
           costUsd: 0.42,
@@ -671,6 +683,8 @@ describe("PullRequestCoordinator", () => {
       new Request("https://coordinator.test/reviews/complete", {
         method: "POST",
         body: JSON.stringify({
+          repository: event.repository,
+          pullRequestNumber: event.pullRequestNumber,
           runId: "review-delivery-123",
           headSha: event.headSha,
           costUsd: 0,
@@ -708,6 +722,8 @@ describe("PullRequestCoordinator", () => {
         new Request("https://coordinator.test/reviews/complete", {
           method: "POST",
           body: JSON.stringify({
+            repository: event.repository,
+            pullRequestNumber: event.pullRequestNumber,
             runId: "review-delivery-123",
             headSha: event.headSha,
             costUsd: 0.42,
@@ -728,6 +744,8 @@ describe("PullRequestCoordinator", () => {
       new Request("https://coordinator.test/reviews/complete", {
         method: "POST",
         body: JSON.stringify({
+          repository: event.repository,
+          pullRequestNumber: event.pullRequestNumber,
           runId: "review-delivery-123",
           headSha: event.headSha,
           costUsd: 0.42,
@@ -1195,6 +1213,31 @@ describe("HTTP Worker", () => {
     await expect(response.json()).resolves.toEqual({ accepted: true });
     expect(fetch).toHaveBeenCalledWith(
       "https://coordinator.internal/interactions",
+      expect.objectContaining({ method: "POST" }),
+    );
+  });
+
+  it("routes pull request closure to outcome finalization", async () => {
+    const { env, fetch } = workerEnv();
+    const closedBody = JSON.stringify({
+      action: "closed",
+      repository: { full_name: "Robbie-Palmer/personal-site" },
+      pull_request: {
+        number: 821,
+        merged: true,
+        closed_at: "2026-08-15T12:00:00Z",
+        head: { sha: "abcdef123456" },
+      },
+    });
+
+    const response = await worker.fetch(
+      signedWebhookRequest(closedBody, secret),
+      env,
+    );
+
+    await expect(response.json()).resolves.toEqual({ accepted: true });
+    expect(fetch).toHaveBeenCalledWith(
+      "https://coordinator.internal/finalizations",
       expect.objectContaining({ method: "POST" }),
     );
   });

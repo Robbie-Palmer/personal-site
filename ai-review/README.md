@@ -177,6 +177,24 @@ These records preserve the event/action, trusted actor, reply or command body,
 reaction counts present on review-comment events, thread state, explicit
 disposition and timestamps without mutating earlier evidence.
 
+`review_finding_outcomes` turns that evidence into a versioned evaluation
+label. An explicit acknowledgement or rejection creates an outcome immediately.
+When a later reviewed head resolves an existing finding, the coordinator adds a
+higher-confidence `confirmed-fixed` outcome linked to the original and resolving
+heads, runs, hunk IDs, and merger resolution note. On `pull_request.closed`, any
+finding without an outcome becomes `superseded` when the final reviewed diff no
+longer contains its affected hunks, or `no-observable-response` otherwise. The
+closure evidence records whether the final head was actually reviewed so censored
+outcomes remain distinguishable from complete coverage.
+
+Outcome revisions are immutable schema-v2 objects at
+`v2/<owner>/<repository>/pr-<number>/findings/<finding-id>/outcomes/v<version>.json`.
+The highest version is the current outcome; earlier labels remain available to
+show how later code evidence changed the attribution. SQLite commits the outcome
+before R2 publication and retains an `r2_recorded` flag, so a retried webhook or
+review completion repairs an interrupted object write without creating another
+revision.
+
 ## Deploy
 
 Sync the environment after changing Doppler:
