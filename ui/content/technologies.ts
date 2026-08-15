@@ -1008,6 +1008,22 @@ export const technologies: TechnologyContent[] = [
     type: "tool",
   },
   {
+    name: "Basic Memory",
+    added: "2026-08-15",
+    description:
+      "Local-first agent knowledge engine deriving an MCP-accessible semantic graph from plain Markdown files",
+    website: "https://www.basicmemory.com",
+    type: "tool",
+  },
+  {
+    name: "SilverBullet",
+    added: "2026-08-15",
+    description:
+      "Self-hosted, offline-first Markdown knowledge base with an installable web application",
+    website: "https://silverbullet.md",
+    type: "tool",
+  },
+  {
     name: "Jellyfin",
     added: "2026-08-02",
     description:
