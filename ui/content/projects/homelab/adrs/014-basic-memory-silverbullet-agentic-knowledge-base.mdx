@@ -192,17 +192,19 @@ The table is directional rather than pretending that subjective workflow
 choices have precise scores. `++` is a strong fit, `+` is workable, `~` is a
 meaningful compromise, and `-` conflicts with the requirement.
 
-| Option                           | Agent interface                         | Durable/open corpus                        | Structure and graph                | Cross-device UX                    | Privacy/cost               | Fit       |
-| -------------------------------- | --------------------------------------- | ------------------------------------------ | ---------------------------------- | ---------------------------------- | -------------------------- | --------- |
-| **Basic Memory + SilverBullet**  | `++` native MCP, CLI, files             | `++` canonical Markdown                    | `++` semantic graph plus queries   | `+` offline PWA                    | `++` local, free           | **Pilot** |
-| **Basic Memory + Obsidian Sync** | `++` MCP, CLI, files, Obsidian CLI      | `++` canonical Markdown                    | `++` semantic graph plus plugins   | `++` native Mac/Linux/Android      | `+` E2EE, $4–5/month       | Fallback  |
-| **Basic Memory Cloud**           | `++` hosted MCP and local CLI           | `++` Markdown with local sync              | `++` semantic graph                | `++` hosted web/mobile             | `-` hosted, $15/month      | Rejected  |
-| **SilverBullet alone**           | `+` files and HTTP; optional add-on MCP | `++` canonical Markdown                    | `+` links, objects, queries        | `+` offline PWA                    | `++` self-hosted, free     | Rejected  |
-| **Obsidian + self-managed sync** | `++` files and CLI                      | `++` canonical Markdown                    | `++` links, properties, plugins    | `+` native apps, fragile sync edge | `++` self-hosted, free     | Rejected  |
-| **TriliumNext**                  | `+` ETAPI and scripts                   | `~` canonical database, exports            | `++` relations, attributes, maps   | `+` desktop/web; mobile PWA online | `++` self-hosted, free     | Rejected  |
-| **Joplin + Joplin Server**       | `+` terminal app and REST API           | `+` Markdown bodies, app-managed sync data | `~` notebooks and tags, weak graph | `++` native Mac/Linux/Android      | `++` self-hosted, free     | Rejected  |
-| **Notion**                       | `++` official MCP and API               | `~` SaaS blocks; Markdown export is a copy | `+` databases and relations        | `++` polished web/native clients   | `~` free solo tier, hosted | Rejected  |
-| **Roam Research**                | `+` backend API                         | `~` SaaS graph with exports                | `++` block graph                   | `+` web/native clients             | `-` hosted, $15/month      | Rejected  |
+<div className="overflow-x-auto">
+  | Option                           | Agent interface                         | Durable/open corpus                        | Structure and graph                | Cross-device UX                    | Privacy/cost               | Fit       |
+  | -------------------------------- | --------------------------------------- | ------------------------------------------ | ---------------------------------- | ---------------------------------- | -------------------------- | --------- |
+  | **Basic Memory + SilverBullet**  | `++` native MCP, CLI, files             | `++` canonical Markdown                    | `++` semantic graph plus queries   | `+` offline PWA                    | `++` local, free           | **Pilot** |
+  | **Basic Memory + Obsidian Sync** | `++` MCP, CLI, files, Obsidian CLI      | `++` canonical Markdown                    | `++` semantic graph plus plugins   | `++` native Mac/Linux/Android      | `+` E2EE, $4–5/month       | Fallback  |
+  | **Basic Memory Cloud**           | `++` hosted MCP and local CLI           | `++` Markdown with local sync              | `++` semantic graph                | `++` hosted web/mobile             | `-` hosted, $15/month      | Rejected  |
+  | **SilverBullet alone**           | `+` files and HTTP; optional add-on MCP | `++` canonical Markdown                    | `+` links, objects, queries        | `+` offline PWA                    | `++` self-hosted, free     | Rejected  |
+  | **Obsidian + self-managed sync** | `++` files and CLI                      | `++` canonical Markdown                    | `++` links, properties, plugins    | `+` native apps, fragile sync edge | `++` self-hosted, free     | Rejected  |
+  | **TriliumNext**                  | `+` ETAPI and scripts                   | `~` canonical database, exports            | `++` relations, attributes, maps   | `+` desktop/web; mobile PWA online | `++` self-hosted, free     | Rejected  |
+  | **Joplin + Joplin Server**       | `+` terminal app and REST API           | `+` Markdown bodies, app-managed sync data | `~` notebooks and tags, weak graph | `++` native Mac/Linux/Android      | `++` self-hosted, free     | Rejected  |
+  | **Notion**                       | `++` official MCP and API               | `~` SaaS blocks; Markdown export is a copy | `+` databases and relations        | `++` polished web/native clients   | `~` free solo tier, hosted | Rejected  |
+  | **Roam Research**                | `+` backend API                         | `~` SaaS graph with exports                | `++` block graph                   | `+` web/native clients             | `-` hosted, $15/month      | Rejected  |
+</div>
 
 # Alternatives
 
