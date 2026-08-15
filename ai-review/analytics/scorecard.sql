@@ -9,7 +9,8 @@ CREATE TEMP TABLE invalid_objects AS
 SELECT filename, json_extract_string(json, '$.schemaVersion') AS schema_version,
        json_extract_string(json, '$.recordType') AS record_type
 FROM raw_objects
-WHERE try_cast(json_extract_string(json, '$.schemaVersion') AS INTEGER) IS DISTINCT FROM 2
+WHERE json_type(json, '$.schemaVersion') NOT IN ('BIGINT', 'UBIGINT')
+   OR try_cast(json_extract_string(json, '$.schemaVersion') AS BIGINT) IS DISTINCT FROM 2
    OR json_extract_string(json, '$.recordType') IS NULL
    OR json_extract_string(json, '$.recordType') NOT IN
       ('review-run-terminal', 'finding-interaction-evidence', 'finding-outcome', 'replay-manifest');
@@ -22,7 +23,7 @@ CREATE TABLE review_runs AS
 SELECT
   json_extract_string(json, '$.workflow.instanceId') AS run_id,
   json_extract_string(json, '$.repository') AS repository,
-  cast(json_extract_string(json, '$.pullRequestNumber') AS INTEGER) AS pull_request_number,
+  try_cast(json_extract_string(json, '$.pullRequestNumber') AS INTEGER) AS pull_request_number,
   json_extract_string(json, '$.headSha') AS head_sha,
   json_extract_string(json, '$.status') AS status,
   json_extract_string(json, '$.promptVersion') AS prompt_version,
@@ -41,8 +42,16 @@ SELECT
   json_extract(json, '$.models') AS models
 FROM raw_objects WHERE json_extract_string(json, '$.recordType') = 'review-run-terminal';
 
-SELECT CASE WHEN count(*) = 0 THEN 1 ELSE error('Review runs require non-null unique workflow instance IDs') END
-FROM (SELECT run_id FROM review_runs GROUP BY run_id HAVING run_id IS NULL OR count(*) > 1);
+SELECT CASE WHEN count(*) > 0 THEN 1 ELSE error('At least one review-run-terminal object is required') END FROM review_runs;
+SELECT CASE WHEN count(*) = 0 THEN 1 ELSE error('Review runs have missing, invalid, or duplicate required fields') END
+FROM (
+  SELECT run_id FROM review_runs
+  GROUP BY run_id HAVING run_id IS NULL OR count(*) > 1
+  UNION ALL
+  SELECT run_id FROM review_runs
+  WHERE repository IS NULL OR pull_request_number IS NULL OR head_sha IS NULL
+     OR status NOT IN ('denied', 'failed', 'published', 'skipped')
+);
 
 CREATE TABLE finding_history AS
 SELECT
@@ -68,6 +77,11 @@ SELECT r.run_id, r.repository, r.pull_request_number, r.head_sha, r.prompt_versi
        json_extract(f.value, '$.source_models') AS source_models
 FROM review_runs r, LATERAL json_each(coalesce(r.published_findings, '[]'::JSON)) f
 WHERE r.status = 'published';
+
+SELECT CASE WHEN count(*) = 0 THEN 1 ELSE error('Published findings have missing or invalid required fields') END
+FROM published_findings
+WHERE finding_id IS NULL OR file IS NULL OR title IS NULL
+   OR source_models IS NULL OR json_type(source_models) != 'ARRAY';
 
 SELECT CASE WHEN count(*) = 0 THEN 1 ELSE error('Outcome/evidence references a finding that was never published') END
 FROM (

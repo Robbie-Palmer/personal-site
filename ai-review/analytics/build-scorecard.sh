@@ -75,6 +75,7 @@ release="$OUTPUT_ROOT/.scorecard-releases/$release_name"
 if [[ ! -d "$release" ]]; then mv "$publish" "$release"; fi
 link="$OUTPUT_ROOT/.$MART_VERSION-link-$$"
 ln -s ".scorecard-releases/$release_name" "$link"
-mv -f "$link" "$OUTPUT_ROOT/$MART_VERSION"
+node -e 'require("node:fs").renameSync(process.argv[1], process.argv[2])' \
+  "$link" "$OUTPUT_ROOT/$MART_VERSION"
 target="$OUTPUT_ROOT/$MART_VERSION"
 echo "Built scorecard marts in $target"

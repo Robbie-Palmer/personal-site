@@ -29,14 +29,18 @@ CROSS JOIN read_parquet('$output/v1/pull_request_fact.parquet')
 GROUP BY published_finding_count;
 SQL
 
-mkdir "$special/input&pipe|"
-cp -R "$here/fixtures/." "$special/input&pipe|/"
-"$here/build-scorecard.sh" "$special/input&pipe|" "$special/output" >/dev/null
+mkdir "$special/input''&pipe|"
+cp -R "$here/fixtures/." "$special/input''&pipe|/"
+"$here/build-scorecard.sh" "$special/input''&pipe|" "$special/output" >/dev/null
 
 cp "$here/fixtures/v2/acme/widgets/pr-7/head-1/run-1/published.json" "$bad/good.json"
 printf '{"schemaVersion":99,"recordType":"review-run-terminal"}\n' > "$bad/unknown.json"
-if "$here/build-scorecard.sh" "$bad" "$bad/output" >/dev/null 2>&1; then
+if schema_error=$("$here/build-scorecard.sh" "$bad" "$bad/output" 2>&1); then
   echo "unknown schema version was not rejected" >&2
+  exit 1
+fi
+if [[ "$schema_error" != *"Unknown schema version"* ]]; then
+  echo "unknown schema version failed for the wrong reason: $schema_error" >&2
   exit 1
 fi
 
