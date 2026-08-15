@@ -892,25 +892,13 @@ export class PullRequestCoordinator extends DurableObject<Env> {
     if (!completed) {
       return json({ hunkIds: [], openFindings: [] });
     }
-    let hunkIds = this.ctx.storage.sql
+    const hunkIds = this.ctx.storage.sql
       .exec<{ hunk_id: string }>(
         "SELECT hunk_id FROM review_run_hunks WHERE run_id = ? ORDER BY hunk_id",
         completed.run_id,
       )
       .toArray()
       .map(({ hunk_id }) => hunk_id);
-    // Runs completed before review_run_hunks was introduced still have enough
-    // durable state for a conservative one-time migration baseline.
-    if (hunkIds.length === 0) {
-      hunkIds = this.ctx.storage.sql
-        .exec<{ hunk_id: string }>(
-          `SELECT hunk_id FROM review_hunks
-           WHERE last_seen_head_sha = ? ORDER BY hunk_id`,
-          completed.head_sha,
-        )
-        .toArray()
-        .map(({ hunk_id }) => hunk_id);
-    }
     const findings = this.ctx.storage.sql
       .exec<{ finding_id: string; file_path: string; title: string }>(
         `SELECT finding_id, file_path, title FROM review_findings
