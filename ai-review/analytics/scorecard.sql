@@ -99,6 +99,7 @@ FROM first_publication p LEFT JOIN latest_outcome o USING (repository, pull_requ
 CREATE TABLE review_run_fact AS
 WITH finding_counts AS (
   SELECT run_id,
+    count(*) AS published_count,
     count(*) FILTER (WHERE accepted) AS accepted_count,
     count(*) FILTER (WHERE fixed) AS fixed_count,
     count(*) FILTER (WHERE rejected) AS rejected_count,
@@ -108,7 +109,7 @@ WITH finding_counts AS (
 SELECT r.* EXCLUDE (published_findings, models),
   additions + deletions AS change_size,
   CASE WHEN additions + deletions < 50 THEN 'small' WHEN additions + deletions < 250 THEN 'medium' ELSE 'large' END AS change_size_band,
-  coalesce(json_array_length(r.published_findings), 0) AS published_finding_count,
+  coalesce(f.published_count, 0) AS published_finding_count,
   coalesce(f.accepted_count, 0) AS accepted_finding_count,
   coalesce(f.fixed_count, 0) AS fixed_finding_count,
   coalesce(f.rejected_count, 0) AS rejected_finding_count,
@@ -116,9 +117,9 @@ SELECT r.* EXCLUDE (published_findings, models),
   CASE WHEN total_hunks = 0 THEN NULL ELSE reviewed_hunks::DOUBLE / total_hunks END AS coverage_rate,
   CASE WHEN coalesce(f.accepted_count, 0) = 0 THEN NULL ELSE run_cost_usd / f.accepted_count END AS cost_per_accepted_finding,
   CASE WHEN coalesce(f.accepted_count, 0) + coalesce(f.rejected_count, 0) = 0 THEN NULL ELSE f.accepted_count::DOUBLE / (f.accepted_count + f.rejected_count) END AS acceptance_rate,
-  CASE WHEN coalesce(json_array_length(r.published_findings), 0) = 0 THEN NULL ELSE coalesce(f.fixed_count, 0)::DOUBLE / json_array_length(r.published_findings) END AS fix_through_rate,
-  CASE WHEN coalesce(json_array_length(r.published_findings), 0) = 0 THEN NULL ELSE coalesce(f.rejected_count, 0)::DOUBLE / json_array_length(r.published_findings) END AS noise_rate,
-  CASE WHEN coalesce(json_array_length(r.published_findings), 0) = 0 THEN NULL ELSE coalesce(f.no_response_count, 0)::DOUBLE / json_array_length(r.published_findings) END AS no_response_rate
+  CASE WHEN coalesce(f.published_count, 0) = 0 THEN NULL ELSE coalesce(f.fixed_count, 0)::DOUBLE / f.published_count END AS fix_through_rate,
+  CASE WHEN coalesce(f.published_count, 0) = 0 THEN NULL ELSE coalesce(f.rejected_count, 0)::DOUBLE / f.published_count END AS noise_rate,
+  CASE WHEN coalesce(f.published_count, 0) = 0 THEN NULL ELSE coalesce(f.no_response_count, 0)::DOUBLE / f.published_count END AS no_response_rate
 FROM review_runs r LEFT JOIN finding_counts f USING (run_id);
 
 CREATE TABLE model_run_fact AS

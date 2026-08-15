@@ -28,22 +28,24 @@ for file in "${input_files[@]}"; do
   sql_list+="'$escaped'"
 done
 
-target="$OUTPUT_ROOT/$MART_VERSION"
-mkdir -p "$target"
+mkdir -p "$OUTPUT_ROOT/.scorecard-releases"
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 
-sed "s|__INPUT_FILES__|$sql_list|" "$(dirname "$0")/scorecard.sql" > "$work/build.sql"
+while IFS= read -r line; do
+  if [[ "$line" == *"__INPUT_FILES__"* ]]; then
+    printf 'FROM read_json_objects([%s], filename = true);\n' "$sql_list"
+  else
+    printf '%s\n' "$line"
+  fi
+done < "$(dirname "$0")/scorecard.sql" > "$work/build.sql"
 duckdb "$work/scorecard.duckdb" < "$work/build.sql" >/dev/null
 
+publish="$work/$MART_VERSION"
+mkdir -p "$publish"
 for mart in finding_latest review_run_fact model_run_fact pull_request_fact; do
   duckdb "$work/scorecard.duckdb" \
-    "COPY (SELECT * FROM $mart ORDER BY ALL) TO '$work/$mart.parquet' (FORMAT PARQUET, COMPRESSION uncompressed);"
-done
-
-# Replace outputs only after every validation and materialization succeeds.
-for mart in finding_latest review_run_fact model_run_fact pull_request_fact; do
-  mv "$work/$mart.parquet" "$target/$mart.parquet"
+    "COPY (SELECT * FROM $mart ORDER BY ALL) TO '$publish/$mart.parquet' (FORMAT PARQUET, COMPRESSION uncompressed);"
 done
 
 manifest_tmp="$work/manifest.json"
@@ -52,13 +54,27 @@ manifest_tmp="$work/manifest.json"
   for i in 0 1 2 3; do
     marts=(finding_latest review_run_fact model_run_fact pull_request_fact)
     mart=${marts[$i]}
-    checksum=$(shasum -a 256 "$target/$mart.parquet" | awk '{print $1}')
-    rows=$(duckdb -csv -noheader -c "SELECT count(*) FROM read_parquet('$target/$mart.parquet')")
+    checksum=$(shasum -a 256 "$publish/$mart.parquet" | awk '{print $1}')
+    rows=$(duckdb -csv -noheader -c "SELECT count(*) FROM read_parquet('$publish/$mart.parquet')")
     printf '    "%s": {"path": "%s.parquet", "rows": %s, "sha256": "%s"}' "$mart" "$mart" "$rows" "$checksum"
     [[ $i -lt 3 ]] && printf ','
     printf '\n'
   done
   printf '  }\n}\n'
 } > "$manifest_tmp"
-mv "$manifest_tmp" "$target/scorecard-manifest.json"
+mv "$manifest_tmp" "$publish/scorecard-manifest.json"
+
+# Publish an immutable content-addressed release, then atomically move the
+# version symlink so readers see either the complete old or complete new set.
+input_digest=$(
+  for file in "${input_files[@]}"; do shasum -a 256 "$file"; done |
+    LC_ALL=C sort | shasum -a 256 | awk '{print $1}'
+)
+release_name="$MART_VERSION-$input_digest"
+release="$OUTPUT_ROOT/.scorecard-releases/$release_name"
+if [[ ! -d "$release" ]]; then mv "$publish" "$release"; fi
+link="$OUTPUT_ROOT/.$MART_VERSION-link-$$"
+ln -s ".scorecard-releases/$release_name" "$link"
+mv -f "$link" "$OUTPUT_ROOT/$MART_VERSION"
+target="$OUTPUT_ROOT/$MART_VERSION"
 echo "Built scorecard marts in $target"
