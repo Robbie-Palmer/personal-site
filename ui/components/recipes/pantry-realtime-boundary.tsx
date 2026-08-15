@@ -15,9 +15,12 @@ type ActiveHouseholdPantry = {
   resourceId: string;
 };
 
-function randomUnitInterval(): number {
-  const [sample] = crypto.getRandomValues(new Uint32Array(1));
-  return (sample ?? 0) / 2 ** 32;
+function randomReconnectScale(): number {
+  const [sample = 0] = crypto.getRandomValues(new Uint8Array(1));
+  if (sample < 64) return 0.8;
+  if (sample < 128) return 0.95;
+  if (sample < 192) return 1.05;
+  return 1.2;
 }
 
 function activeHouseholdPantry(
@@ -112,9 +115,7 @@ export function PantryRealtimeBoundary() {
     const scheduleReconnect = () => {
       if (disposed || reconnectTimer || !navigator.onLine) return;
       const baseDelay = Math.min(1_000 * 2 ** reconnectAttempt, 30_000);
-      const jitteredDelay = Math.round(
-        baseDelay * (0.8 + randomUnitInterval() * 0.4),
-      );
+      const jitteredDelay = baseDelay * randomReconnectScale();
       reconnectAttempt += 1;
       reconnectTimer = setTimeout(() => {
         reconnectTimer = undefined;

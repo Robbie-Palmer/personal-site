@@ -1480,9 +1480,12 @@ async function executePantryOperation(
 
 const PANTRY_PUBLICATION_ATTEMPTS = 2;
 
-function randomUnitInterval(): number {
-  const [sample] = crypto.getRandomValues(new Uint32Array(1));
-  return (sample ?? 0) / 2 ** 32;
+function pantryPublicationRetryDelayMs(): number {
+  const [sample = 0] = crypto.getRandomValues(new Uint8Array(1));
+  if (sample < 64) return 20;
+  if (sample < 128) return 33;
+  if (sample < 192) return 47;
+  return 60;
 }
 
 async function publishPantryChange(
@@ -1523,8 +1526,9 @@ async function publishPantryChange(
       lastError = error;
     }
     if (attempt < PANTRY_PUBLICATION_ATTEMPTS) {
-      const jitterMs = 20 + Math.floor(randomUnitInterval() * 41);
-      await new Promise((resolve) => setTimeout(resolve, jitterMs));
+      await new Promise((resolve) =>
+        setTimeout(resolve, pantryPublicationRetryDelayMs()),
+      );
     }
   }
 
