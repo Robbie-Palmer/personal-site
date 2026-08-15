@@ -365,6 +365,15 @@ describe("PullRequestCoordinator in workerd", () => {
       newStart: 60,
       newLines: 1,
     };
+    const fixedTrigger = await stub.fetch("https://coordinator.test/events", {
+      method: "POST",
+      body: JSON.stringify({
+        ...event,
+        deliveryId: "workerd-fixed-head-trigger",
+        headSha: fixedHead,
+      }),
+    });
+    await expect(fixedTrigger.json()).resolves.toMatchObject({ accepted: true });
     const fixedClaim = await stub.fetch(
       "https://coordinator.test/reviews/claim",
       {

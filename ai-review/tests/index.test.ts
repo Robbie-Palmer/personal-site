@@ -535,6 +535,54 @@ describe("PullRequestCoordinator", () => {
     expect(put).not.toHaveBeenCalled();
   });
 
+  it("rejects trusted confirmation after a newer head arrives", async () => {
+    const { coordinator, put, sqlExec } = coordinatorFixture();
+    const replayHead = "1".repeat(40);
+    const currentHead = "2".repeat(40);
+    sqlExec.mockImplementation((query: string) => ({
+      rowsWritten: 1,
+      toArray: () => {
+        if (query.includes("SELECT finding_id FROM review_findings")) {
+          return [{ finding_id: identifiedFinding.findingId }];
+        }
+        if (query.includes("SELECT head_sha FROM webhook_deliveries")) {
+          return [{ head_sha: currentHead }];
+        }
+        if (query.includes("finding_resolutions_json IS NOT NULL")) {
+          return [{
+            run_id: "fixed-replay",
+            head_sha: replayHead,
+            finding_resolutions_json: JSON.stringify([{
+              findingId: identifiedFinding.findingId,
+              verdict: "fixed",
+              evidence: "The old head removed the defect.",
+            }]),
+          }];
+        }
+        return [];
+      },
+    }));
+
+    const response = await coordinator.fetch(
+      new Request("https://coordinator.test/interactions", {
+        method: "POST",
+        body: JSON.stringify({
+          ...findingInteraction,
+          deliveryId: "feedback-stale-confirmation",
+          disposition: "confirmed-fixed",
+          reason: "Looks fixed",
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(202);
+    await expect(response.json()).resolves.toEqual({
+      accepted: false,
+      reason: "stale-fixed-replay",
+    });
+    expect(put).not.toHaveBeenCalled();
+  });
+
   it("finalizes and flushes outstanding finding outcomes", async () => {
     const { coordinator, put, sqlExec } = coordinatorFixture();
     const removedFindingId = `f_${"d".repeat(24)}`;

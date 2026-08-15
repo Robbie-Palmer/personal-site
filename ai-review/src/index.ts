@@ -922,6 +922,16 @@ export class PullRequestCoordinator extends DurableObject<Env> {
       if (!finding) return { unknownFinding: true };
 
       const occurredAt = event.occurredAt ?? recordedAt;
+      const latestObservedHead =
+        event.disposition === "confirmed-fixed"
+          ? this.ctx.storage.sql
+              .exec<{ head_sha: string }>(
+                `SELECT head_sha FROM webhook_deliveries
+                 WHERE head_sha IS NOT NULL
+                 ORDER BY rowid DESC LIMIT 1`,
+              )
+              .toArray()[0]?.head_sha
+          : undefined;
       const controlledReplay =
         event.disposition === "confirmed-fixed"
           ? this.ctx.storage.sql
@@ -955,9 +965,17 @@ export class PullRequestCoordinator extends DurableObject<Env> {
           : undefined;
       if (
         event.disposition === "confirmed-fixed" &&
-        controlledReplay?.verdict !== "fixed"
+        (controlledReplay?.verdict !== "fixed" ||
+          !latestObservedHead ||
+          controlledReplay.headSha !== latestObservedHead)
       ) {
-        return { unconfirmedFix: true };
+        return {
+          unconfirmedFix: true,
+          reason:
+            controlledReplay?.verdict === "fixed" && latestObservedHead
+              ? "stale-fixed-replay"
+              : "no-fixed-replay",
+        };
       }
       const evidence = {
         schemaVersion: 2,
@@ -1049,7 +1067,7 @@ export class PullRequestCoordinator extends DurableObject<Env> {
       return json({ accepted: false, reason: "unknown-finding" }, 202);
     }
     if ("unconfirmedFix" in result) {
-      return json({ accepted: false, reason: "no-fixed-replay" }, 202);
+      return json({ accepted: false, reason: result.reason }, 202);
     }
     if (!result.r2Recorded) {
       const key = [
