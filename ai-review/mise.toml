@@ -72,3 +72,11 @@ doppler run --project ai-review --config stg -- \
 description = "Verify the AI review R2 lifecycle policy"
 depends = ["install"]
 run = "bash scripts/verify-lifecycle.sh"
+
+[tasks."scorecard:build"]
+description = "Build deterministic DuckDB scorecard marts from schema-v2 JSON"
+run = "bash analytics/build-scorecard.sh"
+
+[tasks."scorecard:test"]
+description = "Test scorecard marts against fixed schema-v2 fixtures"
+run = "bash analytics/test-scorecard.sh"

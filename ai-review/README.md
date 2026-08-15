@@ -212,6 +212,32 @@ before R2 publication and retains an `r2_recorded` flag, so a retried webhook or
 review completion repairs an interrupted object write without creating another
 revision.
 
+### Scorecard marts
+
+The DuckDB batch in `analytics/` builds versioned `finding_latest`,
+`review_run_fact`, `model_run_fact`, and `pull_request_fact` Parquet marts plus
+a checksum-bearing machine-readable manifest. The latest outcome is the highest
+`outcomeVersion`; `finding_history` remains in the transient DuckDB build so
+revision resolution is explicit and testable. Unknown schema versions, unknown
+record types, duplicate revisions, and outcome/evidence joins to unpublished
+findings stop the build.
+
+Run one deterministic rebuild from a fixed local R2 export prefix with:
+
+```bash
+AI_REVIEW_SCORECARD_INPUT=/path/to/r2-export \
+AI_REVIEW_SCORECARD_OUTPUT=/path/to/output \
+mise run //ai-review:scorecard:build
+```
+
+Metric definitions follow
+[Agentic Code Review ADR 033](/projects/agentic-code-review/adrs/033-duckdb-ai-review-scorecard):
+acceptance excludes censored outcomes, fix-through and noise use published
+findings as their denominator, cost uses accepted findings, token efficiency
+uses uncached input tokens, and coverage uses reviewed over total hunks. Outputs
+retain prompt, risk, change-size, repository-area, task, originating-agent, and
+time dimensions for stratification.
+
 ## Deploy
 
 Sync the environment after changing Doppler:
