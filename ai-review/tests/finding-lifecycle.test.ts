@@ -181,6 +181,9 @@ describe("finding lifecycle publication", () => {
     expect(renderFallbackFindings([nonLine], nonLinePublications)).toContain(
       `/ai-review reject ${finding.findingId} <reason>`,
     );
+    expect(renderFallbackFindings([nonLine], nonLinePublications)).toContain(
+      `/ai-review confirm-fixed ${finding.findingId} <reason>`,
+    );
 
     const rejectedFetch = vi
       .fn()

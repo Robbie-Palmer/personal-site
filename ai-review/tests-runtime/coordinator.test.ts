@@ -411,6 +411,28 @@ describe("PullRequestCoordinator in workerd", () => {
       },
     );
     await expect(fixedCompletion.json()).resolves.toEqual({ completed: true });
+    const confirmation = {
+      deliveryId: "workerd-feedback-confirmed-fixed",
+      eventName: "issue_comment",
+      action: "created",
+      repository: event.repository,
+      pullRequestNumber: event.pullRequestNumber,
+      interactionType: "disposition",
+      actor: "Robbie-Palmer",
+      actorAssociation: "OWNER",
+      findingId: `f_${"b".repeat(24)}`,
+      disposition: "confirmed-fixed",
+      reason: "Reviewed the replay evidence and verified the retry repair",
+      occurredAt: "2026-08-09T12:10:00Z",
+    };
+    const confirmationResponse = await stub.fetch(
+      "https://coordinator.test/interactions",
+      { method: "POST", body: JSON.stringify(confirmation) },
+    );
+    await expect(confirmationResponse.json()).resolves.toMatchObject({
+      accepted: true,
+      duplicate: false,
+    });
     const fixedOutcome = await (env as unknown as Env).REVIEW_DATA.get(
       `${outcomePrefix}/v2.json`,
     );
@@ -419,14 +441,10 @@ describe("PullRequestCoordinator in workerd", () => {
       recordType: "finding-outcome",
       outcomeVersion: 2,
       outcome: "confirmed-fixed",
-      basis: "later-reviewed-head",
+      basis: "explicit-disposition",
       evidence: {
-        confirmation: "affirmative-controlled-replay",
-        replayEvidence: "The later diff removes the defective branch.",
-        firstSeenHeadSha: event.headSha,
-        outcomeHeadSha: fixedHead,
-        outcomeRunId: fixedRunId,
-        priorHunkIds: [`h_${"c".repeat(24)}`],
+        actor: "Robbie-Palmer",
+        reason: "Reviewed the replay evidence and verified the retry repair",
       },
     });
     const laterBaseline = await stub.fetch(
@@ -481,6 +499,7 @@ describe("PullRequestCoordinator in workerd", () => {
       ).toEqual([
         { action: "resolved", r2_recorded: 1 },
         { action: "created", r2_recorded: 1 },
+        { action: "created", r2_recorded: 1 },
       ]);
       expect(
         state.storage.sql
@@ -504,7 +523,7 @@ describe("PullRequestCoordinator in workerd", () => {
         {
           outcome_version: 2,
           outcome: "confirmed-fixed",
-          basis: "later-reviewed-head",
+          basis: "explicit-disposition",
           r2_recorded: 1,
         },
       ]);

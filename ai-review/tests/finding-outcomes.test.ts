@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import {
   buildFindingOutcomeRecord,
   classifyFinalizedFinding,
-  confirmsFindingFixed,
 } from "../src/finding-outcomes";
 
 describe("finding outcomes", () => {
@@ -29,43 +28,6 @@ describe("finding outcomes", () => {
       ).toBe(expected);
     },
   );
-
-  it("confirms a fix only with an affirmative controlled replay", () => {
-    const baseline = {
-      alreadyConfirmed: false,
-      rediscovered: false,
-      replayVerdict: "fixed" as const,
-      firstSeenHeadSha: "a",
-      reviewedHeadSha: "b",
-      file: "app.ts",
-      priorHunkIds: ["old-hunk"],
-      currentHunkIds: new Set(["new-hunk"]),
-      reviewedFiles: new Set(["app.ts"]),
-    };
-    expect(confirmsFindingFixed(baseline)).toBe(true);
-    expect(confirmsFindingFixed({ ...baseline, rediscovered: true })).toBe(false);
-    expect(confirmsFindingFixed({
-      ...baseline,
-      replayVerdict: "uncertain",
-    })).toBe(false);
-    expect(confirmsFindingFixed({
-      ...baseline,
-      currentHunkIds: new Set(["old-hunk"]),
-    })).toBe(false);
-    expect(confirmsFindingFixed({
-      ...baseline,
-      reviewedFiles: new Set(["other.ts"]),
-    })).toBe(false);
-    expect(confirmsFindingFixed({
-      ...baseline,
-      alreadyConfirmed: true,
-    })).toBe(false);
-    expect(confirmsFindingFixed({
-      ...baseline,
-      reviewedHeadSha: "a",
-    })).toBe(false);
-    expect(confirmsFindingFixed({ ...baseline, priorHunkIds: [] })).toBe(false);
-  });
 
   it("builds a portable versioned record", () => {
     expect(

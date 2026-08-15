@@ -52,6 +52,8 @@ Ordinary comments and review-thread activity never schedule paid work. Replies,
 reaction-count snapshots, thread resolution, and trusted
 `/ai-review acknowledge f_<id> <reason>` or
 `/ai-review reject f_<id> <reason>` commands instead take a storage-only path.
+After a controlled replay returns `fixed`, a trusted
+`/ai-review confirm-fixed f_<id> <reason>` command adjudicates that evidence.
 Findings that GitHub cannot attach to a current diff line remain in the rolling
 comment with those explicit command fallbacks.
 
@@ -184,10 +186,13 @@ disposition and timestamps without mutating earlier evidence.
 label. An explicit acknowledgement or rejection creates an outcome immediately.
 When a later review covers the finding's file after its affected hunks change,
 the merger performs a controlled replay of the durable finding against the
-current diff and file context. The coordinator adds a `confirmed-fixed` outcome
-only for an affirmative `fixed` verdict with direct code evidence, linking the
-original and confirming heads, runs, hunk IDs, and replay evidence. A model
-omission or manually resolved GitHub thread is not fix evidence by itself. On
+current diff and file context, recording `fixed`, `still-present`, or `uncertain`
+with direct code evidence. Replay is evidence, not adjudication: the coordinator
+adds a `confirmed-fixed` outcome only after a trusted actor submits
+`/ai-review confirm-fixed <finding-id> <reason>` for a recorded `fixed` replay.
+The outcome links the trusted actor and reason to that replay's head, run, and
+evidence. PR content, model omission, or a manually resolved GitHub thread
+cannot mint a confirmed label by itself. On
 `pull_request.closed`, any finding without an outcome becomes `superseded` when
 the final reviewed diff no longer contains its affected hunks, or
 `no-observable-response` otherwise. A legacy finding with a persisted explicit

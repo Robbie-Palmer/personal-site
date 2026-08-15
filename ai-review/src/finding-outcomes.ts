@@ -63,31 +63,3 @@ export function classifyFinalizedFinding(options: {
     ? "superseded"
     : "no-observable-response";
 }
-
-export function confirmsFindingFixed(options: {
-  alreadyConfirmed: boolean;
-  rediscovered: boolean;
-  replayVerdict: "fixed" | "still-present" | "uncertain" | undefined;
-  firstSeenHeadSha: string;
-  reviewedHeadSha: string;
-  file: string;
-  priorHunkIds: string[];
-  currentHunkIds: Set<string>;
-  reviewedFiles: Set<string>;
-}): boolean {
-  if (
-    options.alreadyConfirmed ||
-    options.rediscovered ||
-    options.replayVerdict !== "fixed" ||
-    options.firstSeenHeadSha === options.reviewedHeadSha ||
-    options.priorHunkIds.length === 0
-  ) {
-    return false;
-  }
-  if (
-    options.priorHunkIds.some((hunkId) => options.currentHunkIds.has(hunkId))
-  ) {
-    return false;
-  }
-  return options.reviewedFiles.has(options.file);
-}

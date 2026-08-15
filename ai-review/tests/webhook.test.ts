@@ -297,6 +297,28 @@ describe("parseFindingInteraction", () => {
         reason: "false positive",
       }),
     });
+    expect(
+      parseFindingInteraction("issue_comment", "feedback-fixed", {
+        action: "created",
+        repository: { full_name: "Robbie-Palmer/personal-site" },
+        issue: { number: 816, pull_request: {} },
+        sender: { login: "robbie" },
+        comment: {
+          id: 100,
+          body: `/ai-review confirm-fixed f_${"a".repeat(24)} verified retry`,
+          author_association: "OWNER",
+          user: { login: "robbie" },
+        },
+      }),
+    ).toEqual({
+      kind: "accepted",
+      event: expect.objectContaining({
+        interactionType: "disposition",
+        disposition: "confirmed-fixed",
+        findingId: `f_${"a".repeat(24)}`,
+        reason: "verified retry",
+      }),
+    });
   });
 
   it("rejects feedback from untrusted actors", () => {

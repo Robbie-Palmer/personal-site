@@ -430,44 +430,16 @@ describe("PullRequestCoordinator", () => {
     ).toBe(true);
   });
 
-  it("records a confirmed fix from a later reviewed head", async () => {
+  it("does not mint a confirmed fix from model replay alone", async () => {
     const { coordinator, put, sqlExec } = coordinatorFixture();
     const changedHunk = {
       ...identifiedHunk,
       hunkId: `h_${"d".repeat(24)}`,
       fingerprint: "e".repeat(64),
     };
-    const priorHeadSha = "1".repeat(40);
-    const pendingOutcome = JSON.stringify({
-      schemaVersion: 2,
-      recordType: "finding-outcome",
-      outcomeVersion: 1,
-      findingId: identifiedFinding.findingId,
-      outcome: "confirmed-fixed",
-    });
-    sqlExec.mockImplementation((query: string) => ({
+    sqlExec.mockImplementation((_query: string) => ({
       rowsWritten: 1,
-      toArray: () => {
-        if (query.includes("FROM review_findings ORDER BY")) {
-          return [{
-            finding_id: identifiedFinding.findingId,
-            file_path: identifiedFinding.file,
-            first_seen_head_sha: priorHeadSha,
-            first_seen_run_id: "earlier-run",
-          }];
-        }
-        if (query.includes("FROM review_finding_hunks")) {
-          return [{ hunk_id: identifiedHunk.hunkId }];
-        }
-        if (query.includes("WHERE r2_recorded = 0")) {
-          return [{
-            finding_id: identifiedFinding.findingId,
-            outcome_version: 1,
-            payload_json: pendingOutcome,
-          }];
-        }
-        return [];
-      },
+      toArray: () => [],
     }));
 
     const response = await coordinator.fetch(
@@ -491,18 +463,12 @@ describe("PullRequestCoordinator", () => {
     );
 
     await expect(response.json()).resolves.toEqual({ completed: true });
-    expect(put).toHaveBeenCalledWith(
-      expect.stringContaining(
-        `/findings/${identifiedFinding.findingId}/outcomes/v1.json`,
-      ),
-      pendingOutcome,
-      { httpMetadata: { contentType: "application/json" } },
-    );
+    expect(put).not.toHaveBeenCalled();
     expect(
       sqlExec.mock.calls.some(([query]) =>
         String(query).includes("outcome, basis, source_id"),
       ),
-    ).toBe(true);
+    ).toBe(false);
   });
 
   it("records finding dispositions in SQLite and append-only evidence", async () => {
@@ -537,6 +503,36 @@ describe("PullRequestCoordinator", () => {
         String(query).includes("SET disposition = ?"),
       ),
     ).toBe(true);
+  });
+
+  it("requires a fixed controlled replay before trusted confirmation", async () => {
+    const { coordinator, put, sqlExec } = coordinatorFixture();
+    sqlExec.mockImplementation((query: string) => ({
+      rowsWritten: 1,
+      toArray: () =>
+        query.includes("SELECT finding_id FROM review_findings")
+          ? [{ finding_id: identifiedFinding.findingId }]
+          : [],
+    }));
+
+    const response = await coordinator.fetch(
+      new Request("https://coordinator.test/interactions", {
+        method: "POST",
+        body: JSON.stringify({
+          ...findingInteraction,
+          deliveryId: "feedback-confirmation-without-replay",
+          disposition: "confirmed-fixed",
+          reason: "Looks fixed",
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(202);
+    await expect(response.json()).resolves.toEqual({
+      accepted: false,
+      reason: "no-fixed-replay",
+    });
+    expect(put).not.toHaveBeenCalled();
   });
 
   it("finalizes and flushes outstanding finding outcomes", async () => {

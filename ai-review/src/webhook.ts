@@ -120,7 +120,7 @@ export type PullRequestFinalizationParseResult =
 
 function findingDispositionCommand(body: string):
   | {
-      disposition: "acknowledged" | "rejected";
+      disposition: "acknowledged" | "confirmed-fixed" | "rejected";
       findingId: string;
       reason: string;
     }
@@ -132,7 +132,13 @@ function findingDispositionCommand(body: string):
   const actionEnd = body.indexOf(" ", actionStart);
   if (actionEnd < 0) return undefined;
   const action = body.slice(actionStart, actionEnd).toLowerCase();
-  if (action !== "acknowledge" && action !== "reject") return undefined;
+  if (
+    action !== "acknowledge" &&
+    action !== "confirm-fixed" &&
+    action !== "reject"
+  ) {
+    return undefined;
+  }
   const findingStart = actionEnd + 1;
   const findingEnd = body.indexOf(" ", findingStart);
   if (findingEnd < 0) return undefined;
@@ -141,7 +147,12 @@ function findingDispositionCommand(body: string):
   const reason = body.slice(findingEnd + 1).trim();
   if (!reason || reason.length > MAX_DISPOSITION_REASON_LENGTH) return undefined;
   return {
-    disposition: action === "acknowledge" ? "acknowledged" : "rejected",
+    disposition:
+      action === "acknowledge"
+        ? "acknowledged"
+        : action === "confirm-fixed"
+          ? "confirmed-fixed"
+          : "rejected",
     findingId,
     reason,
   };

@@ -8,7 +8,10 @@ export type ReviewWorkflowParams = {
   force: boolean;
 };
 
-export type FindingDisposition = "acknowledged" | "rejected";
+export type FindingDisposition =
+  | "acknowledged"
+  | "confirmed-fixed"
+  | "rejected";
 
 export type FindingOutcome =
   | "confirmed-fixed"

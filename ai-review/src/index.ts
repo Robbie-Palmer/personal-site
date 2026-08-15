@@ -15,7 +15,6 @@ import type {
 import {
   buildFindingOutcomeRecord,
   classifyFinalizedFinding,
-  confirmsFindingFixed,
   type FindingOutcomeBasis,
 } from "./finding-outcomes";
 import type { FindingPublication } from "./finding-lifecycle";
@@ -60,14 +59,6 @@ type FindingOutcomeFlushRetry = {
   repository: string;
   pullRequestNumber: number;
 };
-type FindingOutcomeCandidate = {
-  findingId: string;
-  file: string;
-  firstSeenHeadSha: string;
-  firstSeenRunId: string;
-  hunkIds: string[];
-  alreadyConfirmed: boolean;
-};
 const CREATE_WEBHOOK_DELIVERIES_TABLE =
   "CREATE TABLE IF NOT EXISTS webhook_deliveries (" +
   "delivery_id TEXT PRIMARY KEY, " +
@@ -90,6 +81,7 @@ const CREATE_REVIEW_RUNS_TABLE =
   "cost_usd REAL NOT NULL DEFAULT 0, " +
   "comment_id INTEGER, " +
   "findings_json TEXT, " +
+  "finding_resolutions_json TEXT, " +
   "completion_hash TEXT, " +
   "error TEXT)";
 const CREATE_REVIEW_HUNKS_TABLE =
@@ -419,6 +411,23 @@ function storedFindingContext(
   }
 }
 
+function storedFindingResolution(
+  resolutionsJson: string | null | undefined,
+  findingId: string,
+): FindingResolution | undefined {
+  if (!resolutionsJson) return undefined;
+  try {
+    const parsed = JSON.parse(resolutionsJson) as unknown;
+    if (!Array.isArray(parsed)) return undefined;
+    return parsed.find(
+      (candidate): candidate is FindingResolution =>
+        isFindingResolution(candidate) && candidate.findingId === findingId,
+    );
+  } catch {
+    return undefined;
+  }
+}
+
 function isFindingInteractionEvent(
   value: unknown,
 ): value is FindingInteractionEvent {
@@ -451,6 +460,7 @@ function isFindingInteractionEvent(
     (event.interactionType !== "disposition" ||
       (event.findingId !== undefined &&
         (event.disposition === "acknowledged" ||
+          event.disposition === "confirmed-fixed" ||
           event.disposition === "rejected"))) &&
     (event.interactionType === "disposition" || event.rootCommentId !== undefined)
   );
@@ -565,6 +575,13 @@ export class PullRequestCoordinator extends DurableObject<Env> {
         "ALTER TABLE review_runs ADD COLUMN completion_hash TEXT",
       );
     }
+    if (
+      !reviewRunColumns.some(({ name }) => name === "finding_resolutions_json")
+    ) {
+      this.ctx.storage.sql.exec(
+        "ALTER TABLE review_runs ADD COLUMN finding_resolutions_json TEXT",
+      );
+    }
     this.ctx.storage.sql.exec(CREATE_REVIEW_HUNKS_TABLE);
     this.ctx.storage.sql.exec(CREATE_REVIEW_RUN_HUNKS_TABLE);
     this.ctx.storage.sql.exec(CREATE_REVIEW_FINDINGS_TABLE);
@@ -656,98 +673,6 @@ export class PullRequestCoordinator extends DurableObject<Env> {
       options.recordedAt,
     );
     return inserted.rowsWritten > 0;
-  }
-
-  private findingOutcomeCandidates(
-    reviewedFiles: Set<string>,
-  ): FindingOutcomeCandidate[] {
-    return this.ctx.storage.sql
-      .exec<{
-        finding_id: string;
-        file_path: string;
-        first_seen_head_sha: string;
-        first_seen_run_id: string;
-      }>(
-        `SELECT finding_id, file_path, first_seen_head_sha, first_seen_run_id
-         FROM review_findings ORDER BY finding_id`,
-      )
-      .toArray()
-      .filter((finding) => reviewedFiles.has(finding.file_path))
-      .map((finding) => ({
-        findingId: finding.finding_id,
-        file: finding.file_path,
-        firstSeenHeadSha: finding.first_seen_head_sha,
-        firstSeenRunId: finding.first_seen_run_id,
-        hunkIds: this.ctx.storage.sql
-          .exec<{ hunk_id: string }>(
-            `SELECT hunk_id FROM review_finding_hunks
-             WHERE finding_id = ? ORDER BY hunk_id`,
-            finding.finding_id,
-          )
-          .toArray()
-          .map(({ hunk_id }) => hunk_id),
-        alreadyConfirmed:
-          this.ctx.storage.sql
-            .exec<{ finding_id: string }>(
-              `SELECT finding_id FROM review_finding_outcomes
-               WHERE finding_id = ? AND outcome = 'confirmed-fixed' LIMIT 1`,
-              finding.finding_id,
-            )
-            .toArray()[0] !== undefined,
-      }));
-  }
-
-  private appendConfirmedFixOutcomes(options: {
-    repository: string;
-    pullRequestNumber: number;
-    runId: string;
-    headSha: string;
-    completedAt: string;
-    candidates: FindingOutcomeCandidate[];
-    findingResolutions: Map<string, FindingResolution>;
-    currentFindingIds: Set<string>;
-    currentHunkIds: Set<string>;
-    reviewedFiles: Set<string>;
-  }): void {
-    for (const candidate of options.candidates) {
-      if (
-        !options.findingResolutions.has(candidate.findingId) ||
-        !confirmsFindingFixed({
-          alreadyConfirmed: candidate.alreadyConfirmed,
-          rediscovered: options.currentFindingIds.has(candidate.findingId),
-          replayVerdict: options.findingResolutions.get(candidate.findingId)
-            ?.verdict,
-          firstSeenHeadSha: candidate.firstSeenHeadSha,
-          reviewedHeadSha: options.headSha,
-          file: candidate.file,
-          priorHunkIds: candidate.hunkIds,
-          currentHunkIds: options.currentHunkIds,
-          reviewedFiles: options.reviewedFiles,
-        })
-      ) {
-        continue;
-      }
-      this.appendFindingOutcome({
-        repository: options.repository,
-        pullRequestNumber: options.pullRequestNumber,
-        findingId: candidate.findingId,
-        outcome: "confirmed-fixed",
-        basis: "later-reviewed-head",
-        sourceId: `review:${options.runId}:${candidate.findingId}`,
-        occurredAt: options.completedAt,
-        recordedAt: options.completedAt,
-        evidence: {
-          confirmation: "affirmative-controlled-replay",
-          replayEvidence: options.findingResolutions.get(candidate.findingId)
-            ?.evidence,
-          firstSeenHeadSha: candidate.firstSeenHeadSha,
-          firstSeenRunId: candidate.firstSeenRunId,
-          outcomeHeadSha: options.headSha,
-          outcomeRunId: options.runId,
-          priorHunkIds: candidate.hunkIds,
-        },
-      });
-    }
   }
 
   private async flushFindingOutcomes(
@@ -997,6 +922,43 @@ export class PullRequestCoordinator extends DurableObject<Env> {
       if (!finding) return { unknownFinding: true };
 
       const occurredAt = event.occurredAt ?? recordedAt;
+      const controlledReplay =
+        event.disposition === "confirmed-fixed"
+          ? this.ctx.storage.sql
+              .exec<{
+                run_id: string;
+                head_sha: string;
+                finding_resolutions_json: string;
+              }>(
+                `SELECT run_id, head_sha, finding_resolutions_json
+                 FROM review_runs
+                 WHERE status = 'completed'
+                   AND finding_resolutions_json IS NOT NULL
+                 ORDER BY completed_at DESC, run_id DESC LIMIT 100`,
+              )
+              .toArray()
+              .map((run) => {
+                const resolution = storedFindingResolution(
+                  run.finding_resolutions_json,
+                  findingId,
+                );
+                return resolution
+                  ? {
+                      runId: run.run_id,
+                      headSha: run.head_sha,
+                      verdict: resolution.verdict,
+                      evidence: resolution.evidence,
+                    }
+                  : undefined;
+              })
+              .find((resolution) => resolution !== undefined)
+          : undefined;
+      if (
+        event.disposition === "confirmed-fixed" &&
+        controlledReplay?.verdict !== "fixed"
+      ) {
+        return { unconfirmedFix: true };
+      }
       const evidence = {
         schemaVersion: 2,
         recordType: "finding-interaction-evidence",
@@ -1017,6 +979,7 @@ export class PullRequestCoordinator extends DurableObject<Env> {
         reactions: event.reactions,
         disposition: event.disposition,
         reason: event.reason,
+        controlledReplay,
         occurredAt,
         recordedAt,
       };
@@ -1070,6 +1033,7 @@ export class PullRequestCoordinator extends DurableObject<Env> {
             actor: event.actor,
             actorAssociation: event.actorAssociation,
             reason: event.reason,
+            controlledReplay,
           },
         });
       }
@@ -1083,6 +1047,9 @@ export class PullRequestCoordinator extends DurableObject<Env> {
 
     if ("unknownFinding" in result) {
       return json({ accepted: false, reason: "unknown-finding" }, 202);
+    }
+    if ("unconfirmedFix" in result) {
+      return json({ accepted: false, reason: "no-fixed-replay" }, 202);
     }
     if (!result.r2Recorded) {
       const key = [
@@ -1484,7 +1451,6 @@ export class PullRequestCoordinator extends DurableObject<Env> {
     const currentHunks = (body.currentHunks ?? body.hunks) as ReviewHunk[];
     const completionRepository = body.repository;
     const completionPullRequestNumber = body.pullRequestNumber;
-    const completionRunId = body.runId;
     const completionHeadSha = body.headSha;
     const completionHunkIds = new Set(
       reviewedHunks.map(({ hunkId }) => hunkId),
@@ -1495,9 +1461,6 @@ export class PullRequestCoordinator extends DurableObject<Env> {
     const completionFindings = body.findings as IdentifiedMergedFinding[];
     const completionFindingsById = new Map(
       completionFindings.map((finding) => [finding.findingId, finding]),
-    );
-    const completionReviewedFiles = new Set(
-      reviewedHunks.map(({ file }) => file),
     );
     const findingPublications = (body.findingPublications ??
       []) as FindingPublication[];
@@ -1545,12 +1508,14 @@ export class PullRequestCoordinator extends DurableObject<Env> {
       const update = this.ctx.storage.sql.exec(
         `UPDATE review_runs
          SET status = 'completed', completed_at = ?, cost_usd = ?,
-             comment_id = ?, findings_json = ?, completion_hash = ?, error = NULL
+             comment_id = ?, findings_json = ?, finding_resolutions_json = ?,
+             completion_hash = ?, error = NULL
          WHERE run_id = ? AND head_sha = ? AND status = 'running'`,
         completedAt,
         body.costUsd,
         body.commentId ?? null,
         JSON.stringify(body.findings),
+        JSON.stringify(findingResolutions),
         completionHash,
         body.runId,
         body.headSha,
@@ -1569,9 +1534,6 @@ export class PullRequestCoordinator extends DurableObject<Env> {
           completionHash,
         );
       }
-      const outcomeCandidates = this.findingOutcomeCandidates(
-        completionReviewedFiles,
-      );
       for (const hunk of currentHunks) {
         this.ctx.storage.sql.exec(
           `INSERT INTO review_hunks
@@ -1631,18 +1593,6 @@ export class PullRequestCoordinator extends DurableObject<Env> {
           );
         }
       }
-      this.appendConfirmedFixOutcomes({
-        repository: completionRepository,
-        pullRequestNumber: completionPullRequestNumber,
-        runId: completionRunId,
-        headSha: completionHeadSha,
-        completedAt,
-        candidates: outcomeCandidates,
-        findingResolutions: findingResolutionsById,
-        currentFindingIds: new Set(completionFindingsById.keys()),
-        currentHunkIds: new Set(currentHunksById.keys()),
-        reviewedFiles: completionReviewedFiles,
-      });
       for (const publication of findingPublications) {
         if (publication.delivery !== "line" || publication.commentId === undefined) {
           continue;
