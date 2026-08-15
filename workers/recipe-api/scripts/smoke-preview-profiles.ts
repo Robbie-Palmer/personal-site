@@ -5,6 +5,7 @@
 import { createDb } from "recipe-db";
 import { createAuth } from "../src/auth";
 import { previewScenarios } from "../src/preview-scenarios";
+import { previewApiRequestURL } from "./preview-api-url";
 
 function requiredEnv(name: string): string {
   const value = process.env[name];
@@ -63,7 +64,7 @@ type DiscoverFeed = {
 
 const databaseURL = requiredEnv("DATABASE_URL");
 const siteURL = requiredEnv("BETTER_AUTH_URL");
-const apiURL = requiredEnv("PREVIEW_API_URL").replace(/\/$/, "");
+const apiURL = new URL(requiredEnv("PREVIEW_API_URL"));
 const READY_TIMEOUT_MS = 120_000;
 const REQUEST_TIMEOUT_MS = 15_000;
 const RETRY_DELAY_MS = 2_000;
@@ -76,7 +77,7 @@ async function fetchWhenReady(
   let lastError: unknown;
   while (Date.now() < deadline) {
     try {
-      const response = await fetch(`${apiURL}${path}`, {
+      const response = await fetch(previewApiRequestURL(apiURL, path), {
         ...init,
         signal: AbortSignal.timeout(
           Math.min(REQUEST_TIMEOUT_MS, Math.max(1, deadline - Date.now())),

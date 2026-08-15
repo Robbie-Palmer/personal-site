@@ -53,11 +53,13 @@ results land in GitHub and there is no external console to monitor day to day.
 * Full analysis runs: TS/JS bug detection, security rules, security hotspots, cognitive
   complexity, cross-file duplication, and maintainability. Nothing is switched off to avoid
   overlap with CodeQL (see [On Double Gating](#on-double-gating)).
-* The gate blocks on new defects only: bugs, vulnerabilities, and security hotspots a PR
-  introduces (Clean-as-You-Code; legacy code is never blocked, the same way Trivy and CodeQL
-  gate). Complexity, duplication, and maintainability are reported as annotations and tracked as a
-  trend, not as blockers.
-* No coverage condition (see [On Coverage](#on-coverage)).
+* The free plan permits only Sonar's built-in quality gate. It blocks on new reliability, security,
+  maintainability, duplication, security-hotspot-review, and coverage failures. A Team subscription
+  solely to remove the coverage condition is not worth the recurring platform cost.
+* Main-branch analysis supplies the root package version as `sonar.projectVersion`, matching the
+  project's "previous version" new-code definition. It changes only at deliberate release
+  boundaries, not on every CI build or commit. Pull-request analysis continues to define new code
+  from the target-branch diff.
 * The Sonar web project is used for occasional trend drill-down, the role the GitHub Security tab
   already plays. Day-to-day work stays in GitHub.
 
@@ -153,11 +155,20 @@ convention, and Sonar's overlapping findings are accepted as redundant.
 
 # On Coverage
 
-The gate has no coverage condition. Coverage thresholds are a Goodhart target: a number an agent
-will farm rather than a measure of real test quality, and gating on them contradicts the building
-philosophy ("Pre-product-market fit? Incomplete test coverage is fine - ship and learn"). Sonar
-imports LCOV reports from each Vitest workspace and displays the combined trend, but it never
-blocks a merge on it.
+Coverage thresholds remain a Goodhart risk: a number an agent can farm rather than a direct measure
+of test quality. The free SonarQube Cloud plan nevertheless permits only the built-in "Sonar way"
+gate, which includes 80% coverage on new code; custom gates require a paid plan. Paying solely to
+remove that condition is worse than accepting the built-in gate's constraint.
+
+The project limits the condition to an honest release window. `sonar.projectVersion` matches the
+root package version, and Sonar's "previous version" definition therefore starts new-code measures
+at the first analysis of each deliberate release. It must not use a CI build number or commit SHA,
+which would reset the baseline on every scan. Nor should source files be excluded merely to make the
+number pass. Within a release, a coverage failure calls for useful tests or an explicit decision
+about the release boundary rather than threshold farming.
+
+Sonar imports LCOV reports from each Vitest workspace and displays the combined trend. The reporter
+configuration remains valuable independently of the built-in gate:
 
 Vitest reporter tuples pass their options to Istanbul's `lcovonly` reporter. Each workspace
 therefore sets `projectRoot` so the generated `SF:` records are relative to the monorepo root and
@@ -215,21 +226,22 @@ aimed at agent-authored code.
   deterministic findings to the agent before the PR exists.
 * [Short Feedback Loops](/projects?tab=philosophy#short-feedback-loops). Inline PR annotations put
   the signal on the diff, and the MCP loop moves it earlier, into the agent. The opposite risk is
-  that a blocking gate tuned as a gatekeeper slows the path to production, mitigated by gating only
-  new defects.
+  that a blocking gate tuned as a gatekeeper slows the path to production, mitigated by applying
+  its conditions only to a pull request's diff or the current release's new-code window.
 * [Build Flywheels](/projects?tab=philosophy#build-flywheels). A trend line on code health
   compounds; one-off AI review comments do not. Gate configuration learned once carries over to
   every future service in the monorepo.
 * [Respect Goodhart's & Conway's Laws](/projects?tab=philosophy#respect-goodharts-and-conways-laws).
   Maintainability ratings, and coverage especially, are Goodhart targets that an agent can farm
-  rather than satisfy honestly. That is why the gate blocks only on objective defects and keeps
-  metrics, and coverage entirely, advisory.
+  rather than satisfy honestly. The free built-in gate makes those metrics blocking, so the
+  countermeasure is an honest, explicit release boundary and a rule against threshold-driven source
+  exclusions or low-value tests.
 
 # Gaps & Risks
 
-* Advisory metrics can be ignored. Keeping complexity and duplication out of the hard gate (to
-  avoid Goodhart effects) means nothing forces action on a worsening trend; it depends on the trend
-  being seen and acted on.
+* The free built-in gate cannot be tuned. Its maintainability, duplication, and coverage conditions
+  can slow delivery or encourage metric gaming; the project accepts that risk instead of paying for
+  a Team subscription solely to customize the gate.
 * The dashboard still exists. The GitHub App keeps the daily loop in the PR, but findings are
   computed on Sonar's side, so an outage or a free-tier change affects the check. This is the same
   vendor risk as Renovate ([ADR 020](/projects/recipe-site/adrs/020-renovate)).
