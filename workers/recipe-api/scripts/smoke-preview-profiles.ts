@@ -5,7 +5,10 @@
 import { createDb } from "recipe-db";
 import { createAuth } from "../src/auth";
 import { previewScenarios } from "../src/preview-scenarios";
-import { previewApiRequestURL } from "./preview-api-url";
+import {
+  previewApiBaseURL,
+  previewApiRequestURL,
+} from "./preview-api-url";
 
 function requiredEnv(name: string): string {
   const value = process.env[name];
@@ -64,7 +67,7 @@ type DiscoverFeed = {
 
 const databaseURL = requiredEnv("DATABASE_URL");
 const siteURL = requiredEnv("BETTER_AUTH_URL");
-const apiURL = new URL(requiredEnv("PREVIEW_API_URL"));
+const apiURL = previewApiBaseURL(requiredEnv("PREVIEW_API_URL"));
 const READY_TIMEOUT_MS = 120_000;
 const REQUEST_TIMEOUT_MS = 15_000;
 const RETRY_DELAY_MS = 2_000;

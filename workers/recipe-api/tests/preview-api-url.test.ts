@@ -1,7 +1,34 @@
 import { describe, expect, it } from "vitest";
-import { previewApiRequestURL } from "../scripts/preview-api-url";
+import {
+  previewApiBaseURL,
+  previewApiRequestURL,
+} from "../scripts/preview-api-url";
 
-const apiURL = new URL("https://preview-api.example.test");
+const apiURL = previewApiBaseURL("https://preview-api.example.test");
+
+describe("previewApiBaseURL", () => {
+  it("accepts an HTTPS origin with or without its trailing slash", () => {
+    expect(previewApiBaseURL("https://preview-api.example.test").href).toBe(
+      "https://preview-api.example.test/",
+    );
+    expect(previewApiBaseURL("https://preview-api.example.test/").href).toBe(
+      "https://preview-api.example.test/",
+    );
+  });
+
+  it.each([
+    "preview-api.example.test",
+    "http://preview-api.example.test",
+    "https://user:secret@preview-api.example.test",
+    "https://preview-api.example.test/base/",
+    "https://preview-api.example.test/?environment=preview",
+    "https://preview-api.example.test/#preview",
+  ])("rejects a value that is not an HTTPS origin: %s", (value) => {
+    expect(() => previewApiBaseURL(value)).toThrow(
+      "PREVIEW_API_URL must be",
+    );
+  });
+});
 
 describe("previewApiRequestURL", () => {
   it("constructs root-relative URLs on the configured API origin", () => {
@@ -10,15 +37,6 @@ describe("previewApiRequestURL", () => {
     ).toBe(
       "https://preview-api.example.test/households/safe-id/members?limit=2",
     );
-  });
-
-  it("replaces a trailing-slash base path instead of creating a double slash", () => {
-    expect(
-      previewApiRequestURL(
-        new URL("https://preview-api.example.test/base/"),
-        "/health",
-      ).href,
-    ).toBe("https://preview-api.example.test/health");
   });
 
   it.each([
@@ -40,6 +58,8 @@ describe("previewApiRequestURL", () => {
     "\n//attacker.example.test/collect",
     "/\t/attacker.example.test/collect",
     "/\0/attacker.example.test/collect",
+    "/segment\u2028next",
+    "/segment\u2066next",
     "//attacker.example.test/collect",
     "https://attacker.example.test/collect",
   ])("rejects a request path outside the root-relative boundary: %s", (path) => {
