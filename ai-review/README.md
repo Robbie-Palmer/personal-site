@@ -205,10 +205,10 @@ webhook, waits for its versioned R2 record, and verifies that the visible
 stateful PR comment targets the current head and that at least one scout
 provided actual review coverage.
 Set `AI_REVIEW_E2E_PULL_REQUEST` to test another pull request explicitly.
-After a full staging run establishes a baseline and the PR receives another
-commit, set `AI_REVIEW_E2E_EVENT_MODE=synchronize` to send a non-forced
-`pull_request` event and require incremental coverage with both reviewed and
-unchanged hunks.
+After a full staging run establishes a baseline, add a semantic commit that
+preserves at least one eligible baseline hunk, then set
+`AI_REVIEW_E2E_EVENT_MODE=synchronize` to send a non-forced `pull_request`
+event and require incremental coverage with both reviewed and unchanged hunks.
 
 The deploy task loads `ai-review/prd` when required values are not already in
 the environment. `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN` authenticate
