@@ -32,9 +32,21 @@ load_config_entries() {
   fi
 
   secrets_json=$(doppler secrets --project "$doppler_project" --config "$doppler_config" --json)
-  jq -c --arg source "$doppler_project/$doppler_config" '
+  jq -c \
+    --arg source "$doppler_project/$doppler_config" \
+    --arg config "$doppler_config" '
     to_entries
-    | map(select(.key | startswith("DOPPLER_") | not))
+    | map(select(
+        (.key | startswith("DOPPLER_") | not)
+        or (
+          $config == "ops_preview_agent_access"
+          and (
+            .key == "DOPPLER_AGENT_CONFIG"
+            or .key == "DOPPLER_PROJECT"
+            or .key == "DOPPLER_SERVICE_TOKEN"
+          )
+        )
+      ))
     | map({
         name: .key,
         value: .value.computed,
