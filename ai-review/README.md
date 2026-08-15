@@ -194,7 +194,8 @@ The replay head must match the authoritative current PR head fetched from
 GitHub when the trusted command is handled. The outcome links the trusted actor
 and reason to that replay's head, run, and
 evidence. PR content, stale replay, model omission, or a resolved GitHub thread
-cannot mint a confirmed label by itself. On
+cannot mint a confirmed label by itself. Confirmation suppresses replay only on
+that exact head; a later head makes the finding eligible for replay again. On
 `pull_request.closed`, any finding without an outcome becomes `superseded` when
 the final reviewed diff no longer contains its affected hunks, or
 `no-observable-response` otherwise. A legacy finding with a persisted explicit

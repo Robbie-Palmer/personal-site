@@ -652,7 +652,7 @@ export class PullRequestCoordinator extends DurableObject<Env> {
     if (path === "/interactions") return this.receiveInteraction(request);
     if (path === "/finalizations") return this.receiveFinalization(request);
     if (path === "/reviews/claim") return this.claimReview(request);
-    if (path === "/reviews/baseline") return this.reviewBaseline();
+    if (path === "/reviews/baseline") return this.reviewBaseline(request);
     if (path === "/reviews/complete") return this.completeReview(request);
     if (path === "/reviews/fail") return this.failReview(request);
     return new Response("Not found", { status: 404 });
@@ -1081,6 +1081,7 @@ export class PullRequestCoordinator extends DurableObject<Env> {
             actor: event.actor,
             actorAssociation: event.actorAssociation,
             reason: event.reason,
+            currentHeadSha: event.headSha,
             controlledReplay,
           },
         });
@@ -1394,7 +1395,18 @@ export class PullRequestCoordinator extends DurableObject<Env> {
     return json(result);
   }
 
-  private reviewBaseline(): Response {
+  private async reviewBaseline(request: Request): Promise<Response> {
+    const body = (await request.json().catch(() => null)) as {
+      headSha?: unknown;
+    } | null;
+    if (
+      !body ||
+      typeof body.headSha !== "string" ||
+      body.headSha.length === 0 ||
+      body.headSha.length > 64
+    ) {
+      return json({ error: "Invalid review baseline" }, 400);
+    }
     const completed = this.ctx.storage.sql
       .exec<{ run_id: string; head_sha: string }>(
         `SELECT run_id, head_sha FROM review_runs
@@ -1428,8 +1440,12 @@ export class PullRequestCoordinator extends DurableObject<Env> {
            SELECT 1 FROM review_finding_outcomes outcome
            WHERE outcome.finding_id = finding.finding_id
              AND outcome.outcome = 'confirmed-fixed'
+             AND json_extract(
+               outcome.payload_json, '$.evidence.currentHeadSha'
+             ) = ?
          )
          ORDER BY finding.finding_id LIMIT 100`,
+        body.headSha,
       )
       .toArray();
     const openFindings = findings.map((finding) => ({

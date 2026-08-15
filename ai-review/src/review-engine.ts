@@ -791,12 +791,18 @@ async function coordinatorRequest<T>(
 async function reviewBaseline(
   env: Env,
   params: ReviewWorkflowParams,
+  headSha: string,
 ): Promise<ReviewBaseline> {
   // Small unit-level consumers of the engine may not bind a coordinator. The
   // deployed Worker always does; treating the missing binding as an empty
   // baseline keeps those consumers conservative (a full review).
   if (!env.PR_STATE) return { hunkIds: [], openFindings: [] };
-  return coordinatorRequest<ReviewBaseline>(env, params, "/reviews/baseline", {});
+  return coordinatorRequest<ReviewBaseline>(
+    env,
+    params,
+    "/reviews/baseline",
+    { headSha },
+  );
 }
 
 export async function prepareReview(
@@ -843,7 +849,7 @@ export async function prepareReview(
   const rawHunks = parsedHunks.map(
     ({ body: _body, header: _header, prelude: _prelude, ...hunk }) => hunk,
   );
-  const baseline = await reviewBaseline(env, params);
+  const baseline = await reviewBaseline(env, params, headSha);
   const baselineIds = new Set(baseline.hunkIds);
   const materiallyChangedHunks = baseline.headSha
     ? rawHunks.filter(({ hunkId }) => !baselineIds.has(hunkId))

@@ -131,7 +131,7 @@ describe("PullRequestCoordinator in workerd", () => {
 
     const firstBaseline = await stub.fetch(
       "https://coordinator.test/reviews/baseline",
-      { method: "POST", body: "{}" },
+      { method: "POST", body: JSON.stringify({ headSha: event.headSha }) },
     );
     await expect(firstBaseline.json()).resolves.toEqual({
       headSha: event.headSha,
@@ -459,11 +459,24 @@ describe("PullRequestCoordinator in workerd", () => {
     });
     const laterBaseline = await stub.fetch(
       "https://coordinator.test/reviews/baseline",
-      { method: "POST", body: "{}" },
+      { method: "POST", body: JSON.stringify({ headSha: fixedHead }) },
     );
     await expect(laterBaseline.json()).resolves.toMatchObject({
       headSha: fixedHead,
       hunkIds: [`h_${"e".repeat(24)}`, fixedHunk.hunkId],
+      openFindings: [],
+    });
+    const nextHeadBaseline = await stub.fetch(
+      "https://coordinator.test/reviews/baseline",
+      {
+        method: "POST",
+        body: JSON.stringify({ headSha: "3".repeat(40) }),
+      },
+    );
+    await expect(nextHeadBaseline.json()).resolves.toMatchObject({
+      openFindings: [expect.objectContaining({
+        findingId: `f_${"b".repeat(24)}`,
+      })],
     });
     await runInDurableObject(stub, async (_instance, state) => {
       expect(
@@ -587,12 +600,14 @@ describe("PullRequestCoordinator in workerd", () => {
 
     const baseline = await stub.fetch(
       "https://coordinator.test/reviews/baseline",
-      { method: "POST", body: "{}" },
+      { method: "POST", body: JSON.stringify({ headSha: event.headSha }) },
     );
     await expect(baseline.json()).resolves.toEqual({
       headSha: event.headSha,
       hunkIds: [currentHunk.hunkId],
-      openFindings: [],
+      openFindings: [expect.objectContaining({
+        findingId: `f_${"b".repeat(24)}`,
+      })],
     });
   });
 
