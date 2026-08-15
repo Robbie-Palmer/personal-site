@@ -29,9 +29,14 @@ if [[ ! "$preview_label" =~ ^pr-[1-9][0-9]*$ ]] || [[ "$preview_host" != "$previ
   exit 2
 fi
 
+# Make redirects an error so Access headers never leave the validated origin.
 curl \
   --disable \
+  --connect-timeout 10 \
   --fail-with-body \
+  --location \
+  --max-redirs 0 \
+  --max-time 30 \
   --proto '=https' \
   --silent \
   --show-error \

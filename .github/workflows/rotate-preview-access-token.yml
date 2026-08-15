@@ -8,9 +8,14 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: rotate-preview-agent-access
+  cancel-in-progress: false
+
 jobs:
   rotate:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     environment:
       name: preview-agent-access
     steps:
