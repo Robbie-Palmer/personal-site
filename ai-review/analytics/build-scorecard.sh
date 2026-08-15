@@ -15,7 +15,7 @@ if ! command -v duckdb >/dev/null 2>&1; then
 fi
 
 input_files=()
-while IFS= read -r file; do input_files+=("$file"); done < <(find "$INPUT_PREFIX" -type f -name '*.json' -print | LC_ALL=C sort)
+while IFS= read -r -d '' file; do input_files+=("$file"); done < <(find "$INPUT_PREFIX" -type f -name '*.json' -print0 | LC_ALL=C sort -z)
 if [[ ${#input_files[@]} -eq 0 ]]; then
   echo "no JSON objects found under $INPUT_PREFIX" >&2
   exit 1
@@ -30,7 +30,12 @@ done
 
 mkdir -p "$OUTPUT_ROOT/.scorecard-releases"
 work=$(mktemp -d)
-trap 'rm -rf "$work"' EXIT
+link=""
+cleanup() {
+  rm -rf "$work"
+  [[ -z "$link" ]] || rm -f "$link"
+}
+trap cleanup EXIT
 
 while IFS= read -r line; do
   if [[ "$line" == *"__INPUT_FILES__"* ]]; then
@@ -49,19 +54,26 @@ for mart in finding_latest review_run_fact model_run_fact pull_request_fact; do
 done
 
 manifest_tmp="$work/manifest.json"
-{
-  printf '{\n  "schemaVersion": 1,\n  "martVersion": "%s",\n  "inputPrefix": "%s",\n  "marts": {\n' "$MART_VERSION" "$INPUT_PREFIX"
-  for i in 0 1 2 3; do
-    marts=(finding_latest review_run_fact model_run_fact pull_request_fact)
-    mart=${marts[$i]}
-    checksum=$(shasum -a 256 "$publish/$mart.parquet" | awk '{print $1}')
-    rows=$(duckdb -csv -noheader -c "SELECT count(*) FROM read_parquet('$publish/$mart.parquet')")
-    printf '    "%s": {"path": "%s.parquet", "rows": %s, "sha256": "%s"}' "$mart" "$mart" "$rows" "$checksum"
-    [[ $i -lt 3 ]] && printf ','
-    printf '\n'
-  done
-  printf '  }\n}\n'
-} > "$manifest_tmp"
+marts=(finding_latest review_run_fact model_run_fact pull_request_fact)
+manifest_entries=()
+for mart in "${marts[@]}"; do
+  checksum=$(shasum -a 256 "$publish/$mart.parquet" | awk '{print $1}')
+  rows=$(duckdb -csv -noheader -c "SELECT count(*) FROM read_parquet('$publish/$mart.parquet')")
+  manifest_entries+=("$mart" "$mart.parquet" "$rows" "$checksum")
+done
+node -e '
+  const fs = require("node:fs");
+  const [output, inputPrefix, martVersion, ...values] = process.argv.slice(1);
+  const marts = {};
+  for (let index = 0; index < values.length; index += 4) {
+    marts[values[index]] = {
+      path: values[index + 1],
+      rows: Number(values[index + 2]),
+      sha256: values[index + 3],
+    };
+  }
+  fs.writeFileSync(output, `${JSON.stringify({ schemaVersion: 1, martVersion, inputPrefix, marts }, null, 2)}\n`);
+' "$manifest_tmp" "$INPUT_PREFIX" "$MART_VERSION" "${manifest_entries[@]}"
 mv "$manifest_tmp" "$publish/scorecard-manifest.json"
 
 # Publish an immutable content-addressed release, then atomically move the
@@ -77,5 +89,6 @@ link="$OUTPUT_ROOT/.$MART_VERSION-link-$$"
 ln -s ".scorecard-releases/$release_name" "$link"
 node -e 'require("node:fs").renameSync(process.argv[1], process.argv[2])' \
   "$link" "$OUTPUT_ROOT/$MART_VERSION"
+link=""
 target="$OUTPUT_ROOT/$MART_VERSION"
 echo "Built scorecard marts in $target"

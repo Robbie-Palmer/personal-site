@@ -159,7 +159,7 @@ GROUP BY m.run_id, m.model
 SELECT m.*,
   input_tokens - cached_input_tokens AS uncached_input_tokens,
   CASE WHEN input_tokens = 0 THEN NULL ELSE cached_input_tokens::DOUBLE / input_tokens END AS cache_hit_rate,
-  CASE WHEN input_tokens - cached_input_tokens = 0 THEN NULL ELSE a.accepted_count * 1000000.0 / (input_tokens - cached_input_tokens) END AS accepted_findings_per_million_uncached_tokens
+  CASE WHEN input_tokens - cached_input_tokens = 0 THEN NULL ELSE a.accepted_count::DOUBLE * 1000000.0 / (input_tokens - cached_input_tokens) END AS accepted_findings_per_million_uncached_tokens
 FROM model_rows m JOIN attributed a USING (run_id, model);
 
 CREATE TABLE pull_request_fact AS

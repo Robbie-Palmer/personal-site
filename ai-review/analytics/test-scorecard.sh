@@ -29,9 +29,11 @@ CROSS JOIN read_parquet('$output/v1/pull_request_fact.parquet')
 GROUP BY published_finding_count;
 SQL
 
-mkdir "$special/input''&pipe|"
-cp -R "$here/fixtures/." "$special/input''&pipe|/"
-"$here/build-scorecard.sh" "$special/input''&pipe|" "$special/output" >/dev/null
+special_input="$special/"$'input\'\'&pipe|"\\\nline'
+mkdir "$special_input"
+cp -R "$here/fixtures/." "$special_input/"
+"$here/build-scorecard.sh" "$special_input" "$special/output" >/dev/null
+jq -e . "$special/output/v1/scorecard-manifest.json" >/dev/null
 
 cp "$here/fixtures/v2/acme/widgets/pr-7/head-1/run-1/published.json" "$bad/good.json"
 printf '{"schemaVersion":99,"recordType":"review-run-terminal"}\n' > "$bad/unknown.json"
