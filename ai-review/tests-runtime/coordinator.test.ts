@@ -127,6 +127,23 @@ describe("PullRequestCoordinator in workerd", () => {
     );
     await expect(completion.json()).resolves.toEqual({ completed: true });
 
+    const firstBaseline = await stub.fetch(
+      "https://coordinator.test/reviews/baseline",
+      { method: "POST", body: "{}" },
+    );
+    await expect(firstBaseline.json()).resolves.toEqual({
+      headSha: event.headSha,
+      hunkIds: [`h_${"c".repeat(24)}`],
+      openFindings: [
+        {
+          findingId: `f_${"b".repeat(24)}`,
+          file: "app.ts",
+          title: "Finding",
+          hunkIds: [`h_${"c".repeat(24)}`],
+        },
+      ],
+    });
+
     const interaction = {
       deliveryId: "workerd-feedback-1",
       eventName: "pull_request_review_thread",
@@ -217,6 +234,26 @@ describe("PullRequestCoordinator in workerd", () => {
           newLines: 1,
         },
       ],
+      currentHunks: [
+        {
+          hunkId: `h_${"c".repeat(24)}`,
+          fingerprint: "d".repeat(64),
+          file: "app.ts",
+          oldStart: 50,
+          oldLines: 1,
+          newStart: 60,
+          newLines: 1,
+        },
+        {
+          hunkId: `h_${"e".repeat(24)}`,
+          fingerprint: "f".repeat(64),
+          file: "unchanged.ts",
+          oldStart: 1,
+          oldLines: 1,
+          newStart: 1,
+          newLines: 1,
+        },
+      ],
       findings: [
         {
           findingId: `f_${"b".repeat(24)}`,
@@ -260,6 +297,14 @@ describe("PullRequestCoordinator in workerd", () => {
       completed: true,
       duplicate: true,
     });
+    const laterBaseline = await stub.fetch(
+      "https://coordinator.test/reviews/baseline",
+      { method: "POST", body: "{}" },
+    );
+    await expect(laterBaseline.json()).resolves.toMatchObject({
+      headSha: laterHead,
+      hunkIds: [`h_${"c".repeat(24)}`, `h_${"e".repeat(24)}`],
+    });
     await runInDurableObject(stub, async (_instance, state) => {
       expect(
         state.storage.sql
@@ -301,6 +346,60 @@ describe("PullRequestCoordinator in workerd", () => {
           )
           .toArray(),
       ).toEqual([{ action: "resolved", r2_recorded: 1 }]);
+    });
+  });
+
+  it("uses a zero-cost skipped completion as the next review baseline", async () => {
+    const stub = coordinator();
+    const runId = "workerd-skipped-review";
+    const currentHunk = {
+      hunkId: `h_${"a".repeat(24)}`,
+      fingerprint: "b".repeat(64),
+      file: "pnpm-lock.yaml",
+      oldStart: 1,
+      oldLines: 1,
+      newStart: 1,
+      newLines: 1,
+    };
+    const claim = await stub.fetch("https://coordinator.test/reviews/claim", {
+      method: "POST",
+      body: JSON.stringify({
+        runId,
+        headSha: event.headSha,
+        diffFingerprint: "skipped-diff-hash",
+        configFingerprint: "config-hash",
+        force: false,
+        maxRuns: 20,
+        maxCostUsd: 5,
+      }),
+    });
+    await expect(claim.json()).resolves.toMatchObject({ claimed: true });
+
+    const completion = await stub.fetch(
+      "https://coordinator.test/reviews/complete",
+      {
+        method: "POST",
+        body: JSON.stringify({
+          runId,
+          headSha: event.headSha,
+          costUsd: 0,
+          hunks: [],
+          currentHunks: [currentHunk],
+          findings: [],
+          findingPublications: [],
+        }),
+      },
+    );
+    await expect(completion.json()).resolves.toEqual({ completed: true });
+
+    const baseline = await stub.fetch(
+      "https://coordinator.test/reviews/baseline",
+      { method: "POST", body: "{}" },
+    );
+    await expect(baseline.json()).resolves.toEqual({
+      headSha: event.headSha,
+      hunkIds: [currentHunk.hunkId],
+      openFindings: [],
     });
   });
 });

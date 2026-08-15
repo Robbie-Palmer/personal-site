@@ -11,6 +11,7 @@ import {
   csv,
   dataPrompt,
   duplicateScoutModels,
+  ignored,
   isEligibleFreeScoutModelId,
   mergerSchema,
   mergerSystem,
@@ -84,11 +85,41 @@ export interface PreparedReview {
   paths: string[];
   omitted: string[];
   hunks?: ReviewHunk[];
+  allHunks?: ReviewHunk[];
   changeProfile?: ChangeProfile;
+  coverage?: ReviewCoverage;
   pullRequest?: PullRequestMetadata;
   context?: string;
   guidelines?: string;
   threads?: string;
+}
+
+export type ReviewCoverageMode = "full" | "incremental" | "skipped";
+
+export interface OpenFindingBaseline {
+  findingId: string;
+  file: string;
+  title: string;
+  hunkIds: string[];
+}
+
+export interface ReviewBaseline {
+  headSha?: string;
+  hunkIds: string[];
+  openFindings: OpenFindingBaseline[];
+}
+
+export interface ReviewCoverage {
+  mode: ReviewCoverageMode;
+  reason: string;
+  baselineHeadSha?: string;
+  totalHunks: number;
+  reviewedHunkIds: string[];
+  unchangedHunkIds: string[];
+  skippedHunkIds: string[];
+  affectedFindingIds: string[];
+  paths: string[];
+  skippedPaths: string[];
 }
 
 export interface ModelMetric {
@@ -147,10 +178,46 @@ export interface ReviewPublication {
 
 export type ReviewRecordStatus = "denied" | "failed" | "published" | "skipped";
 
+function coverageStatement(coverage: ReviewCoverage): string {
+  let label = "Skipped coverage";
+  if (coverage.mode === "full") label = "Full coverage";
+  if (coverage.mode === "incremental") label = "Incremental coverage";
+  const counts =
+    coverage.mode === "skipped"
+      ? `${coverage.unchangedHunkIds.length} unchanged hunk(s) were not reviewed again`
+      : `${coverage.reviewedHunkIds.length}/${coverage.totalHunks} semantic hunk(s) reviewed`;
+  const unchanged =
+    coverage.mode === "incremental"
+      ? `; ${coverage.unchangedHunkIds.length} unchanged hunk(s) were not reviewed again`
+      : "";
+  return `**Coverage: ${label}.** ${counts}${unchanged}. ${coverage.reason}.`;
+}
+
+function affectedFindingContext(
+  baseline: ReviewBaseline,
+  coverage: ReviewCoverage,
+): string {
+  const affected = new Set(coverage.affectedFindingIds);
+  return baseline.openFindings
+    .filter(({ findingId }) => affected.has(findingId))
+    .map(
+      ({ findingId, file, title }) =>
+        `DURABLE OPEN FINDING ${findingId} at ${file}: ${title.slice(0, 300)}`,
+    )
+    .join("\n")
+    .slice(0, 4_000);
+}
+
 interface ClaimResponse {
   claimed: boolean;
   reason?: string;
   previousState: ReviewState;
+}
+
+interface ParsedDiffHunk extends ReviewHunk {
+  body: string[];
+  header: string;
+  prelude: string[];
 }
 
 function finiteNumber(value: string, fallback: number): number {
@@ -281,18 +348,58 @@ function originatingAgent(
   return undefined;
 }
 
+export function reviewRiskSignals(paths: string[]): string[] {
+  return [
+    paths.some((path) =>
+      /(^|\/)(auth|authentication|authorization|credentials?|oauth|security|secrets?|sessions?)(\/|\.|-|_|$)/i.test(
+        path,
+      ) ||
+      /(^|\/)\.env(?:\.|$)/i.test(path) ||
+      /\.(key|p12|pem|pfx)$/i.test(path),
+    )
+      ? "authentication-or-secrets"
+      : undefined,
+    paths.some(
+      (path) =>
+        /(^|\/)(drizzle|migrations?|schema)(\/|\.|-|_|$)/i.test(path) ||
+        /\.(prisma|sql)$/i.test(path),
+    )
+      ? "database-schema"
+      : undefined,
+    paths.some(
+      (path) =>
+        /(^|\/)(infra|infra-bootstrap|terraform|k8s|kubernetes)(\/|$)/i.test(
+          path,
+        ) || /(^|\/)(Dockerfile|docker-compose[^/]*)$/i.test(path) || /\.tf$/i.test(path),
+    )
+      ? "infrastructure"
+      : undefined,
+    paths.some(
+      (path) =>
+        path.startsWith(".github/workflows/") ||
+        /(^|\/)(deploy|deployment)(\/|\.|-|_|$)/i.test(path) ||
+        /(^|\/)(wrangler|vercel|netlify)\.[^/]+$/i.test(path),
+    )
+      ? "ci-or-deployment"
+      : undefined,
+  ].filter((signal): signal is string => signal !== undefined);
+}
+
 function summarizeChange(
   diff: string,
   paths: string[],
   omitted: string[],
   hunks: ReviewHunk[],
+  skippedPaths: string[] = [],
 ): ChangeProfile {
-  const allPaths = [...new Set([...paths, ...omitted])];
+  const allPaths = [...new Set([...paths, ...omitted, ...skippedPaths])];
   const languages = [
     ...new Set(
       allPaths
         .map((path) => path.split(".").at(-1)?.toLowerCase())
-        .map((extension) => (extension ? EXTENSION_LANGUAGE[extension] : undefined))
+        .map((extension) =>
+          extension ? EXTENSION_LANGUAGE[extension] : undefined,
+        )
         .filter((language): language is string => language !== undefined),
     ),
   ].sort((left, right) => left.localeCompare(right));
@@ -304,20 +411,7 @@ function summarizeChange(
       }),
     ),
   ].sort((left, right) => left.localeCompare(right));
-  const riskSignals = [
-    allPaths.some((path) => /(^|\/)(auth|security|secrets?)(\/|\.|$)/i.test(path))
-      ? "authentication-or-secrets"
-      : undefined,
-    allPaths.some((path) => /(^|\/)(drizzle|migrations?|schema)(\/|\.|$)/i.test(path))
-      ? "database-schema"
-      : undefined,
-    allPaths.some((path) => /(^|\/)(infra|infra-bootstrap)(\/|$)/i.test(path))
-      ? "infrastructure"
-      : undefined,
-    allPaths.some((path) => path.startsWith(".github/workflows/"))
-      ? "ci-or-deployment"
-      : undefined,
-  ].filter((signal): signal is string => signal !== undefined);
+  const riskSignals = reviewRiskSignals(allPaths);
   return {
     diffCharacters: diff.length,
     additions: countPatchLines(diff, "+"),
@@ -348,38 +442,56 @@ function parseHunkHeader(line: string): {
   };
 }
 
-export async function identifyDiffHunks(diff: string): Promise<ReviewHunk[]> {
+async function parseDiffHunks(diff: string): Promise<ParsedDiffHunk[]> {
   const pending: Array<{
     file: string;
     body: string[];
+    header: string;
+    prelude: string[];
     oldStart: number;
     oldLines: number;
     newStart: number;
     newLines: number;
   }> = [];
   let file: string | undefined;
+  let prelude: string[] = [];
   let current: (typeof pending)[number] | undefined;
   for (const line of diff.split("\n")) {
     const fileMatch = /^diff --git a\/.* b\/(.+)$/.exec(line);
     if (fileMatch) {
       file = fileMatch[1];
+      prelude = [line];
       current = undefined;
       continue;
     }
     const header = parseHunkHeader(line);
     if (header && file) {
-      current = { file, body: [], ...header };
+      current = {
+        file,
+        body: [],
+        header: line,
+        prelude: [...prelude],
+        ...header,
+      };
       pending.push(current);
       continue;
     }
     if (current && line !== String.raw`\ No newline at end of file`) {
       current.body.push(line);
+    } else if (file && !current) {
+      prelude.push(line);
     }
   }
 
   const occurrences = new Map<string, number>();
   return Promise.all(
-    pending.map(async ({ file: path, body, ...coordinates }) => {
+    pending.map(async ({
+      file: path,
+      body,
+      header,
+      prelude: filePrelude,
+      ...coordinates
+    }) => {
       const canonical = `${path}\n${body.join("\n")}`;
       const occurrence = (occurrences.get(canonical) ?? 0) + 1;
       occurrences.set(canonical, occurrence);
@@ -389,10 +501,131 @@ export async function identifyDiffHunks(diff: string): Promise<ReviewHunk[]> {
         hunkId: `h_${identity.slice(0, 24)}`,
         fingerprint,
         file: path,
+        body,
+        header,
+        prelude: filePrelude,
         ...coordinates,
       };
     }),
   );
+}
+
+export async function identifyDiffHunks(diff: string): Promise<ReviewHunk[]> {
+  return (await parseDiffHunks(diff)).map(
+    ({ body: _body, header: _header, prelude: _prelude, ...hunk }) => hunk,
+  );
+}
+
+function hunkHasSemanticChange(hunk: ParsedDiffHunk): boolean {
+  // Treat indentation, trailing whitespace, and blank-line-only edits as
+  // non-semantic. Internal whitespace can change strings or language syntax,
+  // so it deliberately remains material.
+  const normalize = (line: string) => line.slice(1).trim();
+  const removed = hunk.body
+    .filter((line) => line.startsWith("-"))
+    .map(normalize)
+    .filter(Boolean);
+  const added = hunk.body
+    .filter((line) => line.startsWith("+"))
+    .map(normalize)
+    .filter(Boolean);
+  return JSON.stringify(removed) !== JSON.stringify(added);
+}
+
+function renderSelectedDiff(
+  hunks: ParsedDiffHunk[],
+  selected: Set<string>,
+): string {
+  const blocks: string[] = [];
+  let previousFile: string | undefined;
+  for (const hunk of hunks) {
+    if (!selected.has(hunk.hunkId)) continue;
+    if (hunk.file !== previousFile) {
+      blocks.push(...hunk.prelude);
+      previousFile = hunk.file;
+    }
+    blocks.push(hunk.header, ...hunk.body);
+  }
+  return blocks.length > 0 ? `${blocks.join("\n")}\n` : "";
+}
+
+export function decideReviewCoverage(options: {
+  force: boolean;
+  riskSignals: string[];
+  hunks: ReviewHunk[];
+  baseline: ReviewBaseline;
+  skippedHunkIds?: string[];
+  skippedPaths?: string[];
+}): ReviewCoverage {
+  const currentIds = new Set(options.hunks.map(({ hunkId }) => hunkId));
+  const baselineIds = new Set(options.baseline.hunkIds);
+  const newHunks = options.hunks.filter(({ hunkId }) => !baselineIds.has(hunkId));
+  const changedFiles = new Set(newHunks.map(({ file }) => file));
+  const affectedFindings = options.baseline.openFindings.filter((finding) =>
+    changedFiles.has(finding.file),
+  );
+  const affectedIds = new Set(
+    affectedFindings.flatMap(({ hunkIds }) =>
+      hunkIds.filter((id) => currentIds.has(id)),
+    ),
+  );
+  const incrementalIds = new Set([
+    ...newHunks.map(({ hunkId }) => hunkId),
+    ...affectedIds,
+  ]);
+  let mode: ReviewCoverageMode;
+  let reason: string;
+  let reviewedIds: Set<string>;
+  if (options.force) {
+    mode = "full";
+    reason = "explicit forced full review";
+    reviewedIds = currentIds;
+  } else if (options.riskSignals.length > 0) {
+    mode = "full";
+    reason = `risk escalation: ${options.riskSignals.join(", ")}`;
+    reviewedIds = currentIds;
+  } else if (!options.baseline.headSha) {
+    mode = currentIds.size > 0 ? "full" : "skipped";
+    reason =
+      currentIds.size > 0
+        ? "no completed review baseline"
+        : "no semantic hunks to review";
+    reviewedIds = currentIds;
+  } else if (incrementalIds.size > 0) {
+    mode = "incremental";
+    reason = "new or materially changed hunks since the last completed review";
+    reviewedIds = incrementalIds;
+  } else {
+    mode = "skipped";
+    reason = "all current semantic hunks were covered by the last completed review";
+    reviewedIds = new Set();
+  }
+  return {
+    mode,
+    reason,
+    baselineHeadSha: options.baseline.headSha,
+    totalHunks: options.hunks.length,
+    reviewedHunkIds: options.hunks
+      .filter(({ hunkId }) => reviewedIds.has(hunkId))
+      .map(({ hunkId }) => hunkId),
+    unchangedHunkIds: options.hunks
+      .filter(({ hunkId }) => baselineIds.has(hunkId) && !reviewedIds.has(hunkId))
+      .map(({ hunkId }) => hunkId),
+    skippedHunkIds: options.skippedHunkIds ?? [],
+    affectedFindingIds: affectedFindings
+      .map(({ findingId }) => findingId)
+      .sort((left, right) => left.localeCompare(right)),
+    paths: [
+      ...new Set(
+        options.hunks
+          .filter(({ hunkId }) => reviewedIds.has(hunkId))
+          .map(({ file }) => file),
+      ),
+    ].sort((left, right) => left.localeCompare(right)),
+    skippedPaths: [...new Set(options.skippedPaths ?? [])].sort((left, right) =>
+      left.localeCompare(right),
+    ),
+  };
 }
 
 function normalizedFindingTitle(title: string): string {
@@ -509,6 +742,17 @@ async function coordinatorRequest<T>(
   return response.json<T>();
 }
 
+async function reviewBaseline(
+  env: Env,
+  params: ReviewWorkflowParams,
+): Promise<ReviewBaseline> {
+  // Small unit-level consumers of the engine may not bind a coordinator. The
+  // deployed Worker always does; treating the missing binding as an empty
+  // baseline keeps those consumers conservative (a full review).
+  if (!env.PR_STATE) return { hunkIds: [], openFindings: [] };
+  return coordinatorRequest<ReviewBaseline>(env, params, "/reviews/baseline", {});
+}
+
 export async function prepareReview(
   env: Env,
   params: ReviewWorkflowParams,
@@ -534,7 +778,10 @@ export async function prepareReview(
       omitted: [],
     };
   }
-  if (settings.ignoredAuthors.includes(pr.user.login.toLowerCase())) {
+  if (
+    !params.force &&
+    settings.ignoredAuthors.includes(pr.user.login.toLowerCase())
+  ) {
     return {
       skipReason: `ignored author ${pr.user.login}`,
       paths: [],
@@ -543,8 +790,61 @@ export async function prepareReview(
   }
 
   const headSha = pr.head.sha;
-  const { diff, paths, omitted } = await reviewer.changedFiles();
-  const hunks = await identifyDiffHunks(diff);
+  const { diff: rawDiff, paths: rawPaths, omitted } = await reviewer.changedFiles({
+    includeIgnored: true,
+  });
+  const parsedHunks = await parseDiffHunks(rawDiff);
+  const rawHunks = parsedHunks.map(
+    ({ body: _body, header: _header, prelude: _prelude, ...hunk }) => hunk,
+  );
+  const baseline = await reviewBaseline(env, params);
+  const baselineIds = new Set(baseline.hunkIds);
+  const materiallyChangedHunks = baseline.headSha
+    ? rawHunks.filter(({ hunkId }) => !baselineIds.has(hunkId))
+    : rawHunks;
+  const materiallyChangedPaths = [
+    ...new Set(materiallyChangedHunks.map(({ file }) => file)),
+  ];
+  const triggerRiskSignals = summarizeChange(
+    rawDiff,
+    materiallyChangedPaths,
+    omitted,
+    materiallyChangedHunks,
+  ).riskSignals;
+  const preliminaryProfile = {
+    ...summarizeChange(rawDiff, rawPaths, omitted, rawHunks),
+    riskSignals: triggerRiskSignals,
+  };
+  const riskEscalated = triggerRiskSignals.length > 0;
+  const eligibleParsed = parsedHunks.filter(
+    (hunk) =>
+      params.force ||
+      (!ignored(hunk.file) &&
+        (riskEscalated || hunkHasSemanticChange(hunk))),
+  );
+  const eligibleHunkIds = new Set(eligibleParsed.map(({ hunkId }) => hunkId));
+  const eligibleHunks = rawHunks.filter(({ hunkId }) => eligibleHunkIds.has(hunkId));
+  const skippedHunks = rawHunks.filter(({ hunkId }) => !eligibleHunkIds.has(hunkId));
+  const skippedPaths = rawPaths.filter(
+    (path) => !eligibleHunks.some((hunk) => hunk.file === path),
+  );
+  const coverage = decideReviewCoverage({
+    force: params.force,
+    riskSignals: triggerRiskSignals,
+    hunks: eligibleHunks,
+    baseline,
+    skippedHunkIds: skippedHunks.map(({ hunkId }) => hunkId),
+    skippedPaths,
+  });
+  const reviewedIds = new Set(coverage.reviewedHunkIds);
+  const selectedParsed = eligibleParsed.filter(({ hunkId }) =>
+    reviewedIds.has(hunkId),
+  );
+  const selectedHunks = eligibleHunks.filter(({ hunkId }) =>
+    reviewedIds.has(hunkId),
+  );
+  const selectedPaths = [...new Set(selectedHunks.map(({ file }) => file))];
+  const selectedDiff = renderSelectedDiff(selectedParsed, reviewedIds);
   const labels = (pr.labels ?? [])
     .map(({ name }) => name?.trim())
     .filter((name): name is string => Boolean(name));
@@ -562,13 +862,21 @@ export async function prepareReview(
   });
   return {
     headSha,
-    diffFingerprint: await sha256(diff),
+    diffFingerprint: await sha256(rawDiff),
     configFingerprint: await sha256(config),
-    diff,
-    paths,
+    ...(coverage.mode === "skipped" ? { skipReason: coverage.reason } : {}),
+    diff: selectedDiff,
+    paths: selectedPaths,
     omitted,
-    hunks,
-    changeProfile: summarizeChange(diff, paths, omitted, hunks),
+    hunks: selectedHunks,
+    allHunks: rawHunks,
+    coverage,
+    changeProfile: {
+      ...preliminaryProfile,
+      reviewableFiles: new Set(eligibleHunks.map(({ file }) => file)).size,
+      omittedFiles: omitted.length + skippedPaths.length,
+      hunks: eligibleHunks.length,
+    },
     pullRequest: {
       author: pr.user.login,
       authorAssociation: pr.author_association,
@@ -578,9 +886,18 @@ export async function prepareReview(
       taskType: taskType(labels),
       originatingAgent: originatingAgent(pr.title, pr.head.ref),
     },
-    context: diff.trim() ? await reviewer.fileContext(paths, headSha) : "",
-    guidelines: diff.trim() ? await reviewer.headGuidelines(headSha) : "",
-    threads: diff.trim() ? await reviewer.reviewThreadContext() : "",
+    context: selectedDiff.trim()
+      ? await reviewer.fileContext(selectedPaths, headSha)
+      : "",
+    guidelines: selectedDiff.trim() ? await reviewer.headGuidelines(headSha) : "",
+    threads: selectedDiff.trim()
+      ? [
+          affectedFindingContext(baseline, coverage),
+          await reviewer.reviewThreadContext(selectedPaths),
+        ]
+          .filter(Boolean)
+          .join("\n\n")
+      : "",
   };
 }
 
@@ -913,8 +1230,18 @@ export async function publishReview(
       .filter(({ status }) => status === "open")
       .map(({ findingId }) => findingId),
   );
+  const reviewSummary =
+    typeof merged.result.summary === "string"
+      ? merged.result.summary
+      : "Review complete.";
+  const result = prepared.coverage
+    ? {
+        ...merged.result,
+        summary: `${coverageStatement(prepared.coverage)}\n\n${reviewSummary}`,
+      }
+    : merged.result;
   const body = renderComment({
-    result: merged.result,
+    result,
     headSha: prepared.headSha,
     models: scouts.models,
     merger: settings.merger,
@@ -947,6 +1274,60 @@ export async function publishReview(
     ),
     runCostUsd,
     findings: findingPublications,
+  };
+}
+
+export async function publishSkippedReview(
+  env: Env,
+  params: ReviewWorkflowParams,
+  prepared: PreparedReview,
+): Promise<ReviewPublication> {
+  if (!prepared.headSha || !prepared.coverage) {
+    throw new Error("Cannot publish skipped coverage for an unprepared review");
+  }
+  const token = await installationToken(env);
+  const reviewer = new Reviewer(modelSettings(env, params, token));
+  const currentHead = (await reviewer.getPr()).head.sha;
+  if (currentHead !== prepared.headSha) {
+    throw new Error("PR head changed before skipped coverage could be published");
+  }
+  const existing = await reviewer.existingComment(
+    STATEFUL_REVIEW_MARKER,
+    new Set([env.AI_REVIEW_APP_BOT_LOGIN]),
+  );
+  const statement = coverageStatement(prepared.coverage);
+  const headStatus = [
+    "<!-- ai-review-coverage-head -->",
+    `Head \`${prepared.headSha.slice(0, 12)}\` did not require model review.`,
+  ].join("\n");
+  let body = existing.body;
+  if (body) {
+    const coveragePattern = /\*\*Coverage: (?:Full|Incremental|Skipped) coverage\.\*\*[^\n]*/;
+    body = coveragePattern.test(body)
+      ? body.replace(coveragePattern, statement)
+      : body.replace(
+          "## Stateful AI code review",
+          `## Stateful AI code review\n\n${statement}`,
+        );
+    const headPattern = /<!-- ai-review-coverage-head -->\n[^\n]*/;
+    body = headPattern.test(body)
+      ? body.replace(headPattern, headStatus)
+      : `${body}\n\n${headStatus}`;
+  } else {
+    body = [
+      STATEFUL_REVIEW_MARKER,
+      `<!-- ai-review-cost:${JSON.stringify(existing.state)} -->`,
+      "## Stateful AI code review",
+      "",
+      statement,
+      "",
+      headStatus,
+    ].join("\n");
+  }
+  return {
+    commentId: await reviewer.writeComment(existing.id, body),
+    runCostUsd: 0,
+    findings: [],
   };
 }
 
@@ -1039,6 +1420,7 @@ export async function recordReviewTerminal(options: {
       change: prepared?.changeProfile,
       coverage: prepared
         ? {
+            ...prepared.coverage,
             paths: prepared.paths,
             omitted: prepared.omitted,
           }
@@ -1088,6 +1470,7 @@ export async function completeReview(
     commentId: publication.commentId,
     findingPublications: publication.findings,
     hunks: artifacts.hunks,
+    currentHunks: prepared.allHunks ?? artifacts.hunks,
     findings: artifacts.publishedFindings,
   });
 }

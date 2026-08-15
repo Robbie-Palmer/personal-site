@@ -26,6 +26,7 @@ done
 
 repository="${AI_REVIEW_E2E_REPOSITORY:-Robbie-Palmer/personal-site}"
 pull_request="${AI_REVIEW_E2E_PULL_REQUEST:-}"
+event_mode="${AI_REVIEW_E2E_EVENT_MODE:-full}"
 if [[ -z "$pull_request" ]]; then
   pull_request="$(gh pr view --json number --jq '.number')"
 fi
@@ -34,7 +35,21 @@ if [[ ! "$pull_request" =~ ^[1-9][0-9]*$ ]]; then
   exit 1
 fi
 staging_url="${AI_REVIEW_STAGING_URL:-https://ai-review-staging.robbiepalmer95.workers.dev}"
-delivery_id="staging-e2e-$(date -u +%Y%m%dT%H%M%SZ)-${RANDOM}"
+case "$event_mode" in
+  full)
+    event_name="issue_comment"
+    expected_coverage_mode="full"
+    ;;
+  synchronize)
+    event_name="pull_request"
+    expected_coverage_mode="incremental"
+    ;;
+  *)
+    echo "Cannot run staging E2E: event mode must be full or synchronize." >&2
+    exit 1
+    ;;
+esac
+delivery_id="staging-e2e-${event_mode}-$(date -u +%Y%m%dT%H%M%SZ)-${RANDOM}"
 instance_id="review-${delivery_id}"
 
 temporary_root="${TMPDIR:-/tmp}"
@@ -55,22 +70,34 @@ trap cleanup EXIT INT TERM
 head_sha="$(
   gh api "repos/${repository}/pulls/${pull_request}" --jq '.head.sha'
 )"
-actor="${repository%%/*}"
-jq -n \
-  --arg repository "$repository" \
-  --arg actor "$actor" \
-  --argjson pull_request "$pull_request" \
-  '{
-    action: "created",
-    repository: {full_name: $repository},
-    issue: {number: $pull_request, pull_request: {}},
-    sender: {login: $actor},
-    comment: {
-      body: "/ai-review",
-      author_association: "OWNER",
-      user: {login: $actor}
-    }
-  }' > "$payload_file"
+if [[ "$event_mode" == "full" ]]; then
+  actor="${repository%%/*}"
+  jq -n \
+    --arg repository "$repository" \
+    --arg actor "$actor" \
+    --argjson pull_request "$pull_request" \
+    '{
+      action: "created",
+      repository: {full_name: $repository},
+      issue: {number: $pull_request, pull_request: {}},
+      sender: {login: $actor},
+      comment: {
+        body: "/ai-review",
+        author_association: "OWNER",
+        user: {login: $actor}
+      }
+    }' > "$payload_file"
+else
+  jq -n \
+    --arg repository "$repository" \
+    --arg head_sha "$head_sha" \
+    --argjson pull_request "$pull_request" \
+    '{
+      action: "synchronize",
+      repository: {full_name: $repository},
+      pull_request: {number: $pull_request, head: {sha: $head_sha}}
+    }' > "$payload_file"
+fi
 chmod 600 "$payload_file"
 
 signature="$(
@@ -90,7 +117,7 @@ response="$(
     --request POST \
     --header "content-type: application/json" \
     --header "x-github-delivery: ${delivery_id}" \
-    --header "x-github-event: issue_comment" \
+    --header "x-github-event: ${event_name}" \
     --header "x-hub-signature-256: sha256=${signature}" \
     --data-binary "@${payload_file}" \
     "${staging_url}/webhooks/github"
@@ -123,16 +150,21 @@ if [[ ! -s "$record_file" ]]; then
   exit 1
 fi
 
-jq -e \
+if ! jq -e \
   --arg head_sha "$head_sha" \
+  --arg coverage_mode "$expected_coverage_mode" \
   '
     .schemaVersion == 2
     and .recordType == "review-run-terminal"
     and .status == "published"
     and .headSha == $head_sha
+    and .coverage.mode == $coverage_mode
     and any(.models[]; .role == "scout" and .ok == true)
   ' \
-  "$record_file" >/dev/null
+  "$record_file" >/dev/null; then
+  echo "The staging record did not satisfy the expected review contract." >&2
+  exit 1
+fi
 comment="$(
   gh api "repos/${repository}/issues/${pull_request}/comments" \
     --paginate \
@@ -148,11 +180,33 @@ if ! jq -e \
   echo "The visible stateful comment does not target the expected head." >&2
   exit 1
 fi
+if [[ "$expected_coverage_mode" == "incremental" ]]; then
+  if ! jq -e \
+    '(.coverage.reviewedHunkIds | length > 0)
+     and (.coverage.unchangedHunkIds | length > 0)' \
+    "$record_file" >/dev/null; then
+    echo "Incremental coverage did not include reviewed and unchanged hunks." >&2
+    exit 1
+  fi
+  if ! jq -e \
+    '(.body | gsub("\\\\"; ""))
+     | contains("unchanged hunk(s) were not reviewed again")' \
+    <<<"$comment" >/dev/null; then
+    echo "The visible stateful comment does not explain unchanged coverage." >&2
+    exit 1
+  fi
+fi
 
 jq '{
   status,
   headSha,
   runCostUsd,
+  coverage: {
+    mode: .coverage.mode,
+    totalHunks: .coverage.totalHunks,
+    reviewedHunks: (.coverage.reviewedHunkIds | length),
+    unchangedHunks: (.coverage.unchangedHunkIds | length)
+  },
   findingCount: (.findings.published | length),
   candidateCount: ([.candidates[] | length] | add // 0),
   hunkCount: (.hunks | length),

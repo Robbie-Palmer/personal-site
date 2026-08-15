@@ -11,6 +11,7 @@ const engine = vi.hoisted(() => ({
   mergeFindings: vi.fn(),
   prepareReview: vi.fn(),
   publishReview: vi.fn(),
+  publishSkippedReview: vi.fn(),
   recordReview: vi.fn(),
   recordReviewTerminal: vi.fn(),
   runScouts: vi.fn(),
@@ -118,6 +119,11 @@ beforeEach(() => {
   engine.publishReview.mockResolvedValue({
     commentId: 123,
     runCostUsd: 0.6,
+    findings: [],
+  });
+  engine.publishSkippedReview.mockResolvedValue({
+    commentId: 123,
+    runCostUsd: 0,
     findings: [],
   });
   engine.recordReview.mockResolvedValue(undefined);
@@ -240,6 +246,104 @@ describe("ReviewWorkflow orchestration", () => {
     expect(engine.recordReviewTerminal).toHaveBeenCalledWith(
       expect.objectContaining({ status: "denied" }),
     );
+  });
+
+  it("claims and completes deterministic skipped coverage without invoking models", async () => {
+    const coverage = {
+      mode: "skipped",
+      reason: "all current semantic hunks were covered",
+      totalHunks: 1,
+      reviewedHunkIds: [],
+      unchangedHunkIds: [`h_${"a".repeat(24)}`],
+      skippedHunkIds: [],
+      affectedFindingIds: [],
+      paths: [],
+      skippedPaths: [],
+    };
+    const skippedPrepared = {
+      ...prepared,
+      skipReason: coverage.reason,
+      coverage,
+    };
+    engine.prepareReview.mockResolvedValueOnce(skippedPrepared);
+    const { workflow, step } = fixture();
+
+    await workflow.run(event, step);
+
+    expect(engine.claimReview).toHaveBeenCalledWith(
+      expect.anything(),
+      payload,
+      event.instanceId,
+      skippedPrepared,
+    );
+    expect(engine.runScouts).not.toHaveBeenCalled();
+    expect(engine.publishSkippedReview).toHaveBeenCalledWith(
+      expect.anything(),
+      payload,
+      skippedPrepared,
+    );
+    expect(engine.recordReviewTerminal).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: "skipped",
+        publication: expect.objectContaining({ runCostUsd: 0 }),
+      }),
+    );
+    expect(engine.completeReview).toHaveBeenCalledWith(
+      expect.anything(),
+      payload,
+      event.instanceId,
+      skippedPrepared,
+      { hunks: [], candidates: {}, publishedFindings: [] },
+      expect.objectContaining({ runCostUsd: 0 }),
+    );
+    expect(vi.mocked(step.do).mock.calls.map(([name]) => name)).toEqual([
+      "prepare-review",
+      "claim-skipped-review",
+      "publish-skipped-coverage",
+      "record-skipped-review",
+      "complete-skipped-review-state",
+    ]);
+  });
+
+  it("records a denied skipped review without publishing coverage", async () => {
+    const skippedPrepared = {
+      ...prepared,
+      skipReason: "all current semantic hunks were covered",
+      coverage: {
+        mode: "skipped",
+        reason: "all current semantic hunks were covered",
+        totalHunks: 1,
+        reviewedHunkIds: [],
+        unchangedHunkIds: [`h_${"a".repeat(24)}`],
+        skippedHunkIds: [],
+        affectedFindingIds: [],
+        paths: [],
+        skippedPaths: [],
+      },
+    };
+    engine.prepareReview.mockResolvedValueOnce(skippedPrepared);
+    engine.claimReview.mockResolvedValueOnce({
+      claimed: false,
+      reason: "this content and reviewer configuration were already reviewed",
+      previousState: { runs: 1, total_usd: 0.6 },
+    });
+    const { workflow, step } = fixture();
+
+    await workflow.run(event, step);
+
+    expect(engine.publishSkippedReview).not.toHaveBeenCalled();
+    expect(engine.completeReview).not.toHaveBeenCalled();
+    expect(engine.recordReviewTerminal).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: "denied",
+        reason: "this content and reviewer configuration were already reviewed",
+      }),
+    );
+    expect(vi.mocked(step.do).mock.calls.map(([name]) => name)).toEqual([
+      "prepare-review",
+      "claim-skipped-review",
+      "record-denied-skipped-review",
+    ]);
   });
 
   it("records known model spend before propagating a failure", async () => {

@@ -10,12 +10,14 @@ import {
   claimReview,
   combineScoutRuns,
   completeReview,
+  decideReviewCoverage,
   failReview,
   identifyReviewArtifacts,
   identifyDiffHunks,
   mergeFindings,
   prepareReview,
   publishReview,
+  publishSkippedReview,
   recordReview,
   runScouts,
 } from "../src/review-engine";
@@ -80,6 +82,30 @@ afterEach(() => {
 });
 
 describe("stateful review engine", () => {
+  it("reserves the bounded diff budget for reviewable files", async () => {
+    const ignoredPatch = `@@ -1 +1 @@\n-${"a".repeat(27_000)}\n+${"b".repeat(27_000)}`;
+    const sourcePatch = `@@ -1 +1 @@\n-${"a".repeat(5_000)}\n+${"b".repeat(5_000)}`;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        json([
+          ...Array.from({ length: 5 }, (_, index) => ({
+            filename: `src/client-${index}.generated.ts`,
+            status: "modified",
+            patch: ignoredPatch,
+          })),
+          { filename: "src/app.ts", status: "modified", patch: sourcePatch },
+        ]),
+      ),
+    );
+
+    const changed = await reviewer().changedFiles({ includeIgnored: true });
+
+    expect(changed.paths[0]).toBe("src/app.ts");
+    expect(changed.diff).toContain("diff --git a/src/app.ts b/src/app.ts");
+    expect(changed.omitted).not.toContain("src/app.ts");
+  });
+
   it("batches exact-head file context instead of fetching every path", async () => {
     const paths = Array.from({ length: 37 }, (_, index) => `src/file-${index}.ts`);
     const fetchMock = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
@@ -184,7 +210,7 @@ describe("stateful review engine", () => {
       author_association: "OWNER",
       user: { login: "robbie" },
       head: {
-        sha: params.headSha,
+        sha: HEAD_SHA,
         repo: { full_name: params.repository },
       },
     };
@@ -233,6 +259,236 @@ describe("stateful review engine", () => {
       guidelines: "",
       threads: "",
     });
+  });
+
+  it("skips generated, lockfile, and whitespace-only hunks automatically", async () => {
+    const pullRequest = {
+      state: "open",
+      draft: false,
+      author_association: "OWNER",
+      user: { login: "robbie" },
+      head: {
+        sha: HEAD_SHA,
+        repo: { full_name: params.repository },
+      },
+    };
+    const files = [
+      {
+        filename: "pnpm-lock.yaml",
+        status: "modified",
+        patch: "@@ -1 +1 @@\n-lock: one\n+lock: two",
+      },
+      {
+        filename: "src/client.generated.ts",
+        status: "modified",
+        patch: "@@ -1 +1 @@\n-export const value=1\n+export const value=2",
+      },
+      {
+        filename: "src/app.ts",
+        status: "modified",
+        patch: "@@ -1 +1 @@\n-  export const value = 1\n+    export const value = 1",
+      },
+    ];
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValueOnce(json({ token: "installation-token" }))
+        .mockResolvedValueOnce(json(pullRequest))
+        .mockResolvedValueOnce(json(files)),
+    );
+
+    await expect(prepareReview(environment(), params)).resolves.toMatchObject({
+      skipReason: "no semantic hunks to review",
+      diff: "",
+      coverage: {
+        mode: "skipped",
+        reviewedHunkIds: [],
+        skippedPaths: [
+          "pnpm-lock.yaml",
+          "src/app.ts",
+          "src/client.generated.ts",
+        ],
+      },
+    });
+  });
+
+  it("keeps ignored hunks out of risk escalation but includes them when forced", async () => {
+    const pullRequest = {
+      state: "open",
+      draft: false,
+      author_association: "OWNER",
+      user: { login: "robbie" },
+      head: {
+        sha: HEAD_SHA,
+        ref: "feature",
+        repo: { full_name: params.repository },
+      },
+      labels: [],
+    };
+    const diff =
+      "diff --git a/.github/workflows/deploy.yml b/.github/workflows/deploy.yml\n" +
+      "status modified\n@@ -1 +1 @@\n-old\n+new\n" +
+      "diff --git a/pnpm-lock.yaml b/pnpm-lock.yaml\n" +
+      "status modified\n@@ -1 +1 @@\n-old lock\n+new lock\n";
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(json({ token: "installation-token" })),
+    );
+    vi.spyOn(Reviewer.prototype, "getPr").mockResolvedValue(pullRequest);
+    vi.spyOn(Reviewer.prototype, "changedFiles").mockResolvedValue({
+      diff,
+      paths: [".github/workflows/deploy.yml", "pnpm-lock.yaml"],
+      omitted: [],
+    });
+    vi.spyOn(Reviewer.prototype, "fileContext").mockResolvedValue("");
+    vi.spyOn(Reviewer.prototype, "headGuidelines").mockResolvedValue("");
+    vi.spyOn(Reviewer.prototype, "reviewThreadContext").mockResolvedValue("");
+
+    const automatic = await prepareReview(environment(), params);
+    expect(automatic.coverage).toMatchObject({
+      mode: "full",
+      skippedPaths: ["pnpm-lock.yaml"],
+    });
+    expect(automatic.paths).toEqual([".github/workflows/deploy.yml"]);
+    expect(automatic.diff).not.toContain("pnpm-lock.yaml");
+    expect(automatic.allHunks).toHaveLength(2);
+
+    const forced = await prepareReview(environment(), {
+      ...params,
+      force: true,
+    });
+    expect(forced.paths).toEqual([
+      ".github/workflows/deploy.yml",
+      "pnpm-lock.yaml",
+    ]);
+    expect(forced.diff).toContain("pnpm-lock.yaml");
+  });
+
+  it("treats hunk content beginning with diff-header characters as semantic", async () => {
+    const diff =
+      "diff --git a/config.txt b/config.txt\n" +
+      "status modified\n@@ -1 +1 @@\n----\n++++\n";
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(json({ token: "installation-token" })),
+    );
+    vi.spyOn(Reviewer.prototype, "getPr").mockResolvedValue({
+      state: "open",
+      draft: false,
+      author_association: "OWNER",
+      user: { login: "robbie" },
+      head: {
+        sha: HEAD_SHA,
+        ref: "feature",
+        repo: { full_name: params.repository },
+      },
+      labels: [],
+    });
+    vi.spyOn(Reviewer.prototype, "changedFiles").mockResolvedValue({
+      diff,
+      paths: ["config.txt"],
+      omitted: [],
+    });
+    vi.spyOn(Reviewer.prototype, "fileContext").mockResolvedValue("");
+    vi.spyOn(Reviewer.prototype, "headGuidelines").mockResolvedValue("");
+    vi.spyOn(Reviewer.prototype, "reviewThreadContext").mockResolvedValue("");
+
+    const prepared = await prepareReview(environment(), params);
+
+    expect(prepared.skipReason).toBeUndefined();
+    expect(prepared.coverage).toMatchObject({ mode: "full", totalHunks: 1 });
+    expect(prepared.diff).toContain("----\n++++");
+  });
+
+  it("does not resend an unchanged hunk after synchronize", async () => {
+    const patch =
+      "@@ -1 +1 @@\n-old first\n+reviewed first\n" +
+      "@@ -10 +10 @@\n-old second\n+new second";
+    const fullDiff =
+      `diff --git a/app.ts b/app.ts\nstatus modified\n${patch}\n`;
+    const [reviewedHunk, newHunk] = await identifyDiffHunks(fullDiff);
+    expect(reviewedHunk).toBeDefined();
+    expect(newHunk).toBeDefined();
+
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValueOnce(json({ token: "installation-token" }))
+        .mockResolvedValueOnce(
+          json({
+            state: "open",
+            draft: false,
+            author_association: "OWNER",
+            user: { login: "robbie" },
+            head: {
+              sha: params.headSha,
+              repo: { full_name: params.repository },
+            },
+          }),
+        )
+        .mockResolvedValueOnce(
+          json([{ filename: "app.ts", status: "modified", patch }]),
+        )
+        .mockResolvedValueOnce(
+          json({
+            data: {
+              repository: {
+                file0: {
+                  byteSize: 30,
+                  isBinary: false,
+                  isTruncated: false,
+                  text: "reviewed first\nnew second",
+                },
+              },
+            },
+          }),
+        )
+        .mockResolvedValueOnce(
+          json({
+            encoding: "base64",
+            size: 19,
+            content: Buffer.from("Review correctness.").toString("base64"),
+          }),
+        )
+        .mockResolvedValueOnce(
+          json({
+            data: {
+              repository: { pullRequest: { reviewThreads: { nodes: [] } } },
+            },
+          }),
+        ),
+    );
+    const env = environment();
+    Object.assign(env, {
+      PR_STATE: {
+        idFromName: vi.fn(() => "coordinator-id"),
+        get: vi.fn(() => ({
+          fetch: vi.fn(() =>
+            Promise.resolve(
+              json({
+                headSha: "b".repeat(40),
+                hunkIds: [reviewedHunk!.hunkId],
+                openFindings: [],
+              }),
+            ),
+          ),
+        })),
+      },
+    });
+
+    const prepared = await prepareReview(env, params);
+
+    expect(prepared.coverage).toMatchObject({
+      mode: "incremental",
+      reviewedHunkIds: [newHunk!.hunkId],
+      unchangedHunkIds: [reviewedHunk!.hunkId],
+    });
+    expect(prepared.diff).toContain("+new second");
+    expect(prepared.diff).not.toContain("+reviewed first");
+    expect(prepared.hunks).toEqual([newHunk]);
+    expect(prepared.allHunks).toEqual([reviewedHunk, newHunk]);
   });
 
   it("rejects invalid model configuration before making model calls", async () => {
@@ -568,6 +824,99 @@ describe("stateful review engine", () => {
     ).rejects.toThrow("Cannot record an unprepared review");
   });
 
+  it("publishes skipped coverage without erasing prior fallback findings", async () => {
+    const existingBody = [
+      STATEFUL_REVIEW_MARKER,
+      '<!-- ai-review-cost:{"runs":1,"total_usd":0.1} -->',
+      "## Stateful AI code review",
+      "",
+      "**Coverage: Full coverage.** 1/1 semantic hunk(s) reviewed. Initial.",
+      "",
+      "## Findings without a diff line",
+      "",
+      "- Existing fallback finding",
+    ].join("\n");
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(json({ token: "installation-token" }))
+      .mockResolvedValueOnce(json({ head: { sha: params.headSha } }))
+      .mockResolvedValueOnce(
+        json([
+          {
+            id: 99,
+            user: { login: "robbie-palmer-ai-review[bot]" },
+            body: existingBody,
+          },
+        ]),
+      )
+      .mockResolvedValueOnce(json({}));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const publication = await publishSkippedReview(environment(), params, {
+      headSha: params.headSha,
+      paths: [],
+      omitted: [],
+      coverage: {
+        mode: "skipped",
+        reason: "all current semantic hunks were covered",
+        baselineHeadSha: "b".repeat(40),
+        totalHunks: 1,
+        reviewedHunkIds: [],
+        unchangedHunkIds: [`h_${"a".repeat(24)}`],
+        skippedHunkIds: [],
+        affectedFindingIds: [],
+        paths: [],
+        skippedPaths: [],
+      },
+    });
+
+    expect(publication).toMatchObject({ commentId: 99, runCostUsd: 0 });
+    const update = JSON.parse(
+      String(fetchMock.mock.calls[3]?.[1]?.body),
+    ) as { body: string };
+    expect(update.body).toContain("Coverage: Skipped coverage");
+    expect(update.body).toContain("1 unchanged hunk(s) were not reviewed again");
+    expect(update.body).toContain("<!-- ai-review-coverage-head -->");
+    expect(update.body).toContain("did not require model review");
+    expect(update.body).toContain("Existing fallback finding");
+    expect(update.body).toContain('ai-review-cost:{"runs":1,"total_usd":0.1}');
+  });
+
+  it("rejects unprepared and stale skipped-coverage publication", async () => {
+    await expect(
+      publishSkippedReview(environment(), params, {
+        paths: [],
+        omitted: [],
+      }),
+    ).rejects.toThrow("unprepared review");
+
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValueOnce(json({ token: "installation-token" }))
+        .mockResolvedValueOnce(json({ head: { sha: "b".repeat(40) } })),
+    );
+    await expect(
+      publishSkippedReview(environment(), params, {
+        headSha: params.headSha,
+        paths: [],
+        omitted: [],
+        coverage: {
+          mode: "skipped",
+          reason: "unchanged",
+          totalHunks: 0,
+          reviewedHunkIds: [],
+          unchangedHunkIds: [],
+          skippedHunkIds: [],
+          affectedFindingIds: [],
+          paths: [],
+          skippedPaths: [],
+        },
+      }),
+    ).rejects.toThrow("head changed");
+  });
+
   it("runs and visibly publishes the same OpenRouter plus OpenCode ensemble", async () => {
     const publishedBodies: string[] = [];
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -782,6 +1131,7 @@ describe("stateful review engine", () => {
     expect(publishedBodies[0]).toContain("Reported by: `moonshotai/kimi-k2.6`");
     expect(publishedBodies[1]).toContain(STATEFUL_REVIEW_MARKER);
     expect(publishedBodies[1]).toContain("## Stateful AI code review");
+    expect(publishedBodies[1]).toContain("Coverage: Full coverage");
     expect(put).toHaveBeenCalledOnce();
     const record = JSON.parse(String(put.mock.calls[0]?.[1])) as {
       schemaVersion: number;
@@ -813,6 +1163,66 @@ describe("stateful review engine", () => {
     expect(moved).toHaveLength(1);
     expect(moved[0]?.hunkId).toBe(first[0]?.hunkId);
     expect(moved[0]?.fingerprint).toBe(first[0]?.fingerprint);
+  });
+
+  it("selects risk, affected-finding, and unchanged coverage", () => {
+    const first = {
+      hunkId: `h_${"a".repeat(24)}`,
+      fingerprint: "a".repeat(64),
+      file: "app.ts",
+      oldStart: 1,
+      oldLines: 1,
+      newStart: 1,
+      newLines: 1,
+    };
+    const second = {
+      ...first,
+      hunkId: `h_${"b".repeat(24)}`,
+      fingerprint: "b".repeat(64),
+      newStart: 10,
+    };
+    const baseline = {
+      headSha: "c".repeat(40),
+      hunkIds: [first.hunkId],
+      openFindings: [
+        {
+          findingId: `f_${"d".repeat(24)}`,
+          file: "app.ts",
+          title: "Existing issue",
+          hunkIds: [first.hunkId],
+        },
+      ],
+    };
+
+    expect(
+      decideReviewCoverage({
+        force: false,
+        riskSignals: [],
+        hunks: [first, second],
+        baseline,
+      }),
+    ).toMatchObject({
+      mode: "incremental",
+      reviewedHunkIds: [first.hunkId, second.hunkId],
+      affectedFindingIds: [`f_${"d".repeat(24)}`],
+      paths: ["app.ts"],
+    });
+    expect(
+      decideReviewCoverage({
+        force: false,
+        riskSignals: ["database-schema"],
+        hunks: [first],
+        baseline,
+      }),
+    ).toMatchObject({ mode: "full", reviewedHunkIds: [first.hunkId] });
+    expect(
+      decideReviewCoverage({
+        force: false,
+        riskSignals: [],
+        hunks: [first],
+        baseline: { ...baseline, openFindings: [] },
+      }),
+    ).toMatchObject({ mode: "skipped", reviewedHunkIds: [] });
   });
 
   it("links a merged finding to its published line while retaining its source identity", async () => {
