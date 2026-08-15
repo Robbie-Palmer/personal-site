@@ -156,6 +156,7 @@ require_command gh
 require_command jq
 
 known_environments=(
+  preview-agent-access
   preview-recipe-api
   preview-site-ui
   production-recipe-api
@@ -177,6 +178,7 @@ for requested_environment in "${requested_environments[@]}"; do
   fi
 done
 
+sync_requested_env preview-agent-access ops_preview_agent_access
 sync_requested_env preview-recipe-api stg_recipe_api stg_pages_env
 sync_requested_env preview-site-ui stg_site_ui stg_pages_env
 sync_requested_env production-recipe-api prd_recipe_api prd_site_ui prd_pages_env
