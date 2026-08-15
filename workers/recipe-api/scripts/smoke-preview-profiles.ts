@@ -73,11 +73,12 @@ async function fetchWhenReady(
   path: string,
   init?: RequestInit,
 ): Promise<Response> {
+  const requestURL = previewApiRequestURL(apiURL, path);
   const deadline = Date.now() + READY_TIMEOUT_MS;
   let lastError: unknown;
   while (Date.now() < deadline) {
     try {
-      const response = await fetch(previewApiRequestURL(apiURL, path), {
+      const response = await fetch(requestURL, {
         ...init,
         signal: AbortSignal.timeout(
           Math.min(REQUEST_TIMEOUT_MS, Math.max(1, deadline - Date.now())),

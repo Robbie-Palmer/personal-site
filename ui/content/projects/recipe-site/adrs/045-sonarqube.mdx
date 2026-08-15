@@ -53,9 +53,10 @@ results land in GitHub and there is no external console to monitor day to day.
 * Full analysis runs: TS/JS bug detection, security rules, security hotspots, cognitive
   complexity, cross-file duplication, and maintainability. Nothing is switched off to avoid
   overlap with CodeQL (see [On Double Gating](#on-double-gating)).
-* The free plan permits only Sonar's built-in quality gate. It blocks on new reliability, security,
-  maintainability, duplication, security-hotspot-review, and coverage failures. A Team subscription
-  solely to remove the coverage condition is not worth the recurring platform cost.
+* The free plan permits only the built-in "Sonar way" quality gate associated with this project. It
+  blocks on new reliability, security, maintainability, duplication, security-hotspot-review, and
+  coverage failures. A Team subscription solely to remove the coverage condition is not worth the
+  recurring platform cost.
 * Main-branch analysis supplies the root package version as `sonar.projectVersion`, matching the
   project's "previous version" new-code definition. It changes only at deliberate release
   boundaries, not on every CI build or commit. Pull-request analysis continues to define new code
@@ -233,15 +234,15 @@ aimed at agent-authored code.
   every future service in the monorepo.
 * [Respect Goodhart's & Conway's Laws](/projects?tab=philosophy#respect-goodharts-and-conways-laws).
   Maintainability ratings, and coverage especially, are Goodhart targets that an agent can farm
-  rather than satisfy honestly. The free built-in gate makes those metrics blocking, so the
+  rather than satisfy honestly. The free "Sonar way" gate makes those metrics blocking, so the
   countermeasure is an honest, explicit release boundary and a rule against threshold-driven source
   exclusions or low-value tests.
 
 # Gaps & Risks
 
-* The free built-in gate cannot be tuned. Its maintainability, duplication, and coverage conditions
-  can slow delivery or encourage metric gaming; the project accepts that risk instead of paying for
-  a Team subscription solely to customize the gate.
+* The free "Sonar way" gate cannot be tuned. Its maintainability, duplication, and coverage
+  conditions can slow delivery or encourage metric gaming; the project accepts that risk instead
+  of paying for a Team subscription solely to customize the gate.
 * The dashboard still exists. The GitHub App keeps the daily loop in the PR, but findings are
   computed on Sonar's side, so an outage or a free-tier change affects the check. This is the same
   vendor risk as Renovate ([ADR 020](/projects/recipe-site/adrs/020-renovate)).
