@@ -39,6 +39,16 @@ description = "Run UI integration tests"
 run = "pnpm test:integration"
 depends = ["//ui:build"]
 
+[tasks."test:e2e:preview"]
+description = "Run Playwright realtime QA against an authenticated PR preview"
+depends = ["//ui:install"]
+run = "pnpm test:e2e:preview"
+
+[tasks."test:e2e:install"]
+description = "Install Chromium for Playwright preview tests"
+depends = ["//ui:install"]
+run = "pnpm exec playwright install chromium"
+
 [tasks."test:watch"]
 description = "Run tests in watch mode"
 depends = ["//ui:install"]

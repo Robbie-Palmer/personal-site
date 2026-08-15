@@ -21,6 +21,8 @@ ui/public/recipes/typos-dictionary.tsv.version
 # Testing
 coverage/
 lighthouse-reports/
+playwright-report/
+test-results/
 .pnpm-approved-builds.json
 
 # Environment variables
