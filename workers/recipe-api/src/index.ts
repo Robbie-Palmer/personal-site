@@ -74,7 +74,6 @@ import {
 } from "./notifications";
 import { fetchRecipePage, RecipeUrlImportError } from "./recipe-url-import";
 import {
-  HouseholdRealtimeRoom,
   type PantryChangeKind,
   type PantryRealtimeEvent,
   REALTIME_AUTHORIZATION_LIFETIME_MS,
@@ -606,17 +605,18 @@ function successResponsesFor(
   const responses: RouteConfig["responses"] = {};
 
   for (const status of statuses) {
-    responses[status] =
-      status === 101
-        ? { description: successDescription(status) }
-        : status === 204
-        ? { description: "Successful response with no content" }
-        : {
-            description: successDescription(status),
-            content: {
-              "application/json": { schema: jsonResponseSchema },
-            },
-          };
+    if (status === 101) {
+      responses[status] = { description: successDescription(status) };
+    } else if (status === 204) {
+      responses[status] = { description: "Successful response with no content" };
+    } else {
+      responses[status] = {
+        description: successDescription(status),
+        content: {
+          "application/json": { schema: jsonResponseSchema },
+        },
+      };
+    }
   }
 
   return responses;
@@ -1480,6 +1480,11 @@ async function executePantryOperation(
 
 const PANTRY_PUBLICATION_ATTEMPTS = 2;
 
+function randomUnitInterval(): number {
+  const [sample] = crypto.getRandomValues(new Uint32Array(1));
+  return (sample ?? 0) / 0x1_0000_0000;
+}
+
 async function publishPantryChange(
   env: Bindings,
   pantry: PantryResponse,
@@ -1518,7 +1523,7 @@ async function publishPantryChange(
       lastError = error;
     }
     if (attempt < PANTRY_PUBLICATION_ATTEMPTS) {
-      const jitterMs = 20 + Math.floor(Math.random() * 41);
+      const jitterMs = 20 + Math.floor(randomUnitInterval() * 41);
       await new Promise((resolve) => setTimeout(resolve, jitterMs));
     }
   }
@@ -5172,7 +5177,8 @@ registerRoute("get", "/recipe-imports/:jobId", async (c) => {
   );
 });
 
-export { app, HouseholdRealtimeRoom };
+export { HouseholdRealtimeRoom } from "./realtime-room";
+export { app };
 
 // Idle rate-limit keys and pantry idempotency receipts do not need permanent
 // storage. The daily sweep retains both for at least the longest retry window.

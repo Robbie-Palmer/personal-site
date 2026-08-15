@@ -15,6 +15,11 @@ type ActiveHouseholdPantry = {
   resourceId: string;
 };
 
+function randomUnitInterval(): number {
+  const [sample] = crypto.getRandomValues(new Uint32Array(1));
+  return (sample ?? 0) / 0x1_0000_0000;
+}
+
 function activeHouseholdPantry(
   queryClient: QueryClient,
   userId: string | null,
@@ -107,7 +112,9 @@ export function PantryRealtimeBoundary() {
     const scheduleReconnect = () => {
       if (disposed || reconnectTimer || !navigator.onLine) return;
       const baseDelay = Math.min(1_000 * 2 ** reconnectAttempt, 30_000);
-      const jitteredDelay = Math.round(baseDelay * (0.8 + Math.random() * 0.4));
+      const jitteredDelay = Math.round(
+        baseDelay * (0.8 + randomUnitInterval() * 0.4),
+      );
       reconnectAttempt += 1;
       reconnectTimer = setTimeout(() => {
         reconnectTimer = undefined;
@@ -131,7 +138,7 @@ export function PantryRealtimeBoundary() {
       socket.addEventListener("message", (event) => {
         if (typeof event.data !== "string") return;
         const message = parsePantryRealtimeMessage(event.data);
-        if (!message || message.resourceId !== activePantry.resourceId) return;
+        if (message?.resourceId !== activePantry.resourceId) return;
         if (message.type === "subscription.ready") {
           recover();
           return;

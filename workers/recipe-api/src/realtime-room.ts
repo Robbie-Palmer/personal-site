@@ -213,8 +213,7 @@ export class HouseholdRealtimeRoom {
     for (const socket of this.ctx.getWebSockets("pantry")) {
       const attachment = attachmentFor(socket);
       if (
-        !attachment ||
-        attachment.resourceId !== event.resourceId ||
+        attachment?.resourceId !== event.resourceId ||
         attachment.authorizationExpiresAt <= Date.now()
       ) {
         disconnected += 1;

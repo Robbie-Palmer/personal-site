@@ -42,6 +42,11 @@ class FakeWebSocket extends EventTarget {
     this.readyState = FakeWebSocket.CLOSED;
   }
 
+  disconnect(): void {
+    this.readyState = FakeWebSocket.CLOSED;
+    this.dispatchEvent(new Event("close"));
+  }
+
   receive(value: unknown): void {
     this.dispatchEvent(
       new MessageEvent("message", { data: JSON.stringify(value) }),
@@ -66,6 +71,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  vi.restoreAllMocks();
   vi.unstubAllGlobals();
 });
 
@@ -131,6 +137,88 @@ describe("PantryRealtimeBoundary", () => {
     });
     await Promise.resolve();
     expect(queryFn).toHaveBeenCalledTimes(2);
+    view.unmount();
+  });
+
+  it("recovers on subscription readiness and immediately reconnects online", async () => {
+    vi.spyOn(window.navigator, "onLine", "get").mockReturnValue(true);
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    const queryFn = vi
+      .fn<() => Promise<Pantry>>()
+      .mockResolvedValueOnce(pantry("1"))
+      .mockResolvedValue(pantry("2"));
+
+    function PantryObserver() {
+      useQuery({
+        ...pantryQuery("user-1"),
+        queryFn,
+        refetchInterval: false,
+      });
+      return null;
+    }
+
+    const view = render(
+      <QueryClientProvider client={queryClient}>
+        <PantryRealtimeBoundary />
+        <PantryObserver />
+      </QueryClientProvider>,
+    );
+
+    await waitFor(() => expect(FakeWebSocket.instances).toHaveLength(1));
+    const initialSocket = FakeWebSocket.instances[0];
+    if (!initialSocket) throw new Error("Expected realtime socket");
+    initialSocket.receive({
+      type: "subscription.ready",
+      resourceType: "pantry",
+      resourceId: "household-1",
+    });
+
+    await waitFor(() => expect(queryFn).toHaveBeenCalledTimes(2));
+    initialSocket.disconnect();
+    window.dispatchEvent(new Event("online"));
+
+    await waitFor(() => {
+      expect(FakeWebSocket.instances).toHaveLength(2);
+      expect(queryFn).toHaveBeenCalledTimes(3);
+    });
+    view.unmount();
+  });
+
+  it("does not subscribe while the observed pantry is personal", async () => {
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    const personalPantry: Pantry = {
+      ...pantry("1"),
+      resourceId: "user-1",
+      scope: { type: "personal" },
+    };
+
+    function PantryObserver() {
+      useQuery({
+        ...pantryQuery("user-1"),
+        queryFn: () => Promise.resolve(personalPantry),
+        refetchInterval: false,
+      });
+      return null;
+    }
+
+    const view = render(
+      <QueryClientProvider client={queryClient}>
+        <PantryRealtimeBoundary />
+        <PantryObserver />
+      </QueryClientProvider>,
+    );
+
+    await waitFor(() => {
+      expect(
+        queryClient.getQueryData<Pantry>(recipeQueryKeys.pantry("user-1"))
+          ?.scope.type,
+      ).toBe("personal");
+    });
+    expect(FakeWebSocket.instances).toHaveLength(0);
     view.unmount();
   });
 });
