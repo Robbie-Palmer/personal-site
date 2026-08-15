@@ -3,14 +3,23 @@
 // preview database, then exercises the deployed Worker without bypassing
 // Cloudflare Access on the Pages UI.
 import { createDb } from "recipe-db";
+import { z } from "zod";
 import { createAuth } from "../src/auth";
 import { previewScenarios } from "../src/preview-scenarios";
+import {
+  previewApiOriginSchema,
+  previewApiRequestURL,
+} from "./preview-api-url";
 
-function requiredEnv(name: string): string {
-  const value = process.env[name];
-  if (!value) throw new Error(`${name} is required`);
-  return value;
-}
+const smokeEnvSchema = z.object({
+  DATABASE_URL: z.string().min(1),
+  BETTER_AUTH_URL: z
+    .httpUrl()
+    .refine((value) => new URL(value).protocol === "https:"),
+  BETTER_AUTH_SECRET: z.string().min(1),
+  PREVIEW_API_URL: previewApiOriginSchema,
+  PREVIEW_AUTH_PASSWORD: z.string().min(1),
+});
 
 type RecipeBoxProfile = {
   completed: boolean;
@@ -61,9 +70,8 @@ type DiscoverFeed = {
   items: Array<{ recipe: { slug: string }; author: { id: string } }>;
 };
 
-const databaseURL = requiredEnv("DATABASE_URL");
-const siteURL = requiredEnv("BETTER_AUTH_URL");
-const apiURL = requiredEnv("PREVIEW_API_URL").replace(/\/$/, "");
+const env = smokeEnvSchema.parse(process.env);
+const apiURL = env.PREVIEW_API_URL;
 const READY_TIMEOUT_MS = 120_000;
 const REQUEST_TIMEOUT_MS = 15_000;
 const RETRY_DELAY_MS = 2_000;
@@ -72,11 +80,12 @@ async function fetchWhenReady(
   path: string,
   init?: RequestInit,
 ): Promise<Response> {
+  const requestURL = previewApiRequestURL(apiURL, path);
   const deadline = Date.now() + READY_TIMEOUT_MS;
   let lastError: unknown;
   while (Date.now() < deadline) {
     try {
-      const response = await fetch(`${apiURL}${path}`, {
+      const response = await fetch(requestURL, {
         ...init,
         signal: AbortSignal.timeout(
           Math.min(REQUEST_TIMEOUT_MS, Math.max(1, deadline - Date.now())),
@@ -128,17 +137,17 @@ async function expectAuthenticationRequired(path: string): Promise<void> {
 async function createSessionCookie(
   email: string = previewScenarios[0].email,
 ): Promise<string> {
-  const { db, client } = createDb(databaseURL);
+  const { db, client } = createDb(env.DATABASE_URL);
   try {
     const auth = createAuth(db, {
       DEPLOYMENT_ENV: "preview",
-      BETTER_AUTH_URL: siteURL,
-      BETTER_AUTH_SECRET: requiredEnv("BETTER_AUTH_SECRET"),
+      BETTER_AUTH_URL: env.BETTER_AUTH_URL,
+      BETTER_AUTH_SECRET: env.BETTER_AUTH_SECRET,
     });
     const signIn = await auth.api.signInEmail({
       body: {
         email,
-        password: requiredEnv("PREVIEW_AUTH_PASSWORD"),
+        password: env.PREVIEW_AUTH_PASSWORD,
       },
       asResponse: true,
     });
@@ -380,7 +389,7 @@ if (!emptyInitialFollow.canFollow || emptyInitialFollow.following) {
 const emptyFollowed = await expectJson<FollowStatus>(
   `/recipes/cooks/${ownerCook.id}/follow`,
   cookie,
-  { method: "PUT", headers: { origin: siteURL } },
+  { method: "PUT", headers: { origin: env.BETTER_AUTH_URL } },
 );
 if (!emptyFollowed.following) {
   throw new Error("Empty account could not follow the household owner");
@@ -388,7 +397,7 @@ if (!emptyFollowed.following) {
 const emptyUnfollowed = await expectJson<FollowStatus>(
   `/recipes/cooks/${ownerCook.id}/follow`,
   cookie,
-  { method: "DELETE", headers: { origin: siteURL } },
+  { method: "DELETE", headers: { origin: env.BETTER_AUTH_URL } },
 );
 if (emptyUnfollowed.following) {
   throw new Error("Empty account could not clean up its preview follow");
