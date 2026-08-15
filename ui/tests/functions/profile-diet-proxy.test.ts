@@ -141,6 +141,30 @@ describe("household proxy", () => {
 });
 
 describe("pantry proxy", () => {
+  it("preserves a same-origin realtime WebSocket upgrade", async () => {
+    const fetchMock = vi.fn(async (_request: Request) => new Response("ok"));
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+    const response = await onPantryRequest({
+      request: new Request("https://robbiepalmer.me/api/pantry/realtime", {
+        headers: { origin: "https://robbiepalmer.me", upgrade: "websocket" },
+      }),
+      env: { RECIPE_API_URL: "https://recipe-api.example.test" },
+    });
+
+    expect(response.status).toBe(200);
+    const forwarded = fetchMock.mock.calls[0]?.[0];
+    expect(forwarded).toBeInstanceOf(Request);
+    if (!(forwarded instanceof Request)) {
+      throw new Error("Expected pantry proxy to forward a Request");
+    }
+    expect(forwarded.url).toBe(
+      "https://recipe-api.example.test/pantry/realtime",
+    );
+    expect(forwarded.headers.get("upgrade")).toBe("websocket");
+    expect(forwarded.headers.get("origin")).toBe("https://robbiepalmer.me");
+  });
+
   it("maps pantry item requests and query parameters to the Worker URL", async () => {
     const fetchMock = vi.fn(async (_request: Request) => new Response("ok"));
     globalThis.fetch = fetchMock as unknown as typeof fetch;

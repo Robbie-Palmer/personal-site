@@ -28,6 +28,16 @@ required = [
 # The preview workflow injects the isolated Neon branch's pooled DATABASE_URL
 # as a Worker secret instead of binding production Hyperdrive.
 
+# Because each PR deploys a uniquely named Worker, this binding and its room
+# namespace cannot join production or another preview's household rooms.
+[[durable_objects.bindings]]
+name = "HOUSEHOLD_REALTIME"
+class_name = "HouseholdRealtimeRoom"
+
+[exports.HouseholdRealtimeRoom]
+type = "durable-object"
+storage = "sqlite"
+
 [[r2_buckets]]
 binding = "ARTIFACTS"
 bucket_name = "recipe-artifacts-preview"

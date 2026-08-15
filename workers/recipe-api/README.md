@@ -59,6 +59,22 @@ OAuth is intentionally disabled in PR previews. The preview workflow seeds
 test scenarios and configures Better Auth's password support only for a
 server-side scenario endpoint guarded by Cloudflare Access.
 
+## Household realtime
+
+`GET /pantry/realtime` upgrades authenticated household members to the
+`HouseholdRealtimeRoom` Durable Object derived from their household ID. The
+outer Worker validates the same-origin request, session, and current membership
+before it creates a short-lived server-authored room context. Pantry writes
+still commit through HTTP and Neon; after commit, the shared mutation path
+publishes only the resource ID, decimal revision, operation ID, and change kind.
+
+The Pages pantry proxy preserves the browser's same-origin WebSocket upgrade.
+Local Next.js rewrites use the same path. Production and each uniquely named PR
+preview Worker have separate Durable Object namespaces, so preview sockets
+cannot enter production rooms. Realtime delivery is best-effort: the browser
+refetches the canonical pantry on subscription, reconnect, newer revision, and
+the existing visibility-aware repair interval.
+
 ## Rate limiting
 
 Rate limiting is layered, with counters in Postgres.
