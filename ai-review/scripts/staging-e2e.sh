@@ -150,7 +150,7 @@ if [[ ! -s "$record_file" ]]; then
   exit 1
 fi
 
-jq -e \
+if ! jq -e \
   --arg head_sha "$head_sha" \
   --arg coverage_mode "$expected_coverage_mode" \
   '
@@ -161,7 +161,10 @@ jq -e \
     and .coverage.mode == $coverage_mode
     and any(.models[]; .role == "scout" and .ok == true)
   ' \
-  "$record_file" >/dev/null
+  "$record_file" >/dev/null; then
+  echo "The staging record did not satisfy the expected review contract." >&2
+  exit 1
+fi
 comment="$(
   gh api "repos/${repository}/issues/${pull_request}/comments" \
     --paginate \
@@ -178,14 +181,16 @@ if ! jq -e \
   exit 1
 fi
 if [[ "$expected_coverage_mode" == "incremental" ]]; then
-  jq -e \
-    '.coverage.reviewedHunkIds | length > 0' \
-    "$record_file" >/dev/null
-  jq -e \
-    '.coverage.unchangedHunkIds | length > 0' \
-    "$record_file" >/dev/null
   if ! jq -e \
-    '.body | contains("unchanged hunk(s) were not reviewed again")' \
+    '(.coverage.reviewedHunkIds | length > 0)
+     and (.coverage.unchangedHunkIds | length > 0)' \
+    "$record_file" >/dev/null; then
+    echo "Incremental coverage did not include reviewed and unchanged hunks." >&2
+    exit 1
+  fi
+  if ! jq -e \
+    '(.body | gsub("\\\\"; ""))
+     | contains("unchanged hunk(s) were not reviewed again")' \
     <<<"$comment" >/dev/null; then
     echo "The visible stateful comment does not explain unchanged coverage." >&2
     exit 1
