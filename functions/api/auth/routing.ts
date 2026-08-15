@@ -81,7 +81,9 @@ const FORWARDED_REQUEST_HEADERS = [
   "traceparent",
   "tracestate",
   "referer",
+  "sec-websocket-protocol",
   "user-agent",
+  "upgrade",
   "x-posthog-distinct-id",
   "x-posthog-session-id",
   "x-forwarded-for",
@@ -188,7 +190,16 @@ export async function proxyRecipeApiRequest(
   destinationUrl.search = url.search;
   const destination = destinationUrl.toString();
   const headers = new Headers();
+  const isWebSocketUpgrade =
+    context.request.method === "GET" &&
+    context.request.headers.get("upgrade")?.toLowerCase() === "websocket";
   for (const name of FORWARDED_REQUEST_HEADERS) {
+    if (
+      !isWebSocketUpgrade &&
+      (name === "upgrade" || name === "sec-websocket-protocol")
+    ) {
+      continue;
+    }
     const value = context.request.headers.get(name);
     if (value) headers.set(name, value);
   }

@@ -4091,6 +4091,80 @@ describe("pantry mutation flows", () => {
     expect(dbMock.state.pantryItems).toEqual([]);
   });
 
+  it("publishes the committed household revision through one derived room", async () => {
+    seedHousehold();
+    const operationId = "0198f1f0-1111-7111-8111-111111111111";
+    const roomFetch = vi.fn(
+      (_input: RequestInfo | URL, _init?: RequestInit) =>
+        Promise.resolve(Response.json({ delivered: 1, disconnected: 0 })),
+    );
+    const realtime = {
+      idFromName: vi.fn(() => ({ household: HOUSEHOLD_ID })),
+      get: vi.fn(() => ({ fetch: roomFetch })),
+    } as unknown as DurableObjectNamespace;
+
+    const response = await app.request(
+      "/pantry/items/onion",
+      {
+        method: "PUT",
+        headers: { ...mutationHeaders, "idempotency-key": operationId },
+        body: JSON.stringify({ location: "fresh" }),
+      },
+      { ...env, HOUSEHOLD_REALTIME: realtime },
+    );
+
+    expect(response.status).toBe(200);
+    expect(realtime.idFromName).toHaveBeenCalledWith(HOUSEHOLD_ID);
+    const publishRequest = roomFetch.mock.calls[0]?.[0];
+    expect(publishRequest).toBe("https://household-realtime/publish");
+    const publishInit = roomFetch.mock.calls[0]?.[1];
+    expect(JSON.parse(String(publishInit?.body))).toEqual({
+      event: {
+        type: "resource.changed",
+        resourceType: "pantry",
+        resourceId: HOUSEHOLD_ID,
+        revision: "1",
+        operationId,
+        changeKind: "pantry.item-set",
+      },
+      authorizedUserIds: ["owner-user", "member-user"],
+    });
+    expect(publishInit?.signal).toBeInstanceOf(AbortSignal);
+  });
+
+  it("keeps a committed mutation successful when publication retries fail", async () => {
+    seedHousehold();
+    const roomFetch = vi.fn(
+      (_input: RequestInfo | URL, _init?: RequestInit) =>
+        Promise.reject(new Error("room unavailable")),
+    );
+    const realtime = {
+      idFromName: vi.fn(() => ({ household: HOUSEHOLD_ID })),
+      get: vi.fn(() => ({ fetch: roomFetch })),
+    } as unknown as DurableObjectNamespace;
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    try {
+      const response = await app.request(
+        "/pantry/items/onion",
+        {
+          method: "PUT",
+          headers: mutationHeaders,
+          body: JSON.stringify({ location: "fresh" }),
+        },
+        { ...env, HOUSEHOLD_REALTIME: realtime },
+      );
+
+      expect(response.status).toBe(200);
+      expect(roomFetch).toHaveBeenCalledTimes(2);
+      expect(consoleError).toHaveBeenCalledWith(
+        expect.stringContaining("Pantry realtime publication failed"),
+      );
+    } finally {
+      consoleError.mockRestore();
+    }
+  });
+
   it("restores only missing household pantry items", async () => {
     seedHousehold();
 
@@ -4268,6 +4342,103 @@ describe("pantry mutation flows", () => {
 });
 
 describe("household membership flows", () => {
+  it("routes an authenticated household member to the derived realtime room", async () => {
+    seedHousehold();
+    authzMock.session = sessionFor({
+      id: "member-user",
+      email: "member@example.test",
+      name: "Member",
+    });
+    const roomFetch = vi.fn((_request: Request) =>
+      Promise.resolve(new Response(null)),
+    );
+    const roomId = { household: HOUSEHOLD_ID };
+    const realtime = {
+      idFromName: vi.fn(() => roomId),
+      get: vi.fn(() => ({ fetch: roomFetch })),
+    } as unknown as DurableObjectNamespace;
+
+    const response = await app.request(
+      "/pantry/realtime",
+      {
+        headers: {
+          origin: "http://localhost:3000",
+          upgrade: "websocket",
+          "x-realtime-user-id": "attacker-controlled",
+        },
+      },
+      { ...env, HOUSEHOLD_REALTIME: realtime },
+    );
+
+    expect(response.status).toBe(200);
+    expect(realtime.idFromName).toHaveBeenCalledWith(HOUSEHOLD_ID);
+    expect(roomFetch).toHaveBeenCalledOnce();
+    const request = roomFetch.mock.calls[0]?.[0];
+    expect(request).toBeInstanceOf(Request);
+    if (!(request instanceof Request)) throw new Error("Expected room request");
+    expect(request.headers.get("x-realtime-user-id")).toBe("member-user");
+    expect(request.headers.get("x-realtime-resource-id")).toBe(HOUSEHOLD_ID);
+  });
+
+  it("rejects realtime upgrades from another origin", async () => {
+    const response = await app.request(
+      "/pantry/realtime",
+      { headers: { origin: "https://attacker.test", upgrade: "websocket" } },
+      { ...env, HOUSEHOLD_REALTIME: {} as DurableObjectNamespace },
+    );
+
+    expect(response.status).toBe(403);
+    await expect(response.json()).resolves.toEqual({
+      error: "Realtime origin is not allowed",
+    });
+  });
+
+  it("canonicalizes the realtime origin before comparing it", async () => {
+    seedHousehold();
+    authzMock.session = sessionFor({
+      id: "member-user",
+      email: "member@example.test",
+      name: "Member",
+    });
+    const roomFetch = vi.fn(() => Promise.resolve(new Response(null)));
+    const realtime = {
+      idFromName: vi.fn(() => ({ household: HOUSEHOLD_ID })),
+      get: vi.fn(() => ({ fetch: roomFetch })),
+    } as unknown as DurableObjectNamespace;
+
+    const response = await app.request(
+      "/pantry/realtime",
+      { headers: { origin: "HTTP://LOCALHOST:3000", upgrade: "websocket" } },
+      { ...env, HOUSEHOLD_REALTIME: realtime },
+    );
+
+    expect(response.status).toBe(200);
+    expect(roomFetch).toHaveBeenCalledOnce();
+  });
+
+  it("does not create a collaborative room for a solo pantry", async () => {
+    authzMock.session = sessionFor({
+      id: "solo-user",
+      email: "solo@example.test",
+      name: "Solo",
+    });
+    const response = await app.request(
+      "/pantry/realtime",
+      {
+        headers: {
+          origin: "http://localhost:3000",
+          upgrade: "websocket",
+        },
+      },
+      { ...env, HOUSEHOLD_REALTIME: {} as DurableObjectNamespace },
+    );
+
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toEqual({
+      error: "Realtime pantry updates require a household",
+    });
+  });
+
   it("returns the same household pantry to every member", async () => {
     seedHousehold();
     dbMock.state.pantryItems.push({

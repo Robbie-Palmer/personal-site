@@ -515,6 +515,19 @@ representative hosted alternative with
 
 # Rollout
 
+## Implementation Spike Status
+
+The first candidate is a raw `HouseholdRealtimeRoom` Durable Object in the existing `recipe-api`
+Worker. It exercises authenticated upgrade routing, hibernatable socket attachments, bounded
+authorization alarms, and post-commit invalidation broadcasts without changing the protocol or
+making the room canonical.
+
+This candidate is not a transport-framework decision. Automated tests cover the raw implementation,
+but PartyKit has not yet been implemented and neither candidate has completed comparative manual
+preview QA. The spike must still deploy and exercise the PartyKit alternative described below, then
+record the evidence and selection. Until that comparison is complete, the raw implementation is a
+candidate rather than the preferred approach.
+
 1. **Canonical domain model:** add household pantry and shopping-list aggregates, row versions,
    aggregate revisions, explicit commands, idempotency constraints, and transactional authorization.
 2. **Correct request/response UX:** implement TanStack Query reads and mutations, canonical mutation
