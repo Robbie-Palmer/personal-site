@@ -135,9 +135,13 @@ instruction cannot disclose the credential to another origin.
 The narrowly scoped service-token identity does not expire: extending an expiry
 does not rotate its secret and creates an avoidable outage deadline. The
 `Rotate Preview Agent Access Token` workflow performs the real credential
-rotation every three months, writes the new pair directly to `dev_agent`, and
-keeps the previous secret valid for seven days so already-running agents drain
-cleanly. It can also be run on demand:
+rotation every three months. It first places the previous secret behind a
+long-lived recovery guard, writes and reads back the new pair in `dev_agent`,
+and only then shortens the overlap to seven days so already-running agents drain
+cleanly. If the cross-service update is interrupted, the previous credential
+continues to work and later runs refuse to rotate over the unfinished guard;
+inspect and repair the Cloudflare/Doppler state before clearing it. The workflow
+can also be run on demand:
 
 ```bash
 gh workflow run rotate-preview-access-token.yml

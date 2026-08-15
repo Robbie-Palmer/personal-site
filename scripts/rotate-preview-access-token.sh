@@ -8,6 +8,21 @@ set -euo pipefail
 doppler_project="${DOPPLER_PROJECT:-personal-site}"
 doppler_config="${DOPPLER_AGENT_CONFIG:-dev_agent}"
 service_token_name="${CF_ACCESS_SERVICE_TOKEN_NAME:-personal-site-preview-qa-agents}"
+recovery_guard_expires_at="2099-12-31T23:59:59Z"
+rotation_guard_active=false
+
+cleanup() {
+  local exit_status="$?"
+  unset client_secret rotation_response doppler_payload stored_credentials overlap_payload
+
+  if [[ "$rotation_guard_active" == true ]]; then
+    echo "Rotation did not finalize; the previously stored secret remains valid under the recovery guard." >&2
+    echo "Do not rotate again until the guarded state has been inspected and repaired." >&2
+  fi
+
+  return "$exit_status"
+}
+trap cleanup EXIT
 
 if date -u -d "+7 days" +"%Y-%m-%dT%H:%M:%SZ" >/dev/null 2>&1; then
   previous_secret_expires_at=$(date -u -d "+7 days" +"%Y-%m-%dT%H:%M:%SZ")
@@ -43,10 +58,20 @@ if [[ "$match_count" -ne 1 ]]; then
 fi
 
 service_token_id=$(jq -r --arg name "$service_token_name" '.result[] | select(.name == $name) | .id' <<<"$service_tokens")
+existing_previous_secret_expires_at=$(jq -r \
+  --arg name "$service_token_name" \
+  '.result[] | select(.name == $name) | .previous_client_secret_expires_at // empty' \
+  <<<"$service_tokens")
+
+if [[ "$existing_previous_secret_expires_at" == 2099-12-31T23:59:59* ]]; then
+  echo "Refusing to rotate over an unfinished recovery guard for '$service_token_name'." >&2
+  echo "Inspect the Cloudflare token and Doppler credentials before clearing the guard." >&2
+  exit 1
+fi
 
 rotation_payload=$(jq -nc \
-  --arg previous_secret_expires_at "$previous_secret_expires_at" \
-  '{previous_client_secret_expires_at: $previous_secret_expires_at}')
+  --arg recovery_guard_expires_at "$recovery_guard_expires_at" \
+  '{previous_client_secret_expires_at: $recovery_guard_expires_at}')
 rotation_response=$(printf '%s' "$rotation_payload" | curl \
   --disable \
   --fail \
@@ -57,6 +82,7 @@ rotation_response=$(printf '%s' "$rotation_payload" | curl \
   --header "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
   --header "Content-Type: application/json" \
   --data-binary @-)
+rotation_guard_active=true
 
 client_id=$(jq -er '.result.client_id' <<<"$rotation_response")
 client_secret=$(jq -er '.result.client_secret' <<<"$rotation_response")
@@ -101,10 +127,25 @@ stored_credentials=$(curl \
 if [[ "$(jq -r '.CF_ACCESS_CLIENT_ID' <<<"$stored_credentials")" != "$client_id" ]] || \
   [[ "$(jq -r '.CF_ACCESS_CLIENT_SECRET' <<<"$stored_credentials")" != "$client_secret" ]]; then
   echo "Doppler did not return the newly rotated Access credentials." >&2
-  echo "The previous secret remains valid until $previous_secret_expires_at." >&2
   exit 1
 fi
 
-unset client_secret rotation_response doppler_payload stored_credentials
+overlap_payload=$(jq -nc \
+  --arg previous_secret_expires_at "$previous_secret_expires_at" \
+  '{previous_client_secret_expires_at: $previous_secret_expires_at}')
+printf '%s' "$overlap_payload" | curl \
+  --disable \
+  --fail \
+  --silent \
+  --show-error \
+  --output /dev/null \
+  --request PUT \
+  --url "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/access/service_tokens/$service_token_id" \
+  --header "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+  --header "Content-Type: application/json" \
+  --data-binary @-
+rotation_guard_active=false
+
+unset client_secret rotation_response doppler_payload stored_credentials overlap_payload
 echo "Rotated '$service_token_name' and updated $doppler_project/$doppler_config."
 echo "The previous secret remains valid until $previous_secret_expires_at."
