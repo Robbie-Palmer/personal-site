@@ -583,6 +583,47 @@ export class PullRequestCoordinator extends DurableObject<Env> {
     return inserted.rowsWritten > 0;
   }
 
+  private appendConfirmedFixOutcome(options: {
+    repository: string;
+    pullRequestNumber: number;
+    runId: string;
+    headSha: string;
+    completedAt: string;
+    finding: IdentifiedMergedFinding;
+  }): void {
+    if (options.finding.status !== "resolved") return;
+    const persisted = this.ctx.storage.sql
+      .exec<{
+        first_seen_head_sha: string;
+        first_seen_run_id: string;
+      }>(
+        `SELECT first_seen_head_sha, first_seen_run_id
+         FROM review_findings WHERE finding_id = ?`,
+        options.finding.findingId,
+      )
+      .toArray()[0];
+    if (!persisted || persisted.first_seen_head_sha === options.headSha) return;
+
+    this.appendFindingOutcome({
+      repository: options.repository,
+      pullRequestNumber: options.pullRequestNumber,
+      findingId: options.finding.findingId,
+      outcome: "confirmed-fixed",
+      basis: "later-reviewed-head",
+      sourceId: `review:${options.runId}:${options.finding.findingId}`,
+      occurredAt: options.completedAt,
+      recordedAt: options.completedAt,
+      evidence: {
+        firstSeenHeadSha: persisted.first_seen_head_sha,
+        firstSeenRunId: persisted.first_seen_run_id,
+        outcomeHeadSha: options.headSha,
+        outcomeRunId: options.runId,
+        hunkIds: options.finding.hunkIds,
+        resolutionNote: options.finding.resolution_note,
+      },
+    });
+  }
+
   private async flushFindingOutcomes(
     repository: string,
     pullRequestNumber: number,
@@ -1255,6 +1296,7 @@ export class PullRequestCoordinator extends DurableObject<Env> {
     const currentHunks = (body.currentHunks ?? body.hunks) as ReviewHunk[];
     const completionRepository = body.repository;
     const completionPullRequestNumber = body.pullRequestNumber;
+    const completionRunId = body.runId;
     const completionHeadSha = body.headSha;
     const completionHunkIds = new Set(
       reviewedHunks.map(({ hunkId }) => hunkId),
@@ -1387,41 +1429,14 @@ export class PullRequestCoordinator extends DurableObject<Env> {
             hunkId,
           );
         }
-        if (finding.status === "resolved") {
-          const persisted = this.ctx.storage.sql
-            .exec<{
-              first_seen_head_sha: string;
-              first_seen_run_id: string;
-            }>(
-              `SELECT first_seen_head_sha, first_seen_run_id
-               FROM review_findings WHERE finding_id = ?`,
-              finding.findingId,
-            )
-            .toArray()[0];
-          if (
-            persisted &&
-            persisted.first_seen_head_sha !== body.headSha
-          ) {
-            this.appendFindingOutcome({
-              repository: completionRepository,
-              pullRequestNumber: completionPullRequestNumber,
-              findingId: finding.findingId,
-              outcome: "confirmed-fixed",
-              basis: "later-reviewed-head",
-              sourceId: `review:${body.runId}:${finding.findingId}`,
-              occurredAt: completedAt,
-              recordedAt: completedAt,
-              evidence: {
-                firstSeenHeadSha: persisted.first_seen_head_sha,
-                firstSeenRunId: persisted.first_seen_run_id,
-                outcomeHeadSha: body.headSha,
-                outcomeRunId: body.runId,
-                hunkIds: finding.hunkIds,
-                resolutionNote: finding.resolution_note,
-              },
-            });
-          }
-        }
+        this.appendConfirmedFixOutcome({
+          repository: completionRepository,
+          pullRequestNumber: completionPullRequestNumber,
+          runId: completionRunId,
+          headSha: completionHeadSha,
+          completedAt,
+          finding,
+        });
       }
       for (const publication of findingPublications) {
         if (publication.delivery !== "line" || publication.commentId === undefined) {
@@ -1779,6 +1794,17 @@ function acceptedWebhookEvent(
   return undefined;
 }
 
+function coordinatorPathForEvent(
+  event:
+    | ReviewWorkflowParams
+    | FindingInteractionEvent
+    | PullRequestFinalizationEvent,
+): "/events" | "/interactions" | "/finalizations" {
+  if ("interactionType" in event) return "/interactions";
+  if ("finalState" in event) return "/finalizations";
+  return "/events";
+}
+
 async function handleGitHubWebhook(request: Request, env: Env): Promise<Response> {
   const bodyResult = await readWebhookBody(request);
   if ("response" in bodyResult) return bodyResult.response;
@@ -1829,13 +1855,7 @@ async function handleGitHubWebhook(request: Request, env: Env): Promise<Response
   if (!allowedRepository || event.repository.trim().toLowerCase() !== allowedRepository) {
     return json({ error: "Repository is not allowed" }, 403);
   }
-  const coordinatorPath =
-    "interactionType" in event
-      ? "/interactions"
-      : "finalState" in event
-        ? "/finalizations"
-        : "/events";
-  return forwardToCoordinator(event, env, coordinatorPath);
+  return forwardToCoordinator(event, env, coordinatorPathForEvent(event));
 }
 
 export default {

@@ -55,6 +55,17 @@ const findingInteraction = {
   occurredAt: "2026-08-09T12:00:00Z",
 } as const;
 
+const pullRequestFinalization = {
+  deliveryId: "finalization-delivery-1",
+  eventName: "pull_request",
+  action: "closed",
+  repository: event.repository,
+  pullRequestNumber: event.pullRequestNumber,
+  headSha: event.headSha,
+  finalState: "merged",
+  occurredAt: "2026-08-15T12:00:00Z",
+} as const;
+
 afterEach(() => {
   vi.unstubAllGlobals();
 });
@@ -63,10 +74,11 @@ function coordinatorFixture(existingDeliveries: string[] = []) {
   const sqlExec = vi.fn(
     (
       query: string,
+      ..._params: unknown[]
     ): { rowsWritten: number; toArray: () => unknown[] } => ({
       rowsWritten: 1,
       toArray: () =>
-        query.startsWith("SELECT") &&
+        query.includes("FROM webhook_deliveries") &&
         existingDeliveries.includes(event.deliveryId)
           ? [{ delivery_id: event.deliveryId }]
           : [],
@@ -418,6 +430,71 @@ describe("PullRequestCoordinator", () => {
     ).toBe(true);
   });
 
+  it("records a confirmed fix from a later reviewed head", async () => {
+    const { coordinator, put, sqlExec } = coordinatorFixture();
+    const resolvedFinding = {
+      ...identifiedFinding,
+      status: "resolved",
+      resolution_note: "Fixed in the later head",
+    };
+    const priorHeadSha = "1".repeat(40);
+    const pendingOutcome = JSON.stringify({
+      schemaVersion: 2,
+      recordType: "finding-outcome",
+      outcomeVersion: 1,
+      findingId: resolvedFinding.findingId,
+      outcome: "confirmed-fixed",
+    });
+    sqlExec.mockImplementation((query: string) => ({
+      rowsWritten: 1,
+      toArray: () => {
+        if (query.includes("SELECT first_seen_head_sha")) {
+          return [{
+            first_seen_head_sha: priorHeadSha,
+            first_seen_run_id: "earlier-run",
+          }];
+        }
+        if (query.includes("WHERE r2_recorded = 0")) {
+          return [{
+            finding_id: resolvedFinding.findingId,
+            outcome_version: 1,
+            payload_json: pendingOutcome,
+          }];
+        }
+        return [];
+      },
+    }));
+
+    const response = await coordinator.fetch(
+      new Request("https://coordinator.test/reviews/complete", {
+        method: "POST",
+        body: JSON.stringify({
+          repository: event.repository,
+          pullRequestNumber: event.pullRequestNumber,
+          runId: "later-run",
+          headSha: event.headSha,
+          costUsd: 0.25,
+          hunks: [identifiedHunk],
+          findings: [resolvedFinding],
+        }),
+      }),
+    );
+
+    await expect(response.json()).resolves.toEqual({ completed: true });
+    expect(put).toHaveBeenCalledWith(
+      expect.stringContaining(
+        `/findings/${resolvedFinding.findingId}/outcomes/v1.json`,
+      ),
+      pendingOutcome,
+      { httpMetadata: { contentType: "application/json" } },
+    );
+    expect(
+      sqlExec.mock.calls.some(([query]) =>
+        String(query).includes("outcome, basis, source_id"),
+      ),
+    ).toBe(true);
+  });
+
   it("records finding dispositions in SQLite and append-only evidence", async () => {
     const { coordinator, put, sqlExec } = coordinatorFixture();
     sqlExec.mockImplementation((query: string) => ({
@@ -450,6 +527,122 @@ describe("PullRequestCoordinator", () => {
         String(query).includes("SET disposition = ?"),
       ),
     ).toBe(true);
+  });
+
+  it("finalizes and flushes outstanding finding outcomes", async () => {
+    const { coordinator, put, sqlExec } = coordinatorFixture();
+    const removedFindingId = `f_${"d".repeat(24)}`;
+    const removedHunkId = `h_${"e".repeat(24)}`;
+    const findings = [
+      {
+        finding_id: identifiedFinding.findingId,
+        status: "open",
+        disposition: null,
+        disposition_reason: null,
+        first_seen_head_sha: "1".repeat(40),
+        last_seen_head_sha: event.headSha,
+        first_seen_run_id: "initial-run",
+        last_seen_run_id: "latest-run",
+      },
+      {
+        finding_id: removedFindingId,
+        status: "open",
+        disposition: null,
+        disposition_reason: null,
+        first_seen_head_sha: "1".repeat(40),
+        last_seen_head_sha: "1".repeat(40),
+        first_seen_run_id: "initial-run",
+        last_seen_run_id: "initial-run",
+      },
+    ];
+    const pendingOutcomes = findings.map((finding) => ({
+      finding_id: finding.finding_id,
+      outcome_version: 1,
+      payload_json: JSON.stringify({
+        schemaVersion: 2,
+        recordType: "finding-outcome",
+        outcomeVersion: 1,
+        findingId: finding.finding_id,
+      }),
+    }));
+    sqlExec.mockImplementation((query: string, ...params: unknown[]) => ({
+      rowsWritten: 1,
+      toArray: () => {
+        if (query.includes("FROM review_runs")) {
+          return [{ run_id: "latest-run", head_sha: event.headSha }];
+        }
+        if (query.includes("FROM review_run_hunks")) {
+          return [{ hunk_id: identifiedHunk.hunkId }];
+        }
+        if (query.includes("FROM review_findings ORDER BY")) return findings;
+        if (query.includes("FROM review_finding_hunks")) {
+          return [{
+            hunk_id:
+              params[0] === identifiedFinding.findingId
+                ? identifiedHunk.hunkId
+                : removedHunkId,
+          }];
+        }
+        if (query.includes("WHERE r2_recorded = 0")) return pendingOutcomes;
+        return [];
+      },
+    }));
+
+    const response = await coordinator.fetch(
+      new Request("https://coordinator.test/finalizations", {
+        method: "POST",
+        body: JSON.stringify(pullRequestFinalization),
+      }),
+    );
+
+    await expect(response.json()).resolves.toEqual({
+      accepted: true,
+      duplicate: false,
+      outcomes: 2,
+    });
+    expect(put).toHaveBeenCalledTimes(2);
+    expect(put).toHaveBeenCalledWith(
+      expect.stringContaining(
+        `/findings/${identifiedFinding.findingId}/outcomes/v1.json`,
+      ),
+      pendingOutcomes[0]?.payload_json,
+      { httpMetadata: { contentType: "application/json" } },
+    );
+    expect(put).toHaveBeenCalledWith(
+      expect.stringContaining(
+        `/findings/${removedFindingId}/outcomes/v1.json`,
+      ),
+      pendingOutcomes[1]?.payload_json,
+      { httpMetadata: { contentType: "application/json" } },
+    );
+  });
+
+  it("rejects malformed finalizations and deduplicates recorded ones", async () => {
+    const invalid = coordinatorFixture();
+    const invalidResponse = await invalid.coordinator.fetch(
+      new Request("https://coordinator.test/finalizations", {
+        method: "POST",
+        body: "{}",
+      }),
+    );
+    expect(invalidResponse.status).toBe(400);
+
+    const duplicate = coordinatorFixture([event.deliveryId]);
+    const duplicateResponse = await duplicate.coordinator.fetch(
+      new Request("https://coordinator.test/finalizations", {
+        method: "POST",
+        body: JSON.stringify({
+          ...pullRequestFinalization,
+          deliveryId: event.deliveryId,
+        }),
+      }),
+    );
+    await expect(duplicateResponse.json()).resolves.toEqual({
+      accepted: true,
+      duplicate: true,
+      outcomes: 0,
+    });
+    expect(duplicate.put).not.toHaveBeenCalled();
   });
 
   it("deduplicates finding evidence and rejects unknown findings", async () => {
