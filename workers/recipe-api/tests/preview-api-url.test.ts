@@ -14,11 +14,21 @@ describe("previewApiRequestURL", () => {
 
   it.each([
     "households/safe-id/members",
+    " //attacker.example.test/collect",
+    "\n//attacker.example.test/collect",
+    "/\t/attacker.example.test/collect",
+    "/\0/attacker.example.test/collect",
     "//attacker.example.test/collect",
     "https://attacker.example.test/collect",
   ])("rejects a request path outside the root-relative boundary: %s", (path) => {
     expect(() => previewApiRequestURL(apiURL, path)).toThrow(
       "Preview API path must be root-relative",
     );
+  });
+
+  it("rejects URL normalization that changes the request origin", () => {
+    expect(() =>
+      previewApiRequestURL(apiURL, "/\\attacker.example.test/collect"),
+    ).toThrow("Preview API URL must stay on https://preview-api.example.test");
   });
 });
