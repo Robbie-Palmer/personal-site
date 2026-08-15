@@ -85,7 +85,15 @@ function realtimeURL(): URL {
 
 function parseMessage(data: RawData): unknown {
   try {
-    return JSON.parse(data.toString());
+    let text: string;
+    if (Array.isArray(data)) {
+      text = Buffer.concat(data).toString("utf8");
+    } else if (data instanceof ArrayBuffer) {
+      text = Buffer.from(data).toString("utf8");
+    } else {
+      text = Buffer.from(data).toString("utf8");
+    }
+    return JSON.parse(text);
   } catch {
     return undefined;
   }
