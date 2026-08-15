@@ -2,23 +2,20 @@ import { describe, expect, it } from "vitest";
 import {
   buildFindingOutcomeRecord,
   classifyFinalizedFinding,
+  confirmsFindingFixed,
 } from "../src/finding-outcomes";
 
 describe("finding outcomes", () => {
   it.each([
-    ["acknowledged", "open", "a", "a", false, true, "acknowledged"],
-    ["rejected", "open", "a", "a", false, true, "rejected"],
-    [null, "resolved", "a", "b", true, true, "confirmed-fixed"],
-    [null, "open", "a", "a", true, false, "superseded"],
-    [null, "open", "a", "a", true, true, "no-observable-response"],
-    [null, "open", "a", "a", false, false, "no-observable-response"],
+    ["acknowledged", false, true, "acknowledged"],
+    ["rejected", false, true, "rejected"],
+    [null, true, false, "superseded"],
+    [null, true, true, "no-observable-response"],
+    [null, false, false, "no-observable-response"],
   ])(
-    "classifies disposition=%s status=%s final coverage=%s",
+    "classifies disposition=%s final coverage=%s",
     (
       disposition,
-      status,
-      firstSeenHeadSha,
-      lastSeenHeadSha,
       finalHeadWasReviewed,
       affectedCodeRemains,
       expected,
@@ -26,15 +23,44 @@ describe("finding outcomes", () => {
       expect(
         classifyFinalizedFinding({
           disposition,
-          status,
-          firstSeenHeadSha,
-          lastSeenHeadSha,
           finalHeadWasReviewed,
           affectedCodeRemains,
         }),
       ).toBe(expected);
     },
   );
+
+  it("confirms a fix only when changed affected code is not rediscovered", () => {
+    const baseline = {
+      alreadyConfirmed: false,
+      rediscovered: false,
+      firstSeenHeadSha: "a",
+      reviewedHeadSha: "b",
+      file: "app.ts",
+      priorHunkIds: ["old-hunk"],
+      currentHunkIds: new Set(["new-hunk"]),
+      reviewedFiles: new Set(["app.ts"]),
+    };
+    expect(confirmsFindingFixed(baseline)).toBe(true);
+    expect(confirmsFindingFixed({ ...baseline, rediscovered: true })).toBe(false);
+    expect(confirmsFindingFixed({
+      ...baseline,
+      currentHunkIds: new Set(["old-hunk"]),
+    })).toBe(false);
+    expect(confirmsFindingFixed({
+      ...baseline,
+      reviewedFiles: new Set(["other.ts"]),
+    })).toBe(false);
+    expect(confirmsFindingFixed({
+      ...baseline,
+      alreadyConfirmed: true,
+    })).toBe(false);
+    expect(confirmsFindingFixed({
+      ...baseline,
+      reviewedHeadSha: "a",
+    })).toBe(false);
+    expect(confirmsFindingFixed({ ...baseline, priorHunkIds: [] })).toBe(false);
+  });
 
   it("builds a portable versioned record", () => {
     expect(

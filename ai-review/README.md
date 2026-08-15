@@ -179,13 +179,17 @@ disposition and timestamps without mutating earlier evidence.
 
 `review_finding_outcomes` turns that evidence into a versioned evaluation
 label. An explicit acknowledgement or rejection creates an outcome immediately.
-When a later reviewed head resolves an existing finding, the coordinator adds a
-higher-confidence `confirmed-fixed` outcome linked to the original and resolving
-heads, runs, hunk IDs, and merger resolution note. On `pull_request.closed`, any
-finding without an outcome becomes `superseded` when the final reviewed diff no
-longer contains its affected hunks, or `no-observable-response` otherwise. The
-closure evidence records whether the final head was actually reviewed so censored
-outcomes remain distinguishable from complete coverage.
+When a later review covers the finding's file after its affected hunks change
+and does not rediscover the finding, the coordinator adds a higher-confidence
+`confirmed-fixed` outcome linked to the original and confirming heads, runs, and
+hunk IDs. A manually resolved GitHub thread is not fix evidence by itself. On
+`pull_request.closed`, any finding without an outcome becomes `superseded` when
+the final reviewed diff no longer contains its affected hunks, or
+`no-observable-response` otherwise. A legacy finding with a persisted explicit
+disposition but no outcome row receives the matching `acknowledged` or
+`rejected` label. The closure evidence records whether the final head was
+actually reviewed so censored outcomes remain distinguishable from complete
+coverage.
 
 Outcome revisions are immutable schema-v2 objects at
 `v2/<owner>/<repository>/pr-<number>/findings/<finding-id>/outcomes/v<version>.json`.

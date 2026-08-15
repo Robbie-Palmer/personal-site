@@ -15,6 +15,7 @@ import type {
 import {
   buildFindingOutcomeRecord,
   classifyFinalizedFinding,
+  confirmsFindingFixed,
   type FindingOutcomeBasis,
 } from "./finding-outcomes";
 import type { FindingPublication } from "./finding-lifecycle";
@@ -48,6 +49,16 @@ import {
 const JSON_HEADERS = {
   "cache-control": "no-store",
   "content-type": "application/json; charset=utf-8",
+};
+const OUTCOME_FLUSH_CONCURRENCY = 20;
+const OUTCOME_FLUSH_LIMIT = 100;
+type FindingOutcomeCandidate = {
+  findingId: string;
+  file: string;
+  firstSeenHeadSha: string;
+  firstSeenRunId: string;
+  hunkIds: string[];
+  alreadyConfirmed: boolean;
 };
 const CREATE_WEBHOOK_DELIVERIES_TABLE =
   "CREATE TABLE IF NOT EXISTS webhook_deliveries (" +
@@ -401,8 +412,10 @@ function isPullRequestFinalizationEvent(
     event.pullRequestNumber > 0 &&
     typeof event.headSha === "string" &&
     event.headSha.length > 0 &&
+    event.headSha.length <= 64 &&
     (event.finalState === "merged" || event.finalState === "closed") &&
-    (event.occurredAt === undefined || typeof event.occurredAt === "string")
+    (event.occurredAt === undefined ||
+      (typeof event.occurredAt === "string" && event.occurredAt.length <= 64))
   );
 }
 
@@ -583,45 +596,90 @@ export class PullRequestCoordinator extends DurableObject<Env> {
     return inserted.rowsWritten > 0;
   }
 
-  private appendConfirmedFixOutcome(options: {
+  private findingOutcomeCandidates(
+    reviewedFiles: Set<string>,
+  ): FindingOutcomeCandidate[] {
+    return this.ctx.storage.sql
+      .exec<{
+        finding_id: string;
+        file_path: string;
+        first_seen_head_sha: string;
+        first_seen_run_id: string;
+      }>(
+        `SELECT finding_id, file_path, first_seen_head_sha, first_seen_run_id
+         FROM review_findings ORDER BY finding_id`,
+      )
+      .toArray()
+      .filter((finding) => reviewedFiles.has(finding.file_path))
+      .map((finding) => ({
+        findingId: finding.finding_id,
+        file: finding.file_path,
+        firstSeenHeadSha: finding.first_seen_head_sha,
+        firstSeenRunId: finding.first_seen_run_id,
+        hunkIds: this.ctx.storage.sql
+          .exec<{ hunk_id: string }>(
+            `SELECT hunk_id FROM review_finding_hunks
+             WHERE finding_id = ? ORDER BY hunk_id`,
+            finding.finding_id,
+          )
+          .toArray()
+          .map(({ hunk_id }) => hunk_id),
+        alreadyConfirmed:
+          this.ctx.storage.sql
+            .exec<{ outcome: string }>(
+              `SELECT outcome FROM review_finding_outcomes
+               WHERE finding_id = ? ORDER BY outcome_version DESC LIMIT 1`,
+              finding.finding_id,
+            )
+            .toArray()[0]?.outcome === "confirmed-fixed",
+      }));
+  }
+
+  private appendConfirmedFixOutcomes(options: {
     repository: string;
     pullRequestNumber: number;
     runId: string;
     headSha: string;
     completedAt: string;
-    finding: IdentifiedMergedFinding;
+    candidates: FindingOutcomeCandidate[];
+    currentFindingIds: Set<string>;
+    currentHunkIds: Set<string>;
+    reviewedFiles: Set<string>;
   }): void {
-    if (options.finding.status !== "resolved") return;
-    const persisted = this.ctx.storage.sql
-      .exec<{
-        first_seen_head_sha: string;
-        first_seen_run_id: string;
-      }>(
-        `SELECT first_seen_head_sha, first_seen_run_id
-         FROM review_findings WHERE finding_id = ?`,
-        options.finding.findingId,
-      )
-      .toArray()[0];
-    if (!persisted || persisted.first_seen_head_sha === options.headSha) return;
-
-    this.appendFindingOutcome({
-      repository: options.repository,
-      pullRequestNumber: options.pullRequestNumber,
-      findingId: options.finding.findingId,
-      outcome: "confirmed-fixed",
-      basis: "later-reviewed-head",
-      sourceId: `review:${options.runId}:${options.finding.findingId}`,
-      occurredAt: options.completedAt,
-      recordedAt: options.completedAt,
-      evidence: {
-        firstSeenHeadSha: persisted.first_seen_head_sha,
-        firstSeenRunId: persisted.first_seen_run_id,
-        outcomeHeadSha: options.headSha,
-        outcomeRunId: options.runId,
-        hunkIds: options.finding.hunkIds,
-        resolutionNote: options.finding.resolution_note,
-      },
-    });
+    for (const candidate of options.candidates) {
+      if (
+        !confirmsFindingFixed({
+          alreadyConfirmed: candidate.alreadyConfirmed,
+          rediscovered: options.currentFindingIds.has(candidate.findingId),
+          firstSeenHeadSha: candidate.firstSeenHeadSha,
+          reviewedHeadSha: options.headSha,
+          file: candidate.file,
+          priorHunkIds: candidate.hunkIds,
+          currentHunkIds: options.currentHunkIds,
+          reviewedFiles: options.reviewedFiles,
+        })
+      ) {
+        continue;
+      }
+      this.appendFindingOutcome({
+        repository: options.repository,
+        pullRequestNumber: options.pullRequestNumber,
+        findingId: candidate.findingId,
+        outcome: "confirmed-fixed",
+        basis: "later-reviewed-head",
+        sourceId: `review:${options.runId}:${candidate.findingId}`,
+        occurredAt: options.completedAt,
+        recordedAt: options.completedAt,
+        evidence: {
+          confirmation: "not-rediscovered-after-affected-code-change",
+          firstSeenHeadSha: candidate.firstSeenHeadSha,
+          firstSeenRunId: candidate.firstSeenRunId,
+          outcomeHeadSha: options.headSha,
+          outcomeRunId: options.runId,
+          priorHunkIds: candidate.hunkIds,
+        },
+      });
+    }
   }
 
   private async flushFindingOutcomes(
@@ -636,27 +694,52 @@ export class PullRequestCoordinator extends DurableObject<Env> {
       }>(
         `SELECT finding_id, outcome_version, payload_json
          FROM review_finding_outcomes WHERE r2_recorded = 0
-         ORDER BY finding_id, outcome_version`,
+         ORDER BY finding_id, outcome_version LIMIT ?`,
+        OUTCOME_FLUSH_LIMIT,
       )
       .toArray();
-    for (const outcome of pending) {
-      const key = [
-        "v2",
-        repository,
-        `pr-${pullRequestNumber}`,
-        "findings",
-        outcome.finding_id,
-        "outcomes",
-        `v${outcome.outcome_version}.json`,
-      ].join("/");
-      await this.env.REVIEW_DATA.put(key, outcome.payload_json, {
-        httpMetadata: { contentType: "application/json" },
-      });
-      this.ctx.storage.sql.exec(
-        `UPDATE review_finding_outcomes SET r2_recorded = 1
-         WHERE finding_id = ? AND outcome_version = ?`,
-        outcome.finding_id,
-        outcome.outcome_version,
+    let recorded = 0;
+    for (
+      let index = 0;
+      index < pending.length;
+      index += OUTCOME_FLUSH_CONCURRENCY
+    ) {
+      const batch = pending.slice(index, index + OUTCOME_FLUSH_CONCURRENCY);
+      const results = await Promise.all(
+        batch.map(async (outcome) => {
+          const key = [
+            "v2",
+            repository,
+            `pr-${pullRequestNumber}`,
+            "findings",
+            outcome.finding_id,
+            "outcomes",
+            `v${outcome.outcome_version}.json`,
+          ].join("/");
+          try {
+            await this.env.REVIEW_DATA.put(key, outcome.payload_json, {
+              httpMetadata: { contentType: "application/json" },
+            });
+          } catch (error) {
+            console.error("Could not publish a finding outcome", {
+              type: errorType(error),
+            });
+            return false;
+          }
+          this.ctx.storage.sql.exec(
+            `UPDATE review_finding_outcomes SET r2_recorded = 1
+             WHERE finding_id = ? AND outcome_version = ?`,
+            outcome.finding_id,
+            outcome.outcome_version,
+          );
+          return true;
+        }),
+      );
+      recorded += results.filter(Boolean).length;
+    }
+    if (pending.length === OUTCOME_FLUSH_LIMIT && recorded > 0) {
+      this.ctx.waitUntil(
+        this.flushFindingOutcomes(repository, pullRequestNumber),
       );
     }
   }
@@ -994,7 +1077,6 @@ export class PullRequestCoordinator extends DurableObject<Env> {
       const findings = this.ctx.storage.sql
         .exec<{
           finding_id: string;
-          status: string;
           disposition: string | null;
           disposition_reason: string | null;
           first_seen_head_sha: string;
@@ -1002,7 +1084,7 @@ export class PullRequestCoordinator extends DurableObject<Env> {
           first_seen_run_id: string;
           last_seen_run_id: string;
         }>(
-          `SELECT finding_id, status, disposition, disposition_reason,
+          `SELECT finding_id, disposition, disposition_reason,
                   first_seen_head_sha, last_seen_head_sha,
                   first_seen_run_id, last_seen_run_id
            FROM review_findings ORDER BY finding_id`,
@@ -1032,9 +1114,6 @@ export class PullRequestCoordinator extends DurableObject<Env> {
         );
         const outcome = classifyFinalizedFinding({
           disposition: finding.disposition,
-          status: finding.status,
-          firstSeenHeadSha: finding.first_seen_head_sha,
-          lastSeenHeadSha: finding.last_seen_head_sha,
           finalHeadWasReviewed,
           affectedCodeRemains,
         });
@@ -1308,6 +1387,9 @@ export class PullRequestCoordinator extends DurableObject<Env> {
     const completionFindingsById = new Map(
       completionFindings.map((finding) => [finding.findingId, finding]),
     );
+    const completionReviewedFiles = new Set(
+      reviewedHunks.map(({ file }) => file),
+    );
     const findingPublications = (body.findingPublications ??
       []) as FindingPublication[];
     if (
@@ -1371,6 +1453,9 @@ export class PullRequestCoordinator extends DurableObject<Env> {
           completionHash,
         );
       }
+      const outcomeCandidates = this.findingOutcomeCandidates(
+        completionReviewedFiles,
+      );
       for (const hunk of currentHunks) {
         this.ctx.storage.sql.exec(
           `INSERT INTO review_hunks
@@ -1429,15 +1514,18 @@ export class PullRequestCoordinator extends DurableObject<Env> {
             hunkId,
           );
         }
-        this.appendConfirmedFixOutcome({
-          repository: completionRepository,
-          pullRequestNumber: completionPullRequestNumber,
-          runId: completionRunId,
-          headSha: completionHeadSha,
-          completedAt,
-          finding,
-        });
       }
+      this.appendConfirmedFixOutcomes({
+        repository: completionRepository,
+        pullRequestNumber: completionPullRequestNumber,
+        runId: completionRunId,
+        headSha: completionHeadSha,
+        completedAt,
+        candidates: outcomeCandidates,
+        currentFindingIds: new Set(completionFindingsById.keys()),
+        currentHunkIds: new Set(currentHunksById.keys()),
+        reviewedFiles: completionReviewedFiles,
+      });
       for (const publication of findingPublications) {
         if (publication.delivery !== "line" || publication.commentId === undefined) {
           continue;

@@ -50,9 +50,6 @@ export function buildFindingOutcomeRecord(options: {
 
 export function classifyFinalizedFinding(options: {
   disposition: string | null;
-  status: string;
-  firstSeenHeadSha: string;
-  lastSeenHeadSha: string;
   finalHeadWasReviewed: boolean;
   affectedCodeRemains: boolean;
 }): FindingOutcome {
@@ -62,13 +59,33 @@ export function classifyFinalizedFinding(options: {
   ) {
     return options.disposition;
   }
-  if (
-    options.status === "resolved" &&
-    options.firstSeenHeadSha !== options.lastSeenHeadSha
-  ) {
-    return "confirmed-fixed";
-  }
   return options.finalHeadWasReviewed && !options.affectedCodeRemains
     ? "superseded"
     : "no-observable-response";
+}
+
+export function confirmsFindingFixed(options: {
+  alreadyConfirmed: boolean;
+  rediscovered: boolean;
+  firstSeenHeadSha: string;
+  reviewedHeadSha: string;
+  file: string;
+  priorHunkIds: string[];
+  currentHunkIds: Set<string>;
+  reviewedFiles: Set<string>;
+}): boolean {
+  if (
+    options.alreadyConfirmed ||
+    options.rediscovered ||
+    options.firstSeenHeadSha === options.reviewedHeadSha ||
+    options.priorHunkIds.length === 0
+  ) {
+    return false;
+  }
+  if (
+    options.priorHunkIds.some((hunkId) => options.currentHunkIds.has(hunkId))
+  ) {
+    return false;
+  }
+  return options.reviewedFiles.has(options.file);
 }

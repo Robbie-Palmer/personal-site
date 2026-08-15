@@ -42,8 +42,9 @@ describe("parseReviewEvent", () => {
     expect(
       parseReviewEvent("pull_request", "delivery-1", {
         action: "synchronize",
+        number: 816,
         repository: { full_name: "Robbie-Palmer/personal-site" },
-        pull_request: { number: 816, head: { sha: "abc123" } },
+        pull_request: { head: { sha: "abc123" } },
       }),
     ).toEqual({
       kind: "accepted",
@@ -97,8 +98,9 @@ describe("parseReviewEvent", () => {
       expect(
         parseReviewEvent("pull_request", "delivery-missing-sha", {
           action: "synchronize",
+          number: 816,
           repository: { full_name: "Robbie-Palmer/personal-site" },
-          pull_request: { number: 816, head: { sha } },
+          pull_request: { head: { sha } },
         }),
       ).toEqual({ kind: "invalid", reason: "Malformed webhook payload" });
     }
@@ -217,9 +219,9 @@ describe("parsePullRequestFinalization", () => {
       expect(
         parsePullRequestFinalization("pull_request", `closed-${merged}`, {
           action: "closed",
+          number: 816,
           repository: { full_name: "Robbie-Palmer/personal-site" },
           pull_request: {
-            number: 816,
             merged,
             closed_at: "2026-08-15T12:00:00Z",
             head: { sha: "abc123" },
@@ -245,8 +247,21 @@ describe("parsePullRequestFinalization", () => {
     expect(
       parsePullRequestFinalization("pull_request", "delivery", {
         action: "closed",
+        number: 816,
         repository: { full_name: "Robbie-Palmer/personal-site" },
-        pull_request: { number: 816, head: { sha: "abc123" } },
+        pull_request: { head: { sha: "abc123" } },
+      }),
+    ).toEqual({ kind: "invalid", reason: "Malformed webhook payload" });
+    expect(
+      parsePullRequestFinalization("pull_request", "delivery", {
+        action: "closed",
+        number: 816,
+        repository: { full_name: "Robbie-Palmer/personal-site" },
+        pull_request: {
+          merged: true,
+          closed_at: "not-a-timestamp",
+          head: { sha: "abc123" },
+        },
       }),
     ).toEqual({ kind: "invalid", reason: "Malformed webhook payload" });
     expect(
@@ -363,8 +378,9 @@ describe("parseFindingInteraction", () => {
     expect(
       parseReviewEvent("pull_request", "x".repeat(256), {
         action: "opened",
+        number: 816,
         repository: { full_name: "Robbie-Palmer/personal-site" },
-        pull_request: { number: 816, head: { sha: "abc123" } },
+        pull_request: { head: { sha: "abc123" } },
       }),
     ).toEqual({ kind: "invalid", reason: "Malformed webhook payload" });
     expect(

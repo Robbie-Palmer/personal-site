@@ -58,6 +58,7 @@ export async function verifyGitHubSignature(
 
 type GitHubWebhook = {
   action?: unknown;
+  number?: unknown;
   repository?: {
     full_name?: unknown;
   };
@@ -152,6 +153,15 @@ function positiveInteger(value: unknown): number | undefined {
     value > 0
     ? value
     : undefined;
+}
+
+function isIsoTimestamp(value: unknown): value is string {
+  return (
+    typeof value === "string" &&
+    value.length <= 64 &&
+    /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?Z$/.test(value) &&
+    !Number.isNaN(Date.parse(value))
+  );
 }
 
 function actorIsTrusted(event: GitHubWebhook, repository: string): boolean {
@@ -389,8 +399,9 @@ export function parsePullRequestFinalization(
     return { kind: "ignored", reason: "unsupported-event" };
   }
   const repository = event.repository?.full_name;
-  const pullRequestNumber = positiveInteger(event.pull_request?.number);
+  const pullRequestNumber = positiveInteger(event.number);
   const headSha = event.pull_request?.head?.sha;
+  const occurredAt = event.pull_request?.closed_at;
   if (
     typeof repository !== "string" ||
     repository.length === 0 ||
@@ -398,6 +409,7 @@ export function parsePullRequestFinalization(
     typeof headSha !== "string" ||
     headSha.length === 0 ||
     typeof event.pull_request?.merged !== "boolean" ||
+    (occurredAt !== undefined && !isIsoTimestamp(occurredAt)) ||
     deliveryId.length === 0 ||
     deliveryId.length > MAX_DELIVERY_ID_LENGTH
   ) {
@@ -413,10 +425,7 @@ export function parsePullRequestFinalization(
       pullRequestNumber,
       headSha,
       finalState: event.pull_request.merged ? "merged" : "closed",
-      occurredAt:
-        typeof event.pull_request.closed_at === "string"
-          ? event.pull_request.closed_at
-          : undefined,
+      occurredAt: typeof occurredAt === "string" ? occurredAt : undefined,
     },
   };
 }
@@ -428,7 +437,7 @@ function parsePullRequestEvent(
   if (!REVIEW_RELEVANT_PULL_REQUEST_ACTIONS.has(identity.action)) {
     return { kind: "ignored", reason: "unsupported-event" };
   }
-  const pullRequestNumber = event.pull_request?.number;
+  const pullRequestNumber = event.number;
   const headSha = event.pull_request?.head?.sha;
   if (
     typeof pullRequestNumber !== "number" ||

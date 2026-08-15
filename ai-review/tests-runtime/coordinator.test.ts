@@ -346,6 +346,62 @@ describe("PullRequestCoordinator in workerd", () => {
       completed: true,
       duplicate: true,
     });
+    expect(
+      await (env as unknown as Env).REVIEW_DATA.get(`${outcomePrefix}/v2.json`),
+    ).toBeNull();
+
+    const fixedHead = "f".repeat(40);
+    const fixedRunId = "workerd-review-4";
+    const fixedHunk = {
+      hunkId: `h_${"f".repeat(24)}`,
+      fingerprint: "1".repeat(64),
+      file: "app.ts",
+      oldStart: 50,
+      oldLines: 1,
+      newStart: 60,
+      newLines: 1,
+    };
+    const fixedClaim = await stub.fetch(
+      "https://coordinator.test/reviews/claim",
+      {
+        method: "POST",
+        body: JSON.stringify({
+          ...claimBody,
+          runId: fixedRunId,
+          headSha: fixedHead,
+          diffFingerprint: "fixed-diff-hash",
+        }),
+      },
+    );
+    await expect(fixedClaim.json()).resolves.toMatchObject({ claimed: true });
+    const fixedCompletion = await stub.fetch(
+      "https://coordinator.test/reviews/complete",
+      {
+        method: "POST",
+        body: JSON.stringify({
+          repository: event.repository,
+          pullRequestNumber: event.pullRequestNumber,
+          runId: fixedRunId,
+          headSha: fixedHead,
+          costUsd: 0.1,
+          hunks: [fixedHunk],
+          currentHunks: [
+            fixedHunk,
+            {
+              hunkId: `h_${"e".repeat(24)}`,
+              fingerprint: "f".repeat(64),
+              file: "unchanged.ts",
+              oldStart: 1,
+              oldLines: 1,
+              newStart: 1,
+              newLines: 1,
+            },
+          ],
+          findings: [],
+        }),
+      },
+    );
+    await expect(fixedCompletion.json()).resolves.toEqual({ completed: true });
     const fixedOutcome = await (env as unknown as Env).REVIEW_DATA.get(
       `${outcomePrefix}/v2.json`,
     );
@@ -356,10 +412,11 @@ describe("PullRequestCoordinator in workerd", () => {
       outcome: "confirmed-fixed",
       basis: "later-reviewed-head",
       evidence: {
+        confirmation: "not-rediscovered-after-affected-code-change",
         firstSeenHeadSha: event.headSha,
-        outcomeHeadSha: laterHead,
-        outcomeRunId: laterRunId,
-        resolutionNote: "Fixed in the later head",
+        outcomeHeadSha: fixedHead,
+        outcomeRunId: fixedRunId,
+        priorHunkIds: [`h_${"c".repeat(24)}`],
       },
     });
     const laterBaseline = await stub.fetch(
@@ -367,8 +424,8 @@ describe("PullRequestCoordinator in workerd", () => {
       { method: "POST", body: "{}" },
     );
     await expect(laterBaseline.json()).resolves.toMatchObject({
-      headSha: laterHead,
-      hunkIds: [`h_${"c".repeat(24)}`, `h_${"e".repeat(24)}`],
+      headSha: fixedHead,
+      hunkIds: [`h_${"e".repeat(24)}`, fixedHunk.hunkId],
     });
     await runInDurableObject(stub, async (_instance, state) => {
       expect(

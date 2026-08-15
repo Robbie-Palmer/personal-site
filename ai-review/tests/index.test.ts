@@ -432,31 +432,36 @@ describe("PullRequestCoordinator", () => {
 
   it("records a confirmed fix from a later reviewed head", async () => {
     const { coordinator, put, sqlExec } = coordinatorFixture();
-    const resolvedFinding = {
-      ...identifiedFinding,
-      status: "resolved",
-      resolution_note: "Fixed in the later head",
+    const changedHunk = {
+      ...identifiedHunk,
+      hunkId: `h_${"d".repeat(24)}`,
+      fingerprint: "e".repeat(64),
     };
     const priorHeadSha = "1".repeat(40);
     const pendingOutcome = JSON.stringify({
       schemaVersion: 2,
       recordType: "finding-outcome",
       outcomeVersion: 1,
-      findingId: resolvedFinding.findingId,
+      findingId: identifiedFinding.findingId,
       outcome: "confirmed-fixed",
     });
     sqlExec.mockImplementation((query: string) => ({
       rowsWritten: 1,
       toArray: () => {
-        if (query.includes("SELECT first_seen_head_sha")) {
+        if (query.includes("FROM review_findings ORDER BY")) {
           return [{
+            finding_id: identifiedFinding.findingId,
+            file_path: identifiedFinding.file,
             first_seen_head_sha: priorHeadSha,
             first_seen_run_id: "earlier-run",
           }];
         }
+        if (query.includes("FROM review_finding_hunks")) {
+          return [{ hunk_id: identifiedHunk.hunkId }];
+        }
         if (query.includes("WHERE r2_recorded = 0")) {
           return [{
-            finding_id: resolvedFinding.findingId,
+            finding_id: identifiedFinding.findingId,
             outcome_version: 1,
             payload_json: pendingOutcome,
           }];
@@ -474,8 +479,8 @@ describe("PullRequestCoordinator", () => {
           runId: "later-run",
           headSha: event.headSha,
           costUsd: 0.25,
-          hunks: [identifiedHunk],
-          findings: [resolvedFinding],
+          hunks: [changedHunk],
+          findings: [],
         }),
       }),
     );
@@ -483,7 +488,7 @@ describe("PullRequestCoordinator", () => {
     await expect(response.json()).resolves.toEqual({ completed: true });
     expect(put).toHaveBeenCalledWith(
       expect.stringContaining(
-        `/findings/${resolvedFinding.findingId}/outcomes/v1.json`,
+        `/findings/${identifiedFinding.findingId}/outcomes/v1.json`,
       ),
       pendingOutcome,
       { httpMetadata: { contentType: "application/json" } },
@@ -619,13 +624,19 @@ describe("PullRequestCoordinator", () => {
 
   it("rejects malformed finalizations and deduplicates recorded ones", async () => {
     const invalid = coordinatorFixture();
-    const invalidResponse = await invalid.coordinator.fetch(
-      new Request("https://coordinator.test/finalizations", {
-        method: "POST",
-        body: "{}",
-      }),
-    );
-    expect(invalidResponse.status).toBe(400);
+    for (const body of [
+      {},
+      { ...pullRequestFinalization, headSha: "x".repeat(65) },
+      { ...pullRequestFinalization, occurredAt: "x".repeat(65) },
+    ]) {
+      const invalidResponse = await invalid.coordinator.fetch(
+        new Request("https://coordinator.test/finalizations", {
+          method: "POST",
+          body: JSON.stringify(body),
+        }),
+      );
+      expect(invalidResponse.status).toBe(400);
+    }
 
     const duplicate = coordinatorFixture([event.deliveryId]);
     const duplicateResponse = await duplicate.coordinator.fetch(
@@ -643,6 +654,46 @@ describe("PullRequestCoordinator", () => {
       outcomes: 0,
     });
     expect(duplicate.put).not.toHaveBeenCalled();
+  });
+
+  it("keeps committed finalization successful when outcome publication fails", async () => {
+    const { coordinator, put, sqlExec } = coordinatorFixture();
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+    put.mockRejectedValueOnce(new Error("R2 unavailable"));
+    sqlExec.mockImplementation((query: string) => ({
+      rowsWritten: 1,
+      toArray: () =>
+        query.includes("WHERE r2_recorded = 0")
+          ? [{
+              finding_id: identifiedFinding.findingId,
+              outcome_version: 1,
+              payload_json: "{}",
+            }]
+          : [],
+    }));
+
+    const response = await coordinator.fetch(
+      new Request("https://coordinator.test/finalizations", {
+        method: "POST",
+        body: JSON.stringify(pullRequestFinalization),
+      }),
+    );
+
+    await expect(response.json()).resolves.toEqual({
+      accepted: true,
+      duplicate: false,
+      outcomes: 0,
+    });
+    expect(consoleError).toHaveBeenCalledWith(
+      "Could not publish a finding outcome",
+      { type: "Error" },
+    );
+    expect(
+      sqlExec.mock.calls.some(([query]) =>
+        String(query).includes("SET r2_recorded = 1"),
+      ),
+    ).toBe(false);
+    consoleError.mockRestore();
   });
 
   it("deduplicates finding evidence and rejects unknown findings", async () => {
@@ -1203,8 +1254,9 @@ describe("HTTP Worker", () => {
   const secret = "webhook-secret";
   const validBody = JSON.stringify({
     action: "opened",
+    number: 821,
     repository: { full_name: "Robbie-Palmer/personal-site" },
-    pull_request: { number: 821, head: { sha: "abcdef123456" } },
+    pull_request: { head: { sha: "abcdef123456" } },
   });
 
   function workerEnv() {
@@ -1414,9 +1466,9 @@ describe("HTTP Worker", () => {
     const { env, fetch } = workerEnv();
     const closedBody = JSON.stringify({
       action: "closed",
+      number: 821,
       repository: { full_name: "Robbie-Palmer/personal-site" },
       pull_request: {
-        number: 821,
         merged: true,
         closed_at: "2026-08-15T12:00:00Z",
         head: { sha: "abcdef123456" },
