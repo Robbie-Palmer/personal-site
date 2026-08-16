@@ -62,10 +62,10 @@ function renderFindingComment(finding: PublishableFinding): string {
   }
   lines.push(
     "",
-    `<sub>Finding \`${finding.findingId}\`. Reply or resolve this thread, ` +
-      `or use \`/ai-review acknowledge ${finding.findingId} reason\` / ` +
-      `\`/ai-review confirm-fixed ${finding.findingId} reason\` / ` +
-      `\`/ai-review reject ${finding.findingId} reason\`.</sub>`,
+    `<sub>Reply with \`/ai-review acknowledge <reason>\`, ` +
+      `\`/ai-review confirm-fixed <reason>\`, or ` +
+      `\`/ai-review reject <reason>\` before resolving this thread. ` +
+      `Finding \`${finding.findingId}\`.</sub>`,
   );
   return lines.join("\n");
 }

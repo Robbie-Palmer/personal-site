@@ -199,14 +199,16 @@ describe("PullRequestCoordinator in workerd", () => {
     });
     const dispositionInteraction = {
       deliveryId: "workerd-feedback-2",
-      eventName: "issue_comment",
+      eventName: "pull_request_review_comment",
       action: "created",
       repository: event.repository,
       pullRequestNumber: event.pullRequestNumber,
       interactionType: "disposition",
       actor: "Robbie-Palmer",
       actorAssociation: "OWNER",
-      findingId: `f_${"b".repeat(24)}`,
+      rootCommentId: 321,
+      commentId: 322,
+      body: "/ai-review acknowledge Accepted and fixing now",
       disposition: "acknowledged",
       reason: "Accepted and fixing now",
       occurredAt: "2026-08-09T12:05:00Z",
@@ -218,7 +220,7 @@ describe("PullRequestCoordinator in workerd", () => {
     await expect(dispositionResponse.json()).resolves.toMatchObject({
       accepted: true,
       duplicate: false,
-      findingId: dispositionInteraction.findingId,
+      findingId: `f_${"b".repeat(24)}`,
     });
     const outcomePrefix = [
       "v2",

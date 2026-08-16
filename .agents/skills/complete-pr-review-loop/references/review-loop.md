@@ -59,6 +59,22 @@ regression coverage, and give concise evidence for rejected findings. Avoid
 churn merely to satisfy a reviewer. Batch coherent fixes, validate, commit,
 push, and return to the wait step.
 
+For every stateful AI-review thread, record one machine-readable disposition
+as an exact reply on that thread before resolving it:
+
+- `/ai-review confirm-fixed <evidence>` only after the fix is pushed and the
+  current-head replay demonstrates that the root cause is removed;
+- `/ai-review acknowledge <reason>` when the finding is legitimate but is
+  intentionally accepted or deferred; or
+- `/ai-review reject <reason>` for a false positive, invalid finding, or
+  duplicate.
+
+Keep a legitimate finding unresolved while work remains. Do not treat thread
+resolution, disappearance on a later diff, or a general summary comment as an
+outcome signal. Use the finding-ID form shown in the rolling comment only when
+GitHub could not attach the finding to a diff thread. Resolve a thread only
+after the bot adds a 👍 reaction confirming that the disposition was accepted.
+
 ## Settle the draft phase
 
 Keep the PR in draft until:

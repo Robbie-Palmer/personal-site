@@ -507,6 +507,35 @@ describe("parseFindingInteraction", () => {
     });
 
     expect(
+      parseFindingInteraction(
+        "pull_request_review_comment",
+        "feedback-disposition",
+        {
+          action: "created",
+          repository: { full_name: "Robbie-Palmer/personal-site" },
+          pull_request: { number: 816 },
+          sender: { login: "maintainer" },
+          comment: {
+            id: 202,
+            in_reply_to_id: 200,
+            body: "/ai-review reject duplicate of the existing path-safety finding",
+            author_association: "COLLABORATOR",
+            user: { login: "maintainer" },
+          },
+        },
+      ),
+    ).toEqual({
+      kind: "accepted",
+      event: expect.objectContaining({
+        interactionType: "disposition",
+        rootCommentId: 200,
+        commentId: 202,
+        disposition: "rejected",
+        reason: "duplicate of the existing path-safety finding",
+      }),
+    });
+
+    expect(
       parseFindingInteraction("pull_request_review_thread", "feedback-4", {
         action: "resolved",
         repository: { full_name: "Robbie-Palmer/personal-site" },

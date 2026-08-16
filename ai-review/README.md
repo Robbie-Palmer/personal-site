@@ -52,10 +52,13 @@ Ordinary comments and review-thread activity never schedule paid work. Replies,
 reaction-count snapshots, thread resolution, and trusted
 `/ai-review acknowledge f_<id> <reason>` or
 `/ai-review reject f_<id> <reason>` commands instead take a storage-only path.
-After a controlled replay returns `fixed`, a trusted
-`/ai-review confirm-fixed f_<id> <reason>` command adjudicates that evidence.
-Findings that GitHub cannot attach to a current diff line remain in the rolling
-comment with those explicit command fallbacks.
+On an attached finding thread, trusted reviewers record a disposition by
+replying with `/ai-review acknowledge <reason>`, `/ai-review confirm-fixed
+<reason>`, or `/ai-review reject <reason>` before resolving it. Thread context
+binds the command to the hidden finding ID. `confirm-fixed` is accepted only
+after a controlled replay returns `fixed` for the current head. Findings that
+GitHub cannot attach to a current diff line remain in the rolling comment with
+the finding-ID form of those commands as a top-level fallback.
 
 OpenRouter is the default paid inference gateway because its broader model and
 provider catalogue, provider failover, model fallbacks, and price/performance

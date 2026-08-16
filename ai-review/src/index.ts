@@ -463,7 +463,7 @@ function isFindingInteractionEvent(
     (event.rootCommentId === undefined ||
       (Number.isSafeInteger(event.rootCommentId) && event.rootCommentId > 0)) &&
     (event.interactionType !== "disposition" ||
-      (event.findingId !== undefined &&
+      ((event.findingId !== undefined || event.rootCommentId !== undefined) &&
         (event.disposition === "acknowledged" ||
           event.disposition === "confirmed-fixed" ||
           event.disposition === "rejected"))) &&
@@ -503,6 +503,46 @@ async function currentPullRequestHead(
       pullRequest.head.sha.length > 0
     ? pullRequest.head.sha
     : undefined;
+}
+
+async function acknowledgeDispositionReply(
+  env: Env,
+  event: FindingInteractionEvent,
+): Promise<void> {
+  if (!event.commentId) return;
+  const [owner, repository, ...extra] = event.repository.split("/");
+  if (!owner || !repository || extra.length > 0) return;
+  try {
+    const token = await createInstallationToken({
+      appId: env.AI_REVIEW_APP_ID,
+      installationId: env.AI_REVIEW_APP_INSTALLATION_ID,
+      privateKey: env.AI_REVIEW_APP_PRIVATE_KEY,
+    });
+    const response = await fetch(
+      `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repository)}/pulls/comments/${event.commentId}/reactions`,
+      {
+        method: "POST",
+        headers: {
+          accept: "application/vnd.github+json",
+          authorization: `Bearer ${token}`,
+          "content-type": "application/json",
+          "user-agent": "personal-site-ai-review",
+          "x-github-api-version": "2022-11-28",
+        },
+        body: JSON.stringify({ content: "+1" }),
+        signal: AbortSignal.timeout(COORDINATOR_TIMEOUT_MS),
+      },
+    );
+    if (!response.ok) {
+      console.error("Could not acknowledge AI review disposition reply", {
+        status: response.status,
+      });
+    }
+  } catch (error) {
+    console.error("Could not acknowledge AI review disposition reply", {
+      type: errorType(error),
+    });
+  }
 }
 
 function isPullRequestFinalizationEvent(
@@ -2114,11 +2154,26 @@ async function handleGitHubWebhook(request: Request, env: Env): Promise<Response
     }
     forwardedEvent = { ...event, headSha };
   }
-  return forwardToCoordinator(
+  const coordinatorResponse = await forwardToCoordinator(
     forwardedEvent,
     env,
     coordinatorPathForEvent(forwardedEvent),
   );
+  if (
+    "interactionType" in forwardedEvent &&
+    forwardedEvent.eventName === "pull_request_review_comment" &&
+    forwardedEvent.disposition &&
+    forwardedEvent.rootCommentId &&
+    coordinatorResponse.ok
+  ) {
+    const result = (await coordinatorResponse.clone().json().catch(() => null)) as
+      | { accepted?: unknown }
+      | null;
+    if (result?.accepted === true) {
+      await acknowledgeDispositionReply(env, forwardedEvent);
+    }
+  }
+  return coordinatorResponse;
 }
 
 export default {
