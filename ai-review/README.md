@@ -59,7 +59,9 @@ binds the command to the hidden finding ID. `confirm-fixed` is accepted only
 after a controlled replay returns `fixed` for the current head. Findings that
 GitHub cannot attach to a current diff line remain in the rolling comment with
 the finding-ID form of those commands as a top-level fallback only; do not use
-the finding-ID form inside an attached thread.
+the finding-ID form inside an attached thread. Editing an exact disposition
+reply records a new immutable outcome revision; deleting the GitHub comment
+does not erase an already-recorded analytical outcome.
 
 OpenRouter is the default paid inference gateway because its broader model and
 provider catalogue, provider failover, model fallbacks, and price/performance

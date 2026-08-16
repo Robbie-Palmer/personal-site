@@ -508,10 +508,10 @@ async function currentPullRequestHead(
 async function acknowledgeDispositionReply(
   env: Env,
   event: FindingInteractionEvent,
-): Promise<void> {
-  if (!event.commentId) return;
+): Promise<boolean> {
+  if (!event.commentId) return false;
   const [owner, repository, ...extra] = event.repository.split("/");
-  if (!owner || !repository || extra.length > 0) return;
+  if (!owner || !repository || extra.length > 0) return false;
   try {
     const token = await createInstallationToken({
       appId: env.AI_REVIEW_APP_ID,
@@ -537,11 +537,14 @@ async function acknowledgeDispositionReply(
       console.error("Could not acknowledge AI review disposition reply", {
         status: response.status,
       });
+      return false;
     }
+    return true;
   } catch (error) {
     console.error("Could not acknowledge AI review disposition reply", {
       type: errorType(error),
     });
+    return false;
   }
 }
 
@@ -2170,7 +2173,9 @@ async function handleGitHubWebhook(request: Request, env: Env): Promise<Response
       | { accepted?: unknown }
       | null;
     if (result?.accepted === true) {
-      await acknowledgeDispositionReply(env, forwardedEvent);
+      if (!(await acknowledgeDispositionReply(env, forwardedEvent))) {
+        return json({ error: "Could not acknowledge disposition reply" }, 503);
+      }
     }
   }
   return coordinatorResponse;

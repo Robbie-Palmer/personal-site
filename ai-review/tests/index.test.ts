@@ -1616,6 +1616,52 @@ describe("HTTP Worker", () => {
     );
   });
 
+  it("requests webhook redelivery when disposition acknowledgement fails", async () => {
+    const { env } = workerEnv();
+    const privateKey = generateKeyPairSync("rsa", {
+      modulusLength: 2048,
+    }).privateKey
+      .export({ type: "pkcs8", format: "pem" })
+      .toString();
+    Object.assign(env, {
+      AI_REVIEW_APP_ID: "123",
+      AI_REVIEW_APP_INSTALLATION_ID: "456",
+      AI_REVIEW_APP_PRIVATE_KEY: privateKey,
+    });
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValueOnce(Response.json({ token: "installation-token" }))
+        .mockResolvedValueOnce(new Response("forbidden", { status: 403 })),
+    );
+    const feedbackBody = JSON.stringify({
+      action: "created",
+      repository: { full_name: "Robbie-Palmer/personal-site" },
+      pull_request: { number: 821 },
+      sender: { login: "Robbie-Palmer" },
+      comment: {
+        id: 904,
+        in_reply_to_id: 903,
+        body: "/ai-review acknowledge legitimate but deferred",
+        author_association: "OWNER",
+        user: { login: "Robbie-Palmer" },
+      },
+    });
+
+    const response = await worker.fetch(
+      signedWebhookRequest(feedbackBody, secret, {
+        "x-github-event": "pull_request_review_comment",
+      }),
+      env,
+    );
+
+    expect(response.status).toBe(503);
+    await expect(response.json()).resolves.toEqual({
+      error: "Could not acknowledge disposition reply",
+    });
+  });
+
   it("binds trusted fix confirmation to GitHub's current pull request head", async () => {
     const { env, fetch: coordinatorFetch } = workerEnv();
     const privateKey = generateKeyPairSync("rsa", {

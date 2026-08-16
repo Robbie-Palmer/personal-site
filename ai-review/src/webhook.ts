@@ -338,7 +338,7 @@ function parseReplyInteraction(
   }
   const body = typeof comment?.body === "string" ? comment.body : undefined;
   const disposition =
-    event.action === "created" && body
+    (event.action === "created" || event.action === "edited") && body
       ? findingThreadDispositionCommand(body)
       : undefined;
   return {

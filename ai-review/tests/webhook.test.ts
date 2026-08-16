@@ -509,6 +509,33 @@ describe("parseFindingInteraction", () => {
     expect(
       parseFindingInteraction(
         "pull_request_review_comment",
+        "feedback-disposition-edit",
+        {
+          action: "edited",
+          repository: { full_name: "Robbie-Palmer/personal-site" },
+          pull_request: { number: 816 },
+          sender: { login: "maintainer" },
+          comment: {
+            id: 202,
+            in_reply_to_id: 200,
+            body: "/ai-review acknowledge legitimate but deferred",
+            author_association: "COLLABORATOR",
+            user: { login: "maintainer" },
+          },
+        },
+      ),
+    ).toEqual({
+      kind: "accepted",
+      event: expect.objectContaining({
+        interactionType: "disposition",
+        disposition: "acknowledged",
+        reason: "legitimate but deferred",
+      }),
+    });
+
+    expect(
+      parseFindingInteraction(
+        "pull_request_review_comment",
         "feedback-disposition",
         {
           action: "created",

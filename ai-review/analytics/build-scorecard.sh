@@ -61,6 +61,10 @@ for mart in "${marts[@]}"; do
   rows=$(duckdb -csv -noheader -c "SELECT count(*) FROM read_parquet('$publish/$mart.parquet')")
   manifest_entries+=("$mart" "$mart.parquet" "$rows" "$checksum")
 done
+if (( ${#manifest_entries[@]} != ${#marts[@]} * 4 )); then
+  echo "manifest entry count mismatch" >&2
+  exit 1
+fi
 node -e '
   const fs = require("node:fs");
   const [output, inputPrefix, martVersion, ...values] = process.argv.slice(1);
