@@ -49,6 +49,8 @@ scorecard facts, and materialises these versioned Parquet marts:
 * `model_run_fact` records model calls, latency, tokens, cache use, cost, and
   source-attributed accepted-finding efficiency; and
 * `pull_request_fact` aggregates the review lifecycle at Pull Request grain.
+  Run-scoped dimensions that can change during that lifecycle are retained as
+  distinct lists rather than collapsed to an arbitrary representative value.
 
 Each output version also contains a machine-readable manifest with row counts
 and SHA-256 checksums. Determinism is part of the interface: input paths and

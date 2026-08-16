@@ -94,6 +94,15 @@ SELECT CASE WHEN count(*) = 0 THEN 1 ELSE error('Outcome revisions require posit
 FROM (SELECT repository, pull_request_number, finding_id, outcome_version FROM finding_history
       GROUP BY ALL HAVING outcome_version IS NULL OR outcome_version < 1 OR count(*) > 1);
 
+SELECT CASE WHEN count(*) = 0 THEN 1 ELSE error('Outcome revisions have missing or invalid required fields') END
+FROM finding_history
+WHERE repository IS NULL OR pull_request_number IS NULL OR finding_id IS NULL
+   OR outcome IS NULL OR outcome NOT IN
+      ('confirmed-fixed', 'acknowledged', 'rejected', 'superseded', 'no-observable-response')
+   OR outcome_basis IS NULL OR outcome_basis NOT IN
+      ('explicit-disposition', 'later-reviewed-head', 'pull-request-finalization')
+   OR outcome_at IS NULL;
+
 CREATE TABLE published_findings AS
 SELECT r.run_id, r.repository, r.pull_request_number, r.head_sha, r.prompt_version, r.triggered_at,
        json_extract_string(f.value, '$.findingId') AS finding_id,
@@ -200,5 +209,7 @@ SELECT repository, pull_request_number,
   sum(reviewed_hunks) AS reviewed_hunks, sum(total_hunks) AS total_hunks,
   CASE WHEN sum(total_hunks) = 0 THEN NULL ELSE sum(reviewed_hunks)::DOUBLE / sum(total_hunks) END AS coverage_rate,
   CASE WHEN sum(accepted_finding_count) = 0 THEN NULL ELSE sum(run_cost_usd) / sum(accepted_finding_count) END AS cost_per_accepted_finding,
-  min(prompt_version) AS prompt_version, min(task_type) AS task_type, min(originating_agent) AS originating_agent
+  list_sort(list_distinct(list(prompt_version) FILTER (WHERE prompt_version IS NOT NULL))) AS prompt_versions,
+  list_sort(list_distinct(list(task_type) FILTER (WHERE task_type IS NOT NULL))) AS task_types,
+  list_sort(list_distinct(list(originating_agent) FILTER (WHERE originating_agent IS NOT NULL))) AS originating_agents
 FROM review_run_fact GROUP BY repository, pull_request_number;

@@ -58,7 +58,8 @@ replying with `/ai-review acknowledge <reason>`, `/ai-review confirm-fixed
 binds the command to the hidden finding ID. `confirm-fixed` is accepted only
 after a controlled replay returns `fixed` for the current head. Findings that
 GitHub cannot attach to a current diff line remain in the rolling comment with
-the finding-ID form of those commands as a top-level fallback.
+the finding-ID form of those commands as a top-level fallback only; do not use
+the finding-ID form inside an attached thread.
 
 OpenRouter is the default paid inference gateway because its broader model and
 provider catalogue, provider failover, model fallbacks, and price/performance
@@ -192,7 +193,8 @@ the merger performs a controlled replay of the durable finding against the
 current diff and file context, recording `fixed`, `still-present`, or `uncertain`
 with direct code evidence. Replay is evidence, not adjudication: the coordinator
 adds a `confirmed-fixed` outcome only after a trusted actor submits
-`/ai-review confirm-fixed <finding-id> <reason>` for a recorded `fixed` replay.
+the top-level fallback `/ai-review confirm-fixed <finding-id> <reason>` for a
+recorded `fixed` replay when no finding thread is available.
 The replay head must match the authoritative current PR head fetched from
 GitHub when the trusted command is handled. The outcome links the trusted actor
 and reason to that replay's head, run, and
@@ -225,7 +227,9 @@ revision resolution is explicit and testable. Unknown schema versions, unknown
 record types, duplicate revisions, and outcome/evidence joins to unpublished
 findings stop the build. When one workflow has both `published` and `failed`
 terminal records, the published record is authoritative; every other duplicate
-or conflicting terminal combination stops the build.
+or conflicting terminal combination stops the build. Pull Request-grain marts
+retain distinct prompt versions, task types, and originating agents as lists so
+a multi-run lifecycle is not attributed to one arbitrary scalar value.
 
 Run one deterministic rebuild from a fixed local R2 export prefix with:
 

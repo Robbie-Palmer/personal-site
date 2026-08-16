@@ -84,7 +84,26 @@ input_digest=$(
 )
 release_name="$MART_VERSION-$input_digest"
 release="$OUTPUT_ROOT/.scorecard-releases/$release_name"
-if [[ ! -d "$release" ]]; then mv "$publish" "$release"; fi
+set +e
+node -e '
+  const fs = require("node:fs");
+  try {
+    fs.renameSync(process.argv[1], process.argv[2]);
+  } catch (error) {
+    if (error?.code === "EEXIST" || error?.code === "ENOTEMPTY") process.exit(10);
+    throw error;
+  }
+' "$publish" "$release"
+release_status=$?
+set -e
+if [[ $release_status -eq 10 ]]; then
+  [[ -d "$release" ]] || {
+    echo "release destination exists but is not a directory: $release" >&2
+    exit 1
+  }
+elif [[ $release_status -ne 0 ]]; then
+  exit "$release_status"
+fi
 link="$OUTPUT_ROOT/.$MART_VERSION-link-$$"
 ln -s ".scorecard-releases/$release_name" "$link"
 node -e 'require("node:fs").renameSync(process.argv[1], process.argv[2])' \
