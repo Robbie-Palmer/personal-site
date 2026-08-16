@@ -149,6 +149,12 @@ describe("finding lifecycle publication", () => {
       side: "RIGHT",
     });
     expect(request.body).toContain(`ai-review-finding:${finding.findingId}`);
+    expect(request.body).toContain("/ai-review acknowledge <reason>");
+    expect(request.body).toContain("/ai-review confirm-fixed <reason>");
+    expect(request.body).toContain("/ai-review reject <reason>");
+    expect(request.body).not.toContain(
+      `/ai-review reject ${finding.findingId}`,
+    );
   });
 
   it("fails safely instead of duplicating findings beyond the reconciliation limit", async () => {

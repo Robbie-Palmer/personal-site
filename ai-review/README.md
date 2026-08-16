@@ -52,10 +52,16 @@ Ordinary comments and review-thread activity never schedule paid work. Replies,
 reaction-count snapshots, thread resolution, and trusted
 `/ai-review acknowledge f_<id> <reason>` or
 `/ai-review reject f_<id> <reason>` commands instead take a storage-only path.
-After a controlled replay returns `fixed`, a trusted
-`/ai-review confirm-fixed f_<id> <reason>` command adjudicates that evidence.
-Findings that GitHub cannot attach to a current diff line remain in the rolling
-comment with those explicit command fallbacks.
+On an attached finding thread, trusted reviewers record a disposition by
+replying with `/ai-review acknowledge <reason>`, `/ai-review confirm-fixed
+<reason>`, or `/ai-review reject <reason>` before resolving it. Thread context
+binds the command to the hidden finding ID. `confirm-fixed` is accepted only
+after a controlled replay returns `fixed` for the current head. Findings that
+GitHub cannot attach to a current diff line remain in the rolling comment with
+the finding-ID form of those commands as a top-level fallback only; do not use
+the finding-ID form inside an attached thread. Editing an exact disposition
+reply records a new immutable outcome revision; deleting the GitHub comment
+does not erase an already-recorded analytical outcome.
 
 OpenRouter is the default paid inference gateway because its broader model and
 provider catalogue, provider failover, model fallbacks, and price/performance
@@ -189,7 +195,8 @@ the merger performs a controlled replay of the durable finding against the
 current diff and file context, recording `fixed`, `still-present`, or `uncertain`
 with direct code evidence. Replay is evidence, not adjudication: the coordinator
 adds a `confirmed-fixed` outcome only after a trusted actor submits
-`/ai-review confirm-fixed <finding-id> <reason>` for a recorded `fixed` replay.
+the top-level fallback `/ai-review confirm-fixed <finding-id> <reason>` for a
+recorded `fixed` replay when no finding thread is available.
 The replay head must match the authoritative current PR head fetched from
 GitHub when the trusted command is handled. The outcome links the trusted actor
 and reason to that replay's head, run, and
@@ -211,6 +218,36 @@ show how later code evidence changed the attribution. SQLite commits the outcome
 before R2 publication and retains an `r2_recorded` flag, so a retried webhook or
 review completion repairs an interrupted object write without creating another
 revision.
+
+### Scorecard marts
+
+The DuckDB batch in `analytics/` builds versioned `finding_latest`,
+`review_run_fact`, `model_run_fact`, and `pull_request_fact` Parquet marts plus
+a checksum-bearing machine-readable manifest. The latest outcome is the highest
+`outcomeVersion`; `finding_history` remains in the transient DuckDB build so
+revision resolution is explicit and testable. Unknown schema versions, unknown
+record types, duplicate revisions, and outcome/evidence joins to unpublished
+findings stop the build. When one workflow has both `published` and `failed`
+terminal records, the published record is authoritative; every other duplicate
+or conflicting terminal combination stops the build. Pull Request-grain marts
+retain distinct prompt versions, task types, and originating agents as lists so
+a multi-run lifecycle is not attributed to one arbitrary scalar value.
+
+Run one deterministic rebuild from a fixed local R2 export prefix with:
+
+```bash
+AI_REVIEW_SCORECARD_INPUT=/path/to/r2-export \
+AI_REVIEW_SCORECARD_OUTPUT=/path/to/output \
+mise run //ai-review:scorecard:build
+```
+
+Metric definitions follow
+[Agentic Code Review ADR 033](/projects/agentic-code-review/adrs/033-duckdb-ai-review-scorecard):
+acceptance excludes censored outcomes, fix-through and noise use published
+findings as their denominator, cost uses accepted findings, token efficiency
+uses uncached input tokens, and coverage uses reviewed over total hunks. Outputs
+retain prompt, risk, change-size, repository-area, task, originating-agent, and
+time dimensions for stratification.
 
 ## Deploy
 

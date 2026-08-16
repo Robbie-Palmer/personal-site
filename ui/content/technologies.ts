@@ -459,6 +459,14 @@ export const technologies: TechnologyContent[] = [
     type: "tool",
   },
   {
+    name: "DuckDB",
+    added: "2026-08-15",
+    description:
+      "Embedded analytical database for local SQL and Parquet workloads",
+    website: "https://duckdb.org",
+    type: "database",
+  },
+  {
     name: "Docker",
     added: "2026-01-04",
     description:
@@ -587,6 +595,14 @@ export const technologies: TechnologyContent[] = [
     added: "2026-01-04",
     description: "Unified API for LLM inference",
     website: "https://openrouter.ai",
+    type: "tool",
+  },
+  {
+    name: "Parquet",
+    added: "2026-08-15",
+    description: "Columnar file format for portable analytical datasets",
+    website: "https://parquet.apache.org",
+    iconSlug: "apacheparquet",
     type: "tool",
   },
   {

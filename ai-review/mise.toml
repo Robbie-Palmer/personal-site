@@ -34,7 +34,7 @@ run = "pnpm test:coverage"
 
 [tasks.check]
 description = "Run all stateful AI review checks"
-depends = ["typecheck", "test", "test:stateless", "test:workerd"]
+depends = ["typecheck", "test", "test:stateless", "test:workerd", "scorecard:test"]
 
 [tasks.deploy]
 description = "Deploy the stateful AI review Worker"
@@ -72,3 +72,11 @@ doppler run --project ai-review --config stg -- \
 description = "Verify the AI review R2 lifecycle policy"
 depends = ["install"]
 run = "bash scripts/verify-lifecycle.sh"
+
+[tasks."scorecard:build"]
+description = "Build deterministic DuckDB scorecard marts from schema-v2 JSON"
+run = "bash analytics/build-scorecard.sh"
+
+[tasks."scorecard:test"]
+description = "Test scorecard marts against fixed schema-v2 fixtures"
+run = "bash analytics/test-scorecard.sh"

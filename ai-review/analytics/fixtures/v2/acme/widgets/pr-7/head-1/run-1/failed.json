@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 2,
+  "recordType": "review-run-terminal",
+  "status": "failed",
+  "workflow": {
+    "instanceId": "run-1",
+    "triggeredAt": "2026-08-01T10:00:00Z",
+    "recordedAt": "2026-08-01T10:03:00Z"
+  },
+  "repository": "acme/widgets",
+  "pullRequestNumber": 7,
+  "headSha": "head-1",
+  "promptVersion": "prompt-2",
+  "pullRequest": {
+    "taskType": "bug",
+    "originatingAgent": "codex"
+  },
+  "change": {
+    "additions": 30,
+    "deletions": 10,
+    "changedFiles": 2,
+    "riskSignals": ["auth"],
+    "repositoryAreas": ["api"]
+  },
+  "coverage": {
+    "totalHunks": 4,
+    "reviewedHunkIds": ["h1", "h2", "h3"],
+    "unchangedHunkIds": ["h4"]
+  },
+  "runCostUsd": 0.30,
+  "findings": { "published": [] },
+  "models": []
+}

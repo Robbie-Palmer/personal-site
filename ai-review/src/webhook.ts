@@ -158,6 +158,39 @@ function findingDispositionCommand(body: string):
   };
 }
 
+function findingThreadDispositionCommand(body: string):
+  | {
+      disposition: "acknowledged" | "confirmed-fixed" | "rejected";
+      reason: string;
+    }
+  | undefined {
+  if (body !== body.trim() || !body.startsWith("/ai-review ")) {
+    return undefined;
+  }
+  const actionStart = "/ai-review ".length;
+  const actionEnd = body.indexOf(" ", actionStart);
+  if (actionEnd < 0) return undefined;
+  const action = body.slice(actionStart, actionEnd).toLowerCase();
+  if (
+    action !== "acknowledge" &&
+    action !== "confirm-fixed" &&
+    action !== "reject"
+  ) {
+    return undefined;
+  }
+  const reason = body.slice(actionEnd + 1).trim();
+  if (!reason || reason.length > MAX_DISPOSITION_REASON_LENGTH) return undefined;
+  return {
+    disposition:
+      action === "acknowledge"
+        ? "acknowledged"
+        : action === "confirm-fixed"
+          ? "confirmed-fixed"
+          : "rejected",
+    reason,
+  };
+}
+
 function positiveInteger(value: unknown): number | undefined {
   return typeof value === "number" &&
     Number.isSafeInteger(value) &&
@@ -303,12 +336,17 @@ function parseReplyInteraction(
   if (!actorIsTrusted(event, identity.repository)) {
     return { kind: "ignored", reason: "unsupported-event" };
   }
+  const body = typeof comment?.body === "string" ? comment.body : undefined;
+  const disposition =
+    (event.action === "created" || event.action === "edited") && body
+      ? findingThreadDispositionCommand(body)
+      : undefined;
   return {
     kind: "accepted",
     event: {
       ...identity,
       pullRequestNumber,
-      interactionType: "reply",
+      interactionType: disposition ? "disposition" : "reply",
       actor,
       actorAssociation:
         typeof comment?.author_association === "string"
@@ -316,9 +354,10 @@ function parseReplyInteraction(
           : undefined,
       rootCommentId,
       commentId,
-      body:
-        typeof comment?.body === "string" ? comment.body.slice(0, 4_000) : undefined,
+      body: body?.slice(0, 4_000),
       reactions: reactionCounts(comment?.reactions),
+      disposition: disposition?.disposition,
+      reason: disposition?.reason,
       occurredAt: commentTimestamp(comment),
     },
   };
