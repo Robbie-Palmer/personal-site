@@ -48,6 +48,9 @@
     ],
     "*.{yml,yaml}": [
       "mise run //:lint:yaml"
+    ],
+    "homelab/**/*.{yml,yaml}": [
+      "mise run //:lint:yaml"
     ]
   }
 }

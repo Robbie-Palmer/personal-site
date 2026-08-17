@@ -1,8 +1,8 @@
 ---
 title: "ADR 011: Jellyfin media server"
-date: "2026-08-02"
-status: "Proposed"
-tech_stack: ["Jellyfin"]
+date: "2026-08-15"
+status: "Accepted"
+tech_stack: ["Jellyfin", "Docker"]
 ---
 
 # Context
@@ -13,16 +13,20 @@ files. I already pay for Netflix, Disney Plus, Amazon Prime, and Apple TV,
 and still end up rewatching things — the library I've bought deserves a
 better player than the streaming apps I pay for repeatedly.
 
-This is **Proposed**, not Accepted, for reasons that aren't about scope:
+This stayed **Proposed** until it was built, because adoption is the real
+test: the server only earns its place if it's good enough to switch to from
+the streaming apps, and that is decided by whether the family actually uses
+it — not by the scope of the implementation.
 
 * It's strictly for local use in my own home — it will never be a public
   service, so there's no exposure or multi-user internet angle to design for.
 * The UX has to be good enough to switch to from the streaming apps, and
   playback latency has to be low enough to not be noticed.
-* Adoption is the real test: it only gets built out if it's tested with my
-  family and they actually use it.
+* Adoption is the acceptance test, and it still gates whether this stays
+  running: it only gets kept if it's tested with my family and they actually
+  use it.
 
-# Decision (proposed)
+# Decision
 
 Run **Jellyfin** on the Mac mini to serve my media library to the Fire TV
 Stick.
@@ -31,6 +35,16 @@ Jellyfin is free, open source, self-hosted, and has a first-class Fire TV
 client. The library lives on the hub's storage (the same machine that already
 holds the photo backup), served only over the home network/tailnet — not
 exposed publicly.
+
+The server runs in **Docker Compose** under **colima** on the hub, declared
+as code in `homelab/hosts/mac-mini/jellyfin/` in this repo. The image is
+pinned, the media library is mounted read-only from the 10TB HDD, and a
+launchd agent keeps the stack running across reboots. It's managed with mise
+(`mise run //homelab:...`), so upgrades are a version bump plus a recompose.
+The router forwards no ports, so access is over the home LAN (the Fire TV
+Stick) and the [Tailscale](/projects/homelab/adrs/000-tailscale) tailnet
+(phone and laptop) — the tailnet is the lab's trust boundary, per the network
+ADR.
 
 # Alternatives
 
@@ -75,4 +89,5 @@ exposed publicly.
   an ongoing task.
 * **Storage pressure** on the hub alongside the photo backup.
 * **Adoption risk**: if the UX or latency isn't good enough for the family,
-  it won't get used — the reason it stays Proposed until tested.
+  it won't get used — the reason it stayed Proposed until built, and the
+  gate on keeping it running.
