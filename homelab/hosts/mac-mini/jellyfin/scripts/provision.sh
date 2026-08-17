@@ -34,17 +34,18 @@ if [[ -z "$ADMIN_USER" || -z "$ADMIN_PASS" ]]; then
 fi
 
 AUTH_HEADER='MediaBrowser Client="provision", Device="mac-mini", DeviceId="provision-cli", Version="1.0"'
+CONTENT_TYPE='Content-Type: application/json'
 
 # 1. Complete the startup wizard if it is still pending ---------------------
 status="$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "$BASE_URL/Startup/Configuration")"
 if [[ "$status" == "200" ]]; then
   echo "Completing Jellyfin first-run wizard"
   curl -s --max-time 10 -X POST "$BASE_URL/Startup/Configuration" \
-    -H "Content-Type: application/json" \
+    -H "$CONTENT_TYPE" \
     -d '{"ServerName":"Mac Mini","UICulture":"en-GB","MetadataCountryCode":"GB","PreferredMetadataLanguage":"en"}' \
     -o /dev/null -w "  startup configuration: %{http_code}\n"
   curl -s --max-time 10 -X POST "$BASE_URL/Startup/User" \
-    -H "Content-Type: application/json" \
+    -H "$CONTENT_TYPE" \
     -d "{\"Name\":\"$ADMIN_USER\",\"Password\":\"$ADMIN_PASS\"}" \
     -o /dev/null -w "  admin user: %{http_code}\n"
   curl -s --max-time 10 -X POST "$BASE_URL/Startup/Complete" \
@@ -55,7 +56,7 @@ fi
 
 # 2. Authenticate as admin ---------------------------------------------------
 TOKEN="$(curl -s --max-time 10 -X POST "$BASE_URL/Users/AuthenticateByName" \
-  -H "Content-Type: application/json" \
+  -H "$CONTENT_TYPE" \
   -H "X-Emby-Authorization: $AUTH_HEADER" \
   -d "{\"Username\":\"$ADMIN_USER\",\"Pw\":\"$ADMIN_PASS\"}" | jq -r .AccessToken)"
 if [[ -z "$TOKEN" || "$TOKEN" == "null" ]]; then
@@ -78,7 +79,7 @@ add_library() {
   echo "  adding $name library ($path)"
   curl -s --max-time 15 -X POST \
     "$BASE_URL/Library/VirtualFolders?name=$name_enc&collectionType=$type_enc&paths=$path_enc&refreshLibrary=true" \
-    -H "Content-Type: application/json" -H "X-Emby-Token: $TOKEN" \
+    -H "$CONTENT_TYPE" -H "X-Emby-Token: $TOKEN" \
     -d '{"libraryOptions":{"enableRealtimeMonitor":true}}' \
     -o /dev/null -w "  $name: %{http_code}\n"
 }

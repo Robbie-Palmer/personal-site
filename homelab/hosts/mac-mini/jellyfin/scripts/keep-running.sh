@@ -14,6 +14,7 @@ CHECK_INTERVAL_SECONDS="${CHECK_INTERVAL_SECONDS:-60}"
 
 colima_running() {
   colima status >/dev/null 2>&1
+  return $?
 }
 
 while true; do
