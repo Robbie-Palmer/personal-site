@@ -73,6 +73,11 @@ for patch updates of the current stable minor). To upgrade:
 
 ### Caveats
 
+- **Brief unauthenticated window on first bootstrap.** Between
+  `docker compose up` and `provision.sh` completing, Jellyfin's startup
+  wizard is accessible on the port. The router forwards no ports and the
+  tailnet is the lab's trust boundary, so this is only a risk if an
+  untrusted peer is on the LAN during the few seconds bootstrap runs.
 - **colima mounts only `$HOME` by default.** The bootstrap mounts `/Volumes`
   read-only so the media drive is visible to containers. If you start colima
   manually without those flags, Jellyfin will see an empty `/media`. If the

@@ -33,9 +33,17 @@ require_command brew
 
 # 1. Container runtime -----------------------------------------------------
 if ! command -v colima >/dev/null 2>&1; then
-  echo "Installing colima, docker, and docker-compose via Homebrew"
-  brew install colima docker docker-compose
+  echo "Installing colima via Homebrew"
+  brew install colima
 fi
+# docker and docker-compose may be missing even when colima is present (e.g.
+# installed independently or after Docker Desktop was removed).
+for tool in docker docker-compose; do
+  if ! command -v "$tool" >/dev/null 2>&1; then
+    echo "Installing $tool via Homebrew"
+    brew install "$tool"
+  fi
+done
 require_command colima
 require_command docker
 require_command docker-compose

@@ -21,12 +21,18 @@ require_command() {
 require_command curl
 require_command jq
 
-PORT="$(grep -E '^JELLYFIN_PORT=' "$ENV_FILE" 2>/dev/null | tail -1 | cut -d= -f2-)"
+env_value() {
+  local key="$1"
+  grep -E "^${key}=" "$ENV_FILE" 2>/dev/null | tail -1 | cut -d= -f2- \
+    | sed -e 's/^"//' -e 's/"$//' -e "s/^'//" -e "s/'$//"
+}
+
+PORT="$(env_value JELLYFIN_PORT)"
 PORT="${PORT:-8096}"
 BASE_URL="http://localhost:${PORT}"
 
-ADMIN_USER="$(grep -E '^JELLYFIN_ADMIN_USER=' "$ENV_FILE" 2>/dev/null | tail -1 | cut -d= -f2- || true)"
-ADMIN_PASS="$(grep -E '^JELLYFIN_ADMIN_PASSWORD=' "$ENV_FILE" 2>/dev/null | tail -1 | cut -d= -f2- || true)"
+ADMIN_USER="$(env_value JELLYFIN_ADMIN_USER)"
+ADMIN_PASS="$(env_value JELLYFIN_ADMIN_PASSWORD)"
 if [[ -z "$ADMIN_USER" || -z "$ADMIN_PASS" ]]; then
   echo "JELLYFIN_ADMIN_USER / JELLYFIN_ADMIN_PASSWORD are not set in $ENV_FILE" >&2
   echo "Run bootstrap.sh (which generates them) or add them manually." >&2
