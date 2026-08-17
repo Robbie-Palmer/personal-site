@@ -144,11 +144,11 @@ echo "  local:   http://localhost:${JELLYFIN_PORT}"
 LAN_IF="$(route -n get default 2>/dev/null | awk '/interface:/{print $2}')"
 LAN_IP="$(ipconfig getifaddr "$LAN_IF" 2>/dev/null || true)"
 if [[ -n "$LAN_IP" ]]; then
-  echo "  LAN:     http://${LAN_IP}:${JELLYFIN_PORT}  (Fire TV Stick)"
+  echo "  LAN:     http://${LAN_IP}:${JELLYFIN_PORT}  (Fire TV Stick)" # NOSONAR S5332: informational echo, not a network request
 fi
 TAILSCALE_IP="$(tailscale ip -4 2>/dev/null | head -n1 || true)"
 if [[ -n "$TAILSCALE_IP" ]]; then
-  echo "  tailnet: http://${TAILSCALE_IP}:${JELLYFIN_PORT}  (phone / laptop)"
+  echo "  tailnet: http://${TAILSCALE_IP}:${JELLYFIN_PORT}  (phone / laptop)" # NOSONAR S5332: informational echo, not a network request
 fi
 echo ""
 echo "Add your media folders in the Jellyfin web UI: TV under /media/TV,"
