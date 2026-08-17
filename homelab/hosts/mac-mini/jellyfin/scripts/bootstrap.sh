@@ -55,9 +55,10 @@ if [[ -f "${HOME}/.docker/config.json" ]] && command -v jq >/dev/null 2>&1; then
   stale_store="$(jq -r '.credsStore // empty' "${HOME}/.docker/config.json" 2>/dev/null)"
   if [[ -n "$stale_store" ]] && ! command -v "docker-credential-${stale_store}" >/dev/null 2>&1; then
     echo "Removing stale credsStore \"${stale_store}\" from ~/.docker/config.json"
-    jq 'del(.credsStore)' "${HOME}/.docker/config.json" \
-      > "${HOME}/.docker/config.json.tmp" \
-      && mv "${HOME}/.docker/config.json.tmp" "${HOME}/.docker/config.json"
+    tmpfile="$(mktemp "${HOME}/.docker/config.json.XXXXXX")"
+    trap 'rm -f "$tmpfile"' EXIT
+    jq 'del(.credsStore)' "${HOME}/.docker/config.json" > "$tmpfile" \
+      && mv "$tmpfile" "${HOME}/.docker/config.json"
   fi
 fi
 
@@ -72,14 +73,15 @@ fi
 # Generate admin credentials on first bootstrap so provision.sh can complete
 # the Jellyfin setup without the interactive web wizard.
 if ! grep -qE '^JELLYFIN_ADMIN_USER=' "$ENV_FILE"; then
-  JELLYFIN_ADMIN_PASSWORD="$(openssl rand -hex 16)"
+  JELLYFIN_ADMIN_PASSWORD="$(openssl rand -base64 32)"
   printf 'JELLYFIN_ADMIN_USER=admin\nJELLYFIN_ADMIN_PASSWORD=%s\n' "$JELLYFIN_ADMIN_PASSWORD" >> "$ENV_FILE"
+  chmod 600 "$ENV_FILE"
   echo "Generated Jellyfin admin credentials; saved to $ENV_FILE (gitignored)."
 fi
 
 env_value() {
   local key="$1"
-  grep -E "^${key}=" "$ENV_FILE" | tail -1 | cut -d= -f2- \
+  grep -F "${key}=" "$ENV_FILE" | tail -1 | cut -d= -f2- \
     | sed -e 's/^"//' -e 's/"$//' -e "s/^'//" -e "s/'$//"
 }
 
@@ -120,14 +122,24 @@ else
 fi
 
 # 4. LaunchAgent -----------------------------------------------------------
+# Escape sed metacharacters in replacement strings to prevent injection.
+sed_escape() { printf '%s' "$1" | sed 's/[&/\]/\\&/g'; }
+HOMELAB_ROOT_ESC="$(sed_escape "$HOMELAB_ROOT")"
+HOME_ESC="$(sed_escape "$HOME")"
 sed \
-  -e "s|__HOMELAB_ROOT__|${HOMELAB_ROOT}|g" \
-  -e "s|__HOME__|${HOME}|g" \
+  -e "s|__HOMELAB_ROOT__|${HOMELAB_ROOT_ESC}|g" \
+  -e "s|__HOME__|${HOME_ESC}|g" \
   "${JELLYFIN_DIR}/launchd/${LAUNCHD_AGENT}.plist" > "$LAUNCHD_TARGET"
 
 launchctl bootout "gui/$(id -u)" "$LAUNCHD_TARGET" 2>/dev/null || true
-launchctl bootstrap "gui/$(id -u)" "$LAUNCHD_TARGET"
-launchctl kickstart -k "gui/$(id -u)/${LAUNCHD_AGENT}"
+if ! launchctl bootstrap "gui/$(id -u)" "$LAUNCHD_TARGET"; then
+  echo "Failed to install LaunchAgent ${LAUNCHD_AGENT}" >&2
+  exit 1
+fi
+if ! launchctl kickstart -k "gui/$(id -u)/${LAUNCHD_AGENT}"; then
+  echo "Failed to start LaunchAgent ${LAUNCHD_AGENT}" >&2
+  exit 1
+fi
 echo "Installed and started LaunchAgent ${LAUNCHD_AGENT}"
 
 # 5. Bring up the stack ----------------------------------------------------
@@ -137,12 +149,18 @@ DOCKER_CONTEXT=colima docker compose \
 
 # 6. Configure Jellyfin (wizard + libraries) --------------------------------
 echo "Waiting for Jellyfin to accept connections..."
+healthy=false
 for _ in $(seq 1 20); do
   if curl -fsS "http://localhost:${JELLYFIN_PORT}/health" >/dev/null 2>&1; then
+    healthy=true
     break
   fi
   sleep 3
 done
+if [[ "$healthy" != "true" ]]; then
+  echo "Jellyfin did not become healthy within 60 seconds" >&2
+  exit 1
+fi
 bash "${JELLYFIN_DIR}/scripts/provision.sh"
 
 # 7. Report access ----------------------------------------------------------

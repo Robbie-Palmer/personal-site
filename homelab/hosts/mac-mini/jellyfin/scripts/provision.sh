@@ -23,7 +23,7 @@ require_command jq
 
 env_value() {
   local key="$1"
-  grep -E "^${key}=" "$ENV_FILE" 2>/dev/null | tail -1 | cut -d= -f2- \
+  grep -F "${key}=" "$ENV_FILE" 2>/dev/null | tail -1 | cut -d= -f2- \
     | sed -e 's/^"//' -e 's/"$//' -e "s/^'//" -e "s/'$//"
 }
 
@@ -50,9 +50,10 @@ if [[ "$status" == "200" ]]; then
     -H "$CONTENT_TYPE" \
     -d '{"ServerName":"Mac Mini","UICulture":"en-GB","MetadataCountryCode":"GB","PreferredMetadataLanguage":"en"}' \
     -o /dev/null -w "  startup configuration: %{http_code}\n"
+  user_json="$(jq -n --arg u "$ADMIN_USER" --arg p "$ADMIN_PASS" '{Name: $u, Password: $p}')"
   curl -s --max-time 10 -X POST "$BASE_URL/Startup/User" \
     -H "$CONTENT_TYPE" \
-    -d "{\"Name\":\"$ADMIN_USER\",\"Password\":\"$ADMIN_PASS\"}" \
+    -d "$user_json" \
     -o /dev/null -w "  admin user: %{http_code}\n"
   curl -s --max-time 10 -X POST "$BASE_URL/Startup/Complete" \
     -o /dev/null -w "  wizard complete: %{http_code}\n"
@@ -61,10 +62,11 @@ else
 fi
 
 # 2. Authenticate as admin ---------------------------------------------------
+auth_json="$(jq -n --arg u "$ADMIN_USER" --arg p "$ADMIN_PASS" '{Username: $u, Pw: $p}')"
 TOKEN="$(curl -s --max-time 10 -X POST "$BASE_URL/Users/AuthenticateByName" \
   -H "$CONTENT_TYPE" \
   -H "X-Emby-Authorization: $AUTH_HEADER" \
-  -d "{\"Username\":\"$ADMIN_USER\",\"Pw\":\"$ADMIN_PASS\"}" | jq -r .AccessToken)"
+  -d "$auth_json" | jq -r .AccessToken)"
 if [[ -z "$TOKEN" || "$TOKEN" == "null" ]]; then
   echo "Authentication failed for user '$ADMIN_USER' - check JELLYFIN_ADMIN_* in $ENV_FILE" >&2
   exit 1

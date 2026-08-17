@@ -25,8 +25,8 @@ while true; do
     colima start \
       --vm-type vz \
       --mount-type virtiofs \
-      --cpu 4 \
-      --memory 4 \
+      --cpu "${COLIMA_CPU:-4}" \
+      --memory "${COLIMA_MEMORY:-4}" \
       --mount "${HOME}:w" \
       --mount /Volumes >/dev/null 2>&1 \
       || echo "$(date '+%F %T') colima start failed; retrying next cycle" >&2
