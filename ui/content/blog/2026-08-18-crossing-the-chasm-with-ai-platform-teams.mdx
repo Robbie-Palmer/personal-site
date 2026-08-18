@@ -1,0 +1,93 @@
+---
+title: "Crossing the Chasm with AI Platform Teams"
+description: "Agents have broken the tooling layer that team leadership tactics depend on, and no post-chasm replacements exist to buy. Time to place a bet."
+date: "2026-08-18"
+tags: ["management", "software"]
+image: "blog/crossing-the-chasm-with-ai-platform-teams-featured-2026-08-18"
+imageAlt: "Someone carrying a heavy backpack across a rickety rope bridge over a canyon, with a large bridge under construction behind"
+---
+
+Every engineering org is forced to make a bet right now: invest in an AI platform team you know will be redundant in a few years, or wait for the market to settle, for a winner to emerge, and in the meantime eat the productivity gap of working in the "old way".
+
+I've been feeling the Engineering Manager / Team Lead role getting harder and harder.
+Six months ago, industry best practices for leading a team were clear.
+The strategies still hold, but the tactical approaches are completely broken, and honestly I have no idea what the new tactics should be, which is both exciting and extremely overwhelming!
+
+* Stack-ranked priority list and tight feedback loops
+* Keep teams small ([two-pizza teams](https://docs.aws.amazon.com/whitepapers/latest/introduction-devops-aws/two-pizza-teams.html)), autonomous, and able to deliver customer value independently of other teams
+* Do the [reverse Conway maneuver](https://martinfowler.com/bliki/ConwaysLaw.html)
+* Avoid arbitrary metrics ([Goodhart's law](https://en.wikipedia.org/wiki/Goodhart%27s_law))
+* Find out about people's passions and career aspirations, and align those with delivering business value
+* Pair people with complementary skillsets
+* Only work on people's weaknesses to the point where they're not disruptive, then double down on their strengths, as that's where you get the 10x return
+* Always be unblocking
+* Keep bureaucracy as lean as possible, and continually iterate on process
+
+This is not easy, but 50+ years of literature backs it up, and 10 years of personal experience with teams that adopted these strategies and teams that went against them.
+And none of it is specific to the tech industry!
+It applies to any business, from marketing consultancy to civil engineering.
+
+The specifics that are breaking are which tools to use and how to use them.
+The tactical day-to-day that enables the strategy.
+Git, GitHub/GitLab/Bitbucket, GHA/CircleCI/Jenkins, Jira/Linear, Confluence/Notion/SharePoint, Slack/MS Teams, JetBrains/VSCode/VIM…
+All of these places that used to be human-to-computer interfaces or human-to-human interfaces are now flooded with agents.
+
+Some are [collapsing under the weight](https://github.blog/news-insights/company-news/an-update-on-github-availability/); now it's so normal to be like, "Sorry, I can't ship my code to production; [GitHub is down](https://mrshu.github.io/github-statuses/), what can you do 🤷‍♂️"
+
+Some are full of so, so much text… Confluence, PR descriptions, Slack channels, Jira tickets.
+Places where we used to refine thought collaboratively are now only useful for agents and the human who spawned them; no other humans welcome.
+
+Some tools we relied on so heavily, and advocated for so strongly, are now completely useless and have been gathering dust all year (I thank you, PyCharm, for all you did for me 🙏)
+
+Some tools that only appeared in the last year, and are deep in the agentic coding space, are already not keeping up (CodeRabbit, Gemini Code Assist, Greptile), with massive rate limiting and diminishing value.
+
+I see some people trying small fixes here and there.
+Use GitLab, not GitHub; use Linear, not Jira.
+Use my internal tool, which is similar but 10% better.
+I see some companies trying to build the next generation of these tools: "agentic-first."
+But they haven't landed yet; they're alpha, or limited access, or sometimes they got it wrong and didn't actually solve the problem.
+I've found some amazing tools, but none are a holistic solution.
+
+It feels like coding agents are now hitting the "Late Majority" before the next wave of tooling has crossed ["The Chasm"](https://en.wikipedia.org/wiki/Crossing_the_Chasm) from the innovators to the "Early Adopters".
+
+<img src="blog/innovation-adoption-curve-2026-08-18" alt="The Innovation Adoption Curve: a bell curve split into Innovators, Early Adopters, Early Majority, Late Majority, and Laggards, with 'The Chasm' marked within the Early Adopters segment" />
+
+*[Innovation Adoption Curve](https://commons.wikimedia.org/wiki/File:Innovation_Adoption_Curve.svg) by [Jim McKeeth](https://commons.wikimedia.org/wiki/User:Jim_McKeeth), licensed under [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0)*
+
+I have always tried to avoid entering the "Innovators" section of the [Innovation Adoption Curve](https://en.wikipedia.org/wiki/Technology_adoption_life_cycle) for most tooling.
+Because in a company, you have your USP, your domain, your ICP, your specialization.
+Wait for others to spend the energy/time/money crossing the chasm, then leapfrog over them.
+Cross the chasm in your own domain, then fight hard to keep the lead.
+You can't fight on all fronts.
+The way to win is to double down on that area, treat everything else as commodities, and partner/buy as much as possible vs. build, because building and maintaining is expensive.
+
+My whole playbook assumes a market of post-chasm tools to buy, and that building is expensive.
+For the first time in my career, that market doesn't exist!
+And building is getting cheaper and cheaper!
+
+So who on earth do you buy from now?
+Who do you partner with?
+Who will survive long enough to deliver value to you?
+Who can monetize?
+
+How hard is it really to build yourself?
+How expensive is it to maintain when your own agents are the ones maintaining it?
+How much do you gain by getting back all that time spent talking to salespeople and working with procurement, and instead focus on your bespoke issues?
+
+There has to be a more holistic solution to all this, and everyone expects a new layer to emerge, the equivalent of AWS for agentic tooling.
+But who will do it and when it will land is unknown.
+Many would love to, but can't execute.
+
+And the question for every other company now is: can we afford to stick with our existing tech stack and hold back on the new way of working until these problems are solved and the winner has emerged?
+
+Or are we in an age like the late 80s, when DOS gave games nothing, and every studio had to ship its own [sound drivers](https://en.wikipedia.org/wiki/Miles_Sound_System), [memory extenders](https://en.wikipedia.org/wiki/DOS/4GW), and [video code](https://en.wikipedia.org/wiki/VESA_BIOS_Extensions), building commodity plumbing outside its core domain?
+Then [DirectX came in 1995](https://en.wikipedia.org/wiki/DirectX) and made it all redundant - four years after the middleware market peaked.
+The studios that waited got the platform layer for free.
+But nobody actually waited: Doom, Warcraft, and Duke Nukem were all built in those years, on middleware everyone knew was temporary.
+
+So now we have to invest in an AI platform team to bring the company into this new world, knowing it should become redundant in several years when the market settles.
+
+If the general market hasn't yet crossed the chasm, and companies cannot afford to wait, they need to invest in AI platform teams to carry them across it.
+We have to bet on which impacts productivity more: waiting for someone else to do it, or the inevitable redundancy.
+
+I don't think we can afford to wait.
