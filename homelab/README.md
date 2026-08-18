@@ -26,11 +26,9 @@ forwards no ports, so nothing is ever public.
 
 ## Jellyfin on the Mac mini
 
-Jellyfin (ADR 011) runs on the hub in Docker Compose, managed by colima. The
-stack is declared in `hosts/mac-mini/jellyfin/`; a launchd agent keeps colima
-and the stack running across reboots and crashes. Colima replaces Docker
-Desktop (it provides the Linux VM with the Docker daemon), but you still
-need the `docker` CLI and `docker-compose` plugin to interact with it.
+Jellyfin (ADR 011) runs on the hub. The stack is declared in
+`hosts/mac-mini/jellyfin/`; a launchd agent keeps it running across reboots
+and crashes.
 
 ### One-time bootstrap
 
@@ -42,10 +40,8 @@ cp hosts/mac-mini/jellyfin/.env.example hosts/mac-mini/jellyfin/.env
 mise run //homelab:bootstrap
 ```
 
-`bootstrap.sh` installs colima, docker, and docker-compose via Homebrew,
-starts colima with `/Volumes` mounted read-only (vz + virtiofs), installs the
-`homelab.jellyfin` LaunchAgent, and brings up the stack. It then prints the
-access URLs:
+`bootstrap` installs dependencies, starts the runtime, installs the
+launchd agent, and brings up the stack. It then prints the access URLs:
 
 - **Local**: `http://localhost:8096`
 - **LAN** (Fire TV Stick): `http://<hub-lan-ip>:8096`
@@ -58,10 +54,10 @@ read-only as `/media`).
 ### Day-to-day
 
 ```bash
-mise run //homelab:status    # docker compose ps
+mise run //homelab:status    # show the state of the stack
 mise run //homelab:logs      # follow Jellyfin logs
-mise run //homelab:restart   # restart the container
-mise run //homelab:verify    # hit the health endpoint
+mise run //homelab:restart   # restart Jellyfin
+mise run //homelab:verify    # check the health endpoint
 ```
 
 ### Upgrading
@@ -81,13 +77,11 @@ for patch updates of the current stable minor). To upgrade:
   tailnet is the lab's trust boundary, so this is only a risk if an
   untrusted peer is on the LAN during the few seconds bootstrap runs.
 - **colima mounts only `$HOME` by default.** The bootstrap mounts `/Volumes`
-  read-only so the media drive is visible to containers. If you start colima
-  manually without those flags, Jellyfin will see an empty `/media`. If the
-  drive isn't visible, recreate colima: `colima delete` then re-run
+  read-only so the media drive is visible to containers. If the VM is
+  recreated without those flags, Jellyfin will see an empty `/media`. If the
+  drive isn't visible, recreate the VM: `colima delete` then re-run
   `mise run //homelab:bootstrap`.
-- **Drive names with spaces break colima mounts.** Name the media volume
-  without spaces (e.g. `HOME-LAB-10TB`), or the mount fails at colima start.
-- **The drive must be mounted before colima starts.** If the HDD isn't
+- **The drive must be mounted before bootstrap.** If the HDD isn't
   connected or auto-mounted at login, the mount point won't exist.
 - **Config lives in `data/config/`** (gitignored) next to the compose file,
   so Jellyfin's metadata and settings are plain files on the hub's disk that

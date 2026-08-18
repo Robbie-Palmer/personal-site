@@ -3,7 +3,7 @@
 # must be run on the machine that hosts the service (the Mac mini hub).
 
 [tasks.bootstrap]
-description = "Install the container runtime and deploy the Jellyfin stack on the hub"
+description = "Install dependencies and deploy the Jellyfin stack on the hub"
 run = "bash hosts/mac-mini/jellyfin/scripts/bootstrap.sh"
 
 [tasks.provision]
