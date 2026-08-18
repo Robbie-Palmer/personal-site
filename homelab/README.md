@@ -28,7 +28,9 @@ forwards no ports, so nothing is ever public.
 
 Jellyfin (ADR 011) runs on the hub in Docker Compose, managed by colima. The
 stack is declared in `hosts/mac-mini/jellyfin/`; a launchd agent keeps colima
-and the stack running across reboots and crashes.
+and the stack running across reboots and crashes. Colima replaces Docker
+Desktop (it provides the Linux VM with the Docker daemon), but you still
+need the `docker` CLI and `docker-compose` plugin to interact with it.
 
 ### One-time bootstrap
 
