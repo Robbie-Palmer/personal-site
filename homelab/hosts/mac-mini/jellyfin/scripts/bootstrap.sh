@@ -1,12 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# One-time bootstrap for the Jellyfin stack on the macOS hub (Mac mini):
-#   1. Install colima, docker, and docker-compose via Homebrew.
-#   2. Create the .env file from the example template (requires MEDIA_DIR).
-#   3. Start colima with the media drive mounted (vz + virtiofs, /Volumes read-only).
-#   4. Install and start the homelab.jellyfin LaunchAgent (keep-running.sh).
-#   5. Bring up the compose stack and print access URLs.
+# One-time bootstrap for the Jellyfin stack on the Mac mini hub.
 
 export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
 
@@ -36,8 +31,6 @@ if ! command -v colima >/dev/null 2>&1; then
   echo "Installing colima via Homebrew"
   brew install colima
 fi
-# docker and docker-compose may be missing even when colima is present (e.g.
-# installed independently or after Docker Desktop was removed).
 for tool in docker docker-compose; do
   if ! command -v "$tool" >/dev/null 2>&1; then
     echo "Installing $tool via Homebrew"
@@ -48,9 +41,8 @@ require_command colima
 require_command docker
 require_command docker-compose
 
-# Docker Desktop leaves a credsStore pointing at its own helper (absent from
-# this script's PATH). With colima we only pull public images, so a credential
-# helper is unnecessary and its stale reference breaks every pull.
+# Remove a stale credential helper that breaks image pulls when the original
+# tool is no longer installed.
 if [[ -f "${HOME}/.docker/config.json" ]] && command -v jq >/dev/null 2>&1; then
   stale_store="$(jq -r '.credsStore // empty' "${HOME}/.docker/config.json" 2>/dev/null)"
   if [[ -n "$stale_store" ]] && ! command -v "docker-credential-${stale_store}" >/dev/null 2>&1; then
@@ -100,18 +92,13 @@ if [[ ! -d "$MEDIA_DIR" ]]; then
 fi
 mkdir -p "$MEDIA_DIR/TV" "$MEDIA_DIR/Movies"
 
-# 3. colima ----------------------------------------------------------------
+# 3. VM setup --------------------------------------------------------------
 if colima status >/dev/null 2>&1; then
   echo "colima is already running; keeping its current configuration."
   echo "If the media drive is not visible to containers, recreate it with:"
   echo "  colima delete && mise run //homelab:bootstrap"
 else
-  # The hub has 8GB of RAM and also runs Docker Desktop, so colima gets a
-  # modest allocation; raise it via COLIMA_CPU / COLIMA_MEMORY if needed.
-  # $HOME is shared read-write (repo config dir lives there); /Volumes is
-  # shared read-only so containers can see the 10TB HDD. Note: passing
-  # --mount replaces colima's default mounts, so $HOME must be listed too.
-  echo "Starting colima (vz + virtiofs, \$HOME rw + /Volumes ro)"
+  echo "Starting colima"
   colima start \
     --vm-type vz \
     --mount-type virtiofs \
@@ -147,7 +134,7 @@ DOCKER_CONTEXT=colima docker compose \
   --project-directory "$JELLYFIN_DIR" \
   up -d
 
-# 6. Configure Jellyfin (wizard + libraries) --------------------------------
+# 6. Configure Jellyfin ----------------------------------------------------
 echo "Waiting for Jellyfin to accept connections..."
 healthy=false
 for _ in $(seq 1 20); do

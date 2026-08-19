@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 set -uo pipefail
 
-# Keeps the Jellyfin stack running under launchd (homelab.jellyfin).
-# Re-checks every 60 seconds, starting colima and the compose stack if either
-# has stopped, so the stack self-heals across hub reboots and colima crashes.
-# Runs forever; launchd's KeepAlive restarts it if it ever exits.
+# Keeps the Jellyfin stack running under launchd. Re-checks every 60 seconds,
+# starting the VM and the compose stack if either has stopped, so the stack
+# self-heals across hub reboots and crashes. Runs forever; launchd's KeepAlive
+# restarts it if it ever exits.
 
 export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
 export DOCKER_CONTEXT="colima"
@@ -20,8 +20,6 @@ colima_running() {
 while true; do
   if ! colima_running; then
     echo "$(date '+%F %T') colima is not running; starting it" >&2
-    # Same mount layout as bootstrap.sh: $HOME rw + /Volumes ro. If the VM
-    # already exists these flags are ignored and its saved config is reused.
     colima start \
       --vm-type vz \
       --mount-type virtiofs \

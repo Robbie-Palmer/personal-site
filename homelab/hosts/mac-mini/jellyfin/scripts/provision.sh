@@ -1,10 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Idempotently completes the Jellyfin first-run wizard and creates the media
-# libraries (TV Shows -> /media/TV, Movies -> /media/Movies) via the API, so
-# no manual web onboarding is needed. Admin credentials come from the .env
-# file (JELLYFIN_ADMIN_USER / JELLYFIN_ADMIN_PASSWORD).
+# Completes the Jellyfin first-run wizard and creates media libraries via the
+# API, so no manual web onboarding is needed.
 
 export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
 
