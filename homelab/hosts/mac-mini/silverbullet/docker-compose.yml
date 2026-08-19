@@ -1,0 +1,26 @@
+name: silverbullet
+
+services:
+  silverbullet:
+    image: ghcr.io/silverbulletmd/silverbullet:${SB_VERSION:-latest}
+    container_name: silverbullet
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${SB_PORT:-3001}:3000"
+    environment:
+      SB_USER: "${SB_USER:?set SB_USER in the silverbullet .env file (user:password)}"
+      SB_HOSTNAME: "0.0.0.0"
+      SB_SHELL_BACKEND: "off"
+      SB_SPACE_IGNORE: ".git/*,.gitignore"
+    volumes:
+      - "${SB_SPACE_DIR:?set SB_SPACE_DIR in the silverbullet .env file}:/space"
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3000/"]
+      interval: 1m
+      timeout: 5s
+      retries: 3
+      start_period: 30s
