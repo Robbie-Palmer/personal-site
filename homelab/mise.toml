@@ -42,3 +42,45 @@ run = "docker compose up -d --pull always"
 [tasks.verify]
 description = "Check the Jellyfin health endpoint"
 run = 'curl -fsS "http://localhost:${JELLYFIN_PORT:-8096}/health" && echo "Jellyfin is healthy"'
+
+# ---------------------------------------------------------------------------
+# SilverBullet
+# ---------------------------------------------------------------------------
+
+[tasks.sb-bootstrap]
+description = "Install dependencies and deploy the SilverBullet stack"
+run = "bash hosts/mac-mini/silverbullet/scripts/bootstrap.sh"
+
+[tasks.sb-status]
+description = "Show the state of the SilverBullet stack"
+dir = "hosts/mac-mini/silverbullet"
+run = "docker compose ps"
+
+[tasks.sb-up]
+description = "Create and start the SilverBullet stack"
+dir = "hosts/mac-mini/silverbullet"
+run = "docker compose up -d"
+
+[tasks.sb-down]
+description = "Stop the SilverBullet stack"
+dir = "hosts/mac-mini/silverbullet"
+run = "docker compose down"
+
+[tasks.sb-restart]
+description = "Restart the SilverBullet container"
+dir = "hosts/mac-mini/silverbullet"
+run = "docker compose restart"
+
+[tasks.sb-logs]
+description = "Follow the SilverBullet logs"
+dir = "hosts/mac-mini/silverbullet"
+run = "docker compose logs -f --tail=100"
+
+[tasks.sb-pull]
+description = "Pull the configured image and recreate the container"
+dir = "hosts/mac-mini/silverbullet"
+run = "docker compose up -d --pull always"
+
+[tasks.sb-verify]
+description = "Check the SilverBullet health endpoint"
+run = 'curl -fsS "http://localhost:${SB_PORT:-3000}/" && echo "SilverBullet is healthy"'
