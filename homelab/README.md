@@ -170,11 +170,13 @@ mise run //homelab:bm-reset       # rebuild index from Markdown files
 After bootstrap, connect each t3-code agent to the MCP server:
 
 **Claude Code:**
+
 ```bash
 claude mcp add basic-memory -- bm mcp --project knowledge
 ```
 
 **opencode** (add to `~/.config/opencode/config.json`):
+
 ```json
 {
   "mcp": {
