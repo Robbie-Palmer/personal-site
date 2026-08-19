@@ -1,13 +1,12 @@
-# Tasks for managing the homelab services declared in this repo. Run them
-# with the //homelab: prefix, e.g. `mise run //homelab:status`. These tasks
-# must be run on the machine that hosts the service (the Mac mini hub).
+# Tasks for managing homelab services. Run with the //homelab: prefix,
+# e.g. `mise run //homelab:status`. Must be run on the hosting machine.
 
 [tasks.bootstrap]
-description = "Install dependencies and deploy the Jellyfin stack on the hub"
+description = "Install dependencies and deploy the Jellyfin stack"
 run = "bash hosts/mac-mini/jellyfin/scripts/bootstrap.sh"
 
 [tasks.provision]
-description = "Complete the Jellyfin wizard and create the media libraries via the API"
+description = "Complete the Jellyfin wizard and create media libraries"
 run = "bash hosts/mac-mini/jellyfin/scripts/provision.sh"
 
 [tasks.status]
@@ -36,10 +35,10 @@ dir = "hosts/mac-mini/jellyfin"
 run = "docker compose logs -f --tail=100"
 
 [tasks.pull]
-description = "Pull the configured image and recreate the container (upgrade)"
+description = "Pull the configured image and recreate the container"
 dir = "hosts/mac-mini/jellyfin"
 run = "docker compose up -d --pull always"
 
 [tasks.verify]
-description = "Check the Jellyfin health endpoint on the hub"
+description = "Check the Jellyfin health endpoint"
 run = 'curl -fsS "http://localhost:${JELLYFIN_PORT:-8096}/health" && echo "Jellyfin is healthy"'
