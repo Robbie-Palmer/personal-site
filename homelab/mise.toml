@@ -95,8 +95,8 @@ run = "bash hosts/mac-mini/basic-memory/scripts/bootstrap.sh"
 
 [tasks.bm-status]
 description = "Show Basic Memory sync status"
-run = "bm status"
+run = "PATH=\"$HOME/.local/bin:$PATH\" bm status"
 
 [tasks.bm-reset]
 description = "Rebuild the Basic Memory index from Markdown files"
-run = "bm reset"
+run = "PATH=\"$HOME/.local/bin:$PATH\" bm reset"

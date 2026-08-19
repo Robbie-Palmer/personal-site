@@ -199,4 +199,5 @@ claude mcp add basic-memory -- bm mcp --project knowledge
   visible to the other after the file watcher syncs.
 - **Manual reindex needed for CLI use.** The file watcher only runs when
   the MCP server is active. For `bm tool search-notes` from the terminal,
-  run `bm reindex` after adding or editing notes outside of MCP.
+  run `bm reindex` after adding or editing notes outside of MCP. Use
+  `bm reset` only to rebuild from scratch (drops and recreates all tables).

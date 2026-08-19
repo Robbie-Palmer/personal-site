@@ -5,9 +5,10 @@ set -euo pipefail
 # Installs the Python toolchain, Basic Memory CLI, and registers
 # the shared knowledge space as a project.
 
-export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+export PATH="${HOME}/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
 
 PROJECT_NAME="knowledge"
+BM_VERSION="0.22.1"
 
 require_command() {
   local name="$1"
@@ -32,8 +33,8 @@ fi
 
 # 2. Install Basic Memory --------------------------------------------------
 if ! command -v bm >/dev/null 2>&1; then
-  echo "Installing basic-memory via uv tool"
-  uv tool install --no-build basic-memory
+  echo "Installing basic-memory ${BM_VERSION} via uv tool"
+  uv tool install "basic-memory==${BM_VERSION}"
 fi
 
 # Verify installation
@@ -52,8 +53,8 @@ if [[ ! -d "$KNOWLEDGE_DIR" ]]; then
   exit 1
 fi
 
-# Check if project is already registered
-existing_project="$(bm project list 2>/dev/null | grep -F "$PROJECT_NAME" || true)"
+# Check if project is already registered (exact match on first column)
+existing_project="$(bm project list 2>/dev/null | awk -v name="$PROJECT_NAME" '$1 == name' || true)"
 if [[ -z "$existing_project" ]]; then
   echo "Registering knowledge project at $KNOWLEDGE_DIR"
   bm project add "$PROJECT_NAME" "$KNOWLEDGE_DIR"
