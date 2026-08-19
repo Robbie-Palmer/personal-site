@@ -7,6 +7,8 @@ set -euo pipefail
 
 export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
 
+PROJECT_NAME="knowledge"
+
 require_command() {
   local name="$1"
   if ! command -v "$name" >/dev/null 2>&1; then
@@ -31,7 +33,7 @@ fi
 # 2. Install Basic Memory --------------------------------------------------
 if ! command -v bm >/dev/null 2>&1; then
   echo "Installing basic-memory via uv tool"
-  uv tool install basic-memory
+  uv tool install --no-build basic-memory
 fi
 
 # Verify installation
@@ -51,26 +53,26 @@ if [[ ! -d "$KNOWLEDGE_DIR" ]]; then
 fi
 
 # Check if project is already registered
-existing_project="$(bm project list 2>/dev/null | grep -F 'knowledge' || true)"
+existing_project="$(bm project list 2>/dev/null | grep -F "$PROJECT_NAME" || true)"
 if [[ -z "$existing_project" ]]; then
   echo "Registering knowledge project at $KNOWLEDGE_DIR"
-  bm project add "knowledge" "$KNOWLEDGE_DIR"
-  bm project default "knowledge"
+  bm project add "$PROJECT_NAME" "$KNOWLEDGE_DIR"
+  bm project default "$PROJECT_NAME"
 else
   echo "Knowledge project already registered"
-  bm project default "knowledge" 2>/dev/null || true
+  bm project default "$PROJECT_NAME" 2>/dev/null || true
 fi
 
 # 4. Verify ----------------------------------------------------------------
 echo ""
 echo "Basic Memory is ready."
-echo "  Project: knowledge ($KNOWLEDGE_DIR)"
-echo "  MCP:     bm mcp --project knowledge"
+echo "  Project: $PROJECT_NAME ($KNOWLEDGE_DIR)"
+echo "  MCP:     bm mcp --project $PROJECT_NAME"
 echo ""
 echo "To connect an agent:"
-echo "  Claude Code:  claude mcp add basic-memory -- bm mcp --project knowledge"
+echo "  Claude Code:  claude mcp add basic-memory -- bm mcp --project $PROJECT_NAME"
 echo "  opencode:     add to ~/.config/opencode/config.json:"
-echo "                  {\"mcp\":{\"basic-memory\":{\"command\":\"bm\",\"args\":[\"mcp\",\"--project\",\"knowledge\"]}}}"
+echo "                  {\"mcp\":{\"basic-memory\":{\"command\":\"bm\",\"args\":[\"mcp\",\"--project\",\"$PROJECT_NAME\"]}}}"
 echo ""
 echo "To search notes:"
 echo "  bm tool search-notes \"query\""
