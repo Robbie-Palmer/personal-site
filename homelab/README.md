@@ -142,3 +142,59 @@ mise run //homelab:sb-verify
   port exposure.
 - The [Netdata](/projects/homelab/adrs/009-netdata) alerting should also
   check the SilverBullet container health.
+
+## Basic Memory on the Mac mini
+
+Basic Memory (ADR 014) is the agent-facing knowledge engine. It runs as a
+host-level Python CLI — no Docker, no launchd agent. The MCP server is
+launched on demand by each t3-code agent.
+
+### Basic Memory one-time bootstrap
+
+```bash
+mise run //homelab:bm-bootstrap
+```
+
+This installs `uv`, the `basic-memory` CLI, and registers `~/knowledge`
+as the default project.
+
+### Basic Memory day-to-day
+
+```bash
+mise run //homelab:bm-status      # sync status between files and index
+mise run //homelab:bm-reset       # rebuild index from Markdown files
+```
+
+### Connecting agents
+
+After bootstrap, connect each t3-code agent to the MCP server:
+
+**Claude Code:**
+```bash
+claude mcp add basic-memory -- bm mcp --project knowledge
+```
+
+**opencode** (add to `~/.config/opencode/config.json`):
+```json
+{
+  "mcp": {
+    "basic-memory": {
+      "command": "bm",
+      "args": ["mcp", "--project", "knowledge"]
+    }
+  }
+}
+```
+
+### Basic Memory caveats
+
+- **No persistent daemon.** The MCP server launches on demand; there is
+  nothing to monitor or restart.
+- **SQLite index is disposable.** Run `bm reset` to rebuild from files.
+  The database lives at `~/.basic-memory/` outside the Git repository.
+- **Shared space with SilverBullet.** Both tools index the same
+  `~/knowledge` Markdown files. Changes through either interface are
+  visible to the other after the file watcher syncs.
+- **Manual reindex needed for CLI use.** The file watcher only runs when
+  the MCP server is active. For `bm tool search-notes` from the terminal,
+  run `bm reindex` after adding or editing notes outside of MCP.

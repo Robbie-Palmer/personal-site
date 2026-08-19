@@ -1,0 +1,76 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# One-time bootstrap for Basic Memory on the Mac mini hub.
+# Installs the Python toolchain, Basic Memory CLI, and registers
+# the shared knowledge space as a project.
+
+export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+
+require_command() {
+  local name="$1"
+  if ! command -v "$name" >/dev/null 2>&1; then
+    echo "Missing required command: $name" >&2
+    exit 1
+  fi
+}
+
+if [[ "$(uname -s)" != "Darwin" ]]; then
+  echo "bootstrap.sh must run on the macOS hub (Mac mini)." >&2
+  exit 1
+fi
+
+require_command brew
+
+# 1. Install uv (Python package manager) ----------------------------------
+if ! command -v uv >/dev/null 2>&1; then
+  echo "Installing uv via Homebrew"
+  brew install uv
+fi
+
+# 2. Install Basic Memory --------------------------------------------------
+if ! command -v bm >/dev/null 2>&1; then
+  echo "Installing basic-memory via uv tool"
+  uv tool install basic-memory
+fi
+
+# Verify installation
+if ! bm --version >/dev/null 2>&1; then
+  echo "basic-memory installation failed" >&2
+  exit 1
+fi
+echo "Basic Memory $(bm --version 2>/dev/null || echo '(installed)')"
+
+# 3. Register the knowledge project ----------------------------------------
+KNOWLEDGE_DIR="${HOME}/knowledge"
+
+if [[ ! -d "$KNOWLEDGE_DIR" ]]; then
+  echo "Knowledge directory does not exist at $KNOWLEDGE_DIR" >&2
+  echo "Run the SilverBullet bootstrap first to create it." >&2
+  exit 1
+fi
+
+# Check if project is already registered
+existing_project="$(bm project list 2>/dev/null | grep -F 'knowledge' || true)"
+if [[ -z "$existing_project" ]]; then
+  echo "Registering knowledge project at $KNOWLEDGE_DIR"
+  bm project add "knowledge" "$KNOWLEDGE_DIR"
+  bm project default "knowledge"
+else
+  echo "Knowledge project already registered"
+  bm project default "knowledge" 2>/dev/null || true
+fi
+
+# 4. Verify ----------------------------------------------------------------
+echo ""
+echo "Basic Memory is ready."
+echo "  Project: knowledge ($KNOWLEDGE_DIR)"
+echo "  MCP:     bm mcp --project knowledge"
+echo ""
+echo "To connect an agent:"
+echo "  Claude Code:  claude mcp add basic-memory -- bm mcp --project knowledge"
+echo "  opencode:     add to ~/.config/opencode/config.json:"
+echo "                  {\"mcp\":{\"basic-memory\":{\"command\":\"bm\",\"args\":[\"mcp\",\"--project\",\"knowledge\"]}}}"
+echo ""
+echo "To search notes:"
+echo "  bm tool search-notes \"query\""
