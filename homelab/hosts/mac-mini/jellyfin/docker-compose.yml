@@ -1,0 +1,20 @@
+name: jellyfin
+
+services:
+  jellyfin:
+    image: jellyfin/jellyfin:${JELLYFIN_VERSION:-10.11}
+    container_name: jellyfin
+    restart: unless-stopped
+    ports:
+      - "${JELLYFIN_PORT:-8096}:8096"
+    environment:
+      TZ: "${TZ:-UTC}"
+    volumes:
+      - "${JELLYFIN_CONFIG_DIR:-./data/config}:/config"
+      - "${MEDIA_DIR:?set MEDIA_DIR in the jellyfin .env file}:/media:ro"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8096/health"]
+      interval: 1m
+      timeout: 5s
+      retries: 3
+      start_period: 60s

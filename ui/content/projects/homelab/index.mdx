@@ -17,6 +17,7 @@ tech_stack:
   - "NixOS"
   - "CUPS"
   - "Docker"
+  - "Jellyfin"
 ---
 
 # Vision
@@ -105,20 +106,20 @@ constraint is software, not silicon.
   chart={`flowchart LR
 Internet["Internet"] -->|"router DNS"| Router["Home router"]
 subgraph hub["Mac mini — home hub"]
-    ADG1["AdGuard Home — primary DNS"]
-    ENT["Ente sync"]
-    NET1["Netdata"]
-    T3["t3-code + agents"]
-    JEL["Jellyfin — planned"]
+  ADG1["AdGuard Home — primary DNS"]
+  ENT["Ente sync"]
+  NET1["Netdata"]
+  T3["t3-code + agents"]
+  JEL["Jellyfin"]
 end
 subgraph pi["Raspberry Pi"]
-    ADG2["AdGuard Home — fallback DNS"]
-    NET2["Netdata → hub"]
-    CUP["CUPS"]
+  ADG2["AdGuard Home — fallback DNS"]
+  NET2["Netdata → hub"]
+  CUP["CUPS"]
 end
 subgraph asus["Asus desktop (NixOS) — proposed"]
-    GPU["GTX 1060 — CV jobs"]
-    DVC["DVC dataset cache"]
+  GPU["GTX 1060 — CV jobs"]
+  DVC["DVC dataset cache"]
 end
 Router --> ADG1
 Router --> ADG2
@@ -163,8 +164,11 @@ photo backup pipeline.
 * **Monitoring.** Runs [Netdata](/projects/homelab/adrs/009-netdata),
   connected to my Slack workspace via a Slack app, to alarm on anything
   going wrong.
-* **Media (planned).** Will run [Jellyfin](/projects/homelab/adrs/011-jellyfin)
-  to serve TV shows and movies to my Fire TV Stick.
+* **Media.** Runs [Jellyfin](/projects/homelab/adrs/011-jellyfin) to serve
+  TV shows and movies to my Fire TV Stick, in Docker Compose under colima
+  with its config declared in `homelab/hosts/mac-mini/jellyfin/` in this
+  repo. The library lives on the 10TB HDD and is served over the LAN and the
+  tailnet only.
 
 ## Raspberry Pi — the resilient sidekick
 
@@ -229,7 +233,7 @@ workloads and layering on the rest:
 | 3     | DNS privacy (AdGuard Home, primary + failover)                | Live        |
 | 4     | CUPS printing on the Pi (avoiding printer ewaste)             | Live        |
 | 5     | NixOS GPU worker for batch CV jobs, with DVC-managed datasets | Proposed    |
-| 6     | Jellyfin media server for the Fire TV Stick                   | Proposed    |
+| 6     | Jellyfin media server for the Fire TV Stick                   | In progress |
 | 7     | Second compute node (idle 4080 laptop)                        | Idea        |
 
 # What This Is Not
