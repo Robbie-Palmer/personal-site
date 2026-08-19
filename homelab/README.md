@@ -96,9 +96,16 @@ printf 'SB_USER=%s:%s\n' "$(whoami)" "$(openssl rand -base64 18)" >> hosts/mac-m
 
 ### SilverBullet Tailscale Serve
 
-After bootstrap, expose SilverBullet to the tailnet only:
+After bootstrap, Tailscale Serve is managed automatically by a launchd agent
+(`homelab.tailscale-serve`). It verifies every 5 minutes that port 3001 is
+served and re-applies if overwritten by another Tailscale serve/funnel
+invocation (e.g. t3-code preview agents).
 
 ```bash
+# Check current status
+tailscale serve status
+
+# Manually re-apply if needed
 tailscale serve --bg 3001
 ```
 
