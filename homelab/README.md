@@ -24,7 +24,7 @@ mise run //homelab:bootstrap
 ```
 
 The bootstrap will prompt you to create a `.env` file from the example
-template and set `MEDIA_DIR` to your library on the 10TB HDD, then re-run.
+template and set `MEDIA_DIR` to your media library, then re-run.
 
 Once complete it prints access URLs:
 
@@ -56,7 +56,7 @@ mise run //homelab:verify
   accessible on the port. The router forwards no ports and the tailnet is
   the lab's trust boundary, so this is only a risk if an untrusted peer is
   on the LAN during the few seconds bootstrap runs.
-- **The drive must be mounted before bootstrap.** If the HDD isn't
+- **The drive must be mounted before bootstrap.** If the volume isn't
   connected or auto-mounted at login, the mount point won't exist.
 - The [Netdata](/projects/homelab/adrs/009-netdata) alerting on the hub
   should gain a check for the Jellyfin container and the media drive, so a

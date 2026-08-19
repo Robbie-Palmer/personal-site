@@ -58,7 +58,7 @@ fi
 if [[ ! -f "$ENV_FILE" ]]; then
   cp "${JELLYFIN_DIR}/.env.example" "$ENV_FILE"
   echo "Created $ENV_FILE from the example template."
-  echo "Set MEDIA_DIR to your media library on the 10TB HDD, then re-run."
+  echo "Set MEDIA_DIR to your media library, then re-run."
   exit 1
 fi
 
@@ -87,7 +87,7 @@ if [[ -z "$MEDIA_DIR" ]]; then
 fi
 if [[ ! -d "$MEDIA_DIR" ]]; then
   echo "MEDIA_DIR does not exist on this machine: $MEDIA_DIR" >&2
-  echo "Is the 10TB HDD connected and mounted?" >&2
+  echo "Is the media volume connected and mounted?" >&2
   exit 1
 fi
 mkdir -p "$MEDIA_DIR/TV" "$MEDIA_DIR/Movies"
