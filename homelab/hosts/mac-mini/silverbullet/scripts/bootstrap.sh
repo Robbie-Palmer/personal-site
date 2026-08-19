@@ -136,15 +136,35 @@ if [[ "$healthy" != "true" ]]; then
   exit 1
 fi
 
-# 7. Report ----------------------------------------------------------------
+# 7. Tailscale Serve agent -------------------------------------------------
+TS_SERVE_AGENT="homelab.tailscale-serve"
+TS_SERVE_TARGET="${HOME}/Library/LaunchAgents/${TS_SERVE_AGENT}.plist"
+TS_SERVE_DIR="${HOMELAB_ROOT}/hosts/mac-mini/tailscale-serve"
+
+if [[ -f "${TS_SERVE_DIR}/launchd/${TS_SERVE_AGENT}.plist" ]]; then
+  mkdir -p "${HOME}/Library/Logs/homelab"
+  sed \
+    -e "s|__HOMELAB_ROOT__|${HOMELAB_ROOT_ESC}|g" \
+    -e "s|__HOME__|${HOME_ESC}|g" \
+    "${TS_SERVE_DIR}/launchd/${TS_SERVE_AGENT}.plist" > "$TS_SERVE_TARGET"
+
+  launchctl bootout "gui/$(id -u)" "$TS_SERVE_TARGET" 2>/dev/null || true
+  if ! launchctl bootstrap "gui/$(id -u)" "$TS_SERVE_TARGET"; then
+    echo "Warning: failed to install LaunchAgent ${TS_SERVE_AGENT}" >&2
+  else
+    launchctl kickstart "gui/$(id -u)/${TS_SERVE_AGENT}" 2>/dev/null || true
+    echo "Installed LaunchAgent ${TS_SERVE_AGENT}"
+  fi
+fi
+
+# 8. Report ----------------------------------------------------------------
 echo ""
 echo "SilverBullet is up. Access it at:"
 echo "  local: http://localhost:${SB_PORT}"
 TAILSCALE_IP="$(tailscale ip -4 2>/dev/null | head -n1 || true)"
 if [[ -n "$TAILSCALE_IP" ]]; then
-  echo "  tailnet: https://robbies-mac-mini.tailaa0e46.ts.net/  (after tailscale serve)"
+  echo "  tailnet: https://robbies-mac-mini.tailaa0e46.ts.net/  (auto-managed by launchd)"
 fi
 echo ""
 echo "Space: $SB_SPACE_DIR"
-echo "Next step: set up Tailscale Serve for HTTPS access from other devices."
-echo "  tailscale serve --bg ${SB_PORT}"
+echo "Tailscale Serve is managed by homelab.tailscale-serve (re-applies every 5m if overwritten)."
