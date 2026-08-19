@@ -14,6 +14,8 @@ Edit text to remove AI patterns and add human voice.
 3. Add soul (see next section).
 4. Self-audit: "What makes this obviously AI generated?" Fix remaining tells.
 
+> **Exception:** These rules apply to your own prose. Quotations, blockquotes, and other verbatim content must remain unchanged.
+
 ## Adding soul
 
 Removing patterns is half the job. Sterile, voiceless writing is just as obvious.
