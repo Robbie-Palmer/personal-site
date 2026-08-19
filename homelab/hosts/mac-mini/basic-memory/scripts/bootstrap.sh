@@ -34,7 +34,7 @@ fi
 # 2. Install Basic Memory --------------------------------------------------
 if ! command -v bm >/dev/null 2>&1; then
   echo "Installing basic-memory ${BM_VERSION} via uv tool"
-  uv tool install "basic-memory==${BM_VERSION}"
+  uv tool install --no-build "basic-memory==${BM_VERSION}"
 fi
 
 # Verify installation
