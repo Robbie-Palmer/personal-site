@@ -175,6 +175,14 @@ After bootstrap, connect each t3-code agent to the MCP server:
 claude mcp add basic-memory -- bm mcp --project knowledge
 ```
 
+**Codex** (add to `~/.codex/config.toml`):
+
+```toml
+[mcp_servers.basic-memory]
+command = "bm"
+args = ["mcp", "--project", "knowledge"]
+```
+
 **opencode** (add to `~/.config/opencode/config.json`):
 
 ```json
