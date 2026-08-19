@@ -15,7 +15,7 @@ forwards no ports, so nothing is ever public.
 Jellyfin (ADR 011) runs on the hub. A launchd agent keeps it running across
 reboots and crashes.
 
-### One-time bootstrap
+### Jellyfin one-time bootstrap
 
 Run on the hub with mise installed and Homebrew available:
 
@@ -35,7 +35,7 @@ Once complete it prints access URLs:
 Then add your media folders in the Jellyfin web UI: TV shows under
 `/media/TV` and movies under `/media/Movies`.
 
-### Day-to-day
+### Jellyfin day-to-day
 
 ```bash
 mise run //homelab:status
@@ -44,12 +44,12 @@ mise run //homelab:restart
 mise run //homelab:verify
 ```
 
-### Upgrading
+### Jellyfin upgrading
 
 1. Bump `JELLYFIN_VERSION` in `.env` (or pin an exact release).
 2. `mise run //homelab:pull`
 
-### Caveats
+### Jellyfin caveats
 
 - **Brief unauthenticated window on first bootstrap.** Between the stack
   starting and provisioning completing, Jellyfin's startup wizard is
@@ -68,7 +68,11 @@ SilverBullet (ADR 014) runs on the hub as the human-facing notes application.
 It shares a private Git-backed Markdown space at `~/knowledge` with Basic
 Memory. A launchd agent keeps it running across reboots and crashes.
 
-### One-time bootstrap
+SilverBullet uses host port **3001** because AdGuard Home occupies port 3000
+on the Mac mini. AdGuard's macOS network extension intercepts browser HTTPS
+traffic before Docker's port mapping can reach it.
+
+### SilverBullet one-time bootstrap
 
 Run on the hub with mise installed, Homebrew available, and colima running
 (set up by the Jellyfin bootstrap):
@@ -90,18 +94,18 @@ Edit `SB_USER` in the `.env` file before the second run:
 printf 'SB_USER=%s:%s\n' "$(whoami)" "$(openssl rand -base64 18)" >> hosts/mac-mini/silverbullet/.env
 ```
 
-### Tailscale Serve
+### SilverBullet Tailscale Serve
 
 After bootstrap, expose SilverBullet to the tailnet only:
 
 ```bash
-tailscale serve --bg 3000
+tailscale serve --bg 3001
 ```
 
 This provides HTTPS access at `https://<machine-name>.ts.net/` from any
 device on the tailnet. Do not use Funnel or expose the port to the LAN.
 
-### Day-to-day
+### SilverBullet day-to-day
 
 ```bash
 mise run //homelab:sb-status
@@ -110,13 +114,16 @@ mise run //homelab:sb-restart
 mise run //homelab:sb-verify
 ```
 
-### Upgrading
+### SilverBullet upgrading
 
 1. Bump `SB_VERSION` in `.env` (or leave as `:latest`).
 2. `mise run //homelab:sb-pull`
 
-### Caveats
+### SilverBullet caveats
 
+- **Port 3000 is unavailable.** AdGuard Home natively occupies port 3000
+  with a macOS network extension that intercepts browser traffic. Use
+  port 3001 (or any other free port) for SilverBullet.
 - **Shell backend is disabled.** The ADR disables `SB_SHELL_BACKEND` because
   t3-code agents already provide the automation layer. If you need shell
   commands from within SilverBullet, change `SB_SHELL_BACKEND` in the

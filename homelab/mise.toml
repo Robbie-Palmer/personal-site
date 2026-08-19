@@ -83,4 +83,4 @@ run = "docker compose up -d --pull always"
 
 [tasks.sb-verify]
 description = "Check the SilverBullet health endpoint"
-run = 'curl -fsS "http://localhost:${SB_PORT:-3000}/" && echo "SilverBullet is healthy"'
+run = 'curl -sS -o /dev/null "http://localhost:${SB_PORT:-3001}/" && echo "SilverBullet is healthy"'

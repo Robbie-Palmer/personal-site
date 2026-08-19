@@ -16,20 +16,24 @@ colima_running() {
   return $?
 }
 
+docker_ready() {
+  docker info >/dev/null 2>&1
+  return $?
+}
+
 while true; do
   if ! colima_running; then
     echo "$(date '+%F %T') colima is not running; starting it" >&2
-    colima start \
-      --vm-type vz \
-      --mount-type virtiofs \
-      --cpu "${COLIMA_CPU:-4}" \
-      --memory "${COLIMA_MEMORY:-4}" \
-      --mount "${HOME}:w" \
-      --mount /Volumes >/dev/null 2>&1 \
+    colima start >/dev/null 2>&1 \
       || echo "$(date '+%F %T') colima start failed; retrying next cycle" >&2
   fi
 
-  if colima_running; then
+  if colima_running && ! docker_ready; then
+    echo "$(date '+%F %T') colima running but Docker daemon not ready; waiting" >&2
+    sleep 5
+  fi
+
+  if colima_running && docker_ready; then
     docker compose \
       --project-directory "$SB_DIR" \
       up -d >/dev/null 2>&1 \

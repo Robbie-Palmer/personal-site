@@ -23,8 +23,8 @@
         <string>__HOME__</string>
     </dict>
     <key>StandardOutPath</key>
-    <string>/tmp/homelab.silverbullet.out.log</string>
+    <string>__HOME__/Library/Logs/homelab/silverbullet.out.log</string>
     <key>StandardErrorPath</key>
-    <string>/tmp/homelab.silverbullet.err.log</string>
+    <string>__HOME__/Library/Logs/homelab/silverbullet.err.log</string>
 </dict>
 </plist>

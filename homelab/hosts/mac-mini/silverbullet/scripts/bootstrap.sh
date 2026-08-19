@@ -30,14 +30,7 @@ require_command brew
 # 1. Container runtime -----------------------------------------------------
 # Reuse the colima VM that Jellyfin already manages. Only install tooling if
 # it is missing; do not start colima here — the Jellyfin bootstrap owns that.
-for tool in docker docker-compose; do
-  if ! command -v "$tool" >/dev/null 2>&1; then
-    echo "Installing $tool via Homebrew"
-    brew install "$tool"
-  fi
-done
 require_command docker
-require_command docker-compose
 
 if ! command -v colima >/dev/null 2>&1; then
   echo "colima is not installed. Run mise run //homelab:bootstrap first (Jellyfin setup) or install colima manually." >&2
@@ -65,9 +58,12 @@ env_value() {
     | sed -e 's/^"//' -e 's/"$//' -e "s/^'//" -e "s/'$//"
 }
 
+SB_PORT="$(env_value SB_PORT)"
+SB_PORT="${SB_PORT:-3001}"
+
 SB_USER="$(env_value SB_USER)"
-if [[ -z "$SB_USER" || "$SB_USER" == "CHANGEME" ]]; then
-  echo "SB_USER is not set or still CHANGEME in $ENV_FILE" >&2
+if [[ -z "$SB_USER" || "$SB_USER" == "CHANGEME" || "$SB_USER" == *":CHANGEME" ]]; then
+  echo "SB_USER is not set or still uses the default credential in $ENV_FILE" >&2
   echo "Set it to user:password, e.g.:" >&2
   printf '  printf "SB_USER=%%s:%%s\\n" "$(whoami)" "$(openssl rand -base64 18)" >> %s\n' "$ENV_FILE" >&2
   exit 1
@@ -78,6 +74,9 @@ if [[ -z "$SB_SPACE_DIR" ]]; then
   echo "SB_SPACE_DIR is not set in $ENV_FILE" >&2
   exit 1
 fi
+
+# Enforce restrictive permissions on the credentials file.
+chmod 600 "$ENV_FILE"
 
 # 3. Create the knowledge space --------------------------------------------
 if [[ ! -d "$SB_SPACE_DIR" ]]; then
@@ -96,6 +95,7 @@ if [[ ! -d "${SB_SPACE_DIR}/.git" ]]; then
 fi
 
 # 4. LaunchAgent -----------------------------------------------------------
+mkdir -p "${HOME}/Library/Logs/homelab"
 sed_escape() { printf '%s' "$1" | sed 's/[&/\]/\\&/g'; }
 HOMELAB_ROOT_ESC="$(sed_escape "$HOMELAB_ROOT")"
 HOME_ESC="$(sed_escape "$HOME")"
@@ -124,7 +124,7 @@ DOCKER_CONTEXT=colima docker compose \
 echo "Waiting for SilverBullet to accept connections..."
 healthy=false
 for _ in $(seq 1 20); do
-  if curl -fsS "http://localhost:${SB_PORT:-3000}/" >/dev/null 2>&1; then
+  if curl -sS -o /dev/null "http://localhost:${SB_PORT}/" >/dev/null 2>&1; then
     healthy=true
     break
   fi
@@ -132,19 +132,19 @@ for _ in $(seq 1 20); do
 done
 if [[ "$healthy" != "true" ]]; then
   echo "SilverBullet did not become healthy within 40 seconds" >&2
-  docker compose --project-directory "$SB_DIR" logs --tail=30
+  DOCKER_CONTEXT=colima docker compose --project-directory "$SB_DIR" logs --tail=30
   exit 1
 fi
 
 # 7. Report ----------------------------------------------------------------
 echo ""
 echo "SilverBullet is up. Access it at:"
-echo "  local: http://localhost:${SB_PORT:-3000}"
+echo "  local: http://localhost:${SB_PORT}"
 TAILSCALE_IP="$(tailscale ip -4 2>/dev/null | head -n1 || true)"
 if [[ -n "$TAILSCALE_IP" ]]; then
-  echo "  (After Tailscale Serve setup: https://silverbullet.${TAILSCALE_IP}.ts.net)"
+  echo "  tailnet: https://robbies-mac-mini.tailaa0e46.ts.net/  (after tailscale serve)"
 fi
 echo ""
 echo "Space: $SB_SPACE_DIR"
 echo "Next step: set up Tailscale Serve for HTTPS access from other devices."
-echo "  tailscale serve --bg 3000"
+echo "  tailscale serve --bg ${SB_PORT}"
