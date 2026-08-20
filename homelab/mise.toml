@@ -84,3 +84,19 @@ run = "docker compose up -d --pull always"
 [tasks.sb-verify]
 description = "Check the SilverBullet health endpoint"
 run = 'curl -sS -o /dev/null "http://localhost:${SB_PORT:-3001}/" && echo "SilverBullet is healthy"'
+
+# ---------------------------------------------------------------------------
+# Basic Memory (host-level tool, no container)
+# ---------------------------------------------------------------------------
+
+[tasks.bm-bootstrap]
+description = "Install uv, Basic Memory CLI, and register the knowledge project"
+run = "bash hosts/mac-mini/basic-memory/scripts/bootstrap.sh"
+
+[tasks.bm-status]
+description = "Show Basic Memory sync status"
+run = "PATH=\"$HOME/.local/bin:$PATH\" bm status"
+
+[tasks.bm-reset]
+description = "Rebuild the Basic Memory index from Markdown files"
+run = "PATH=\"$HOME/.local/bin:$PATH\" bm reset"
