@@ -548,8 +548,8 @@ importers:
   workers/recipe-api:
     dependencies:
       '@hono/zod-openapi':
-        specifier: 1.5.2
-        version: 1.5.2(hono@4.13.1)(zod@4.4.3)
+        specifier: 1.5.3
+        version: 1.5.3(hono@4.13.1)(zod@4.4.3)
       better-auth:
         specifier: ^1.6.19
         version: 1.6.27(@cloudflare/workers-types@5.20260817.1)(@opentelemetry/api@1.9.1)(drizzle-kit@0.31.10)(drizzle-orm@0.45.2(@cloudflare/workers-types@5.20260817.1)(@opentelemetry/api@1.9.1)(kysely@0.29.5)(postgres@3.4.9))(next@15.5.23(@opentelemetry/api@1.9.1)(@types/node@24.13.3)(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(vitest@4.1.10)
@@ -1511,8 +1511,8 @@ packages:
   '@formatjs/intl-localematcher@0.6.2':
     resolution: {integrity: sha512-XOMO2Hupl0wdd172Y06h6kLpBz6Dv+J4okPLl4LPtzbr8f66WbIoy4ev98EBuZ6ZK4h5ydTN6XneT4QVpD7cdA==}
 
-  '@hono/zod-openapi@1.5.2':
-    resolution: {integrity: sha512-FPlspM6+qObGoMfux+0SSE0of0tGO+BVo3havhKzZMxRyz/ql89kuCd/7POd70aW3T4kz/aVL6gNZ6sVd0ItUQ==}
+  '@hono/zod-openapi@1.5.3':
+    resolution: {integrity: sha512-hG+2wh72WK4z59Cn6UQUb5Ohx9HINzCbZ6oEwqvtAkOe9b2Oc5N9/jPjUzhF49lgSo73s2EoHyJx+gGEmpkv5Q==}
     engines: {node: '>=16.0.0'}
     peerDependencies:
       hono: '>=4.10.0'
@@ -7881,7 +7881,7 @@ snapshots:
     dependencies:
       tslib: 2.8.1
 
-  '@hono/zod-openapi@1.5.2(hono@4.13.1)(zod@4.4.3)':
+  '@hono/zod-openapi@1.5.3(hono@4.13.1)(zod@4.4.3)':
     dependencies:
       '@asteasolutions/zod-to-openapi': 8.5.0(zod@4.4.3)
       '@hono/zod-validator': 0.9.0(hono@4.13.1)(zod@4.4.3)
