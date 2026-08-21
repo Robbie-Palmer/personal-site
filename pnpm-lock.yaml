@@ -507,7 +507,7 @@ importers:
         version: 1.2.1(supports-color@10.2.2)
       cloudflare:
         specifier: ^7.0.0
-        version: 7.0.0
+        version: 7.1.0
       jsdom:
         specifier: ^29.0.0
         version: 29.1.1(@noble/hashes@2.3.0)
@@ -3743,8 +3743,8 @@ packages:
     resolution: {integrity: sha512-k7ndgKhwoQveBL+/1tqGJYNz097I7WOvwbmmU2AR5+magtbjPWQTS1C5vzGkBC8Ym8UWRzfKUzUUqFLypY4Q+w==}
     engines: {node: '>=20'}
 
-  cloudflare@7.0.0:
-    resolution: {integrity: sha512-ZU8Yp1biaRRf+i1Hlap/VUwSBeKnOa4kkygIU9naE07JILnHdgLr9Wq/iPEeEf2in0N5m1giTp1ohY+cNQZEGQ==}
+  cloudflare@7.1.0:
+    resolution: {integrity: sha512-eb6WtiAbhuqdWmBdVo6fuXQgEBkYjhOeujRDYLEUWEZIECuABvDLz2DUYTwpN/4KyFecM4JtMHgZn5prlFUjLg==}
     hasBin: true
 
   clsx@2.1.1:
@@ -10145,7 +10145,7 @@ snapshots:
       strip-ansi: 7.2.0
       wrap-ansi: 9.0.2
 
-  cloudflare@7.0.0: {}
+  cloudflare@7.1.0: {}
 
   clsx@2.1.1: {}
 
