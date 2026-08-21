@@ -548,8 +548,8 @@ importers:
   workers/recipe-api:
     dependencies:
       '@hono/zod-openapi':
-        specifier: 1.5.3
-        version: 1.5.3(hono@4.13.2)(zod@4.4.3)
+        specifier: 1.6.0
+        version: 1.6.0(hono@4.13.2)(zod@4.4.3)
       better-auth:
         specifier: ^1.6.19
         version: 1.6.28(@cloudflare/workers-types@5.20260818.1)(@opentelemetry/api@1.9.1)(drizzle-kit@0.31.10)(drizzle-orm@0.45.2(@cloudflare/workers-types@5.20260818.1)(@opentelemetry/api@1.9.1)(kysely@0.29.5)(postgres@3.4.9))(next@15.5.23(@opentelemetry/api@1.9.1)(@types/node@24.13.3)(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(vitest@4.1.11)
@@ -699,8 +699,8 @@ packages:
   '@asamuzakjp/nwsapi@2.3.9':
     resolution: {integrity: sha512-n8GuYSrI9bF7FFZ/SjhwevlHc8xaVlb/7HmHelnc/PZXBD2ZR49NnN9sMMuDdEGPeeRQ5d0hqlSlEpgCX3Wl0Q==}
 
-  '@asteasolutions/zod-to-openapi@8.5.0':
-    resolution: {integrity: sha512-SABbKiObg5dLRiTFnqiW1WWwGcg1BJfmHtT2asIBnBHg6Smy/Ms2KHc650+JI4Hw7lSkdiNebEGXpwoxfben8Q==}
+  '@asteasolutions/zod-to-openapi@9.1.0':
+    resolution: {integrity: sha512-pLMeRgRYS7/vZIgAAkOe2P6+XGTifR1MT9pqDoxZ11EmcJJ+DPmdPqLN8ZZF4U8R9KHCCQCS9c2wtuE8wSrfkw==}
     peerDependencies:
       zod: ^4.0.0
 
@@ -1511,8 +1511,8 @@ packages:
   '@formatjs/intl-localematcher@0.6.2':
     resolution: {integrity: sha512-XOMO2Hupl0wdd172Y06h6kLpBz6Dv+J4okPLl4LPtzbr8f66WbIoy4ev98EBuZ6ZK4h5ydTN6XneT4QVpD7cdA==}
 
-  '@hono/zod-openapi@1.5.3':
-    resolution: {integrity: sha512-hG+2wh72WK4z59Cn6UQUb5Ohx9HINzCbZ6oEwqvtAkOe9b2Oc5N9/jPjUzhF49lgSo73s2EoHyJx+gGEmpkv5Q==}
+  '@hono/zod-openapi@1.6.0':
+    resolution: {integrity: sha512-42HXUBIaGmQh+hZGLw3Hy5piOreIXgnBnUSs55mtn2gnW/xWtU9nQwEUtRRCk5to8Vm2XbfO0J83eUCwCf5eTg==}
     engines: {node: '>=16.0.0'}
     peerDependencies:
       hono: '>=4.10.0'
@@ -7345,7 +7345,7 @@ snapshots:
 
   '@asamuzakjp/nwsapi@2.3.9': {}
 
-  '@asteasolutions/zod-to-openapi@8.5.0(zod@4.4.3)':
+  '@asteasolutions/zod-to-openapi@9.1.0(zod@4.4.3)':
     dependencies:
       openapi3-ts: 4.6.1
       zod: 4.4.3
@@ -7887,9 +7887,9 @@ snapshots:
     dependencies:
       tslib: 2.8.1
 
-  '@hono/zod-openapi@1.5.3(hono@4.13.2)(zod@4.4.3)':
+  '@hono/zod-openapi@1.6.0(hono@4.13.2)(zod@4.4.3)':
     dependencies:
-      '@asteasolutions/zod-to-openapi': 8.5.0(zod@4.4.3)
+      '@asteasolutions/zod-to-openapi': 9.1.0(zod@4.4.3)
       '@hono/zod-validator': 0.9.0(hono@4.13.2)(zod@4.4.3)
       hono: 4.13.2
       openapi3-ts: 4.6.1
