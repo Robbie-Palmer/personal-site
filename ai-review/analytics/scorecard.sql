@@ -109,6 +109,7 @@ WHERE repository IS NULL OR pull_request_number IS NULL OR finding_id IS NULL
       ('confirmed-fixed', 'acknowledged', 'rejected', 'superseded', 'no-observable-response')
    OR outcome_basis IS NULL OR outcome_basis NOT IN
       ('explicit-disposition', 'later-reviewed-head', 'pull-request-finalization', 'outcome-window')
+   OR (outcome_basis = 'outcome-window' AND outcome != 'no-observable-response')
    OR outcome_kind NOT IN ('adjudicated', 'censored', 'workflow')
    OR outcome_kind IS DISTINCT FROM CASE
       WHEN outcome = 'no-observable-response' THEN 'workflow'

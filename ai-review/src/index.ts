@@ -1088,6 +1088,23 @@ export class PullRequestCoordinator extends DurableObject<Env> {
     }
   }
 
+  private async schedulePendingOutcomeEvaluation(
+    pending: PendingOutcomeEvaluation,
+  ): Promise<void> {
+    const existing = await this.ctx.storage.get<unknown>(
+      PENDING_OUTCOME_EVALUATION_KEY,
+    );
+    if (
+      isPendingOutcomeEvaluation(existing) &&
+      existing.dueAt <= pending.dueAt
+    ) {
+      await this.scheduleAlarmNoLaterThan(existing.dueAt);
+      return;
+    }
+    this.ctx.storage.kv.put(PENDING_OUTCOME_EVALUATION_KEY, pending);
+    await this.scheduleAlarmNoLaterThan(pending.dueAt);
+  }
+
   private async terminateExpiredReview(
     completedAt: string,
     leaseCutoff: string,
@@ -1351,12 +1368,14 @@ export class PullRequestCoordinator extends DurableObject<Env> {
         recordedAt,
       );
       if (event.disposition) {
+        const dispositionReason =
+          event.reason?.trim() || "Trusted manual disposition";
         this.ctx.storage.sql.exec(
           `UPDATE review_findings
            SET disposition = ?, disposition_reason = ?
            WHERE finding_id = ?`,
           event.disposition,
-          event.reason ?? null,
+          dispositionReason,
           findingId,
         );
         this.appendFindingOutcome({
@@ -1370,7 +1389,7 @@ export class PullRequestCoordinator extends DurableObject<Env> {
           manualOverride: {
             actor: event.actor,
             deliveryId: event.deliveryId,
-            reason: event.reason ?? "Trusted manual disposition",
+            reason: dispositionReason,
           },
           sourceId: `delivery:${event.deliveryId}`,
           occurredAt,
@@ -1379,7 +1398,7 @@ export class PullRequestCoordinator extends DurableObject<Env> {
             deliveryId: event.deliveryId,
             actor: event.actor,
             actorAssociation: event.actorAssociation,
-            reason: event.reason,
+            reason: dispositionReason,
             currentHeadSha: event.headSha,
             controlledReplay,
           },
@@ -1482,8 +1501,7 @@ export class PullRequestCoordinator extends DurableObject<Env> {
         dueAt,
         event,
       } satisfies PendingOutcomeEvaluation;
-      this.ctx.storage.kv.put(PENDING_OUTCOME_EVALUATION_KEY, pending);
-      await this.scheduleAlarmNoLaterThan(dueAt);
+      await this.schedulePendingOutcomeEvaluation(pending);
     } else if (result.duplicate) {
       const outstanding = this.ctx.storage.sql
         .exec<{ pending: number }>(
@@ -1499,12 +1517,11 @@ export class PullRequestCoordinator extends DurableObject<Env> {
         )
         .toArray()[0]?.pending;
       if (Number(outstanding ?? 0) > 0) {
-        this.ctx.storage.kv.put(PENDING_OUTCOME_EVALUATION_KEY, {
+        await this.schedulePendingOutcomeEvaluation({
           kind: "finding-outcome-evaluation",
           dueAt,
           event,
-        } satisfies PendingOutcomeEvaluation);
-        await this.scheduleAlarmNoLaterThan(dueAt);
+        });
       }
     }
 

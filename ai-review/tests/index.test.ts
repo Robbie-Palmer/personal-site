@@ -488,7 +488,7 @@ describe("PullRequestCoordinator", () => {
     const response = await coordinator.fetch(
       new Request("https://coordinator.test/interactions", {
         method: "POST",
-        body: JSON.stringify(findingInteraction),
+        body: JSON.stringify({ ...findingInteraction, reason: "  " }),
       }),
     );
 
@@ -507,6 +507,13 @@ describe("PullRequestCoordinator", () => {
         String(query).includes("SET disposition = ?"),
       ),
     ).toBe(true);
+    const outcomeInsert = sqlExec.mock.calls.find(([query]) =>
+      String(query).includes("INSERT OR IGNORE INTO review_finding_outcomes")
+    );
+    expect(JSON.parse(String(outcomeInsert?.[9]))).toMatchObject({
+      manualOverride: { reason: "Trusted manual disposition" },
+      evidence: { reason: "Trusted manual disposition" },
+    });
   });
 
   it("requires a fixed controlled replay before trusted confirmation", async () => {
@@ -782,6 +789,56 @@ describe("PullRequestCoordinator", () => {
       pending: 0,
       manualRequired: 0,
     });
+  });
+
+  it("does not postpone an existing evaluation for a duplicate delivery", async () => {
+    const { coordinator, sqlExec, storage } = coordinatorFixture(
+      [event.deliveryId],
+      { AI_REVIEW_OUTCOME_WINDOW_SECONDS: "60" },
+    );
+    const existingPending = {
+      kind: "finding-outcome-evaluation",
+      dueAt: Date.now() + 10_000,
+      event: {
+        ...pullRequestFinalization,
+        deliveryId: event.deliveryId,
+        occurredAt: new Date().toISOString(),
+      },
+    } as const;
+    storage.get.mockResolvedValue(existingPending);
+    sqlExec.mockImplementation((query: string) => ({
+      rowsWritten: 1,
+      toArray: () => {
+        if (query.includes("FROM webhook_deliveries")) {
+          return [{ delivery_id: event.deliveryId }];
+        }
+        if (query.includes("SELECT COUNT(*) AS pending")) {
+          return [{ pending: 1 }];
+        }
+        return [];
+      },
+    }));
+
+    const response = await coordinator.fetch(
+      new Request("https://coordinator.test/finalizations", {
+        method: "POST",
+        body: JSON.stringify({
+          ...pullRequestFinalization,
+          deliveryId: event.deliveryId,
+          occurredAt: new Date(Date.now() + 30_000).toISOString(),
+        }),
+      }),
+    );
+
+    await expect(response.json()).resolves.toEqual({
+      accepted: true,
+      duplicate: true,
+      outcomes: 0,
+    });
+    expect(storage.kv.put).not.toHaveBeenCalledWith(
+      "pending-outcome-evaluation",
+      expect.anything(),
+    );
   });
 
   it("keeps committed finalization successful when outcome publication fails", async () => {
