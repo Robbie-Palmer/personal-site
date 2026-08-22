@@ -44,6 +44,7 @@ export const ingredients = [
 
   // Dairy
   { name: "butter", category: "dairy" },
+  { name: "salted butter", category: "dairy" },
   { name: "unsalted butter", category: "dairy" },
   { name: "double cream", category: "dairy" },
   { name: "single cream", category: "dairy" },

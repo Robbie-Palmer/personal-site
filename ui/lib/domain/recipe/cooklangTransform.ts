@@ -22,6 +22,7 @@ import {
   mergeIngredientIntoGroup,
   normalizeIngredientSlugForOutput,
 } from "@/lib/domain/recipe/ingredient";
+import { resolveDisplayedIngredientSlug } from "@/lib/domain/recipe/ingredientIdentity";
 import type {
   IngredientGroup,
   RecipeContent,
@@ -57,6 +58,13 @@ type ResolvedIngredient = {
   amount: number | undefined;
   unit: Unit | undefined;
 };
+
+function resolvedIngredientSlug(ingredient: Ingredient): IngredientSlug {
+  return resolveDisplayedIngredientSlug(
+    ingredient.name,
+    ingredient_display_name(ingredient),
+  );
+}
 
 export type UnitRecovery = {
   /** Result of parser.parse(body) — no scale — so we can read the unit the
@@ -158,10 +166,7 @@ function findDeclaredIngredientSlugs(
       }
       for (const item of content.value.items) {
         if (item.type !== "ingredient") continue;
-        const ingredient = ingredients[item.index]!;
-        declaredSlugs.add(
-          normalizeIngredientSlugForOutput(ingredient.name) as IngredientSlug,
-        );
+        declaredSlugs.add(resolvedIngredientSlug(ingredients[item.index]!));
       }
     }
   }
@@ -262,10 +267,11 @@ function buildIngredientGroupItem(
   resolved: ResolvedIngredient,
   annotations: IngredientAnnotations,
 ): RecipeIngredient {
-  const ingSlug = normalizeIngredientSlugForOutput(
+  const registeredSlug = normalizeIngredientSlugForOutput(
     ingredient.name,
   ) as IngredientSlug;
-  const ann = annotations[ingSlug];
+  const ingSlug = resolvedIngredientSlug(ingredient);
+  const ann = annotations[ingSlug] ?? annotations[registeredSlug];
 
   return {
     ingredient: ingSlug,
@@ -289,9 +295,7 @@ function collectStepIngredients(
     if (item.type !== "ingredient") continue;
 
     const ingredient = ingredients[item.index]!;
-    const ingredientSlug = normalizeIngredientSlugForOutput(
-      ingredient.name,
-    ) as IngredientSlug;
+    const ingredientSlug = resolvedIngredientSlug(ingredient);
     if (!isDeclaration && declaredSlugs.has(ingredientSlug)) continue;
     mergeIngredientIntoGroup(
       currentGroup,
@@ -375,7 +379,9 @@ export function buildScaledRecipeParts(
   const groups: GroupAccumulator[] = [currentGroup];
   const namedGroups = new Map<string, GroupAccumulator>();
   const instructions: string[] = [];
-  const ingredientNames = ingredients.map((ingredient) => ingredient.name);
+  const ingredientNames = ingredients.map((ingredient) =>
+    resolvedIngredientSlug(ingredient).replaceAll("-", " "),
+  );
   const ingredientDisplayValues = ingredients.map(formatIngredientDisplay);
   const ingredientAmounts = resolvedIngredients.map((r) => r.amount ?? null);
   const ingredientUnits = resolvedIngredients.map((r) => r.unit ?? null);

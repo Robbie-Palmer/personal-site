@@ -202,6 +202,27 @@ describe("buildScaledRecipeParts", () => {
     ]);
   });
 
+  it("keeps purchasing-specific catalog ingredients separate from a generic alias", () => {
+    const parts = buildScaledRecipeParts(
+      parsedAt(
+        [
+          "@butter|salted butter{100%g}",
+          "",
+          "@butter|unsalted butter{200%g}",
+        ].join("\n"),
+      ),
+    );
+
+    expect(parts.ingredientGroups[0]?.items).toEqual([
+      { ingredient: "salted-butter", amount: 100, unit: "g" },
+      { ingredient: "unsalted-butter", amount: 200, unit: "g" },
+    ]);
+    expect(parts.instructionSdk.ingredientNames).toEqual([
+      "salted butter",
+      "unsalted butter",
+    ]);
+  });
+
   it("lists cookware by its registered name while steps keep the alias", () => {
     const parts = buildScaledRecipeParts(
       parsedAt(

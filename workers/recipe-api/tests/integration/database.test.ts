@@ -149,14 +149,15 @@ beforeAll(async () => {
   >`
     select slug, category
     from ingredient
-    where slug in ('almond-milk', 'cajun-powder', 'cajun-seasoning')
+    where slug in ('almond-milk', 'cajun-powder', 'cajun-seasoning', 'salted-butter')
     order by slug
   `;
-  expect(migrationCount?.count).toBe(8);
+  expect(migrationCount?.count).toBe(9);
   expect(tableCount?.count).toBe(35);
   expect(catalogRows).toEqual([
     { category: "dairy", slug: "almond-milk" },
     { category: "spice", slug: "cajun-seasoning" },
+    { category: "dairy", slug: "salted-butter" },
   ]);
 });
 

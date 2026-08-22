@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildRecipeDraft,
   normalizeRecipeSource,
+  parseSavedRecipe,
   parseSavedRecipePayload,
   savedRecipeCard,
 } from "@/lib/domain/recipe/recipeDraft";
@@ -106,6 +107,42 @@ describe("savedRecipeCard", () => {
 
   it("parses the source and recipe needed by the editor", () => {
     expect(parseSavedRecipePayload(record("private"))).toEqual(savedPayload);
+  });
+
+  it("repairs a saved specific ingredient whose hidden identity is generic", () => {
+    const legacyPayload = {
+      ...savedPayload,
+      recipe: {
+        ...savedPayload.recipe,
+        ingredientGroups: [
+          {
+            items: [{ ingredient: "butter", amount: 200, unit: "g" }],
+          },
+        ],
+        instructionSdk: {
+          sections: [],
+          ingredientNames: ["butter"],
+          ingredientDisplayValues: ["unsalted butter"],
+          ingredientAmounts: [200],
+          ingredientUnits: ["g"],
+          cookwareDisplayValues: [],
+          inlineQuantityDisplayValues: [],
+          timerDisplayValues: [],
+          timerDurationSeconds: [],
+        },
+      },
+    };
+    const parsed = parseSavedRecipe({
+      ...record("private"),
+      body: JSON.stringify(legacyPayload),
+    });
+
+    expect(parsed?.ingredientGroups[0]?.items).toEqual([
+      expect.objectContaining({
+        ingredient: "unsalted-butter",
+        name: "unsalted butter",
+      }),
+    ]);
   });
 
   it("preserves the canonical source URL in saved recipe views", () => {

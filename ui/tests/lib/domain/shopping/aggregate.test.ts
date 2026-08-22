@@ -55,6 +55,22 @@ describe("aggregateShoppingList", () => {
     expect(garlic.recipes.map((r) => r.slug)).toEqual(["a", "b"]);
   });
 
+  it("does not merge salted and unsalted butter", () => {
+    const lines = aggregateShoppingList([
+      select(
+        recipe("savoury", [ing("salted-butter", { amount: 100, unit: "g" })]),
+      ),
+      select(
+        recipe("baking", [ing("unsalted-butter", { amount: 200, unit: "g" })]),
+      ),
+    ]);
+
+    expect(lines.map((line) => line.ingredient)).toEqual([
+      "salted-butter",
+      "unsalted-butter",
+    ]);
+  });
+
   it("sums compatible units by converting to a base unit", () => {
     const lines = aggregateShoppingList([
       select(recipe("a", [ing("pasta", { amount: 300, unit: "g" })])),
