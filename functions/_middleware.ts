@@ -3,6 +3,10 @@ import {
   withPostHogRequest,
   type TraceCarrier,
 } from "observability";
+import {
+  proxyRecipeApiRequest,
+  type RecipeApiProxyEnv,
+} from "./api/auth/routing";
 
 /**
  * Serves the pre-generated Markdown twin of a page from its canonical URL
@@ -11,10 +15,8 @@ import {
  * always works without this middleware; this only makes it transparent.
  */
 
-interface Env {
+interface Env extends RecipeApiProxyEnv {
   ASSETS: { fetch: typeof fetch };
-  POSTHOG_KEY?: string;
-  POSTHOG_OTLP_BASE_URL?: string;
   DEPLOYMENT_ENV?: string;
 }
 
@@ -99,7 +101,9 @@ export const onRequest = async (
   context: MarkdownMiddlewareContext,
 ): Promise<Response> => {
   const url = new URL(context.request.url);
-  if (!url.pathname.startsWith("/api/")) {
+  const isAgentDiscovery =
+    url.pathname === "/.well-known/agent-configuration";
+  if (!url.pathname.startsWith("/api/") && !isAgentDiscovery) {
     return handleRequest(context);
   }
 
@@ -119,7 +123,13 @@ export const onRequest = async (
         context.data ??= {};
         context.data.posthogTraceCarrier = traceCarrier;
       }
-      return handleRequest(context);
+      return isAgentDiscovery
+        ? proxyRecipeApiRequest(
+            context,
+            "Agent Auth discovery is available on the canonical PR preview URL only",
+            "Agent Auth discovery",
+          )
+        : handleRequest(context);
     },
   );
 };

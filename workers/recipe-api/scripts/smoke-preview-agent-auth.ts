@@ -61,8 +61,9 @@ async function expectJson<T>(
 ): Promise<T> {
   const response = await request(input, init);
   if (response.status !== expectedStatus) {
+    const body = (await response.text()).slice(0, 2_000);
     throw new Error(
-      `${init.method ?? "GET"} ${new URL(input, siteURL).pathname} returned ${response.status}: ${await response.text()}`,
+      `${init.method ?? "GET"} ${new URL(input, siteURL).pathname} returned ${response.status}: ${body}`,
     );
   }
   return response.json() as Promise<T>;
