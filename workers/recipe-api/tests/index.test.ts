@@ -148,6 +148,16 @@ const dbMock = vi.hoisted(() => {
       readAt: Date | null;
       dismissedAt: Date | null;
     }[],
+    notificationAgentApprovalEvents: [] as {
+      eventId: string;
+      approvalRequestId: string | null;
+      agentIdSnapshot: string;
+      agentNameSnapshot: string;
+      capabilitiesSnapshot: string;
+      expiresAtSnapshot: Date;
+      approvalStatus: string | null;
+      approvalExpiresAt: Date | null;
+    }[],
     notificationHouseholdEvents: [] as {
       eventId: string;
       householdId: string | null;
@@ -288,6 +298,7 @@ const dbMock = vi.hoisted(() => {
     state.invitations = [];
     state.notificationEvents = [];
     state.notificationDeliveries = [];
+    state.notificationAgentApprovalEvents = [];
     state.notificationHouseholdEvents = [];
     state.notificationHouseholdInvitationEvents = [];
     state.notificationRecipeRecommendationEvents = [];
@@ -345,6 +356,20 @@ const dbMock = vi.hoisted(() => {
         actorUserId: (params[2] as string | undefined) ?? null,
         actorNameSnapshot: (params[3] as string | undefined) ?? null,
         occurredAt: date,
+      });
+      return [];
+    }
+
+    if (query.startsWith('insert into "notification_agent_approval_event"')) {
+      state.notificationAgentApprovalEvents.push({
+        eventId: params[0] as string,
+        approvalRequestId: (params[1] as string | undefined) ?? null,
+        agentIdSnapshot: params[2] as string,
+        agentNameSnapshot: params[3] as string,
+        capabilitiesSnapshot: params[4] as string,
+        expiresAtSnapshot: params[5] as Date,
+        approvalStatus: "pending",
+        approvalExpiresAt: params[5] as Date,
       });
       return [];
     }
@@ -1083,6 +1108,21 @@ const dbMock = vi.hoisted(() => {
             recipe?.userId ?? null,
           ];
         });
+    }
+
+    if (query.includes('from "notification_agent_approval_event"')) {
+      const eventIds = new Set(params as string[]);
+      return state.notificationAgentApprovalEvents
+        .filter((row) => eventIds.has(row.eventId))
+        .map((row) => [
+          row.eventId,
+          row.agentIdSnapshot,
+          row.agentNameSnapshot,
+          row.capabilitiesSnapshot,
+          row.expiresAtSnapshot,
+          row.approvalStatus,
+          row.approvalExpiresAt,
+        ]);
     }
 
     if (
@@ -4877,6 +4917,62 @@ describe("household membership flows", () => {
     expect(body.items).toHaveLength(100);
     expect(body.nextOffset).toBe(100);
     expect(body.unreadCount).toBe(101);
+  });
+
+  it("hydrates a pending agent approval notification without exposing its code", async () => {
+    authzMock.session = sessionFor({
+      id: "owner-user",
+      email: "owner@example.test",
+      name: "Owner",
+    });
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
+    dbMock.state.notificationEvents.push({
+      id: "event-agent-1",
+      kind: "agent_approval_requested",
+      actorUserId: null,
+      actorNameSnapshot: null,
+      occurredAt: dbMock.date,
+    });
+    dbMock.state.notificationDeliveries.push({
+      id: "delivery-agent-1",
+      eventId: "event-agent-1",
+      recipientUserId: "owner-user",
+      readAt: null,
+      dismissedAt: null,
+    });
+    dbMock.state.notificationAgentApprovalEvents.push({
+      eventId: "event-agent-1",
+      approvalRequestId: "approval-1",
+      agentIdSnapshot: "agent-1",
+      agentNameSnapshot: "Meal planner",
+      capabilitiesSnapshot: "recipes.search recipes.read",
+      expiresAtSnapshot: expiresAt,
+      approvalStatus: "pending",
+      approvalExpiresAt: expiresAt,
+    });
+
+    const res = await app.request("/notifications", {}, env);
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body).toMatchObject({
+      items: [
+        {
+          kind: "agent_approval_requested",
+          actions: [],
+          detail: {
+            type: "agent_approval",
+            agent: { id: "agent-1", name: "Meal planner" },
+            capabilities: ["recipes.search", "recipes.read"],
+            status: "pending",
+            reviewUrl:
+              "/recipes/settings/agents/approve?agent_id=agent-1",
+          },
+        },
+      ],
+      unreadCount: 1,
+    });
+    expect(JSON.stringify(body)).not.toContain("user_code");
   });
 
   it("returns 429 once the owner exceeds the invite rate limit", async () => {

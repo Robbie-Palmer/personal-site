@@ -10,6 +10,35 @@ export type HouseholdNotificationKind =
   | "household_invite_declined"
   | "household_member_left";
 
+export async function createAgentApprovalNotification(
+  db: Pick<Db, "insert">,
+  values: {
+    recipientUserId: string;
+    approval: { id: string; expiresAt: Date };
+    agent: { id: string; name: string };
+    capabilities: string[];
+  },
+) {
+  const eventId = crypto.randomUUID();
+  await db.insert(schema.notificationEvent).values({
+    id: eventId,
+    kind: "agent_approval_requested",
+  });
+  await db.insert(schema.notificationAgentApprovalEvent).values({
+    eventId,
+    approvalRequestId: values.approval.id,
+    agentIdSnapshot: values.agent.id,
+    agentNameSnapshot: values.agent.name,
+    capabilitiesSnapshot: values.capabilities.join(" "),
+    expiresAtSnapshot: values.approval.expiresAt,
+  });
+  await db.insert(schema.notificationDelivery).values({
+    id: crypto.randomUUID(),
+    eventId,
+    recipientUserId: values.recipientUserId,
+  });
+}
+
 export async function createHouseholdNotification(
   db: Pick<Db, "insert">,
   values: {

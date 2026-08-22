@@ -3,6 +3,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type {
+  AgentApprovalNotification,
   HouseholdNotification,
   NotificationPage,
   RecipeRecommendationNotification,
@@ -165,6 +166,44 @@ describe("NotificationsView", () => {
     expect(invalidateQueries).toHaveBeenCalledWith({
       queryKey: recipeQueryKeys.recipeBoxRecipes("user-1"),
     });
+  });
+
+  it("links a pending agent request to the approval page", async () => {
+    const approval = {
+      id: "notification-agent-1",
+      eventId: "event-agent-1",
+      kind: "agent_approval_requested",
+      actor: null,
+      actions: [],
+      detail: {
+        type: "agent_approval",
+        agent: { id: "agent-1", name: "Meal planner" },
+        capabilities: ["recipes.search", "recipes.read"],
+        status: "pending",
+        expiresAt: "2026-08-22T14:05:00.000Z",
+        reviewUrl: "/recipes/settings/agents/approve?agent_id=agent-1",
+      },
+      readAt: null,
+      occurredAt: "2026-08-22T14:00:00.000Z",
+    } satisfies AgentApprovalNotification;
+    mocks.getNotificationPage.mockResolvedValue({
+      items: [approval],
+      nextOffset: null,
+      unreadCount: 1,
+    });
+
+    renderNotifications();
+
+    expect(await screen.findByText("Meal planner")).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Review request" }),
+    ).toHaveAttribute(
+      "href",
+      "/recipes/settings/agents/approve?agent_id=agent-1",
+    );
+    expect(
+      screen.getByText(/recipes.search, recipes.read/),
+    ).toBeInTheDocument();
   });
 
   it("prevents dismissing an invitation while its response is pending", async () => {

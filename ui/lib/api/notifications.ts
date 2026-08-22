@@ -46,11 +46,24 @@ export type RecipeRecommendationNotification = NotificationBase & {
   };
 };
 
+export type AgentApprovalNotification = NotificationBase & {
+  kind: "agent_approval_requested";
+  detail: {
+    type: "agent_approval";
+    agent: { id: string; name: string };
+    capabilities: string[];
+    status: "pending" | "approved" | "denied" | "expired" | "unavailable";
+    expiresAt: string;
+    reviewUrl: string | null;
+  };
+};
+
 export type UnsupportedNotification = NotificationBase & {
   detail: null;
 };
 
 export type InAppNotification =
+  | AgentApprovalNotification
   | HouseholdNotification
   | RecipeRecommendationNotification
   | UnsupportedNotification;

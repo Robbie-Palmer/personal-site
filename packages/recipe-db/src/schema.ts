@@ -407,6 +407,27 @@ export const notificationDelivery = pgTable(
   ],
 );
 
+export const notificationAgentApprovalEvent = pgTable(
+  "notification_agent_approval_event",
+  {
+    eventId: text()
+      .primaryKey()
+      .references(() => notificationEvent.id, { onDelete: "cascade" }),
+    approvalRequestId: text().references(() => approvalRequest.id, {
+      onDelete: "set null",
+    }),
+    agentIdSnapshot: text().notNull(),
+    agentNameSnapshot: text().notNull(),
+    capabilitiesSnapshot: text().notNull(),
+    expiresAtSnapshot: timestamp({ withTimezone: true }).notNull(),
+  },
+  (table) => [
+    uniqueIndex("notification_agent_approval_request_uidx").on(
+      table.approvalRequestId,
+    ),
+  ],
+);
+
 export const notificationHouseholdEvent = pgTable(
   "notification_household_event",
   {

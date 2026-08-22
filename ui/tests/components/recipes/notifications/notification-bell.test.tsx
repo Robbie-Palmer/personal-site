@@ -1,5 +1,5 @@
-import { render, screen } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { act, render, screen } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { NotificationPage } from "@/lib/api/notifications";
 
 const mocks = vi.hoisted(() => ({
@@ -27,6 +27,31 @@ describe("NotificationBell", () => {
       nextOffset: null,
       unreadCount: 5,
     });
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("polls for requests created after the user signs in", async () => {
+    vi.useFakeTimers();
+    mocks.getNotificationPage
+      .mockResolvedValueOnce({ items: [], nextOffset: null, unreadCount: 0 })
+      .mockResolvedValueOnce({ items: [], nextOffset: null, unreadCount: 1 });
+
+    render(<NotificationBell />);
+    await act(async () => Promise.resolve());
+    expect(
+      screen.getByRole("link", { name: "Notifications" }),
+    ).toBeInTheDocument();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(10_000);
+    });
+
+    expect(
+      screen.getByRole("link", { name: "Notifications, 1 unread" }),
+    ).toBeInTheDocument();
   });
 
   it("does not refetch or flicker when the same user's session object refreshes", async () => {

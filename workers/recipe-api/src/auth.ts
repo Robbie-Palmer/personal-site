@@ -231,7 +231,6 @@ export function createAuth(
           lastLoginMethod(),
           createRecipeAgentAuthPlugin(db),
         ],
-        secondaryStorage: authSecondaryStorage(db),
         emailAndPassword: {
           enabled: isPreview,
           disableSignUp: !options.allowPreviewSignUp,
@@ -296,6 +295,10 @@ export function createAuth(
         },
       },
     ),
+    // withCloudflare replaces secondaryStorage with its KV adapter or
+    // undefined. Apply the PostgreSQL adapter after its returned options so
+    // Agent Auth replay protection survives across Worker requests.
+    secondaryStorage: authSecondaryStorage(db),
   });
 }
 

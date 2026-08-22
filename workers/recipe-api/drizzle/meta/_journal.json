@@ -71,6 +71,13 @@
       "when": 1787391346392,
       "tag": "0009_agent_auth_recipe_reads",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1787391346393,
+      "tag": "0010_agent_approval_notifications",
+      "breakpoints": true
     }
   ]
 }

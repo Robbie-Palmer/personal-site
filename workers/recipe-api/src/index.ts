@@ -67,6 +67,7 @@ import { validateCsrf } from "./http/security";
 import { parseJsonBody } from "./http/validation";
 import { hasExpectedImageSignature } from "./image-signature";
 import {
+  createAgentApprovalNotification,
   createHouseholdNotification,
   createRecipeRecommendationNotification,
   type HouseholdNotificationKind,
@@ -158,6 +159,19 @@ const app = new OpenAPIHono<AppEnv>();
 const previewSignInBodySchema = z.object({
   scenario: z.string().trim().min(1).max(100),
 });
+
+const agentRegistrationApprovalSchema = z
+  .object({
+    agent_id: z.string().min(1),
+    name: z.string().min(1),
+    approval: z
+      .object({
+        method: z.literal("device_authorization"),
+        device_code: z.string().min(1),
+      })
+      .passthrough(),
+  })
+  .passthrough();
 
 const recipeSlugSchema = z
   .string()
@@ -1618,6 +1632,28 @@ type NotificationBaseRow = {
   occurredAt: Date;
 };
 
+type AgentApprovalNotificationStatus =
+  | "pending"
+  | "approved"
+  | "denied"
+  | "expired"
+  | "unavailable";
+
+function agentApprovalNotificationStatus(
+  status: string | null,
+  expiresAt: Date,
+): AgentApprovalNotificationStatus {
+  if (status === "approved") return "approved";
+  if (status === "denied") return "denied";
+  if (status === "pending" && expiresAt.getTime() > Date.now()) {
+    return "pending";
+  }
+  if (status === "pending" || expiresAt.getTime() <= Date.now()) {
+    return "expired";
+  }
+  return "unavailable";
+}
+
 const notificationBaseSelection = {
   id: schema.notificationDelivery.id,
   eventId: schema.notificationEvent.id,
@@ -1648,6 +1684,42 @@ async function hydrateNotifications(
   recipientUserId: string,
   rows: NotificationBaseRow[],
 ) {
+  const agentApprovalEventIds = rows
+    .filter(({ kind }) => kind === "agent_approval_requested")
+    .map(({ eventId }) => eventId);
+  const agentApprovalRows =
+    agentApprovalEventIds.length === 0
+      ? []
+      : await db
+          .select({
+            eventId: schema.notificationAgentApprovalEvent.eventId,
+            agentId: schema.notificationAgentApprovalEvent.agentIdSnapshot,
+            agentName:
+              schema.notificationAgentApprovalEvent.agentNameSnapshot,
+            capabilities:
+              schema.notificationAgentApprovalEvent.capabilitiesSnapshot,
+            expiresAtSnapshot:
+              schema.notificationAgentApprovalEvent.expiresAtSnapshot,
+            approvalStatus: schema.approvalRequest.status,
+            approvalExpiresAt: schema.approvalRequest.expiresAt,
+          })
+          .from(schema.notificationAgentApprovalEvent)
+          .leftJoin(
+            schema.approvalRequest,
+            eq(
+              schema.notificationAgentApprovalEvent.approvalRequestId,
+              schema.approvalRequest.id,
+            ),
+          )
+          .where(
+            inArray(
+              schema.notificationAgentApprovalEvent.eventId,
+              agentApprovalEventIds,
+            ),
+          );
+  const agentApprovalsByEventId = new Map(
+    agentApprovalRows.map((row) => [row.eventId, row]),
+  );
   const householdEventIds = rows
     .filter(({ kind }) => isHouseholdNotificationKind(kind))
     .map(({ eventId }) => eventId);
@@ -1764,6 +1836,35 @@ async function hydrateNotifications(
       readAt: row.readAt,
       occurredAt: row.occurredAt,
     };
+    if (row.kind === "agent_approval_requested") {
+      const detail = agentApprovalsByEventId.get(row.eventId);
+      if (!detail) {
+        throw new Error(
+          `Agent approval notification ${row.eventId} has no subtype row`,
+        );
+      }
+      const expiresAt = detail.approvalExpiresAt ?? detail.expiresAtSnapshot;
+      const status = agentApprovalNotificationStatus(
+        detail.approvalStatus,
+        expiresAt,
+      );
+      return {
+        ...base,
+        kind: "agent_approval_requested" as const,
+        detail: {
+          type: "agent_approval" as const,
+          agent: { id: detail.agentId, name: detail.agentName },
+          capabilities: detail.capabilities.split(" ").filter(Boolean),
+          status,
+          expiresAt,
+          reviewUrl:
+            status === "pending"
+              ? `/recipes/settings/agents/approve?agent_id=${encodeURIComponent(detail.agentId)}`
+              : null,
+        },
+        actions: [] as string[],
+      };
+    }
     if (row.kind === "recipe_recommended") {
       const detail = recommendationsByEventId.get(row.eventId);
       if (!detail) {
@@ -2443,6 +2544,48 @@ registerRoute("post", "/api/auth/preview/sign-in", async (c) => {
   }
 });
 
+async function notifyAgentRegistrationApproval(
+  db: Db,
+  response: Response,
+): Promise<void> {
+  if (!response.ok) return;
+  const parsed = agentRegistrationApprovalSchema.safeParse(
+    await response
+      .clone()
+      .json()
+      .catch(() => null),
+  );
+  if (!parsed.success) return;
+
+  const [approval] = await db
+    .select({
+      id: schema.approvalRequest.id,
+      userId: schema.approvalRequest.userId,
+      capabilities: schema.approvalRequest.capabilities,
+      expiresAt: schema.approvalRequest.expiresAt,
+    })
+    .from(schema.approvalRequest)
+    .where(
+      and(
+        eq(schema.approvalRequest.id, parsed.data.approval.device_code),
+        eq(schema.approvalRequest.agentId, parsed.data.agent_id),
+        eq(schema.approvalRequest.status, "pending"),
+      ),
+    )
+    .limit(1);
+  const recipientUserId = approval?.userId;
+  if (!approval || !recipientUserId) return;
+
+  await db.transaction((tx) =>
+    createAgentApprovalNotification(tx, {
+      recipientUserId,
+      approval: { id: approval.id, expiresAt: approval.expiresAt },
+      agent: { id: parsed.data.agent_id, name: parsed.data.name },
+      capabilities: approval.capabilities?.split(" ").filter(Boolean) ?? [],
+    }),
+  );
+}
+
 app.on(["POST", "GET"], "/api/auth/*", async (c) => {
   // Preview credentials are server-owned. Only the Access-protected scenario
   // endpoint above may invoke Better Auth's email/password API.
@@ -2483,7 +2626,15 @@ app.on(["POST", "GET"], "/api/auth/*", async (c) => {
   const { db, client } = createDb(connectionString);
   try {
     const auth = createAuth(db, c.env);
-    return await auth.handler(c.req.raw);
+    const response = await auth.handler(c.req.raw);
+    if (c.req.path === "/api/auth/agent/register") {
+      try {
+        await notifyAgentRegistrationApproval(db, response);
+      } catch (error) {
+        console.error("Agent approval notification creation failed", error);
+      }
+    }
+    return response;
   } finally {
     try {
       await client.end({ timeout: 5 });

@@ -1,7 +1,8 @@
-import { Bell, BookHeart, House } from "lucide-react";
+import { Bell, BookHeart, Bot, House } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import type {
+  AgentApprovalNotification,
   HouseholdNotification,
   InAppNotification,
   RecipeRecommendationNotification,
@@ -137,6 +138,37 @@ function RecipeRecommendationContent({
   );
 }
 
+function AgentApprovalContent({
+  item,
+}: RendererProps<AgentApprovalNotification>) {
+  const { agent, capabilities, reviewUrl, status } = item.detail;
+  const capabilityList = capabilities.join(", ");
+  return (
+    <>
+      <span className="flex size-10 shrink-0 items-center justify-center rounded-full border border-[var(--ink)] bg-[var(--terracotta)] text-white">
+        <Bot className="size-5" />
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="rt-body text-[0.95rem] text-[var(--ink-2)]">
+          <strong className="text-[var(--ink)]">{agent.name}</strong> requested
+          delegated access
+          {capabilityList ? ` to ${capabilityList}` : ""}.
+        </p>
+        {reviewUrl && (
+          <Button asChild className="mt-2" size="sm">
+            <Link href={reviewUrl}>Review request</Link>
+          </Button>
+        )}
+        {status !== "pending" && (
+          <p className="rt-mono mt-2 capitalize text-[var(--ink-3)]">
+            {status === "unavailable" ? "No longer available" : status}
+          </p>
+        )}
+      </div>
+    </>
+  );
+}
+
 function UnsupportedNotificationContent({ item }: RendererProps) {
   return (
     <>
@@ -154,6 +186,14 @@ function UnsupportedNotificationContent({ item }: RendererProps) {
 
 export function NotificationContent(props: RendererProps) {
   if (!props.item.detail) return <UnsupportedNotificationContent {...props} />;
+  if (props.item.detail.type === "agent_approval") {
+    return (
+      <AgentApprovalContent
+        {...props}
+        item={props.item as AgentApprovalNotification}
+      />
+    );
+  }
   if (props.item.detail.type === "recipe_recommendation") {
     return (
       <RecipeRecommendationContent
