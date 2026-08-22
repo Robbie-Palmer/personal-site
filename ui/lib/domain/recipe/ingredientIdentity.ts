@@ -19,14 +19,11 @@ export function resolveDisplayedIngredientSlug(
   registeredName: string,
   displayName?: string,
 ): IngredientSlug {
-  const registeredSlug = normalizeIngredientSlugForOutput(
-    registeredName,
-  ) as IngredientSlug;
+  const registeredSlug: IngredientSlug =
+    normalizeIngredientSlugForOutput(registeredName);
   if (!displayName) return registeredSlug;
 
-  const displayedSlug = normalizeIngredientSlugForOutput(
-    displayName,
-  ) as IngredientSlug;
+  const displayedSlug = resolveIngredientSlug({ name: displayName });
   return knownIngredientSlugs.has(displayedSlug)
     ? displayedSlug
     : registeredSlug;

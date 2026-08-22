@@ -202,6 +202,16 @@ describe("buildScaledRecipeParts", () => {
     ]);
   });
 
+  it("preserves an exact catalog display identity when canonical aliases differ", () => {
+    const parts = buildScaledRecipeParts(
+      parsedAt(`Add @pepper|red pepper{1}.\n`),
+    );
+
+    expect(parts.ingredientGroups[0]?.items).toEqual([
+      { ingredient: "red-pepper", amount: 1 },
+    ]);
+  });
+
   it("keeps purchasing-specific catalog ingredients separate from a generic alias", () => {
     const parts = buildScaledRecipeParts(
       parsedAt(

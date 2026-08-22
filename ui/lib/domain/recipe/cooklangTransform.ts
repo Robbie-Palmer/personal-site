@@ -173,9 +173,7 @@ function findDeclaredIngredientSlugs(
         // the declaration uses a purchasing-specific display alias. Keep both
         // identities so a later `@butter{}` does not become an extra generic
         // item after `@butter|unsalted butter{}` was already declared.
-        declaredSlugs.add(
-          normalizeIngredientSlugForOutput(ingredient.name) as IngredientSlug,
-        );
+        declaredSlugs.add(normalizeIngredientSlugForOutput(ingredient.name));
       }
     }
   }
@@ -276,9 +274,9 @@ function buildIngredientGroupItem(
   resolved: ResolvedIngredient,
   annotations: IngredientAnnotations,
 ): RecipeIngredient {
-  const registeredSlug = normalizeIngredientSlugForOutput(
+  const registeredSlug: IngredientSlug = normalizeIngredientSlugForOutput(
     ingredient.name,
-  ) as IngredientSlug;
+  );
   const ingSlug = resolvedIngredientSlug(ingredient);
   const ann = annotations[ingSlug] ?? annotations[registeredSlug];
 
