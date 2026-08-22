@@ -4,6 +4,7 @@ import {
   SavedRecipePayloadSchema,
 } from "recipe-domain/serialization";
 import { buildRecipeContentFromParsed } from "@/lib/domain/recipe/cooklangTransform";
+import { resolveDisplayedIngredientSlug } from "@/lib/domain/recipe/ingredientIdentity";
 import {
   type RecipeContent,
   RecipeContentSchema,
@@ -101,10 +102,9 @@ function recipeContentToDetail(
 ): RecipeDetailView {
   const ingredientNames = new Map<string, string>();
   content.instructionSdk?.ingredientNames.forEach((name, index) => {
-    ingredientNames.set(
-      normalizeSlug(name),
-      content.instructionSdk?.ingredientDisplayValues[index] ?? name,
-    );
+    const display =
+      content.instructionSdk?.ingredientDisplayValues[index] ?? name;
+    ingredientNames.set(normalizeSlug(name), display);
   });
   const totalTime =
     content.prepTime != null && content.cookTime != null
@@ -129,11 +129,15 @@ function recipeContentToDetail(
     cookware: content.cookware,
     ingredientGroups: content.ingredientGroups.map((group) => ({
       name: group.name,
-      items: group.items.map((item) => ({
-        ...item,
-        name:
-          ingredientNames.get(item.ingredient) ?? displayName(item.ingredient),
-      })),
+      items: group.items.map((item) => {
+        const name =
+          ingredientNames.get(item.ingredient) ?? displayName(item.ingredient);
+        return {
+          ...item,
+          ingredient: resolveDisplayedIngredientSlug(item.ingredient, name),
+          name,
+        };
+      }),
     })),
     instructions: content.instructions,
     instructionSdk: content.instructionSdk,

@@ -48,6 +48,8 @@ vi.mock("@/hooks/use-unit-preference", async () => {
   };
 });
 
+type Slug = ShoppingRecipe["ingredients"][number]["ingredient"];
+
 const recipes: ShoppingRecipe[] = [
   {
     slug: "garlic-pasta",
@@ -61,6 +63,39 @@ const recipes: ShoppingRecipe[] = [
         name: "garlic",
         amount: 1,
         unit: "clove",
+      },
+    ],
+  },
+];
+
+const butterRecipes: ShoppingRecipe[] = [
+  {
+    slug: "salted-butter-dish",
+    title: "Salted butter dish",
+    servings: 2,
+    cuisine: [],
+    ingredients: [
+      {
+        ingredient: "salted-butter" as Slug,
+        name: "salted butter",
+        amount: 100,
+        unit: "g",
+        category: "dairy",
+      },
+    ],
+  },
+  {
+    slug: "unsalted-butter-dish",
+    title: "Unsalted butter dish",
+    servings: 2,
+    cuisine: [],
+    ingredients: [
+      {
+        ingredient: "unsalted-butter" as Slug,
+        name: "unsalted butter",
+        amount: 200,
+        unit: "g",
+        category: "dairy",
       },
     ],
   },
@@ -121,8 +156,6 @@ describe("ShoppingList value analytics", () => {
     expect(mocks.captureRecipeValue).toHaveBeenCalledTimes(1);
   });
 });
-
-type Slug = ShoppingRecipe["ingredients"][number]["ingredient"];
 
 const twoAisleRecipes: ShoppingRecipe[] = [
   {
@@ -227,6 +260,24 @@ describe("ShoppingList pantry state", () => {
       "full shopping list without kitchen filtering",
     );
     expect(screen.getByText("garlic")).toBeInTheDocument();
+  });
+
+  it("does not let stocked salted butter hide unsalted butter", () => {
+    __resetShoppingListForTests();
+    addRecipe("salted-butter-dish");
+    addRecipe("unsalted-butter-dish");
+    pantryState.stock = { "salted-butter": "fridge" };
+
+    render(<ShoppingList recipes={butterRecipes} />);
+
+    expect(
+      screen.getByRole("button", { name: /200g unsalted butter/i }),
+    ).toHaveAttribute("aria-pressed", "false");
+    expect(
+      screen.getByRole("button", {
+        name: /remove salted butter from the kitchen/i,
+      }),
+    ).toBeInTheDocument();
   });
 });
 

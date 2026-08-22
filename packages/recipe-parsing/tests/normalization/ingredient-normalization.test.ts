@@ -52,6 +52,19 @@ describe("canonicalizeIngredientSlug", () => {
     expect(decision.canonicalSlug).toBe("garlic-powder");
   });
 
+  it.each(["butter", "salted-butter", "unsalted-butter"])(
+    "keeps the purchasing identity for %s",
+    (rawSlug) => {
+      const decision = canonicalizeIngredientSlug({
+        rawSlug,
+        ontology: new Set(["butter", "salted-butter", "unsalted-butter"]),
+      });
+
+      expect(decision.canonicalSlug).toBe(rawSlug);
+      expect(decision.method).toBe("exact");
+    },
+  );
+
   it.each([
     {
       rawSlug: "slices-of-bacon",

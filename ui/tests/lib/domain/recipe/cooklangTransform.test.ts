@@ -202,6 +202,69 @@ describe("buildScaledRecipeParts", () => {
     ]);
   });
 
+  it("preserves an exact catalog display identity when canonical aliases differ", () => {
+    const parts = buildScaledRecipeParts(
+      parsedAt(`Add @pepper|red pepper{1}.\n`),
+    );
+
+    expect(parts.ingredientGroups[0]?.items).toEqual([
+      { ingredient: "red-pepper", amount: 1 },
+    ]);
+  });
+
+  it("keeps purchasing-specific catalog ingredients separate from a generic alias", () => {
+    const parts = buildScaledRecipeParts(
+      parsedAt(
+        [
+          "@butter|salted butter{100%g}",
+          "",
+          "@butter|unsalted butter{200%g}",
+        ].join("\n"),
+      ),
+    );
+
+    expect(parts.ingredientGroups[0]?.items).toEqual([
+      { ingredient: "salted-butter", amount: 100, unit: "g" },
+      { ingredient: "unsalted-butter", amount: 200, unit: "g" },
+    ]);
+    expect(parts.instructionSdk.ingredientNames).toEqual([
+      "salted butter",
+      "unsalted butter",
+    ]);
+  });
+
+  it("does not add generic butter when an instruction references a specific declaration", () => {
+    const parts = buildScaledRecipeParts(
+      parsedAt(
+        [
+          "@butter|unsalted butter{200%g}",
+          "",
+          "Cream the @butter{} with sugar.",
+        ].join("\n"),
+      ),
+    );
+
+    expect(parts.ingredientGroups[0]?.items).toEqual([
+      { ingredient: "unsalted-butter", amount: 200, unit: "g" },
+    ]);
+    expect(parts.instructions).toEqual(["Cream the butter with sugar."]);
+  });
+
+  it("does not let a generic declaration suppress a specific later ingredient", () => {
+    const parts = buildScaledRecipeParts(
+      parsedAt(
+        ["@butter{100%g}", "", "Fold in @butter|unsalted butter{50%g}."].join(
+          "\n",
+        ),
+      ),
+    );
+
+    expect(parts.ingredientGroups[0]?.items).toEqual([
+      { ingredient: "butter", amount: 100, unit: "g" },
+      { ingredient: "unsalted-butter", amount: 50, unit: "g" },
+    ]);
+  });
+
   it("lists cookware by its registered name while steps keep the alias", () => {
     const parts = buildScaledRecipeParts(
       parsedAt(

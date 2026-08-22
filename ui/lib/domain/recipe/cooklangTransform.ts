@@ -22,6 +22,7 @@ import {
   mergeIngredientIntoGroup,
   normalizeIngredientSlugForOutput,
 } from "@/lib/domain/recipe/ingredient";
+import { resolveDisplayedIngredientSlug } from "@/lib/domain/recipe/ingredientIdentity";
 import type {
   IngredientGroup,
   RecipeContent,
@@ -57,6 +58,13 @@ type ResolvedIngredient = {
   amount: number | undefined;
   unit: Unit | undefined;
 };
+
+function resolvedIngredientSlug(ingredient: Ingredient): IngredientSlug {
+  return resolveDisplayedIngredientSlug(
+    ingredient.name,
+    ingredient_display_name(ingredient),
+  );
+}
 
 export type UnitRecovery = {
   /** Result of parser.parse(body) — no scale — so we can read the unit the
@@ -146,6 +154,24 @@ function isIngredientOnlyStep(step: Step): boolean {
   return hasIngredient;
 }
 
+function addDeclaredIngredientSlugs(
+  step: Step,
+  ingredients: Ingredient[],
+  declaredSlugs: Set<IngredientSlug>,
+): void {
+  for (const item of step.items) {
+    if (item.type !== "ingredient") continue;
+    const ingredient = ingredients[item.index];
+    if (!ingredient) continue;
+    declaredSlugs.add(resolvedIngredientSlug(ingredient));
+    // Cooklang references a declaration by its registered name, even when
+    // the declaration uses a purchasing-specific display alias. Keep both
+    // identities so a later `@butter{}` does not become an extra generic
+    // item after `@butter|unsalted butter{}` was already declared.
+    declaredSlugs.add(normalizeIngredientSlugForOutput(ingredient.name));
+  }
+}
+
 function findDeclaredIngredientSlugs(
   sections: ParsedCooklangRecipe["sections"],
   ingredients: Ingredient[],
@@ -156,13 +182,7 @@ function findDeclaredIngredientSlugs(
       if (content.type !== "step" || !isIngredientOnlyStep(content.value)) {
         continue;
       }
-      for (const item of content.value.items) {
-        if (item.type !== "ingredient") continue;
-        const ingredient = ingredients[item.index]!;
-        declaredSlugs.add(
-          normalizeIngredientSlugForOutput(ingredient.name) as IngredientSlug,
-        );
-      }
+      addDeclaredIngredientSlugs(content.value, ingredients, declaredSlugs);
     }
   }
   return declaredSlugs;
@@ -262,10 +282,11 @@ function buildIngredientGroupItem(
   resolved: ResolvedIngredient,
   annotations: IngredientAnnotations,
 ): RecipeIngredient {
-  const ingSlug = normalizeIngredientSlugForOutput(
+  const registeredSlug: IngredientSlug = normalizeIngredientSlugForOutput(
     ingredient.name,
-  ) as IngredientSlug;
-  const ann = annotations[ingSlug];
+  );
+  const ingSlug = resolvedIngredientSlug(ingredient);
+  const ann = annotations[ingSlug] ?? annotations[registeredSlug];
 
   return {
     ingredient: ingSlug,
@@ -288,14 +309,14 @@ function collectStepIngredients(
   for (const item of step.items) {
     if (item.type !== "ingredient") continue;
 
-    const ingredient = ingredients[item.index]!;
-    const ingredientSlug = normalizeIngredientSlugForOutput(
-      ingredient.name,
-    ) as IngredientSlug;
+    const ingredient = ingredients[item.index];
+    const resolvedIngredient = resolved[item.index];
+    if (!ingredient || !resolvedIngredient) continue;
+    const ingredientSlug = resolvedIngredientSlug(ingredient);
     if (!isDeclaration && declaredSlugs.has(ingredientSlug)) continue;
     mergeIngredientIntoGroup(
       currentGroup,
-      buildIngredientGroupItem(ingredient, resolved[item.index]!, annotations),
+      buildIngredientGroupItem(ingredient, resolvedIngredient, annotations),
     );
   }
 }
@@ -375,7 +396,9 @@ export function buildScaledRecipeParts(
   const groups: GroupAccumulator[] = [currentGroup];
   const namedGroups = new Map<string, GroupAccumulator>();
   const instructions: string[] = [];
-  const ingredientNames = ingredients.map((ingredient) => ingredient.name);
+  const ingredientNames = ingredients.map((ingredient) =>
+    resolvedIngredientSlug(ingredient).replaceAll("-", " "),
+  );
   const ingredientDisplayValues = ingredients.map(formatIngredientDisplay);
   const ingredientAmounts = resolvedIngredients.map((r) => r.amount ?? null);
   const ingredientUnits = resolvedIngredients.map((r) => r.unit ?? null);
