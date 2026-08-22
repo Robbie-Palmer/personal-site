@@ -39,6 +39,10 @@ description = "Pull the configured image and recreate the container"
 dir = "hosts/mac-mini/jellyfin"
 run = "docker compose up -d --pull always"
 
+[tasks.probe]
+description = "Smoke-test media files: real container/codecs, client compatibility, optional preview clip"
+run = "bash hosts/mac-mini/jellyfin/scripts/probe.sh"
+
 [tasks.verify]
 description = "Check the Jellyfin health endpoint"
 run = 'curl -fsS "http://localhost:${JELLYFIN_PORT:-8096}/health" && echo "Jellyfin is healthy"'
