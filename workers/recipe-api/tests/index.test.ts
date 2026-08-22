@@ -2022,6 +2022,35 @@ describe("GET /health", () => {
   });
 });
 
+describe("GET /.well-known/agent-configuration", () => {
+  it("publishes delegated Agent Auth discovery at the canonical path", async () => {
+    const res = await app.request(
+      "/.well-known/agent-configuration",
+      {},
+      env,
+    );
+
+    expect(res.status).toBe(200);
+    expect(res.headers.get("cache-control")).toBe("public, max-age=3600");
+    expect(await res.json()).toMatchObject({
+      version: "1.0-draft",
+      provider_name: "Robbie's Recipes",
+      issuer: "http://localhost:3000/api/auth",
+      default_location:
+        "http://localhost:3000/api/auth/capability/execute",
+      algorithms: ["Ed25519"],
+      modes: ["delegated"],
+      approval_methods: ["device_authorization"],
+      endpoints: {
+        register: "http://localhost:3000/api/auth/agent/register",
+        capabilities: "http://localhost:3000/api/auth/capability/list",
+        execute: "http://localhost:3000/api/auth/capability/execute",
+        revoke: "http://localhost:3000/api/auth/agent/revoke",
+      },
+    });
+  });
+});
+
 describe("GET /recipes", () => {
   it("returns recipes list", async () => {
     const res = await app.request("/recipes", {}, env);
@@ -5892,6 +5921,51 @@ describe("POST /api/auth/sign-in/social", () => {
     );
 
     expect(res.status).toBe(404);
+  });
+});
+
+describe("Agent Auth request CSRF handling", () => {
+  it("allows bearer-only machine requests without a browser origin", async () => {
+    const res = await app.request(
+      "/api/auth/capability/execute",
+      {
+        method: "POST",
+        headers: {
+          authorization: "Bearer invalid-agent-proof",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          capability: "recipes.search",
+          arguments: { query: "pasta" },
+        }),
+      },
+      env,
+    );
+
+    expect(res.status).toBe(401);
+    expect(await res.json()).toMatchObject({ error: "unauthorized" });
+  });
+
+  it("does not let an authorization header bypass cookie CSRF checks", async () => {
+    const res = await app.request(
+      "/api/auth/capability/execute",
+      {
+        method: "POST",
+        headers: {
+          authorization: "Bearer invalid-agent-proof",
+          cookie: "better-auth.session_token=victim-session",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          capability: "recipes.search",
+          arguments: { query: "pasta" },
+        }),
+      },
+      env,
+    );
+
+    expect(res.status).toBe(403);
+    expect(await res.json()).toMatchObject({ error: "CSRF validation failed" });
   });
 });
 

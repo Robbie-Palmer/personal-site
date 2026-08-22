@@ -7,7 +7,13 @@ const outputPath = fileURLToPath(
 );
 
 function publicApiPath(path: string): string {
-  if (path === "/health" || path.startsWith("/api/")) return path;
+  if (
+    path === "/health" ||
+    path.startsWith("/.well-known/") ||
+    path.startsWith("/api/")
+  ) {
+    return path;
+  }
   return `/api${path}`;
 }
 
@@ -22,6 +28,7 @@ const document = app.getOpenAPIDocument({
   },
   servers: [{ url: "https://robbiepalmer.me", "x-internal": false }],
   tags: [
+    "agent-auth",
     "auth",
     "households",
     "notifications",

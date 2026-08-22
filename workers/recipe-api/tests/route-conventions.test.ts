@@ -89,7 +89,10 @@ describe("recipe-api route conventions", () => {
 
   it("uses kebab-case static path segments", () => {
     const offenders = routes.filter(({ path }) =>
-      staticSegments(path).some((s) => !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(s)),
+      staticSegments(path).some(
+        (s) =>
+          s !== ".well-known" && !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(s),
+      ),
     );
     expect(offenders, JSON.stringify(offenders)).toEqual([]);
   });

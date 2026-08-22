@@ -4,6 +4,7 @@ import { withCloudflare } from "better-auth-cloudflare";
 import { and, eq, inArray } from "drizzle-orm";
 import type { Db } from "recipe-db";
 import * as schema from "recipe-db/schema";
+import { createRecipeAgentAuthPlugin } from "./agent-auth";
 import { enforceRateLimit } from "./http/rate-limit";
 import { createHouseholdNotification } from "./notifications";
 import {
@@ -66,6 +67,44 @@ function rateLimitStorage(db: Db) {
           target: schema.appRateLimit.key,
           set: { count: value.count, windowStart },
         });
+    },
+  };
+}
+
+function authSecondaryStorage(db: Db) {
+  return {
+    get: async (key: string) => {
+      const [entry] = await db
+        .select({
+          value: schema.authSecondaryStorage.value,
+          expiresAt: schema.authSecondaryStorage.expiresAt,
+        })
+        .from(schema.authSecondaryStorage)
+        .where(eq(schema.authSecondaryStorage.key, key))
+        .limit(1);
+      if (!entry) return null;
+      if (entry.expiresAt && entry.expiresAt.getTime() <= Date.now()) {
+        await db
+          .delete(schema.authSecondaryStorage)
+          .where(eq(schema.authSecondaryStorage.key, key));
+        return null;
+      }
+      return entry.value;
+    },
+    set: async (key: string, value: string, ttl?: number) => {
+      const expiresAt = ttl ? new Date(Date.now() + ttl * 1_000) : null;
+      await db
+        .insert(schema.authSecondaryStorage)
+        .values({ key, value, expiresAt })
+        .onConflictDoUpdate({
+          target: schema.authSecondaryStorage.key,
+          set: { value, expiresAt },
+        });
+    },
+    delete: async (key: string) => {
+      await db
+        .delete(schema.authSecondaryStorage)
+        .where(eq(schema.authSecondaryStorage.key, key));
     },
   };
 }
@@ -187,7 +226,12 @@ export function createAuth(
         geolocationTracking: false,
       },
       {
-        plugins: [admin(), lastLoginMethod()],
+        plugins: [
+          admin(),
+          lastLoginMethod(),
+          createRecipeAgentAuthPlugin(db),
+        ],
+        secondaryStorage: authSecondaryStorage(db),
         emailAndPassword: {
           enabled: isPreview,
           disableSignUp: !options.allowPreviewSignUp,

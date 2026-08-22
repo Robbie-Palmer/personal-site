@@ -606,7 +606,9 @@ function successResponsesFor(
 }
 
 function securityFor(path: string): NonNullable<RouteConfig["security"]> {
-  if (path === "/health") return [];
+  if (path === "/health" || path === "/.well-known/agent-configuration") {
+    return [];
+  }
   if (path.startsWith("/api/auth/preview/")) {
     return [{ cloudflareAccess: [] }];
   }
@@ -659,10 +661,12 @@ function registerRoute(
     summary: `${method.toUpperCase()} ${path}`,
     description: `Recipe API operation for ${method.toUpperCase()} ${path}.`,
     tags: [
-      path
-        .split("/")
-        .filter(Boolean)
-        .at(path.startsWith("/api/") ? 1 : 0) ?? "system",
+      path.startsWith("/.well-known/")
+        ? "agent-auth"
+        : (path
+            .split("/")
+            .filter(Boolean)
+            .at(path.startsWith("/api/") ? 1 : 0) ?? "system"),
     ],
     security: securityFor(path),
     request: {
@@ -714,6 +718,28 @@ app.openAPIRegistry.registerComponent("securitySchemes", "cloudflareAccess", {
 app.notFound((c) => c.json({ error: "Not found" }, 404));
 
 registerRoute("get", "/health", (c) => c.json({ status: "ok" }));
+
+registerRoute("get", "/.well-known/agent-configuration", async (c) => {
+  if (!hasAuthConfiguration(c.env)) {
+    return c.json({ error: "Auth configuration is incomplete" }, 503);
+  }
+  if (!isValidAuthURL(c.env.BETTER_AUTH_URL)) {
+    return c.json({ error: "Auth configuration is invalid" }, 503);
+  }
+
+  return withDatabase(
+    c,
+    "query",
+    "Agent Auth discovery failed",
+    async (db) => {
+      const auth = createAuth(db, c.env);
+      return auth.api.getAgentConfiguration({
+        headers: c.req.raw.headers,
+        asResponse: true,
+      });
+    },
+  );
+});
 
 function isValidAuthURL(value: string): boolean {
   try {
@@ -2441,7 +2467,17 @@ app.on(["POST", "GET"], "/api/auth/*", async (c) => {
     return c.json({ error: "Auth configuration is invalid" }, 503);
   }
 
-  const csrfFailure = validateCsrf(c);
+  const hasSessionCookie =
+    /(?:^|;\s*)(?:__Secure-)?better-auth[.-]session_token=/.test(
+      c.req.header("cookie") ?? "",
+    );
+  const machineAgentRequest =
+    /^\/api\/auth\/(?:agent|capability|host)(?:\/|$)/.test(c.req.path) &&
+    !hasSessionCookie &&
+    (Boolean(c.req.header("authorization")) ||
+      c.req.path === "/api/auth/agent/device/code" ||
+      c.req.path === "/api/auth/host/enroll");
+  const csrfFailure = machineAgentRequest ? undefined : validateCsrf(c);
   if (csrfFailure) return csrfFailure;
 
   const { db, client } = createDb(connectionString);
@@ -5028,6 +5064,9 @@ async function cleanupOperationalRows(env: Bindings): Promise<void> {
     await db
       .delete(schema.pantryOperation)
       .where(lt(schema.pantryOperation.createdAt, cutoff));
+    await db
+      .delete(schema.authSecondaryStorage)
+      .where(lt(schema.authSecondaryStorage.expiresAt, new Date()));
   } catch (e) {
     console.error("Operational row cleanup failed", e);
   } finally {

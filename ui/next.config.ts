@@ -40,6 +40,11 @@ function createNextConfig(phase: string): NextConfig {
           async rewrites() {
             return [
               {
+                source: "/.well-known/agent-configuration",
+                destination:
+                  "http://localhost:8787/.well-known/agent-configuration",
+              },
+              {
                 source: "/api/auth/:path*",
                 destination: "http://localhost:8787/api/auth/:path*",
               },

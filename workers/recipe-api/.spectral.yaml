@@ -25,7 +25,7 @@ rules:
     then:
       function: pattern
       functionOptions:
-        match: "^(/([a-z0-9]+(-[a-z0-9]+)*|\\{[a-zA-Z0-9._-]+\\}))+$"
+        match: "^(/(\\.well-known|[a-z0-9]+(-[a-z0-9]+)*|\\{[a-zA-Z0-9._-]+\\}))+$"
 
   paths-no-verbs:
     description: Resource paths are nouns; only allowlisted actions may be verbs.
