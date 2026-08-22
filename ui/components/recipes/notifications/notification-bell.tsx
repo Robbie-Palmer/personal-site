@@ -32,7 +32,7 @@ export function NotificationBell() {
 
     refresh();
     const interval = globalThis.setInterval(
-      refresh,
+      refreshWhenVisible,
       NOTIFICATION_REFRESH_INTERVAL_MS,
     );
     document.addEventListener("visibilitychange", refreshWhenVisible);

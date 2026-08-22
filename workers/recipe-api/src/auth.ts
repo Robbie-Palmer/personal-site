@@ -115,8 +115,10 @@ function authSecondaryStorage(db: Db) {
       }
       return entry.value;
     },
-    set: async (key: string, value: string, ttl?: number) => {
-      const expiresAt = ttl ? new Date(Date.now() + ttl * 1_000) : null;
+    set: async (key: string, value: string, ttlSeconds?: number) => {
+      const expiresAt = ttlSeconds
+        ? new Date(Date.now() + ttlSeconds * 1_000)
+        : null;
       await db
         .insert(schema.authSecondaryStorage)
         .values({ key, value, expiresAt })
