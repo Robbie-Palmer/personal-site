@@ -63,8 +63,8 @@ device discovery predictable.
   repeatable Safari interaction is worth the extra signing and provisioning
   work.
 * Run checks through mise tasks on the Mac mini. The first useful tasks are
-  `phones:status`, `phones:android:smoke`, `phones:ios:smoke`, and
-  `phones:screenshot`.
+  `mise //:phones:status`, `mise //:phones:android:smoke`,
+  `mise //:phones:ios:smoke`, and `mise //:phones:screenshot`.
 * Keep tests small. Open the preview, exercise the changed path, record the
   viewport and OS version, save a screenshot, and return a clear pass or
   failure to the agent.
@@ -172,6 +172,10 @@ Keep this ADR Proposed until the lab can demonstrate all of the following:
 * Safari on the iPhone 6s opens the same preview and yields a screenshot or an
   inspectable WebKit session. Full iOS automation is optional for the pilot.
 * Test artifacts include enough device metadata to reproduce a failure.
+* Protected previews use a preview-only test identity and short-lived access.
+  Personal accounts and persistent preview tokens never go on a lab phone.
+* Every test run clears its browser storage and authenticated session before
+  returning the phone to the device pool.
 * Debugging access is limited to the Mac mini, and Tailscale policy gives lab
   phones no general access to private services.
 * If the cellular watchdog is built, a deliberate failure of each resolver and
