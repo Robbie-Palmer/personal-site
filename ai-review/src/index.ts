@@ -18,7 +18,7 @@ import {
   evaluateFinalizedFinding,
   type FindingOutcomeBasis,
   type FindingOutcomeManualOverride,
-  type FindingInteractionSummary,
+  summarizeFindingInteractions,
 } from "./finding-outcomes";
 import { createInstallationToken } from "./github-app";
 import type { FindingPublication } from "./finding-lifecycle";
@@ -482,75 +482,6 @@ function storedFindingResolution(
   } catch {
     return undefined;
   }
-}
-
-function summarizeFindingInteractions(
-  rows: Array<{ delivery_id: string; payload_json: string }>,
-): FindingInteractionSummary {
-  const replies = new Set<string>();
-  const threadStates = new Map<string, "resolved" | "unresolved">();
-  const reactionSnapshots = new Map<string, Record<string, number>>();
-  const deliveryIds: string[] = [];
-  for (const row of rows) {
-    let payload: Record<string, unknown>;
-    try {
-      const parsed = JSON.parse(row.payload_json) as unknown;
-      if (!isRecord(parsed)) continue;
-      payload = parsed;
-    } catch {
-      continue;
-    }
-    deliveryIds.push(row.delivery_id);
-    const interactionType = payload.interactionType;
-    const action = payload.action;
-    const commentId =
-      typeof payload.commentId === "number"
-        ? `comment:${payload.commentId}`
-        : `delivery:${row.delivery_id}`;
-    if (interactionType === "reply") {
-      if (action === "deleted") replies.delete(commentId);
-      else replies.add(commentId);
-    }
-    if (
-      interactionType === "thread" &&
-      (action === "resolved" || action === "unresolved")
-    ) {
-      const threadId =
-        typeof payload.threadId === "string"
-          ? payload.threadId
-          : `comment:${String(payload.rootCommentId ?? row.delivery_id)}`;
-      threadStates.set(threadId, action);
-    }
-    if (isRecord(payload.reactions)) {
-      const snapshot = Object.fromEntries(
-        Object.entries(payload.reactions).filter(
-          (entry): entry is [string, number] =>
-            typeof entry[1] === "number" &&
-            Number.isSafeInteger(entry[1]) &&
-            entry[1] >= 0,
-        ),
-      );
-      reactionSnapshots.set(commentId, action === "deleted" ? {} : snapshot);
-    }
-  }
-  const reactionTotal = (names: string[]) =>
-    [...reactionSnapshots.values()].reduce(
-      (total, snapshot) =>
-        total + names.reduce((sum, name) => sum + (snapshot[name] ?? 0), 0),
-      0,
-    );
-  return {
-    deliveryIds,
-    replies: replies.size,
-    threadResolutions: [...threadStates.values()].filter(
-      (state) => state === "resolved",
-    ).length,
-    threadUnresolutions: [...threadStates.values()].filter(
-      (state) => state === "unresolved",
-    ).length,
-    positiveReactions: reactionTotal(["+1", "heart", "hooray", "rocket"]),
-    negativeReactions: reactionTotal(["-1", "confused"]),
-  };
 }
 
 function isFindingInteractionEvent(
@@ -1117,36 +1048,32 @@ export class PullRequestCoordinator extends DurableObject<Env> {
         JSON.stringify(evidence),
         options.evaluatedAt,
       );
-      if (
-        evaluation.status === "resolved" &&
-        evaluation.outcome &&
-        evaluation.basis &&
-        evaluation.confidence !== undefined
-      ) {
-        if (
-          this.appendFindingOutcome({
-            repository: event.repository,
-            pullRequestNumber: event.pullRequestNumber,
-            findingId: finding.finding_id,
-            outcome: evaluation.outcome,
-            basis: evaluation.basis,
-            confidence: evaluation.confidence,
-            evaluatorVersion,
-            sourceId: evaluationId,
-            occurredAt:
-              options.trigger === "outcome-window"
-                ? options.evaluatedAt
-                : (event.occurredAt ?? options.evaluatedAt),
-            recordedAt: options.evaluatedAt,
-            evidence,
-          })
-        ) {
-          outcomes += 1;
-        }
-      } else if (evaluation.status === "manual-adjudication-required") {
+      if (evaluation.status === "manual-adjudication-required") {
         manualRequired += 1;
-      } else {
+        continue;
+      }
+      if (evaluation.status === "incomplete") {
         pending += 1;
+        continue;
+      }
+      const inserted = this.appendFindingOutcome({
+        repository: event.repository,
+        pullRequestNumber: event.pullRequestNumber,
+        findingId: finding.finding_id,
+        outcome: evaluation.outcome,
+        basis: evaluation.basis,
+        confidence: evaluation.confidence,
+        evaluatorVersion,
+        sourceId: evaluationId,
+        occurredAt:
+          options.trigger === "outcome-window"
+            ? options.evaluatedAt
+            : (event.occurredAt ?? options.evaluatedAt),
+        recordedAt: options.evaluatedAt,
+        evidence,
+      });
+      if (inserted) {
+        outcomes += 1;
       }
     }
     return { outcomes, pending, manualRequired };

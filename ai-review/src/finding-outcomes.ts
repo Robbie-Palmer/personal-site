@@ -26,12 +26,26 @@ export type FindingInteractionSummary = {
   negativeReactions: number;
 };
 
-export type FinalizedFindingEvaluation = {
-  outcome?: FindingOutcome;
-  basis?: FindingOutcomeBasis;
-  confidence?: number;
-  status: "resolved" | "incomplete" | "manual-adjudication-required";
-  evidence: Record<string, unknown>;
+export type FinalizedFindingEvaluation =
+  | {
+      outcome: FindingOutcome;
+      basis: FindingOutcomeBasis;
+      confidence: number;
+      status: "resolved";
+      evidence: Record<string, unknown>;
+    }
+  | {
+      status: "incomplete";
+      evidence: Record<string, unknown>;
+    }
+  | {
+      status: "manual-adjudication-required";
+      evidence: Record<string, unknown>;
+    };
+
+export type FindingInteractionRow = {
+  delivery_id: string;
+  payload_json: string;
 };
 
 export type FindingOutcomeRecord = {
@@ -94,6 +108,126 @@ export function findingOutcomeKind(
   if (outcome === "no-observable-response") return "workflow";
   if (outcome === "superseded") return "censored";
   return "adjudicated";
+}
+
+function parseInteractionPayload(
+  payloadJson: string,
+): Record<string, unknown> | undefined {
+  try {
+    const parsed = JSON.parse(payloadJson) as unknown;
+    return isRecord(parsed) ? parsed : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function interactionCommentKey(
+  payload: Record<string, unknown>,
+  deliveryId: string,
+): string {
+  return typeof payload.commentId === "number"
+    ? `comment:${payload.commentId}`
+    : `delivery:${deliveryId}`;
+}
+
+function updateReplyState(
+  replies: Set<string>,
+  payload: Record<string, unknown>,
+  commentKey: string,
+): void {
+  if (payload.interactionType !== "reply") return;
+  if (payload.action === "deleted") replies.delete(commentKey);
+  else replies.add(commentKey);
+}
+
+function updateThreadState(
+  threadStates: Map<string, "resolved" | "unresolved">,
+  payload: Record<string, unknown>,
+  deliveryId: string,
+): void {
+  if (
+    payload.interactionType !== "thread" ||
+    (payload.action !== "resolved" && payload.action !== "unresolved")
+  ) {
+    return;
+  }
+  const threadId =
+    typeof payload.threadId === "string"
+      ? payload.threadId
+      : typeof payload.rootCommentId === "number"
+        ? `comment:${payload.rootCommentId}`
+        : `delivery:${deliveryId}`;
+  threadStates.set(threadId, payload.action);
+}
+
+function reactionSnapshot(
+  payload: Record<string, unknown>,
+): Record<string, number> | undefined {
+  if (!isRecord(payload.reactions)) return undefined;
+  return Object.fromEntries(
+    Object.entries(payload.reactions).filter(
+      (entry): entry is [string, number] =>
+        typeof entry[1] === "number" &&
+        Number.isSafeInteger(entry[1]) &&
+        entry[1] >= 0,
+    ),
+  );
+}
+
+function countReactions(
+  reactionSnapshots: Map<string, Record<string, number>>,
+  names: string[],
+): number {
+  return [...reactionSnapshots.values()].reduce(
+    (total, snapshot) =>
+      total + names.reduce((sum, name) => sum + (snapshot[name] ?? 0), 0),
+    0,
+  );
+}
+
+export function summarizeFindingInteractions(
+  rows: FindingInteractionRow[],
+): FindingInteractionSummary {
+  const replies = new Set<string>();
+  const threadStates = new Map<string, "resolved" | "unresolved">();
+  const reactionSnapshots = new Map<string, Record<string, number>>();
+  const deliveryIds: string[] = [];
+  for (const row of rows) {
+    const payload = parseInteractionPayload(row.payload_json);
+    if (!payload) continue;
+    deliveryIds.push(row.delivery_id);
+    const commentKey = interactionCommentKey(payload, row.delivery_id);
+    updateReplyState(replies, payload, commentKey);
+    updateThreadState(threadStates, payload, row.delivery_id);
+    const reactions = reactionSnapshot(payload);
+    if (reactions) {
+      reactionSnapshots.set(
+        commentKey,
+        payload.action === "deleted" ? {} : reactions,
+      );
+    }
+  }
+  return {
+    deliveryIds,
+    replies: replies.size,
+    threadResolutions: [...threadStates.values()].filter(
+      (state) => state === "resolved",
+    ).length,
+    threadUnresolutions: [...threadStates.values()].filter(
+      (state) => state === "unresolved",
+    ).length,
+    positiveReactions: countReactions(reactionSnapshots, [
+      "+1",
+      "heart",
+      "hooray",
+      "rocket",
+    ]),
+    negativeReactions: countReactions(reactionSnapshots, ["-1", "confused"]),
+  };
 }
 
 export function evaluateFinalizedFinding(options: {
