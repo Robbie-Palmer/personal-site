@@ -264,37 +264,7 @@ function ExtrasSection({
       {showItems && extras.length > 0 && (
         <div className="mt-1">
           {ordered.map((extra) => (
-            <div
-              key={extra.id}
-              className="flex items-center gap-2.5 py-1.5 border-b border-dashed border-[var(--line)] last:border-0"
-            >
-              <button
-                type="button"
-                aria-pressed={extra.checked}
-                onClick={() => onToggle(extra.id, extra.checked)}
-                className="flex items-center gap-2.5 flex-1 text-left"
-              >
-                <ShoppingCheckbox checked={extra.checked} />
-                <span
-                  className={[
-                    "rt-body leading-snug",
-                    extra.checked
-                      ? "line-through text-[var(--ink-3)]"
-                      : "text-[var(--ink)]",
-                  ].join(" ")}
-                >
-                  {extra.text}
-                </span>
-              </button>
-              <button
-                type="button"
-                onClick={() => removeExtra(extra.id)}
-                aria-label={`Remove ${extra.text}`}
-                className="text-[var(--ink-4)] hover:text-[var(--berry)] transition-colors"
-              >
-                <X className="h-3.5 w-3.5" />
-              </button>
-            </div>
+            <ExtraItemRow key={extra.id} extra={extra} onToggle={onToggle} />
           ))}
         </div>
       )}
