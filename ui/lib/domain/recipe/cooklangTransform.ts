@@ -309,12 +309,14 @@ function collectStepIngredients(
   for (const item of step.items) {
     if (item.type !== "ingredient") continue;
 
-    const ingredient = ingredients[item.index]!;
+    const ingredient = ingredients[item.index];
+    const resolvedIngredient = resolved[item.index];
+    if (!ingredient || !resolvedIngredient) continue;
     const ingredientSlug = resolvedIngredientSlug(ingredient);
     if (!isDeclaration && declaredSlugs.has(ingredientSlug)) continue;
     mergeIngredientIntoGroup(
       currentGroup,
-      buildIngredientGroupItem(ingredient, resolved[item.index]!, annotations),
+      buildIngredientGroupItem(ingredient, resolvedIngredient, annotations),
     );
   }
 }
