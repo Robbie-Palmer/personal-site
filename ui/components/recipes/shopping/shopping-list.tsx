@@ -11,7 +11,7 @@ import {
   X,
 } from "lucide-react";
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { ShoppingCheckbox } from "@/components/recipes/shopping/shopping-checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -240,14 +240,18 @@ function SectionHeading({
 function ExtrasSection({
   extras,
   onToggle,
+  showItems = true,
 }: Readonly<{
   extras: { id: string; text: string; checked: boolean }[];
   onToggle: (id: string, checked: boolean) => void;
+  showItems?: boolean;
 }>) {
   const [text, setText] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
   const submit = () => {
     addExtra(text);
     setText("");
+    inputRef.current?.focus();
   };
   // Ticked extras sink to the bottom too, matching the ingredient rows.
   const ordered = [
@@ -256,41 +260,11 @@ function ExtrasSection({
   ];
   return (
     <div className="mt-6">
-      <SectionHeading title="extras" />
-      {extras.length > 0 && (
+      {showItems && <SectionHeading title="extras" />}
+      {showItems && extras.length > 0 && (
         <div className="mt-1">
           {ordered.map((extra) => (
-            <div
-              key={extra.id}
-              className="flex items-center gap-2.5 py-1.5 border-b border-dashed border-[var(--line)] last:border-0"
-            >
-              <button
-                type="button"
-                aria-pressed={extra.checked}
-                onClick={() => onToggle(extra.id, extra.checked)}
-                className="flex items-center gap-2.5 flex-1 text-left"
-              >
-                <ShoppingCheckbox checked={extra.checked} />
-                <span
-                  className={[
-                    "rt-body leading-snug",
-                    extra.checked
-                      ? "line-through text-[var(--ink-3)]"
-                      : "text-[var(--ink)]",
-                  ].join(" ")}
-                >
-                  {extra.text}
-                </span>
-              </button>
-              <button
-                type="button"
-                onClick={() => removeExtra(extra.id)}
-                aria-label={`Remove ${extra.text}`}
-                className="text-[var(--ink-4)] hover:text-[var(--berry)] transition-colors"
-              >
-                <X className="h-3.5 w-3.5" />
-              </button>
-            </div>
+            <ExtraItemRow key={extra.id} extra={extra} onToggle={onToggle} />
           ))}
         </div>
       )}
@@ -302,6 +276,7 @@ function ExtrasSection({
         className="mt-3 flex gap-2 max-w-sm"
       >
         <Input
+          ref={inputRef}
           value={text}
           onChange={(e) => setText(e.target.value)}
           placeholder="Add an extra (milk, bread…)"
@@ -316,6 +291,45 @@ function ExtrasSection({
           <Plus className="h-4 w-4" /> Add
         </button>
       </form>
+    </div>
+  );
+}
+
+function ExtraItemRow({
+  extra,
+  onToggle,
+}: Readonly<{
+  extra: { id: string; text: string; checked: boolean };
+  onToggle: (id: string, checked: boolean) => void;
+}>) {
+  return (
+    <div className="flex items-center gap-2.5 py-1.5 border-b border-dashed border-[var(--line)] last:border-0">
+      <button
+        type="button"
+        aria-pressed={extra.checked}
+        onClick={() => onToggle(extra.id, extra.checked)}
+        className="flex items-center gap-2.5 flex-1 text-left"
+      >
+        <ShoppingCheckbox checked={extra.checked} />
+        <span
+          className={[
+            "rt-body leading-snug",
+            extra.checked
+              ? "line-through text-[var(--ink-3)]"
+              : "text-[var(--ink)]",
+          ].join(" ")}
+        >
+          {extra.text}
+        </span>
+      </button>
+      <button
+        type="button"
+        onClick={() => removeExtra(extra.id)}
+        aria-label={`Remove ${extra.text}`}
+        className="text-[var(--ink-4)] hover:text-[var(--berry)] transition-colors"
+      >
+        <X className="h-3.5 w-3.5" />
+      </button>
     </div>
   );
 }
@@ -364,6 +378,31 @@ export function ShoppingList({
     );
 
   const flatLines = useMemo(() => [...aggregated].sort(byName), [aggregated]);
+  const flatItems = useMemo(() => {
+    const items = [
+      ...flatLines
+        .filter((line) => !stock[line.ingredient])
+        .map((line) => ({
+          kind: "ingredient" as const,
+          id: line.ingredient,
+          name: formatShoppingName(line),
+          checked: checkedSet.has(line.ingredient),
+          line,
+        })),
+      ...state.extras.map((extra) => ({
+        kind: "extra" as const,
+        id: extra.id,
+        name: extra.text,
+        checked: extra.checked,
+        extra,
+      })),
+    ].sort((a, b) => a.name.localeCompare(b.name));
+
+    return [
+      ...items.filter((item) => !item.checked),
+      ...items.filter((item) => item.checked),
+    ];
+  }, [flatLines, checkedSet, state.extras, stock]);
 
   const haveLines = useMemo(
     () => aggregated.filter((line) => stock[line.ingredient]).sort(byName),
@@ -537,18 +576,26 @@ export function ShoppingList({
             <div className="rt-mono text-[var(--ink-3)] mb-1">
               Just ingredients · A–Z
             </div>
-            {groupLines(flatLines).map((line) => (
-              <ItemRow
-                key={line.ingredient}
-                line={line}
-                system={system}
-                checked={checkedSet.has(line.ingredient)}
-                kitchenLocation={locationOf(line)}
-                onToggle={handleIngredientToggle}
-                showRecipes
-                onRemoveFromStock={stockActions.removeFromStock}
-              />
-            ))}
+            {flatItems.map((item) =>
+              item.kind === "ingredient" ? (
+                <ItemRow
+                  key={item.id}
+                  line={item.line}
+                  system={system}
+                  checked={item.checked}
+                  kitchenLocation={locationOf(item.line)}
+                  onToggle={handleIngredientToggle}
+                  showRecipes
+                  onRemoveFromStock={stockActions.removeFromStock}
+                />
+              ) : (
+                <ExtraItemRow
+                  key={item.id}
+                  extra={item.extra}
+                  onToggle={handleExtraToggle}
+                />
+              ),
+            )}
           </div>
         )}
 
@@ -637,7 +684,11 @@ export function ShoppingList({
         </div>
       )}
 
-      <ExtrasSection extras={state.extras} onToggle={handleExtraToggle} />
+      <ExtrasSection
+        extras={state.extras}
+        onToggle={handleExtraToggle}
+        showItems={view !== "flat"}
+      />
     </div>
   );
 }

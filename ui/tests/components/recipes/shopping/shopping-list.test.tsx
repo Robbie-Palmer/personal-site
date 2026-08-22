@@ -5,6 +5,7 @@ import { ShoppingList } from "@/components/recipes/shopping/shopping-list";
 import type { ShoppingRecipe } from "@/lib/api/shopping";
 import {
   __resetShoppingListForTests,
+  addExtra,
   addRecipe,
   toggleChecked,
 } from "@/lib/shopping/shoppingListStore";
@@ -17,6 +18,7 @@ const mocks = vi.hoisted(() => ({
 const pantryState = vi.hoisted(() => ({
   error: null as Error | null,
   isPending: false,
+  stock: {} as Record<string, "fridge" | "cupboards" | "fresh">,
 }));
 
 vi.mock("@/lib/analytics/recipe-product", () => ({
@@ -31,7 +33,7 @@ vi.mock("@/hooks/use-kitchen-stock", () => ({
     removeFromStock: vi.fn(),
   }),
   useKitchenStockQuery: () => ({
-    data: { scope: { type: "personal" }, stock: {} },
+    data: { scope: { type: "personal" }, stock: pantryState.stock },
     error: pantryState.error,
     isPending: pantryState.isPending,
   }),
@@ -68,6 +70,7 @@ describe("ShoppingList value analytics", () => {
   beforeEach(() => {
     pantryState.error = null;
     pantryState.isPending = false;
+    pantryState.stock = {};
     localStorage.clear();
     __resetShoppingListForTests();
     addRecipe("garlic-pasta");
@@ -155,6 +158,7 @@ describe("ShoppingList aisle view section completion", () => {
   beforeEach(() => {
     pantryState.error = null;
     pantryState.isPending = false;
+    pantryState.stock = {};
     localStorage.clear();
     __resetShoppingListForTests();
     addRecipe("veg-and-chicken");
@@ -190,6 +194,7 @@ describe("ShoppingList pantry state", () => {
   beforeEach(() => {
     pantryState.error = null;
     pantryState.isPending = false;
+    pantryState.stock = {};
     localStorage.clear();
     __resetShoppingListForTests();
     addRecipe("garlic-pasta");
@@ -222,5 +227,82 @@ describe("ShoppingList pantry state", () => {
       "full shopping list without kitchen filtering",
     );
     expect(screen.getByText("garlic")).toBeInTheDocument();
+  });
+});
+
+describe("ShoppingList extras", () => {
+  beforeEach(() => {
+    pantryState.error = null;
+    pantryState.isPending = false;
+    pantryState.stock = {};
+    localStorage.clear();
+    __resetShoppingListForTests();
+    addRecipe("garlic-pasta");
+    addExtra("bread");
+  });
+
+  afterEach(() => {
+    __resetShoppingListForTests();
+  });
+
+  it("mixes extras into the ingredient-only list", async () => {
+    const user = userEvent.setup();
+    render(<ShoppingList recipes={recipes} />);
+
+    await user.click(screen.getByText("just ingredients"));
+
+    expect(
+      screen.queryByRole("heading", { name: /extras/i }),
+    ).not.toBeInTheDocument();
+    const uncheckedRows = screen.getAllByRole("button", { pressed: false });
+    expect(uncheckedRows.map((row) => row.textContent)).toEqual([
+      expect.stringMatching(/bread/i),
+      expect.stringMatching(/garlic/i),
+    ]);
+
+    await user.click(screen.getByRole("button", { name: "bread" }));
+
+    expect(
+      screen
+        .getAllByRole("button", { pressed: false })
+        .map((row) => row.textContent),
+    ).toEqual([expect.stringMatching(/garlic/i)]);
+    expect(
+      screen
+        .getAllByRole("button", { pressed: true })
+        .map((row) => row.textContent),
+    ).toEqual([expect.stringMatching(/bread/i)]);
+  });
+
+  it("keeps kitchen-stocked ingredients out of the flat list", async () => {
+    pantryState.stock = { garlic: "fridge" };
+    const user = userEvent.setup();
+    render(<ShoppingList recipes={recipes} />);
+
+    await user.click(screen.getByText("just ingredients"));
+
+    expect(
+      screen
+        .getAllByRole("button", { pressed: false })
+        .map((row) => row.textContent),
+    ).toEqual([expect.stringMatching(/bread/i)]);
+    expect(
+      screen.getByRole("heading", { name: /already have/i }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("garlic")).toBeInTheDocument();
+  });
+
+  it("keeps the extra input focused after adding an item", async () => {
+    const user = userEvent.setup();
+    render(<ShoppingList recipes={recipes} />);
+
+    const input = screen.getByRole("textbox", { name: "Add an extra item" });
+    await user.clear(input);
+    await user.type(input, "milk");
+    await user.click(screen.getByRole("button", { name: "Add" }));
+
+    expect(input).toHaveFocus();
+    expect(input).toHaveValue("");
+    expect(screen.getByText("milk")).toBeInTheDocument();
   });
 });
