@@ -513,7 +513,9 @@ function isFindingInteractionEvent(
     (event.body === undefined ||
       (typeof event.body === "string" && event.body.length <= 4_000)) &&
     (event.reason === undefined ||
-      (typeof event.reason === "string" && event.reason.length <= 1_000)) &&
+      (typeof event.reason === "string" &&
+        event.reason.trim().length > 0 &&
+        event.reason.length <= 1_000)) &&
     (event.findingId === undefined || /^f_[a-f0-9]{24}$/.test(event.findingId)) &&
     (event.rootCommentId === undefined ||
       (Number.isSafeInteger(event.rootCommentId) && event.rootCommentId > 0)) &&
@@ -1517,11 +1519,18 @@ export class PullRequestCoordinator extends DurableObject<Env> {
         )
         .toArray()[0]?.pending;
       if (Number(outstanding ?? 0) > 0) {
-        await this.schedulePendingOutcomeEvaluation({
-          kind: "finding-outcome-evaluation",
-          dueAt,
-          event,
-        });
+        const existing = await this.ctx.storage.get<unknown>(
+          PENDING_OUTCOME_EVALUATION_KEY,
+        );
+        if (isPendingOutcomeEvaluation(existing)) {
+          await this.scheduleAlarmNoLaterThan(existing.dueAt);
+        } else {
+          await this.schedulePendingOutcomeEvaluation({
+            kind: "finding-outcome-evaluation",
+            dueAt,
+            event,
+          });
+        }
       }
     }
 

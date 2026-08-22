@@ -488,7 +488,7 @@ describe("PullRequestCoordinator", () => {
     const response = await coordinator.fetch(
       new Request("https://coordinator.test/interactions", {
         method: "POST",
-        body: JSON.stringify({ ...findingInteraction, reason: "  " }),
+        body: JSON.stringify({ ...findingInteraction, reason: undefined }),
       }),
     );
 
@@ -986,6 +986,7 @@ describe("PullRequestCoordinator", () => {
       [],
       { ...findingInteraction, actor: "" },
       { ...findingInteraction, deliveryId: "x".repeat(256) },
+      { ...findingInteraction, reason: "  " },
       { ...findingInteraction, reason: "x".repeat(1_001) },
       { ...findingInteraction, body: "x".repeat(4_001) },
       {
