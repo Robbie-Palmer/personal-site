@@ -155,12 +155,13 @@ function updateThreadState(
   ) {
     return;
   }
-  const threadId =
-    typeof payload.threadId === "string"
-      ? payload.threadId
-      : typeof payload.rootCommentId === "number"
-        ? `comment:${payload.rootCommentId}`
-        : `delivery:${deliveryId}`;
+  let threadId = `delivery:${deliveryId}`;
+  if (typeof payload.rootCommentId === "number") {
+    threadId = `comment:${payload.rootCommentId}`;
+  }
+  if (typeof payload.threadId === "string") {
+    threadId = payload.threadId;
+  }
   threadStates.set(threadId, payload.action);
 }
 

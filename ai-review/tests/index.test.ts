@@ -70,7 +70,10 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-function coordinatorFixture(existingDeliveries: string[] = []) {
+function coordinatorFixture(
+  existingDeliveries: string[] = [],
+  envOverrides: Partial<Env> = {},
+) {
   const sqlExec = vi.fn(
     (
       query: string,
@@ -109,6 +112,7 @@ function coordinatorFixture(existingDeliveries: string[] = []) {
     AI_REVIEW_DEBOUNCE_SECONDS: "2",
     REVIEW_DATA: { put },
     REVIEW_WORKFLOW: { createBatch, get: workflowGet },
+    ...envOverrides,
   } as unknown as Env;
   const coordinator = new PullRequestCoordinator(
     { storage } as unknown as DurableObjectState,
@@ -704,6 +708,80 @@ describe("PullRequestCoordinator", () => {
       outcomes: 0,
     });
     expect(duplicate.put).not.toHaveBeenCalled();
+  });
+
+  it("schedules silent findings after the configured outcome window", async () => {
+    const { coordinator, sqlExec, storage } = coordinatorFixture([], {
+      AI_REVIEW_OUTCOME_WINDOW_SECONDS: "60",
+    });
+    storage.getAlarm.mockResolvedValue(null);
+    sqlExec.mockImplementation((query: string) => ({
+      rowsWritten: 1,
+      toArray: () =>
+        query.includes("FROM review_findings ORDER BY")
+          ? [{
+              finding_id: identifiedFinding.findingId,
+              disposition: null,
+              disposition_reason: null,
+              first_seen_head_sha: event.headSha,
+              last_seen_head_sha: event.headSha,
+              first_seen_run_id: "initial-run",
+              last_seen_run_id: "initial-run",
+            }]
+          : [],
+    }));
+    const finalization = {
+      ...pullRequestFinalization,
+      deliveryId: "pending-finalization",
+      occurredAt: new Date().toISOString(),
+    };
+
+    const response = await coordinator.fetch(
+      new Request("https://coordinator.test/finalizations", {
+        method: "POST",
+        body: JSON.stringify(finalization),
+      }),
+    );
+
+    await expect(response.json()).resolves.toEqual({
+      accepted: true,
+      duplicate: false,
+      outcomes: 0,
+      pending: 1,
+      manualRequired: 0,
+    });
+    expect(storage.kv.put).toHaveBeenCalledWith(
+      "pending-outcome-evaluation",
+      expect.objectContaining({
+        kind: "finding-outcome-evaluation",
+        event: finalization,
+      }),
+    );
+    expect(storage.setAlarm).toHaveBeenCalledOnce();
+  });
+
+  it("uses the default outcome window for invalid configuration", async () => {
+    const { coordinator } = coordinatorFixture([], {
+      AI_REVIEW_OUTCOME_WINDOW_SECONDS: "invalid",
+    });
+    const response = await coordinator.fetch(
+      new Request("https://coordinator.test/finalizations", {
+        method: "POST",
+        body: JSON.stringify({
+          ...pullRequestFinalization,
+          deliveryId: "default-window-finalization",
+          occurredAt: new Date().toISOString(),
+        }),
+      }),
+    );
+
+    await expect(response.json()).resolves.toEqual({
+      accepted: true,
+      duplicate: false,
+      outcomes: 0,
+      pending: 0,
+      manualRequired: 0,
+    });
   });
 
   it("keeps committed finalization successful when outcome publication fails", async () => {
