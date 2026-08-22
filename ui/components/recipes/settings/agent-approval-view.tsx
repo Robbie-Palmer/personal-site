@@ -25,6 +25,27 @@ type ApprovalIntent = {
   code: string;
 };
 
+function isAgentRequest(value: unknown): value is AgentRequest {
+  if (!value || typeof value !== "object") return false;
+  const candidate = value as Partial<AgentRequest>;
+  return (
+    typeof candidate.agent_id === "string" &&
+    typeof candidate.name === "string" &&
+    typeof candidate.status === "string" &&
+    typeof candidate.host_id === "string" &&
+    Array.isArray(candidate.agent_capability_grants) &&
+    candidate.agent_capability_grants.every(
+      (grant) =>
+        grant !== null &&
+        typeof grant === "object" &&
+        typeof grant.capability === "string" &&
+        typeof grant.status === "string" &&
+        (grant.description === undefined ||
+          typeof grant.description === "string"),
+    )
+  );
+}
+
 function readApprovalIntent(): ApprovalIntent | null {
   const params = new URLSearchParams(globalThis.location.search);
   const agentId = params.get("agent_id")?.trim();
@@ -70,7 +91,11 @@ export function AgentApprovalView() {
     )
       .then(async (response) => {
         if (!response.ok) throw new Error(await responseError(response));
-        setAgent((await response.json()) as AgentRequest);
+        const body: unknown = await response.json();
+        if (!isAgentRequest(body)) {
+          throw new Error("The agent request response was invalid.");
+        }
+        setAgent(body);
       })
       .catch((cause: unknown) => {
         if (cause instanceof DOMException && cause.name === "AbortError")
@@ -116,7 +141,11 @@ export function AgentApprovalView() {
 
   if (sessionPending || intent === undefined || loading) {
     return (
-      <div className="container mx-auto flex max-w-xl items-center justify-center px-4 py-24">
+      <div
+        role="status"
+        aria-label="Loading agent access request"
+        className="container mx-auto flex max-w-xl items-center justify-center px-4 py-24"
+      >
         <LoaderCircle className="size-6 animate-spin text-[var(--ink-3)]" />
       </div>
     );

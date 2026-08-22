@@ -2093,6 +2093,19 @@ describe("GET /.well-known/agent-configuration", () => {
       },
     });
   });
+
+  it("publishes discovery without a database connection", async () => {
+    const res = await app.request(
+      "/.well-known/agent-configuration",
+      {},
+      { ...env, DATABASE_URL: "" },
+    );
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({
+      provider_name: "Robbie's Recipes",
+    });
+  });
 });
 
 describe("GET /recipes", () => {

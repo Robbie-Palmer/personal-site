@@ -41,6 +41,7 @@ import {
 } from "recipe-domain/slugs";
 import { parseRecipeFile } from "recipe-parsing/recipe-file";
 import { parseSchemaOrgRecipeHtml } from "recipe-parsing/schema-org";
+import { recipeAgentConfiguration } from "./agent-auth";
 import { createAuth } from "./auth";
 import { verifyCloudflareAccess } from "./cloudflare-access";
 import { hasPostgresErrorCode } from "./db/errors";
@@ -432,6 +433,21 @@ const jsonResponseSchema = z
   .catchall(z.unknown())
   .openapi("JsonResponse");
 
+const agentConfigurationSchema = z
+  .object({
+    version: z.string().max(32),
+    provider_name: z.string().max(200),
+    description: z.string().max(500),
+    issuer: z.url().max(2_048),
+    default_location: z.url().max(2_048),
+    algorithms: z.array(z.string().max(32)).max(10),
+    modes: z.array(z.enum(["delegated", "autonomous"])).max(2),
+    approval_methods: z.array(z.string().max(64)).max(10),
+    endpoints: z.record(z.string().max(64), z.url().max(2_048)),
+    jwks_uri: z.url().max(2_048).optional(),
+  })
+  .openapi("AgentConfiguration");
+
 const openApiRequestBodySchemas = new Map<string, z.ZodType>([
   ["POST /api/auth/preview/sign-in", previewSignInBodySchema],
   ["PUT /api/profile/diet", updateDietProfileBodySchema],
@@ -623,22 +639,49 @@ function registerRoute(
   handler: Handler<AppEnv>,
 ): void {
   const key = `${method.toUpperCase()} ${path}`;
+  const isAgentConfiguration =
+    key === "GET /.well-known/agent-configuration";
   const requestBodySchema = openApiRequestBodySchemas.get(key);
   const querySchema = openApiQuerySchemas.get(key);
   const headersSchema = PANTRY_MUTATION_OPERATIONS.has(key)
     ? pantryOperationHeadersSchema
     : undefined;
   const paramsSchema = pathParamsSchema(path);
-  const errorResponses = Object.fromEntries(
-    ERROR_STATUS_CODES.map((status) => [
-      status,
-      {
-        description: `Error (${status})`,
-        content: { "application/json": { schema: errorSchema } },
-      },
-    ]),
-  );
-  const successResponses = successResponsesFor(key, method);
+  const errorResponses: RouteConfig["responses"] = isAgentConfiguration
+    ? {
+        503: {
+          description: "Agent Auth configuration unavailable",
+          content: { "application/json": { schema: errorSchema } },
+        },
+      }
+    : Object.fromEntries(
+        ERROR_STATUS_CODES.map((status) => [
+          status,
+          {
+            description: `Error (${status})`,
+            content: { "application/json": { schema: errorSchema } },
+          },
+        ]),
+      );
+  const successResponses: RouteConfig["responses"] = isAgentConfiguration
+    ? {
+        200: {
+          description: "Delegated Agent Auth discovery configuration",
+          headers: {
+            "Cache-Control": {
+              description: "Public discovery document cache lifetime",
+              schema: {
+                type: "string",
+                enum: ["public, max-age=3600"],
+              },
+            },
+          },
+          content: {
+            "application/json": { schema: agentConfigurationSchema },
+          },
+        },
+      }
+    : successResponsesFor(key, method);
   const rateLimitResponses: RouteConfig["responses"] = {};
   if (RATE_LIMITED_OPERATIONS.has(key)) {
     rateLimitResponses[429] = {
@@ -726,18 +769,9 @@ registerRoute("get", "/.well-known/agent-configuration", async (c) => {
     return c.json({ error: "Auth configuration is invalid" }, 503);
   }
 
-  return withDatabase(
-    c,
-    "query",
-    "Agent Auth discovery failed",
-    async (db) => {
-      const auth = createAuth(db, c.env);
-      return auth.api.getAgentConfiguration({
-        headers: c.req.raw.headers,
-        asResponse: true,
-      });
-    },
-  );
+  return c.json(recipeAgentConfiguration(c.env.BETTER_AUTH_URL), 200, {
+    "Cache-Control": "public, max-age=3600",
+  });
 });
 
 function isValidAuthURL(value: string): boolean {
@@ -1712,7 +1746,11 @@ async function hydrateNotifications(
     await Promise.all(
       agentApprovalRows.map(async (row) => [
         row.eventId,
-        row.approvalCodeCiphertext
+        row.approvalCodeCiphertext &&
+        agentApprovalNotificationStatus(
+          row.approvalStatus,
+          row.approvalExpiresAt ?? row.expiresAtSnapshot,
+        ) === "pending"
           ? await decryptAgentApprovalCode(
               row.approvalCodeCiphertext,
               approvalCodeSecret,
@@ -2606,7 +2644,7 @@ app.on(["POST", "GET"], "/api/auth/*", async (c) => {
   try {
     const auth = createAuth(db, c.env);
     const response = await auth.handler(c.req.raw);
-    if (c.req.path === "/api/auth/agent/register") {
+    if (c.req.path.replace(/\/$/, "") === "/api/auth/agent/register") {
       try {
         await notifyAgentRegistrationApproval(
           db,

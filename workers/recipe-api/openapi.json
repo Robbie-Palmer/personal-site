@@ -18,7 +18,7 @@
   "tags": [
     {
       "name": "agent-auth",
-      "description": "agent-auth operations"
+      "description": "Delegated agent discovery, registration, approval, and capability execution."
     },
     {
       "name": "auth",
@@ -123,6 +123,84 @@
         "required": [
           "error"
         ]
+      },
+      "AgentConfiguration": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "string",
+            "maxLength": 32
+          },
+          "provider_name": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "issuer": {
+            "type": "string",
+            "maxLength": 2048,
+            "format": "uri"
+          },
+          "default_location": {
+            "type": "string",
+            "maxLength": 2048,
+            "format": "uri"
+          },
+          "algorithms": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "maxLength": 32
+            },
+            "maxItems": 10
+          },
+          "modes": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "delegated",
+                "autonomous"
+              ]
+            },
+            "maxItems": 2
+          },
+          "approval_methods": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "maxLength": 64
+            },
+            "maxItems": 10
+          },
+          "endpoints": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string",
+              "maxLength": 2048,
+              "format": "uri"
+            }
+          },
+          "jwks_uri": {
+            "type": "string",
+            "maxLength": 2048,
+            "format": "uri"
+          }
+        },
+        "required": [
+          "version",
+          "provider_name",
+          "description",
+          "issuer",
+          "default_location",
+          "algorithms",
+          "modes",
+          "approval_methods",
+          "endpoints"
+        ]
       }
     },
     "parameters": {}
@@ -139,117 +217,28 @@
         "security": [],
         "responses": {
           "200": {
-            "description": "Successful response",
-            "content": {
-              "application/json": {
+            "description": "Delegated Agent Auth discovery configuration",
+            "headers": {
+              "Cache-Control": {
+                "description": "Public discovery document cache lifetime",
                 "schema": {
-                  "$ref": "#/components/schemas/JsonResponse"
+                  "type": "string",
+                  "enum": [
+                    "public, max-age=3600"
+                  ]
                 }
               }
-            }
-          },
-          "400": {
-            "description": "Error (400)",
+            },
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Error (401)",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Error (403)",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Error (404)",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Error (409)",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "410": {
-            "description": "Error (410)",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "415": {
-            "description": "Error (415)",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Error (422)",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Error (500)",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "502": {
-            "description": "Error (502)",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "$ref": "#/components/schemas/AgentConfiguration"
                 }
               }
             }
           },
           "503": {
-            "description": "Error (503)",
+            "description": "Agent Auth configuration unavailable",
             "content": {
               "application/json": {
                 "schema": {

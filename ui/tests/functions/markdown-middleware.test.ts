@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { onRequest } from "../../../functions/_middleware";
 
 type MarkdownContext = Parameters<typeof onRequest>[0];
@@ -15,6 +15,10 @@ function createContext(
 }
 
 describe("Markdown content-negotiation middleware", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it("wraps API requests and continues to the route handler", async () => {
     const context = createContext(
       new Request("https://robbiepalmer.me/api/recipes"),

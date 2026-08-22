@@ -4,6 +4,7 @@ import type * as schema from "recipe-db/schema";
 import { describe, expect, it, vi } from "vitest";
 import {
   createRecipeAgentAuthPlugin,
+  escapedLikePattern,
   executeRecipeAgentCapability,
   RECIPE_AGENT_CAPABILITIES,
 } from "../src/agent-auth";
@@ -232,6 +233,10 @@ describe("recipe Agent Auth capabilities", () => {
   });
 
   it("searches recipes visible to a user without a household", async () => {
+    expect(escapedLikePattern(String.raw`tomato%_\soup`)).toBe(
+      String.raw`%tomato\%\_\\soup%`,
+    );
+
     const result = await executeRecipeAgentCapability(
       queryDb([], [recipe()]),
       "recipes.search",

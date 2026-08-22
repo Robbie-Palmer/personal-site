@@ -189,6 +189,8 @@ describe("recipe API PostgreSQL integration", () => {
     if (!storage) throw new Error("Secondary storage was not configured");
 
     const key = "agent-auth:jti:integration-agent:concurrent-jti";
+    // get() atomically reserves a new JTI, so one caller sees it as unused and
+    // every concurrent caller sees the reservation.
     const results = await Promise.all(
       Array.from({ length: 8 }, () => storage.get(key)),
     );

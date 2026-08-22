@@ -299,15 +299,25 @@ console.log(
 );
 console.log("Waiting for approval...");
 
+function positiveFiniteOr(value: unknown, fallback: number): number {
+  const number = Number(value);
+  return Number.isFinite(number) && number > 0 ? number : fallback;
+}
+
+const expiresInSeconds = positiveFiniteOr(
+  registration.approval.expires_in,
+  APPROVAL_TIMEOUT_MS / 1_000,
+);
+const intervalSeconds = positiveFiniteOr(
+  registration.approval.interval,
+  APPROVAL_POLL_MS / 1_000,
+);
 const deadline =
   Date.now() +
-  Math.min(
-    APPROVAL_TIMEOUT_MS,
-    registration.approval.expires_in * 1_000,
-  );
+  Math.min(APPROVAL_TIMEOUT_MS, expiresInSeconds * 1_000);
 const pollInterval = Math.max(
   APPROVAL_POLL_MS,
-  registration.approval.interval * 1_000,
+  intervalSeconds * 1_000,
 );
 let status: AgentStatus | undefined;
 while (Date.now() < deadline) {

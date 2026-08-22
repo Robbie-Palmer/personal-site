@@ -17,10 +17,6 @@ browser-facing auth URL on `robbiepalmer.me` means OAuth callbacks and session
 cookies use the site origin even though the auth handler runs in a separate
 Worker. `RECIPE_API_URL` configures the deployed Worker URL.
 
-The root middleware also proxies `/.well-known/agent-configuration` to the
-Worker. Cloudflare Pages ignores dot-prefixed directories in `functions/`, so
-the canonical Agent Auth discovery route cannot use file-based routing.
-
 ### `/api/profile/diet` - Recipe Profile Diet Proxy
 
 **File:** `api/profile/diet.ts`
@@ -42,6 +38,10 @@ when the client requests `Accept: text/markdown`, or has an agent/CLI user
 agent without asking for HTML. Browsers are unaffected. Agents can also
 fetch Markdown explicitly by appending `.md` to any page URL, or start
 from the index at `/llms.txt`.
+
+The root middleware also proxies `/.well-known/agent-configuration` to the
+Worker. Cloudflare Pages ignores dot-prefixed directories in `functions/`, so
+the canonical Agent Auth discovery route cannot use file-based routing.
 
 ### `/ingest/*` - PostHog Reverse Proxy
 

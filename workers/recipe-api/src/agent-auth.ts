@@ -11,6 +11,44 @@ import { z } from "zod";
 
 const READ_GRANT_TTL_SECONDS = 30 * 24 * 60 * 60;
 const MAX_AGENT_LIFETIME_SECONDS = 30 * 24 * 60 * 60;
+const AGENT_AUTH_PROVIDER_NAME = "Robbie's Recipes";
+const AGENT_AUTH_PROVIDER_DESCRIPTION =
+  "Delegated access to recipes and personal cooking data.";
+const AGENT_AUTH_MODES = ["delegated"] as const;
+const AGENT_AUTH_APPROVAL_METHODS = ["device_authorization"] as const;
+
+export function recipeAgentConfiguration(baseUrl: string) {
+  const issuer = `${new URL(baseUrl).origin}/api/auth`;
+  const paths = {
+    register: "/agent/register",
+    capabilities: "/capability/list",
+    describe_capability: "/capability/describe",
+    execute: "/capability/execute",
+    request_capability: "/agent/request-capability",
+    status: "/agent/status",
+    reactivate: "/agent/reactivate",
+    revoke: "/agent/revoke",
+    revoke_host: "/host/revoke",
+    rotate_key: "/agent/rotate-key",
+    rotate_host_key: "/host/rotate-key",
+    introspect: "/agent/introspect",
+  };
+  const endpoints = Object.fromEntries(
+    Object.entries(paths).map(([name, path]) => [name, `${issuer}${path}`]),
+  );
+
+  return {
+    version: "1.0-draft",
+    provider_name: AGENT_AUTH_PROVIDER_NAME,
+    description: AGENT_AUTH_PROVIDER_DESCRIPTION,
+    issuer,
+    default_location: endpoints.execute,
+    algorithms: ["Ed25519"],
+    modes: [...AGENT_AUTH_MODES],
+    approval_methods: [...AGENT_AUTH_APPROVAL_METHODS],
+    endpoints,
+  };
+}
 
 const recipeSearchInput = z
   .object({
@@ -120,7 +158,7 @@ export const RECIPE_AGENT_CAPABILITIES = [
   },
 ] satisfies Capability[];
 
-function escapedLikePattern(value: string): string {
+export function escapedLikePattern(value: string): string {
   const escape = String.fromCodePoint(92);
   const escaped = value
     .replaceAll(escape, escape.repeat(2))
@@ -250,11 +288,10 @@ async function writeAgentAuthAuditEvent(db: Db, event: AgentAuthEvent) {
 
 export function createRecipeAgentAuthPlugin(db: Db) {
   return agentAuth({
-    providerName: "Robbie's Recipes",
-    providerDescription:
-      "Delegated access to recipes and personal cooking data.",
-    modes: ["delegated"],
-    approvalMethods: ["device_authorization"],
+    providerName: AGENT_AUTH_PROVIDER_NAME,
+    providerDescription: AGENT_AUTH_PROVIDER_DESCRIPTION,
+    modes: [...AGENT_AUTH_MODES],
+    approvalMethods: [...AGENT_AUTH_APPROVAL_METHODS],
     deviceAuthorizationPage: "/recipes/settings/agents/approve",
     capabilities: RECIPE_AGENT_CAPABILITIES,
     validateCapabilities: (capabilities) =>

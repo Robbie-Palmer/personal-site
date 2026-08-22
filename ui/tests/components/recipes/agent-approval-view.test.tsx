@@ -1,6 +1,6 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const authMock = vi.hoisted(() => ({
   session: {
@@ -19,6 +19,10 @@ vi.mock("@/lib/auth-client", () => ({
 import { AgentApprovalView } from "@/components/recipes/settings/agent-approval-view";
 
 describe("AgentApprovalView", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   beforeEach(() => {
     authMock.session.isPending = false;
     window.history.replaceState(
@@ -83,5 +87,18 @@ describe("AgentApprovalView", () => {
     expect(
       screen.queryByRole("button", { name: "Approve access" }),
     ).not.toBeInTheDocument();
+  });
+
+  it("shows an error when the agent response is malformed", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({})));
+
+    render(<AgentApprovalView />);
+
+    expect(
+      await screen.findByText("The agent request response was invalid."),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Approve access" }),
+    ).toBeDisabled();
   });
 });

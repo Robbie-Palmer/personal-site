@@ -38,7 +38,13 @@ const document = app.getOpenAPIDocument({
     "recipe-imports",
     "recipes",
     "health",
-  ].map((name) => ({ name, description: `${name} operations` })),
+  ].map((name) => ({
+    name,
+    description:
+      name === "agent-auth"
+        ? "Delegated agent discovery, registration, approval, and capability execution."
+        : `${name} operations`,
+  })),
 });
 
 document.paths = Object.fromEntries(
