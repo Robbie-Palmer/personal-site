@@ -28,8 +28,13 @@ describe("notification persistence", () => {
       "ABCD-1234",
       "test-secret-at-least-32-characters-long",
     );
+    const secondEncryption = await encryptAgentApprovalCode(
+      "ABCD-1234",
+      "test-secret-at-least-32-characters-long",
+    );
 
     expect(encrypted).not.toContain("ABCD-1234");
+    expect(secondEncryption).not.toBe(encrypted);
     expect(encrypted.split(".")).toHaveLength(4);
     await expect(
       decryptAgentApprovalCode(

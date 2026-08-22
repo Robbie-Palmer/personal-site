@@ -7,7 +7,7 @@ const AGENT_APPROVAL_CODE_CIPHER_VERSION = "v1";
 const AGENT_APPROVAL_CODE_SALT_BYTES = 16;
 const AGENT_APPROVAL_CODE_IV_BYTES = 12;
 const AES_GCM_TAG_BYTES = 16;
-const AGENT_APPROVAL_CODE_KEY_CONTEXT = new TextEncoder().encode(
+const AGENT_APPROVAL_CODE_KEY_INFO = new TextEncoder().encode(
   "recipe-agent-approval-notification",
 );
 
@@ -43,7 +43,7 @@ function decodeBase64Url(value: string): Uint8Array {
 
 async function agentApprovalCodeKey(
   secret: string,
-  salt: Uint8Array,
+  randomSalt: Uint8Array,
 ): Promise<CryptoKey> {
   const keyMaterial = await crypto.subtle.importKey(
     "raw",
@@ -56,8 +56,8 @@ async function agentApprovalCodeKey(
     {
       name: "HKDF",
       hash: "SHA-256",
-      salt,
-      info: AGENT_APPROVAL_CODE_KEY_CONTEXT,
+      salt: randomSalt,
+      info: AGENT_APPROVAL_CODE_KEY_INFO,
     },
     keyMaterial,
     { name: "AES-GCM", length: 256 },

@@ -267,6 +267,9 @@ export function createRecipeAgentAuthPlugin(db: Db) {
     agentSessionTTL: MAX_AGENT_LIFETIME_SECONDS,
     agentMaxLifetime: MAX_AGENT_LIFETIME_SECONDS,
     absoluteLifetime: 90 * 24 * 60 * 60,
+    // Better Auth checks a JTI with get() before its later set(). The
+    // PostgreSQL adapter claims agent-auth:jti keys atomically inside get(),
+    // so concurrent requests cannot both observe an unused token.
     jtiCacheStorage: "secondary-storage",
     jwksCacheStorage: "secondary-storage",
     onEvent: (event) => writeAgentAuthAuditEvent(db, event),
