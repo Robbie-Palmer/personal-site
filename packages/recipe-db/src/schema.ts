@@ -112,11 +112,17 @@ export const verification = pgTable("verification", {
     .$onUpdate(() => new Date()),
 });
 
-export const authSecondaryStorage = pgTable("auth_secondary_storage", {
-  key: text().primaryKey(),
-  value: text().notNull(),
-  expiresAt: timestamp({ withTimezone: true }),
-});
+export const authSecondaryStorage = pgTable(
+  "auth_secondary_storage",
+  {
+    key: text().primaryKey(),
+    value: text().notNull(),
+    expiresAt: timestamp({ withTimezone: true }).notNull(),
+  },
+  (table) => [
+    index("auth_secondary_storage_expires_at_idx").on(table.expiresAt),
+  ],
+);
 
 export const agentHost = pgTable(
   "agent_host",

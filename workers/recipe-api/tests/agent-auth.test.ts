@@ -36,7 +36,7 @@ function secondaryStorageDb(
 ) {
   const state = {
     rows,
-    writes: [] as Array<{ key: string; value: string; expiresAt: Date | null }>,
+    writes: [] as Array<{ key: string; value: string; expiresAt: Date }>,
     deleteCount: 0,
   };
   const db = {
@@ -52,7 +52,7 @@ function secondaryStorageDb(
       values: (values: {
         key: string;
         value: string;
-        expiresAt: Date | null;
+        expiresAt: Date;
       }) => {
         state.writes.push(values);
         return { onConflictDoUpdate: () => Promise.resolve() };
@@ -162,14 +162,16 @@ describe("recipe Agent Auth capabilities", () => {
 
     await expect(storage.get("jti:active")).resolves.toBe("cached-jti");
     await storage.set("jti:new", "new-value", 60);
+    await storage.set("cache:bounded-default", "new-value");
     await storage.delete("jti:new");
 
-    expect(state.writes).toHaveLength(1);
+    expect(state.writes).toHaveLength(2);
     expect(state.writes[0]).toMatchObject({
       key: "jti:new",
       value: "new-value",
     });
     expect(state.writes[0]?.expiresAt?.getTime()).toBeGreaterThan(Date.now());
+    expect(state.writes[1]?.expiresAt.getTime()).toBeGreaterThan(Date.now());
     expect(state.deleteCount).toBe(1);
 
     state.rows = [

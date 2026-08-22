@@ -88,7 +88,7 @@ CREATE TABLE "approval_request" (
 CREATE TABLE "auth_secondary_storage" (
 	"key" text PRIMARY KEY NOT NULL,
 	"value" text NOT NULL,
-	"expires_at" timestamp with time zone
+	"expires_at" timestamp with time zone NOT NULL
 );
 --> statement-breakpoint
 ALTER TABLE "agent" ADD CONSTRAINT "agent_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
@@ -119,6 +119,7 @@ CREATE INDEX "approval_request_agent_id_idx" ON "approval_request" USING btree (
 CREATE INDEX "approval_request_host_id_idx" ON "approval_request" USING btree ("host_id");--> statement-breakpoint
 CREATE INDEX "approval_request_user_id_idx" ON "approval_request" USING btree ("user_id");--> statement-breakpoint
 CREATE INDEX "approval_request_status_idx" ON "approval_request" USING btree ("status");--> statement-breakpoint
+CREATE INDEX "auth_secondary_storage_expires_at_idx" ON "auth_secondary_storage" USING btree ("expires_at");--> statement-breakpoint
 CREATE TABLE "notification_agent_approval_event" (
 	"event_id" text PRIMARY KEY NOT NULL,
 	"approval_request_id" text,

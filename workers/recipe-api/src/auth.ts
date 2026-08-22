@@ -30,6 +30,8 @@ type CreateAuthOptions = {
 
 const AGENT_AUTH_JTI_STORAGE_PREFIX = "agent-auth:jti:";
 const AGENT_AUTH_JTI_RESERVATION_TTL_SECONDS = 2 * 60;
+const AUTH_SECONDARY_STORAGE_DEFAULT_TTL_SECONDS = 30 * 24 * 60 * 60;
+const AUTH_SECONDARY_STORAGE_MAX_TTL_SECONDS = 90 * 24 * 60 * 60;
 
 function rateLimitStorage(db: Db) {
   const namespaced = (key: string) => `auth:${key}`;
@@ -84,12 +86,7 @@ function authSecondaryStorage(db: Db) {
         return db.transaction(async (tx) => {
           await tx
             .delete(schema.authSecondaryStorage)
-            .where(
-              and(
-                eq(schema.authSecondaryStorage.key, key),
-                lte(schema.authSecondaryStorage.expiresAt, now),
-              ),
-            );
+            .where(lte(schema.authSecondaryStorage.expiresAt, now));
           const [reservation] = await tx
             .insert(schema.authSecondaryStorage)
             .values({ key, value: "1", expiresAt })
@@ -116,9 +113,13 @@ function authSecondaryStorage(db: Db) {
       return entry.value;
     },
     set: async (key: string, value: string, ttlSeconds?: number) => {
-      const expiresAt = ttlSeconds
-        ? new Date(Date.now() + ttlSeconds * 1_000)
-        : null;
+      const boundedTtlSeconds =
+        typeof ttlSeconds === "number" &&
+        Number.isFinite(ttlSeconds) &&
+        ttlSeconds > 0
+          ? Math.min(ttlSeconds, AUTH_SECONDARY_STORAGE_MAX_TTL_SECONDS)
+          : AUTH_SECONDARY_STORAGE_DEFAULT_TTL_SECONDS;
+      const expiresAt = new Date(Date.now() + boundedTtlSeconds * 1_000);
       await db
         .insert(schema.authSecondaryStorage)
         .values({ key, value, expiresAt })
