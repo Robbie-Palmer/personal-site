@@ -18,6 +18,7 @@ const mocks = vi.hoisted(() => ({
 const pantryState = vi.hoisted(() => ({
   error: null as Error | null,
   isPending: false,
+  stock: {} as Record<string, "fridge" | "cupboards" | "fresh">,
 }));
 
 vi.mock("@/lib/analytics/recipe-product", () => ({
@@ -32,7 +33,7 @@ vi.mock("@/hooks/use-kitchen-stock", () => ({
     removeFromStock: vi.fn(),
   }),
   useKitchenStockQuery: () => ({
-    data: { scope: { type: "personal" }, stock: {} },
+    data: { scope: { type: "personal" }, stock: pantryState.stock },
     error: pantryState.error,
     isPending: pantryState.isPending,
   }),
@@ -69,6 +70,7 @@ describe("ShoppingList value analytics", () => {
   beforeEach(() => {
     pantryState.error = null;
     pantryState.isPending = false;
+    pantryState.stock = {};
     localStorage.clear();
     __resetShoppingListForTests();
     addRecipe("garlic-pasta");
@@ -156,6 +158,7 @@ describe("ShoppingList aisle view section completion", () => {
   beforeEach(() => {
     pantryState.error = null;
     pantryState.isPending = false;
+    pantryState.stock = {};
     localStorage.clear();
     __resetShoppingListForTests();
     addRecipe("veg-and-chicken");
@@ -191,6 +194,7 @@ describe("ShoppingList pantry state", () => {
   beforeEach(() => {
     pantryState.error = null;
     pantryState.isPending = false;
+    pantryState.stock = {};
     localStorage.clear();
     __resetShoppingListForTests();
     addRecipe("garlic-pasta");
@@ -230,6 +234,7 @@ describe("ShoppingList extras", () => {
   beforeEach(() => {
     pantryState.error = null;
     pantryState.isPending = false;
+    pantryState.stock = {};
     localStorage.clear();
     __resetShoppingListForTests();
     addRecipe("garlic-pasta");
@@ -249,13 +254,42 @@ describe("ShoppingList extras", () => {
     expect(
       screen.queryByRole("heading", { name: /extras/i }),
     ).not.toBeInTheDocument();
-    const rows = screen.getAllByRole("button", { pressed: false });
-    expect(rows.map((row) => row.textContent)).toEqual(
-      expect.arrayContaining([
-        expect.stringMatching(/bread/i),
-        expect.stringMatching(/garlic/i),
-      ]),
-    );
+    const uncheckedRows = screen.getAllByRole("button", { pressed: false });
+    expect(uncheckedRows.map((row) => row.textContent)).toEqual([
+      expect.stringMatching(/bread/i),
+      expect.stringMatching(/garlic/i),
+    ]);
+
+    await user.click(screen.getByRole("button", { name: "bread" }));
+
+    expect(
+      screen
+        .getAllByRole("button", { pressed: false })
+        .map((row) => row.textContent),
+    ).toEqual([expect.stringMatching(/garlic/i)]);
+    expect(
+      screen
+        .getAllByRole("button", { pressed: true })
+        .map((row) => row.textContent),
+    ).toEqual([expect.stringMatching(/bread/i)]);
+  });
+
+  it("keeps kitchen-stocked ingredients out of the flat list", async () => {
+    pantryState.stock = { garlic: "fridge" };
+    const user = userEvent.setup();
+    render(<ShoppingList recipes={recipes} />);
+
+    await user.click(screen.getByText("just ingredients"));
+
+    expect(
+      screen
+        .getAllByRole("button", { pressed: false })
+        .map((row) => row.textContent),
+    ).toEqual([expect.stringMatching(/bread/i)]);
+    expect(
+      screen.getByRole("heading", { name: /already have/i }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("garlic")).toBeInTheDocument();
   });
 
   it("keeps the extra input focused after adding an item", async () => {

@@ -380,13 +380,15 @@ export function ShoppingList({
   const flatLines = useMemo(() => [...aggregated].sort(byName), [aggregated]);
   const flatItems = useMemo(() => {
     const items = [
-      ...flatLines.map((line) => ({
-        kind: "ingredient" as const,
-        id: line.ingredient,
-        name: formatShoppingName(line),
-        checked: checkedSet.has(line.ingredient),
-        line,
-      })),
+      ...flatLines
+        .filter((line) => !stock[line.ingredient])
+        .map((line) => ({
+          kind: "ingredient" as const,
+          id: line.ingredient,
+          name: formatShoppingName(line),
+          checked: checkedSet.has(line.ingredient),
+          line,
+        })),
       ...state.extras.map((extra) => ({
         kind: "extra" as const,
         id: extra.id,
@@ -400,7 +402,7 @@ export function ShoppingList({
       ...items.filter((item) => !item.checked),
       ...items.filter((item) => item.checked),
     ];
-  }, [flatLines, checkedSet, state.extras]);
+  }, [flatLines, checkedSet, state.extras, stock]);
 
   const haveLines = useMemo(
     () => aggregated.filter((line) => stock[line.ingredient]).sort(byName),
