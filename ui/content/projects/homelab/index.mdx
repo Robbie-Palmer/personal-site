@@ -1,6 +1,6 @@
 ---
 title: "Home Lab"
-description: "A small always-on fleet for data backup and coordination, agentic development, network privacy, and keeping old hardware out of the bin"
+description: "A private home fleet that backs up personal data, runs coding agents, filters DNS, monitors itself, and gives old hardware a useful job"
 date: "2026-08-02"
 status: "in_progress"
 tech_stack:
@@ -22,42 +22,39 @@ tech_stack:
 
 # Vision
 
-A small, always-on fleet of machines in my home that handles the recurring
-infrastructure of my digital life — backups, remote development, network
-privacy — so I don't have to remember to do it by hand.
+A small, mostly always-on fleet that handles backups, remote development,
+network privacy, and monitoring without relying on me to remember each job.
 
 The home lab exists to serve four goals, in priority order:
 
-1. **Data backup and coordination.** Cloud photo libraries, datasets, and
-   project files get reliably synced and backed up without manual effort.
-   Manual drive synchronisation has failed repeatedly; the point of this
-   project is to make it someone else's job.
+1. **Data backup and coordination.** The lab syncs and backs up cloud photo
+   libraries, datasets, and project files. Manual drive synchronisation has
+   failed repeatedly. The machines now own that work.
 2. **Agentic development environments.** An always-on machine hosts my coding
    agents (Claude Code, Codex, opencode, Grok Build) behind a mobile-friendly
    GUI, so I can drive real development work from my phone over the tailnet.
 3. **Privacy.** Network-wide ad and tracker blocking keeps my devices from
    phoning home to trackers, applied to every device on the LAN regardless of
    what it runs.
-4. **Avoiding ewaste.** Old, "unsupported" hardware — a 2011 printer, a
-   Pascal-era GPU, and two older phones — gets a second life doing useful work
-   instead of filling a landfill.
+4. **Avoiding e-waste.** A 2011 printer, a Pascal-era GPU, and three old phones
+   get useful jobs instead of going in a drawer or to landfill.
 
-A secondary goal that runs through the whole project is upskilling on
-networking, DNS, and heterogeneous orchestration. The lab is a real system to
-learn on, not a toy.
+The lab is also where I learn networking, DNS, and orchestration across macOS,
+Linux, Android, and iOS. Every experiment still has to solve a real problem.
 
-Everything is reachable over my [Tailscale](/projects/homelab/adrs/000-tailscale)
-tailnet, so I can inspect and drive the whole lab from any of my devices.
+Core services are reachable from my personal devices over the
+[Tailscale](/projects/homelab/adrs/000-tailscale) tailnet, so I can inspect and
+drive the lab without exposing it to the public internet.
 
-# Problem Statement
+# Problem statement
 
 The problems the lab solves are the recurring ones that manual effort handles
 badly:
 
 **Manual data sync is painful and lossy.** Copying photos and files between
-drives by hand is easy to forget, easy to get wrong, and leaves no audit
-trail. The cloud photo library has grown into the single source of truth for
-family photos, and a single point of failure.
+drives by hand is easy to forget and easy to get wrong. It also leaves no
+audit trail. The cloud photo library has grown into the single source of truth
+for family photos, which makes it a single point of failure.
 
 **Agentic development needs a persistent host.** Coding agents are most useful
 when they run somewhere always-on with the right repos, credentials, and tools
@@ -73,13 +70,12 @@ the DNS layer covers devices nothing else can be installed on. This adds a
 dependency (the resolver), so it has to be built with redundancy from the
 start.
 
-**Unsupported hardware is actually still fine.** The Canon MX3100 printer
-(2011), the GTX 1060 (2016), and two older phones are past their vendor
-support windows, but each still works for a real job if the right software
-bridges the gap. Buying new kit to replace them is wasteful when the
-constraint is software, not silicon.
+**Unsupported hardware can still do narrow jobs well.** The Canon MX3100
+printer, GTX 1060, and old phones all work. Their vendors have moved on, but
+open drivers and careful isolation can keep the hardware useful. Buying new
+kit would solve a software problem with more hardware.
 
-# User Stories
+# User stories
 
 * As the owner of thousands of family photos, I want them automatically
   synced from the cloud down to a local 10TB drive, so I have an offline
@@ -93,38 +89,49 @@ constraint is software, not silicon.
   network-wide with automatic failover, so every device is protected even if
   one DNS box reboots.
 * As someone who owns a 2011 printer, I want to print from my phone remotely
-  over CUPS, so I keep using hardware that still works and avoid ewaste.
+  over CUPS, so I keep using hardware that still works and avoid e-waste.
 * As someone running a NixOS box, I want the whole config declared in git, so
   an upgrade can never silently break the GPU and every change is reviewable
   and rollbackable.
 * As the lab owner, I want Netdata to tell Slack when something is
   overheating or down, so I find out about problems before they matter.
+* As a web developer, I want agents to test changes on real Android 10, newer
+  Android, and iOS 15 hardware, so mobile regressions are caught before
+  a pull request merges.
+* As the person who operates the DNS servers, I want a battery-backed device
+  on mobile data to check the lab from outside its own network, so a total DNS,
+  power, or internet outage can still raise an alert.
 
 # Topology
 
 <Mermaid
   chart={`flowchart LR
 Internet["Internet"] -->|"router DNS"| Router["Home router"]
-subgraph hub["Mac mini — home hub"]
-  ADG1["AdGuard Home — primary DNS"]
-  ENT["Ente sync"]
-  NET1["Netdata"]
-  T3["t3-code + agents"]
-  JEL["Jellyfin"]
+subgraph hub["Mac mini, home hub"]
+ADG1["AdGuard Home, primary DNS"]
+ENT["Ente sync"]
+NET1["Netdata"]
+T3["t3-code + agents"]
+JEL["Jellyfin"]
 end
 subgraph pi["Raspberry Pi"]
-  ADG2["AdGuard Home — fallback DNS"]
-  NET2["Netdata → hub"]
-  CUP["CUPS"]
+ADG2["AdGuard Home, fallback DNS"]
+NET2["Netdata to hub"]
+CUP["CUPS"]
 end
-subgraph asus["Asus desktop (NixOS) — proposed"]
-  GPU["GTX 1060 — CV jobs"]
-  DVC["DVC dataset cache"]
+subgraph asus["Asus desktop, proposed NixOS worker"]
+GPU["GTX 1060, CV jobs"]
+DVC["DVC dataset cache"]
+end
+subgraph phones["Phone device lab, proposed"]
+MAGIC["Magic5 Pro, newer Android QA"]
+VIEW["View 20, Android 10 QA + watchdog"]
+IOS["iPhone 6s, iOS 15 QA"]
 end
 Router --> ADG1
 Router --> ADG2
 ADG2 --> ADG1
-Phone -->|"photo upload"| Ente["Ente cloud"]
+DailyPhone -->|"photo upload"| Ente["Ente cloud"]
 Ente -->|"download backup"| ENT
 ENT --> HDD[("10TB HDD")]
 NET1 --> Slack["Slack"]
@@ -132,45 +139,50 @@ NET2 --> Slack
 CUP --> Printer["Canon MX3100 (2011)"]
 JEL --> FireStick["Fire TV Stick"]
 GitHub["GitHub"]
-Phone["Phone"]
-Phone -->|"agents"| T3
+DailyPhone["Daily phone"]
+DailyPhone -->|"agents"| T3
 T3 -->|"repos / PRs"| GitHub
 hub -->|"WoL (L2 broadcast)"| asus
+T3 -->|"preview tests"| MAGIC
+T3 -->|"preview tests"| VIEW
+T3 -->|"preview tests"| IOS
+VIEW -->|"checks over cellular + Tailscale"| hub
+VIEW -->|"checks over cellular + Tailscale"| pi
+VIEW -->|"alerts over mobile data"| Slack
 `}
 />
 
 # Nodes
 
-## Mac mini — the home hub
+## Mac mini, the home hub
 
-The primary always-on machine and the heart of the lab. It runs the two most
-important jobs: hosting my agentic development environment and owning the
-photo backup pipeline.
+The Mac mini is the primary always-on machine. It hosts the coding agents and
+owns the photo backup pipeline, the lab's two most important jobs.
 
-* **Agentic development hub.** Installs [Claude Code](/projects/homelab/adrs/002-claude-code),
+* **Agentic development hub.** It runs [Claude Code](/projects/homelab/adrs/002-claude-code),
   [Codex](/projects/homelab/adrs/003-codex) (both subscriptions),
   [opencode](/projects/homelab/adrs/005-opencode) and
   [Grok Build](/projects/homelab/adrs/004-grok-build), all orchestrated from
   [t3-code](/projects/homelab/adrs/006-t3-code) so I can drive remote,
   mobile-friendly, agentic development.
-* **Photo backup.** Connects to [Ente](/projects/homelab/adrs/007-ente-photo-backup),
+* **Photo backup.** It connects to [Ente](/projects/homelab/adrs/007-ente-photo-backup),
   the end-to-end encrypted cloud photo provider, and regularly syncs my
   library down to a connected 10TB HDD as an offline backup.
-* **DNS privacy.** Runs [AdGuard Home](/projects/homelab/adrs/001-adguard-home)
+* **DNS privacy.** It runs [AdGuard Home](/projects/homelab/adrs/001-adguard-home)
   as the primary DNS server that my router points at. It blocks \~33% of all
   requests over my home network. AdGuard is also reachable over the tailnet,
   so the phone keeps blocking trackers and ads on cellular or any other
-  network — coverage a router-level setup can't provide.
-* **Monitoring.** Runs [Netdata](/projects/homelab/adrs/009-netdata),
+  network. A router-level setup cannot provide that coverage.
+* **Monitoring.** It runs [Netdata](/projects/homelab/adrs/009-netdata),
   connected to my Slack workspace via a Slack app, to alarm on anything
   going wrong.
-* **Media.** Runs [Jellyfin](/projects/homelab/adrs/011-jellyfin) to serve
+* **Media.** It runs [Jellyfin](/projects/homelab/adrs/011-jellyfin) to serve
   TV shows and movies to my Fire TV Stick, in Docker Compose under colima
   with its config declared in `homelab/hosts/mac-mini/jellyfin/` in this
   repo. The library lives on the 10TB HDD and is served over the LAN and the
   tailnet only.
 
-## Raspberry Pi — the resilient sidekick
+## Raspberry Pi, the independent fallback
 
 A secondary node that removes single points of failure from the two things
 the whole house depends on: DNS and monitoring.
@@ -180,46 +192,52 @@ the whole house depends on: DNS and monitoring.
   functioning.
 * **Netdata child.** Exports metrics to the Mac mini as the main hub, and
   alerts my Slack workspace if its temperature climbs too high.
-* **CUPS print server.** Runs CUPS connected to my 2011 Canon MX3100
-  printer, which is no longer supported by Canon — but with Gutenprint, the
-  open-source driver suite, I can still print to it (and even print remotely
-  from my phone), keeping working hardware out of landfill.
+* **CUPS print server.** It connects CUPS to my 2011 Canon MX3100 printer.
+  Canon no longer supports the printer, but Gutenprint lets every device on
+  the network use it, including my phone over Tailscale.
 
-## Asus desktop — the NixOS GPU worker (proposed)
+## Asus desktop, the proposed NixOS GPU worker
 
 A headless wake-on-demand box, to be configured declaratively with
 [NixOS](/projects/homelab/adrs/010-nixos-gpu-worker).
 
-* **Old, unsupported 1060 GPU.** The GTX 1060 is Pascal-era (`sm_61`) — CUDA
+* **Old, unsupported 1060 GPU.** The GTX 1060 is Pascal-era (`sm_61`). CUDA
   13 and the newer driver branches dropped support for it, so the config
   will pin an LTS kernel and the 580 driver branch, the last with Pascal
   support.
-* **Batch GPU CV jobs.** The ambition is to use it for running batch computer
-  vision jobs — the exact workload that doesn't need a modern GPU, just many
-  GPU-hours.
+* **Batch GPU CV jobs.** It will run batch computer vision jobs. This workload
+  needs many GPU-hours, not a modern GPU.
 * **DVC data cache.** It inherits the
   [DVC ADR](/projects/homelab/adrs/008-dvc) and its 1TB connected HDD will
   hold local copies of datasets for the ML pipelines
   (`ml-pipelines/recipe-parsing/`) and any CV work.
 * **Wake-on-LAN.** It will sleep when idle and be woken on demand. The WoL magic
-  packet is a Layer 2 broadcast, so it can't travel over the tailnet — the
-  Mac mini, on the home LAN, sends it when a wake request arrives from a
-  remote device.
+  packet is a Layer 2 broadcast, so it can't travel over the tailnet. The Mac
+  mini receives the remote request and broadcasts the packet on the home LAN.
 
-## Future: the idle 4080 laptop
+## Future 4080 laptop
 
 I have an idle laptop with a 4080 GPU in it. Once the NixOS box proves out
 the wake-on-demand pattern, the laptop is a natural candidate for a second,
-much faster compute node — particularly for heavier inference or training
-that the 1060 can't handle.
+much faster compute node, particularly for heavier inference or training that
+the 1060 can't handle.
 
-## Future: old phones and the iPhone 6s
+## Phone device lab, proposed
 
-Two older Android phones (Android 10 and Android 14) and an old iPhone 6s are
-still functional. They're candidates for lightweight roles: a spare secondary
-DNS node, a status display, a camera, or spare test targets for agentic work.
-The Android devices are the more capable candidates; the iPhone 6s is limited
-by a locked-down OS. No commitment yet — this is an open question.
+An Honor View 20, Honor Magic5 Pro, and iPhone 6s will become physical test
+targets for the coding agents. Wired connections to the Mac mini provide the
+most reliable control. Together they cover an old Android release, a newer
+Android release, and iOS 15 WebKit.
+
+The [phone device lab ADR](/projects/homelab/adrs/015-phone-device-lab) also
+proposes a second job for the View 20. A cheap data SIM, Tailscale, and a small
+Termux watchdog would let it check both DNS servers and the hub from cellular.
+That closes the monitoring gap where Netdata cannot send a Slack alert because
+the network or DNS it depends on has failed.
+
+The phones will keep their stock operating systems. Neither Honor has a useful
+supported custom-ROM path, and Linux on the iPhone 6s is still an experiment.
+They will not become DNS servers, general compute nodes, or permanent cameras.
 
 # Plan
 
@@ -231,61 +249,62 @@ workloads and layering on the rest:
 | 1     | Photo backup (Ente → 10TB HDD)                                | Live        |
 | 2     | Agentic development hub (t3-code + agents)                    | Live        |
 | 3     | DNS privacy (AdGuard Home, primary + failover)                | Live        |
-| 4     | CUPS printing on the Pi (avoiding printer ewaste)             | Live        |
+| 4     | CUPS printing on the Pi (avoiding printer e-waste)            | Live        |
 | 5     | NixOS GPU worker for batch CV jobs, with DVC-managed datasets | Proposed    |
 | 6     | Jellyfin media server for the Fire TV Stick                   | In progress |
-| 7     | Second compute node (idle 4080 laptop)                        | Idea        |
+| 7     | Physical Android and iOS device lab                           | Proposed    |
+| 8     | Cellular watchdog on the View 20                              | Proposed    |
+| 9     | Second compute node (idle 4080 laptop)                        | Idea        |
 
-# What This Is Not
+# What this is not
 
 * **Not a public service.** Everything is behind the tailnet. No ports
   forwarded to the internet, no exposed dashboards.
 * **Not a data hoard.** Bulk data has a purpose and an owner: the photo
-  backup, local dataset copies, and (planned) media library. Backup scope may
+  backup, local dataset copies, and planned media library. Backup scope may
   grow to documents, games, movies, TV, and music, but each addition has to
   earn its place.
+* **Not a reason to turn every device into a server.** The phones are useful
+  because they are phones. The Mac mini and Pi already run persistent
+  services better.
 * **Not a fixed shape.** The lab started as a handful of machines doing
-  boring jobs. If it grows past that — a proper NAS, or Kubernetes for the
-  compute nodes — that's on the table rather than ruled out.
+  boring jobs. A proper NAS or a compute scheduler may earn a place later.
 
-# Future Direction
+# Future direction
 
-Beyond the phases above, there are ideas on the horizon that would lean into
-the same four goals:
+These ideas remain outside the current build plan:
 
 * **Offsite backup.** The 10TB drive is a second copy, but it's in the same
   house. A cheap offsite target (a friend's tailnet node, or cold storage)
   for the photo library would close the last gap in the backup story.
 * **Expanded backup scope.** Documents, game saves, movies, TV, and music
   are candidates for the same sync-and-verify pipeline as the photos.
-* **Dashboards on this site.** Netdata graphs and lab status could be
-  surfaced as a page on this site, so the lab is visible to anyone looking.
-* **Heterogeneous orchestration.** As the lab grows past one or two compute
-  nodes, scheduling GPU work across the 1060 box and the 4080 laptop becomes
-  a genuine upskilling exercise in heterogeneous clusters — possibly growing
-  into Kubernetes.
-* **Old phones in the cluster.** The Android phones and iPhone 6s as
-  lightweight nodes (see above).
+* **Dashboards on this site.** A public page could show selected Netdata
+  graphs and lab status without exposing the private services behind them.
+* **Heterogeneous orchestration.** If the lab grows past two compute nodes,
+  scheduling work across the 1060 box and the 4080 laptop becomes a real
+  orchestration problem. Kubernetes is one possible answer, but two machines
+  do not justify it yet.
 
 # Risks
 
 ## DNS is a single point of failure for the whole house
 
-Running a local resolver adds a dependency that didn't exist before: if both
+Running a local resolver adds a dependency that didn't exist before. If both
 AdGuard Home instances go down, every device in the house loses DNS and the
 internet "stops working."
 
-**Mitigation:** Two independent DNS nodes on separate hardware with the
-router configured to fail over. The Pi keeps working during Mac mini reboots
-and vice versa.
+**Mitigation.** The router uses two independent DNS nodes on separate
+hardware. The Pi keeps working during Mac mini reboots and vice versa. The
+proposed View 20 watchdog will use mobile data to report a failure of both
+resolvers.
 
 ## Photo backup silently failing
 
-A sync pipeline that fails quietly means the library quietly isn't backed up.
-Catching that late is only slightly better than not having a backup at all —
-but the risk is real, so it's monitored.
+A sync pipeline that fails quietly means the library isn't backed up. Catching
+that late is only slightly better than not having a backup at all.
 
-**Mitigation:** Netdata monitors the sync process and alerts Slack on
+**Mitigation.** Netdata monitors the sync process and alerts Slack on
 failure or when the HDD fills up. The backup is treated as a system to be
 monitored, not a script to be forgotten.
 
@@ -296,7 +315,7 @@ sessions, and it also holds personal photos and the backup drive. A broad
 permission profile on any one agent could expose unrelated personal data, and
 an agent acting wrongly could delete things as easily as read them.
 
-**Mitigation:** The [Codex ADR](/projects/homelab/adrs/003-codex) already
+**Mitigation.** The [Codex ADR](/projects/homelab/adrs/003-codex) already
 documents the need for least-privilege filesystem rules and sandboxing on
 the connected host. This stays a first-class concern as more agents land on
 the hub, with backups covering the "wrong deletion" case.
@@ -306,15 +325,28 @@ the hub, with backups covering the "wrong deletion" case.
 The 1060's driver support is a moving target that NixOS upgrades could
 silently break.
 
-**Mitigation:** The whole point of the declarative NixOS config is that the
-driver, kernel, and CUDA container versions are pinned in git. No surprise
-upgrade can break the GPU without a reviewable, rollbackable diff.
+**Mitigation.** The declarative NixOS config pins the driver, kernel, and CUDA
+container versions in git. No surprise upgrade can break the GPU without a
+reviewable, rollbackable diff.
+
+## Old phones widen the trust boundary
+
+The View 20 runs an old Android release, and the Mac mini will communicate with
+all three phones through persistent USB debugging or inspection channels.
+Treating them like fully trusted tailnet peers would give them more access than
+their jobs require.
+
+**Mitigation.** Give lab phones tagged Tailscale identities with access only
+to preview sites and explicit health-check ports. Keep personal accounts,
+photos, and general lab credentials off the View 20. USB debugging stays
+authorized only for the Mac mini, and the cellular watchdog holds a separate,
+narrowly scoped alert credential.
 
 ## Media server scope creep
 
 Jellyfin is the most consumer-facing thing on the roadmap and the easiest to
 over-invest in.
 
-**Mitigation:** It's explicitly a Phase 6 "nice to have." It only gets built
+**Mitigation.** It's explicitly a Phase 6 "nice to have." It only gets built
 after the higher-priority workloads are solid, and it stays behind the
 tailnet with a simple client story.
