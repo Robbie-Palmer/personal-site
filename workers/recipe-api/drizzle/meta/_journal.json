@@ -71,6 +71,13 @@
       "when": 1787391346392,
       "tag": "0009_agent_auth",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1787442936468,
+      "tag": "0010_dizzy_ares",
+      "breakpoints": true
     }
   ]
 }

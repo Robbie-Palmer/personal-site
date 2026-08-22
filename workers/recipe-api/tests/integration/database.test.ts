@@ -152,8 +152,8 @@ beforeAll(async () => {
     where slug in ('almond-milk', 'cajun-powder', 'cajun-seasoning', 'salted-butter')
     order by slug
   `;
-  expect(migrationCount?.count).toBe(10);
-  expect(tableCount?.count).toBe(42);
+  expect(migrationCount?.count).toBe(11);
+  expect(tableCount?.count).toBe(43);
   expect(catalogRows).toEqual([
     { category: "dairy", slug: "almond-milk" },
     { category: "spice", slug: "cajun-seasoning" },
@@ -941,7 +941,11 @@ describe("recipe API PostgreSQL integration", () => {
     );
     expect(optionsResponse.status).toBe(200);
     const options = (await optionsResponse.json()) as {
-      groups: Array<{ ingredientSlugs: string[]; key: string }>;
+      groups: Array<{
+        ingredientSlugs: string[];
+        key: string;
+        parentGroupKeys: string[];
+      }>;
       ingredients: Array<{ slug: string }>;
       presets: Array<{
         excludedGroupKeys: string[];
@@ -979,6 +983,26 @@ describe("recipe API PostgreSQL integration", () => {
       options.groups.find((group) => group.key === "poultry")
         ?.ingredientSlugs,
     ).toContain("chicken-breast");
+    expect(options.groups.find((group) => group.key === "chicken")).toEqual(
+      expect.objectContaining({
+        parentGroupKeys: ["poultry"],
+        ingredientSlugs: expect.arrayContaining([
+          "chicken-breast",
+          "chicken-thigh",
+          "chicken-stock",
+          "chicken-stock-pot",
+        ]),
+      }),
+    );
+    expect(
+      options.groups.find((group) => group.key === "stock")?.ingredientSlugs,
+    ).toEqual(
+      expect.arrayContaining([
+        "chicken-stock",
+        "chicken-stock-pot",
+        "vegetable-stock",
+      ]),
+    );
     expect(
       options.groups.find((group) => group.key === "dairy")?.ingredientSlugs,
     ).not.toContain("coconut-milk");
