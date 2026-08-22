@@ -112,6 +112,176 @@ export const verification = pgTable("verification", {
     .$onUpdate(() => new Date()),
 });
 
+export const authSecondaryStorage = pgTable(
+  "auth_secondary_storage",
+  {
+    key: text().primaryKey(),
+    value: text().notNull(),
+    expiresAt: timestamp({ withTimezone: true }).notNull(),
+  },
+  (table) => [
+    index("auth_secondary_storage_expires_at_idx").on(table.expiresAt),
+  ],
+);
+
+export const agentHost = pgTable(
+  "agent_host",
+  {
+    id: text().primaryKey(),
+    name: text(),
+    userId: text().references(() => user.id, { onDelete: "cascade" }),
+    defaultCapabilities: text(),
+    publicKey: text(),
+    kid: text(),
+    jwksUrl: text(),
+    enrollmentTokenHash: text(),
+    enrollmentTokenExpiresAt: timestamp({ withTimezone: true }),
+    status: text().notNull().default("active"),
+    activatedAt: timestamp({ withTimezone: true }),
+    expiresAt: timestamp({ withTimezone: true }),
+    lastUsedAt: timestamp({ withTimezone: true }),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp({ withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+  },
+  (table) => [
+    index("agent_host_user_id_idx").on(table.userId),
+    index("agent_host_kid_idx").on(table.kid),
+    index("agent_host_enrollment_token_hash_idx").on(
+      table.enrollmentTokenHash,
+    ),
+    index("agent_host_status_idx").on(table.status),
+  ],
+);
+
+export const agent = pgTable(
+  "agent",
+  {
+    id: text().primaryKey(),
+    name: text().notNull(),
+    userId: text().references(() => user.id, { onDelete: "cascade" }),
+    hostId: text()
+      .notNull()
+      .references(() => agentHost.id, { onDelete: "cascade" }),
+    status: text().notNull().default("active"),
+    mode: text().notNull().default("delegated"),
+    publicKey: text().notNull(),
+    kid: text(),
+    jwksUrl: text(),
+    lastUsedAt: timestamp({ withTimezone: true }),
+    activatedAt: timestamp({ withTimezone: true }),
+    expiresAt: timestamp({ withTimezone: true }),
+    metadata: text(),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp({ withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+  },
+  (table) => [
+    index("agent_user_id_idx").on(table.userId),
+    index("agent_host_id_idx").on(table.hostId),
+    index("agent_status_idx").on(table.status),
+    index("agent_kid_idx").on(table.kid),
+  ],
+);
+
+export const agentCapabilityGrant = pgTable(
+  "agent_capability_grant",
+  {
+    id: text().primaryKey(),
+    agentId: text()
+      .notNull()
+      .references(() => agent.id, { onDelete: "cascade" }),
+    capability: text().notNull(),
+    deniedBy: text().references(() => user.id, { onDelete: "cascade" }),
+    grantedBy: text().references(() => user.id, { onDelete: "cascade" }),
+    expiresAt: timestamp({ withTimezone: true }),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp({ withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+    status: text().notNull().default("active"),
+    reason: text(),
+    constraints: text(),
+  },
+  (table) => [
+    index("agent_capability_grant_agent_id_idx").on(table.agentId),
+    index("agent_capability_grant_capability_idx").on(table.capability),
+    index("agent_capability_grant_granted_by_idx").on(table.grantedBy),
+    index("agent_capability_grant_status_idx").on(table.status),
+  ],
+);
+
+export const approvalRequest = pgTable(
+  "approval_request",
+  {
+    id: text().primaryKey(),
+    method: text().notNull(),
+    agentId: text().references(() => agent.id, { onDelete: "cascade" }),
+    hostId: text().references(() => agentHost.id, { onDelete: "cascade" }),
+    userId: text().references(() => user.id, { onDelete: "cascade" }),
+    capabilities: text(),
+    status: text().notNull().default("pending"),
+    userCodeHash: text(),
+    loginHint: text(),
+    bindingMessage: text(),
+    clientNotificationToken: text(),
+    clientNotificationEndpoint: text(),
+    deliveryMode: text(),
+    interval: integer().notNull(),
+    lastPolledAt: timestamp({ withTimezone: true }),
+    expiresAt: timestamp({ withTimezone: true }).notNull(),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp({ withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+  },
+  (table) => [
+    index("approval_request_agent_id_idx").on(table.agentId),
+    index("approval_request_host_id_idx").on(table.hostId),
+    index("approval_request_user_id_idx").on(table.userId),
+    index("approval_request_status_idx").on(table.status),
+  ],
+);
+
+export const agentAuthAuditEvent = pgTable(
+  "agent_auth_audit_event",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    eventType: text().notNull(),
+    actorType: text(),
+    actorId: text(),
+    userId: text(),
+    agentId: text(),
+    hostId: text(),
+    targetType: text(),
+    targetId: text(),
+    capability: text(),
+    outcome: text(),
+    durationMs: integer(),
+    occurredAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("agent_auth_audit_event_user_time_idx").on(
+      table.userId,
+      table.occurredAt.desc(),
+    ),
+    index("agent_auth_audit_event_agent_time_idx").on(
+      table.agentId,
+      table.occurredAt.desc(),
+    ),
+    index("agent_auth_audit_event_host_time_idx").on(
+      table.hostId,
+      table.occurredAt.desc(),
+    ),
+  ],
+);
+
 export const visibilityEnum = pgEnum("visibility", [
   "public",
   "private",
@@ -239,6 +409,28 @@ export const notificationDelivery = pgTable(
     index("notification_delivery_recipient_read_at_idx").on(
       table.recipientUserId,
       table.readAt,
+    ),
+  ],
+);
+
+export const notificationAgentApprovalEvent = pgTable(
+  "notification_agent_approval_event",
+  {
+    eventId: text()
+      .primaryKey()
+      .references(() => notificationEvent.id, { onDelete: "cascade" }),
+    approvalRequestId: text().references(() => approvalRequest.id, {
+      onDelete: "set null",
+    }),
+    agentIdSnapshot: text().notNull(),
+    agentNameSnapshot: text().notNull(),
+    capabilitiesSnapshot: text().notNull(),
+    expiresAtSnapshot: timestamp({ withTimezone: true }).notNull(),
+    approvalCodeCiphertext: text(),
+  },
+  (table) => [
+    uniqueIndex("notification_agent_approval_request_uidx").on(
+      table.approvalRequestId,
     ),
   ],
 );

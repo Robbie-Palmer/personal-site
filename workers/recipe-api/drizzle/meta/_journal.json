@@ -64,6 +64,13 @@
       "when": 1787391346391,
       "tag": "0008_add_salted_butter",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1787391346392,
+      "tag": "0009_agent_auth",
+      "breakpoints": true
     }
   ]
 }

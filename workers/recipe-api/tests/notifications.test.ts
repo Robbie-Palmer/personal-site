@@ -1,12 +1,206 @@
 import { describe, expect, it, vi } from "vitest";
 import * as schema from "recipe-db/schema";
 import {
+  createAgentApprovalNotification,
   createHouseholdNotification,
   createRecipeRecommendationNotification,
+  decryptAgentApprovalCode,
+  encryptAgentApprovalCode,
   markInvitationNotificationRead,
+  notifyAgentRegistrationApproval,
 } from "../src/notifications";
 
+function agentRegistrationResponse(): Response {
+  return Response.json({
+    agent_id: "agent-1",
+    name: "Meal planner",
+    approval: {
+      method: "device_authorization",
+      device_code: "approval-1",
+      user_code: "ABCD-1234",
+    },
+  });
+}
+
 describe("notification persistence", () => {
+  it("encrypts approval codes for one-click notification links", async () => {
+    const encrypted = await encryptAgentApprovalCode(
+      "ABCD-1234",
+      "test-secret-at-least-32-characters-long",
+    );
+    const secondEncryption = await encryptAgentApprovalCode(
+      "ABCD-1234",
+      "test-secret-at-least-32-characters-long",
+    );
+
+    expect(encrypted).not.toContain("ABCD-1234");
+    expect(secondEncryption).not.toBe(encrypted);
+    expect(encrypted.split(".")).toHaveLength(4);
+    await expect(
+      decryptAgentApprovalCode(
+        encrypted,
+        "test-secret-at-least-32-characters-long",
+      ),
+    ).resolves.toBe("ABCD-1234");
+    await expect(
+      decryptAgentApprovalCode(
+        encrypted,
+        "different-test-secret-at-least-32-chars",
+      ),
+    ).rejects.toThrow();
+    await expect(
+      decryptAgentApprovalCode(
+        "v1.AA.AA.AA",
+        "test-secret-at-least-32-characters-long",
+      ),
+    ).rejects.toThrow("Invalid agent approval code ciphertext");
+  });
+
+  it("stores an agent approval notification without the device code", async () => {
+    const inserts: Array<{ table: unknown; values: unknown }> = [];
+    const db = {
+      insert: (table: unknown) => ({
+        values: (values: unknown) => {
+          inserts.push({ table, values });
+          return Promise.resolve();
+        },
+      }),
+    };
+    const expiresAt = new Date("2026-08-22T14:05:00.000Z");
+
+    await createAgentApprovalNotification(db as never, {
+      recipientUserId: "user-1",
+      approval: { id: "approval-1", expiresAt },
+      agent: { id: "agent-1", name: "Meal planner" },
+      capabilities: ["recipes.search", "recipes.read"],
+      approvalCodeCiphertext: "v1.encrypted.code",
+    });
+
+    expect(inserts.map(({ table }) => table)).toEqual([
+      schema.notificationEvent,
+      schema.notificationAgentApprovalEvent,
+      schema.notificationDelivery,
+    ]);
+    expect(inserts[0]?.values).toMatchObject({
+      kind: "agent_approval_requested",
+    });
+    expect(inserts[1]?.values).toEqual(
+      expect.objectContaining({
+        approvalRequestId: "approval-1",
+        agentIdSnapshot: "agent-1",
+        agentNameSnapshot: "Meal planner",
+        capabilitiesSnapshot: "recipes.search recipes.read",
+        expiresAtSnapshot: expiresAt,
+        approvalCodeCiphertext: "v1.encrypted.code",
+      }),
+    );
+    expect(inserts[1]?.values).not.toHaveProperty("userCode");
+    expect(inserts[2]?.values).toMatchObject({ recipientUserId: "user-1" });
+  });
+
+  it("creates a notification from a successful Agent Auth registration", async () => {
+    const inserts: Array<{ table: unknown; values: unknown }> = [];
+    const transactionDb = {
+      insert: (table: unknown) => ({
+        values: (values: unknown) => {
+          inserts.push({ table, values });
+          return Promise.resolve();
+        },
+      }),
+    };
+    const expiresAt = new Date("2026-08-22T14:05:00.000Z");
+    const query = {
+      from: () => query,
+      where: () => query,
+      limit: () =>
+        Promise.resolve([
+          {
+            id: "approval-1",
+            userId: "user-1",
+            capabilities: "recipes.search recipes.read",
+            expiresAt,
+          },
+        ]),
+    };
+    const db = {
+      select: () => query,
+      transaction: (callback: (tx: typeof transactionDb) => Promise<void>) =>
+        callback(transactionDb),
+    };
+
+    await notifyAgentRegistrationApproval(
+      db as never,
+      agentRegistrationResponse(),
+      "test-secret-at-least-32-characters-long",
+    );
+
+    expect(inserts.map(({ table }) => table)).toEqual([
+      schema.notificationEvent,
+      schema.notificationAgentApprovalEvent,
+      schema.notificationDelivery,
+    ]);
+    const subtype = inserts[1]?.values as {
+      approvalCodeCiphertext: string;
+      capabilitiesSnapshot: string;
+    };
+    expect(subtype.capabilitiesSnapshot).toBe("recipes.search recipes.read");
+    expect(subtype.approvalCodeCiphertext).not.toContain("ABCD-1234");
+    await expect(
+      decryptAgentApprovalCode(
+        subtype.approvalCodeCiphertext,
+        "test-secret-at-least-32-characters-long",
+      ),
+    ).resolves.toBe("ABCD-1234");
+  });
+
+  it("ignores unsuccessful, malformed, and unowned registrations", async () => {
+    const transaction = vi.fn();
+    const select = vi.fn(() => {
+      const query = {
+        from: () => query,
+        where: () => query,
+        limit: () =>
+          Promise.resolve([
+            {
+              id: "approval-1",
+              userId: null,
+              capabilities: null,
+              expiresAt: new Date("2026-08-22T14:05:00.000Z"),
+            },
+          ]),
+      };
+      return query;
+    });
+    const db = { select, transaction };
+
+    await notifyAgentRegistrationApproval(
+      db as never,
+      new Response(null, { status: 400 }),
+      "test-secret-at-least-32-characters-long",
+    );
+    await notifyAgentRegistrationApproval(
+      db as never,
+      new Response("not-json", {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      }),
+      "test-secret-at-least-32-characters-long",
+    );
+    await notifyAgentRegistrationApproval(
+      db as never,
+      Response.json({ agent_id: "agent-1" }),
+      "test-secret-at-least-32-characters-long",
+    );
+    await notifyAgentRegistrationApproval(
+      db as never,
+      agentRegistrationResponse(),
+      "test-secret-at-least-32-characters-long",
+    );
+
+    expect(select).toHaveBeenCalledOnce();
+    expect(transaction).not.toHaveBeenCalled();
+  });
+
   it("stores generic event and delivery rows separately from household subtypes", async () => {
     const inserts: Array<{ table: unknown; values: unknown }> = [];
     const db = {

@@ -41,6 +41,7 @@ import {
 } from "recipe-domain/slugs";
 import { parseRecipeFile } from "recipe-parsing/recipe-file";
 import { parseSchemaOrgRecipeHtml } from "recipe-parsing/schema-org";
+import { recipeAgentConfiguration } from "./agent-auth";
 import { createAuth } from "./auth";
 import { verifyCloudflareAccess } from "./cloudflare-access";
 import { hasPostgresErrorCode } from "./db/errors";
@@ -69,8 +70,10 @@ import { hasExpectedImageSignature } from "./image-signature";
 import {
   createHouseholdNotification,
   createRecipeRecommendationNotification,
+  decryptAgentApprovalCode,
   type HouseholdNotificationKind,
   markInvitationNotificationRead,
+  notifyAgentRegistrationApproval,
 } from "./notifications";
 import { fetchRecipePage, RecipeUrlImportError } from "./recipe-url-import";
 import {
@@ -430,6 +433,21 @@ const jsonResponseSchema = z
   .catchall(z.unknown())
   .openapi("JsonResponse");
 
+const agentConfigurationSchema = z
+  .object({
+    version: z.string().max(32),
+    provider_name: z.string().max(200),
+    description: z.string().max(500),
+    issuer: z.url().max(2_048),
+    default_location: z.url().max(2_048),
+    algorithms: z.array(z.string().max(32)).max(10),
+    modes: z.array(z.enum(["delegated", "autonomous"])).max(2),
+    approval_methods: z.array(z.string().max(64)).max(10),
+    endpoints: z.record(z.string().max(64), z.url().max(2_048)),
+    jwks_uri: z.url().max(2_048).optional(),
+  })
+  .openapi("AgentConfiguration");
+
 const openApiRequestBodySchemas = new Map<string, z.ZodType>([
   ["POST /api/auth/preview/sign-in", previewSignInBodySchema],
   ["PUT /api/profile/diet", updateDietProfileBodySchema],
@@ -606,7 +624,9 @@ function successResponsesFor(
 }
 
 function securityFor(path: string): NonNullable<RouteConfig["security"]> {
-  if (path === "/health") return [];
+  if (path === "/health" || path === "/.well-known/agent-configuration") {
+    return [];
+  }
   if (path.startsWith("/api/auth/preview/")) {
     return [{ cloudflareAccess: [] }];
   }
@@ -619,22 +639,49 @@ function registerRoute(
   handler: Handler<AppEnv>,
 ): void {
   const key = `${method.toUpperCase()} ${path}`;
+  const isAgentConfiguration =
+    key === "GET /.well-known/agent-configuration";
   const requestBodySchema = openApiRequestBodySchemas.get(key);
   const querySchema = openApiQuerySchemas.get(key);
   const headersSchema = PANTRY_MUTATION_OPERATIONS.has(key)
     ? pantryOperationHeadersSchema
     : undefined;
   const paramsSchema = pathParamsSchema(path);
-  const errorResponses = Object.fromEntries(
-    ERROR_STATUS_CODES.map((status) => [
-      status,
-      {
-        description: `Error (${status})`,
-        content: { "application/json": { schema: errorSchema } },
-      },
-    ]),
-  );
-  const successResponses = successResponsesFor(key, method);
+  const errorResponses: RouteConfig["responses"] = isAgentConfiguration
+    ? {
+        503: {
+          description: "Agent Auth configuration unavailable",
+          content: { "application/json": { schema: errorSchema } },
+        },
+      }
+    : Object.fromEntries(
+        ERROR_STATUS_CODES.map((status) => [
+          status,
+          {
+            description: `Error (${status})`,
+            content: { "application/json": { schema: errorSchema } },
+          },
+        ]),
+      );
+  const successResponses: RouteConfig["responses"] = isAgentConfiguration
+    ? {
+        200: {
+          description: "Delegated Agent Auth discovery configuration",
+          headers: {
+            "Cache-Control": {
+              description: "Public discovery document cache lifetime",
+              schema: {
+                type: "string",
+                enum: ["public, max-age=3600"],
+              },
+            },
+          },
+          content: {
+            "application/json": { schema: agentConfigurationSchema },
+          },
+        },
+      }
+    : successResponsesFor(key, method);
   const rateLimitResponses: RouteConfig["responses"] = {};
   if (RATE_LIMITED_OPERATIONS.has(key)) {
     rateLimitResponses[429] = {
@@ -652,18 +699,17 @@ function registerRoute(
       content: { "application/json": { schema: errorSchema } },
     };
   }
+  const pathSegmentIndex = path.startsWith("/api/") ? 1 : 0;
+  const routeTag = path.startsWith("/.well-known/")
+    ? "agent-auth"
+    : (path.split("/").filter(Boolean).at(pathSegmentIndex) ?? "system");
   const route = createRoute({
     method,
     path: openApiPath(path),
     operationId: operationId(method, path),
     summary: `${method.toUpperCase()} ${path}`,
     description: `Recipe API operation for ${method.toUpperCase()} ${path}.`,
-    tags: [
-      path
-        .split("/")
-        .filter(Boolean)
-        .at(path.startsWith("/api/") ? 1 : 0) ?? "system",
-    ],
+    tags: [routeTag],
     security: securityFor(path),
     request: {
       ...(paramsSchema ? { params: paramsSchema } : {}),
@@ -714,6 +760,19 @@ app.openAPIRegistry.registerComponent("securitySchemes", "cloudflareAccess", {
 app.notFound((c) => c.json({ error: "Not found" }, 404));
 
 registerRoute("get", "/health", (c) => c.json({ status: "ok" }));
+
+registerRoute("get", "/.well-known/agent-configuration", async (c) => {
+  if (!hasAuthConfiguration(c.env)) {
+    return c.json({ error: "Auth configuration is incomplete" }, 503);
+  }
+  if (!isValidAuthURL(c.env.BETTER_AUTH_URL)) {
+    return c.json({ error: "Auth configuration is invalid" }, 503);
+  }
+
+  return c.json(recipeAgentConfiguration(c.env.BETTER_AUTH_URL), 200, {
+    "Cache-Control": "public, max-age=3600",
+  });
+});
 
 function isValidAuthURL(value: string): boolean {
   try {
@@ -1592,6 +1651,28 @@ type NotificationBaseRow = {
   occurredAt: Date;
 };
 
+type AgentApprovalNotificationStatus =
+  | "pending"
+  | "approved"
+  | "denied"
+  | "expired"
+  | "unavailable";
+
+function agentApprovalNotificationStatus(
+  status: string | null,
+  expiresAt: Date,
+): AgentApprovalNotificationStatus {
+  if (status === "approved") return "approved";
+  if (status === "denied") return "denied";
+  if (status === "pending" && expiresAt.getTime() > Date.now()) {
+    return "pending";
+  }
+  if (status === "pending" || expiresAt.getTime() <= Date.now()) {
+    return "expired";
+  }
+  return "unavailable";
+}
+
 const notificationBaseSelection = {
   id: schema.notificationDelivery.id,
   eventId: schema.notificationEvent.id,
@@ -1621,7 +1702,63 @@ async function hydrateNotifications(
   db: Db,
   recipientUserId: string,
   rows: NotificationBaseRow[],
+  approvalCodeSecret: string,
 ) {
+  const agentApprovalEventIds = rows
+    .filter(({ kind }) => kind === "agent_approval_requested")
+    .map(({ eventId }) => eventId);
+  const agentApprovalRows =
+    agentApprovalEventIds.length === 0
+      ? []
+      : await db
+          .select({
+            eventId: schema.notificationAgentApprovalEvent.eventId,
+            agentId: schema.notificationAgentApprovalEvent.agentIdSnapshot,
+            agentName:
+              schema.notificationAgentApprovalEvent.agentNameSnapshot,
+            capabilities:
+              schema.notificationAgentApprovalEvent.capabilitiesSnapshot,
+            expiresAtSnapshot:
+              schema.notificationAgentApprovalEvent.expiresAtSnapshot,
+            approvalCodeCiphertext:
+              schema.notificationAgentApprovalEvent.approvalCodeCiphertext,
+            approvalStatus: schema.approvalRequest.status,
+            approvalExpiresAt: schema.approvalRequest.expiresAt,
+          })
+          .from(schema.notificationAgentApprovalEvent)
+          .leftJoin(
+            schema.approvalRequest,
+            eq(
+              schema.notificationAgentApprovalEvent.approvalRequestId,
+              schema.approvalRequest.id,
+            ),
+          )
+          .where(
+            inArray(
+              schema.notificationAgentApprovalEvent.eventId,
+              agentApprovalEventIds,
+            ),
+          );
+  const agentApprovalsByEventId = new Map(
+    agentApprovalRows.map((row) => [row.eventId, row]),
+  );
+  const agentApprovalCodesByEventId = new Map(
+    await Promise.all(
+      agentApprovalRows.map(async (row) => [
+        row.eventId,
+        row.approvalCodeCiphertext &&
+        agentApprovalNotificationStatus(
+          row.approvalStatus,
+          row.approvalExpiresAt ?? row.expiresAtSnapshot,
+        ) === "pending"
+          ? await decryptAgentApprovalCode(
+              row.approvalCodeCiphertext,
+              approvalCodeSecret,
+            ).catch(() => null)
+          : null,
+      ] as const),
+    ),
+  );
   const householdEventIds = rows
     .filter(({ kind }) => isHouseholdNotificationKind(kind))
     .map(({ eventId }) => eventId);
@@ -1726,8 +1863,8 @@ async function hydrateNotifications(
       : [],
   );
 
-  return rows.map((row) => {
-    const base = {
+  function baseNotification(row: NotificationBaseRow) {
+    return {
       id: row.id,
       eventId: row.eventId,
       kind: row.kind,
@@ -1738,40 +1875,72 @@ async function hydrateNotifications(
       readAt: row.readAt,
       occurredAt: row.occurredAt,
     };
-    if (row.kind === "recipe_recommended") {
-      const detail = recommendationsByEventId.get(row.eventId);
-      if (!detail) {
-        throw new Error(
-          `Recipe recommendation notification ${row.eventId} has no subtype row`,
-        );
-      }
-      const saved = savedRecipeSlugs.has(detail.recipeSlug);
-      const available =
-        detail.recipeId !== null &&
-        (detail.recipeVisibility === "public" ||
-          (detail.recipeVisibility === "household" &&
-            detail.recipeOwnerUserId !== null &&
-            householdMemberUserIds.has(detail.recipeOwnerUserId)));
-      return {
-        ...base,
-        kind: "recipe_recommended" as const,
-        detail: {
-          type: "recipe_recommendation" as const,
-          recipe: {
-            slug: detail.recipeSlug,
-            title: detail.recipeTitle,
-            available,
-          },
-          saved,
-        },
-        actions:
-          available && !saved ? (["add_to_recipe_box"] as const) : [],
-      };
-    }
-    if (!isHouseholdNotificationKind(row.kind)) {
-      return { ...base, detail: null, actions: [] as string[] };
-    }
+  }
 
+  function hydrateAgentApprovalNotification(row: NotificationBaseRow) {
+    const detail = agentApprovalsByEventId.get(row.eventId);
+    if (!detail) {
+      throw new Error(
+        `Agent approval notification ${row.eventId} has no subtype row`,
+      );
+    }
+    const expiresAt = detail.approvalExpiresAt ?? detail.expiresAtSnapshot;
+    const status = agentApprovalNotificationStatus(
+      detail.approvalStatus,
+      expiresAt,
+    );
+    const approvalCode = agentApprovalCodesByEventId.get(row.eventId);
+    return {
+      ...baseNotification(row),
+      kind: "agent_approval_requested" as const,
+      detail: {
+        type: "agent_approval" as const,
+        agent: { id: detail.agentId, name: detail.agentName },
+        capabilities: detail.capabilities.split(" ").filter(Boolean),
+        status,
+        expiresAt,
+        reviewUrl:
+          status === "pending" && approvalCode
+            ? `/recipes/settings/agents/approve?agent_id=${encodeURIComponent(detail.agentId)}&code=${encodeURIComponent(approvalCode)}`
+            : null,
+      },
+      actions: [] as string[],
+    };
+  }
+
+  function hydrateRecipeRecommendationNotification(
+    row: NotificationBaseRow,
+  ) {
+    const detail = recommendationsByEventId.get(row.eventId);
+    if (!detail) {
+      throw new Error(
+        `Recipe recommendation notification ${row.eventId} has no subtype row`,
+      );
+    }
+    const saved = savedRecipeSlugs.has(detail.recipeSlug);
+    const available =
+      detail.recipeId !== null &&
+      (detail.recipeVisibility === "public" ||
+        (detail.recipeVisibility === "household" &&
+          detail.recipeOwnerUserId !== null &&
+          householdMemberUserIds.has(detail.recipeOwnerUserId)));
+    return {
+      ...baseNotification(row),
+      kind: "recipe_recommended" as const,
+      detail: {
+        type: "recipe_recommendation" as const,
+        recipe: {
+          slug: detail.recipeSlug,
+          title: detail.recipeTitle,
+          available,
+        },
+        saved,
+      },
+      actions: available && !saved ? (["add_to_recipe_box"] as const) : [],
+    };
+  }
+
+  function hydrateHouseholdNotification(row: NotificationBaseRow) {
     const detail = householdsByEventId.get(row.eventId);
     if (!detail) {
       throw new Error(`Household notification ${row.eventId} has no subtype row`);
@@ -1782,8 +1951,8 @@ async function hydrateNotifications(
       detail.invitationExpiresAt,
     );
     return {
-      ...base,
-      kind: row.kind,
+      ...baseNotification(row),
+      kind: row.kind as HouseholdNotificationKind,
       detail: {
         type: "household" as const,
         household: {
@@ -1797,6 +1966,23 @@ async function hydrateNotifications(
           ? (["accept", "decline"] as const)
           : [],
     };
+  }
+
+  return rows.map((row) => {
+    if (row.kind === "agent_approval_requested") {
+      return hydrateAgentApprovalNotification(row);
+    }
+    if (row.kind === "recipe_recommended") {
+      return hydrateRecipeRecommendationNotification(row);
+    }
+    if (!isHouseholdNotificationKind(row.kind)) {
+      return {
+        ...baseNotification(row),
+        detail: null,
+        actions: [] as string[],
+      };
+    }
+    return hydrateHouseholdNotification(row);
   });
 }
 
@@ -2441,13 +2627,35 @@ app.on(["POST", "GET"], "/api/auth/*", async (c) => {
     return c.json({ error: "Auth configuration is invalid" }, 503);
   }
 
-  const csrfFailure = validateCsrf(c);
+  const hasSessionCookie =
+    /(?:^|;\s*)(?:__Secure-)?better-auth[.-]session_token=/.test(
+      c.req.header("cookie") ?? "",
+    );
+  const machineAgentRequest =
+    /^\/api\/auth\/(?:agent|capability|host)(?:\/|$)/.test(c.req.path) &&
+    !hasSessionCookie &&
+    (Boolean(c.req.header("authorization")) ||
+      c.req.path === "/api/auth/agent/device/code" ||
+      c.req.path === "/api/auth/host/enroll");
+  const csrfFailure = machineAgentRequest ? undefined : validateCsrf(c);
   if (csrfFailure) return csrfFailure;
 
   const { db, client } = createDb(connectionString);
   try {
     const auth = createAuth(db, c.env);
-    return await auth.handler(c.req.raw);
+    const response = await auth.handler(c.req.raw);
+    if (c.req.path.replace(/\/$/, "") === "/api/auth/agent/register") {
+      try {
+        await notifyAgentRegistrationApproval(
+          db,
+          response,
+          c.env.BETTER_AUTH_SECRET,
+        );
+      } catch (error) {
+        console.error("Agent approval notification creation failed", error);
+      }
+    }
+    return response;
   } finally {
     try {
       await client.end({ timeout: 5 });
@@ -3713,6 +3921,7 @@ registerRoute("get", "/notifications", async (c) => {
         db,
         session.user.id,
         deliveries.slice(0, NOTIFICATION_PAGE_SIZE),
+        c.env.BETTER_AUTH_SECRET,
       );
       return c.json(
         {
@@ -3823,7 +4032,12 @@ registerRoute("post", "/notifications/:notificationId/actions/:actionKey", async
         )
         .limit(1);
       if (!updated) return c.notFound();
-      const [item] = await hydrateNotifications(db, session.user.id, [updated]);
+      const [item] = await hydrateNotifications(
+        db,
+        session.user.id,
+        [updated],
+        c.env.BETTER_AUTH_SECRET,
+      );
       return c.json({ item });
     },
     { onError: (error) => invitationActionFailure(c, error) },
@@ -5028,6 +5242,9 @@ async function cleanupOperationalRows(env: Bindings): Promise<void> {
     await db
       .delete(schema.pantryOperation)
       .where(lt(schema.pantryOperation.createdAt, cutoff));
+    await db
+      .delete(schema.authSecondaryStorage)
+      .where(lt(schema.authSecondaryStorage.expiresAt, new Date()));
   } catch (e) {
     console.error("Operational row cleanup failed", e);
   } finally {

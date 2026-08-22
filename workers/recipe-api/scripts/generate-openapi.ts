@@ -7,7 +7,13 @@ const outputPath = fileURLToPath(
 );
 
 function publicApiPath(path: string): string {
-  if (path === "/health" || path.startsWith("/api/")) return path;
+  if (
+    path === "/health" ||
+    path.startsWith("/.well-known/") ||
+    path.startsWith("/api/")
+  ) {
+    return path;
+  }
   return `/api${path}`;
 }
 
@@ -22,6 +28,7 @@ const document = app.getOpenAPIDocument({
   },
   servers: [{ url: "https://robbiepalmer.me", "x-internal": false }],
   tags: [
+    "agent-auth",
     "auth",
     "households",
     "notifications",
@@ -31,7 +38,13 @@ const document = app.getOpenAPIDocument({
     "recipe-imports",
     "recipes",
     "health",
-  ].map((name) => ({ name, description: `${name} operations` })),
+  ].map((name) => ({
+    name,
+    description:
+      name === "agent-auth"
+        ? "Delegated agent discovery, registration, approval, and capability execution."
+        : `${name} operations`,
+  })),
 });
 
 document.paths = Object.fromEntries(

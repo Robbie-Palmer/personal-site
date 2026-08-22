@@ -6,6 +6,8 @@ import { useEffect, useState } from "react";
 import { getNotificationPage } from "@/lib/api/notifications";
 import { authClient } from "@/lib/auth-client";
 
+const NOTIFICATION_REFRESH_INTERVAL_MS = 10_000;
+
 export function NotificationBell() {
   const { data: session } = authClient.useSession();
   const sessionUserId = session?.user.id;
@@ -14,13 +16,31 @@ export function NotificationBell() {
 
   useEffect(() => {
     if (!sessionUserId) return;
-    const controller = new AbortController();
-    void getNotificationPage(0, controller.signal)
-      .then((page) =>
-        setUnread({ userId: sessionUserId, count: page.unreadCount }),
-      )
-      .catch(() => undefined);
-    return () => controller.abort();
+    let controller: AbortController | undefined;
+    const refresh = () => {
+      controller?.abort();
+      controller = new AbortController();
+      void getNotificationPage(0, controller.signal)
+        .then((page) =>
+          setUnread({ userId: sessionUserId, count: page.unreadCount }),
+        )
+        .catch(() => undefined);
+    };
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === "visible") refresh();
+    };
+
+    refresh();
+    const interval = globalThis.setInterval(
+      refreshWhenVisible,
+      NOTIFICATION_REFRESH_INTERVAL_MS,
+    );
+    document.addEventListener("visibilitychange", refreshWhenVisible);
+    return () => {
+      globalThis.clearInterval(interval);
+      document.removeEventListener("visibilitychange", refreshWhenVisible);
+      controller?.abort();
+    };
   }, [sessionUserId]);
 
   if (!session) return null;

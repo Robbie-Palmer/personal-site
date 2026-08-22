@@ -481,6 +481,7 @@ function buildRoutesJson(): string {
     {
       version: 1,
       include: [
+        "/.well-known/agent-configuration",
         "/api/auth/*",
         "/api/profile/*",
         "/api/households",

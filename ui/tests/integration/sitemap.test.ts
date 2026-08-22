@@ -27,6 +27,7 @@ const NOINDEX_APP_PAGES = new Set([
   "recipes/profile",
   "recipes/saved",
   "recipes/settings",
+  "recipes/settings/agents/approve",
   "recipes/shopping",
 ]);
 

@@ -39,6 +39,10 @@ agent without asking for HTML. Browsers are unaffected. Agents can also
 fetch Markdown explicitly by appending `.md` to any page URL, or start
 from the index at `/llms.txt`.
 
+The root middleware also proxies `/.well-known/agent-configuration` to the
+Worker. Cloudflare Pages ignores dot-prefixed directories in `functions/`, so
+the canonical Agent Auth discovery route cannot use file-based routing.
+
 ### `/ingest/*` - PostHog Reverse Proxy
 
 **File:** `ingest/[[path]].ts`

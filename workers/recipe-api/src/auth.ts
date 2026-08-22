@@ -1,9 +1,10 @@
 import { betterAuth } from "better-auth";
 import { admin, lastLoginMethod } from "better-auth/plugins";
 import { withCloudflare } from "better-auth-cloudflare";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, lte } from "drizzle-orm";
 import type { Db } from "recipe-db";
 import * as schema from "recipe-db/schema";
+import { createRecipeAgentAuthPlugin } from "./agent-auth";
 import { enforceRateLimit } from "./http/rate-limit";
 import { createHouseholdNotification } from "./notifications";
 import {
@@ -11,7 +12,6 @@ import {
   syncCanonicalUserEmail,
   syncLinkedAccountEmails,
 } from "./user-emails";
-
 
 type AuthEnv = {
   BETTER_AUTH_URL: string;
@@ -27,6 +27,11 @@ type CreateAuthOptions = {
   allowPreviewSignUp?: boolean;
   autoSignInPreviewSignUp?: boolean;
 };
+
+const AGENT_AUTH_JTI_STORAGE_PREFIX = "agent-auth:jti:";
+const AGENT_AUTH_JTI_RESERVATION_TTL_SECONDS = 2 * 60;
+const AUTH_SECONDARY_STORAGE_DEFAULT_TTL_SECONDS = 30 * 24 * 60 * 60;
+const AUTH_SECONDARY_STORAGE_MAX_TTL_SECONDS = 90 * 24 * 60 * 60;
 
 function rateLimitStorage(db: Db) {
   const namespaced = (key: string) => `auth:${key}`;
@@ -66,6 +71,67 @@ function rateLimitStorage(db: Db) {
           target: schema.appRateLimit.key,
           set: { count: value.count, windowStart },
         });
+    },
+  };
+}
+
+function authSecondaryStorage(db: Db) {
+  return {
+    get: async (key: string) => {
+      if (key.startsWith(AGENT_AUTH_JTI_STORAGE_PREFIX)) {
+        const now = new Date();
+        const expiresAt = new Date(
+          now.getTime() + AGENT_AUTH_JTI_RESERVATION_TTL_SECONDS * 1_000,
+        );
+        return db.transaction(async (tx) => {
+          await tx
+            .delete(schema.authSecondaryStorage)
+            .where(lte(schema.authSecondaryStorage.expiresAt, now));
+          const [reservation] = await tx
+            .insert(schema.authSecondaryStorage)
+            .values({ key, value: "1", expiresAt })
+            .onConflictDoNothing()
+            .returning({ key: schema.authSecondaryStorage.key });
+          return reservation ? null : "1";
+        });
+      }
+      const [entry] = await db
+        .select({
+          value: schema.authSecondaryStorage.value,
+          expiresAt: schema.authSecondaryStorage.expiresAt,
+        })
+        .from(schema.authSecondaryStorage)
+        .where(eq(schema.authSecondaryStorage.key, key))
+        .limit(1);
+      if (!entry) return null;
+      if (entry.expiresAt && entry.expiresAt.getTime() <= Date.now()) {
+        await db
+          .delete(schema.authSecondaryStorage)
+          .where(eq(schema.authSecondaryStorage.key, key));
+        return null;
+      }
+      return entry.value;
+    },
+    set: async (key: string, value: string, ttlSeconds?: number) => {
+      const boundedTtlSeconds =
+        typeof ttlSeconds === "number" &&
+        Number.isFinite(ttlSeconds) &&
+        ttlSeconds > 0
+          ? Math.min(ttlSeconds, AUTH_SECONDARY_STORAGE_MAX_TTL_SECONDS)
+          : AUTH_SECONDARY_STORAGE_DEFAULT_TTL_SECONDS;
+      const expiresAt = new Date(Date.now() + boundedTtlSeconds * 1_000);
+      await db
+        .insert(schema.authSecondaryStorage)
+        .values({ key, value, expiresAt })
+        .onConflictDoUpdate({
+          target: schema.authSecondaryStorage.key,
+          set: { value, expiresAt },
+        });
+    },
+    delete: async (key: string) => {
+      await db
+        .delete(schema.authSecondaryStorage)
+        .where(eq(schema.authSecondaryStorage.key, key));
     },
   };
 }
@@ -187,7 +253,11 @@ export function createAuth(
         geolocationTracking: false,
       },
       {
-        plugins: [admin(), lastLoginMethod()],
+        plugins: [
+          admin(),
+          lastLoginMethod(),
+          createRecipeAgentAuthPlugin(db),
+        ],
         emailAndPassword: {
           enabled: isPreview,
           disableSignUp: !options.allowPreviewSignUp,
@@ -252,6 +322,10 @@ export function createAuth(
         },
       },
     ),
+    // withCloudflare replaces secondaryStorage with its KV adapter or
+    // undefined. Apply the PostgreSQL adapter after its returned options so
+    // Agent Auth replay protection survives across Worker requests.
+    secondaryStorage: authSecondaryStorage(db),
   });
 }
 
