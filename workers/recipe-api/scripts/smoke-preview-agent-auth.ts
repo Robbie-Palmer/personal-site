@@ -48,7 +48,7 @@ async function request(
   }
   return fetch(url, {
     ...init,
-    headers: { ...accessHeaders, ...init.headers },
+    headers: { ...accessHeaders, origin: siteURL, ...init.headers },
     redirect: "manual",
     signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
   });
@@ -90,6 +90,8 @@ type Discovery = {
 
 type Approval = {
   device_code: string;
+  expires_in: number;
+  interval: number;
   method: "device_authorization";
   user_code: string;
   verification_uri_complete: string;
@@ -296,7 +298,16 @@ console.log(`Approval code: ${registration.approval.user_code}`);
 console.log(`Approve or deny at: ${registration.approval.verification_uri_complete}`);
 console.log("Waiting for approval...");
 
-const deadline = Date.now() + APPROVAL_TIMEOUT_MS;
+const deadline =
+  Date.now() +
+  Math.min(
+    APPROVAL_TIMEOUT_MS,
+    registration.approval.expires_in * 1_000,
+  );
+const pollInterval = Math.max(
+  APPROVAL_POLL_MS,
+  registration.approval.interval * 1_000,
+);
 let status: AgentStatus | undefined;
 while (Date.now() < deadline) {
   const statusToken = await hostJWT(
@@ -305,15 +316,26 @@ while (Date.now() < deadline) {
     host.hostId,
     discovery.issuer,
   );
-  status = await expectJson<AgentStatus>(
+  const statusResponse = await request(
     `${discovery.endpoints.status}?agent_id=${encodeURIComponent(registration.agent_id)}`,
     { headers: { authorization: `Bearer ${statusToken}` } },
   );
+  if (statusResponse.status >= 500) {
+    await statusResponse.body?.cancel();
+    await new Promise((resolve) => setTimeout(resolve, pollInterval));
+    continue;
+  }
+  if (!statusResponse.ok) {
+    throw new Error(
+      `Agent status returned ${statusResponse.status}: ${(await statusResponse.text()).slice(0, 2_000)}`,
+    );
+  }
+  status = (await statusResponse.json()) as AgentStatus;
   if (status.status === "active") break;
   if (["rejected", "revoked", "expired"].includes(status.status)) {
     throw new Error(`Agent approval ended with status: ${status.status}`);
   }
-  await new Promise((resolve) => setTimeout(resolve, APPROVAL_POLL_MS));
+  await new Promise((resolve) => setTimeout(resolve, pollInterval));
 }
 if (status?.status !== "active") {
   throw new Error("Timed out waiting for agent approval");
