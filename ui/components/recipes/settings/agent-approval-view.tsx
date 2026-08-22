@@ -141,13 +141,12 @@ export function AgentApprovalView() {
 
   if (sessionPending || intent === undefined || loading) {
     return (
-      <div
-        role="status"
+      <output
         aria-label="Loading agent access request"
         className="container mx-auto flex max-w-xl items-center justify-center px-4 py-24"
       >
         <LoaderCircle className="size-6 animate-spin text-[var(--ink-3)]" />
-      </div>
+      </output>
     );
   }
 
