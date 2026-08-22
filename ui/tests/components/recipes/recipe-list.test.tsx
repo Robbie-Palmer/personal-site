@@ -151,7 +151,15 @@ describe("RecipeList", () => {
   });
 
   it("uses a compact icon to show who can view each recipe", () => {
-    const [privateRecipe, householdRecipe, publicRecipe] = recipes;
+    const privateRecipe = recipes.find(
+      (recipe) => recipe.slug === "slow-cooker-mexican-chicken",
+    );
+    const householdRecipe = recipes.find(
+      (recipe) => recipe.slug === "chicken-quesadillas",
+    );
+    const publicRecipe = recipes.find(
+      (recipe) => recipe.slug === "creamy-pesto-risotto",
+    );
     if (!(privateRecipe && householdRecipe && publicRecipe)) {
       throw new Error("Expected recipe fixtures");
     }
@@ -166,16 +174,36 @@ describe("RecipeList", () => {
       />,
     );
 
-    expect(
-      screen.getByRole("img", { name: "Only you can view this recipe" }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("img", { name: "Shared with your household" }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("img", { name: "Public recipe" }),
-    ).toBeInTheDocument();
+    expect(screen.getByText("Only you can view this recipe")).toHaveClass(
+      "sr-only",
+    );
+    expect(screen.getByText("Shared with your household")).toHaveClass(
+      "sr-only",
+    );
+    expect(screen.getByText("Public recipe")).toHaveClass("sr-only");
     expect(screen.queryByText("Your recipe")).not.toBeInTheDocument();
+  });
+
+  it("uses the public visibility indicator for recipes without a visibility value", () => {
+    const recipe = recipes[0];
+    if (!recipe) throw new Error("Expected recipe fixture");
+
+    render(<RecipeList recipes={[recipe]} />);
+
+    expect(screen.getByText("Public recipe")).toHaveClass("sr-only");
+  });
+
+  it("falls back to the public visibility indicator for an unrecognized value", () => {
+    const recipe = recipes[0];
+    if (!recipe) throw new Error("Expected recipe fixture");
+    const malformedRecipe = {
+      ...recipe,
+      visibility: "unrecognized",
+    } as unknown as RecipeCardView;
+
+    render(<RecipeList recipes={[malformedRecipe]} />);
+
+    expect(screen.getByText("Public recipe")).toHaveClass("sr-only");
   });
 
   it("shows an equipment filter with cookware options", async () => {

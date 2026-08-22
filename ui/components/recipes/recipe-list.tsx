@@ -254,7 +254,7 @@ const RecipeCard = memo(function RecipeCard({
   const href = recipe.href ?? recipePageHref(recipe);
   const visibility = recipe.visibility ?? "public";
   const { Icon: VisibilityIcon, label: visibilityLabel } =
-    VISIBILITY_INDICATORS[visibility];
+    VISIBILITY_INDICATORS[visibility] ?? VISIBILITY_INDICATORS.public;
   return (
     <Card className="h-full flex flex-col overflow-hidden rounded-xl border-[1.25px] border-[var(--line-strong)] gap-0 py-0 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[var(--paper-shadow)]">
       {recipe.image && (
@@ -277,13 +277,9 @@ const RecipeCard = memo(function RecipeCard({
         </RecipePageLink>
       )}
       <CardHeader className="relative gap-1 pt-4 pb-2 pr-11">
-        <span
-          aria-label={visibilityLabel}
-          className="absolute top-4 right-4 inline-flex size-6 items-center justify-center rounded-full border border-[var(--line)] bg-[var(--paper-warm)] text-[var(--ink-3)]"
-          role="img"
-          title={visibilityLabel}
-        >
+        <span className="absolute top-4 right-4 inline-flex size-6 items-center justify-center rounded-full border border-[var(--line)] bg-[var(--paper-warm)] text-[var(--ink-3)]">
           <VisibilityIcon aria-hidden="true" className="size-3.5" />
+          <span className="sr-only">{visibilityLabel}</span>
         </span>
         <RecipePageLink href={href}>
           <CardTitle className="rt-display text-2xl leading-tight hover:text-[var(--terracotta)] transition-colors">
