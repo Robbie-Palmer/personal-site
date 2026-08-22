@@ -121,10 +121,11 @@ export const RECIPE_AGENT_CAPABILITIES = [
 ] satisfies Capability[];
 
 function escapedLikePattern(value: string): string {
+  const escape = String.fromCodePoint(92);
   return `%${value
-    .replaceAll("\\", "\\\\")
-    .replaceAll("%", "\\%")
-    .replaceAll("_", "\\_")}%`;
+    .replaceAll(escape, escape.repeat(2))
+    .replaceAll("%", `${escape}%`)
+    .replaceAll("_", `${escape}_`)}%`;
 }
 
 async function readableRecipeFilter(db: Db, userId: string): Promise<SQL> {
@@ -222,16 +223,18 @@ export async function executeRecipeAgentCapability(
 }
 
 async function writeAgentAuthAuditEvent(db: Db, event: AgentAuthEvent) {
+  let userId: string | undefined;
+  if (event.type === "capability.executed") {
+    userId = event.userId;
+  } else if (event.actorType === "user") {
+    userId = event.actorId;
+  }
+
   await db.insert(schema.agentAuthAuditEvent).values({
     eventType: event.type,
     actorType: event.actorType,
     actorId: event.actorId,
-    userId:
-      event.type === "capability.executed"
-        ? event.userId
-        : event.actorType === "user"
-          ? event.actorId
-          : undefined,
+    userId,
     agentId: event.agentId,
     hostId: event.hostId,
     targetType: event.targetType,

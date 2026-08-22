@@ -21,7 +21,7 @@ function previewSiteURL(): string {
     process.env.CLOUDFLARE_PAGES_HOST ?? "personal-site-bu5.pages.dev";
   if (
     siteURL.protocol !== "https:" ||
-    !/^pr-[1-9][0-9]*$/.test(siteURL.hostname.split(".")[0] ?? "") ||
+    !/^pr-[1-9]\d*$/.test(siteURL.hostname.split(".")[0] ?? "") ||
     siteURL.hostname !== `${siteURL.hostname.split(".")[0]}.${pagesHost}` ||
     siteURL.pathname !== "/"
   ) {
@@ -294,8 +294,9 @@ if (pendingExecution.status !== 403) {
   );
 }
 
-console.log(`Approval code: ${registration.approval.user_code}`);
-console.log(`Approve or deny at: ${registration.approval.verification_uri_complete}`);
+console.log(
+  "Approval request created. Open it from the preview notification bell.",
+);
 console.log("Waiting for approval...");
 
 const deadline =

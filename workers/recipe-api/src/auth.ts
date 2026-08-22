@@ -13,7 +13,6 @@ import {
   syncLinkedAccountEmails,
 } from "./user-emails";
 
-
 type AuthEnv = {
   BETTER_AUTH_URL: string;
   DEPLOYMENT_ENV?: string;

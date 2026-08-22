@@ -1,26 +1,41 @@
 import { and, eq, inArray } from "drizzle-orm";
 import type { Db } from "recipe-db";
 import * as schema from "recipe-db/schema";
+import { z } from "zod";
 
 const AGENT_APPROVAL_CODE_CIPHER_VERSION = "v1";
 const AGENT_APPROVAL_CODE_KEY_CONTEXT = new TextEncoder().encode(
   "recipe-agent-approval-notification",
 );
 
+const agentRegistrationApprovalSchema = z.looseObject({
+  agent_id: z.string().min(1),
+  name: z.string().min(1),
+  approval: z.looseObject({
+    method: z.literal("device_authorization"),
+    device_code: z.string().min(1),
+    user_code: z.string().min(1),
+  }),
+});
+
 function encodeBase64Url(bytes: Uint8Array): string {
   let binary = "";
-  for (const byte of bytes) binary += String.fromCharCode(byte);
-  return btoa(binary)
+  for (const byte of bytes) binary += String.fromCodePoint(byte);
+  let encoded = btoa(binary)
     .replaceAll("+", "-")
-    .replaceAll("/", "_")
-    .replace(/=+$/, "");
+    .replaceAll("/", "_");
+  while (encoded.endsWith("=")) encoded = encoded.slice(0, -1);
+  return encoded;
 }
 
 function decodeBase64Url(value: string): Uint8Array {
   const base64 = value.replaceAll("-", "+").replaceAll("_", "/");
   const padded = base64.padEnd(Math.ceil(base64.length / 4) * 4, "=");
   const binary = atob(padded);
-  return Uint8Array.from(binary, (character) => character.charCodeAt(0));
+  return Uint8Array.from(
+    binary,
+    (character) => character.codePointAt(0) ?? 0,
+  );
 }
 
 async function agentApprovalCodeKey(secret: string): Promise<CryptoKey> {
@@ -119,6 +134,54 @@ export async function createAgentApprovalNotification(
     eventId,
     recipientUserId: values.recipientUserId,
   });
+}
+
+export async function notifyAgentRegistrationApproval(
+  db: Db,
+  response: Response,
+  approvalCodeSecret: string,
+): Promise<void> {
+  if (!response.ok) return;
+  const parsed = agentRegistrationApprovalSchema.safeParse(
+    await response
+      .clone()
+      .json()
+      .catch(() => null),
+  );
+  if (!parsed.success) return;
+
+  const [approval] = await db
+    .select({
+      id: schema.approvalRequest.id,
+      userId: schema.approvalRequest.userId,
+      capabilities: schema.approvalRequest.capabilities,
+      expiresAt: schema.approvalRequest.expiresAt,
+    })
+    .from(schema.approvalRequest)
+    .where(
+      and(
+        eq(schema.approvalRequest.id, parsed.data.approval.device_code),
+        eq(schema.approvalRequest.agentId, parsed.data.agent_id),
+        eq(schema.approvalRequest.status, "pending"),
+      ),
+    )
+    .limit(1);
+  const recipientUserId = approval?.userId;
+  if (!approval || !recipientUserId) return;
+  const approvalCodeCiphertext = await encryptAgentApprovalCode(
+    parsed.data.approval.user_code,
+    approvalCodeSecret,
+  );
+
+  await db.transaction((tx) =>
+    createAgentApprovalNotification(tx, {
+      recipientUserId,
+      approval: { id: approval.id, expiresAt: approval.expiresAt },
+      agent: { id: parsed.data.agent_id, name: parsed.data.name },
+      capabilities: approval.capabilities?.split(" ").filter(Boolean) ?? [],
+      approvalCodeCiphertext,
+    }),
+  );
 }
 
 export async function createHouseholdNotification(
