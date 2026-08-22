@@ -15,9 +15,9 @@ The service is a visible, stateful publisher:
 - Durable Object alarms provide a trailing-edge debounce boundary, coalescing
   rapid events to one review of the latest pull request state after a quiet
   period;
-- the same alarm handler retries committed finding outcomes that could not be
-  published to R2, so a finalization-time outage cannot strand them in SQLite
-  when no later pull-request event arrives;
+- the same alarm handler runs delayed finding evaluation and retries committed
+  outcomes that could not be published to R2, so a finalization-time outage
+  cannot strand them in SQLite when no later pull-request event arrives;
 - a Cloudflare Workflow fetches the PR through GitHub App authentication, runs
   the shared OpenRouter and OpenCode scout ensemble,
   reconciles candidates with the same OpenRouter merger, publishes each
@@ -144,7 +144,11 @@ Committed non-secret defaults in `wrangler.toml` configure the shared reviewer:
 - `AI_REVIEW_ZDR` applies the OpenRouter routing constraint;
 - `AI_REVIEW_MAX_PR_COST_USD=5` stops new runs after recorded successful or
   failed stateful runs on the PR reach that cumulative cost;
-- `AI_REVIEW_MAX_RUNS_PER_PR=20` caps attempted stateful runs per PR; and
+- `AI_REVIEW_MAX_RUNS_PER_PR=20` caps attempted stateful runs per PR;
+- `AI_REVIEW_OUTCOME_WINDOW_SECONDS=604800` waits seven days before labeling
+  a silent finding `no-observable-response`, while
+  `AI_REVIEW_OUTCOME_EVALUATOR_VERSION` identifies the decision rules stored
+  with each evaluation; and
 - `AI_REVIEW_PROMPT_VERSION` participates in the durable idempotency key, so an
   intentional prompt/configuration change can review an unchanged head once.
 
@@ -188,8 +192,12 @@ These records preserve the event/action, trusted actor, reply or command body,
 reaction counts present on review-comment events, thread state, explicit
 disposition and timestamps without mutating earlier evidence.
 
-`review_finding_outcomes` turns that evidence into a versioned evaluation
-label. An explicit acknowledgement or rejection creates an outcome immediately.
+`review_finding_evaluations` records each deterministic evaluation attempt,
+including incomplete and manual-adjudication-required decisions.
+`review_finding_outcomes` stores the resulting versioned labels. Each outcome
+records confidence, evaluator version, whether it is adjudicated, censored, or
+a workflow observation, and any trusted manual override. An explicit
+acknowledgement or rejection creates an outcome immediately.
 When a later review covers the finding's file after its affected hunks change,
 the merger performs a controlled replay of the durable finding against the
 current diff and file context, recording `fixed`, `still-present`, or `uncertain`
@@ -202,22 +210,28 @@ GitHub when the trusted command is handled. The outcome links the trusted actor
 and reason to that replay's head, run, and
 evidence. PR content, stale replay, model omission, or a resolved GitHub thread
 cannot mint a confirmed label by itself. Confirmation suppresses replay only on
-that exact head; a later head makes the finding eligible for replay again. On
-`pull_request.closed`, any finding without an outcome becomes `superseded` when
-the final reviewed diff no longer contains its affected hunks, or
-`no-observable-response` otherwise. A legacy finding with a persisted explicit
-disposition but no outcome row receives the matching `acknowledged` or
-`rejected` label. The closure evidence records whether the final head was
-actually reviewed so censored outcomes remain distinguishable from complete
-coverage.
+that exact head; a later head makes the finding eligible for replay again.
+
+On `pull_request.closed`, the evaluator immediately joins each finding to the
+final reviewed head, later resolution evidence, replies, reaction snapshots,
+and thread state. A finding becomes `superseded` when the final reviewed diff no
+longer contains its affected hunks. Incomplete findings are reevaluated after
+`AI_REVIEW_OUTCOME_WINDOW_SECONDS`, which defaults to seven days. A finding
+with no human or code response then becomes `no-observable-response`; the
+record marks it as a workflow observation and not a correctness judgment.
+Conflicting replies, reactions, thread state, or fixed replay evidence enter
+manual adjudication instead of going to a model. A later trusted disposition
+appends a manual override and automatic evaluation will not replace it. A
+legacy finding with a persisted explicit disposition but no outcome row
+receives the matching `acknowledged` or `rejected` label.
 
 Outcome revisions are immutable schema-v2 objects at
 `v2/<owner>/<repository>/pr-<number>/findings/<finding-id>/outcomes/v<version>.json`.
 The highest version is the current outcome; earlier labels remain available to
-show how later code evidence changed the attribution. SQLite commits the outcome
-before R2 publication and retains an `r2_recorded` flag, so a retried webhook or
-review completion repairs an interrupted object write without creating another
-revision.
+show how later evidence or a manual override changed the attribution. SQLite
+commits the outcome before R2 publication and retains an `r2_recorded` flag, so
+a replayed webhook, evaluator alarm, or review completion repairs an interrupted
+object write without creating another revision.
 
 ### Scorecard marts
 
