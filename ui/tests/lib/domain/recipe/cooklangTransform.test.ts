@@ -223,6 +223,23 @@ describe("buildScaledRecipeParts", () => {
     ]);
   });
 
+  it("does not add generic butter when an instruction references a specific declaration", () => {
+    const parts = buildScaledRecipeParts(
+      parsedAt(
+        [
+          "@butter|unsalted butter{200%g}",
+          "",
+          "Cream the @butter{} with sugar.",
+        ].join("\n"),
+      ),
+    );
+
+    expect(parts.ingredientGroups[0]?.items).toEqual([
+      { ingredient: "unsalted-butter", amount: 200, unit: "g" },
+    ]);
+    expect(parts.instructions).toEqual(["Cream the butter with sugar."]);
+  });
+
   it("lists cookware by its registered name while steps keep the alias", () => {
     const parts = buildScaledRecipeParts(
       parsedAt(

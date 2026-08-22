@@ -166,7 +166,16 @@ function findDeclaredIngredientSlugs(
       }
       for (const item of content.value.items) {
         if (item.type !== "ingredient") continue;
-        declaredSlugs.add(resolvedIngredientSlug(ingredients[item.index]!));
+        const ingredient = ingredients[item.index];
+        if (!ingredient) continue;
+        declaredSlugs.add(resolvedIngredientSlug(ingredient));
+        // Cooklang references a declaration by its registered name, even when
+        // the declaration uses a purchasing-specific display alias. Keep both
+        // identities so a later `@butter{}` does not become an extra generic
+        // item after `@butter|unsalted butter{}` was already declared.
+        declaredSlugs.add(
+          normalizeIngredientSlugForOutput(ingredient.name) as IngredientSlug,
+        );
       }
     }
   }
