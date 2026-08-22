@@ -155,6 +155,7 @@ const dbMock = vi.hoisted(() => {
       agentNameSnapshot: string;
       capabilitiesSnapshot: string;
       expiresAtSnapshot: Date;
+      approvalCodeCiphertext: string | null;
       approvalStatus: string | null;
       approvalExpiresAt: Date | null;
     }[],
@@ -368,6 +369,7 @@ const dbMock = vi.hoisted(() => {
         agentNameSnapshot: params[3] as string,
         capabilitiesSnapshot: params[4] as string,
         expiresAtSnapshot: params[5] as Date,
+        approvalCodeCiphertext: (params[6] as string | undefined) ?? null,
         approvalStatus: "pending",
         approvalExpiresAt: params[5] as Date,
       });
@@ -1120,6 +1122,7 @@ const dbMock = vi.hoisted(() => {
           row.agentNameSnapshot,
           row.capabilitiesSnapshot,
           row.expiresAtSnapshot,
+          row.approvalCodeCiphertext,
           row.approvalStatus,
           row.approvalExpiresAt,
         ]);
@@ -1824,6 +1827,7 @@ vi.mock("jose", () => ({
 }));
 
 import handler, { app } from "../src/index";
+import { encryptAgentApprovalCode } from "../src/notifications";
 
 // Route ids are validated as UUIDs before any query runs, so seeded rows and
 // request paths use fixed UUID ids.
@@ -4947,6 +4951,10 @@ describe("household membership flows", () => {
       agentNameSnapshot: "Meal planner",
       capabilitiesSnapshot: "recipes.search recipes.read",
       expiresAtSnapshot: expiresAt,
+      approvalCodeCiphertext: await encryptAgentApprovalCode(
+        "WXYZ-9876",
+        env.BETTER_AUTH_SECRET,
+      ),
       approvalStatus: "pending",
       approvalExpiresAt: expiresAt,
     });
@@ -4966,7 +4974,7 @@ describe("household membership flows", () => {
             capabilities: ["recipes.search", "recipes.read"],
             status: "pending",
             reviewUrl:
-              "/recipes/settings/agents/approve?agent_id=agent-1",
+              "/recipes/settings/agents/approve?agent_id=agent-1&code=WXYZ-9876",
           },
         },
       ],

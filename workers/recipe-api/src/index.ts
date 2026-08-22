@@ -70,6 +70,8 @@ import {
   createAgentApprovalNotification,
   createHouseholdNotification,
   createRecipeRecommendationNotification,
+  decryptAgentApprovalCode,
+  encryptAgentApprovalCode,
   type HouseholdNotificationKind,
   markInvitationNotificationRead,
 } from "./notifications";
@@ -168,6 +170,7 @@ const agentRegistrationApprovalSchema = z
       .object({
         method: z.literal("device_authorization"),
         device_code: z.string().min(1),
+        user_code: z.string().min(1),
       })
       .passthrough(),
   })
@@ -1683,6 +1686,7 @@ async function hydrateNotifications(
   db: Db,
   recipientUserId: string,
   rows: NotificationBaseRow[],
+  approvalCodeSecret: string,
 ) {
   const agentApprovalEventIds = rows
     .filter(({ kind }) => kind === "agent_approval_requested")
@@ -1700,6 +1704,8 @@ async function hydrateNotifications(
               schema.notificationAgentApprovalEvent.capabilitiesSnapshot,
             expiresAtSnapshot:
               schema.notificationAgentApprovalEvent.expiresAtSnapshot,
+            approvalCodeCiphertext:
+              schema.notificationAgentApprovalEvent.approvalCodeCiphertext,
             approvalStatus: schema.approvalRequest.status,
             approvalExpiresAt: schema.approvalRequest.expiresAt,
           })
@@ -1719,6 +1725,19 @@ async function hydrateNotifications(
           );
   const agentApprovalsByEventId = new Map(
     agentApprovalRows.map((row) => [row.eventId, row]),
+  );
+  const agentApprovalCodesByEventId = new Map(
+    await Promise.all(
+      agentApprovalRows.map(async (row) => [
+        row.eventId,
+        row.approvalCodeCiphertext
+          ? await decryptAgentApprovalCode(
+              row.approvalCodeCiphertext,
+              approvalCodeSecret,
+            ).catch(() => null)
+          : null,
+      ] as const),
+    ),
   );
   const householdEventIds = rows
     .filter(({ kind }) => isHouseholdNotificationKind(kind))
@@ -1848,6 +1867,7 @@ async function hydrateNotifications(
         detail.approvalStatus,
         expiresAt,
       );
+      const approvalCode = agentApprovalCodesByEventId.get(row.eventId);
       return {
         ...base,
         kind: "agent_approval_requested" as const,
@@ -1858,8 +1878,8 @@ async function hydrateNotifications(
           status,
           expiresAt,
           reviewUrl:
-            status === "pending"
-              ? `/recipes/settings/agents/approve?agent_id=${encodeURIComponent(detail.agentId)}`
+            status === "pending" && approvalCode
+              ? `/recipes/settings/agents/approve?agent_id=${encodeURIComponent(detail.agentId)}&code=${encodeURIComponent(approvalCode)}`
               : null,
         },
         actions: [] as string[],
@@ -2547,6 +2567,7 @@ registerRoute("post", "/api/auth/preview/sign-in", async (c) => {
 async function notifyAgentRegistrationApproval(
   db: Db,
   response: Response,
+  approvalCodeSecret: string,
 ): Promise<void> {
   if (!response.ok) return;
   const parsed = agentRegistrationApprovalSchema.safeParse(
@@ -2575,6 +2596,10 @@ async function notifyAgentRegistrationApproval(
     .limit(1);
   const recipientUserId = approval?.userId;
   if (!approval || !recipientUserId) return;
+  const approvalCodeCiphertext = await encryptAgentApprovalCode(
+    parsed.data.approval.user_code,
+    approvalCodeSecret,
+  );
 
   await db.transaction((tx) =>
     createAgentApprovalNotification(tx, {
@@ -2582,6 +2607,7 @@ async function notifyAgentRegistrationApproval(
       approval: { id: approval.id, expiresAt: approval.expiresAt },
       agent: { id: parsed.data.agent_id, name: parsed.data.name },
       capabilities: approval.capabilities?.split(" ").filter(Boolean) ?? [],
+      approvalCodeCiphertext,
     }),
   );
 }
@@ -2629,7 +2655,11 @@ app.on(["POST", "GET"], "/api/auth/*", async (c) => {
     const response = await auth.handler(c.req.raw);
     if (c.req.path === "/api/auth/agent/register") {
       try {
-        await notifyAgentRegistrationApproval(db, response);
+        await notifyAgentRegistrationApproval(
+          db,
+          response,
+          c.env.BETTER_AUTH_SECRET,
+        );
       } catch (error) {
         console.error("Agent approval notification creation failed", error);
       }
@@ -3900,6 +3930,7 @@ registerRoute("get", "/notifications", async (c) => {
         db,
         session.user.id,
         deliveries.slice(0, NOTIFICATION_PAGE_SIZE),
+        c.env.BETTER_AUTH_SECRET,
       );
       return c.json(
         {
@@ -4010,7 +4041,12 @@ registerRoute("post", "/notifications/:notificationId/actions/:actionKey", async
         )
         .limit(1);
       if (!updated) return c.notFound();
-      const [item] = await hydrateNotifications(db, session.user.id, [updated]);
+      const [item] = await hydrateNotifications(
+        db,
+        session.user.id,
+        [updated],
+        c.env.BETTER_AUTH_SECRET,
+      );
       return c.json({ item });
     },
     { onError: (error) => invitationActionFailure(c, error) },

@@ -1,0 +1,1 @@
+ALTER TABLE "notification_agent_approval_event" ADD COLUMN "approval_code_ciphertext" text;

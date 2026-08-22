@@ -420,6 +420,7 @@ export const notificationAgentApprovalEvent = pgTable(
     agentNameSnapshot: text().notNull(),
     capabilitiesSnapshot: text().notNull(),
     expiresAtSnapshot: timestamp({ withTimezone: true }).notNull(),
+    approvalCodeCiphertext: text(),
   },
   (table) => [
     uniqueIndex("notification_agent_approval_request_uidx").on(

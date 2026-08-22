@@ -2,6 +2,86 @@ import { and, eq, inArray } from "drizzle-orm";
 import type { Db } from "recipe-db";
 import * as schema from "recipe-db/schema";
 
+const AGENT_APPROVAL_CODE_CIPHER_VERSION = "v1";
+const AGENT_APPROVAL_CODE_KEY_CONTEXT = new TextEncoder().encode(
+  "recipe-agent-approval-notification",
+);
+
+function encodeBase64Url(bytes: Uint8Array): string {
+  let binary = "";
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary)
+    .replaceAll("+", "-")
+    .replaceAll("/", "_")
+    .replace(/=+$/, "");
+}
+
+function decodeBase64Url(value: string): Uint8Array {
+  const base64 = value.replaceAll("-", "+").replaceAll("_", "/");
+  const padded = base64.padEnd(Math.ceil(base64.length / 4) * 4, "=");
+  const binary = atob(padded);
+  return Uint8Array.from(binary, (character) => character.charCodeAt(0));
+}
+
+async function agentApprovalCodeKey(secret: string): Promise<CryptoKey> {
+  const keyMaterial = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(secret),
+    "HKDF",
+    false,
+    ["deriveKey"],
+  );
+  return crypto.subtle.deriveKey(
+    {
+      name: "HKDF",
+      hash: "SHA-256",
+      salt: AGENT_APPROVAL_CODE_KEY_CONTEXT,
+      info: AGENT_APPROVAL_CODE_KEY_CONTEXT,
+    },
+    keyMaterial,
+    { name: "AES-GCM", length: 256 },
+    false,
+    ["encrypt", "decrypt"],
+  );
+}
+
+export async function encryptAgentApprovalCode(
+  code: string,
+  secret: string,
+): Promise<string> {
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const ciphertext = await crypto.subtle.encrypt(
+    { name: "AES-GCM", iv },
+    await agentApprovalCodeKey(secret),
+    new TextEncoder().encode(code),
+  );
+  return [
+    AGENT_APPROVAL_CODE_CIPHER_VERSION,
+    encodeBase64Url(iv),
+    encodeBase64Url(new Uint8Array(ciphertext)),
+  ].join(".");
+}
+
+export async function decryptAgentApprovalCode(
+  value: string,
+  secret: string,
+): Promise<string> {
+  const [version, encodedIv, encodedCiphertext] = value.split(".");
+  if (
+    version !== AGENT_APPROVAL_CODE_CIPHER_VERSION ||
+    !encodedIv ||
+    !encodedCiphertext
+  ) {
+    throw new Error("Unsupported agent approval code ciphertext");
+  }
+  const plaintext = await crypto.subtle.decrypt(
+    { name: "AES-GCM", iv: decodeBase64Url(encodedIv) },
+    await agentApprovalCodeKey(secret),
+    decodeBase64Url(encodedCiphertext),
+  );
+  return new TextDecoder().decode(plaintext);
+}
+
 export type HouseholdNotificationKind =
   | "household_invited"
   | "household_removed"
@@ -17,6 +97,7 @@ export async function createAgentApprovalNotification(
     approval: { id: string; expiresAt: Date };
     agent: { id: string; name: string };
     capabilities: string[];
+    approvalCodeCiphertext: string;
   },
 ) {
   const eventId = crypto.randomUUID();
@@ -31,6 +112,7 @@ export async function createAgentApprovalNotification(
     agentNameSnapshot: values.agent.name,
     capabilitiesSnapshot: values.capabilities.join(" "),
     expiresAtSnapshot: values.approval.expiresAt,
+    approvalCodeCiphertext: values.approvalCodeCiphertext,
   });
   await db.insert(schema.notificationDelivery).values({
     id: crypto.randomUUID(),

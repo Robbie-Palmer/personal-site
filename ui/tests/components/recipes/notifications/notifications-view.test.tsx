@@ -181,7 +181,8 @@ describe("NotificationsView", () => {
         capabilities: ["recipes.search", "recipes.read"],
         status: "pending",
         expiresAt: "2026-08-22T14:05:00.000Z",
-        reviewUrl: "/recipes/settings/agents/approve?agent_id=agent-1",
+        reviewUrl:
+          "/recipes/settings/agents/approve?agent_id=agent-1&code=WXYZ-9876",
       },
       readAt: null,
       occurredAt: "2026-08-22T14:00:00.000Z",
@@ -199,7 +200,7 @@ describe("NotificationsView", () => {
       screen.getByRole("link", { name: "Review request" }),
     ).toHaveAttribute(
       "href",
-      "/recipes/settings/agents/approve?agent_id=agent-1",
+      "/recipes/settings/agents/approve?agent_id=agent-1&code=WXYZ-9876",
     );
     expect(
       screen.getByText(/recipes.search, recipes.read/),

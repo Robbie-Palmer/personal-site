@@ -4,7 +4,6 @@ import { Bot, Check, LoaderCircle, Lock, X } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { authClient } from "@/lib/auth-client";
 
 type CapabilityGrant = {
@@ -23,17 +22,17 @@ type AgentRequest = {
 
 type ApprovalIntent = {
   agentId: string;
-  initialCode: string;
+  code: string;
 };
 
 function readApprovalIntent(): ApprovalIntent | null {
   const params = new URLSearchParams(globalThis.location.search);
   const agentId = params.get("agent_id")?.trim();
-  const code = params.get("code")?.trim() ?? "";
-  if (!agentId) return null;
+  const code = params.get("code")?.trim();
+  if (!agentId || !code) return null;
 
   globalThis.history.replaceState(null, "", globalThis.location.pathname);
-  return { agentId, initialCode: code };
+  return { agentId, code };
 }
 
 async function responseError(response: Response): Promise<string> {
@@ -47,7 +46,6 @@ async function responseError(response: Response): Promise<string> {
 export function AgentApprovalView() {
   const { data: session, isPending: sessionPending } = authClient.useSession();
   const [intent, setIntent] = useState<ApprovalIntent | null | undefined>();
-  const [code, setCode] = useState("");
   const [agent, setAgent] = useState<AgentRequest | null>(null);
   const [loading, setLoading] = useState(false);
   const [pendingAction, setPendingAction] = useState<"approve" | "deny" | null>(
@@ -57,9 +55,7 @@ export function AgentApprovalView() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const nextIntent = readApprovalIntent();
-    setIntent(nextIntent);
-    setCode(nextIntent?.initialCode ?? "");
+    setIntent(readApprovalIntent());
   }, []);
 
   useEffect(() => {
@@ -101,7 +97,7 @@ export function AgentApprovalView() {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           agent_id: intent.agentId,
-          user_code: code.trim(),
+          user_code: intent.code,
           action,
         }),
       });
@@ -210,35 +206,11 @@ export function AgentApprovalView() {
         </p>
       )}
 
-      <div className="mt-5">
-        <label
-          htmlFor="agent-approval-code"
-          className="rt-mono text-sm text-[var(--ink-2)]"
-        >
-          Approval code
-        </label>
-        <Input
-          id="agent-approval-code"
-          className="mt-2 font-mono uppercase"
-          value={code}
-          maxLength={9}
-          autoComplete="one-time-code"
-          autoCapitalize="characters"
-          spellCheck={false}
-          placeholder="ABCD-1234"
-          onChange={(event) => setCode(event.target.value.toUpperCase())}
-        />
-        <p className="rt-body mt-2 text-sm text-[var(--ink-3)]">
-          Enter the code shown by the agent host. Direct approval links fill it
-          in automatically.
-        </p>
-      </div>
-
       <div className="mt-6 flex flex-wrap gap-3">
         <Button
           type="button"
           onClick={() => void decide("approve")}
-          disabled={!agent || !code.trim() || pendingAction !== null}
+          disabled={!agent || pendingAction !== null}
           className="bg-[var(--terracotta)] text-white hover:bg-[var(--terracotta-deep)]"
         >
           {pendingAction === "approve" && (
@@ -250,7 +222,7 @@ export function AgentApprovalView() {
           type="button"
           variant="outline"
           onClick={() => void decide("deny")}
-          disabled={!code.trim() || pendingAction !== null}
+          disabled={pendingAction !== null}
         >
           {pendingAction === "deny" && (
             <LoaderCircle className="size-4 animate-spin" />

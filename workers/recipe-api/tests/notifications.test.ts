@@ -4,10 +4,33 @@ import {
   createAgentApprovalNotification,
   createHouseholdNotification,
   createRecipeRecommendationNotification,
+  decryptAgentApprovalCode,
+  encryptAgentApprovalCode,
   markInvitationNotificationRead,
 } from "../src/notifications";
 
 describe("notification persistence", () => {
+  it("encrypts approval codes for one-click notification links", async () => {
+    const encrypted = await encryptAgentApprovalCode(
+      "ABCD-1234",
+      "test-secret-at-least-32-characters-long",
+    );
+
+    expect(encrypted).not.toContain("ABCD-1234");
+    await expect(
+      decryptAgentApprovalCode(
+        encrypted,
+        "test-secret-at-least-32-characters-long",
+      ),
+    ).resolves.toBe("ABCD-1234");
+    await expect(
+      decryptAgentApprovalCode(
+        encrypted,
+        "different-test-secret-at-least-32-chars",
+      ),
+    ).rejects.toThrow();
+  });
+
   it("stores an agent approval notification without the device code", async () => {
     const inserts: Array<{ table: unknown; values: unknown }> = [];
     const db = {
@@ -25,6 +48,7 @@ describe("notification persistence", () => {
       approval: { id: "approval-1", expiresAt },
       agent: { id: "agent-1", name: "Meal planner" },
       capabilities: ["recipes.search", "recipes.read"],
+      approvalCodeCiphertext: "v1.encrypted.code",
     });
 
     expect(inserts.map(({ table }) => table)).toEqual([
@@ -42,6 +66,7 @@ describe("notification persistence", () => {
         agentNameSnapshot: "Meal planner",
         capabilitiesSnapshot: "recipes.search recipes.read",
         expiresAtSnapshot: expiresAt,
+        approvalCodeCiphertext: "v1.encrypted.code",
       }),
     );
     expect(inserts[1]?.values).not.toHaveProperty("userCode");
