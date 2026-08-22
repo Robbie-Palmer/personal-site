@@ -152,8 +152,8 @@ beforeAll(async () => {
     where slug in ('almond-milk', 'cajun-powder', 'cajun-seasoning', 'salted-butter')
     order by slug
   `;
-  expect(migrationCount?.count).toBe(9);
-  expect(tableCount?.count).toBe(35);
+  expect(migrationCount?.count).toBe(10);
+  expect(tableCount?.count).toBe(41);
   expect(catalogRows).toEqual([
     { category: "dairy", slug: "almond-milk" },
     { category: "spice", slug: "cajun-seasoning" },
@@ -163,14 +163,17 @@ beforeAll(async () => {
 
 beforeEach(async () => {
   // Keep the migration journal and reference catalog installed by migrations.
-  // These five roots cover every mutable application table through CASCADE.
+  // These roots cover every mutable application table through CASCADE.
   await client.unsafe(`
     truncate table
       "user",
       "organization",
       "notification_event",
       "app_rate_limit",
-      "verification"
+      "verification",
+      "agent_host",
+      "agent_auth_audit_event",
+      "auth_secondary_storage"
     restart identity cascade
   `);
 });
