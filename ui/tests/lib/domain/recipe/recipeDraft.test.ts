@@ -99,6 +99,7 @@ describe("savedRecipeCard", () => {
         image: "recipes/weeknight-rice-2026-07-22",
         imageAlt: "A bowl of rice",
         canonical: "https://example.test/weeknight-rice",
+        visibility,
       });
     },
   );
