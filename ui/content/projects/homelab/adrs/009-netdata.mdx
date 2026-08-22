@@ -52,9 +52,14 @@ What it watches, and why each earns its place:
 One gap is worth stating plainly, because it's structural rather than
 fixable by tuning: this monitoring shares fate with the network it watches.
 Netdata runs on the same two boxes as the resolvers and needs DNS to reach
-Slack, so a *total* DNS outage is precisely the case where nothing alerts —
-it gets noticed when the network stops working. Single-box failure, which is
-what the redundant pair exists for, does alert normally.
+Slack, so a *total* DNS outage is precisely the case where nothing alerts. It
+gets noticed when the network stops working. Single-box failure, which is what
+the redundant pair exists for, does alert normally.
+
+The proposed [phone device lab](/projects/homelab/adrs/015-phone-device-lab)
+can close this gap. Its View 20 watchdog would check the lab through Tailscale
+over mobile data and deliver an alert without using the home LAN or its DNS.
+Until that pilot succeeds, the gap remains.
 
 # Alternatives
 
