@@ -238,7 +238,15 @@ describe("PullRequestCoordinator in workerd", () => {
       recordType: "finding-outcome",
       outcomeVersion: 1,
       outcome: "acknowledged",
+      outcomeKind: "adjudicated",
       basis: "explicit-disposition",
+      confidence: 1,
+      evaluatorVersion: "deterministic-outcomes-v1",
+      manualOverride: {
+        actor: dispositionInteraction.actor,
+        deliveryId: dispositionInteraction.deliveryId,
+        reason: dispositionInteraction.reason,
+      },
       evidence: {
         deliveryId: dispositionInteraction.deliveryId,
         actor: dispositionInteraction.actor,
@@ -453,12 +461,46 @@ describe("PullRequestCoordinator in workerd", () => {
       recordType: "finding-outcome",
       outcomeVersion: 2,
       outcome: "confirmed-fixed",
+      outcomeKind: "adjudicated",
       basis: "explicit-disposition",
+      confidence: 1,
+      evaluatorVersion: "deterministic-outcomes-v1",
+      manualOverride: {
+        actor: "Robbie-Palmer",
+        deliveryId: confirmation.deliveryId,
+        reason: "Reviewed the replay evidence and verified the retry repair",
+      },
       evidence: {
         actor: "Robbie-Palmer",
         reason: "Reviewed the replay evidence and verified the retry repair",
       },
     });
+    const finalizationAfterOverride = await stub.fetch(
+      "https://coordinator.test/finalizations",
+      {
+        method: "POST",
+        body: JSON.stringify({
+          deliveryId: "workerd-finalization-after-override",
+          eventName: "pull_request",
+          action: "closed",
+          repository: event.repository,
+          pullRequestNumber: event.pullRequestNumber,
+          headSha: fixedHead,
+          finalState: "merged",
+          occurredAt: "2026-08-09T12:15:00Z",
+        }),
+      },
+    );
+    await expect(finalizationAfterOverride.json()).resolves.toEqual({
+      accepted: true,
+      duplicate: false,
+      outcomes: 0,
+      pending: 0,
+      manualRequired: 0,
+    });
+    expect(
+      await (env as unknown as Env).REVIEW_DATA.get(`${outcomePrefix}/v3.json`),
+    ).toBeNull();
     const laterBaseline = await stub.fetch(
       "https://coordinator.test/reviews/baseline",
       { method: "POST", body: JSON.stringify({ headSha: fixedHead }) },
@@ -719,7 +761,7 @@ describe("PullRequestCoordinator in workerd", () => {
       pullRequestNumber,
       headSha: finalHead,
       finalState: "merged",
-      occurredAt: "2026-08-15T12:00:00Z",
+      occurredAt: new Date().toISOString(),
     };
     const finalized = await stub.fetch(
       "https://coordinator.test/finalizations",
@@ -728,7 +770,9 @@ describe("PullRequestCoordinator in workerd", () => {
     await expect(finalized.json()).resolves.toEqual({
       accepted: true,
       duplicate: false,
-      outcomes: 2,
+      outcomes: 1,
+      pending: 1,
+      manualRequired: 0,
     });
     const duplicate = await stub.fetch(
       "https://coordinator.test/finalizations",
@@ -752,15 +796,31 @@ describe("PullRequestCoordinator in workerd", () => {
       ].join("/");
       return bindings.REVIEW_DATA.get(key).then((record) => record?.json());
     };
-    await expect(outcome(remainingFinding.findingId)).resolves.toMatchObject({
-      outcome: "no-observable-response",
-      basis: "pull-request-finalization",
-      evidence: { finalHeadWasReviewed: true, affectedCodeRemains: true },
-    });
+    await expect(outcome(remainingFinding.findingId)).resolves.toBeUndefined();
     await expect(outcome(removedFinding.findingId)).resolves.toMatchObject({
       outcome: "superseded",
+      outcomeKind: "censored",
+      confidence: 1,
+      evaluatorVersion: "deterministic-outcomes-v1",
       basis: "pull-request-finalization",
       evidence: { finalHeadWasReviewed: true, affectedCodeRemains: false },
+    });
+
+    await new Promise((resolve) => setTimeout(resolve, 1_100));
+    await runInDurableObject(stub, async (instance) => {
+      await instance.alarm?.();
+    });
+    await expect(outcome(remainingFinding.findingId)).resolves.toMatchObject({
+      outcome: "no-observable-response",
+      outcomeKind: "workflow",
+      basis: "outcome-window",
+      confidence: 1,
+      evaluatorVersion: "deterministic-outcomes-v1",
+      evidence: {
+        finalHeadWasReviewed: true,
+        affectedCodeRemains: true,
+        correctnessJudgment: false,
+      },
     });
   });
 });

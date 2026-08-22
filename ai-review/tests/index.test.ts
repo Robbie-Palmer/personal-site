@@ -652,6 +652,8 @@ describe("PullRequestCoordinator", () => {
       accepted: true,
       duplicate: false,
       outcomes: 2,
+      pending: 0,
+      manualRequired: 0,
     });
     expect(put).toHaveBeenCalledTimes(2);
     expect(put).toHaveBeenCalledWith(
@@ -733,6 +735,8 @@ describe("PullRequestCoordinator", () => {
       accepted: true,
       duplicate: false,
       outcomes: 0,
+      pending: 0,
+      manualRequired: 0,
     });
     expect(consoleError).toHaveBeenCalledWith(
       "Could not publish a finding outcome",
