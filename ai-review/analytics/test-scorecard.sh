@@ -87,12 +87,14 @@ if [[ "$duplicate_error" != *"conflicting or duplicate terminal records"* ]]; th
   exit 1
 fi
 
-mkdir -p "$invalid_outcome/null" "$invalid_outcome/unknown"
+mkdir -p "$invalid_outcome/null" "$invalid_outcome/unknown" "$invalid_outcome/basis-mismatch"
 cp "$here/fixtures/v2/acme/widgets/pr-7/head-1/run-1/published.json" "$invalid_outcome/null/published.json"
 cp "$here/fixtures/v2/acme/widgets/pr-7/head-1/run-1/published.json" "$invalid_outcome/unknown/published.json"
+cp "$here/fixtures/v2/acme/widgets/pr-7/head-1/run-1/published.json" "$invalid_outcome/basis-mismatch/published.json"
 jq '.outcome = null' "$here/fixtures/v2/acme/widgets/pr-7/findings/f_fixed/outcomes/v1.json" > "$invalid_outcome/null/outcome.json"
 jq '.outcome = "invented"' "$here/fixtures/v2/acme/widgets/pr-7/findings/f_fixed/outcomes/v1.json" > "$invalid_outcome/unknown/outcome.json"
-for invalid in null unknown; do
+jq '.outcome = "superseded" | .outcomeKind = "censored" | .basis = "outcome-window"' "$here/fixtures/v2/acme/widgets/pr-7/findings/f_fixed/outcomes/v1.json" > "$invalid_outcome/basis-mismatch/outcome.json"
+for invalid in null unknown basis-mismatch; do
   if outcome_error=$("$here/build-scorecard.sh" "$invalid_outcome/$invalid" "$invalid_outcome/$invalid-output" 2>&1); then
     echo "$invalid outcome was not rejected" >&2
     exit 1

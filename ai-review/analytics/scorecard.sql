@@ -86,7 +86,15 @@ SELECT
   json_extract_string(json, '$.findingId') AS finding_id,
   cast(json_extract_string(json, '$.outcomeVersion') AS INTEGER) AS outcome_version,
   json_extract_string(json, '$.outcome') AS outcome,
+  coalesce(json_extract_string(json, '$.outcomeKind'), CASE
+    WHEN json_extract_string(json, '$.outcome') = 'no-observable-response' THEN 'workflow'
+    WHEN json_extract_string(json, '$.outcome') = 'superseded' THEN 'censored'
+    ELSE 'adjudicated'
+  END) AS outcome_kind,
   json_extract_string(json, '$.basis') AS outcome_basis,
+  coalesce(try_cast(json_extract_string(json, '$.confidence') AS DOUBLE), 1) AS outcome_confidence,
+  coalesce(json_extract_string(json, '$.evaluatorVersion'), 'legacy-v1') AS evaluator_version,
+  json_type(json, '$.manualOverride') = 'OBJECT' AS manual_override,
   json_extract_string(json, '$.occurredAt')::TIMESTAMPTZ AS outcome_at
 FROM raw_objects WHERE json_extract_string(json, '$.recordType') = 'finding-outcome';
 
@@ -100,7 +108,16 @@ WHERE repository IS NULL OR pull_request_number IS NULL OR finding_id IS NULL
    OR outcome IS NULL OR outcome NOT IN
       ('confirmed-fixed', 'acknowledged', 'rejected', 'superseded', 'no-observable-response')
    OR outcome_basis IS NULL OR outcome_basis NOT IN
-      ('explicit-disposition', 'later-reviewed-head', 'pull-request-finalization')
+      ('explicit-disposition', 'later-reviewed-head', 'pull-request-finalization', 'outcome-window')
+   OR (outcome_basis = 'outcome-window' AND outcome != 'no-observable-response')
+   OR outcome_kind NOT IN ('adjudicated', 'censored', 'workflow')
+   OR outcome_kind IS DISTINCT FROM CASE
+      WHEN outcome = 'no-observable-response' THEN 'workflow'
+      WHEN outcome = 'superseded' THEN 'censored'
+      ELSE 'adjudicated'
+   END
+   OR outcome_confidence < 0 OR outcome_confidence > 1
+   OR evaluator_version IS NULL
    OR outcome_at IS NULL;
 
 CREATE TABLE published_findings AS
@@ -137,7 +154,8 @@ WITH first_publication AS (
 ), latest_outcome AS (
   SELECT * EXCLUDE (rn) FROM (SELECT *, row_number() OVER (PARTITION BY repository, pull_request_number, finding_id ORDER BY outcome_version DESC) rn FROM finding_history) WHERE rn = 1
 )
-SELECT p.*, o.outcome_version, o.outcome, o.outcome_basis, o.outcome_at,
+SELECT p.*, o.outcome_version, o.outcome, o.outcome_kind, o.outcome_basis,
+       o.outcome_confidence, o.evaluator_version, o.manual_override, o.outcome_at,
        o.outcome IN ('confirmed-fixed', 'acknowledged') AS accepted,
        o.outcome = 'confirmed-fixed' AS fixed,
        o.outcome = 'rejected' AS rejected,

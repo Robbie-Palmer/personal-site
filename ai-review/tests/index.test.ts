@@ -70,7 +70,10 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-function coordinatorFixture(existingDeliveries: string[] = []) {
+function coordinatorFixture(
+  existingDeliveries: string[] = [],
+  envOverrides: Partial<Env> = {},
+) {
   const sqlExec = vi.fn(
     (
       query: string,
@@ -109,6 +112,7 @@ function coordinatorFixture(existingDeliveries: string[] = []) {
     AI_REVIEW_DEBOUNCE_SECONDS: "2",
     REVIEW_DATA: { put },
     REVIEW_WORKFLOW: { createBatch, get: workflowGet },
+    ...envOverrides,
   } as unknown as Env;
   const coordinator = new PullRequestCoordinator(
     { storage } as unknown as DurableObjectState,
@@ -484,7 +488,7 @@ describe("PullRequestCoordinator", () => {
     const response = await coordinator.fetch(
       new Request("https://coordinator.test/interactions", {
         method: "POST",
-        body: JSON.stringify(findingInteraction),
+        body: JSON.stringify({ ...findingInteraction, reason: undefined }),
       }),
     );
 
@@ -503,6 +507,13 @@ describe("PullRequestCoordinator", () => {
         String(query).includes("SET disposition = ?"),
       ),
     ).toBe(true);
+    const outcomeInsert = sqlExec.mock.calls.find(([query]) =>
+      String(query).includes("INSERT OR IGNORE INTO review_finding_outcomes")
+    );
+    expect(JSON.parse(String(outcomeInsert?.[9]))).toMatchObject({
+      manualOverride: { reason: "Trusted manual disposition" },
+      evidence: { reason: "Trusted manual disposition" },
+    });
   });
 
   it("requires a fixed controlled replay before trusted confirmation", async () => {
@@ -652,6 +663,8 @@ describe("PullRequestCoordinator", () => {
       accepted: true,
       duplicate: false,
       outcomes: 2,
+      pending: 0,
+      manualRequired: 0,
     });
     expect(put).toHaveBeenCalledTimes(2);
     expect(put).toHaveBeenCalledWith(
@@ -704,6 +717,130 @@ describe("PullRequestCoordinator", () => {
     expect(duplicate.put).not.toHaveBeenCalled();
   });
 
+  it("schedules silent findings after the configured outcome window", async () => {
+    const { coordinator, sqlExec, storage } = coordinatorFixture([], {
+      AI_REVIEW_OUTCOME_WINDOW_SECONDS: "60",
+    });
+    storage.getAlarm.mockResolvedValue(null);
+    sqlExec.mockImplementation((query: string) => ({
+      rowsWritten: 1,
+      toArray: () =>
+        query.includes("FROM review_findings ORDER BY")
+          ? [{
+              finding_id: identifiedFinding.findingId,
+              disposition: null,
+              disposition_reason: null,
+              first_seen_head_sha: event.headSha,
+              last_seen_head_sha: event.headSha,
+              first_seen_run_id: "initial-run",
+              last_seen_run_id: "initial-run",
+            }]
+          : [],
+    }));
+    const finalization = {
+      ...pullRequestFinalization,
+      deliveryId: "pending-finalization",
+      occurredAt: new Date().toISOString(),
+    };
+
+    const response = await coordinator.fetch(
+      new Request("https://coordinator.test/finalizations", {
+        method: "POST",
+        body: JSON.stringify(finalization),
+      }),
+    );
+
+    await expect(response.json()).resolves.toEqual({
+      accepted: true,
+      duplicate: false,
+      outcomes: 0,
+      pending: 1,
+      manualRequired: 0,
+    });
+    expect(storage.kv.put).toHaveBeenCalledWith(
+      "pending-outcome-evaluation",
+      expect.objectContaining({
+        kind: "finding-outcome-evaluation",
+        event: finalization,
+      }),
+    );
+    expect(storage.setAlarm).toHaveBeenCalledOnce();
+  });
+
+  it("uses the default outcome window for invalid configuration", async () => {
+    const { coordinator } = coordinatorFixture([], {
+      AI_REVIEW_OUTCOME_WINDOW_SECONDS: "invalid",
+    });
+    const response = await coordinator.fetch(
+      new Request("https://coordinator.test/finalizations", {
+        method: "POST",
+        body: JSON.stringify({
+          ...pullRequestFinalization,
+          deliveryId: "default-window-finalization",
+          occurredAt: new Date().toISOString(),
+        }),
+      }),
+    );
+
+    await expect(response.json()).resolves.toEqual({
+      accepted: true,
+      duplicate: false,
+      outcomes: 0,
+      pending: 0,
+      manualRequired: 0,
+    });
+  });
+
+  it("does not postpone an existing evaluation for a duplicate delivery", async () => {
+    const { coordinator, sqlExec, storage } = coordinatorFixture(
+      [event.deliveryId],
+      { AI_REVIEW_OUTCOME_WINDOW_SECONDS: "60" },
+    );
+    const existingPending = {
+      kind: "finding-outcome-evaluation",
+      dueAt: Date.now() + 10_000,
+      event: {
+        ...pullRequestFinalization,
+        deliveryId: event.deliveryId,
+        occurredAt: new Date().toISOString(),
+      },
+    } as const;
+    storage.get.mockResolvedValue(existingPending);
+    sqlExec.mockImplementation((query: string) => ({
+      rowsWritten: 1,
+      toArray: () => {
+        if (query.includes("FROM webhook_deliveries")) {
+          return [{ delivery_id: event.deliveryId }];
+        }
+        if (query.includes("SELECT COUNT(*) AS pending")) {
+          return [{ pending: 1 }];
+        }
+        return [];
+      },
+    }));
+
+    const response = await coordinator.fetch(
+      new Request("https://coordinator.test/finalizations", {
+        method: "POST",
+        body: JSON.stringify({
+          ...pullRequestFinalization,
+          deliveryId: event.deliveryId,
+          occurredAt: new Date(Date.now() + 30_000).toISOString(),
+        }),
+      }),
+    );
+
+    await expect(response.json()).resolves.toEqual({
+      accepted: true,
+      duplicate: true,
+      outcomes: 0,
+    });
+    expect(storage.kv.put).not.toHaveBeenCalledWith(
+      "pending-outcome-evaluation",
+      expect.anything(),
+    );
+  });
+
   it("keeps committed finalization successful when outcome publication fails", async () => {
     const { coordinator, put, sqlExec, storage } = coordinatorFixture();
     const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
@@ -733,6 +870,8 @@ describe("PullRequestCoordinator", () => {
       accepted: true,
       duplicate: false,
       outcomes: 0,
+      pending: 0,
+      manualRequired: 0,
     });
     expect(consoleError).toHaveBeenCalledWith(
       "Could not publish a finding outcome",
@@ -847,6 +986,7 @@ describe("PullRequestCoordinator", () => {
       [],
       { ...findingInteraction, actor: "" },
       { ...findingInteraction, deliveryId: "x".repeat(256) },
+      { ...findingInteraction, reason: "  " },
       { ...findingInteraction, reason: "x".repeat(1_001) },
       { ...findingInteraction, body: "x".repeat(4_001) },
       {

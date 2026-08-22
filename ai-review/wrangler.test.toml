@@ -6,6 +6,8 @@ compatibility_flags = ["nodejs_compat"]
 [vars]
 AI_REVIEW_ENABLED = "true"
 AI_REVIEW_DEBOUNCE_SECONDS = "120"
+AI_REVIEW_OUTCOME_WINDOW_SECONDS = "1"
+AI_REVIEW_OUTCOME_EVALUATOR_VERSION = "deterministic-outcomes-v1"
 
 [[durable_objects.bindings]]
 name = "PR_STATE"

@@ -14,8 +14,11 @@ import type {
 } from "./env";
 import {
   buildFindingOutcomeRecord,
-  classifyFinalizedFinding,
+  DEFAULT_FINDING_OUTCOME_EVALUATOR_VERSION,
+  evaluateFinalizedFinding,
   type FindingOutcomeBasis,
+  type FindingOutcomeManualOverride,
+  summarizeFindingInteractions,
 } from "./finding-outcomes";
 import { createInstallationToken } from "./github-app";
 import type { FindingPublication } from "./finding-lifecycle";
@@ -55,10 +58,19 @@ const OUTCOME_FLUSH_CONCURRENCY = 20;
 const OUTCOME_FLUSH_LIMIT = 100;
 const OUTCOME_FLUSH_RETRY_DELAY_MS = 60_000;
 const OUTCOME_FLUSH_RETRY_KEY = "pending-finding-outcome-flush";
+const PENDING_OUTCOME_EVALUATION_KEY = "pending-outcome-evaluation";
+const DEFAULT_OUTCOME_WINDOW_MS = 7 * 24 * 60 * 60 * 1_000;
+const MINIMUM_OUTCOME_WINDOW_MS = 1_000;
+const MAXIMUM_OUTCOME_WINDOW_MS = 90 * 24 * 60 * 60 * 1_000;
 type FindingOutcomeFlushRetry = {
   kind: "finding-outcomes";
   repository: string;
   pullRequestNumber: number;
+};
+type PendingOutcomeEvaluation = {
+  kind: "finding-outcome-evaluation";
+  dueAt: number;
+  event: PullRequestFinalizationEvent;
 };
 const CREATE_WEBHOOK_DELIVERIES_TABLE =
   "CREATE TABLE IF NOT EXISTS webhook_deliveries (" +
@@ -145,12 +157,24 @@ const CREATE_REVIEW_FINDING_OUTCOMES_TABLE =
   "outcome_version INTEGER NOT NULL, " +
   "outcome TEXT NOT NULL, " +
   "basis TEXT NOT NULL, " +
+  "confidence REAL NOT NULL, " +
+  "evaluator_version TEXT NOT NULL, " +
+  "manual_override INTEGER NOT NULL DEFAULT 0, " +
   "source_id TEXT NOT NULL UNIQUE, " +
   "payload_json TEXT NOT NULL, " +
   "occurred_at TEXT NOT NULL, " +
   "recorded_at TEXT NOT NULL, " +
   "r2_recorded INTEGER NOT NULL DEFAULT 0, " +
   "PRIMARY KEY (finding_id, outcome_version))";
+const CREATE_REVIEW_FINDING_EVALUATIONS_TABLE =
+  "CREATE TABLE IF NOT EXISTS review_finding_evaluations (" +
+  "evaluation_id TEXT PRIMARY KEY, " +
+  "finding_id TEXT NOT NULL, " +
+  "trigger_type TEXT NOT NULL, " +
+  "status TEXT NOT NULL, " +
+  "evaluator_version TEXT NOT NULL, " +
+  "evidence_json TEXT NOT NULL, " +
+  "evaluated_at TEXT NOT NULL)";
 const DEFAULT_DEBOUNCE_DELAY_MS = 120_000;
 const MINIMUM_DEBOUNCE_DELAY_MS = 1_000;
 const MAXIMUM_DEBOUNCE_DELAY_MS = 3_600_000;
@@ -251,6 +275,37 @@ function debounceDelayMs(rawSeconds: string): number {
   return Math.min(
     MAXIMUM_DEBOUNCE_DELAY_MS,
     Math.max(MINIMUM_DEBOUNCE_DELAY_MS, seconds * 1_000),
+  );
+}
+
+function outcomeWindowMs(rawSeconds: string | undefined): number {
+  if (rawSeconds === undefined || rawSeconds.trim() === "") {
+    return DEFAULT_OUTCOME_WINDOW_MS;
+  }
+  const seconds = Number(rawSeconds);
+  if (!Number.isFinite(seconds)) return DEFAULT_OUTCOME_WINDOW_MS;
+  return Math.min(
+    MAXIMUM_OUTCOME_WINDOW_MS,
+    Math.max(MINIMUM_OUTCOME_WINDOW_MS, seconds * 1_000),
+  );
+}
+
+function outcomeEvaluatorVersion(env: Env): string {
+  const configured = env.AI_REVIEW_OUTCOME_EVALUATOR_VERSION?.trim();
+  return configured || DEFAULT_FINDING_OUTCOME_EVALUATOR_VERSION;
+}
+
+function isPendingOutcomeEvaluation(
+  value: unknown,
+): value is PendingOutcomeEvaluation {
+  if (!isRecord(value) || value.kind !== "finding-outcome-evaluation") {
+    return false;
+  }
+  return (
+    typeof value.dueAt === "number" &&
+    Number.isFinite(value.dueAt) &&
+    value.dueAt > 0 &&
+    isPullRequestFinalizationEvent(value.event)
   );
 }
 
@@ -458,7 +513,9 @@ function isFindingInteractionEvent(
     (event.body === undefined ||
       (typeof event.body === "string" && event.body.length <= 4_000)) &&
     (event.reason === undefined ||
-      (typeof event.reason === "string" && event.reason.length <= 1_000)) &&
+      (typeof event.reason === "string" &&
+        event.reason.trim().length > 0 &&
+        event.reason.length <= 1_000)) &&
     (event.findingId === undefined || /^f_[a-f0-9]{24}$/.test(event.findingId)) &&
     (event.rootCommentId === undefined ||
       (Number.isSafeInteger(event.rootCommentId) && event.rootCommentId > 0)) &&
@@ -569,7 +626,9 @@ function isPullRequestFinalizationEvent(
     event.headSha.length <= 64 &&
     (event.finalState === "merged" || event.finalState === "closed") &&
     (event.occurredAt === undefined ||
-      (typeof event.occurredAt === "string" && event.occurredAt.length <= 64))
+      (typeof event.occurredAt === "string" &&
+        event.occurredAt.length <= 64 &&
+        !Number.isNaN(Date.parse(event.occurredAt))))
   );
 }
 
@@ -684,6 +743,25 @@ export class PullRequestCoordinator extends DurableObject<Env> {
     this.ctx.storage.sql.exec(CREATE_REVIEW_FINDING_COMMENTS_TABLE);
     this.ctx.storage.sql.exec(CREATE_REVIEW_FINDING_EVENTS_TABLE);
     this.ctx.storage.sql.exec(CREATE_REVIEW_FINDING_OUTCOMES_TABLE);
+    const outcomeColumns = this.ctx.storage.sql
+      .exec<{ name: string }>("PRAGMA table_info(review_finding_outcomes)")
+      .toArray();
+    if (!outcomeColumns.some(({ name }) => name === "confidence")) {
+      this.ctx.storage.sql.exec(
+        "ALTER TABLE review_finding_outcomes ADD COLUMN confidence REAL NOT NULL DEFAULT 1",
+      );
+    }
+    if (!outcomeColumns.some(({ name }) => name === "evaluator_version")) {
+      this.ctx.storage.sql.exec(
+        "ALTER TABLE review_finding_outcomes ADD COLUMN evaluator_version TEXT NOT NULL DEFAULT 'legacy-v1'",
+      );
+    }
+    if (!outcomeColumns.some(({ name }) => name === "manual_override")) {
+      this.ctx.storage.sql.exec(
+        "ALTER TABLE review_finding_outcomes ADD COLUMN manual_override INTEGER NOT NULL DEFAULT 0",
+      );
+    }
+    this.ctx.storage.sql.exec(CREATE_REVIEW_FINDING_EVALUATIONS_TABLE);
   }
 
   async fetch(request: Request): Promise<Response> {
@@ -707,6 +785,9 @@ export class PullRequestCoordinator extends DurableObject<Env> {
     findingId: string;
     outcome: FindingOutcome;
     basis: FindingOutcomeBasis;
+    confidence: number;
+    evaluatorVersion: string;
+    manualOverride?: FindingOutcomeManualOverride;
     sourceId: string;
     occurredAt: string;
     recordedAt: string;
@@ -734,6 +815,9 @@ export class PullRequestCoordinator extends DurableObject<Env> {
       findingId: options.findingId,
       outcome: options.outcome,
       basis: options.basis,
+      confidence: options.confidence,
+      evaluatorVersion: options.evaluatorVersion,
+      manualOverride: options.manualOverride,
       sourceId: options.sourceId,
       outcomeVersion,
       evidence: options.evidence,
@@ -742,13 +826,17 @@ export class PullRequestCoordinator extends DurableObject<Env> {
     });
     const inserted = this.ctx.storage.sql.exec(
       `INSERT OR IGNORE INTO review_finding_outcomes
-       (finding_id, outcome_version, outcome, basis, source_id, payload_json,
+       (finding_id, outcome_version, outcome, basis, confidence,
+        evaluator_version, manual_override, source_id, payload_json,
         occurred_at, recorded_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       options.findingId,
       outcomeVersion,
       options.outcome,
       options.basis,
+      options.confidence,
+      options.evaluatorVersion,
+      options.manualOverride ? 1 : 0,
       options.sourceId,
       JSON.stringify(payload),
       options.occurredAt,
@@ -837,6 +925,186 @@ export class PullRequestCoordinator extends DurableObject<Env> {
         this.flushFindingOutcomes(repository, pullRequestNumber),
       );
     }
+  }
+
+  private evaluateFinalizedFindings(options: {
+    event: PullRequestFinalizationEvent;
+    evaluatedAt: string;
+    outcomeWindowElapsed: boolean;
+    trigger: "pull-request-finalization" | "outcome-window";
+  }): { outcomes: number; pending: number; manualRequired: number } {
+    const { event } = options;
+    const evaluatorVersion = outcomeEvaluatorVersion(this.env);
+    const completed = this.ctx.storage.sql
+      .exec<{
+        run_id: string;
+        head_sha: string;
+        finding_resolutions_json: string | null;
+      }>(
+        `SELECT run_id, head_sha, finding_resolutions_json FROM review_runs
+         WHERE status = 'completed'
+         ORDER BY completed_at DESC, run_id DESC LIMIT 1`,
+      )
+      .toArray()[0];
+    const currentHunkIds = new Set(
+      completed
+        ? this.ctx.storage.sql
+            .exec<{ hunk_id: string }>(
+              "SELECT hunk_id FROM review_run_hunks WHERE run_id = ?",
+              completed.run_id,
+            )
+            .toArray()
+            .map(({ hunk_id }) => hunk_id)
+        : [],
+    );
+    const finalHeadWasReviewed = completed?.head_sha === event.headSha;
+    const findings = this.ctx.storage.sql
+      .exec<{
+        finding_id: string;
+        disposition: string | null;
+        disposition_reason: string | null;
+        first_seen_head_sha: string;
+        last_seen_head_sha: string;
+        first_seen_run_id: string;
+        last_seen_run_id: string;
+      }>(
+        `SELECT finding_id, disposition, disposition_reason,
+                first_seen_head_sha, last_seen_head_sha,
+                first_seen_run_id, last_seen_run_id
+         FROM review_findings ORDER BY finding_id`,
+      )
+      .toArray();
+    let outcomes = 0;
+    let pending = 0;
+    let manualRequired = 0;
+    for (const finding of findings) {
+      const latestOutcome = this.ctx.storage.sql
+        .exec<{ outcome: FindingOutcome; manual_override: number }>(
+          `SELECT outcome, manual_override FROM review_finding_outcomes
+           WHERE finding_id = ? ORDER BY outcome_version DESC LIMIT 1`,
+          finding.finding_id,
+        )
+        .toArray()[0];
+      if (latestOutcome) continue;
+
+      const findingHunkIds = this.ctx.storage.sql
+        .exec<{ hunk_id: string }>(
+          `SELECT hunk_id FROM review_finding_hunks
+           WHERE finding_id = ?`,
+          finding.finding_id,
+        )
+        .toArray()
+        .map(({ hunk_id }) => hunk_id);
+      const affectedCodeRemains =
+        findingHunkIds.length === 0 ||
+        findingHunkIds.some((hunkId) => currentHunkIds.has(hunkId));
+      const interactions = summarizeFindingInteractions(
+        this.ctx.storage.sql
+          .exec<{ delivery_id: string; payload_json: string }>(
+            `SELECT delivery_id, payload_json FROM review_finding_events
+             WHERE finding_id = ? ORDER BY occurred_at, delivery_id`,
+            finding.finding_id,
+          )
+          .toArray(),
+      );
+      const laterResolution = storedFindingResolution(
+        finalHeadWasReviewed ? completed?.finding_resolutions_json : undefined,
+        finding.finding_id,
+      );
+      const evaluation = evaluateFinalizedFinding({
+        disposition: finding.disposition,
+        finalHeadWasReviewed,
+        affectedCodeRemains,
+        outcomeWindowElapsed: options.outcomeWindowElapsed,
+        interactions,
+        laterResolutionVerdict: laterResolution?.verdict,
+      });
+      const evidence = {
+        ...evaluation.evidence,
+        finalState: event.finalState,
+        finalHeadSha: event.headSha,
+        latestReviewedHeadSha: completed?.head_sha,
+        dispositionReason: finding.disposition_reason,
+        firstSeenHeadSha: finding.first_seen_head_sha,
+        lastSeenHeadSha: finding.last_seen_head_sha,
+        firstSeenRunId: finding.first_seen_run_id,
+        lastSeenRunId: finding.last_seen_run_id,
+        laterResolution,
+      };
+      const evaluationId = [
+        "evaluation",
+        event.deliveryId,
+        options.trigger,
+        finding.finding_id,
+      ].join(":");
+      this.ctx.storage.sql.exec(
+        `INSERT OR IGNORE INTO review_finding_evaluations
+         (evaluation_id, finding_id, trigger_type, status,
+          evaluator_version, evidence_json, evaluated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        evaluationId,
+        finding.finding_id,
+        options.trigger,
+        evaluation.status,
+        evaluatorVersion,
+        JSON.stringify(evidence),
+        options.evaluatedAt,
+      );
+      if (evaluation.status === "manual-adjudication-required") {
+        manualRequired += 1;
+        continue;
+      }
+      if (evaluation.status === "incomplete") {
+        pending += 1;
+        continue;
+      }
+      const inserted = this.appendFindingOutcome({
+        repository: event.repository,
+        pullRequestNumber: event.pullRequestNumber,
+        findingId: finding.finding_id,
+        outcome: evaluation.outcome,
+        basis: evaluation.basis,
+        confidence: evaluation.confidence,
+        evaluatorVersion,
+        sourceId: evaluationId,
+        occurredAt:
+          options.trigger === "outcome-window"
+            ? options.evaluatedAt
+            : (event.occurredAt ?? options.evaluatedAt),
+        recordedAt: options.evaluatedAt,
+        evidence,
+      });
+      if (inserted) {
+        outcomes += 1;
+      }
+    }
+    return { outcomes, pending, manualRequired };
+  }
+
+  private async scheduleAlarmNoLaterThan(timestamp: number): Promise<void> {
+    const now = Date.now();
+    const target = Math.max(now + MINIMUM_OUTCOME_WINDOW_MS, timestamp);
+    const scheduled = await this.ctx.storage.getAlarm();
+    if (scheduled === null || scheduled <= now || scheduled > target) {
+      await this.ctx.storage.setAlarm(target);
+    }
+  }
+
+  private async schedulePendingOutcomeEvaluation(
+    pending: PendingOutcomeEvaluation,
+  ): Promise<void> {
+    const existing = await this.ctx.storage.get<unknown>(
+      PENDING_OUTCOME_EVALUATION_KEY,
+    );
+    if (
+      isPendingOutcomeEvaluation(existing) &&
+      existing.dueAt <= pending.dueAt
+    ) {
+      await this.scheduleAlarmNoLaterThan(existing.dueAt);
+      return;
+    }
+    this.ctx.storage.kv.put(PENDING_OUTCOME_EVALUATION_KEY, pending);
+    await this.scheduleAlarmNoLaterThan(pending.dueAt);
   }
 
   private async terminateExpiredReview(
@@ -1102,12 +1370,14 @@ export class PullRequestCoordinator extends DurableObject<Env> {
         recordedAt,
       );
       if (event.disposition) {
+        const dispositionReason =
+          event.reason?.trim() || "Trusted manual disposition";
         this.ctx.storage.sql.exec(
           `UPDATE review_findings
            SET disposition = ?, disposition_reason = ?
            WHERE finding_id = ?`,
           event.disposition,
-          event.reason ?? null,
+          dispositionReason,
           findingId,
         );
         this.appendFindingOutcome({
@@ -1116,6 +1386,13 @@ export class PullRequestCoordinator extends DurableObject<Env> {
           findingId,
           outcome: event.disposition,
           basis: "explicit-disposition",
+          confidence: 1,
+          evaluatorVersion: outcomeEvaluatorVersion(this.env),
+          manualOverride: {
+            actor: event.actor,
+            deliveryId: event.deliveryId,
+            reason: dispositionReason,
+          },
           sourceId: `delivery:${event.deliveryId}`,
           occurredAt,
           recordedAt,
@@ -1123,7 +1400,7 @@ export class PullRequestCoordinator extends DurableObject<Env> {
             deliveryId: event.deliveryId,
             actor: event.actor,
             actorAssociation: event.actorAssociation,
-            reason: event.reason,
+            reason: dispositionReason,
             currentHeadSha: event.headSha,
             controlledReplay,
           },
@@ -1180,6 +1457,11 @@ export class PullRequestCoordinator extends DurableObject<Env> {
     }
 
     const recordedAt = new Date().toISOString();
+    const occurredAtMs = Date.parse(event.occurredAt ?? recordedAt);
+    const dueAt =
+      (Number.isFinite(occurredAtMs) ? occurredAtMs : Date.now()) +
+      outcomeWindowMs(this.env.AI_REVIEW_OUTCOME_WINDOW_SECONDS);
+    const outcomeWindowElapsed = dueAt <= Date.now();
     const result = this.ctx.storage.transactionSync(() => {
       const existing = this.ctx.storage.sql
         .exec<{ delivery_id: string }>(
@@ -1187,7 +1469,7 @@ export class PullRequestCoordinator extends DurableObject<Env> {
           event.deliveryId,
         )
         .toArray()[0];
-      if (existing) return { duplicate: true, outcomes: 0 };
+      if (existing) return { duplicate: true, outcomes: 0 } as const;
 
       this.ctx.storage.sql.exec(
         `INSERT INTO webhook_deliveries
@@ -1202,94 +1484,55 @@ export class PullRequestCoordinator extends DurableObject<Env> {
         event.headSha,
         recordedAt,
       );
-      const completed = this.ctx.storage.sql
-        .exec<{ run_id: string; head_sha: string }>(
-          `SELECT run_id, head_sha FROM review_runs
-           WHERE status = 'completed'
-           ORDER BY completed_at DESC, run_id DESC LIMIT 1`,
-        )
-        .toArray()[0];
-      const currentHunkIds = new Set(
-        completed
-          ? this.ctx.storage.sql
-              .exec<{ hunk_id: string }>(
-                "SELECT hunk_id FROM review_run_hunks WHERE run_id = ?",
-                completed.run_id,
-              )
-              .toArray()
-              .map(({ hunk_id }) => hunk_id)
-          : [],
-      );
-      const finalHeadWasReviewed = completed?.head_sha === event.headSha;
-      const findings = this.ctx.storage.sql
-        .exec<{
-          finding_id: string;
-          disposition: string | null;
-          disposition_reason: string | null;
-          first_seen_head_sha: string;
-          last_seen_head_sha: string;
-          first_seen_run_id: string;
-          last_seen_run_id: string;
-        }>(
-          `SELECT finding_id, disposition, disposition_reason,
-                  first_seen_head_sha, last_seen_head_sha,
-                  first_seen_run_id, last_seen_run_id
-           FROM review_findings ORDER BY finding_id`,
-        )
-        .toArray();
-      let outcomes = 0;
-      for (const finding of findings) {
-        const priorOutcome = this.ctx.storage.sql
-          .exec<{ outcome: string }>(
-            `SELECT outcome FROM review_finding_outcomes
-             WHERE finding_id = ? ORDER BY outcome_version DESC LIMIT 1`,
-            finding.finding_id,
-          )
-          .toArray()[0];
-        if (priorOutcome) continue;
-
-        const findingHunkIds = this.ctx.storage.sql
-          .exec<{ hunk_id: string }>(
-            `SELECT hunk_id FROM review_finding_hunks
-             WHERE finding_id = ?`,
-            finding.finding_id,
-          )
-          .toArray()
-          .map(({ hunk_id }) => hunk_id);
-        const affectedCodeRemains = findingHunkIds.some((hunkId) =>
-          currentHunkIds.has(hunkId),
-        );
-        const outcome = classifyFinalizedFinding({
-          disposition: finding.disposition,
-          finalHeadWasReviewed,
-          affectedCodeRemains,
-        });
-        const inserted = this.appendFindingOutcome({
-          repository: event.repository,
-          pullRequestNumber: event.pullRequestNumber,
-          findingId: finding.finding_id,
-          outcome,
-          basis: "pull-request-finalization",
-          sourceId: `finalization:${event.deliveryId}:${finding.finding_id}`,
-          occurredAt: event.occurredAt ?? recordedAt,
-          recordedAt,
-          evidence: {
-            finalState: event.finalState,
-            finalHeadSha: event.headSha,
-            latestReviewedHeadSha: completed?.head_sha,
-            finalHeadWasReviewed,
-            affectedCodeRemains,
-            dispositionReason: finding.disposition_reason,
-            firstSeenHeadSha: finding.first_seen_head_sha,
-            lastSeenHeadSha: finding.last_seen_head_sha,
-            firstSeenRunId: finding.first_seen_run_id,
-            lastSeenRunId: finding.last_seen_run_id,
-          },
-        });
-        if (inserted) outcomes += 1;
-      }
-      return { duplicate: false, outcomes };
+      return {
+        duplicate: false,
+        ...this.evaluateFinalizedFindings({
+          event,
+          evaluatedAt: recordedAt,
+          outcomeWindowElapsed,
+          trigger: outcomeWindowElapsed
+            ? "outcome-window"
+            : "pull-request-finalization",
+        }),
+      } as const;
     });
+
+    if (!result.duplicate && "pending" in result && result.pending > 0) {
+      const pending = {
+        kind: "finding-outcome-evaluation",
+        dueAt,
+        event,
+      } satisfies PendingOutcomeEvaluation;
+      await this.schedulePendingOutcomeEvaluation(pending);
+    } else if (result.duplicate) {
+      const outstanding = this.ctx.storage.sql
+        .exec<{ pending: number }>(
+          `SELECT COUNT(*) AS pending FROM review_findings finding
+           WHERE NOT EXISTS (
+             SELECT 1 FROM review_finding_outcomes outcome
+             WHERE outcome.finding_id = finding.finding_id
+           ) AND NOT EXISTS (
+             SELECT 1 FROM review_finding_evaluations evaluation
+             WHERE evaluation.finding_id = finding.finding_id
+               AND evaluation.status = 'manual-adjudication-required'
+           )`,
+        )
+        .toArray()[0]?.pending;
+      if (Number(outstanding ?? 0) > 0) {
+        const existing = await this.ctx.storage.get<unknown>(
+          PENDING_OUTCOME_EVALUATION_KEY,
+        );
+        if (isPendingOutcomeEvaluation(existing)) {
+          await this.scheduleAlarmNoLaterThan(existing.dueAt);
+        } else {
+          await this.schedulePendingOutcomeEvaluation({
+            kind: "finding-outcome-evaluation",
+            dueAt,
+            event,
+          });
+        }
+      }
+    }
 
     await this.flushFindingOutcomes(
       event.repository,
@@ -1785,6 +2028,32 @@ export class PullRequestCoordinator extends DurableObject<Env> {
         outcomeRetry.repository,
         outcomeRetry.pullRequestNumber,
       );
+    }
+
+    const pendingEvaluation = await this.ctx.storage.get<unknown>(
+      PENDING_OUTCOME_EVALUATION_KEY,
+    );
+    if (isPendingOutcomeEvaluation(pendingEvaluation)) {
+      if (pendingEvaluation.dueAt <= Date.now()) {
+        const evaluatedAt = new Date().toISOString();
+        this.ctx.storage.transactionSync(() =>
+          this.evaluateFinalizedFindings({
+            event: pendingEvaluation.event,
+            evaluatedAt,
+            outcomeWindowElapsed: true,
+            trigger: "outcome-window",
+          }),
+        );
+        await this.ctx.storage.delete(PENDING_OUTCOME_EVALUATION_KEY);
+        await this.flushFindingOutcomes(
+          pendingEvaluation.event.repository,
+          pendingEvaluation.event.pullRequestNumber,
+        );
+      } else {
+        await this.scheduleAlarmNoLaterThan(pendingEvaluation.dueAt);
+      }
+    } else if (pendingEvaluation !== undefined) {
+      await this.ctx.storage.delete(PENDING_OUTCOME_EVALUATION_KEY);
     }
 
     const event =
