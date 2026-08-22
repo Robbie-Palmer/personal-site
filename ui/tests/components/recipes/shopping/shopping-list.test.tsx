@@ -5,6 +5,7 @@ import { ShoppingList } from "@/components/recipes/shopping/shopping-list";
 import type { ShoppingRecipe } from "@/lib/api/shopping";
 import {
   __resetShoppingListForTests,
+  addExtra,
   addRecipe,
   toggleChecked,
 } from "@/lib/shopping/shoppingListStore";
@@ -222,5 +223,52 @@ describe("ShoppingList pantry state", () => {
       "full shopping list without kitchen filtering",
     );
     expect(screen.getByText("garlic")).toBeInTheDocument();
+  });
+});
+
+describe("ShoppingList extras", () => {
+  beforeEach(() => {
+    pantryState.error = null;
+    pantryState.isPending = false;
+    localStorage.clear();
+    __resetShoppingListForTests();
+    addRecipe("garlic-pasta");
+    addExtra("bread");
+  });
+
+  afterEach(() => {
+    __resetShoppingListForTests();
+  });
+
+  it("mixes extras into the ingredient-only list", async () => {
+    const user = userEvent.setup();
+    render(<ShoppingList recipes={recipes} />);
+
+    await user.click(screen.getByText("just ingredients"));
+
+    expect(
+      screen.queryByRole("heading", { name: /extras/i }),
+    ).not.toBeInTheDocument();
+    const rows = screen.getAllByRole("button", { pressed: false });
+    expect(rows.map((row) => row.textContent)).toEqual(
+      expect.arrayContaining([
+        expect.stringMatching(/bread/i),
+        expect.stringMatching(/garlic/i),
+      ]),
+    );
+  });
+
+  it("keeps the extra input focused after adding an item", async () => {
+    const user = userEvent.setup();
+    render(<ShoppingList recipes={recipes} />);
+
+    const input = screen.getByRole("textbox", { name: "Add an extra item" });
+    await user.clear(input);
+    await user.type(input, "milk");
+    await user.click(screen.getByRole("button", { name: "Add" }));
+
+    expect(input).toHaveFocus();
+    expect(input).toHaveValue("");
+    expect(screen.getByText("milk")).toBeInTheDocument();
   });
 });
