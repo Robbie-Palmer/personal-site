@@ -656,12 +656,10 @@ function registerRoute(
       content: { "application/json": { schema: errorSchema } },
     };
   }
+  const pathSegmentIndex = path.startsWith("/api/") ? 1 : 0;
   const routeTag = path.startsWith("/.well-known/")
     ? "agent-auth"
-    : path
-        .split("/")
-        .filter(Boolean)
-        .at(path.startsWith("/api/") ? 1 : 0) ?? "system";
+    : (path.split("/").filter(Boolean).at(pathSegmentIndex) ?? "system");
   const route = createRoute({
     method,
     path: openApiPath(path),

@@ -122,10 +122,11 @@ export const RECIPE_AGENT_CAPABILITIES = [
 
 function escapedLikePattern(value: string): string {
   const escape = String.fromCodePoint(92);
-  return `%${value
+  const escaped = value
     .replaceAll(escape, escape.repeat(2))
-    .replaceAll("%", `${escape}%`)
-    .replaceAll("_", `${escape}_`)}%`;
+    .replaceAll("%", escape + "%")
+    .replaceAll("_", escape + "_");
+  return "%" + escaped + "%";
 }
 
 async function readableRecipeFilter(db: Db, userId: string): Promise<SQL> {
