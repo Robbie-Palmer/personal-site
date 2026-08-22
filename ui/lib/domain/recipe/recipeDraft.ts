@@ -163,6 +163,7 @@ export function parseSavedRecipe(
 export type RecipeGridItem = RecipeCardView & {
   href?: string;
   saved?: boolean;
+  visibility?: SavedRecipeApiRecord["visibility"];
 };
 
 export function recipePageHref(
@@ -196,5 +197,6 @@ export function savedRecipeCard(
     ingredientSlugs,
     href: recipePageHref(record),
     saved: true,
+    visibility: record.visibility,
   };
 }

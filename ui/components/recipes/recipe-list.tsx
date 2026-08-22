@@ -4,8 +4,10 @@ import {
   ChefHat,
   Clock,
   Globe,
+  House,
   Leaf,
   Timer,
+  UserRound,
   UtensilsCrossed,
 } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -156,6 +158,21 @@ const RECIPE_EMPTY_STATE = {
   message: "No recipes found matching your criteria.",
 };
 
+const VISIBILITY_INDICATORS = {
+  private: {
+    Icon: UserRound,
+    label: "Only you can view this recipe",
+  },
+  household: {
+    Icon: House,
+    label: "Shared with your household",
+  },
+  public: {
+    Icon: Globe,
+    label: "Public recipe",
+  },
+} as const;
+
 function CuisineBadge({
   cuisine,
   isActive,
@@ -235,6 +252,9 @@ const RecipeCard = memo(function RecipeCard({
   dietMatch,
 }: RecipeCardProps) {
   const href = recipe.href ?? recipePageHref(recipe);
+  const visibility = recipe.visibility ?? "public";
+  const { Icon: VisibilityIcon, label: visibilityLabel } =
+    VISIBILITY_INDICATORS[visibility];
   return (
     <Card className="h-full flex flex-col overflow-hidden rounded-xl border-[1.25px] border-[var(--line-strong)] gap-0 py-0 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[var(--paper-shadow)]">
       {recipe.image && (
@@ -256,17 +276,20 @@ const RecipeCard = memo(function RecipeCard({
           </div>
         </RecipePageLink>
       )}
-      <CardHeader className="pt-4 pb-2 gap-1">
+      <CardHeader className="relative gap-1 pt-4 pb-2 pr-11">
+        <span
+          aria-label={visibilityLabel}
+          className="absolute top-4 right-4 inline-flex size-6 items-center justify-center rounded-full border border-[var(--line)] bg-[var(--paper-warm)] text-[var(--ink-3)]"
+          role="img"
+          title={visibilityLabel}
+        >
+          <VisibilityIcon aria-hidden="true" className="size-3.5" />
+        </span>
         <RecipePageLink href={href}>
           <CardTitle className="rt-display text-2xl leading-tight hover:text-[var(--terracotta)] transition-colors">
             {recipe.title}
           </CardTitle>
         </RecipePageLink>
-        {recipe.saved && (
-          <span className="rt-mono w-fit rounded-full bg-[var(--butter-soft)] px-2 py-0.5 text-[0.625rem] text-[var(--terracotta-deep)]">
-            Your recipe
-          </span>
-        )}
         <CardDescription className="rt-body line-clamp-2">
           {recipe.description}
         </CardDescription>

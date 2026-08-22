@@ -150,6 +150,34 @@ describe("RecipeList", () => {
     expect(screen.getByText(/marked with a warning/i)).toBeInTheDocument();
   });
 
+  it("uses a compact icon to show who can view each recipe", () => {
+    const [privateRecipe, householdRecipe, publicRecipe] = recipes;
+    if (!(privateRecipe && householdRecipe && publicRecipe)) {
+      throw new Error("Expected recipe fixtures");
+    }
+
+    render(
+      <RecipeList
+        recipes={[
+          { ...privateRecipe, visibility: "private" },
+          { ...householdRecipe, visibility: "household" },
+          { ...publicRecipe, visibility: "public" },
+        ]}
+      />,
+    );
+
+    expect(
+      screen.getByRole("img", { name: "Only you can view this recipe" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("img", { name: "Shared with your household" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("img", { name: "Public recipe" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Your recipe")).not.toBeInTheDocument();
+  });
+
   it("shows an equipment filter with cookware options", async () => {
     const user = userEvent.setup();
 
