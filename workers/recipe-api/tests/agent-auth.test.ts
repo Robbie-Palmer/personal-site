@@ -67,6 +67,35 @@ function secondaryStorageDb(
   return { db, state };
 }
 
+function jtiReservationDb() {
+  const state = {
+    reserved: false,
+    writes: [] as Array<{ key: string; value: string; expiresAt: Date }>,
+  };
+  const transactionDb = {
+    delete: () => ({ where: () => Promise.resolve() }),
+    insert: () => ({
+      values: (values: { key: string; value: string; expiresAt: Date }) => {
+        state.writes.push(values);
+        return {
+          onConflictDoNothing: () => ({
+            returning: () => {
+              if (state.reserved) return Promise.resolve([]);
+              state.reserved = true;
+              return Promise.resolve([{ key: values.key }]);
+            },
+          }),
+        };
+      },
+    }),
+  };
+  const db = {
+    transaction: (callback: (tx: typeof transactionDb) => Promise<unknown>) =>
+      callback(transactionDb),
+  } as unknown as Db;
+  return { db, state };
+}
+
 function agentSession(userId = "delegating-user"): AgentSession {
   return {
     type: "delegated",
@@ -150,6 +179,25 @@ describe("recipe Agent Auth capabilities", () => {
 
     state.rows = [];
     await expect(storage.get("jti:missing")).resolves.toBeNull();
+  });
+
+  it("atomically reserves JTI keys before Better Auth stores them", async () => {
+    const { db, state } = jtiReservationDb();
+    const auth = createAuth(db, {
+      BETTER_AUTH_URL: "https://recipes.example.test",
+      BETTER_AUTH_SECRET: "test-secret-at-least-32-characters-long",
+    });
+    const storage = auth.options.secondaryStorage;
+    if (!storage) throw new Error("Secondary storage was not configured");
+
+    const key = "agent-auth:jti:agent-1:jti-1";
+    await expect(Promise.all([storage.get(key), storage.get(key)])).resolves.toEqual([
+      null,
+      "1",
+    ]);
+    expect(state.writes).toHaveLength(2);
+    expect(state.writes[0]).toMatchObject({ key, value: "1" });
+    expect(state.writes[0]?.expiresAt.getTime()).toBeGreaterThan(Date.now());
   });
 
   it("exposes only the first delegated read slice", () => {

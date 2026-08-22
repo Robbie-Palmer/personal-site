@@ -4,6 +4,9 @@ import * as schema from "recipe-db/schema";
 import { z } from "zod";
 
 const AGENT_APPROVAL_CODE_CIPHER_VERSION = "v1";
+const AGENT_APPROVAL_CODE_SALT_BYTES = 16;
+const AGENT_APPROVAL_CODE_IV_BYTES = 12;
+const AES_GCM_TAG_BYTES = 16;
 const AGENT_APPROVAL_CODE_KEY_CONTEXT = new TextEncoder().encode(
   "recipe-agent-approval-notification",
 );
@@ -38,7 +41,10 @@ function decodeBase64Url(value: string): Uint8Array {
   );
 }
 
-async function agentApprovalCodeKey(secret: string): Promise<CryptoKey> {
+async function agentApprovalCodeKey(
+  secret: string,
+  salt: Uint8Array,
+): Promise<CryptoKey> {
   const keyMaterial = await crypto.subtle.importKey(
     "raw",
     new TextEncoder().encode(secret),
@@ -50,7 +56,7 @@ async function agentApprovalCodeKey(secret: string): Promise<CryptoKey> {
     {
       name: "HKDF",
       hash: "SHA-256",
-      salt: AGENT_APPROVAL_CODE_KEY_CONTEXT,
+      salt,
       info: AGENT_APPROVAL_CODE_KEY_CONTEXT,
     },
     keyMaterial,
@@ -64,14 +70,20 @@ export async function encryptAgentApprovalCode(
   code: string,
   secret: string,
 ): Promise<string> {
-  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const salt = crypto.getRandomValues(
+    new Uint8Array(AGENT_APPROVAL_CODE_SALT_BYTES),
+  );
+  const iv = crypto.getRandomValues(
+    new Uint8Array(AGENT_APPROVAL_CODE_IV_BYTES),
+  );
   const ciphertext = await crypto.subtle.encrypt(
     { name: "AES-GCM", iv },
-    await agentApprovalCodeKey(secret),
+    await agentApprovalCodeKey(secret, salt),
     new TextEncoder().encode(code),
   );
   return [
     AGENT_APPROVAL_CODE_CIPHER_VERSION,
+    encodeBase64Url(salt),
     encodeBase64Url(iv),
     encodeBase64Url(new Uint8Array(ciphertext)),
   ].join(".");
@@ -81,18 +93,31 @@ export async function decryptAgentApprovalCode(
   value: string,
   secret: string,
 ): Promise<string> {
-  const [version, encodedIv, encodedCiphertext] = value.split(".");
+  const parts = value.split(".");
+  const [version, encodedSalt, encodedIv, encodedCiphertext] = parts;
   if (
+    parts.length !== 4 ||
     version !== AGENT_APPROVAL_CODE_CIPHER_VERSION ||
+    !encodedSalt ||
     !encodedIv ||
     !encodedCiphertext
   ) {
     throw new Error("Unsupported agent approval code ciphertext");
   }
+  const salt = decodeBase64Url(encodedSalt);
+  const iv = decodeBase64Url(encodedIv);
+  const ciphertext = decodeBase64Url(encodedCiphertext);
+  if (
+    salt.length !== AGENT_APPROVAL_CODE_SALT_BYTES ||
+    iv.length !== AGENT_APPROVAL_CODE_IV_BYTES ||
+    ciphertext.length < AES_GCM_TAG_BYTES
+  ) {
+    throw new Error("Invalid agent approval code ciphertext");
+  }
   const plaintext = await crypto.subtle.decrypt(
-    { name: "AES-GCM", iv: decodeBase64Url(encodedIv) },
-    await agentApprovalCodeKey(secret),
-    decodeBase64Url(encodedCiphertext),
+    { name: "AES-GCM", iv },
+    await agentApprovalCodeKey(secret, salt),
+    ciphertext,
   );
   return new TextDecoder().decode(plaintext);
 }

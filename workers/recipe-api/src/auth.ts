@@ -1,7 +1,7 @@
 import { betterAuth } from "better-auth";
 import { admin, lastLoginMethod } from "better-auth/plugins";
 import { withCloudflare } from "better-auth-cloudflare";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, lte } from "drizzle-orm";
 import type { Db } from "recipe-db";
 import * as schema from "recipe-db/schema";
 import { createRecipeAgentAuthPlugin } from "./agent-auth";
@@ -27,6 +27,9 @@ type CreateAuthOptions = {
   allowPreviewSignUp?: boolean;
   autoSignInPreviewSignUp?: boolean;
 };
+
+const AGENT_AUTH_JTI_STORAGE_PREFIX = "agent-auth:jti:";
+const AGENT_AUTH_JTI_RESERVATION_TTL_SECONDS = 2 * 60;
 
 function rateLimitStorage(db: Db) {
   const namespaced = (key: string) => `auth:${key}`;
@@ -73,6 +76,28 @@ function rateLimitStorage(db: Db) {
 function authSecondaryStorage(db: Db) {
   return {
     get: async (key: string) => {
+      if (key.startsWith(AGENT_AUTH_JTI_STORAGE_PREFIX)) {
+        const now = new Date();
+        const expiresAt = new Date(
+          now.getTime() + AGENT_AUTH_JTI_RESERVATION_TTL_SECONDS * 1_000,
+        );
+        return db.transaction(async (tx) => {
+          await tx
+            .delete(schema.authSecondaryStorage)
+            .where(
+              and(
+                eq(schema.authSecondaryStorage.key, key),
+                lte(schema.authSecondaryStorage.expiresAt, now),
+              ),
+            );
+          const [reservation] = await tx
+            .insert(schema.authSecondaryStorage)
+            .values({ key, value: "1", expiresAt })
+            .onConflictDoNothing()
+            .returning({ key: schema.authSecondaryStorage.key });
+          return reservation ? null : "1";
+        });
+      }
       const [entry] = await db
         .select({
           value: schema.authSecondaryStorage.value,

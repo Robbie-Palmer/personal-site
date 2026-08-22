@@ -30,6 +30,7 @@ describe("notification persistence", () => {
     );
 
     expect(encrypted).not.toContain("ABCD-1234");
+    expect(encrypted.split(".")).toHaveLength(4);
     await expect(
       decryptAgentApprovalCode(
         encrypted,
@@ -42,6 +43,12 @@ describe("notification persistence", () => {
         "different-test-secret-at-least-32-chars",
       ),
     ).rejects.toThrow();
+    await expect(
+      decryptAgentApprovalCode(
+        "v1.AA.AA.AA",
+        "test-secret-at-least-32-characters-long",
+      ),
+    ).rejects.toThrow("Invalid agent approval code ciphertext");
   });
 
   it("stores an agent approval notification without the device code", async () => {

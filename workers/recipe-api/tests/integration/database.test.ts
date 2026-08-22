@@ -183,6 +183,20 @@ afterAll(async () => {
 });
 
 describe("recipe API PostgreSQL integration", () => {
+  it("reserves each Agent Auth JTI once under concurrent requests", async () => {
+    const auth = createAuth(db, baseEnv);
+    const storage = auth.options.secondaryStorage;
+    if (!storage) throw new Error("Secondary storage was not configured");
+
+    const key = "agent-auth:jti:integration-agent:concurrent-jti";
+    const results = await Promise.all(
+      Array.from({ length: 8 }, () => storage.get(key)),
+    );
+
+    expect(results.filter((result) => result === null)).toHaveLength(1);
+    expect(results.filter((result) => result === "1")).toHaveLength(7);
+  });
+
   it("allocates pantry revisions and item versions exactly once per operation", async () => {
     const cook = await createUser("Revision Cook", "revision@example.test");
     const firstOperationId = "0198f1f0-3333-7333-8333-333333333333";
