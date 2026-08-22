@@ -154,6 +154,24 @@ function isIngredientOnlyStep(step: Step): boolean {
   return hasIngredient;
 }
 
+function addDeclaredIngredientSlugs(
+  step: Step,
+  ingredients: Ingredient[],
+  declaredSlugs: Set<IngredientSlug>,
+): void {
+  for (const item of step.items) {
+    if (item.type !== "ingredient") continue;
+    const ingredient = ingredients[item.index];
+    if (!ingredient) continue;
+    declaredSlugs.add(resolvedIngredientSlug(ingredient));
+    // Cooklang references a declaration by its registered name, even when
+    // the declaration uses a purchasing-specific display alias. Keep both
+    // identities so a later `@butter{}` does not become an extra generic
+    // item after `@butter|unsalted butter{}` was already declared.
+    declaredSlugs.add(normalizeIngredientSlugForOutput(ingredient.name));
+  }
+}
+
 function findDeclaredIngredientSlugs(
   sections: ParsedCooklangRecipe["sections"],
   ingredients: Ingredient[],
@@ -164,17 +182,7 @@ function findDeclaredIngredientSlugs(
       if (content.type !== "step" || !isIngredientOnlyStep(content.value)) {
         continue;
       }
-      for (const item of content.value.items) {
-        if (item.type !== "ingredient") continue;
-        const ingredient = ingredients[item.index];
-        if (!ingredient) continue;
-        declaredSlugs.add(resolvedIngredientSlug(ingredient));
-        // Cooklang references a declaration by its registered name, even when
-        // the declaration uses a purchasing-specific display alias. Keep both
-        // identities so a later `@butter{}` does not become an extra generic
-        // item after `@butter|unsalted butter{}` was already declared.
-        declaredSlugs.add(normalizeIngredientSlugForOutput(ingredient.name));
-      }
+      addDeclaredIngredientSlugs(content.value, ingredients, declaredSlugs);
     }
   }
   return declaredSlugs;
