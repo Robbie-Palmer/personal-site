@@ -6,6 +6,7 @@ status: "in_progress"
 tech_stack:
   - "Tailscale"
   - "AdGuard Home"
+  - "Hotspot Shield"
   - "t3-code"
   - "Claude Code"
   - "Codex"
@@ -114,6 +115,7 @@ NET1["Netdata"]
 T3["t3-code + agents"]
 JEL["Jellyfin"]
 end
+HSS["Hotspot Shield VPN, always-on"]
 subgraph pi["Raspberry Pi"]
 ADG2["AdGuard Home, fallback DNS"]
 NET2["Netdata to hub"]
@@ -131,6 +133,8 @@ end
 Router --> ADG1
 Router --> ADG2
 ADG2 --> ADG1
+hub -->|"all egress"| HSS
+HSS -->|"encrypted tunnel"| Internet
 DailyPhone -->|"photo upload"| Ente["Ente cloud"]
 Ente -->|"download backup"| ENT
 ENT --> HDD[("10TB HDD")]
@@ -173,6 +177,15 @@ owns the photo backup pipeline, the lab's two most important jobs.
   requests over my home network. AdGuard is also reachable over the tailnet,
   so the phone keeps blocking trackers and ads on cellular or any other
   network. A router-level setup cannot provide that coverage.
+* **Always-on VPN egress.** The mini runs
+  [Hotspot Shield](https://www.hotspotshield.com) as an always-on client, so
+  every outbound connection leaves through its tunnel and the ISP sees one
+  encrypted stream instead of individual destinations. This forced one config
+  change elsewhere: Hotspot Shield kills TLS connections to known
+  encrypted-DNS endpoints, so AdGuard's DNS-over-HTTPS upstream stopped
+  resolving under the tunnel. The upstreams are now plain UDP Quad9
+  (9.9.9.9), which passes through untouched. LAN devices keep their filtering
+  either way; only the mini's own traffic is tunnelled.
 * **Monitoring.** It runs [Netdata](/projects/homelab/adrs/009-netdata),
   connected to my Slack workspace via a Slack app, to alarm on anything
   going wrong.
@@ -298,6 +311,17 @@ internet "stops working."
 hardware. The Pi keeps working during Mac mini reboots and vice versa. The
 proposed View 20 watchdog will use mobile data to report a failure of both
 resolvers.
+
+## The VPN tunnel dies quietly after a reboot
+
+Hotspot Shield ships as an App Store app, and its tunnel only comes back
+after a user session starts. An unattended restart (power cut, forced update)
+puts the mini back online with traffic egressing from the home IP until
+someone logs in.
+
+**Mitigation.** Netdata watches the mini's public IP and alerts Slack when it
+falls outside the VPN exit range. Until that alert exists, treat the tunnel as
+down after any unattended reboot.
 
 ## Photo backup silently failing
 

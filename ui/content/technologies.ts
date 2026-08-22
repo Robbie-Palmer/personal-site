@@ -968,6 +968,14 @@ export const technologies: TechnologyContent[] = [
     type: "tool",
   },
   {
+    name: "Hotspot Shield",
+    added: "2026-08-22",
+    description:
+      "VPN client and service that encrypts internet traffic and routes it through remote servers, masking the user's IP address",
+    website: "https://www.hotspotshield.com",
+    type: "tool",
+  },
+  {
     name: "t3-code",
     added: "2026-08-02",
     description:
