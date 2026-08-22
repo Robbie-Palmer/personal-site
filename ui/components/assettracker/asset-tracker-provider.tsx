@@ -24,16 +24,21 @@ import {
   buildRepository,
   type ClearAccountHistoryInput,
   type CreateAccountInput,
+  DEFAULT_WITHDRAWAL_RATE,
   type DeleteCapitalFlowInput,
   type DeleteSnapshotInput,
   getAllAccountDetails,
   getAllAccountSummaries,
   getNetWorthTimeSeries,
   getPortfolioAnnualReturn,
+  getPortfolioFinancialIndependence,
   getSeedData,
   getTotalByAssetType,
   type ImportAccountHistoryInput,
+  type ImportIncomeHistoryInput,
+  type IncomeRecord,
   type NetWorthDataPoint,
+  type PortfolioFinancialIndependence,
   type RecordBalanceInput,
   type RecordTransferInput,
   type RecurringFlow,
@@ -50,6 +55,8 @@ interface AssetTrackerContextValue {
   assetAllocation: { assetType: AssetType; total: number }[];
   transfers: Transfer[];
   recurringFlows: RecurringFlow[];
+  incomeHistory: IncomeRecord[];
+  financialIndependence: PortfolioFinancialIndependence;
   /** Annualised portfolio growth, excluding recorded external money in/out */
   portfolioReturn: number | null;
   /** Expected annual inflation used to express values in today's money */
@@ -58,6 +65,8 @@ interface AssetTrackerContextValue {
   netWorthTarget: number | null;
   /** Whether the target is expressed in today's money (inflation-adjusted) */
   netWorthTargetIsReal: boolean;
+  /** Sustainable annual withdrawal used to derive the FI target */
+  withdrawalRate: number;
   /** True once the user has made changes that are persisted in this browser */
   hasLocalChanges: boolean;
   createAccount(input: CreateAccountInput): Promise<void>;
@@ -71,11 +80,14 @@ interface AssetTrackerContextValue {
   deleteSnapshot(input: DeleteSnapshotInput): Promise<void>;
   deleteCapitalFlow(input: DeleteCapitalFlowInput): Promise<void>;
   importAccountHistory(input: ImportAccountHistoryInput): Promise<void>;
+  importIncomeHistory(input: ImportIncomeHistoryInput): Promise<void>;
+  clearIncomeHistory(): Promise<void>;
   addRecurringFlow(input: AddRecurringFlowInput): Promise<void>;
   deleteRecurringFlow(id: string): Promise<void>;
   materializeFlow(flowId: string): Promise<void>;
   setExpectedReturn(input: SetExpectedReturnInput): Promise<void>;
   setInflation(rate: number): Promise<void>;
+  setWithdrawalRate(rate: number): Promise<void>;
   setNetWorthTarget(
     target: number | null,
     inTodaysMoney?: boolean,
@@ -147,17 +159,23 @@ export function AssetTrackerProvider({
 
   const views = useMemo(() => {
     const repository = buildRepository(data);
+    const accounts = getAllAccountSummaries(repository);
+    const netWorthData = getNetWorthTimeSeries(repository);
     return {
-      accounts: getAllAccountSummaries(repository),
+      accounts,
       accountDetails: getAllAccountDetails(repository),
-      netWorthData: getNetWorthTimeSeries(repository),
+      netWorthData,
       assetAllocation: getTotalByAssetType(repository),
       transfers: repository.transfers,
       recurringFlows: repository.recurringFlows,
+      incomeHistory: repository.incomeHistory,
+      financialIndependence: getPortfolioFinancialIndependence(repository),
       portfolioReturn: getPortfolioAnnualReturn(repository),
       inflation: repository.settings.expectedAnnualInflation,
       netWorthTarget: repository.settings.targetNetWorth ?? null,
       netWorthTargetIsReal: repository.settings.targetNetWorthIsReal ?? false,
+      withdrawalRate:
+        repository.settings.withdrawalRate ?? DEFAULT_WITHDRAWAL_RATE,
     };
   }, [data]);
 
@@ -183,6 +201,9 @@ export function AssetTrackerProvider({
         mutate((api) => api.deleteCapitalFlow(input)),
       importAccountHistory: (input) =>
         mutate((api) => api.importAccountHistory(input)),
+      importIncomeHistory: (input) =>
+        mutate((api) => api.importIncomeHistory(input)),
+      clearIncomeHistory: () => mutate((api) => api.clearIncomeHistory()),
       addRecurringFlow: (input) => mutate((api) => api.addRecurringFlow(input)),
       deleteRecurringFlow: (id) =>
         mutate((api) => api.deleteRecurringFlow({ id })),
@@ -193,6 +214,8 @@ export function AssetTrackerProvider({
       setExpectedReturn: (input) =>
         mutate((api) => api.setExpectedReturn(input)),
       setInflation: (rate) => mutate((api) => api.setInflation({ rate })),
+      setWithdrawalRate: (rate) =>
+        mutate((api) => api.setWithdrawalRate({ rate })),
       setNetWorthTarget: (target, inTodaysMoney) =>
         mutate((api) => api.setNetWorthTarget({ target, inTodaysMoney })),
       clearData: () => mutate((api) => api.clear()),

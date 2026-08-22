@@ -45,9 +45,10 @@ function homeData(): AssetTrackerData {
       { accountId: "card", date: "2024-01-01", balance: -2000 },
     ],
     capitalFlows: [],
+    incomeHistory: [],
     transfers: [],
     recurringFlows: [],
-    settings: { expectedAnnualInflation: 0.025 },
+    settings: { expectedAnnualInflation: 0.025, withdrawalRate: 0.04 },
   };
 }
 

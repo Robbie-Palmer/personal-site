@@ -1,7 +1,6 @@
 "use client";
 
-import { type FormEvent, useMemo, useState } from "react";
-import { Button } from "@/components/ui/button";
+import { useEffect, useState } from "react";
 import {
   Card,
   CardContent,
@@ -11,186 +10,205 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import {
-  addRealValues,
-  buildPortfolioProjection,
   computeTotalBalance,
-  dateTargetReached,
   formatAssetTrackerError,
   formatCurrency,
-  inflateToPresent,
-  projectedDateForTarget,
-  todayIsoDate,
 } from "@/lib/domain/assettracker";
 import { useAssetTracker } from "./asset-tracker-provider";
+import { IncomeHistoryImportDrawer } from "./income-history-import-drawer";
 
-// A goal like an FI number can be decades out
-const GOAL_SEARCH_MONTHS = 480;
+function signedCurrency(value: number): string {
+  if (value === 0) return formatCurrency(0);
+  return `${value > 0 ? "+" : "−"}${formatCurrency(Math.abs(value))}`;
+}
 
 export function PortfolioGoal() {
   const {
     accounts,
-    accountDetails,
-    netWorthData,
-    recurringFlows,
-    inflation,
-    netWorthTarget,
-    netWorthTargetIsReal,
-    setNetWorthTarget,
+    incomeHistory,
+    financialIndependence,
+    withdrawalRate,
+    setWithdrawalRate,
   } = useAssetTracker();
-  const [draft, setDraft] = useState("");
-  const [draftIsReal, setDraftIsReal] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
+  const [withdrawalRateDraft, setWithdrawalRateDraft] = useState(() =>
+    String(withdrawalRate * 100),
+  );
   const currentNetWorth = computeTotalBalance(accounts);
+  const { periods, representativeAnnualExpenditure, target, progress } =
+    financialIndependence;
 
-  const goal = useMemo(() => {
-    if (netWorthTarget == null) return null;
-    const today = todayIsoDate();
-    // For a today's-money target, restate past net worth in today's
-    // purchasing power before asking when the target was reached
-    const history = netWorthData.map((point) => ({
-      date: point.date,
-      balance: netWorthTargetIsReal
-        ? inflateToPresent(point.total, point.date, today, inflation)
-        : point.total,
-    }));
-    const reachedOn = dateTargetReached(history, netWorthTarget);
-    let projectedBy: string | null = null;
-    if (reachedOn == null) {
-      const nominal = buildPortfolioProjection({
-        accounts: accountDetails,
-        flows: recurringFlows,
-        startDate: today,
-        months: GOAL_SEARCH_MONTHS,
-      });
-      // ...and compare a today's-money target against deflated projections,
-      // so the projection has to outgrow inflation to hit it
-      const comparable = netWorthTargetIsReal
-        ? addRealValues(nominal, inflation).map((point) => ({
-            date: point.date,
-            projected: point.real ?? point.projected,
-          }))
-        : nominal;
-      projectedBy = projectedDateForTarget(comparable, netWorthTarget);
+  useEffect(() => {
+    setWithdrawalRateDraft(String(withdrawalRate * 100));
+  }, [withdrawalRate]);
+
+  async function handleWithdrawalRate(value: string) {
+    const percent = Number(value);
+    if (!Number.isFinite(percent) || percent < 0.1 || percent > 100) {
+      setError("Withdrawal rate must be between 0.1% and 100%");
+      return;
     }
-    const progress = Math.min(Math.max(currentNetWorth / netWorthTarget, 0), 1);
-    return { reachedOn, projectedBy, progress };
-  }, [
-    netWorthTarget,
-    netWorthTargetIsReal,
-    netWorthData,
-    accountDetails,
-    recurringFlows,
-    inflation,
-    currentNetWorth,
-  ]);
-
-  async function handleSetTarget(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const target = Number(draft);
-    if (!Number.isFinite(target)) return;
+    const rate = percent / 100;
+    if (rate === withdrawalRate) return;
     try {
-      await setNetWorthTarget(target, draftIsReal);
-      setDraft("");
+      await setWithdrawalRate(rate);
       setError(null);
     } catch (err) {
       setError(formatAssetTrackerError(err));
     }
-  }
-
-  async function handleClear() {
-    try {
-      await setNetWorthTarget(null);
-      setError(null);
-    } catch (err) {
-      setError(formatAssetTrackerError(err));
-    }
-  }
-
-  const moneyLabel = netWorthTargetIsReal ? "in today's money" : "nominal";
-  let statusMessage: string | null = null;
-  if (goal?.reachedOn) {
-    statusMessage = `Reached on ${goal.reachedOn} — time for a bigger goal?`;
-  } else if (goal?.projectedBy) {
-    statusMessage = netWorthTargetIsReal
-      ? `Projected to get there by ${goal.projectedBy} in today's purchasing power — growth has to beat inflation to count.`
-      : `Projected to get there by ${goal.projectedBy}, based on expected returns and regular flows.`;
-  } else if (goal) {
-    statusMessage = `Not projected within ${GOAL_SEARCH_MONTHS / 12} years on current expectations.`;
   }
 
   return (
     <Card className="min-w-0">
-      <CardHeader>
-        <CardTitle>Net Worth Goal</CardTitle>
-        <CardDescription>
-          Set the number you're working towards — an emergency fund, a house
-          deposit, or your FI number.
-        </CardDescription>
+      <CardHeader className="gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="space-y-1.5">
+          <CardTitle>Financial independence</CardTitle>
+          <CardDescription>
+            Derived from income, complete account balances, and signed capital
+            flows—not a manually chosen net-worth goal.
+          </CardDescription>
+        </div>
+        <IncomeHistoryImportDrawer />
       </CardHeader>
-      <CardContent className="flex min-w-0 flex-col gap-3 px-4 sm:px-6">
-        {netWorthTarget != null && goal ? (
-          <>
-            <div className="flex min-w-0 flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-2">
-              <p className="text-2xl font-bold">
-                {formatCurrency(currentNetWorth)}
-              </p>
-              <p className="text-sm text-muted-foreground sm:text-right">
-                of {formatCurrency(netWorthTarget)} {moneyLabel} (
-                {Math.round(goal.progress * 100)}%)
-              </p>
-            </div>
-            <progress
-              value={goal.progress}
-              max={1}
-              className="h-2 w-full overflow-hidden rounded-full bg-muted [appearance:none] [&::-moz-progress-bar]:rounded-full [&::-moz-progress-bar]:bg-primary [&::-webkit-progress-bar]:rounded-full [&::-webkit-progress-bar]:bg-muted [&::-webkit-progress-value]:rounded-full [&::-webkit-progress-value]:bg-primary"
-            />
-            {statusMessage && <p className="text-sm">{statusMessage}</p>}
-            <Button
-              variant="ghost"
-              size="sm"
-              className="self-start"
-              onClick={handleClear}
-            >
-              Clear goal
-            </Button>
-          </>
-        ) : (
-          <form onSubmit={handleSetTarget} className="flex flex-col gap-2">
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-              <label htmlFor="net-worth-target" className="sr-only">
-                Target net worth
-              </label>
-              <Input
-                id="net-worth-target"
-                type="number"
-                inputMode="decimal"
-                min="1"
-                step="any"
-                required
-                placeholder="e.g. 500000"
-                className="w-full sm:max-w-44"
-                value={draft}
-                onChange={(e) => setDraft(e.target.value)}
-              />
-              <Button
-                type="submit"
-                variant="outline"
-                className="w-full sm:w-auto"
+      <CardContent className="flex min-w-0 flex-col gap-5 px-4 sm:px-6">
+        <div className="grid gap-3 sm:grid-cols-3">
+          <div className="rounded-md border p-3">
+            <p className="text-xs text-muted-foreground">
+              Representative annual expenditure
+            </p>
+            <p className="mt-1 text-xl font-semibold">
+              {representativeAnnualExpenditure == null
+                ? "—"
+                : formatCurrency(Math.round(representativeAnnualExpenditure))}
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Median annualised period
+            </p>
+          </div>
+          <div className="rounded-md border p-3">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-xs text-muted-foreground">FI target</p>
+              <label
+                htmlFor="withdrawal-rate"
+                className="flex items-center gap-1 text-xs text-muted-foreground"
               >
-                Set goal
-              </Button>
+                <span>Withdrawal</span>
+                <Input
+                  id="withdrawal-rate"
+                  aria-label="Withdrawal rate"
+                  type="number"
+                  inputMode="decimal"
+                  min="0.1"
+                  max="100"
+                  step="any"
+                  className="h-7 w-16 text-right"
+                  value={withdrawalRateDraft}
+                  onChange={(event) => {
+                    setWithdrawalRateDraft(event.target.value);
+                    setError(null);
+                  }}
+                  onBlur={(event) => handleWithdrawalRate(event.target.value)}
+                />
+                <span>%</span>
+              </label>
             </div>
-            <label className="flex items-center gap-2 text-sm text-muted-foreground">
-              <input
-                type="checkbox"
-                className="size-4 accent-primary"
-                checked={draftIsReal}
-                onChange={(e) => setDraftIsReal(e.target.checked)}
-              />
-              <span>In today's money — the projection must beat inflation</span>
-            </label>
-          </form>
+            <p className="mt-1 text-xl font-semibold">
+              {target == null ? "—" : formatCurrency(Math.round(target))}
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Annual expenditure ÷ withdrawal rate
+            </p>
+          </div>
+          <div className="rounded-md border p-3">
+            <p className="text-xs text-muted-foreground">FI progress</p>
+            <p className="mt-1 text-xl font-semibold">
+              {progress == null ? "—" : `${Math.round(progress * 100)}%`}
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {formatCurrency(currentNetWorth)} total net worth, including all
+              home equity
+            </p>
+          </div>
+        </div>
+
+        {progress != null && (
+          <progress
+            value={progress}
+            max={1}
+            aria-label="Financial independence progress"
+            className="h-2 w-full overflow-hidden rounded-full bg-muted [appearance:none] [&::-moz-progress-bar]:rounded-full [&::-moz-progress-bar]:bg-primary [&::-webkit-progress-bar]:rounded-full [&::-webkit-progress-bar]:bg-muted [&::-webkit-progress-value]:rounded-full [&::-webkit-progress-value]:bg-primary"
+          />
+        )}
+
+        {periods.length > 0 ? (
+          <div className="min-w-0 space-y-2">
+            <div>
+              <h3 className="text-sm font-medium">Period reconciliation</h3>
+              <p className="text-xs text-muted-foreground">
+                Opening net worth + income − expenditure + valuation gain =
+                closing net worth. Net capital flow is income retained on the
+                balance sheet.
+              </p>
+            </div>
+            <div className="overflow-x-auto rounded-md border">
+              <table className="w-full min-w-[900px] text-sm">
+                <thead className="bg-muted/50 text-left text-xs text-muted-foreground">
+                  <tr>
+                    <th className="px-3 py-2 font-medium">Period</th>
+                    <th className="px-3 py-2 text-right font-medium">
+                      Opening
+                    </th>
+                    <th className="px-3 py-2 text-right font-medium">Income</th>
+                    <th className="px-3 py-2 text-right font-medium">
+                      Net flow
+                    </th>
+                    <th className="px-3 py-2 text-right font-medium">
+                      Valuation gain
+                    </th>
+                    <th className="px-3 py-2 text-right font-medium">
+                      Expenditure
+                    </th>
+                    <th className="px-3 py-2 text-right font-medium">
+                      Closing
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {periods.map((period) => (
+                    <tr key={period.endDate} className="border-t">
+                      <td className="whitespace-nowrap px-3 py-2">
+                        {period.startDate} – {period.endDate}
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-2 text-right">
+                        {formatCurrency(period.openingNetWorth)}
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-2 text-right">
+                        {formatCurrency(period.income)}
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-2 text-right">
+                        {signedCurrency(period.netCapitalFlow)}
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-2 text-right">
+                        {signedCurrency(period.valuationGain)}
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-2 text-right">
+                        {formatCurrency(period.expenditure)}
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-2 text-right">
+                        {formatCurrency(period.closingNetWorth)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        ) : (
+          <p className="rounded-md border border-dashed p-4 text-sm text-muted-foreground">
+            {incomeHistory.length === 0
+              ? "Add period income history to derive expenditure and an FI target. Account balances and signed deposits or withdrawals provide the rest of the reconciliation."
+              : "Income is saved, but there are not yet two usable balance-sheet dates around an income period. Add complete account balances at matching period ends."}
+          </p>
         )}
         {error && <p className="text-sm text-destructive">{error}</p>}
       </CardContent>

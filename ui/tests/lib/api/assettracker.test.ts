@@ -133,6 +133,70 @@ describe("createLocalAssetTrackerApi", () => {
     expect(data.capitalFlows).toEqual([]);
   });
 
+  it("loads older saved data with no income history", async () => {
+    const { incomeHistory: _incomeHistory, ...legacy } = getSeedData();
+    window.localStorage.setItem(
+      ASSET_TRACKER_STORAGE_KEY,
+      JSON.stringify(legacy),
+    );
+
+    const { data, persisted } = await createApi().load();
+
+    expect(persisted).toBe(true);
+    expect(data.incomeHistory).toEqual([]);
+  });
+
+  it("defaults the withdrawal rate in older saved settings", async () => {
+    const seed = getSeedData();
+    const legacy = {
+      ...seed,
+      settings: {
+        expectedAnnualInflation: seed.settings.expectedAnnualInflation,
+      },
+    };
+    window.localStorage.setItem(
+      ASSET_TRACKER_STORAGE_KEY,
+      JSON.stringify(legacy),
+    );
+
+    const { data, persisted } = await createApi().load();
+
+    expect(persisted).toBe(true);
+    expect(data.settings.withdrawalRate).toBe(0.04);
+  });
+
+  it("repairs duplicate persisted income dates without hiding the portfolio", async () => {
+    const seed = getSeedData();
+    window.localStorage.setItem(
+      ASSET_TRACKER_STORAGE_KEY,
+      JSON.stringify({
+        ...seed,
+        incomeHistory: [
+          { date: "2025-01-31", amount: 4_100 },
+          { date: "2025-01-31", amount: 4_200 },
+        ],
+      }),
+    );
+
+    const { data, persisted } = await createApi().load();
+
+    expect(persisted).toBe(true);
+    expect(data.accounts).toEqual(seed.accounts);
+    expect(data.incomeHistory).toEqual([{ date: "2025-01-31", amount: 4_200 }]);
+  });
+
+  it("persists portfolio income history and the withdrawal rate", async () => {
+    const api = createApi();
+    await api.importIncomeHistory({
+      income: [{ date: "2025-01-31", amount: 4_500 }],
+    });
+    await api.setWithdrawalRate({ rate: 0.035 });
+
+    const { data } = await createApi().load();
+    expect(data.incomeHistory).toEqual([{ date: "2025-01-31", amount: 4_500 }]);
+    expect(data.settings.withdrawalRate).toBe(0.035);
+  });
+
   it("rejects importing data that fails validation", async () => {
     await expect(
       createApi().importData({ accounts: "nope" }),

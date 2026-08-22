@@ -33,6 +33,7 @@ export type AssetTrackerCommandErrorCode =
   | "SNAPSHOT_NOT_FOUND"
   | "CAPITAL_FLOW_NOT_FOUND"
   | "FLOW_NOT_FOUND"
+  | "DUPLICATE_INCOME_DATE"
   | "INVALID_ACCOUNT_NAME";
 
 export class AssetTrackerCommandError extends Error {
@@ -115,6 +116,20 @@ const HistoryValueSchema = z.object({
   date: IsoDateSchema,
   value: z.number(),
 });
+
+export const ImportIncomeHistoryInputSchema = z.object({
+  income: z
+    .array(
+      z.object({
+        date: IsoDateSchema,
+        amount: z.number().nonnegative("Income cannot be negative"),
+      }),
+    )
+    .min(1, "Paste at least one income row"),
+});
+export type ImportIncomeHistoryInput = z.infer<
+  typeof ImportIncomeHistoryInputSchema
+>;
 
 export const ImportAccountHistoryInputSchema = z
   .object({
@@ -203,6 +218,16 @@ export const SetInflationInputSchema = z.object({
   rate: AnnualRateSchema,
 });
 export type SetInflationInput = z.infer<typeof SetInflationInputSchema>;
+
+export const SetWithdrawalRateInputSchema = z.object({
+  rate: z
+    .number()
+    .positive("Withdrawal rate must be positive")
+    .max(1, "Withdrawal rate cannot exceed 100%"),
+});
+export type SetWithdrawalRateInput = z.infer<
+  typeof SetWithdrawalRateInputSchema
+>;
 
 export const SetNetWorthTargetInputSchema = z.object({
   /** Null clears the target */
@@ -391,6 +416,37 @@ export function applyImportAccountHistory(
     snapshots: Array.from(snapshotsByAccountDate.values()),
     capitalFlows: Array.from(capitalFlowsByAccountDate.values()),
   };
+}
+
+/** Replaces the complete portfolio income series atomically. */
+export function applyImportIncomeHistory(
+  data: AssetTrackerData,
+  input: ImportIncomeHistoryInput,
+): AssetTrackerData {
+  const parsed = ImportIncomeHistoryInputSchema.parse(input);
+  const byDate = new Map<string, number>();
+  for (const row of parsed.income) {
+    if (byDate.has(row.date)) {
+      throw new AssetTrackerCommandError(
+        "DUPLICATE_INCOME_DATE",
+        `Duplicate income record on ${row.date}`,
+      );
+    }
+    byDate.set(row.date, row.amount);
+  }
+  return {
+    ...data,
+    incomeHistory: Array.from(byDate, ([date, amount]) => ({
+      date,
+      amount,
+    })).sort((a, b) => a.date.localeCompare(b.date)),
+  };
+}
+
+export function applyClearIncomeHistory(
+  data: AssetTrackerData,
+): AssetTrackerData {
+  return { ...data, incomeHistory: [] };
 }
 
 export function applyRecordTransfer(
@@ -658,6 +714,17 @@ export function applySetInflation(
   return {
     ...data,
     settings: { ...data.settings, expectedAnnualInflation: parsed.rate },
+  };
+}
+
+export function applySetWithdrawalRate(
+  data: AssetTrackerData,
+  input: SetWithdrawalRateInput,
+): AssetTrackerData {
+  const parsed = SetWithdrawalRateInputSchema.parse(input);
+  return {
+    ...data,
+    settings: { ...data.settings, withdrawalRate: parsed.rate },
   };
 }
 
