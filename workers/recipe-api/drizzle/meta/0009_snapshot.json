@@ -1,5 +1,5 @@
 {
-  "id": "2f8ff3dd-ac11-4584-9627-6b03bb82d0ae",
+  "id": "04a64512-f77e-458d-940b-f8d6cdabd38d",
   "prevId": "44783fca-c615-4d99-9b4f-6dbeb4c265f3",
   "version": "7",
   "dialect": "postgresql",
@@ -1902,6 +1902,104 @@
             "id"
           ],
           "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.notification_agent_approval_event": {
+      "name": "notification_agent_approval_event",
+      "schema": "",
+      "columns": {
+        "event_id": {
+          "name": "event_id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "approval_request_id": {
+          "name": "approval_request_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "agent_id_snapshot": {
+          "name": "agent_id_snapshot",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "agent_name_snapshot": {
+          "name": "agent_name_snapshot",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "capabilities_snapshot": {
+          "name": "capabilities_snapshot",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "expires_at_snapshot": {
+          "name": "expires_at_snapshot",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "approval_code_ciphertext": {
+          "name": "approval_code_ciphertext",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "notification_agent_approval_request_uidx": {
+          "name": "notification_agent_approval_request_uidx",
+          "columns": [
+            {
+              "expression": "approval_request_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "notification_agent_approval_event_event_id_notification_event_id_fk": {
+          "name": "notification_agent_approval_event_event_id_notification_event_id_fk",
+          "tableFrom": "notification_agent_approval_event",
+          "tableTo": "notification_event",
+          "columnsFrom": [
+            "event_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "notification_agent_approval_event_approval_request_id_approval_request_id_fk": {
+          "name": "notification_agent_approval_event_approval_request_id_approval_request_id_fk",
+          "tableFrom": "notification_agent_approval_event",
+          "tableTo": "approval_request",
+          "columnsFrom": [
+            "approval_request_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
           "onUpdate": "no action"
         }
       },
