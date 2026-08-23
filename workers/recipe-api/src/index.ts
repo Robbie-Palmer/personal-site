@@ -2397,7 +2397,9 @@ async function listDietOptions(db: Db) {
         key: group.key,
         label: group.label,
         sub: group.sub ?? "",
-        broaderGroupKeys: (broaderGroupKeysByGroup.get(group.key) ?? []).sort(),
+        broaderGroupKeys: (
+          broaderGroupKeysByGroup.get(group.key) ?? []
+        ).sort((a, b) => a.localeCompare(b)),
         ingredientSlugs: ingredientSlugsByGroup.get(group.key) ?? [],
       }))
       .sort((a, b) => a.label.localeCompare(b.label)),

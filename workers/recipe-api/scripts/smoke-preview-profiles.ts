@@ -238,8 +238,10 @@ const dietOptions = await expectJson<DietOptions>(
 const chickenGroup = dietOptions.groups.find(
   (group) => group.key === "chicken",
 );
+if (!chickenGroup) {
+  throw new Error("Chicken ingredient group was missing");
+}
 if (
-  !chickenGroup ||
   chickenGroup.broaderGroupKeys.length !== 1 ||
   chickenGroup.broaderGroupKeys[0] !== "poultry" ||
   ![
@@ -252,8 +254,10 @@ if (
   throw new Error("Chicken ingredient-group hierarchy did not match");
 }
 const stockGroup = dietOptions.groups.find((group) => group.key === "stock");
+if (!stockGroup) {
+  throw new Error("Stock ingredient group was missing");
+}
 if (
-  !stockGroup ||
   !["chicken-stock", "chicken-stock-pot", "vegetable-stock"].every((slug) =>
     stockGroup.ingredientSlugs.includes(slug),
   )
