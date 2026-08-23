@@ -1,3 +1,4 @@
+import { z } from "zod";
 import { apiRequest } from "@/lib/api/http";
 
 export type AgentStatus =
@@ -49,8 +50,12 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function nullableString(value: unknown): string | null | undefined {
-  return value === null || typeof value === "string" ? value : undefined;
+const agentDateTime = z.iso.datetime({ offset: true });
+
+function nullableDateTime(value: unknown): string | null | undefined {
+  if (value === null) return null;
+  const parsed = agentDateTime.safeParse(value);
+  return parsed.success ? parsed.data : undefined;
 }
 
 const AGENT_CAPABILITY_GRANT_STATUSES = new Set<AgentCapabilityGrantStatus>([
@@ -75,7 +80,7 @@ function capabilityGrant(value: unknown): AgentCapabilityGrant | undefined {
   const expiresAt =
     value.expires_at === undefined
       ? undefined
-      : nullableString(value.expires_at);
+      : nullableDateTime(value.expires_at);
   if (value.expires_at !== undefined && expiresAt === undefined) {
     return undefined;
   }
@@ -117,8 +122,9 @@ function agentBase(value: unknown): AgentBase | undefined {
   const status = value.status;
   const mode = value.mode;
   const grants = capabilityGrants(value.agent_capability_grants);
-  const lastUsedAt = nullableString(value.last_used_at);
-  const expiresAt = nullableString(value.expires_at);
+  const createdAt = agentDateTime.safeParse(value.created_at);
+  const lastUsedAt = nullableDateTime(value.last_used_at);
+  const expiresAt = nullableDateTime(value.expires_at);
   if (
     typeof value.agent_id !== "string" ||
     typeof value.name !== "string" ||
@@ -127,7 +133,7 @@ function agentBase(value: unknown): AgentBase | undefined {
     (mode !== "delegated" && mode !== "autonomous") ||
     typeof value.host_id !== "string" ||
     !grants ||
-    typeof value.created_at !== "string" ||
+    !createdAt.success ||
     lastUsedAt === undefined ||
     expiresAt === undefined
   ) {
@@ -140,7 +146,7 @@ function agentBase(value: unknown): AgentBase | undefined {
     mode,
     hostId: value.host_id,
     capabilityGrants: grants,
-    createdAt: value.created_at,
+    createdAt: createdAt.data,
     lastUsedAt,
     expiresAt,
   };
@@ -157,7 +163,7 @@ function parseAgentSummary(value: unknown): AgentSummary | undefined {
 function parseAgentDetail(value: unknown): AgentDetail | undefined {
   const base = agentBase(value);
   if (!base || !isRecord(value)) return undefined;
-  const activatedAt = nullableString(value.activated_at);
+  const activatedAt = nullableDateTime(value.activated_at);
   if (activatedAt === undefined) return undefined;
   return { ...base, activatedAt };
 }

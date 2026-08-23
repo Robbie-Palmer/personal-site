@@ -90,6 +90,35 @@ describe("agent access API", () => {
     );
   });
 
+  it.each(["created_at", "last_used_at", "expires_at"])(
+    "rejects invalid %s timestamps",
+    async (field) => {
+      fetchMock.mockResolvedValueOnce(
+        Response.json({
+          agents: [
+            {
+              agent_id: "agent-1",
+              name: "Meal planner",
+              status: "active",
+              mode: "delegated",
+              host_id: "host-1",
+              host_name: "Kitchen helper host",
+              agent_capability_grants: [],
+              created_at: "2026-08-22T09:00:00.000Z",
+              last_used_at: null,
+              expires_at: "2026-09-21T09:00:00.000Z",
+              [field]: "not-a-datetime",
+            },
+          ],
+        }),
+      );
+
+      await expect(listAgents()).rejects.toThrow(
+        "The agent list response was invalid.",
+      );
+    },
+  );
+
   it("revokes exactly the selected agent", async () => {
     fetchMock.mockResolvedValueOnce(
       Response.json({ agent_id: "agent-1", status: "revoked" }),
