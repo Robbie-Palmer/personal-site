@@ -49,12 +49,18 @@ RECYCLARR_CONFIG_DIR = os.path.join(
 # TRaSH Guides starter profiles, see ADR 019. Recyclarr v8 has no include-by-
 # name templates; the pre-built configs live in recyclarr/config-templates and
 # are copied wholesale with base_url/api_key substituted.
+# The ref is pinned to an immutable upstream commit so template content cannot
+# change under us; bump it deliberately when adopting new guide revisions
+# (quality-profile trash_id content still tracks the guides at every sync).
+RECYCLARR_TEMPLATE_REF = "9faf65ff745d74ab906fd73cadaa25f08eb9d981"
 RECYCLARR_TEMPLATES = [
     ("sonarr",
-     "https://raw.githubusercontent.com/recyclarr/config-templates/master/"
+     "https://raw.githubusercontent.com/recyclarr/config-templates/"
+     f"{RECYCLARR_TEMPLATE_REF}/"
      "sonarr/templates/web-1080p.yml"),
     ("radarr",
-     "https://raw.githubusercontent.com/recyclarr/config-templates/master/"
+     "https://raw.githubusercontent.com/recyclarr/config-templates/"
+     f"{RECYCLARR_TEMPLATE_REF}/"
      "radarr/templates/hd-bluray-web.yml"),
 ]
 
@@ -112,6 +118,11 @@ def ensure_recyclarr_config():
         ).replace(
             "Put your API key here", keys[app]
         ).replace("_PORT_", "8989" if app == "sonarr" else "7878")
+        if "Put your" in section:
+            raise SystemExit(
+                f"{app} template placeholders did not match; the pinned "
+                f"upstream template changed format and needs a provisioning fix"
+            )
         sections.append(section)
     with open(path, "w") as fh:
         fh.write("\n".join(sections))
@@ -166,6 +177,8 @@ def qbit_login_once(username, password):
                 return None
             set_cookie = resp.headers.get("Set-Cookie", "")
     except urllib.error.HTTPError as exc:
+        if exc.code == 403:
+            return None  # temporary IP ban; caller falls back to the logged password
         raise RuntimeError(f"HTTP {exc.code}") from exc
     name = f"QBT_SID_{urllib.parse.urlparse(QBIT).port}="
     if name not in set_cookie:
@@ -306,6 +319,11 @@ def _build_indexer_payload(prowlarr, definition, schema):
                 field["value"] = INDEXER_BASE_URLS[definition]
     if not payload.get("appProfileId"):
         profiles = prowlarr.get("/api/v1/appprofile")
+        if not profiles:
+            raise SystemExit(
+                "Prowlarr has no application profiles yet; wait for it to "
+                "finish initializing and re-run provisioning"
+            )
         standard = next((p["id"] for p in profiles if p.get("name") == "Standard"), None)
         payload["appProfileId"] = standard or profiles[0]["id"]
     return payload

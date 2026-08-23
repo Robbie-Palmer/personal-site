@@ -84,7 +84,7 @@ PY
 fi
 
 # 2. LaunchAgent ---------------------------------------------------------------
-sed_escape() { local value="$1"; printf '%s' "$value" | sed 's/[&/\]/\\&/g'; }
+sed_escape() { local value="$1"; printf '%s' "$value" | sed 's/[&/\|]/\\&/g'; }
 HOMELAB_ROOT_ESC="$(sed_escape "$HOMELAB_ROOT")"
 HOME_ESC="$(sed_escape "$HOME")"
 sed \
@@ -97,6 +97,20 @@ launchctl kickstart -k "gui/$(id -u)/${LAUNCHD_AGENT}"
 echo "Installed and started LaunchAgent ${LAUNCHD_AGENT}"
 
 # 3. Bring up the stack ---------------------------------------------------------
+# Refuse to start any container while the VPN tunnel is down; keep-running.sh
+# re-checks on every cycle (ADR 020).
+vpn_tunnel_active() {
+  local iface
+  iface="$(route -n get 1.1.1.1 2>/dev/null | awk '/^ *interface:/{print $2}')"
+  if [[ "$iface" == utun* ]]; then
+    return 0
+  fi
+  return 1
+}
+if ! vpn_tunnel_active; then
+  echo "No utun* default route: bring the VPN tunnel up before bootstrapping." >&2
+  exit 1
+fi
 docker compose --project-directory "$MEDIA_DIR" up -d
 
 # 4. Provision -------------------------------------------------------------------

@@ -150,12 +150,22 @@ run = "docker compose up -d --pull always"
 [tasks.media-verify]
 description = "Check the health of all four media automation services"
 run = '''
-set -e
+set -u
+failures=0
 for service in "Prowlarr:${PROWLARR_PORT:-9696}" "Sonarr:${SONARR_PORT:-8989}" "Radarr:${RADARR_PORT:-7878}"; do
   name="${service%%:*}"; port="${service##*:}"
-  curl -fsS "http://localhost:${port}/ping" >/dev/null && echo "${name} is healthy"
+  if curl -fsS "http://localhost:${port}/ping" >/dev/null 2>&1; then
+    echo "${name} is healthy"
+  else
+    echo "${name}: FAILED health check"
+    failures=$((failures + 1))
+  fi
 done
-curl -fsS "http://localhost:${QBITTORRENT_PORT:-8080}/api/v2/app/version" >/dev/null 2>&1 \
-  && echo "qBittorrent is healthy" \
-  || echo "qBittorrent is reachable (auth required for API)"
+if curl -sS -o /dev/null "http://localhost:${QBITTORRENT_PORT:-8080}/api/v2/app/version" 2>/dev/null; then
+  echo "qBittorrent is healthy"
+else
+  echo "qBittorrent: FAILED health check"
+  failures=$((failures + 1))
+fi
+[ "$failures" -eq 0 ] || exit 1
 '''
