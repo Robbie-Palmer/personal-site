@@ -105,15 +105,11 @@ kit would solve a software problem with more hardware.
 
 # Topology
 
-The diagrams borrow the zoom levels from the
-[C4 model](https://c4model.com/): start with the lab's place in the world,
-then open the box to see its services, then show where those services run.
-They use ordinary Mermaid flowcharts rather than C4-specific notation.
-
 ## System context
 
-This view treats the whole home lab as one system. It shows who uses it and
-the external systems it depends on, without exposing its internal machinery.
+Personal and household devices reach the lab over its private network. The lab
+pulls photos from Ente, works with code and agent providers, and sends
+operational alerts to Slack.
 
 <Mermaid
   chart={`flowchart LR
@@ -141,9 +137,8 @@ class Cloud,Code,Alerts external
 
 ## Containers
 
-Here, "container" means a separately running service or data store, as it
-does in C4. This is the logical service map. The next diagram covers physical
-machines and failover.
+Tailscale is the private entry point for interactive services. Backup and media
+services share local storage, while Netdata reports failures outside the lab.
 
 <Mermaid
   chart={`flowchart LR
@@ -185,8 +180,9 @@ class Storage data
 
 ## Deployment
 
-The deployment view maps those services to hardware. Dashed links and boxes
-marked "proposed" are planned work, not part of the live lab.
+The Mac mini owns the main workloads and the Raspberry Pi keeps DNS and
+monitoring alive during hub maintenance. The GPU worker and phone lab are
+proposed additions.
 
 <Mermaid
   chart={`flowchart LR
