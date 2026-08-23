@@ -28,7 +28,10 @@ colima_running() {
 vpn_tunnel_active() {
   local iface
   iface="$(route -n get 1.1.1.1 2>/dev/null | awk '/^ *interface:/{print $2}')"
-  [[ "$iface" == utun* ]]
+  if [[ "$iface" == utun* ]]; then
+    return 0
+  fi
+  return 1
 }
 
 while true; do
