@@ -1071,4 +1071,51 @@ export const technologies: TechnologyContent[] = [
     website: "https://mapping-commons.github.io/sssom/",
     type: "tool",
   },
+  {
+    name: "Sonarr",
+    added: "2026-08-23",
+    description:
+      "PVR for usenet and torrent trackers that automates TV series acquisition and renaming",
+    website: "https://sonarr.tv",
+    type: "tool",
+  },
+  {
+    name: "Radarr",
+    added: "2026-08-23",
+    description:
+      "Movie manager for usenet and torrent trackers that automates acquisition and renaming",
+    website: "https://radarr.video",
+    type: "tool",
+  },
+  {
+    name: "Prowlarr",
+    added: "2026-08-23",
+    description:
+      "Indexer manager that proxies search results to Sonarr, Radarr, and other PVR apps",
+    website: "https://prowlarr.com",
+    type: "tool",
+  },
+  {
+    name: "qBittorrent",
+    added: "2026-08-23",
+    description: "Open source BitTorrent client with a scriptable WebUI API",
+    website: "https://www.qbittorrent.org",
+    type: "tool",
+  },
+  {
+    name: "Colima",
+    added: "2026-08-23",
+    description:
+      "Container runtime on macOS that runs Docker in a lightweight Linux VM",
+    website: "https://github.com/abiosoft/colima",
+    type: "tool",
+  },
+  {
+    name: "Recyclarr",
+    added: "2026-08-23",
+    description:
+      "CLI and container that syncs TRaSH Guides quality profiles and custom formats into Sonarr and Radarr",
+    website: "https://recyclarr.dev",
+    type: "tool",
+  },
 ];

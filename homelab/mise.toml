@@ -104,3 +104,68 @@ run = "PATH=\"$HOME/.local/bin:$PATH\" bm status"
 [tasks.bm-reset]
 description = "Rebuild the Basic Memory index from Markdown files"
 run = "PATH=\"$HOME/.local/bin:$PATH\" bm reset"
+
+# ---------------------------------------------------------------------------
+# Media automation (Prowlarr + Sonarr + Radarr + qBittorrent)
+# ---------------------------------------------------------------------------
+
+[tasks.media-bootstrap]
+description = "Install dependencies and deploy the media automation stack"
+run = "bash hosts/mac-mini/media-automation/scripts/bootstrap.sh"
+
+[tasks.media-provision]
+description = "Wire Prowlarr, Sonarr, Radarr, and qBittorrent together via their APIs"
+run = "bash hosts/mac-mini/media-automation/scripts/provision.sh"
+
+[tasks.media-status]
+description = "Show the state of the media automation stack"
+dir = "hosts/mac-mini/media-automation"
+run = "docker compose ps"
+
+[tasks.media-up]
+description = "Create and start the media automation stack"
+dir = "hosts/mac-mini/media-automation"
+run = "docker compose up -d"
+
+[tasks.media-down]
+description = "Stop the media automation stack"
+dir = "hosts/mac-mini/media-automation"
+run = "docker compose down"
+
+[tasks.media-restart]
+description = "Restart the media automation containers"
+dir = "hosts/mac-mini/media-automation"
+run = "docker compose restart"
+
+[tasks.media-logs]
+description = "Follow the media automation logs"
+dir = "hosts/mac-mini/media-automation"
+run = "docker compose logs -f --tail=100"
+
+[tasks.media-pull]
+description = "Pull the configured images and recreate the containers"
+dir = "hosts/mac-mini/media-automation"
+run = "docker compose up -d --pull always"
+
+[tasks.media-verify]
+description = "Check the health of all four media automation services"
+run = '''
+set -u
+failures=0
+for service in "Prowlarr:${PROWLARR_PORT:-9696}" "Sonarr:${SONARR_PORT:-8989}" "Radarr:${RADARR_PORT:-7878}"; do
+  name="${service%%:*}"; port="${service##*:}"
+  if curl -fsS "http://localhost:${port}/ping" >/dev/null 2>&1; then
+    echo "${name} is healthy"
+  else
+    echo "${name}: FAILED health check"
+    failures=$((failures + 1))
+  fi
+done
+if curl -sS -o /dev/null "http://localhost:${QBITTORRENT_PORT:-8080}/api/v2/app/version" 2>/dev/null; then
+  echo "qBittorrent is healthy"
+else
+  echo "qBittorrent: FAILED health check"
+  failures=$((failures + 1))
+fi
+[ "$failures" -eq 0 ] || exit 1
+'''

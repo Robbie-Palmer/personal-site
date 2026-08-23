@@ -62,6 +62,81 @@ mise run //homelab:verify
   should gain a check for the Jellyfin container and the media drive, so a
   dead stack is noticed before the family does.
 
+## Media automation on the Mac mini
+
+The *arr stack (ADRs 016–019) feeds the Jellyfin library automatically:
+[Prowlarr](/projects/homelab/adrs/017-prowlarr-indexer-management) manages
+the torrent indexers and syncs them to Sonarr (TV) and Radarr (movies), which
+send grabs to the containerized
+[qBittorrent](/projects/homelab/adrs/018-single-containerized-torrent-client)
+and import finished downloads into `/media/TV` and `/media/Movies` with
+Jellyfin-friendly names.
+[Recyclarr](/projects/homelab/adrs/019-recyclarr-trash-guides) keeps both
+apps' quality profiles on the TRaSH Guides with a nightly sync. A launchd
+agent (`homelab.media`) keeps all of it running across reboots, same as
+Jellyfin's.
+
+Web UIs (LAN/tailnet only): Prowlarr **9696**, Sonarr **8989**, Radarr
+**7878**, qBittorrent **8080**. Login is `admin`; qBittorrent's password is
+generated into the gitignored `.env`.
+
+### Media automation one-time bootstrap
+
+Run on the hub with mise installed and colima already set up by the Jellyfin
+bootstrap. The media volume must be mounted first:
+
+```bash
+mise run //homelab:media-bootstrap
+```
+
+This creates `.env` from the example template, generates the qBittorrent
+password, installs the launchd agent, starts the four containers, and runs
+idempotent provisioning that wires download clients, root folders, indexers,
+and the indexer sync between them.
+
+### Media automation day-to-day
+
+```bash
+mise run //homelab:media-status
+mise run //homelab:media-logs
+mise run //homelab:media-restart
+mise run //homelab:media-verify
+mise run //homelab:media-provision   # re-run wiring; safe to repeat
+```
+
+### Media automation upgrading
+
+1. Bump the `*_VERSION` pins in `.env` (or leave as `latest`).
+2. `mise run //homelab:media-pull`
+
+### Media automation caveats
+
+- **Adding a series or film** happens in Sonarr/Radarr's UI (or their APIs);
+  everything downstream is automatic.
+- **qBittorrent bans IPs after five failed logins** for an hour. Scripts
+  should try each credential once; if you lock yourself out,
+  `docker restart qbittorrent` clears the ban list.
+- **First provisioning needs a clean slate**: qBittorrent's temporary
+  first-boot password comes from its logs, so wiping
+  `data/qbittorrent/` and re-running bootstrap is the reset path.
+- **New shared host directories require colima to know `/Volumes` is
+  writable.** If a bind mount shows up read-only inside containers, check
+  `writable: true` for `/Volumes` in `~/.colima/default/colima.yaml`, then
+  `colima stop && colima start`.
+- **New series and films need the right profile.** Recyclarr creates the
+  TRaSH quality profiles; pick them (WEB 1080p for TV, HD Bluray + WEB for
+  movies) when adding media. Items added before the profiles existed keep
+  their old profile until switched manually.
+- **Recyclarr sync runs nightly** (`@daily` in-container cron). Manual run:
+  `docker exec recyclarr recyclarr sync`. Logs live in
+  `data/recyclarr/logs/`.
+- **The stack waits for the VPN.** Both provisioning and the keep-running
+  agent refuse to start the containers until the hub's default route runs
+  through a VPN tunnel interface, so torrent traffic never touches the
+  residential line during the boot race ([ADR 020](/projects/homelab/adrs/020-vpn-gated-stack)).
+- The [Netdata](/projects/homelab/adrs/009-netdata) alerting should cover
+  these containers as well.
+
 ## SilverBullet on the Mac mini
 
 SilverBullet (ADR 014) runs on the hub as the human-facing notes application.

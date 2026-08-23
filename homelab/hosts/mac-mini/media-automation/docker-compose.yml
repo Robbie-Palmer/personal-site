@@ -1,0 +1,86 @@
+name: media
+
+services:
+  prowlarr:
+    image: lscr.io/linuxserver/prowlarr:${PROWLARR_VERSION:-latest}
+    container_name: prowlarr
+    restart: unless-stopped
+    ports:
+      - "${PROWLARR_PORT:-9696}:9696"
+    environment:
+      TZ: "${TZ:-UTC}"
+      PUID: "${PUID:-501}"
+      PGID: "${PGID:-20}"
+    volumes:
+      - ./data/prowlarr:/config
+
+  sonarr:
+    image: lscr.io/linuxserver/sonarr:${SONARR_VERSION:-latest}
+    container_name: sonarr
+    restart: unless-stopped
+    ports:
+      - "${SONARR_PORT:-8989}:8989"
+    environment:
+      TZ: "${TZ:-UTC}"
+      PUID: "${PUID:-501}"
+      PGID: "${PGID:-20}"
+    volumes:
+      - ./data/sonarr:/config
+      - "${DOWNLOADS_DIR:?set DOWNLOADS_DIR in the media-automation .env file}:/downloads"
+      - "${MEDIA_DIR:?set MEDIA_DIR in the media-automation .env file}:/media"
+
+  radarr:
+    image: lscr.io/linuxserver/radarr:${RADARR_VERSION:-latest}
+    container_name: radarr
+    restart: unless-stopped
+    ports:
+      - "${RADARR_PORT:-7878}:7878"
+    environment:
+      TZ: "${TZ:-UTC}"
+      PUID: "${PUID:-501}"
+      PGID: "${PGID:-20}"
+    volumes:
+      - ./data/radarr:/config
+      - "${DOWNLOADS_DIR:?set DOWNLOADS_DIR in the media-automation .env file}:/downloads"
+      - "${MEDIA_DIR:?set MEDIA_DIR in the media-automation .env file}:/media"
+
+  qbittorrent:
+    image: lscr.io/linuxserver/qbittorrent:${QBITTORRENT_VERSION:-latest}
+    container_name: qbittorrent
+    restart: unless-stopped
+    ports:
+      # Host and container ports must match: WEBUI_PORT sets qBittorrent's
+      # in-container listen port from the same variable.
+      - "${QBITTORRENT_PORT:-8080}:${QBITTORRENT_PORT:-8080}"
+      - "6881:6881"
+      - "6881:6881/udp"
+    environment:
+      TZ: "${TZ:-UTC}"
+      PUID: "${PUID:-501}"
+      PGID: "${PGID:-20}"
+      WEBUI_PORT: "${QBITTORRENT_PORT:-8080}"
+      TORRENTING_PORT: "6881"
+    volumes:
+      - ./data/qbittorrent:/config
+      - "${DOWNLOADS_DIR}:/downloads"
+
+  # Syncs TRaSH Guides quality profiles and custom formats into Sonarr and
+  # Radarr. Runs in cron mode (default @daily); see ADR 019. The official
+  # image publishes no latest tag, so the major version is pinned.
+  recyclarr:
+    image: ghcr.io/recyclarr/recyclarr:${RECYCLARR_VERSION:-8}
+    container_name: recyclarr
+    restart: unless-stopped
+    depends_on:
+      - sonarr
+      - radarr
+    user: "${PUID:-501}:${PGID:-20}"
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - 'no-new-privileges:true'
+    environment:
+      TZ: "${TZ:-UTC}"
+    volumes:
+      - ./data/recyclarr:/config
