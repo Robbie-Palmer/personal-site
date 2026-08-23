@@ -109,6 +109,39 @@ const cookLogReadInput = z
 
 const noArgumentsInput = z.object({}).strict();
 
+function cookingLogQuery(input: z.infer<typeof cookLogReadInput>) {
+  const cursor = decodeCookingLogCursor(input.cursor);
+  let to = input.to ? new Date(input.to) : new Date();
+  let from = input.from
+    ? new Date(input.from)
+    : new Date(to.getTime() - MAX_COOK_LOG_RANGE_MS);
+
+  if (cursor) {
+    const cursorFrom = new Date(cursor.from);
+    const cursorTo = new Date(cursor.to);
+    const conflictsWithFrom =
+      input.from !== undefined &&
+      new Date(input.from).getTime() !== cursorFrom.getTime();
+    const conflictsWithTo =
+      input.to !== undefined &&
+      new Date(input.to).getTime() !== cursorTo.getTime();
+    if (conflictsWithFrom || conflictsWithTo) {
+      throw new Error("Cursor does not match the requested date range");
+    }
+    from = cursorFrom;
+    to = cursorTo;
+  }
+
+  if (from > to) {
+    throw new Error("from must not be after to");
+  }
+  if (to.getTime() - from.getTime() > MAX_COOK_LOG_RANGE_MS) {
+    throw new Error("Cook log range must not exceed 90 days");
+  }
+
+  return { from, to, limit: input.limit, cursor };
+}
+
 const recipeSummarySchema = {
   type: "object",
   additionalProperties: false,
@@ -397,36 +430,7 @@ export async function executeRecipeAgentCapability(
 
   if (capability === "cook_log.read") {
     const input = cookLogReadInput.parse(args ?? {});
-    const cursor = decodeCookingLogCursor(input.cursor);
-    const to = cursor
-      ? new Date(cursor.to)
-      : input.to
-        ? new Date(input.to)
-        : new Date();
-    const from = cursor
-      ? new Date(cursor.from)
-      : input.from
-        ? new Date(input.from)
-        : new Date(to.getTime() - MAX_COOK_LOG_RANGE_MS);
-    if (
-      cursor &&
-      ((input.from && new Date(input.from).getTime() !== from.getTime()) ||
-        (input.to && new Date(input.to).getTime() !== to.getTime()))
-    ) {
-      throw new Error("Cursor does not match the requested date range");
-    }
-    if (from > to) {
-      throw new Error("from must not be after to");
-    }
-    if (to.getTime() - from.getTime() > MAX_COOK_LOG_RANGE_MS) {
-      throw new Error("Cook log range must not exceed 90 days");
-    }
-    return cookingLogResponse(db, userId, {
-      from,
-      to,
-      limit: input.limit,
-      cursor,
-    });
+    return cookingLogResponse(db, userId, cookingLogQuery(input));
   }
 
   if (capability === "cooking_insights.read") {
