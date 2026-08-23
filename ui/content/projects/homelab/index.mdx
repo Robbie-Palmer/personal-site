@@ -105,54 +105,143 @@ kit would solve a software problem with more hardware.
 
 # Topology
 
+The diagrams borrow the zoom levels from the
+[C4 model](https://c4model.com/): start with the lab's place in the world,
+then open the box to see its services, then show where those services run.
+They use ordinary Mermaid flowcharts rather than C4-specific notation.
+
+## System context
+
+This view treats the whole home lab as one system. It shows who uses it and
+the external systems it depends on, without exposing its internal machinery.
+
 <Mermaid
   chart={`flowchart LR
-Internet["Internet"] -->|"router DNS"| Router["Home router"]
-subgraph hub["Mac mini, home hub"]
-ADG1["AdGuard Home, primary DNS"]
-ENT["Ente sync"]
-NET1["Netdata"]
-T3["t3-code + agents"]
-JEL["Jellyfin"]
+Owner["Lab owner"]
+Household["Household devices"]
+Lab["Home lab<br/>Private services, storage and compute"]
+Cloud["Ente cloud<br/>Photo library"]
+Code["GitHub and AI providers<br/>Code and agent APIs"]
+Alerts["Slack<br/>Operational alerts"]
+
+Owner -->|"develops, administers and streams"| Lab
+Household -->|"uses DNS and printing"| Lab
+Cloud -->|"supplies photo backup"| Lab
+Lab -->|"reads and writes repositories<br/>calls agent APIs"| Code
+Lab -->|"sends alerts"| Alerts
+
+classDef person fill:#7c3aed,color:#fff,stroke:#6d28d9
+classDef system fill:#2563eb,color:#fff,stroke:#1d4ed8
+classDef external fill:#475569,color:#fff,stroke:#334155
+class Owner,Household person
+class Lab system
+class Cloud,Code,Alerts external
+`}
+/>
+
+## Containers
+
+Here, "container" means a separately running service or data store, as it
+does in C4. This is the logical service map. The next diagram covers physical
+machines and failover.
+
+<Mermaid
+  chart={`flowchart LR
+People["Owner and household devices"]
+Ente["Ente cloud"]
+GitHub["GitHub and AI providers"]
+Slack["Slack"]
+
+subgraph lab["Home lab"]
+Access["Tailscale<br/>Private access network"]
+DNS["AdGuard Home<br/>Filtered DNS"]
+Dev["t3-code and coding agents<br/>Development workspace"]
+Backup["Ente sync<br/>Photo backup job"]
+Media["Jellyfin<br/>Media server"]
+Print["CUPS<br/>Print server"]
+Monitor["Netdata<br/>Monitoring and alerts"]
+Storage[("Local storage<br/>Photos, media and datasets")]
 end
-HSS["Hotspot Shield VPN, always-on"]
-subgraph pi["Raspberry Pi"]
-ADG2["AdGuard Home, fallback DNS"]
-NET2["Netdata to hub"]
-CUP["CUPS"]
+
+People --> Access
+Access --> DNS
+Access --> Dev
+Access --> Media
+Access --> Print
+Ente -->|"downloads photos"| Backup
+Backup --> Storage
+Media --> Storage
+Dev -->|"repos and model requests"| GitHub
+Monitor -->|"alerts"| Slack
+
+classDef external fill:#475569,color:#fff,stroke:#334155
+classDef service fill:#0f766e,color:#fff,stroke:#115e59
+classDef data fill:#4338ca,color:#fff,stroke:#3730a3
+class People,Ente,GitHub,Slack external
+class Access,DNS,Dev,Backup,Media,Print,Monitor service
+class Storage data
+`}
+/>
+
+## Deployment
+
+The deployment view maps those services to hardware. Dashed links and boxes
+marked "proposed" are planned work, not part of the live lab.
+
+<Mermaid
+  chart={`flowchart LR
+Router["Home router"]
+Slack["Slack"]
+Printer["Canon MX3100"]
+FireTV["Fire TV Stick"]
+
+subgraph mini["Mac mini, always on"]
+PrimaryDNS["AdGuard Home<br/>Primary DNS"]
+Dev["t3-code and agents"]
+Backup["Ente sync"]
+Media["Jellyfin"]
+HubMonitor["Netdata parent"]
+Drive[("10TB HDD")]
 end
-subgraph asus["Asus desktop, proposed NixOS worker"]
-GPU["GTX 1060, CV jobs"]
-DVC["DVC dataset cache"]
+
+subgraph pi["Raspberry Pi, always on"]
+FallbackDNS["AdGuard Home<br/>Fallback DNS"]
+Print["CUPS"]
+PiMonitor["Netdata child"]
 end
-subgraph phones["Phone device lab, proposed"]
-MAGIC["Magic5 Pro, newer Android QA"]
-VIEW["View 20, Android 10 QA + watchdog"]
-IOS["iPhone 6s, iOS 15 QA"]
+
+subgraph worker["Asus desktop, proposed"]
+GPU["NixOS and GTX 1060<br/>Batch CV jobs"]
+Cache[("1TB DVC cache")]
 end
-Router --> ADG1
-Router --> ADG2
-ADG2 --> ADG1
-hub -->|"all egress"| HSS
-HSS -->|"encrypted tunnel"| Internet
-DailyPhone -->|"photo upload"| Ente["Ente cloud"]
-Ente -->|"download backup"| ENT
-ENT --> HDD[("10TB HDD")]
-NET1 --> Slack["Slack"]
-NET2 --> Slack
-CUP --> Printer["Canon MX3100 (2011)"]
-JEL --> FireStick["Fire TV Stick"]
-GitHub["GitHub"]
-DailyPhone["Daily phone"]
-DailyPhone -->|"agents"| T3
-T3 -->|"repos / PRs"| GitHub
-hub -->|"WoL (L2 broadcast)"| asus
-T3 -->|"preview tests"| MAGIC
-T3 -->|"preview tests"| VIEW
-T3 -->|"preview tests"| IOS
-VIEW -->|"checks over cellular + Tailscale"| hub
-VIEW -->|"checks over cellular + Tailscale"| pi
-VIEW -->|"alerts over mobile data"| Slack
+
+subgraph devices["Phone device lab, proposed"]
+Phones["Android and iOS<br/>Browser QA"]
+Watchdog["View 20<br/>Cellular watchdog"]
+end
+
+Router --> PrimaryDNS
+Router --> FallbackDNS
+FallbackDNS -->|"syncs configuration"| PrimaryDNS
+Backup --> Drive
+Media --> Drive
+Media --> FireTV
+Print --> Printer
+PiMonitor --> HubMonitor
+HubMonitor --> Slack
+Dev -.->|"wakes and submits jobs"| GPU
+GPU --> Cache
+Dev -.->|"runs preview tests"| Phones
+Watchdog -.->|"checks both hosts"| mini
+Watchdog -.->|"checks both hosts"| pi
+Watchdog -.->|"alerts over mobile data"| Slack
+
+classDef live fill:#0f766e,color:#fff,stroke:#115e59
+classDef proposed fill:#fef3c7,color:#78350f,stroke:#d97706,stroke-dasharray:5 5
+classDef data fill:#4338ca,color:#fff,stroke:#3730a3
+class PrimaryDNS,Dev,Backup,Media,HubMonitor,FallbackDNS,Print,PiMonitor live
+class GPU,Cache,Phones,Watchdog proposed
+class Drive data
 `}
 />
 
