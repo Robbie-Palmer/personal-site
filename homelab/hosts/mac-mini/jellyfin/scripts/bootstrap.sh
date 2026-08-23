@@ -107,7 +107,7 @@ if [[ -f "${TRAKT_PLUGIN_DIR}/Trakt.dll" ]]; then
 else
   workdir="$(mktemp -d)"
   trap 'rm -rf "$workdir"' EXIT
-  curl -fsSL \
+  curl -fsSL --proto '=https' --tlsv1.2 \
     "https://github.com/jellyfin/jellyfin-plugin-trakt/releases/download/v${TRAKT_PLUGIN_VERSION%%.*}/trakt_${TRAKT_PLUGIN_VERSION}.zip" \
     -o "${workdir}/trakt.zip"
   echo "${TRAKT_PLUGIN_SHA256}  ${workdir}/trakt.zip" | shasum -a 256 -c - \
