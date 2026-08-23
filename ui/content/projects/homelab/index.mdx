@@ -137,25 +137,20 @@ class Cloud,Code,Alerts external
 
 ## Containers
 
-Tailscale is the private entry point for interactive services. Backup and media
-services share local storage, while Netdata reports failures outside the lab.
+### Interactive services
+
+Tailscale is the private entry point for DNS, development, media, and printing.
 
 <Mermaid
-  chart={`flowchart LR
+  chart={`flowchart TB
 People["Owner and household devices"]
-Ente["Ente cloud"]
-GitHub["GitHub and AI providers"]
-Slack["Slack"]
 
 subgraph lab["Home lab"]
 Access["Tailscale<br/>Private access network"]
 DNS["AdGuard Home<br/>Filtered DNS"]
 Dev["t3-code and coding agents<br/>Development workspace"]
-Backup["Ente sync<br/>Photo backup job"]
 Media["Jellyfin<br/>Media server"]
 Print["CUPS<br/>Print server"]
-Monitor["Netdata<br/>Monitoring and alerts"]
-Storage[("Local storage<br/>Photos, media and datasets")]
 end
 
 People --> Access
@@ -163,17 +158,35 @@ Access --> DNS
 Access --> Dev
 Access --> Media
 Access --> Print
-Ente -->|"downloads photos"| Backup
-Backup --> Storage
-Media --> Storage
-Dev -->|"repos and model requests"| GitHub
-Monitor -->|"alerts"| Slack
+DNS ~~~ Dev ~~~ Media ~~~ Print
+
+classDef external fill:#475569,color:#fff,stroke:#334155
+classDef service fill:#0f766e,color:#fff,stroke:#115e59
+class People external
+class Access,DNS,Dev,Media,Print service
+`}
+/>
+
+### Data and monitoring services
+
+Ente sync and Jellyfin share local storage. Netdata sends operational alerts
+to Slack, while the development workspace talks to GitHub and the agent APIs.
+
+<Mermaid
+  chart={`flowchart TB
+Ente["Ente cloud"] --> Backup["Ente sync<br/>Photo backup"]
+Backup --> Storage[("Local storage")]
+Storage --> Media["Jellyfin<br/>Media server"]
+Monitor["Netdata<br/>Monitoring"] --> Slack["Slack"]
+Dev["t3-code<br/>Coding agents"] --> Code["GitHub and<br/>AI providers"]
+
+Backup ~~~ Monitor ~~~ Dev
 
 classDef external fill:#475569,color:#fff,stroke:#334155
 classDef service fill:#0f766e,color:#fff,stroke:#115e59
 classDef data fill:#4338ca,color:#fff,stroke:#3730a3
-class People,Ente,GitHub,Slack external
-class Access,DNS,Dev,Backup,Media,Print,Monitor service
+class Ente,Slack,Code external
+class Backup,Media,Monitor,Dev service
 class Storage data
 `}
 />
@@ -186,7 +199,7 @@ The Mac mini is the home hub. The Raspberry Pi keeps DNS available during hub
 maintenance and owns the printer connection.
 
 <Mermaid
-  chart={`flowchart LR
+  chart={`flowchart TB
 Router["Home router"]
 Internet["Internet"]
 Slack["Slack"]
@@ -230,6 +243,7 @@ Monitor["Netdata<br/>Parent node"]
 Storage[("10TB HDD")]
 end
 
+DNS ~~~ VPN ~~~ Dev ~~~ Backup ~~~ Media ~~~ Monitor
 Ente["Ente cloud"] --> Backup
 Backup --> Storage
 Media --> Storage
