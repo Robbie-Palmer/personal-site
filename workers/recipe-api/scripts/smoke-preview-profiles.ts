@@ -34,6 +34,14 @@ type DietProfile = {
   recipeMatchMode: "hide" | "warn";
 };
 
+type DietOptions = {
+  groups: Array<{
+    key: string;
+    broaderGroupKeys: string[];
+    ingredientSlugs: string[];
+  }>;
+};
+
 type HouseholdSummary = {
   id: string;
   name: string;
@@ -221,6 +229,40 @@ if (
   dietProfile.recipeMatchMode !== "hide"
 ) {
   throw new Error("Empty-account diet fixture did not match");
+}
+
+const dietOptions = await expectJson<DietOptions>(
+  "/api/profile/diet/options",
+  cookie,
+);
+const chickenGroup = dietOptions.groups.find(
+  (group) => group.key === "chicken",
+);
+if (!chickenGroup) {
+  throw new Error("Chicken ingredient group was missing");
+}
+if (
+  chickenGroup.broaderGroupKeys.length !== 1 ||
+  chickenGroup.broaderGroupKeys[0] !== "poultry" ||
+  ![
+    "chicken-breast",
+    "chicken-thigh",
+    "chicken-stock",
+    "chicken-stock-pot",
+  ].every((slug) => chickenGroup.ingredientSlugs.includes(slug))
+) {
+  throw new Error("Chicken ingredient-group hierarchy did not match");
+}
+const stockGroup = dietOptions.groups.find((group) => group.key === "stock");
+if (!stockGroup) {
+  throw new Error("Stock ingredient group was missing");
+}
+if (
+  !["chicken-stock", "chicken-stock-pot", "vegetable-stock"].every((slug) =>
+    stockGroup.ingredientSlugs.includes(slug),
+  )
+) {
+  throw new Error("Stock ingredient-group fixture did not match");
 }
 
 // Household owner scenario. The household routes accept only UUID-form

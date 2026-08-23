@@ -152,8 +152,8 @@ beforeAll(async () => {
     where slug in ('almond-milk', 'cajun-powder', 'cajun-seasoning', 'salted-butter')
     order by slug
   `;
-  expect(migrationCount?.count).toBe(10);
-  expect(tableCount?.count).toBe(42);
+  expect(migrationCount?.count).toBe(11);
+  expect(tableCount?.count).toBe(43);
   expect(catalogRows).toEqual([
     { category: "dairy", slug: "almond-milk" },
     { category: "spice", slug: "cajun-seasoning" },
@@ -932,6 +932,87 @@ describe("recipe API PostgreSQL integration", () => {
     ).toMatchObject({ recipeSlugs: ["recommended-stew"] });
   });
 
+  it("allows edge replacement and rejects cycles in the group hierarchy", async () => {
+    try {
+      const reversed = await client<
+        { broaderGroupKey: string; narrowerGroupKey: string }[]
+      >`
+        update ingredient_group_hierarchy
+        set
+          narrower_group_key = 'poultry',
+          broader_group_key = 'chicken'
+        where
+          narrower_group_key = 'chicken'
+          and broader_group_key = 'poultry'
+        returning
+          narrower_group_key as "narrowerGroupKey",
+          broader_group_key as "broaderGroupKey"
+      `;
+      expect(reversed).toEqual([
+        { narrowerGroupKey: "poultry", broaderGroupKey: "chicken" },
+      ]);
+      await expect(
+        client`
+          insert into ingredient_group_hierarchy (
+            narrower_group_key,
+            broader_group_key
+          ) values ('chicken', 'poultry')
+        `,
+      ).rejects.toMatchObject({ code: "23514" });
+    } finally {
+      await client`
+        update ingredient_group_hierarchy
+        set
+          narrower_group_key = 'chicken',
+          broader_group_key = 'poultry'
+        where
+          narrower_group_key = 'poultry'
+          and broader_group_key = 'chicken'
+      `;
+    }
+  });
+
+  it("serializes concurrent opposing hierarchy edges", async () => {
+    const inserts = await Promise.allSettled([
+      client`
+        insert into ingredient_group_hierarchy (
+          narrower_group_key,
+          broader_group_key
+        ) values ('dairy', 'gluten')
+      `,
+      client`
+        insert into ingredient_group_hierarchy (
+          narrower_group_key,
+          broader_group_key
+        ) values ('gluten', 'dairy')
+      `,
+    ]);
+
+    try {
+      expect(
+        inserts.filter((result) => result.status === "fulfilled"),
+      ).toHaveLength(1);
+      const rejected = inserts.find((result) => result.status === "rejected");
+      expect(rejected?.reason).toMatchObject({ code: "23514" });
+
+      const storedEdges = await client`
+        select narrower_group_key, broader_group_key
+        from ingredient_group_hierarchy
+        where
+          (narrower_group_key = 'dairy' and broader_group_key = 'gluten')
+          or (narrower_group_key = 'gluten' and broader_group_key = 'dairy')
+      `;
+      expect(storedEdges).toHaveLength(1);
+    } finally {
+      await client`
+        delete from ingredient_group_hierarchy
+        where
+          (narrower_group_key = 'dairy' and broader_group_key = 'gluten')
+          or (narrower_group_key = 'gluten' and broader_group_key = 'dairy')
+      `;
+    }
+  });
+
   it("persists diet settings and cascades an import job graph", async () => {
     const cook = await createUser("Import Cook", "import-cook@example.test");
 
@@ -941,7 +1022,11 @@ describe("recipe API PostgreSQL integration", () => {
     );
     expect(optionsResponse.status).toBe(200);
     const options = (await optionsResponse.json()) as {
-      groups: Array<{ ingredientSlugs: string[]; key: string }>;
+      groups: Array<{
+        ingredientSlugs: string[];
+        key: string;
+        broaderGroupKeys: string[];
+      }>;
       ingredients: Array<{ slug: string }>;
       presets: Array<{
         excludedGroupKeys: string[];
@@ -979,6 +1064,26 @@ describe("recipe API PostgreSQL integration", () => {
       options.groups.find((group) => group.key === "poultry")
         ?.ingredientSlugs,
     ).toContain("chicken-breast");
+    expect(options.groups.find((group) => group.key === "chicken")).toEqual(
+      expect.objectContaining({
+        broaderGroupKeys: ["poultry"],
+        ingredientSlugs: expect.arrayContaining([
+          "chicken-breast",
+          "chicken-thigh",
+          "chicken-stock",
+          "chicken-stock-pot",
+        ]),
+      }),
+    );
+    expect(
+      options.groups.find((group) => group.key === "stock")?.ingredientSlugs,
+    ).toEqual(
+      expect.arrayContaining([
+        "chicken-stock",
+        "chicken-stock-pot",
+        "vegetable-stock",
+      ]),
+    );
     expect(
       options.groups.find((group) => group.key === "dairy")?.ingredientSlugs,
     ).not.toContain("coconut-milk");

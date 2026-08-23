@@ -656,6 +656,32 @@ export const ingredientGroupMember = pgTable(
   ],
 );
 
+export const ingredientGroupHierarchy = pgTable(
+  "ingredient_group_hierarchy",
+  {
+    narrowerGroupKey: text()
+      .notNull()
+      .references(() => ingredientGroup.key, { onDelete: "cascade" }),
+    broaderGroupKey: text()
+      .notNull()
+      .references(() => ingredientGroup.key, { onDelete: "cascade" }),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    primaryKey({
+      columns: [table.narrowerGroupKey, table.broaderGroupKey],
+      name: "ingredient_group_hierarchy_pk",
+    }),
+    check(
+      "ingredient_group_hierarchy_not_self_check",
+      sql`${table.narrowerGroupKey} <> ${table.broaderGroupKey}`,
+    ),
+    index("ingredient_group_hierarchy_broader_group_key_idx").on(
+      table.broaderGroupKey,
+    ),
+  ],
+);
+
 export const dietPreset = pgTable("diet_preset", {
   key: text().primaryKey(),
   label: text().notNull(),

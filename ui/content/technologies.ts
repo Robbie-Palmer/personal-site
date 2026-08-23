@@ -1055,4 +1055,20 @@ export const technologies: TechnologyContent[] = [
     website: "https://jellyfin.org",
     type: "tool",
   },
+  {
+    name: "FoodOn",
+    added: "2026-08-23",
+    description:
+      "OBO Foundry ontology for food materials, products, sources, and processes",
+    website: "https://foodon.org",
+    type: "tool",
+  },
+  {
+    name: "SSSOM",
+    added: "2026-08-23",
+    description:
+      "Standard for representing ontology mappings with predicates and provenance",
+    website: "https://mapping-commons.github.io/sssom/",
+    type: "tool",
+  },
 ];
