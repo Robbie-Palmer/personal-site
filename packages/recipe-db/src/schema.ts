@@ -656,6 +656,11 @@ export const ingredientGroupMember = pgTable(
   ],
 );
 
+export const ingredientGroupRelationTypeEnum = pgEnum(
+  "ingredient_group_relation_type",
+  ["classification", "composition"],
+);
+
 export const ingredientGroupHierarchy = pgTable(
   "ingredient_group_hierarchy",
   {
@@ -665,6 +670,7 @@ export const ingredientGroupHierarchy = pgTable(
     broaderGroupKey: text()
       .notNull()
       .references(() => ingredientGroup.key, { onDelete: "cascade" }),
+    relationType: ingredientGroupRelationTypeEnum().notNull(),
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [

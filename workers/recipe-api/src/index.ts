@@ -2295,6 +2295,94 @@ async function findDietProfile(
   };
 }
 
+type IngredientGroupRelation = {
+  narrowerGroupKey: string;
+  broaderGroupKey: string;
+  relationType: (typeof schema.ingredientGroupRelationTypeEnum.enumValues)[number];
+};
+
+function addToSetMap(
+  map: Map<string, Set<string>>,
+  key: string,
+  value: string,
+) {
+  const values = map.get(key) ?? new Set<string>();
+  values.add(value);
+  map.set(key, values);
+}
+
+function directIngredientSlugsByGroup(
+  groupMembers: readonly { groupKey: string; ingredientSlug: string }[],
+) {
+  const directIngredientSlugs = new Map<string, Set<string>>();
+  for (const row of groupMembers) {
+    addToSetMap(directIngredientSlugs, row.groupKey, row.ingredientSlug);
+  }
+  return directIngredientSlugs;
+}
+
+function narrowerClassificationKeysByGroup(
+  groupRelations: readonly IngredientGroupRelation[],
+) {
+  const narrowerGroupKeys = new Map<string, Set<string>>();
+  for (const relation of groupRelations) {
+    if (relation.relationType !== "classification") continue;
+    addToSetMap(
+      narrowerGroupKeys,
+      relation.broaderGroupKey,
+      relation.narrowerGroupKey,
+    );
+  }
+  return narrowerGroupKeys;
+}
+
+function expandedIngredientSlugsForGroup(
+  groupKey: string,
+  directIngredientSlugs: ReadonlyMap<string, ReadonlySet<string>>,
+  narrowerGroupKeys: ReadonlyMap<string, ReadonlySet<string>>,
+): string[] {
+  const ingredientSlugs = new Set<string>();
+  const visitedGroupKeys = new Set<string>();
+  const pendingGroupKeys = [groupKey];
+
+  while (pendingGroupKeys.length > 0) {
+    const currentGroupKey = pendingGroupKeys.pop();
+    if (!currentGroupKey || visitedGroupKeys.has(currentGroupKey)) continue;
+    visitedGroupKeys.add(currentGroupKey);
+
+    for (const ingredientSlug of
+      directIngredientSlugs.get(currentGroupKey) ?? []) {
+      ingredientSlugs.add(ingredientSlug);
+    }
+    for (const narrowerGroupKey of narrowerGroupKeys.get(currentGroupKey) ??
+      []) {
+      pendingGroupKeys.push(narrowerGroupKey);
+    }
+  }
+
+  return [...ingredientSlugs].sort((a, b) => a.localeCompare(b));
+}
+
+function expandedIngredientSlugsByGroup(
+  groupKeys: readonly string[],
+  groupMembers: readonly { groupKey: string; ingredientSlug: string }[],
+  groupRelations: readonly IngredientGroupRelation[],
+): Map<string, string[]> {
+  const directIngredientSlugs = directIngredientSlugsByGroup(groupMembers);
+  const narrowerGroupKeys =
+    narrowerClassificationKeysByGroup(groupRelations);
+  return new Map(
+    groupKeys.map((groupKey) => [
+      groupKey,
+      expandedIngredientSlugsForGroup(
+        groupKey,
+        directIngredientSlugs,
+        narrowerGroupKeys,
+      ),
+    ]),
+  );
+}
+
 async function listDietOptions(db: Db) {
   const [
     ingredients,
@@ -2329,6 +2417,7 @@ async function listDietOptions(db: Db) {
         .select({
           narrowerGroupKey: schema.ingredientGroupHierarchy.narrowerGroupKey,
           broaderGroupKey: schema.ingredientGroupHierarchy.broaderGroupKey,
+          relationType: schema.ingredientGroupHierarchy.relationType,
         })
         .from(schema.ingredientGroupHierarchy),
       db
@@ -2366,15 +2455,16 @@ async function listDietOptions(db: Db) {
     ingredientSlugsByPreset.set(row.presetKey, ingredientSlugs);
   }
 
-  const ingredientSlugsByGroup = new Map<string, string[]>();
-  for (const row of groupMembers) {
-    const ingredientSlugs = ingredientSlugsByGroup.get(row.groupKey) ?? [];
-    ingredientSlugs.push(row.ingredientSlug);
-    ingredientSlugsByGroup.set(row.groupKey, ingredientSlugs);
-  }
+  const ingredientSlugsByGroup = expandedIngredientSlugsByGroup(
+    groups.map((group) => group.key),
+    groupMembers,
+    groupHierarchy,
+  );
 
   const broaderGroupKeysByGroup = new Map<string, string[]>();
   for (const row of groupHierarchy) {
+    if (row.relationType !== "classification") continue;
+
     const broaderGroupKeys =
       broaderGroupKeysByGroup.get(row.narrowerGroupKey) ?? [];
     broaderGroupKeys.push(row.broaderGroupKey);

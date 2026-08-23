@@ -191,6 +191,7 @@ const dbMock = vi.hoisted(() => {
     ingredientGroupHierarchy: [] as {
       narrowerGroupKey: string;
       broaderGroupKey: string;
+      relationType: "classification" | "composition";
     }[],
     dietPresetExcludedGroups: [] as { presetKey: string; groupKey: string }[],
     dietPresetExcludedIngredients: [] as {
@@ -1651,6 +1652,7 @@ const dbMock = vi.hoisted(() => {
       return state.ingredientGroupHierarchy.map((row) => [
         row.narrowerGroupKey,
         row.broaderGroupKey,
+        row.relationType,
       ]);
     }
 
@@ -2055,6 +2057,7 @@ function seedDietCatalog() {
   dbMock.state.ingredientGroupHierarchy.push({
     narrowerGroupKey: "chicken",
     broaderGroupKey: "poultry",
+    relationType: "classification",
   });
 }
 
@@ -3707,6 +3710,102 @@ describe("profile diet preferences", () => {
         { slug: "milk", name: "milk", category: "dairy" },
       ],
     });
+  });
+
+  it("inherits ingredients through classifications and ignores composition", async () => {
+    authzMock.session = sessionFor({
+      id: "owner-user",
+      email: "owner@example.test",
+      name: "Owner",
+    });
+    seedDietCatalog();
+    dbMock.state.ingredientGroups.push(
+      {
+        key: "animal-product",
+        label: "Animal product",
+        description: null,
+        createdAt: dbMock.date,
+        updatedAt: dbMock.date,
+      },
+      {
+        key: "meat",
+        label: "Meat",
+        description: null,
+        createdAt: dbMock.date,
+        updatedAt: dbMock.date,
+      },
+      {
+        key: "prepared-food",
+        label: "Prepared food",
+        description: null,
+        createdAt: dbMock.date,
+        updatedAt: dbMock.date,
+      },
+    );
+    dbMock.state.ingredients.push(
+      {
+        slug: "chicken-breast",
+        name: "chicken breast",
+        category: "protein",
+        createdAt: dbMock.date,
+        updatedAt: dbMock.date,
+      },
+      {
+        slug: "vegetable-stock",
+        name: "vegetable stock",
+        category: "stock",
+        createdAt: dbMock.date,
+        updatedAt: dbMock.date,
+      },
+    );
+    dbMock.state.ingredientGroupMembers.push(
+      { groupKey: "chicken", ingredientSlug: "chicken-breast" },
+      { groupKey: "prepared-food", ingredientSlug: "vegetable-stock" },
+    );
+    dbMock.state.ingredientGroupHierarchy.push(
+      {
+        narrowerGroupKey: "poultry",
+        broaderGroupKey: "animal-product",
+        relationType: "classification",
+      },
+      {
+        narrowerGroupKey: "chicken",
+        broaderGroupKey: "meat",
+        relationType: "classification",
+      },
+      {
+        narrowerGroupKey: "meat",
+        broaderGroupKey: "animal-product",
+        relationType: "classification",
+      },
+      {
+        narrowerGroupKey: "prepared-food",
+        broaderGroupKey: "animal-product",
+        relationType: "composition",
+      },
+    );
+
+    const res = await app.request("/api/profile/diet/options", {}, env);
+    const body = (await res.json()) as {
+      groups: Array<{
+        key: string;
+        broaderGroupKeys: string[];
+        ingredientSlugs: string[];
+      }>;
+    };
+
+    expect(res.status).toBe(200);
+    expect(
+      body.groups.find((group) => group.key === "poultry")?.ingredientSlugs,
+    ).toEqual(["chicken-breast"]);
+    expect(
+      body.groups.find((group) => group.key === "animal-product")
+        ?.ingredientSlugs,
+    ).toEqual(["chicken-breast"]);
+    expect(
+      body.groups.find((group) => group.key === "prepared-food")
+        ?.broaderGroupKeys,
+    ).toEqual([]);
   });
 
   it("creates and updates the signed-in user's diet profile", async () => {
