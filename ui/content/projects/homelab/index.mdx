@@ -266,11 +266,11 @@ Media["Jellyfin<br/>Media server"]
 Storage[("10TB HDD")]
 
 subgraph media["Media automation (Docker Compose)"]
-  Prowlarr["Prowlarr<br/>Indexer proxy"]
-  Sonarr["Sonarr<br/>TV"]
-  Radarr["Radarr<br/>Movies"]
-  QBit["qBittorrent<br/>Downloads"]
-  Recyclarr["Recyclarr<br/>TRaSH profiles"]
+Prowlarr["Prowlarr<br/>Indexer proxy"]
+Sonarr["Sonarr<br/>TV"]
+Radarr["Radarr<br/>Movies"]
+QBit["qBittorrent<br/>Downloads"]
+Recyclarr["Recyclarr<br/>TRaSH profiles"]
 end
 end
 
@@ -300,9 +300,11 @@ Monitor -->|"Slack alerts"| VPN
 VPN --> Internet["Internet"]
 
 classDef service fill:#0f766e,color:#fff,stroke:#115e59
+classDef supervisor fill:#b45309,color:#fff,stroke:#92400e
 classDef data fill:#4338ca,color:#fff,stroke:#3730a3
 classDef external fill:#475569,color:#fff,stroke:#334155
-class DNS,VPN,Dev,Backup,Media,Monitor,KeepAlive,Prowlarr,Sonarr,Radarr,QBit,Recyclarr service
+class DNS,VPN,Dev,Backup,Media,Monitor,Prowlarr,Sonarr,Radarr,QBit,Recyclarr service
+class KeepAlive supervisor
 class Storage data
 class Trakt external
 `}
