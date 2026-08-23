@@ -1,5 +1,5 @@
 {
-  "id": "33d572f6-2d88-4168-a587-f1f99189aabf",
+  "id": "045d5580-f8b4-4c8b-87a0-3c64312f2d0c",
   "prevId": "04a64512-f77e-458d-940b-f8d6cdabd38d",
   "version": "7",
   "dialect": "postgresql",
@@ -1589,6 +1589,94 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
+    "public.ingredient_group_hierarchy": {
+      "name": "ingredient_group_hierarchy",
+      "schema": "",
+      "columns": {
+        "narrower_group_key": {
+          "name": "narrower_group_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "broader_group_key": {
+          "name": "broader_group_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "ingredient_group_hierarchy_broader_group_key_idx": {
+          "name": "ingredient_group_hierarchy_broader_group_key_idx",
+          "columns": [
+            {
+              "expression": "broader_group_key",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "ingredient_group_hierarchy_narrower_group_key_ingredient_group_key_fk": {
+          "name": "ingredient_group_hierarchy_narrower_group_key_ingredient_group_key_fk",
+          "tableFrom": "ingredient_group_hierarchy",
+          "tableTo": "ingredient_group",
+          "columnsFrom": [
+            "narrower_group_key"
+          ],
+          "columnsTo": [
+            "key"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "ingredient_group_hierarchy_broader_group_key_ingredient_group_key_fk": {
+          "name": "ingredient_group_hierarchy_broader_group_key_ingredient_group_key_fk",
+          "tableFrom": "ingredient_group_hierarchy",
+          "tableTo": "ingredient_group",
+          "columnsFrom": [
+            "broader_group_key"
+          ],
+          "columnsTo": [
+            "key"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "ingredient_group_hierarchy_pk": {
+          "name": "ingredient_group_hierarchy_pk",
+          "columns": [
+            "narrower_group_key",
+            "broader_group_key"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "ingredient_group_hierarchy_not_self_check": {
+          "name": "ingredient_group_hierarchy_not_self_check",
+          "value": "\"ingredient_group_hierarchy\".\"narrower_group_key\" <> \"ingredient_group_hierarchy\".\"broader_group_key\""
+        }
+      },
+      "isRLSEnabled": false
+    },
     "public.ingredient_group_member": {
       "name": "ingredient_group_member",
       "schema": "",
@@ -1670,94 +1758,6 @@
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.ingredient_group_parent": {
-      "name": "ingredient_group_parent",
-      "schema": "",
-      "columns": {
-        "group_key": {
-          "name": "group_key",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "parent_group_key": {
-          "name": "parent_group_key",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "ingredient_group_parent_parent_group_key_idx": {
-          "name": "ingredient_group_parent_parent_group_key_idx",
-          "columns": [
-            {
-              "expression": "parent_group_key",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "ingredient_group_parent_group_key_ingredient_group_key_fk": {
-          "name": "ingredient_group_parent_group_key_ingredient_group_key_fk",
-          "tableFrom": "ingredient_group_parent",
-          "tableTo": "ingredient_group",
-          "columnsFrom": [
-            "group_key"
-          ],
-          "columnsTo": [
-            "key"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "ingredient_group_parent_parent_group_key_ingredient_group_key_fk": {
-          "name": "ingredient_group_parent_parent_group_key_ingredient_group_key_fk",
-          "tableFrom": "ingredient_group_parent",
-          "tableTo": "ingredient_group",
-          "columnsFrom": [
-            "parent_group_key"
-          ],
-          "columnsTo": [
-            "key"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {
-        "ingredient_group_parent_pk": {
-          "name": "ingredient_group_parent_pk",
-          "columns": [
-            "group_key",
-            "parent_group_key"
-          ]
-        }
-      },
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {
-        "ingredient_group_parent_not_self_check": {
-          "name": "ingredient_group_parent_not_self_check",
-          "value": "\"ingredient_group_parent\".\"group_key\" <> \"ingredient_group_parent\".\"parent_group_key\""
-        }
-      },
       "isRLSEnabled": false
     },
     "public.invitation": {

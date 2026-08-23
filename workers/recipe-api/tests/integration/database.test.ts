@@ -932,6 +932,17 @@ describe("recipe API PostgreSQL integration", () => {
     ).toMatchObject({ recipeSlugs: ["recommended-stew"] });
   });
 
+  it("rejects cycles in the ingredient group hierarchy", async () => {
+    await expect(
+      client`
+        insert into ingredient_group_hierarchy (
+          narrower_group_key,
+          broader_group_key
+        ) values ('poultry', 'chicken')
+      `,
+    ).rejects.toMatchObject({ code: "23514" });
+  });
+
   it("persists diet settings and cascades an import job graph", async () => {
     const cook = await createUser("Import Cook", "import-cook@example.test");
 
@@ -944,7 +955,7 @@ describe("recipe API PostgreSQL integration", () => {
       groups: Array<{
         ingredientSlugs: string[];
         key: string;
-        parentGroupKeys: string[];
+        broaderGroupKeys: string[];
       }>;
       ingredients: Array<{ slug: string }>;
       presets: Array<{
@@ -985,7 +996,7 @@ describe("recipe API PostgreSQL integration", () => {
     ).toContain("chicken-breast");
     expect(options.groups.find((group) => group.key === "chicken")).toEqual(
       expect.objectContaining({
-        parentGroupKeys: ["poultry"],
+        broaderGroupKeys: ["poultry"],
         ingredientSlugs: expect.arrayContaining([
           "chicken-breast",
           "chicken-thigh",

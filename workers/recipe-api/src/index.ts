@@ -2300,7 +2300,7 @@ async function listDietOptions(db: Db) {
     ingredients,
     groups,
     groupMembers,
-    groupParents,
+    groupHierarchy,
     presets,
     presetGroups,
     presetIngredients,
@@ -2327,10 +2327,10 @@ async function listDietOptions(db: Db) {
         .from(schema.ingredientGroupMember),
       db
         .select({
-          groupKey: schema.ingredientGroupParent.groupKey,
-          parentGroupKey: schema.ingredientGroupParent.parentGroupKey,
+          narrowerGroupKey: schema.ingredientGroupHierarchy.narrowerGroupKey,
+          broaderGroupKey: schema.ingredientGroupHierarchy.broaderGroupKey,
         })
-        .from(schema.ingredientGroupParent),
+        .from(schema.ingredientGroupHierarchy),
       db
         .select({
           key: schema.dietPreset.key,
@@ -2373,11 +2373,12 @@ async function listDietOptions(db: Db) {
     ingredientSlugsByGroup.set(row.groupKey, ingredientSlugs);
   }
 
-  const parentGroupKeysByGroup = new Map<string, string[]>();
-  for (const row of groupParents) {
-    const parentGroupKeys = parentGroupKeysByGroup.get(row.groupKey) ?? [];
-    parentGroupKeys.push(row.parentGroupKey);
-    parentGroupKeysByGroup.set(row.groupKey, parentGroupKeys);
+  const broaderGroupKeysByGroup = new Map<string, string[]>();
+  for (const row of groupHierarchy) {
+    const broaderGroupKeys =
+      broaderGroupKeysByGroup.get(row.narrowerGroupKey) ?? [];
+    broaderGroupKeys.push(row.broaderGroupKey);
+    broaderGroupKeysByGroup.set(row.narrowerGroupKey, broaderGroupKeys);
   }
 
   return {
@@ -2396,7 +2397,7 @@ async function listDietOptions(db: Db) {
         key: group.key,
         label: group.label,
         sub: group.sub ?? "",
-        parentGroupKeys: (parentGroupKeysByGroup.get(group.key) ?? []).sort(),
+        broaderGroupKeys: (broaderGroupKeysByGroup.get(group.key) ?? []).sort(),
         ingredientSlugs: ingredientSlugsByGroup.get(group.key) ?? [],
       }))
       .sort((a, b) => a.label.localeCompare(b.label)),

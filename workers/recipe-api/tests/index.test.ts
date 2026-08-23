@@ -188,9 +188,9 @@ const dbMock = vi.hoisted(() => {
       groupKey: string;
       ingredientSlug: string;
     }[],
-    ingredientGroupParents: [] as {
-      groupKey: string;
-      parentGroupKey: string;
+    ingredientGroupHierarchy: [] as {
+      narrowerGroupKey: string;
+      broaderGroupKey: string;
     }[],
     dietPresetExcludedGroups: [] as { presetKey: string; groupKey: string }[],
     dietPresetExcludedIngredients: [] as {
@@ -318,7 +318,7 @@ const dbMock = vi.hoisted(() => {
     state.pantryOperations = [];
     state.pantryOperationSweeps = 0;
     state.ingredientGroupMembers = [];
-    state.ingredientGroupParents = [];
+    state.ingredientGroupHierarchy = [];
     state.dietPresetExcludedGroups = [];
     state.dietPresetExcludedIngredients = [];
     state.userDietPresets = [];
@@ -1647,10 +1647,10 @@ const dbMock = vi.hoisted(() => {
       ]);
     }
 
-    if (query.includes('from "ingredient_group_parent"')) {
-      return state.ingredientGroupParents.map((row) => [
-        row.groupKey,
-        row.parentGroupKey,
+    if (query.includes('from "ingredient_group_hierarchy"')) {
+      return state.ingredientGroupHierarchy.map((row) => [
+        row.narrowerGroupKey,
+        row.broaderGroupKey,
       ]);
     }
 
@@ -2052,9 +2052,9 @@ function seedDietCatalog() {
     groupKey: "dairy",
     ingredientSlug: "milk",
   });
-  dbMock.state.ingredientGroupParents.push({
-    groupKey: "chicken",
-    parentGroupKey: "poultry",
+  dbMock.state.ingredientGroupHierarchy.push({
+    narrowerGroupKey: "chicken",
+    broaderGroupKey: "poultry",
   });
 }
 
@@ -3669,35 +3669,35 @@ describe("profile diet preferences", () => {
           key: "chicken",
           label: "Chicken",
           sub: "chicken meat and stock",
-          parentGroupKeys: ["poultry"],
+          broaderGroupKeys: ["poultry"],
           ingredientSlugs: [],
         },
         {
           key: "dairy",
           label: "Dairy",
           sub: "milk, cheese",
-          parentGroupKeys: [],
+          broaderGroupKeys: [],
           ingredientSlugs: ["milk"],
         },
         {
           key: "gluten",
           label: "Gluten",
           sub: "wheat, barley, rye",
-          parentGroupKeys: [],
+          broaderGroupKeys: [],
           ingredientSlugs: [],
         },
         {
           key: "poultry",
           label: "Poultry",
           sub: "chicken and turkey",
-          parentGroupKeys: [],
+          broaderGroupKeys: [],
           ingredientSlugs: [],
         },
         {
           key: "shellfish",
           label: "Shellfish",
           sub: "prawns, mussels",
-          parentGroupKeys: [],
+          broaderGroupKeys: [],
           ingredientSlugs: [],
         },
       ],

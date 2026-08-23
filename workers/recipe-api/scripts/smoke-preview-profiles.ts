@@ -37,7 +37,7 @@ type DietProfile = {
 type DietOptions = {
   groups: Array<{
     key: string;
-    parentGroupKeys: string[];
+    broaderGroupKeys: string[];
     ingredientSlugs: string[];
   }>;
 };
@@ -240,8 +240,8 @@ const chickenGroup = dietOptions.groups.find(
 );
 if (
   !chickenGroup ||
-  chickenGroup.parentGroupKeys.length !== 1 ||
-  chickenGroup.parentGroupKeys[0] !== "poultry" ||
+  chickenGroup.broaderGroupKeys.length !== 1 ||
+  chickenGroup.broaderGroupKeys[0] !== "poultry" ||
   ![
     "chicken-breast",
     "chicken-thigh",

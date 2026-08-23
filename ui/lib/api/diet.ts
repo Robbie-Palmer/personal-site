@@ -22,7 +22,7 @@ type DietLabelOption = {
 };
 
 export type DietGroupOption = DietLabelOption & {
-  parentGroupKeys: string[];
+  broaderGroupKeys: string[];
   ingredientSlugs: string[];
 };
 
