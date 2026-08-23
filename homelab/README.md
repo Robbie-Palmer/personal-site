@@ -115,17 +115,17 @@ mise run //homelab:media-provision   # re-run wiring; safe to repeat
   everything downstream is automatic. Or skip the UIs entirely: anything
   added to the [Trakt](https://trakt.tv) watchlist lands in the library on
   its own — see the recommendation-loop caveat below.
-- **Recommendation loop (Trakt)**: one bridge connection drives everything —
-  watchlist taps flow into Sonarr/Radarr, and Jellyfin plays push back to
-  Trakt so recommendations improve ([ADR 021](/projects/homelab/adrs/021-trakt-watchlist)).
-  Free Trakt accounts allow only ONE community-app connection, so disconnect
-  any native apps first. Setup: create an application at
-  <https://trakt.tv/oauth/applications> (redirect URI is unused; anything
-  works), put its `TRAKT_CLIENT_ID` / `TRAKT_CLIENT_SECRET` and your
-  `TRAKT_USERNAME` in `media-automation/.env`, then run
-  `python3 scripts/trakt_sync.py auth` once and enter the code at the
-  printed URL. The keep-running agent syncs hourly from then on;
-  `trakt_sync.py sync` forces a pass.
+- **Recommendation loop (Trakt)**: watchlist taps flow into Sonarr/Radarr
+  via their native "Trakt User" import lists, and the Jellyfin Trakt plugin
+  scrobbles plays back so recommendations improve ([ADR 021](/projects/homelab/adrs/021-trakt-watchlist)).
+  Each integration needs a one-time OAuth: in Radarr/Sonarr *Settings →
+  Lists*, add "Trakt User", hit "Authenticate with Trakt"; in Jellyfin,
+  Plugins → Trakt. Two traps: the list's username must match your profile
+  slug exactly — copy it from your Trakt profile URL (dashes, not
+  underscores), since a misspelled one returns an empty watchlist instead of
+  an error; and lists re-fetch at most every 12 hours, with failures
+  counting as a sync, so delete + recreate the list to force an immediate
+  retry while debugging.
 - **qBittorrent bans IPs after five failed logins** for an hour. Scripts
   should try each credential once; if you lock yourself out,
   `docker restart qbittorrent` clears the ban list.

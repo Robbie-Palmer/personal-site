@@ -20,30 +20,37 @@ the API-friendly alternative for both movies and shows.
 
 # Decision
 
-One integration, one authorization, no native Trakt apps: a small bridge
-script (`trakt_sync.py`) holds the account's **single** community-app
-connection and drives the whole loop on an hourly schedule from the
-keep-running agent:
+Native integrations only, one OAuth grant each:
 
-* **Watchlist as acquisition queue**: the bridge polls the watchlist and
-  adds shows to Sonarr (bound to `WEB-1080p`, `/media/TV`) and movies to
-  Radarr (`HD Bluray + WEB`, `/media/Movies`) with monitoring and search
-  enabled, so a tap enters the normal pipeline right away. Whether it ends
-  in a grab still depends on release availability and profile scoring,
-  exactly as for anything added by hand.
-* **Watched state**: the bridge pushes Jellyfin's played episodes/movies to
-  Trakt (`/sync/watched`), watermarking by play date so each pass sends only
-  new activity — including a full-history backfill on first run.
+* **Watchlist as acquisition queue**: Sonarr and Radarr each get a native
+  **Trakt User** import list over the account's watchlist — authorized once
+  via their own "Authenticate with Trakt" buttons, bound to the TRaSH
+  profiles from ADR 019 (`WEB-1080p` + `/media/TV`, `HD Bluray + WEB` +
+  `/media/Movies`), monitoring everything and searching on add. A tap enters
+  the pipeline immediately; whether it ends in a grab still depends on
+  release availability and profile scoring.
+* **Watched state**: the official [Jellyfin Trakt plugin][trakt-plugin]
+  (pinned v30, which fixes a `MissingMethodException` under Jellyfin 10.11)
+  is installed by the Jellyfin bootstrap script and scrobbles plays to Trakt.
 
-Authorization uses Trakt's device-code flow against the user's own
-registered application, so tokens live locally (0600) and never touch the
-repo. Because the connection is the user's own token, the profile stays
-private.
+Two setup traps cost an afternoon; they are recorded here so the next
+bootstrap doesn't repeat them:
 
-The turn away from native integrations came from a hard limit discovered
-during setup: **free Trakt accounts may hold one community-app connection at
-a time**, and the plugin-plus-two-import-lists design needs three slots.
-Consolidating into one self-owned app makes the cap irrelevant.
+1. **Slug spelling matters silently.** The import list fetches
+   `/users/{username}/watchlist/...`, and Trakt answers `200 []` for a
+   misspelled username rather than 404. Trakt auto-generated this account as
+   `robbie_palmer_1cefe3`, but its canonical slug is the dashed
+   `robbie-palmer-1cefe3` (visible in any profile URL); the underscore
+   variant returned an empty watchlist that looked exactly like a broken
+   connection. Use the slug from the OAuth'd profile URL, character for
+   character.
+2. **Failed syncs lock for 12 hours.** Each list records a last-sync time
+   even when the fetch returns nothing, and Servarr skips re-fetching within
+   a minimum refresh interval — so clicking Refresh after fixing a problem
+   does nothing. When debugging, delete and recreate the list (creation runs
+   an unlocked test fetch), or wait out the interval.
+
+[trakt-plugin]: https://github.com/jellyfin/jellyfin-plugin-trakt
 
 # Alternatives
 
@@ -56,43 +63,40 @@ Consolidating into one self-owned app makes the cap irrelevant.
 * **Decision**: Deferred until there is a concrete username worth bridging;
   Trakt covers the need now.
 
-## Native integrations (Jellyfin plugin + \*arr import lists)
+## Custom headless sync service
 
-The first-cut design: the official Jellyfin Trakt plugin for scrobbling and
-one OAuth'd "Trakt User" import list per \*arr app.
+A small script doing Trakt OAuth itself, polling the watchlist hourly, and
+pushing adds into the \*arr APIs — built as `trakt_sync.py` when the native
+path appeared blocked by free-tier limits (one community-app connection at a
+time, app registration VIP-only).
 
-* **Pros**: zero custom code; upstream maintains every Trakt API change.
-* **Cons**: three community-app connections, and free accounts allow one at
-  a time — the second authorization attempt failed outright with "free
-  accounts can connect one community app at a time". VIP (\~$5/mo) would
-  lift the cap but rents a workaround for what is one small script here.
-* **Decision**: Rejected after the cap surfaced live. The plugin install
-  step remains in the Jellyfin bootstrap as an optional head start for
-  anyone who later goes VIP.
-
-## Import lists without OAuth
-
-* **Decision**: Rejected. Radarr's validation refuses unauthenticated Trakt
-  list configurations outright ("Must authenticate with Trakt"), even for
-  public profiles where the underlying API call would have worked.
+* **Pros**: one connection instead of three; fully scriptable.
+* **Cons**: \~200 lines of token-refresh, diffing, and add-logic duplicating
+  what upstream already maintains — plus the same silent-slug trap would
+  have lived in bespoke code with no Test button to catch it.
+* **Decision**: Rejected once the actual failure turned out to be the slug,
+  not the tier: with the correct dash-spelled username the native lists
+  worked immediately, and every line of bridge code became pure liability.
 
 # Consequences
 
 ### Pros
 
 * Phone → Trakt watchlist → monitored series/movie → search → Jellyfin is
-  fully wired through a single connection that also carries watched-state,
-  so recommendations improve off real viewing history.
-* The free tier is sufficient forever; nothing about the loop depends on
-  connection slots or subscription status.
-* Tokens never leave the hub; the repo holds only configuration knobs.
+  fully wired with zero custom code; verified live end-to-end (43 movies and
+  three shows imported on the first healthy sync).
+* Upstream absorbs Trakt API changes across all three touchpoints; the hub
+  holds no tokens or credentials beyond the standard \*arr configs.
+* The debugging lessons above are now written down where bootstrap
+  automation will meet them.
 
 ### Cons
 
-* \~200 lines of bridge code now track Trakt's API (watchlist shape, sync
-  payloads, device flow) instead of upstream doing it.
-* Watchlist changes propagate hourly, not on Trakt's native 12-hour list
-  schedule; same-day picks still mean waiting up to the interval or running
-  `trakt_sync.py sync` by hand.
+* Three OAuth grants exist outside version control (plugin user, one per
+  \*arr app). A fresh bootstrap needs them redone by hand; the click-paths
+  live in the README caveats.
+* List refresh runs at a minimum interval of 12 hours per list; same-day
+  gratification means pressing Refresh — after checking you haven't just
+  synced.
 * Removing something from the watchlist does not remove or unmonitor it in
   the \*arr apps; the queue drains forward only.
