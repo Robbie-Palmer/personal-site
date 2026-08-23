@@ -244,12 +244,13 @@ Storage[("10TB HDD")]
 end
 
 DNS ~~~ VPN ~~~ Dev ~~~ Backup ~~~ Media ~~~ Monitor
-Ente["Ente cloud"] --> Backup
 Backup --> Storage
 Media --> Storage
 Media --> FireTV["Fire TV Stick"]
-Dev --> Code["GitHub and<br/>AI providers"]
-Monitor --> Slack["Slack"]
+DNS -->|"Quad9 DNS"| VPN
+Dev -->|"Code and agent APIs"| VPN
+Backup -->|"Ente sync"| VPN
+Monitor -->|"Slack alerts"| VPN
 VPN --> Internet["Internet"]
 
 classDef service fill:#0f766e,color:#fff,stroke:#115e59
