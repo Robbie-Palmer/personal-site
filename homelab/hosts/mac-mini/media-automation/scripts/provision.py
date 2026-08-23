@@ -83,6 +83,8 @@ class Api:
         except urllib.error.HTTPError as exc:
             detail = exc.read().decode(errors="replace")[:300]
             raise RuntimeError(f"{method} {path} -> HTTP {exc.code}: {detail}") from exc
+        except urllib.error.URLError as exc:
+            raise RuntimeError(f"{method} {path} unreachable: {exc.reason}") from exc
 
     def get(self, path):
         return self.request("GET", path)
@@ -101,11 +103,17 @@ def ensure_recyclarr_config():
     config_dir = RECYCLARR_CONFIG_DIR
     os.makedirs(config_dir, exist_ok=True)
     path = os.path.join(config_dir, "recyclarr.yml")
-    if os.path.exists(path):
-        print("Recyclarr: config already present")
-        return
     keys = {"sonarr": os.environ["SONARR_API_KEY"],
             "radarr": os.environ["RADARR_API_KEY"]}
+    if os.path.exists(path):
+        print("Recyclarr: config already present")
+        for app in keys:
+            if keys[app] not in open(path).read():
+                print(
+                    f"  ! stored {app} API key not found in recyclarr.yml; "
+                    f"if {app} was recreated, delete the file and re-provision"
+                )
+        return
     sections = []
     for app, url in RECYCLARR_TEMPLATES:
         with urlopen(url, timeout=60) as resp:
@@ -133,6 +141,17 @@ def ensure_recyclarr_config():
 def run_initial_recyclarr_sync():
     """Trigger one sync immediately instead of waiting for the cron tick."""
     import subprocess
+    deadline = time.time() + 120
+    while time.time() < deadline:
+        state = subprocess.run(
+            ["docker", "inspect", "-f", "{{.State.Running}}", "recyclarr"],
+            capture_output=True, text=True,
+        ).stdout.strip()
+        if state == "true":
+            break
+        time.sleep(4)
+    else:
+        raise SystemExit("recyclarr container never started; check docker logs recyclarr")
     result = subprocess.run(
         ["docker", "exec", "recyclarr", "recyclarr", "sync"],
         capture_output=True, text=True, timeout=600,
@@ -188,15 +207,23 @@ def qbit_login_once(username, password):
 
 
 def qbit_temp_password_from_logs():
-    """Read the first-boot temporary WebUI password from container logs."""
+    """Read the first-boot temporary WebUI password from container logs.
+
+    Retries briefly: on a cold start the password line can land in the log
+    a few seconds after the container reports running.
+    """
     import subprocess
-    logs = subprocess.run(
-        ["docker", "logs", "qbittorrent"], capture_output=True, text=True,
-    )
-    for line in (logs.stdout + logs.stderr).splitlines():
-        if "temporary password" in line.lower():
-            return line.rsplit(":", 1)[-1].strip()
-    return None
+    deadline = time.time() + 30
+    while True:
+        logs = subprocess.run(
+            ["docker", "logs", "qbittorrent"], capture_output=True, text=True,
+        )
+        for line in (logs.stdout + logs.stderr).splitlines():
+            if "temporary password" in line.lower():
+                return line.rsplit(":", 1)[-1].strip()
+        if time.time() >= deadline:
+            return None
+        time.sleep(5)
 
 
 def qbit_session():
@@ -297,14 +324,21 @@ def definition_of(indexer):
 
 def _indexer_schemas(prowlarr, wanted):
     schemas = {}
-    for entry in prowlarr.get("/api/v1/indexer/schema"):
-        definition = next(
-            (f.get("value") for f in entry.get("fields", [])
-             if f.get("name") == "definitionFile"),
-            None,
-        )
-        if definition in wanted:
-            schemas[definition] = entry
+    # Right after startup the schema list can lag; retry until every wanted
+    # definition shows up or the budget runs out.
+    deadline = time.time() + 90
+    while True:
+        for entry in prowlarr.get("/api/v1/indexer/schema"):
+            definition = next(
+                (f.get("value") for f in entry.get("fields", [])
+                 if f.get("name") == "definitionFile"),
+                None,
+            )
+            if definition in wanted:
+                schemas[definition] = entry
+        if len(schemas) == len(wanted) or time.time() >= deadline:
+            break
+        time.sleep(6)
     return schemas
 
 

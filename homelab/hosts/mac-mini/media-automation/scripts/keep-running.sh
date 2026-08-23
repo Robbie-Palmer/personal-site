@@ -43,7 +43,7 @@ while true; do
       --cpu "${COLIMA_CPU:-4}" \
       --memory "${COLIMA_MEMORY:-4}" \
       --mount "${HOME}:w" \
-      --mount /Volumes >/dev/null 2>&1 \
+      --mount "/Volumes:w" >/dev/null 2>&1 \
       || echo "$(date "$LOG_TS") colima start failed; retrying next cycle" >&2
   fi
 

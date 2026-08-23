@@ -22,8 +22,11 @@ require_command() {
   fi
 }
 require_command docker
-require_command docker-compose
 require_command python3
+if ! docker compose version >/dev/null 2>&1; then
+  echo "Missing required command: docker compose plugin" >&2
+  exit 1
+fi
 
 if [[ "$(uname -s)" != "Darwin" ]]; then
   echo "bootstrap.sh must run on the macOS hub (Mac mini)." >&2

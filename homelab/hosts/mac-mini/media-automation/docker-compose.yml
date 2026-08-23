@@ -41,8 +41,8 @@ services:
       PGID: "${PGID:-20}"
     volumes:
       - ./data/radarr:/config
-      - "${DOWNLOADS_DIR}:/downloads"
-      - "${MEDIA_DIR}:/media"
+      - "${DOWNLOADS_DIR:?set DOWNLOADS_DIR in the media-automation .env file}:/downloads"
+      - "${MEDIA_DIR:?set MEDIA_DIR in the media-automation .env file}:/media"
 
   qbittorrent:
     image: lscr.io/linuxserver/qbittorrent:${QBITTORRENT_VERSION:-latest}
