@@ -19,6 +19,12 @@ tech_stack:
   - "CUPS"
   - "Docker"
   - "Jellyfin"
+  - "Prowlarr"
+  - "Sonarr"
+  - "Radarr"
+  - "qBittorrent"
+  - "Recyclarr"
+  - "Trakt"
 ---
 
 # Vision
@@ -102,14 +108,17 @@ kit would solve a software problem with more hardware.
 * As the person who operates the DNS servers, I want a battery-backed device
   on mobile data to check the lab from outside its own network, so a total DNS,
   power, or internet outage can still raise an alert.
+* As someone deciding what to watch from the sofa, I want my Trakt watchlist
+  taps to become Jellyfin library entries automatically, so choosing media
+  never involves an admin panel.
 
 # Topology
 
 ## System context
 
 Personal and household devices reach the lab over its private network. The lab
-pulls photos from Ente, works with code and agent providers, and sends
-operational alerts to Slack.
+pulls photos from Ente, works with code and agent providers, follows a Trakt
+watchlist to acquire media, and sends operational alerts to Slack.
 
 <Mermaid
   chart={`flowchart TB
@@ -119,10 +128,13 @@ Lab["Home lab"]
 Cloud["Ente"]
 Code["GitHub and<br/>AI providers"]
 Alerts["Slack"]
+Trakt["Trakt"]
 
 Owner -->|"Manages"| Lab
 Household -->|"DNS and printing"| Lab
 Cloud -->|"Photos"| Lab
+Trakt -->|"Watchlist taps"| Lab
+Lab -->|"Viewing history"| Trakt
 Lab -->|"Code and agents"| Code
 Lab -->|"Alerts"| Alerts
 
@@ -131,7 +143,7 @@ classDef system fill:#2563eb,color:#fff,stroke:#1d4ed8
 classDef external fill:#475569,color:#fff,stroke:#334155
 class Owner,Household person
 class Lab system
-class Cloud,Code,Alerts external
+class Cloud,Code,Alerts,Trakt external
 `}
 />
 
@@ -169,14 +181,19 @@ class Access,DNS,Dev,Media,Print service
 
 ### Data and monitoring services
 
-Ente sync and Jellyfin share local storage. Netdata sends operational alerts
-to Slack, while the development workspace talks to GitHub and the agent APIs.
+Ente sync and Jellyfin share local storage. The media automation stack pulls a
+Trakt watchlist into that storage, and Jellyfin scrobbles plays back so
+recommendations improve. Netdata sends operational alerts to Slack, while the
+development workspace talks to GitHub and the agent APIs.
 
 <Mermaid
   chart={`flowchart TB
 Ente["Ente cloud"] --> Backup["Ente sync<br/>Photo backup"]
 Backup --> Storage[("Local storage")]
 Storage --> Media["Jellyfin<br/>Media server"]
+Tracker["Trakt"] -->|"Watchlist"| Auto["Media automation<br/>Prowlarr, Sonarr,<br/>Radarr, qBittorrent"]
+Auto -->|"Downloads"| Storage
+Media -->|"Scrobbles"| Tracker
 Monitor["Netdata<br/>Monitoring"] --> Slack["Slack"]
 Dev["t3-code<br/>Coding agents"] --> Code["GitHub and<br/>AI providers"]
 
@@ -185,8 +202,8 @@ Backup ~~~ Monitor ~~~ Dev
 classDef external fill:#475569,color:#fff,stroke:#334155
 classDef service fill:#0f766e,color:#fff,stroke:#115e59
 classDef data fill:#4338ca,color:#fff,stroke:#3730a3
-class Ente,Slack,Code external
-class Backup,Media,Monitor,Dev service
+class Ente,Slack,Code,Tracker external
+class Backup,Media,Monitor,Dev,Auto service
 class Storage data
 `}
 />
@@ -229,7 +246,12 @@ class Drive data
 ### Mac mini containers
 
 The Mac mini hosts the lab's main services. Hotspot Shield routes its outbound
-traffic through an encrypted tunnel.
+traffic through an encrypted tunnel, and a launchd supervisor only starts the
+media automation stack while that tunnel is up. Inside the stack, Prowlarr
+feeds indexers to Sonarr and Radarr, which grab releases through qBittorrent
+and import finished downloads into the library; Recyclarr keeps their quality
+profiles aligned with the TRaSH guides. A Trakt watchlist feeds both arrs, and
+Jellyfin scrobbles plays back.
 
 <Mermaid
   chart={`flowchart TB
@@ -238,15 +260,39 @@ DNS["AdGuard Home<br/>Primary DNS"]
 VPN["Hotspot Shield<br/>All outbound traffic"]
 Dev["t3-code<br/>Coding agents"]
 Backup["Ente sync<br/>Photo backup"]
-Media["Jellyfin<br/>Media server"]
 Monitor["Netdata<br/>Parent node"]
+KeepAlive["keep-running agent<br/>Stack supervisor"]
+Media["Jellyfin<br/>Media server"]
 Storage[("10TB HDD")]
+
+subgraph media["Media automation (Docker Compose)"]
+  Prowlarr["Prowlarr<br/>Indexer proxy"]
+  Sonarr["Sonarr<br/>TV"]
+  Radarr["Radarr<br/>Movies"]
+  QBit["qBittorrent<br/>Downloads"]
+  Recyclarr["Recyclarr<br/>TRaSH profiles"]
+end
 end
 
-DNS ~~~ VPN ~~~ Dev ~~~ Backup ~~~ Media ~~~ Monitor
+Trakt["Trakt<br/>Watchlist and tracking"]
+
+DNS ~~~ VPN ~~~ Dev ~~~ Backup ~~~ Monitor
+KeepAlive -.->|"Starts only while<br/>the tunnel is up"| media
 Backup --> Storage
 Media --> Storage
 Media --> FireTV["Fire TV Stick"]
+
+Trakt -->|"Watchlist"| Sonarr
+Trakt -->|"Watchlist"| Radarr
+Media -->|"Scrobbles"| Trakt
+Prowlarr -->|"Indexers"| Sonarr
+Prowlarr -->|"Indexers"| Radarr
+Recyclarr -->|"Profiles"| Sonarr
+Recyclarr -->|"Profiles"| Radarr
+Sonarr -->|"Releases"| QBit
+Radarr -->|"Releases"| QBit
+QBit -->|"Completed downloads"| Storage
+
 DNS -->|"Quad9 DNS"| VPN
 Dev -->|"Code and agent APIs"| VPN
 Backup -->|"Ente sync"| VPN
@@ -255,8 +301,10 @@ VPN --> Internet["Internet"]
 
 classDef service fill:#0f766e,color:#fff,stroke:#115e59
 classDef data fill:#4338ca,color:#fff,stroke:#3730a3
-class DNS,VPN,Dev,Backup,Media,Monitor service
+classDef external fill:#475569,color:#fff,stroke:#334155
+class DNS,VPN,Dev,Backup,Media,Monitor,KeepAlive,Prowlarr,Sonarr,Radarr,QBit,Recyclarr service
 class Storage data
+class Trakt external
 `}
 />
 
@@ -355,6 +403,15 @@ owns the photo backup pipeline, the lab's two most important jobs.
   with its config declared in `homelab/hosts/mac-mini/jellyfin/` in this
   repo. The library lives on the 10TB HDD and is served over the LAN and the
   tailnet only.
+* **Media acquisition.** It runs an automated
+  [arr stack](/projects/homelab/adrs/016-media-automation-arr-stack) —
+  [Prowlarr](/projects/homelab/adrs/017-prowlarr-indexer-management),
+  Sonarr, Radarr, [qBittorrent](/projects/homelab/adrs/018-single-containerized-torrent-client),
+  and [Recyclarr](/projects/homelab/adrs/019-recyclarr-trash-guides) — in
+  Docker Compose under colima, supervised by a launchd agent that only starts
+  it while the VPN tunnel is up ([ADR 020](/projects/homelab/adrs/020-vpn-gated-stack)).
+  Trakt watchlist taps become monitored titles, and finished downloads land
+  straight in Jellyfin ([ADR 021](/projects/homelab/adrs/021-trakt-watchlist)).
 
 ## Raspberry Pi, the independent fallback
 
@@ -429,6 +486,8 @@ workloads and layering on the rest:
 | 7     | Physical Android and iOS device lab                           | Proposed |
 | 8     | Cellular watchdog on the View 20                              | Proposed |
 | 9     | Second compute node (idle 4080 laptop)                        | Idea     |
+| 10    | Automated media acquisition (arr stack behind the VPN gate)   | Live     |
+| 11    | Trakt watchlist recommendation loop into Jellyfin             | Live     |
 
 # What this is not
 
