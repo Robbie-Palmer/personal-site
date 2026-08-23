@@ -9,6 +9,8 @@ describe("cooking-log cursors", () => {
     const cursor = {
       completedAt: "2026-08-20T18:30:00.000Z",
       id: "00000000-0000-4000-8000-000000000062",
+      from: "2026-08-01T00:00:00.000Z",
+      to: "2026-08-22T00:00:00.000Z",
     };
 
     expect(decodeCookingLogCursor(encodeCookingLogCursor(cursor))).toEqual(

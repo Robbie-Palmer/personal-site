@@ -395,6 +395,59 @@ describe("recipe Agent Auth capabilities", () => {
     ).rejects.toThrow();
   });
 
+  it("keeps the original cooking-log date window across pages", async () => {
+    const firstPage = await executeRecipeAgentCapability(
+      queryDb([
+        {
+          id: "00000000-0000-4000-8000-000000000062",
+          recipeSlug: "tomato-soup",
+          recipeTitle: "Tomato Soup",
+          servings: 2,
+          completedAt: new Date("2026-08-20T18:30:00.000Z"),
+        },
+        {
+          id: "00000000-0000-4000-8000-000000000061",
+          recipeSlug: "lentil-soup",
+          recipeTitle: "Lentil Soup",
+          servings: 4,
+          completedAt: new Date("2026-08-19T18:30:00.000Z"),
+        },
+      ]),
+      "cook_log.read",
+      {
+        from: "2026-08-01T00:00:00.000Z",
+        to: "2026-08-22T00:00:00.000Z",
+        limit: 1,
+      },
+      agentSession(),
+    );
+    if (!("nextCursor" in firstPage)) {
+      throw new Error("Expected a cooking-log response");
+    }
+    const nextCursor = firstPage.nextCursor;
+    expect(nextCursor).toBeTypeOf("string");
+
+    const secondPage = await executeRecipeAgentCapability(
+      queryDb([]),
+      "cook_log.read",
+      { cursor: nextCursor },
+      agentSession(),
+    );
+
+    expect(secondPage).toEqual({ items: [], nextCursor: null });
+    await expect(
+      executeRecipeAgentCapability(
+        queryDb([]),
+        "cook_log.read",
+        {
+          cursor: nextCursor,
+          from: "2026-08-02T00:00:00.000Z",
+        },
+        agentSession(),
+      ),
+    ).rejects.toThrow("Cursor does not match the requested date range");
+  });
+
   it("returns server-computed cooking insights for the delegated user", async () => {
     const completedAt = new Date("2026-08-20T18:30:00.000Z");
     const result = await executeRecipeAgentCapability(

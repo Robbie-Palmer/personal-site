@@ -62,13 +62,19 @@ export function AgentApprovalView() {
 
     void getAgent(intent.agentId, controller.signal)
       .then(async (loadedAgent) => {
-        const loadedHost = await getAgentHost(
-          loadedAgent.hostId,
-          controller.signal,
-        );
         if (controller.signal.aborted) return;
         setAgent(loadedAgent);
-        setHost(loadedHost);
+        try {
+          const loadedHost = await getAgentHost(
+            loadedAgent.hostId,
+            controller.signal,
+          );
+          if (!controller.signal.aborted) setHost(loadedHost);
+        } catch (cause) {
+          if (cause instanceof DOMException && cause.name === "AbortError")
+            return;
+          if (!controller.signal.aborted) setHost(null);
+        }
       })
       .catch((cause: unknown) => {
         if (cause instanceof DOMException && cause.name === "AbortError")

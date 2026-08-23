@@ -397,10 +397,24 @@ export async function executeRecipeAgentCapability(
 
   if (capability === "cook_log.read") {
     const input = cookLogReadInput.parse(args ?? {});
-    const to = input.to ? new Date(input.to) : new Date();
-    const from = input.from
-      ? new Date(input.from)
-      : new Date(to.getTime() - MAX_COOK_LOG_RANGE_MS);
+    const cursor = decodeCookingLogCursor(input.cursor);
+    const to = cursor
+      ? new Date(cursor.to)
+      : input.to
+        ? new Date(input.to)
+        : new Date();
+    const from = cursor
+      ? new Date(cursor.from)
+      : input.from
+        ? new Date(input.from)
+        : new Date(to.getTime() - MAX_COOK_LOG_RANGE_MS);
+    if (
+      cursor &&
+      ((input.from && new Date(input.from).getTime() !== from.getTime()) ||
+        (input.to && new Date(input.to).getTime() !== to.getTime()))
+    ) {
+      throw new Error("Cursor does not match the requested date range");
+    }
     if (from > to) {
       throw new Error("from must not be after to");
     }
@@ -411,7 +425,7 @@ export async function executeRecipeAgentCapability(
       from,
       to,
       limit: input.limit,
-      cursor: decodeCookingLogCursor(input.cursor),
+      cursor,
     });
   }
 

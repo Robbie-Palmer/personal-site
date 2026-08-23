@@ -17,6 +17,8 @@ import { z } from "zod";
 export type CookingLogCursor = Readonly<{
   completedAt: string;
   id: string;
+  from: string;
+  to: string;
 }>;
 
 export type CookingLogQuery = Readonly<{
@@ -30,6 +32,8 @@ const cookingLogCursorSchema = z
   .object({
     completedAt: z.iso.datetime({ offset: true }),
     id: z.uuid(),
+    from: z.iso.datetime({ offset: true }),
+    to: z.iso.datetime({ offset: true }),
   })
   .strict();
 
@@ -163,6 +167,8 @@ export async function cookingLogResponse(
         ? encodeCookingLogCursor({
             completedAt: last.completedAt.toISOString(),
             id: last.id,
+            from: query.from.toISOString(),
+            to: query.to.toISOString(),
           })
         : null,
   };
