@@ -21,7 +21,7 @@ the LAN and tailnet.
 
 # Decision
 
-Run the standard four-piece acquisition stack on the Mac mini, in one Compose
+Run the standard \*arr acquisition stack on the Mac mini, in one Compose
 project (`homelab/hosts/mac-mini/media-automation/`):
 
 * **qBittorrent** (containerized) downloads torrents into
@@ -34,19 +34,60 @@ project (`homelab/hosts/mac-mini/media-automation/`):
   naming scheme.
 * **[Prowlarr](/projects/homelab/adrs/017-prowlarr-indexer-management)**
   manages the torrent indexers once and syncs them to both apps.
+* **[Recyclarr](/projects/homelab/adrs/019-recyclarr-trash-guides)** keeps
+  both apps' quality profiles and custom formats synced to the TRaSH Guides
+  nightly, so release picking stays sensible without hand-tuning.
 
 The flow looks like this:
 
-```text
-Prowlarr ──sync──▶ Sonarr ──grab──▶ qBittorrent ──import──▶ /media/TV ──▶ Jellyfin
-   │                ▲                    │
-   │             Radarr                 │
-   └──sync──────────┴──────◀─────────────┘
-        (searches indexers, sends magnets)
-```
+<Mermaid
+  chart={`flowchart LR
+TPB["ThePirateBay"]
+YTS["YTS"]
+Guides["TRaSH Guides"]
 
-Wiring between the four services happens through their REST APIs, driven by
-an idempotent `provision.py` script rather than hand-clicking in four web
+subgraph stack["Media automation"]
+Prowlarr["Prowlarr<br/>Indexer manager"]
+Sonarr["Sonarr<br/>TV"]
+Radarr["Radarr<br/>Movies"]
+QB["qBittorrent"]
+Recyclarr["Recyclarr<br/>Profile sync"]
+end
+
+subgraph drive["Media volume"]
+Downloads["downloads/"]
+TV["TV/"]
+Movies["Movies/"]
+end
+
+Jellyfin["Jellyfin"]
+Clients["Fire TV and tailnet devices"]
+
+TPB -->|"searches"| Prowlarr
+YTS -->|"searches"| Prowlarr
+Prowlarr -->|"syncs indexers"| Sonarr
+Prowlarr -->|"syncs indexers"| Radarr
+Sonarr -->|"grabs"| QB
+Radarr -->|"grabs"| QB
+QB -->|"saves to"| Downloads
+Downloads -->|"Sonarr imports and renames"| TV
+Downloads -->|"Radarr imports and renames"| Movies
+TV -->|"scans"| Jellyfin
+Movies -->|"scans"| Jellyfin
+Jellyfin -->|"streams"| Clients
+Guides -->|"nightly profile sync"| Recyclarr
+
+classDef external fill:#475569,color:#fff,stroke:#334155
+classDef service fill:#0f766e,color:#fff,stroke:#115e59
+classDef storage fill:#b45309,color:#fff,stroke:#92400e
+class TPB,YTS,Guides,Clients external
+class Prowlarr,Sonarr,Radarr,QB,Recyclarr,Jellyfin service
+class Downloads,TV,Movies storage
+`}
+/>
+
+Wiring between the services happens through their REST APIs, driven by
+an idempotent `provision.py` script rather than hand-clicking in five web
 UIs. Downloads carry per-app categories (`tv-sonarr`, `radarr`) so each app
 only ever sees its own torrents. Downloads sit on the same physical volume as
 the library, so imports are fast moves instead of cross-disk copies.
@@ -94,7 +135,7 @@ crashes while the VM runs, and launchd covers VM death and hub reboots.
 
 ### Cons
 
-* Four more long-running services on a 4GB VM alongside Jellyfin,
+* Five more long-running containers on a 4GB VM alongside Jellyfin,
   SilverBullet, and the photo backup. Memory pressure is the first thing to
   watch.
 * Public-tracker reachability from a .NET HTTP stack is fragile: eztv's CDN
