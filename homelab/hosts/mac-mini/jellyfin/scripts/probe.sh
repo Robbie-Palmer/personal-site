@@ -68,7 +68,7 @@ if [[ ${#FILES[@]} -eq 0 ]]; then
   exit 2
 fi
 
-if ! colima status >/dev/null 2>&1; then
+if [[ "$DOCKER_CONTEXT" == "colima" ]] && ! colima status >/dev/null 2>&1; then
   echo "colima is not running; start it first (mise run //homelab:up)" >&2
   exit 1
 fi
@@ -82,6 +82,7 @@ require_command() {
 }
 require_command docker
 require_command python3
+require_command shasum
 
 if [[ ! -r "$REPORT" ]]; then
   echo "Report helper not found: $REPORT" >&2
@@ -164,8 +165,16 @@ if [[ -n "$PREVIEW_SECONDS" ]]; then
       -c:a aac -b:a 192k -movflags +faststart \
       -f mp4 "/out/$(basename "$partial")" || rc=$?
     if [[ $rc -eq 0 ]]; then
-      mv -f "$partial" "$final"
-      echo "Preview ready: open '$final'"
+      size="$(wc -c < "$partial" 2>/dev/null || echo 0)"
+      size="${size//[[:space:]]/}"
+      if (( size >= 32768 )); then
+        mv -f "$partial" "$final"
+        echo "Preview ready: open '$final'"
+      else
+        rm -f "$partial"
+        echo "Preview failed: output only ${size} bytes (offset beyond end of file?)" >&2
+        overall=1
+      fi
     else
       rm -f "$partial"
       echo "Preview failed (ffmpeg exit $rc)" >&2

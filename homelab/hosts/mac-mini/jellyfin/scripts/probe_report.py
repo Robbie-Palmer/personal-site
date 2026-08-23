@@ -12,6 +12,7 @@ CONTAINER_FOR = {
     "avi": {"avi"},
     "matroska": {"mkv", "webm"},
     "mov": {"mp4", "m4v", "mov"},
+    "mp4": {"mp4", "m4v", "mov"},
     "mpegts": {"ts", "m2ts"},
     "flv": {"flv"},
     "asf": {"asf", "wmv"},
@@ -97,9 +98,10 @@ def main():
 
     print(f"  actual: {'/'.join(fmt_names)} | video {vcodec} {res}@{fps} | audio {acodec or 'no audio'}"
           + (f" | subs: {','.join(subs)}" if subs else ""))
-    print(f"  duration {hms(duration)} | size {mb(size)} | bitrate {bitrate // 1000} kbps")
+    print(f"  duration {hms(duration)} | size {mb(size)} | bitrate {bitrate / 1000:.0f} kbps")
     if mislabeled:
-        print(f"  WARNING: .{ext} extension does not match actual container ({primary_fmt}); rename to {sorted(allowed)[0]}")
+        target = primary_key if primary_key in allowed else sorted(allowed)[0]
+        print(f"  WARNING: .{ext} extension does not match actual container ({primary_fmt}); rename to {target}")
     elif video is not None and primary_key and primary_key not in CONTAINER_FOR:
         print(f"  NOTE: unrecognized container '{primary_fmt}' for a video stream; extension cross-check skipped")
     print(f"  expect: {verdict_for(vcodec, acodec)}")
