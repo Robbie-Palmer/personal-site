@@ -24,6 +24,11 @@ BEGIN
 			FROM "ingredient_group_hierarchy" AS "hierarchy"
 			INNER JOIN "broader_groups"
 				ON "hierarchy"."narrower_group_key" = "broader_groups"."group_key"
+			WHERE NOT (
+				TG_OP = 'UPDATE'
+				AND "hierarchy"."narrower_group_key" = OLD."narrower_group_key"
+				AND "hierarchy"."broader_group_key" = OLD."broader_group_key"
+			)
 		)
 		SELECT 1
 		FROM "broader_groups"

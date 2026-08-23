@@ -932,15 +932,42 @@ describe("recipe API PostgreSQL integration", () => {
     ).toMatchObject({ recipeSlugs: ["recommended-stew"] });
   });
 
-  it("rejects cycles in the ingredient group hierarchy", async () => {
+  it("allows edge replacement and rejects cycles in the group hierarchy", async () => {
+    const reversed = await client<
+      { broaderGroupKey: string; narrowerGroupKey: string }[]
+    >`
+      update ingredient_group_hierarchy
+      set
+        narrower_group_key = 'poultry',
+        broader_group_key = 'chicken'
+      where
+        narrower_group_key = 'chicken'
+        and broader_group_key = 'poultry'
+      returning
+        narrower_group_key as "narrowerGroupKey",
+        broader_group_key as "broaderGroupKey"
+    `;
+    expect(reversed).toEqual([
+      { narrowerGroupKey: "poultry", broaderGroupKey: "chicken" },
+    ]);
     await expect(
       client`
         insert into ingredient_group_hierarchy (
           narrower_group_key,
           broader_group_key
-        ) values ('poultry', 'chicken')
+        ) values ('chicken', 'poultry')
       `,
     ).rejects.toMatchObject({ code: "23514" });
+
+    await client`
+      update ingredient_group_hierarchy
+      set
+        narrower_group_key = 'chicken',
+        broader_group_key = 'poultry'
+      where
+        narrower_group_key = 'poultry'
+        and broader_group_key = 'chicken'
+    `;
   });
 
   it("persists diet settings and cascades an import job graph", async () => {
