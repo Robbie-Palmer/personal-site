@@ -105,54 +105,215 @@ kit would solve a software problem with more hardware.
 
 # Topology
 
+## System context
+
+Personal and household devices reach the lab over its private network. The lab
+pulls photos from Ente, works with code and agent providers, and sends
+operational alerts to Slack.
+
+<Mermaid
+  chart={`flowchart TB
+Owner["Lab owner"]
+Household["Household"]
+Lab["Home lab"]
+Cloud["Ente"]
+Code["GitHub and<br/>AI providers"]
+Alerts["Slack"]
+
+Owner -->|"Manages"| Lab
+Household -->|"DNS and printing"| Lab
+Cloud -->|"Photos"| Lab
+Lab -->|"Code and agents"| Code
+Lab -->|"Alerts"| Alerts
+
+classDef person fill:#7c3aed,color:#fff,stroke:#6d28d9
+classDef system fill:#2563eb,color:#fff,stroke:#1d4ed8
+classDef external fill:#475569,color:#fff,stroke:#334155
+class Owner,Household person
+class Lab system
+class Cloud,Code,Alerts external
+`}
+/>
+
+## Containers
+
+### Interactive services
+
+Tailscale is the private entry point for DNS, development, media, and printing.
+
+<Mermaid
+  chart={`flowchart TB
+People["Owner and household devices"]
+
+subgraph lab["Home lab"]
+Access["Tailscale<br/>Private access network"]
+DNS["AdGuard Home<br/>Filtered DNS"]
+Dev["t3-code and coding agents<br/>Development workspace"]
+Media["Jellyfin<br/>Media server"]
+Print["CUPS<br/>Print server"]
+end
+
+People --> Access
+Access --> DNS
+Access --> Dev
+Access --> Media
+Access --> Print
+DNS ~~~ Dev ~~~ Media ~~~ Print
+
+classDef external fill:#475569,color:#fff,stroke:#334155
+classDef service fill:#0f766e,color:#fff,stroke:#115e59
+class People external
+class Access,DNS,Dev,Media,Print service
+`}
+/>
+
+### Data and monitoring services
+
+Ente sync and Jellyfin share local storage. Netdata sends operational alerts
+to Slack, while the development workspace talks to GitHub and the agent APIs.
+
+<Mermaid
+  chart={`flowchart TB
+Ente["Ente cloud"] --> Backup["Ente sync<br/>Photo backup"]
+Backup --> Storage[("Local storage")]
+Storage --> Media["Jellyfin<br/>Media server"]
+Monitor["Netdata<br/>Monitoring"] --> Slack["Slack"]
+Dev["t3-code<br/>Coding agents"] --> Code["GitHub and<br/>AI providers"]
+
+Backup ~~~ Monitor ~~~ Dev
+
+classDef external fill:#475569,color:#fff,stroke:#334155
+classDef service fill:#0f766e,color:#fff,stroke:#115e59
+classDef data fill:#4338ca,color:#fff,stroke:#3730a3
+class Ente,Slack,Code external
+class Backup,Media,Monitor,Dev service
+class Storage data
+`}
+/>
+
+## Deployment
+
+### Device context
+
+The Mac mini is the home hub. The Raspberry Pi keeps DNS available during hub
+maintenance and owns the printer connection.
+
+<Mermaid
+  chart={`flowchart TB
+Router["Home router"]
+Internet["Internet"]
+Slack["Slack"]
+Printer["Canon MX3100"]
+FireTV["Fire TV Stick"]
+Drive[("10TB HDD")]
+
+Mini["Mac mini<br/>Home hub"]
+Pi["Raspberry Pi<br/>Fallback host"]
+
+Router -->|"Primary DNS"| Mini
+Router -->|"Fallback DNS"| Pi
+Pi -->|"Metrics"| Mini
+Mini --> Drive
+Mini --> FireTV
+Mini --> Slack
+Mini -->|"VPN egress"| Internet
+Pi --> Printer
+
+classDef live fill:#0f766e,color:#fff,stroke:#115e59
+classDef data fill:#4338ca,color:#fff,stroke:#3730a3
+class Mini,Pi live
+class Drive data
+`}
+/>
+
+### Mac mini containers
+
+The Mac mini hosts the lab's main services. Hotspot Shield routes its outbound
+traffic through an encrypted tunnel.
+
+<Mermaid
+  chart={`flowchart TB
+subgraph mini["Mac mini"]
+DNS["AdGuard Home<br/>Primary DNS"]
+VPN["Hotspot Shield<br/>All outbound traffic"]
+Dev["t3-code<br/>Coding agents"]
+Backup["Ente sync<br/>Photo backup"]
+Media["Jellyfin<br/>Media server"]
+Monitor["Netdata<br/>Parent node"]
+Storage[("10TB HDD")]
+end
+
+DNS ~~~ VPN ~~~ Dev ~~~ Backup ~~~ Media ~~~ Monitor
+Backup --> Storage
+Media --> Storage
+Media --> FireTV["Fire TV Stick"]
+DNS -->|"Quad9 DNS"| VPN
+Dev -->|"Code and agent APIs"| VPN
+Backup -->|"Ente sync"| VPN
+Monitor -->|"Slack alerts"| VPN
+VPN --> Internet["Internet"]
+
+classDef service fill:#0f766e,color:#fff,stroke:#115e59
+classDef data fill:#4338ca,color:#fff,stroke:#3730a3
+class DNS,VPN,Dev,Backup,Media,Monitor service
+class Storage data
+`}
+/>
+
+### Raspberry Pi containers
+
+The Pi runs the fallback DNS resolver, sends metrics to the Mac mini, and
+connects the old Canon printer to the network.
+
 <Mermaid
   chart={`flowchart LR
-Internet["Internet"] -->|"router DNS"| Router["Home router"]
-subgraph hub["Mac mini, home hub"]
-ADG1["AdGuard Home, primary DNS"]
-ENT["Ente sync"]
-NET1["Netdata"]
-T3["t3-code + agents"]
-JEL["Jellyfin"]
-end
-HSS["Hotspot Shield VPN, always-on"]
 subgraph pi["Raspberry Pi"]
-ADG2["AdGuard Home, fallback DNS"]
-NET2["Netdata to hub"]
-CUP["CUPS"]
+DNS["AdGuard Home<br/>Fallback DNS"]
+Monitor["Netdata<br/>Child node"]
+Print["CUPS<br/>Print server"]
 end
-subgraph asus["Asus desktop, proposed NixOS worker"]
-GPU["GTX 1060, CV jobs"]
-DVC["DVC dataset cache"]
-end
-subgraph phones["Phone device lab, proposed"]
-MAGIC["Magic5 Pro, newer Android QA"]
-VIEW["View 20, Android 10 QA + watchdog"]
-IOS["iPhone 6s, iOS 15 QA"]
-end
-Router --> ADG1
-Router --> ADG2
-ADG2 --> ADG1
-hub -->|"all egress"| HSS
-HSS -->|"encrypted tunnel"| Internet
-DailyPhone -->|"photo upload"| Ente["Ente cloud"]
-Ente -->|"download backup"| ENT
-ENT --> HDD[("10TB HDD")]
-NET1 --> Slack["Slack"]
-NET2 --> Slack
-CUP --> Printer["Canon MX3100 (2011)"]
-JEL --> FireStick["Fire TV Stick"]
-GitHub["GitHub"]
-DailyPhone["Daily phone"]
-DailyPhone -->|"agents"| T3
-T3 -->|"repos / PRs"| GitHub
-hub -->|"WoL (L2 broadcast)"| asus
-T3 -->|"preview tests"| MAGIC
-T3 -->|"preview tests"| VIEW
-T3 -->|"preview tests"| IOS
-VIEW -->|"checks over cellular + Tailscale"| hub
-VIEW -->|"checks over cellular + Tailscale"| pi
-VIEW -->|"alerts over mobile data"| Slack
+
+
+DNS -->|"Syncs config"| Primary["Primary DNS<br/>Mac mini"]
+Monitor -->|"Sends metrics"| Hub["Netdata parent<br/>Mac mini"]
+Print --> Printer["Canon MX3100"]
+
+classDef service fill:#0f766e,color:#fff,stroke:#115e59
+class DNS,Monitor,Print service
+`}
+/>
+
+### Proposed devices
+
+The Mac mini will wake the Asus desktop and 4080 laptop for GPU jobs, and run
+browser tests on the phone lab. The View 20 will check the live hosts over
+cellular so it can still report a home power or internet failure.
+
+<Mermaid
+  chart={`flowchart TB
+Mini["Mac mini<br/>Home hub"]
+Pi["Raspberry Pi<br/>Fallback host"]
+Worker["Asus desktop<br/>NixOS and GTX 1060"]
+Laptop["Laptop<br/>RTX 4080 compute"]
+Cache[("1TB DVC cache")]
+Phones["Phone lab<br/>Android and iOS QA"]
+Watchdog["View 20<br/>Cellular watchdog"]
+Slack["Slack"]
+
+Mini -->|"GPU jobs"| Worker
+Mini -->|"GPU jobs"| Laptop
+Worker --> Cache
+Mini -->|"Browser tests"| Phones
+Watchdog -->|"Checks"| Mini
+Watchdog -->|"Checks"| Pi
+Watchdog -->|"Alerts"| Slack
+
+classDef live fill:#0f766e,color:#fff,stroke:#115e59
+classDef proposed fill:#fef3c7,color:#78350f,stroke:#d97706,stroke-dasharray:5 5
+classDef data fill:#4338ca,color:#fff,stroke:#3730a3
+class Mini,Pi live
+class Worker,Laptop,Phones,Watchdog proposed
+class Cache data
 `}
 />
 
@@ -257,17 +418,17 @@ They will not become DNS servers, general compute nodes, or permanent cameras.
 The lab is being built incrementally, starting from the highest-value
 workloads and layering on the rest:
 
-| Phase | Workload                                                      | Status      |
-| ----- | ------------------------------------------------------------- | ----------- |
-| 1     | Photo backup (Ente → 10TB HDD)                                | Live        |
-| 2     | Agentic development hub (t3-code + agents)                    | Live        |
-| 3     | DNS privacy (AdGuard Home, primary + failover)                | Live        |
-| 4     | CUPS printing on the Pi (avoiding printer e-waste)            | Live        |
-| 5     | NixOS GPU worker for batch CV jobs, with DVC-managed datasets | Proposed    |
-| 6     | Jellyfin media server for the Fire TV Stick                   | In progress |
-| 7     | Physical Android and iOS device lab                           | Proposed    |
-| 8     | Cellular watchdog on the View 20                              | Proposed    |
-| 9     | Second compute node (idle 4080 laptop)                        | Idea        |
+| Phase | Workload                                                      | Status   |
+| ----- | ------------------------------------------------------------- | -------- |
+| 1     | Photo backup (Ente → 10TB HDD)                                | Live     |
+| 2     | Agentic development hub (t3-code + agents)                    | Live     |
+| 3     | DNS privacy (AdGuard Home, primary + failover)                | Live     |
+| 4     | CUPS printing on the Pi (avoiding printer e-waste)            | Live     |
+| 5     | NixOS GPU worker for batch CV jobs, with DVC-managed datasets | Proposed |
+| 6     | Jellyfin media server for the Fire TV Stick                   | Live     |
+| 7     | Physical Android and iOS device lab                           | Proposed |
+| 8     | Cellular watchdog on the View 20                              | Proposed |
+| 9     | Second compute node (idle 4080 laptop)                        | Idea     |
 
 # What this is not
 
@@ -368,9 +529,8 @@ narrowly scoped alert credential.
 
 ## Media server scope creep
 
-Jellyfin is the most consumer-facing thing on the roadmap and the easiest to
+Jellyfin is the lab's most consumer-facing service and the easiest one to
 over-invest in.
 
-**Mitigation.** It's explicitly a Phase 6 "nice to have." It only gets built
-after the higher-priority workloads are solid, and it stays behind the
-tailnet with a simple client story.
+**Mitigation.** Keep it as one container behind the tailnet, serving the Fire
+TV Stick. Add complexity only to fix a playback or operational problem.
