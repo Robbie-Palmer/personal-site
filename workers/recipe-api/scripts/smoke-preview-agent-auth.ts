@@ -528,7 +528,7 @@ if (
   throw new Error("Cooking insights did not include the preview cooking session");
 }
 
-await expectJson<{ agent_id: string; status: string }>(
+const revoked = await expectJson<{ agent_id: string; status: string }>(
   "/api/auth/agent/revoke",
   {
     method: "POST",
@@ -540,6 +540,12 @@ await expectJson<{ agent_id: string; status: string }>(
     body: JSON.stringify({ agent_id: registration.agent_id }),
   },
 );
+if (
+  revoked.agent_id !== registration.agent_id ||
+  revoked.status !== "revoked"
+) {
+  throw new Error("Agent revocation returned an unexpected response");
+}
 const revokedToken = await agentJWT(
   agentKeys.privateKey,
   agentKid,
@@ -554,9 +560,9 @@ const revokedExecution = await execute(
   "recipes.read",
   { slug: "preview-private-weeknight-pasta" },
 );
-if (revokedExecution.status !== 401) {
+if (revokedExecution.status !== 403) {
   throw new Error(
-    `Revoked agent execution returned ${revokedExecution.status}, expected 401`,
+    `Revoked agent execution returned ${revokedExecution.status}, expected 403`,
   );
 }
 await expectJson("/api/profile/cooking-insights", {
