@@ -8,6 +8,14 @@ set -euo pipefail
 export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
 export DOCKER_CONTEXT="colima"
 
+# Provisioning reaches out to public trackers (indexer validation, searches),
+# so refuse to run outside a VPN tunnel; see ADR 020.
+VPN_IFACE="$(route -n get 1.1.1.1 2>/dev/null | awk '/^ *interface:/{print $2}')"
+case "$VPN_IFACE" in
+  utun*) ;;
+  *) echo "refusing to provision: default route is '${VPN_IFACE:-unset}', not a VPN tunnel (ADR 020)" >&2; exit 1 ;;
+esac
+
 MEDIA_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ENV_FILE="${MEDIA_DIR}/.env"
 [[ -f "$ENV_FILE" ]] || { echo "Missing $ENV_FILE; run //media:bootstrap first" >&2; exit 1; }

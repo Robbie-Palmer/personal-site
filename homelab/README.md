@@ -130,6 +130,10 @@ mise run //homelab:media-provision   # re-run wiring; safe to repeat
 - **Recyclarr sync runs nightly** (`@daily` in-container cron). Manual run:
   `docker exec recyclarr recyclarr sync`. Logs live in
   `data/recyclarr/logs/`.
+- **The stack waits for the VPN.** Both provisioning and the keep-running
+  agent refuse to start the containers until the hub's default route runs
+  through a VPN tunnel interface, so torrent traffic never touches the
+  residential line during the boot race ([ADR 020](/projects/homelab/adrs/020-vpn-gated-stack)).
 - The [Netdata](/projects/homelab/adrs/009-netdata) alerting should cover
   these containers as well.
 

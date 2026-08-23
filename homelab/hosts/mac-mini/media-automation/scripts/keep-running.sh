@@ -6,6 +6,10 @@ set -uo pipefail
 # compose stack if either has stopped, so the stack self-heals across hub
 # reboots and crashes. Runs forever; launchd's KeepAlive restarts it if it
 # ever exits.
+#
+# The stack is only brought up while the hub's default route runs through a
+# VPN tunnel interface (utun*); see ADR 020. Until a tunnel appears, the VM
+# still starts but the containers are held back, cycle by cycle.
 
 export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
 export DOCKER_CONTEXT="colima"
@@ -16,6 +20,12 @@ CHECK_INTERVAL_SECONDS="${CHECK_INTERVAL_SECONDS:-60}"
 colima_running() {
   colima status >/dev/null 2>&1
   return $?
+}
+
+vpn_tunnel_active() {
+  local iface
+  iface="$(route -n get 1.1.1.1 2>/dev/null | awk '/^ *interface:/{print $2}')"
+  [[ "$iface" == utun* ]]
 }
 
 while true; do
@@ -31,11 +41,13 @@ while true; do
       || echo "$(date '+%F %T') colima start failed; retrying next cycle" >&2
   fi
 
-  if colima_running; then
+  if colima_running && vpn_tunnel_active; then
     docker compose \
       --project-directory "$MEDIA_DIR" \
       up -d >/dev/null 2>&1 \
       || echo "$(date '+%F %T') docker compose up failed; retrying next cycle" >&2
+  elif colima_running; then
+    echo "$(date '+%F %T') no VPN tunnel on the default route; holding the stack (ADR 020)" >&2
   fi
 
   sleep "$CHECK_INTERVAL_SECONDS"
