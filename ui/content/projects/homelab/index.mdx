@@ -112,19 +112,19 @@ pulls photos from Ente, works with code and agent providers, and sends
 operational alerts to Slack.
 
 <Mermaid
-  chart={`flowchart LR
+  chart={`flowchart TB
 Owner["Lab owner"]
-Household["Household devices"]
-Lab["Home lab<br/>Private services, storage and compute"]
-Cloud["Ente cloud<br/>Photo library"]
-Code["GitHub and AI providers<br/>Code and agent APIs"]
-Alerts["Slack<br/>Operational alerts"]
+Household["Household"]
+Lab["Home lab"]
+Cloud["Ente"]
+Code["GitHub and<br/>AI providers"]
+Alerts["Slack"]
 
-Owner -->|"develops, administers and streams"| Lab
-Household -->|"uses DNS and printing"| Lab
-Cloud -->|"supplies photo backup"| Lab
-Lab -->|"reads and writes repositories<br/>calls agent APIs"| Code
-Lab -->|"sends alerts"| Alerts
+Owner -->|"Manages"| Lab
+Household -->|"DNS and printing"| Lab
+Cloud -->|"Photos"| Lab
+Lab -->|"Code and agents"| Code
+Lab -->|"Alerts"| Alerts
 
 classDef person fill:#7c3aed,color:#fff,stroke:#6d28d9
 classDef system fill:#2563eb,color:#fff,stroke:#1d4ed8
@@ -178,11 +178,10 @@ class Storage data
 `}
 />
 
-## Deployment
+## Live deployment
 
 The Mac mini owns the main workloads and the Raspberry Pi keeps DNS and
-monitoring alive during hub maintenance. The GPU worker and phone lab are
-proposed additions.
+monitoring alive during hub maintenance.
 
 <Mermaid
   chart={`flowchart LR
@@ -190,54 +189,55 @@ Router["Home router"]
 Slack["Slack"]
 Printer["Canon MX3100"]
 FireTV["Fire TV Stick"]
-
-subgraph mini["Mac mini, always on"]
-PrimaryDNS["AdGuard Home<br/>Primary DNS"]
-Dev["t3-code and agents"]
-Backup["Ente sync"]
-Media["Jellyfin"]
-HubMonitor["Netdata parent"]
 Drive[("10TB HDD")]
-end
 
-subgraph pi["Raspberry Pi, always on"]
-FallbackDNS["AdGuard Home<br/>Fallback DNS"]
-Print["CUPS"]
-PiMonitor["Netdata child"]
-end
+Mini["Mac mini<br/>Primary DNS<br/>t3-code and agents<br/>Ente sync<br/>Jellyfin<br/>Netdata parent"]
+Pi["Raspberry Pi<br/>Fallback DNS<br/>CUPS<br/>Netdata child"]
 
-subgraph worker["Asus desktop, proposed"]
-GPU["NixOS and GTX 1060<br/>Batch CV jobs"]
+Router -->|"Primary DNS"| Mini
+Router -->|"Fallback DNS"| Pi
+Pi -->|"Metrics and DNS config"| Mini
+Mini --> Drive
+Mini --> FireTV
+Mini --> Slack
+Pi --> Printer
+
+classDef live fill:#0f766e,color:#fff,stroke:#115e59
+classDef data fill:#4338ca,color:#fff,stroke:#3730a3
+class Mini,Pi live
+class Drive data
+`}
+/>
+
+## Proposed deployment
+
+The Mac mini will wake the Asus desktop for GPU jobs and run browser tests on
+the phone lab. The View 20 will check the live hosts over cellular so it can
+still report a home power or internet failure.
+
+<Mermaid
+  chart={`flowchart TB
+Mini["Mac mini<br/>Home hub"]
+Pi["Raspberry Pi<br/>Fallback host"]
+Worker["Asus desktop<br/>NixOS and GTX 1060"]
 Cache[("1TB DVC cache")]
-end
-
-subgraph devices["Phone device lab, proposed"]
-Phones["Android and iOS<br/>Browser QA"]
+Phones["Phone lab<br/>Android and iOS QA"]
 Watchdog["View 20<br/>Cellular watchdog"]
-end
+Slack["Slack"]
 
-Router --> PrimaryDNS
-Router --> FallbackDNS
-FallbackDNS -->|"syncs configuration"| PrimaryDNS
-Backup --> Drive
-Media --> Drive
-Media --> FireTV
-Print --> Printer
-PiMonitor --> HubMonitor
-HubMonitor --> Slack
-Dev -.->|"wakes and submits jobs"| GPU
-GPU --> Cache
-Dev -.->|"runs preview tests"| Phones
-Watchdog -.->|"checks both hosts"| mini
-Watchdog -.->|"checks both hosts"| pi
-Watchdog -.->|"alerts over mobile data"| Slack
+Mini -->|"GPU jobs"| Worker
+Worker --> Cache
+Mini -->|"Browser tests"| Phones
+Watchdog -->|"Checks"| Mini
+Watchdog -->|"Checks"| Pi
+Watchdog -->|"Alerts"| Slack
 
 classDef live fill:#0f766e,color:#fff,stroke:#115e59
 classDef proposed fill:#fef3c7,color:#78350f,stroke:#d97706,stroke-dasharray:5 5
 classDef data fill:#4338ca,color:#fff,stroke:#3730a3
-class PrimaryDNS,Dev,Backup,Media,HubMonitor,FallbackDNS,Print,PiMonitor live
-class GPU,Cache,Phones,Watchdog proposed
-class Drive data
+class Mini,Pi live
+class Worker,Phones,Watchdog proposed
+class Cache data
 `}
 />
 
