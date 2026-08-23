@@ -22,6 +22,13 @@ DEVICE_EXTRA_VIDEO = {"hevc", "h265"}
 BROWSER_AUDIO = {"aac", "mp3", "opus", "flac", "vorbis"}
 
 
+def num(value):
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return 0.0
+
+
 def hms(seconds):
     seconds = int(seconds)
     return f"{seconds // 3600}:{(seconds % 3600) // 60:02d}:{seconds % 60:02d}"
@@ -31,14 +38,29 @@ def mb(bytes_):
     return f"{bytes_ / 1_000_000:.1f} MB"
 
 
+def fmt_fps(raw):
+    if not raw or raw == "N/A":
+        return "?"
+    try:
+        if "/" in raw:
+            numerator, denominator = raw.split("/", 1)
+            denominator_f = float(denominator)
+            if not denominator_f:
+                return "?"
+            return f"{float(numerator) / denominator_f:.2f}"
+        return f"{float(raw):.2f}"
+    except ValueError:
+        return str(raw)
+
+
 def verdict_for(vcodec, acodec):
     video_ok_browser = vcodec in BROWSER_VIDEO
     video_ok_device = video_ok_browser or vcodec in DEVICE_EXTRA_VIDEO
-    audio_ok_browser = acodec in BROWSER_AUDIO
+    audio_ok = acodec is None or acodec in BROWSER_AUDIO
 
-    if video_ok_browser and audio_ok_browser:
+    if video_ok_browser and audio_ok:
         return "plays natively everywhere (phone, browser, Fire TV)"
-    if video_ok_device and audio_ok_browser:
+    if video_ok_device and audio_ok:
         return "native on phone/Fire TV; browsers will transcode"
     if video_ok_browser:
         return "video native everywhere; audio will transcode in browsers"
@@ -63,15 +85,15 @@ def main():
     mislabeled = bool(ext and allowed and ext not in allowed)
 
     vcodec = (video or {}).get("codec_name", "?")
-    acodec = (audio or {}).get("codec_name", "?")
+    acodec = (audio or {}).get("codec_name") if audio else None
     res = f"{video.get('width')}x{video.get('height')}" if video else "-"
-    fps = (video or {}).get("avg_frame_rate", "?")
+    fps = fmt_fps((video or {}).get("avg_frame_rate"))
 
-    duration = float(fmt.get("duration") or 0)
-    size = int(fmt.get("size") or 0)
-    bitrate = int(fmt.get("bit_rate") or 0)
+    duration = num(fmt.get("duration"))
+    size = int(num(fmt.get("size")))
+    bitrate = int(num(fmt.get("bit_rate")))
 
-    print(f"  actual: {'/'.join(fmt_names)} | video {vcodec} {res}@{fps} | audio {acodec}"
+    print(f"  actual: {'/'.join(fmt_names)} | video {vcodec} {res}@{fps} | audio {acodec or 'no audio'}"
           + (f" | subs: {','.join(subs)}" if subs else ""))
     print(f"  duration {hms(duration)} | size {mb(size)} | bitrate {bitrate // 1000} kbps")
     if mislabeled:
