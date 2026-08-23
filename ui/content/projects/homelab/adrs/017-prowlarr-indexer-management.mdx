@@ -68,6 +68,13 @@ Compose network, not localhost.
 * One more container (\~200MB RSS) on the VM, doing a job that is only partly
   necessary. If Sonarr ever ships native TPB support, this ADR should be
   revisited honestly: Prowlarr would then be redundant for our two-app setup.
-* Indexer reachability problems concentrate here: eztv's CDN refuses
+* Indexer reachability problems concentrate here. eztv's CDN refuses
   Prowlarr's .NET TLS fingerprint entirely (wget connects, .NET gets cut
-  mid-handshake), so that indexer is disabled until its mirrors change.
+  mid-handshake), and Knaben fails the same way; both stay out of the
+  provisioned set.
+* A single TV indexer is too thin in practice: during the first end-to-end
+  QA pass (South Park season 27), TPB's Torznab endpoint returned zero
+  results for two aired episodes that LimeTorrents and TorrentDownload both
+  carry with thousands of seeders. The provisioned set is therefore four
+  definitions: thepiratebay and yts plus limetorrents and torrentdownload,
+  all validated live from this network.

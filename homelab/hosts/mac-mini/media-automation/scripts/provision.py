@@ -27,7 +27,12 @@ QBIT = f"http://localhost:{os.environ.get('QBITTORRENT_PORT', '8080')}"
 # Base URL overrides: some mirrors block datacenter/user-agent traffic or have
 # broken TLS from this network; thepiratebay.org answers while piratebay.org
 # returns 403 from here.
-INDEXER_DEFINITIONS = ["thepiratebay", "yts"]
+#
+# EZTV is deliberately absent: its CDN drops .NET TLS handshakes mid-flight,
+# so Prowlarr can connect with curl but never validates. Knaben fails the same
+# way. LimeTorrents and TorrentDownload answer directly and carry TV releases
+# TPB misses (verified live during the South Park S27 QA pass).
+INDEXER_DEFINITIONS = ["thepiratebay", "yts", "limetorrents", "torrentdownload"]
 INDEXER_BASE_URLS = {
     "thepiratebay": "https://thepiratebay.org/",
 }
