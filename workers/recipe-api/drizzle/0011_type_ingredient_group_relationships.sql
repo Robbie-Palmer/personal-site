@@ -1,8 +1,6 @@
 CREATE TYPE "public"."ingredient_group_relation_type" AS ENUM('classification', 'composition');--> statement-breakpoint
-ALTER TABLE "ingredient_group_hierarchy" ADD COLUMN "relation_type" "ingredient_group_relation_type";--> statement-breakpoint
-UPDATE "ingredient_group_hierarchy"
-SET "relation_type" = 'classification';--> statement-breakpoint
-ALTER TABLE "ingredient_group_hierarchy" ALTER COLUMN "relation_type" SET NOT NULL;--> statement-breakpoint
+ALTER TABLE "ingredient_group_hierarchy" ADD COLUMN "relation_type" "ingredient_group_relation_type" DEFAULT 'classification' NOT NULL;--> statement-breakpoint
+ALTER TABLE "ingredient_group_hierarchy" ALTER COLUMN "relation_type" DROP DEFAULT;--> statement-breakpoint
 DELETE FROM "ingredient_group_member"
 WHERE "group_key" = 'poultry'
 	AND "ingredient_slug" IN (
@@ -10,6 +8,13 @@ WHERE "group_key" = 'poultry'
 		'chicken-thigh',
 		'chicken-stock',
 		'chicken-stock-pot'
+	)
+	AND EXISTS (
+		SELECT 1
+		FROM "ingredient_group_hierarchy"
+		WHERE "narrower_group_key" = 'chicken'
+			AND "broader_group_key" = 'poultry'
+			AND "relation_type" = 'classification'
 	);--> statement-breakpoint
 CREATE OR REPLACE FUNCTION "reject_ingredient_group_hierarchy_cycle"()
 RETURNS trigger
