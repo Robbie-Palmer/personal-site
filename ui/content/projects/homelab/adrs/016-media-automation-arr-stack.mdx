@@ -25,7 +25,7 @@ project (`homelab/hosts/mac-mini/media-automation/`):
 
 * **qBittorrent** (containerized) downloads torrents into
   `/Volumes/Expansion/Downloads`. See [ADR 018](/projects/homelab/adrs/018-single-containerized-torrent-client)
-  for why this replaces the desktop clients.
+  for why it is the single shared client.
 * **Sonarr** watches TV series and **Radarr** watches movies. When an episode
   or film becomes available they search the indexers, pick a release, send it
   to qBittorrent, and import the finished download straight into Jellyfin's
