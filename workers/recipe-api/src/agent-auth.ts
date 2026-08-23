@@ -76,8 +76,8 @@ const recipeReadInput = z
 
 const cookLogReadInput = z
   .object({
-    from: z.string().datetime({ offset: true }).optional(),
-    to: z.string().datetime({ offset: true }).optional(),
+    from: z.iso.datetime({ offset: true }).optional(),
+    to: z.iso.datetime({ offset: true }).optional(),
     limit: z.number().int().min(1).max(50).default(20),
     cursor: z
       .string()

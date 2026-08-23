@@ -28,8 +28,8 @@ export type CookingLogQuery = Readonly<{
 
 const cookingLogCursorSchema = z
   .object({
-    completedAt: z.string().datetime({ offset: true }),
-    id: z.string().uuid(),
+    completedAt: z.iso.datetime({ offset: true }),
+    id: z.uuid(),
   })
   .strict();
 

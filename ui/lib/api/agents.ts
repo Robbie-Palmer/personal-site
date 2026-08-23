@@ -46,40 +46,41 @@ function nullableString(value: unknown): string | null | undefined {
   return value === null || typeof value === "string" ? value : undefined;
 }
 
+function capabilityGrant(value: unknown): AgentCapabilityGrant | undefined {
+  if (
+    !isRecord(value) ||
+    typeof value.capability !== "string" ||
+    typeof value.status !== "string"
+  ) {
+    return undefined;
+  }
+  const expiresAt =
+    value.expires_at === undefined
+      ? undefined
+      : nullableString(value.expires_at);
+  if (value.expires_at !== undefined && expiresAt === undefined) {
+    return undefined;
+  }
+  if (
+    value.description !== undefined &&
+    typeof value.description !== "string"
+  ) {
+    return undefined;
+  }
+  return {
+    capability: value.capability,
+    status: value.status,
+    ...(typeof value.description === "string"
+      ? { description: value.description }
+      : {}),
+    ...(typeof expiresAt === "string" ? { expiresAt } : {}),
+  };
+}
+
 function capabilityGrants(value: unknown): AgentCapabilityGrant[] | undefined {
   if (!Array.isArray(value)) return undefined;
-  const grants: AgentCapabilityGrant[] = [];
-  for (const item of value) {
-    if (
-      !isRecord(item) ||
-      typeof item.capability !== "string" ||
-      typeof item.status !== "string"
-    ) {
-      return undefined;
-    }
-    const expiresAt =
-      item.expires_at === undefined
-        ? undefined
-        : nullableString(item.expires_at);
-    if (item.expires_at !== undefined && expiresAt === undefined) {
-      return undefined;
-    }
-    if (
-      item.description !== undefined &&
-      typeof item.description !== "string"
-    ) {
-      return undefined;
-    }
-    grants.push({
-      capability: item.capability,
-      status: item.status,
-      ...(typeof item.description === "string"
-        ? { description: item.description }
-        : {}),
-      ...(typeof expiresAt === "string" ? { expiresAt } : {}),
-    });
-  }
-  return grants;
+  const grants = value.map(capabilityGrant);
+  return grants.every((grant) => grant !== undefined) ? grants : undefined;
 }
 
 const AGENT_STATUSES = new Set<AgentStatus>([
