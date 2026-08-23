@@ -11,8 +11,8 @@ import sys
 CONTAINER_FOR = {
     "avi": {"avi"},
     "matroska": {"mkv", "webm"},
-    "mov": {"mp4", "m4v", "mov"},
-    "mp4": {"mp4", "m4v", "mov"},
+    "mov": {"mp4", "m4v", "m4a", "mov"},
+    "mp4": {"mp4", "m4v", "m4a", "mov"},
     "mpegts": {"ts", "m2ts"},
     "flv": {"flv"},
     "asf": {"asf", "wmv"},
@@ -22,6 +22,8 @@ CONTAINER_FOR = {
 BROWSER_VIDEO = {"h264", "vp8", "vp9", "av1"}
 DEVICE_EXTRA_VIDEO = {"hevc", "h265"}
 BROWSER_AUDIO = {"aac", "mp3", "opus", "flac", "vorbis"}
+BROWSER_CONTAINERS = {"mov", "mp4", "m4a", "m4v", "webm"}
+DEVICE_CONTAINERS = BROWSER_CONTAINERS | {"matroska"}
 
 
 def num(value):
@@ -55,24 +57,27 @@ def fmt_fps(raw):
         return str(raw)
 
 
-def verdict_for(vcodec, acodec):
+def verdict_for(vcodec, acodec, container):
     video_ok_browser = vcodec in BROWSER_VIDEO
     video_ok_device = video_ok_browser or vcodec in DEVICE_EXTRA_VIDEO
     audio_ok = acodec is None or acodec in BROWSER_AUDIO
+    container_browser = container in BROWSER_CONTAINERS
+    container_device = container in DEVICE_CONTAINERS
 
-    if video_ok_browser and audio_ok:
+    if vcodec == "?" and audio_ok and container_browser:
+        return "audio plays natively in browsers and on phones"
+    if video_ok_browser and audio_ok and container_browser:
         return "plays natively everywhere (phone, browser, Fire TV)"
-    if video_ok_device and audio_ok:
+    if video_ok_device and audio_ok and container_device:
         return "native on phone/Fire TV; browsers will transcode"
-    if video_ok_browser:
+    if video_ok_browser and container_browser:
         return "video native everywhere; audio will transcode in browsers"
-    if video_ok_device:
+    if video_ok_device and container_device:
         return "native on phone/Fire TV only; everything else transcodes"
     return "needs server transcoding on every client"
 
 
-def container_warnings(ext, fmt, video):
-    fmt_names = (fmt.get("format_name") or "").split(",")
+def container_warnings(ext, fmt_names, video):
     primary_fmt = next((n for n in fmt_names if n != "webm"), fmt_names[0] if fmt_names else "")
     primary_key = primary_fmt.split(",")[0]
     allowed = CONTAINER_FOR.get(primary_key, set())
@@ -94,6 +99,10 @@ def main():
     audio = next((s for s in streams if s.get("codec_type") == "audio"), None)
     subs = [s.get("codec_name") for s in streams if s.get("codec_type") == "subtitle"]
 
+    fmt_names = (fmt.get("format_name") or "").split(",")
+    primary_fmt = next((n for n in fmt_names if n != "webm"), fmt_names[0] if fmt_names else "")
+    primary_key = primary_fmt.split(",")[0]
+
     vcodec = (video or {}).get("codec_name", "?")
     acodec = (audio or {}).get("codec_name") if audio else None
     res = f"{video.get('width')}x{video.get('height')}" if video else "-"
@@ -103,12 +112,12 @@ def main():
     size = int(num(fmt.get("size")))
     bitrate = int(num(fmt.get("bit_rate")))
 
-    print(f"  actual: {'/'.join((fmt.get('format_name') or '').split(','))} | video {vcodec} {res}@{fps} | audio {acodec or 'no audio'}"
+    print(f"  actual: {'/'.join(fmt_names)} | video {vcodec} {res}@{fps} | audio {acodec or 'no audio'}"
           + (f" | subs: {','.join(subs)}" if subs else ""))
     print(f"  duration {hms(duration)} | size {mb(size)} | bitrate {bitrate / 1000:.0f} kbps")
-    for line in container_warnings(ext, fmt, video):
+    for line in container_warnings(ext, fmt_names, video):
         print(line)
-    print(f"  expect: {verdict_for(vcodec, acodec)}")
+    print(f"  expect: {verdict_for(vcodec, acodec, primary_key)}")
 
 
 if __name__ == "__main__":
