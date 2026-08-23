@@ -6,7 +6,7 @@ import {
   createRecipeAgentAuthPlugin,
   escapedLikePattern,
   executeRecipeAgentCapability,
-  RECIPE_AGENT_CAPABILITIES,
+  RECIPE_SITE_AGENT_CAPABILITIES,
 } from "../src/agent-auth";
 import { createAuth } from "../src/auth";
 
@@ -203,12 +203,17 @@ describe("recipe Agent Auth capabilities", () => {
     expect(state.writes[0]?.expiresAt.getTime()).toBeGreaterThan(Date.now());
   });
 
-  it("exposes only the first delegated read slice", () => {
+  it("exposes recipe and committed cooking-history reads", () => {
     expect(
-      RECIPE_AGENT_CAPABILITIES.map((capability) => capability.name),
-    ).toEqual(["recipes.search", "recipes.read"]);
+      RECIPE_SITE_AGENT_CAPABILITIES.map((capability) => capability.name),
+    ).toEqual([
+      "recipes.search",
+      "recipes.read",
+      "cook_log.read",
+      "cooking_insights.read",
+    ]);
     expect(
-      RECIPE_AGENT_CAPABILITIES.every(
+      RECIPE_SITE_AGENT_CAPABILITIES.every(
         (capability) =>
           capability.approvalStrength === "session" &&
           capability.grantTTL === 30 * 24 * 60 * 60,
@@ -217,7 +222,7 @@ describe("recipe Agent Auth capabilities", () => {
   });
 
   it("bounds recipe search input and result size", () => {
-    const search = RECIPE_AGENT_CAPABILITIES.find(
+    const search = RECIPE_SITE_AGENT_CAPABILITIES.find(
       (capability) => capability.name === "recipes.search",
     );
 
@@ -231,6 +236,25 @@ describe("recipe Agent Auth capabilities", () => {
     });
     expect(search?.output).toMatchObject({
       properties: { items: { maxItems: 25 } },
+    });
+  });
+
+  it("bounds cooking log dates, cursors, and result size", () => {
+    const cookLog = RECIPE_SITE_AGENT_CAPABILITIES.find(
+      (capability) => capability.name === "cook_log.read",
+    );
+
+    expect(cookLog?.input).toMatchObject({
+      additionalProperties: false,
+      properties: {
+        from: { format: "date-time" },
+        to: { format: "date-time" },
+        limit: { minimum: 1, maximum: 50, default: 20 },
+        cursor: { maxLength: 500 },
+      },
+    });
+    expect(cookLog?.output).toMatchObject({
+      properties: { items: { maxItems: 50 } },
     });
   });
 
@@ -280,9 +304,11 @@ describe("recipe Agent Auth capabilities", () => {
       agentSession(),
     );
 
-    expect(result.items).toMatchObject([
-      { slug: "household-stew", visibility: "household", owned: false },
-    ]);
+    expect(result).toMatchObject({
+      items: [
+        { slug: "household-stew", visibility: "household", owned: false },
+      ],
+    });
   });
 
   it("reads one visible recipe with its Cooklang body", async () => {
@@ -312,6 +338,93 @@ describe("recipe Agent Auth capabilities", () => {
     ).resolves.toEqual({ recipe: null });
   });
 
+  it("reads only bounded completed cooking-log rows for the delegated user", async () => {
+    const completedAt = new Date("2026-08-20T18:30:00.000Z");
+    const result = await executeRecipeAgentCapability(
+      queryDb([
+        {
+          id: "00000000-0000-4000-8000-000000000062",
+          recipeSlug: "tomato-soup",
+          recipeTitle: "Tomato Soup",
+          servings: 2,
+          completedAt,
+        },
+      ]),
+      "cook_log.read",
+      {
+        from: "2026-08-01T00:00:00.000Z",
+        to: "2026-08-22T00:00:00.000Z",
+        limit: 10,
+      },
+      agentSession(),
+    );
+
+    expect(result).toEqual({
+      items: [
+        {
+          id: "00000000-0000-4000-8000-000000000062",
+          recipeSlug: "tomato-soup",
+          recipeTitle: "Tomato Soup",
+          servings: 2,
+          completedAt,
+        },
+      ],
+      nextCursor: null,
+    });
+  });
+
+  it("rejects unbounded or malformed cooking-log requests", async () => {
+    await expect(
+      executeRecipeAgentCapability(
+        queryDb([]),
+        "cook_log.read",
+        {
+          from: "2026-01-01T00:00:00.000Z",
+          to: "2026-08-22T00:00:00.000Z",
+        },
+        agentSession(),
+      ),
+    ).rejects.toThrow("Cook log range must not exceed 90 days");
+    await expect(
+      executeRecipeAgentCapability(
+        queryDb([]),
+        "cook_log.read",
+        { cursor: "not-a-cursor" },
+        agentSession(),
+      ),
+    ).rejects.toThrow();
+  });
+
+  it("returns server-computed cooking insights for the delegated user", async () => {
+    const completedAt = new Date("2026-08-20T18:30:00.000Z");
+    const result = await executeRecipeAgentCapability(
+      queryDb(
+        [{ cookModeStarts: 4, mealsCooked: 3 }],
+        [
+          {
+            id: "00000000-0000-4000-8000-000000000063",
+            recipeSlug: "tomato-soup",
+            recipeTitle: "Tomato Soup",
+            servings: 2,
+            startedAt: new Date("2026-08-20T18:00:00.000Z"),
+            completedAt,
+          },
+        ],
+        [{ count: 2 }],
+      ),
+      "cooking_insights.read",
+      {},
+      agentSession(),
+    );
+
+    expect(result).toMatchObject({
+      cookModeStarts: 4,
+      mealsCooked: 3,
+      distinctRecipesCooked: 2,
+      recent: [{ recipeSlug: "tomato-soup", completedAt }],
+    });
+  });
+
   it("rejects malformed and unsupported capability requests", async () => {
     await expect(
       executeRecipeAgentCapability(
@@ -328,7 +441,7 @@ describe("recipe Agent Auth capabilities", () => {
         {},
         agentSession(),
       ),
-    ).rejects.toThrow("Unsupported recipe capability: recipes.delete");
+    ).rejects.toThrow("Unsupported agent capability: recipes.delete");
   });
 
   it("validates, executes, and audits through the Agent Auth callbacks", async () => {

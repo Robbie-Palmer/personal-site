@@ -213,12 +213,48 @@ if (!signIn.ok) {
 }
 const cookie = sessionCookie(signIn);
 
+const cookingSessionId = crypto.randomUUID();
+const cookingSession = {
+  sessionId: cookingSessionId,
+  recipeSlug: "preview-private-weeknight-pasta",
+  recipeTitle: "Preview Weeknight Pasta",
+  servings: 2,
+};
+await expectJson(
+  "/api/profile/cooking-sessions",
+  {
+    method: "POST",
+    headers: {
+      cookie,
+      "content-type": "application/json",
+      origin: siteURL,
+    },
+    body: JSON.stringify({ ...cookingSession, event: "started" }),
+  },
+  201,
+);
+await expectJson("/api/profile/cooking-sessions", {
+  method: "POST",
+  headers: {
+    cookie,
+    "content-type": "application/json",
+    origin: siteURL,
+  },
+  body: JSON.stringify({ ...cookingSession, event: "completed" }),
+});
+
 const hostKeys = await generateKeyPair("EdDSA");
 const agentKeys = await generateKeyPair("EdDSA");
 const hostKid = `preview-host-${crypto.randomUUID()}`;
 const agentKid = `preview-agent-${crypto.randomUUID()}`;
 const hostPublicKey = await publicJWK(hostKeys.publicKey, hostKid);
 const agentPublicKey = await publicJWK(agentKeys.publicKey, agentKid);
+const requestedCapabilities = [
+  "recipes.search",
+  "recipes.read",
+  "cook_log.read",
+  "cooking_insights.read",
+];
 
 const host = await expectJson<{ hostId: string; status: string }>(
   "/api/auth/host/create",
@@ -260,8 +296,8 @@ const registration = await expectJson<Registration>(
     },
     body: JSON.stringify({
       name: "ADR 061 preview smoke agent",
-      capabilities: ["recipes.search", "recipes.read"],
-      reason: "Verify delegated recipe reads on PR preview",
+      capabilities: requestedCapabilities,
+      reason: "Verify delegated recipe and cooking-history reads on PR preview",
       mode: "delegated",
       preferred_method: "device_authorization",
     }),
@@ -351,7 +387,7 @@ while (Date.now() < deadline) {
 if (status?.status !== "active") {
   throw new Error("Timed out waiting for agent approval");
 }
-for (const capability of ["recipes.search", "recipes.read"]) {
+for (const capability of requestedCapabilities) {
   if (
     !status.agent_capability_grants.some(
       (grant) =>
@@ -429,5 +465,102 @@ if (
 ) {
   throw new Error("Recipe read did not return the delegated user's private recipe");
 }
+
+const cookLogToken = await agentJWT(
+  agentKeys.privateKey,
+  agentKid,
+  registration.agent_id,
+  registration.host_id,
+  discovery.issuer,
+  "cook_log.read",
+);
+const cookLogResponse = await execute(
+  discovery.endpoints.execute,
+  cookLogToken,
+  "cook_log.read",
+  { limit: 50 },
+);
+if (!cookLogResponse.ok) {
+  throw new Error(`Cook log read failed: ${await cookLogResponse.text()}`);
+}
+const cookLog = (await cookLogResponse.json()) as {
+  data: { items: Array<{ id: string; recipeSlug: string }> };
+};
+if (
+  !cookLog.data.items.some(
+    (item) =>
+      item.id === cookingSessionId &&
+      item.recipeSlug === "preview-private-weeknight-pasta",
+  )
+) {
+  throw new Error("Cook log read did not return the delegated user's session");
+}
+
+const insightsToken = await agentJWT(
+  agentKeys.privateKey,
+  agentKid,
+  registration.agent_id,
+  registration.host_id,
+  discovery.issuer,
+  "cooking_insights.read",
+);
+const insightsResponse = await execute(
+  discovery.endpoints.execute,
+  insightsToken,
+  "cooking_insights.read",
+  {},
+);
+if (!insightsResponse.ok) {
+  throw new Error(`Cooking insights read failed: ${await insightsResponse.text()}`);
+}
+const insights = (await insightsResponse.json()) as {
+  data: {
+    cookModeStarts: number;
+    mealsCooked: number;
+    recent: Array<{ id: string }>;
+  };
+};
+if (
+  insights.data.cookModeStarts < 1 ||
+  insights.data.mealsCooked < 1 ||
+  !insights.data.recent.some((item) => item.id === cookingSessionId)
+) {
+  throw new Error("Cooking insights did not include the preview cooking session");
+}
+
+await expectJson<{ agent_id: string; status: string }>(
+  "/api/auth/agent/revoke",
+  {
+    method: "POST",
+    headers: {
+      cookie,
+      "content-type": "application/json",
+      origin: siteURL,
+    },
+    body: JSON.stringify({ agent_id: registration.agent_id }),
+  },
+);
+const revokedToken = await agentJWT(
+  agentKeys.privateKey,
+  agentKid,
+  registration.agent_id,
+  registration.host_id,
+  discovery.issuer,
+  "recipes.read",
+);
+const revokedExecution = await execute(
+  discovery.endpoints.execute,
+  revokedToken,
+  "recipes.read",
+  { slug: "preview-private-weeknight-pasta" },
+);
+if (revokedExecution.status !== 401) {
+  throw new Error(
+    `Revoked agent execution returned ${revokedExecution.status}, expected 401`,
+  );
+}
+await expectJson("/api/profile/cooking-insights", {
+  headers: { cookie },
+});
 
 console.log("Delegated agent-auth preview smoke test passed.");

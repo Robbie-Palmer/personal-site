@@ -1,0 +1,207 @@
+"use client";
+
+import { Bot, Clock, LoaderCircle, ShieldX } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { type AgentSummary, listAgents, revokeAgent } from "@/lib/api/agents";
+import { PanelHead } from "./panel-head";
+
+function dateLabel(value: string | null): string {
+  if (!value) return "Never";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Unknown";
+  return new Intl.DateTimeFormat(undefined, {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(date);
+}
+
+function statusLabel(status: AgentSummary["status"]): string {
+  if (status === "active") return "Active";
+  if (status === "pending") return "Waiting for approval";
+  if (status === "expired") return "Expired";
+  if (status === "revoked") return "Revoked";
+  if (status === "rejected") return "Denied";
+  return "Claimed";
+}
+
+function canRevoke(agent: AgentSummary): boolean {
+  return agent.status === "active" || agent.status === "pending";
+}
+
+export function AgentsPanel() {
+  const [agents, setAgents] = useState<AgentSummary[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [revokingId, setRevokingId] = useState<string | null>(null);
+
+  async function load(signal?: AbortSignal) {
+    setError(null);
+    try {
+      setAgents(await listAgents(signal));
+    } catch (cause) {
+      if (cause instanceof DOMException && cause.name === "AbortError") return;
+      setError(
+        cause instanceof Error ? cause.message : "Agents could not be loaded.",
+      );
+    }
+  }
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: load the user's agents once when this panel mounts
+  useEffect(() => {
+    const controller = new AbortController();
+    void load(controller.signal);
+    return () => controller.abort();
+  }, []);
+
+  async function revoke(agent: AgentSummary) {
+    if (
+      !window.confirm(`Revoke ${agent.name}? Its access will stop immediately.`)
+    ) {
+      return;
+    }
+    setRevokingId(agent.id);
+    setError(null);
+    try {
+      await revokeAgent(agent.id);
+      await load();
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : "Agent access could not be revoked.",
+      );
+    } finally {
+      setRevokingId(null);
+    }
+  }
+
+  return (
+    <div>
+      <PanelHead
+        kicker="AGENTS"
+        title="Who can read your cooking data."
+        sub="Each agent has its own access grant. Revoking one agent leaves your other agents and signed-in devices alone."
+      />
+
+      {error && (
+        <div
+          role="alert"
+          className="mb-4 rounded-xl border border-[var(--berry)]/40 bg-[var(--card)] p-4 text-[var(--berry)]"
+        >
+          <p className="rt-body">{error}</p>
+          {agents === null && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="mt-3"
+              onClick={() => void load()}
+            >
+              Try again
+            </Button>
+          )}
+        </div>
+      )}
+
+      {agents === null && !error && (
+        <output
+          aria-label="Loading agents"
+          className="flex items-center gap-2 py-4 text-[var(--ink-3)]"
+        >
+          <LoaderCircle className="size-4 animate-spin" />
+          <span className="rt-mono">Checking agent access…</span>
+        </output>
+      )}
+
+      {agents?.length === 0 && (
+        <div className="rounded-xl border border-dashed border-[var(--line-strong)] bg-[var(--card)] p-6 text-center">
+          <Bot className="mx-auto size-6 text-[var(--terracotta)]" />
+          <p className="rt-display mt-3 text-3xl">No agents connected.</p>
+          <p className="rt-body mt-1 text-sm text-[var(--ink-3)]">
+            Agent access appears here after you approve a request.
+          </p>
+        </div>
+      )}
+
+      <div className="space-y-3">
+        {agents?.map((agent) => {
+          const grants = agent.capabilityGrants.filter(
+            (grant) => grant.status === "active" || grant.status === "pending",
+          );
+          return (
+            <article
+              key={agent.id}
+              className="rounded-xl border border-[var(--line-strong)] bg-[var(--card)] p-4 shadow-[var(--paper-shadow)]"
+            >
+              <div className="flex items-start gap-3">
+                <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-[var(--paper-warm)] text-[var(--terracotta-deep)]">
+                  <Bot className="size-5" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-baseline justify-between gap-2">
+                    <h3 className="rt-display text-2xl">{agent.name}</h3>
+                    <span className="rt-mono text-[var(--ink-3)]">
+                      {statusLabel(agent.status)}
+                    </span>
+                  </div>
+                  <p className="rt-body mt-0.5 text-sm text-[var(--ink-2)]">
+                    Hosted by {agent.hostName}
+                  </p>
+
+                  {grants.length > 0 && (
+                    <ul
+                      aria-label={`${agent.name} capabilities`}
+                      className="mt-3 flex flex-wrap gap-2"
+                    >
+                      {grants.map((grant) => (
+                        <li
+                          key={`${grant.capability}:${grant.status}`}
+                          className="rt-mono rounded-full border border-[var(--line)] bg-[var(--paper-warm)] px-2.5 py-1 text-xs text-[var(--ink-2)]"
+                        >
+                          {grant.capability}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+
+                  <dl className="rt-mono mt-3 grid gap-1 text-xs text-[var(--ink-3)] sm:grid-cols-2">
+                    <div className="flex items-center gap-1.5">
+                      <Clock className="size-3" />
+                      <dt>Last used</dt>
+                      <dd>{dateLabel(agent.lastUsedAt)}</dd>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <Clock className="size-3" />
+                      <dt>Expires</dt>
+                      <dd>{dateLabel(agent.expiresAt)}</dd>
+                    </div>
+                  </dl>
+                </div>
+              </div>
+
+              {canRevoke(agent) && (
+                <div className="mt-4 border-t border-dashed border-[var(--line)] pt-3 text-right">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="text-[var(--terracotta-deep)]"
+                    disabled={revokingId !== null}
+                    onClick={() => void revoke(agent)}
+                  >
+                    {revokingId === agent.id ? (
+                      <LoaderCircle className="animate-spin" />
+                    ) : (
+                      <ShieldX />
+                    )}
+                    Revoke access
+                  </Button>
+                </div>
+              )}
+            </article>
+          );
+        })}
+      </div>
+    </div>
+  );
+}

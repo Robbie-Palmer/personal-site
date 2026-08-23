@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const authMock = vi.hoisted(() => ({
   session: {
     data: {
-      user: { id: "user-1", name: "Cook" },
+      user: { id: "user-1", name: "Cook", email: "cook@example.test" },
       session: { token: "session-1" },
     } as unknown,
     isPending: false,
@@ -40,10 +40,22 @@ describe("AgentApprovalView", () => {
           agent_id: "agent-1",
           name: "Meal planner",
           status: "pending",
+          mode: "delegated",
           host_id: "host-1",
+          created_at: "2026-08-22T09:00:00.000Z",
+          activated_at: null,
+          last_used_at: null,
+          expires_at: "2026-09-21T09:00:00.000Z",
           agent_capability_grants: [
             { capability: "recipes.search", status: "pending" },
           ],
+        }),
+      )
+      .mockResolvedValueOnce(
+        Response.json({
+          id: "host-1",
+          name: "Kitchen helper host",
+          status: "active",
         }),
       )
       .mockResolvedValueOnce(Response.json({ status: "approved" }));
@@ -53,17 +65,20 @@ describe("AgentApprovalView", () => {
 
     expect(await screen.findByText("Allow Meal planner?")).toBeInTheDocument();
     expect(screen.getByText("recipes.search")).toBeInTheDocument();
+    expect(screen.getByText("Kitchen helper host")).toBeInTheDocument();
+    expect(screen.getByText("cook@example.test")).toBeInTheDocument();
     expect(window.location.search).toBe("");
 
     await userEvent.click(
       screen.getByRole("button", { name: "Approve access" }),
     );
 
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
     expect(fetchMock).toHaveBeenLastCalledWith(
       "/api/auth/agent/approve-capability",
       expect.objectContaining({
         method: "POST",
+        credentials: "same-origin",
         body: JSON.stringify({
           agent_id: "agent-1",
           user_code: "ABCD-1234",

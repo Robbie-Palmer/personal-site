@@ -8,9 +8,15 @@ import { and, desc, eq, ilike, inArray, or, type SQL } from "drizzle-orm";
 import type { Db } from "recipe-db";
 import * as schema from "recipe-db/schema";
 import { z } from "zod";
+import {
+  cookingInsightsResponse,
+  cookingLogResponse,
+  decodeCookingLogCursor,
+} from "./cooking-reads";
 
 const READ_GRANT_TTL_SECONDS = 30 * 24 * 60 * 60;
 const MAX_AGENT_LIFETIME_SECONDS = 30 * 24 * 60 * 60;
+const MAX_COOK_LOG_RANGE_MS = 90 * 24 * 60 * 60 * 1_000;
 const AGENT_AUTH_PROVIDER_NAME = "Robbie's Recipes";
 const AGENT_AUTH_PROVIDER_DESCRIPTION =
   "Delegated access to recipes and personal cooking data.";
@@ -68,6 +74,41 @@ const recipeReadInput = z
   })
   .strict();
 
+const cookLogReadInput = z
+  .object({
+    from: z.string().datetime({ offset: true }).optional(),
+    to: z.string().datetime({ offset: true }).optional(),
+    limit: z.number().int().min(1).max(50).default(20),
+    cursor: z
+      .string()
+      .max(500)
+      .refine((value) => decodeCookingLogCursor(value) !== undefined, {
+        message: "Cursor is invalid",
+      })
+      .optional(),
+  })
+  .strict()
+  .superRefine((input, context) => {
+    if (!input.from || !input.to) return;
+    const from = Date.parse(input.from);
+    const to = Date.parse(input.to);
+    if (from > to) {
+      context.addIssue({
+        code: "custom",
+        path: ["from"],
+        message: "from must not be after to",
+      });
+    } else if (to - from > MAX_COOK_LOG_RANGE_MS) {
+      context.addIssue({
+        code: "custom",
+        path: ["from"],
+        message: "Cook log range must not exceed 90 days",
+      });
+    }
+  });
+
+const noArgumentsInput = z.object({}).strict();
+
 const recipeSummarySchema = {
   type: "object",
   additionalProperties: false,
@@ -91,7 +132,26 @@ const recipeSummarySchema = {
   },
 } as const;
 
-export const RECIPE_AGENT_CAPABILITIES = [
+const completedCookingSessionSchema = {
+  type: "object",
+  additionalProperties: false,
+  required: [
+    "id",
+    "recipeSlug",
+    "recipeTitle",
+    "servings",
+    "completedAt",
+  ],
+  properties: {
+    id: { type: "string", format: "uuid" },
+    recipeSlug: { type: "string" },
+    recipeTitle: { type: "string" },
+    servings: { type: "integer", minimum: 1 },
+    completedAt: { type: "string", format: "date-time" },
+  },
+} as const;
+
+export const RECIPE_SITE_AGENT_CAPABILITIES = [
   {
     name: "recipes.search",
     description:
@@ -152,6 +212,82 @@ export const RECIPE_AGENT_CAPABILITIES = [
             },
             { type: "null" },
           ],
+        },
+      },
+    },
+  },
+  {
+    name: "cook_log.read",
+    description:
+      "Read the delegated user's completed cooking sessions within a bounded date range.",
+    approvalStrength: "session",
+    grantTTL: READ_GRANT_TTL_SECONDS,
+    input: {
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        from: { type: "string", format: "date-time" },
+        to: { type: "string", format: "date-time" },
+        limit: { type: "integer", minimum: 1, maximum: 50, default: 20 },
+        cursor: { type: "string", maxLength: 500 },
+      },
+    },
+    output: {
+      type: "object",
+      additionalProperties: false,
+      required: ["items", "nextCursor"],
+      properties: {
+        items: {
+          type: "array",
+          maxItems: 50,
+          items: completedCookingSessionSchema,
+        },
+        nextCursor: { type: ["string", "null"] },
+      },
+    },
+  },
+  {
+    name: "cooking_insights.read",
+    description:
+      "Read server-computed cooking totals and the delegated user's recent completed sessions.",
+    approvalStrength: "session",
+    grantTTL: READ_GRANT_TTL_SECONDS,
+    input: {
+      type: "object",
+      additionalProperties: false,
+      properties: {},
+    },
+    output: {
+      type: "object",
+      additionalProperties: false,
+      required: [
+        "cookModeStarts",
+        "mealsCooked",
+        "distinctRecipesCooked",
+        "recent",
+      ],
+      properties: {
+        cookModeStarts: { type: "integer", minimum: 0 },
+        mealsCooked: { type: "integer", minimum: 0 },
+        distinctRecipesCooked: { type: "integer", minimum: 0 },
+        recent: {
+          type: "array",
+          maxItems: 20,
+          items: {
+            ...completedCookingSessionSchema,
+            required: [
+              ...completedCookingSessionSchema.required,
+              "startedAt",
+            ],
+            properties: {
+              ...completedCookingSessionSchema.properties,
+              startedAt: { type: "string", format: "date-time" },
+              completedAt: {
+                type: ["string", "null"],
+                format: "date-time",
+              },
+            },
+          },
         },
       },
     },
@@ -219,9 +355,9 @@ export async function executeRecipeAgentCapability(
   agentSession: AgentSession,
 ) {
   const userId = agentSession.user.id;
-  const visibility = await readableRecipeFilter(db, userId);
 
   if (capability === "recipes.search") {
+    const visibility = await readableRecipeFilter(db, userId);
     const input = recipeSearchInput.parse(args ?? {});
     const pattern = escapedLikePattern(input.query);
     const recipes = await db
@@ -244,6 +380,7 @@ export async function executeRecipeAgentCapability(
   }
 
   if (capability === "recipes.read") {
+    const visibility = await readableRecipeFilter(db, userId);
     const input = recipeReadInput.parse(args ?? {});
     const [recipe] = await db
       .select()
@@ -258,7 +395,32 @@ export async function executeRecipeAgentCapability(
     };
   }
 
-  throw new Error(`Unsupported recipe capability: ${capability}`);
+  if (capability === "cook_log.read") {
+    const input = cookLogReadInput.parse(args ?? {});
+    const to = input.to ? new Date(input.to) : new Date();
+    const from = input.from
+      ? new Date(input.from)
+      : new Date(to.getTime() - MAX_COOK_LOG_RANGE_MS);
+    if (from > to) {
+      throw new Error("from must not be after to");
+    }
+    if (to.getTime() - from.getTime() > MAX_COOK_LOG_RANGE_MS) {
+      throw new Error("Cook log range must not exceed 90 days");
+    }
+    return cookingLogResponse(db, userId, {
+      from,
+      to,
+      limit: input.limit,
+      cursor: decodeCookingLogCursor(input.cursor),
+    });
+  }
+
+  if (capability === "cooking_insights.read") {
+    noArgumentsInput.parse(args ?? {});
+    return cookingInsightsResponse(db, userId);
+  }
+
+  throw new Error(`Unsupported agent capability: ${capability}`);
 }
 
 async function writeAgentAuthAuditEvent(db: Db, event: AgentAuthEvent) {
@@ -293,10 +455,12 @@ export function createRecipeAgentAuthPlugin(db: Db) {
     modes: [...AGENT_AUTH_MODES],
     approvalMethods: [...AGENT_AUTH_APPROVAL_METHODS],
     deviceAuthorizationPage: "/recipes/settings/agents/approve",
-    capabilities: RECIPE_AGENT_CAPABILITIES,
+    capabilities: RECIPE_SITE_AGENT_CAPABILITIES,
     validateCapabilities: (capabilities) =>
       capabilities.every((name) =>
-        RECIPE_AGENT_CAPABILITIES.some((capability) => capability.name === name),
+        RECIPE_SITE_AGENT_CAPABILITIES.some(
+          (capability) => capability.name === name,
+        ),
       ),
     allowDynamicHostRegistration: false,
     defaultHostCapabilities: [],
