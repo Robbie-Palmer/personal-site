@@ -970,6 +970,47 @@ describe("recipe API PostgreSQL integration", () => {
     `;
   });
 
+  it("serializes concurrent opposing hierarchy edges", async () => {
+    const inserts = await Promise.allSettled([
+      client`
+        insert into ingredient_group_hierarchy (
+          narrower_group_key,
+          broader_group_key
+        ) values ('dairy', 'gluten')
+      `,
+      client`
+        insert into ingredient_group_hierarchy (
+          narrower_group_key,
+          broader_group_key
+        ) values ('gluten', 'dairy')
+      `,
+    ]);
+
+    try {
+      expect(
+        inserts.filter((result) => result.status === "fulfilled"),
+      ).toHaveLength(1);
+      const rejected = inserts.find((result) => result.status === "rejected");
+      expect(rejected?.reason).toMatchObject({ code: "23514" });
+
+      const storedEdges = await client`
+        select narrower_group_key, broader_group_key
+        from ingredient_group_hierarchy
+        where
+          (narrower_group_key = 'dairy' and broader_group_key = 'gluten')
+          or (narrower_group_key = 'gluten' and broader_group_key = 'dairy')
+      `;
+      expect(storedEdges).toHaveLength(1);
+    } finally {
+      await client`
+        delete from ingredient_group_hierarchy
+        where
+          (narrower_group_key = 'dairy' and broader_group_key = 'gluten')
+          or (narrower_group_key = 'gluten' and broader_group_key = 'dairy')
+      `;
+    }
+  });
+
   it("persists diet settings and cascades an import job graph", async () => {
     const cook = await createUser("Import Cook", "import-cook@example.test");
 
