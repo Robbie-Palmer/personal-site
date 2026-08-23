@@ -22,7 +22,7 @@ type DietLabelOption = {
 };
 
 export type DietGroupOption = DietLabelOption & {
-  /** Direct classification edges only; do not infer transitive diet exclusions. */
+  /** Direct classification parents. Ingredient slugs include narrower groups. */
   broaderGroupKeys: string[];
   ingredientSlugs: string[];
 };

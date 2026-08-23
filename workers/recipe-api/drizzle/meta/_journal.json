@@ -78,6 +78,13 @@
       "when": 1787443563268,
       "tag": "0010_add_ingredient_group_hierarchy",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1787476142372,
+      "tag": "0011_type_ingredient_group_relationships",
+      "breakpoints": true
     }
   ]
 }

@@ -2295,6 +2295,66 @@ async function findDietProfile(
   };
 }
 
+type IngredientGroupRelation = {
+  narrowerGroupKey: string;
+  broaderGroupKey: string;
+  relationType: (typeof schema.ingredientGroupRelationTypeEnum.enumValues)[number];
+};
+
+function expandedIngredientSlugsByGroup(
+  groupKeys: readonly string[],
+  groupMembers: readonly { groupKey: string; ingredientSlug: string }[],
+  groupRelations: readonly IngredientGroupRelation[],
+): Map<string, string[]> {
+  const directIngredientSlugsByGroup = new Map<string, Set<string>>();
+  for (const row of groupMembers) {
+    const ingredientSlugs =
+      directIngredientSlugsByGroup.get(row.groupKey) ?? new Set<string>();
+    ingredientSlugs.add(row.ingredientSlug);
+    directIngredientSlugsByGroup.set(row.groupKey, ingredientSlugs);
+  }
+
+  const narrowerGroupKeysByGroup = new Map<string, Set<string>>();
+  for (const relation of groupRelations) {
+    if (relation.relationType !== "classification") continue;
+
+    const narrowerGroupKeys =
+      narrowerGroupKeysByGroup.get(relation.broaderGroupKey) ??
+      new Set<string>();
+    narrowerGroupKeys.add(relation.narrowerGroupKey);
+    narrowerGroupKeysByGroup.set(relation.broaderGroupKey, narrowerGroupKeys);
+  }
+
+  const expanded = new Map<string, string[]>();
+  for (const groupKey of groupKeys) {
+    const ingredientSlugs = new Set<string>();
+    const visitedGroupKeys = new Set<string>();
+    const pendingGroupKeys = [groupKey];
+
+    while (pendingGroupKeys.length > 0) {
+      const currentGroupKey = pendingGroupKeys.pop();
+      if (!currentGroupKey || visitedGroupKeys.has(currentGroupKey)) continue;
+      visitedGroupKeys.add(currentGroupKey);
+
+      for (const ingredientSlug of
+        directIngredientSlugsByGroup.get(currentGroupKey) ?? []) {
+        ingredientSlugs.add(ingredientSlug);
+      }
+      for (const narrowerGroupKey of
+        narrowerGroupKeysByGroup.get(currentGroupKey) ?? []) {
+        pendingGroupKeys.push(narrowerGroupKey);
+      }
+    }
+
+    expanded.set(
+      groupKey,
+      [...ingredientSlugs].sort((a, b) => a.localeCompare(b)),
+    );
+  }
+
+  return expanded;
+}
+
 async function listDietOptions(db: Db) {
   const [
     ingredients,
@@ -2329,6 +2389,7 @@ async function listDietOptions(db: Db) {
         .select({
           narrowerGroupKey: schema.ingredientGroupHierarchy.narrowerGroupKey,
           broaderGroupKey: schema.ingredientGroupHierarchy.broaderGroupKey,
+          relationType: schema.ingredientGroupHierarchy.relationType,
         })
         .from(schema.ingredientGroupHierarchy),
       db
@@ -2366,15 +2427,16 @@ async function listDietOptions(db: Db) {
     ingredientSlugsByPreset.set(row.presetKey, ingredientSlugs);
   }
 
-  const ingredientSlugsByGroup = new Map<string, string[]>();
-  for (const row of groupMembers) {
-    const ingredientSlugs = ingredientSlugsByGroup.get(row.groupKey) ?? [];
-    ingredientSlugs.push(row.ingredientSlug);
-    ingredientSlugsByGroup.set(row.groupKey, ingredientSlugs);
-  }
+  const ingredientSlugsByGroup = expandedIngredientSlugsByGroup(
+    groups.map((group) => group.key),
+    groupMembers,
+    groupHierarchy,
+  );
 
   const broaderGroupKeysByGroup = new Map<string, string[]>();
   for (const row of groupHierarchy) {
+    if (row.relationType !== "classification") continue;
+
     const broaderGroupKeys =
       broaderGroupKeysByGroup.get(row.narrowerGroupKey) ?? [];
     broaderGroupKeys.push(row.broaderGroupKey);

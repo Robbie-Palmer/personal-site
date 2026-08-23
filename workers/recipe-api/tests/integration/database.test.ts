@@ -152,7 +152,7 @@ beforeAll(async () => {
     where slug in ('almond-milk', 'cajun-powder', 'cajun-seasoning', 'salted-butter')
     order by slug
   `;
-  expect(migrationCount?.count).toBe(11);
+  expect(migrationCount?.count).toBe(12);
   expect(tableCount?.count).toBe(43);
   expect(catalogRows).toEqual([
     { category: "dairy", slug: "almond-milk" },
@@ -935,7 +935,11 @@ describe("recipe API PostgreSQL integration", () => {
   it("allows edge replacement and rejects cycles in the group hierarchy", async () => {
     try {
       const reversed = await client<
-        { broaderGroupKey: string; narrowerGroupKey: string }[]
+        {
+          broaderGroupKey: string;
+          narrowerGroupKey: string;
+          relationType: string;
+        }[]
       >`
         update ingredient_group_hierarchy
         set
@@ -946,17 +950,23 @@ describe("recipe API PostgreSQL integration", () => {
           and broader_group_key = 'poultry'
         returning
           narrower_group_key as "narrowerGroupKey",
-          broader_group_key as "broaderGroupKey"
+          broader_group_key as "broaderGroupKey",
+          relation_type as "relationType"
       `;
       expect(reversed).toEqual([
-        { narrowerGroupKey: "poultry", broaderGroupKey: "chicken" },
+        {
+          narrowerGroupKey: "poultry",
+          broaderGroupKey: "chicken",
+          relationType: "classification",
+        },
       ]);
       await expect(
         client`
           insert into ingredient_group_hierarchy (
             narrower_group_key,
-            broader_group_key
-          ) values ('chicken', 'poultry')
+            broader_group_key,
+            relation_type
+          ) values ('chicken', 'poultry', 'classification')
         `,
       ).rejects.toMatchObject({ code: "23514" });
     } finally {
@@ -977,14 +987,16 @@ describe("recipe API PostgreSQL integration", () => {
       client`
         insert into ingredient_group_hierarchy (
           narrower_group_key,
-          broader_group_key
-        ) values ('dairy', 'gluten')
+          broader_group_key,
+          relation_type
+        ) values ('dairy', 'gluten', 'classification')
       `,
       client`
         insert into ingredient_group_hierarchy (
           narrower_group_key,
-          broader_group_key
-        ) values ('gluten', 'dairy')
+          broader_group_key,
+          relation_type
+        ) values ('gluten', 'dairy', 'classification')
       `,
     ]);
 
@@ -1009,6 +1021,53 @@ describe("recipe API PostgreSQL integration", () => {
         where
           (narrower_group_key = 'dairy' and broader_group_key = 'gluten')
           or (narrower_group_key = 'gluten' and broader_group_key = 'dairy')
+      `;
+    }
+  });
+
+  it("does not inherit diet ingredients across composition relationships", async () => {
+    const cook = await createUser("Relation Cook", "relation-cook@example.test");
+
+    try {
+      await client`
+        insert into ingredient_group_hierarchy (
+          narrower_group_key,
+          broader_group_key,
+          relation_type
+        ) values
+          ('stock', 'poultry', 'composition'),
+          ('stock', 'meat', 'composition')
+      `;
+
+      const response = await authenticatedRequest(
+        cook,
+        "/api/profile/diet/options",
+      );
+      expect(response.status).toBe(200);
+      const options = (await response.json()) as {
+        groups: Array<{
+          broaderGroupKeys: string[];
+          ingredientSlugs: string[];
+          key: string;
+        }>;
+      };
+
+      expect(
+        options.groups.find((group) => group.key === "stock")
+          ?.broaderGroupKeys,
+      ).toEqual([]);
+      expect(
+        options.groups.find((group) => group.key === "poultry")
+          ?.ingredientSlugs,
+      ).not.toContain("vegetable-stock");
+      expect(
+        options.groups.find((group) => group.key === "meat")?.ingredientSlugs,
+      ).not.toContain("vegetable-stock");
+    } finally {
+      await client`
+        delete from ingredient_group_hierarchy
+        where narrower_group_key = 'stock'
+          and broader_group_key in ('poultry', 'meat')
       `;
     }
   });
