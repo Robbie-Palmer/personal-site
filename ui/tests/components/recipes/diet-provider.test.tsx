@@ -106,4 +106,44 @@ describe("DietProvider", () => {
 
     expect(await screen.findByText("Diet ready")).toBeInTheDocument();
   });
+
+  it("matches narrower ingredients returned under an excluded parent group", async () => {
+    apiMocks.getDietProfile.mockResolvedValue({
+      presetDietKeys: [],
+      excludedIngredientSlugs: [],
+      excludedGroupKeys: ["poultry"],
+      recipeMatchMode: "hide",
+    });
+    apiMocks.getDietOptions.mockResolvedValue({
+      presets: [],
+      groups: [
+        {
+          key: "poultry",
+          label: "Poultry",
+          sub: "Chicken, turkey, and related ingredients",
+          broaderGroupKeys: [],
+          ingredientSlugs: ["chicken-breast"],
+        },
+      ],
+      ingredients: [{ slug: "chicken-breast", name: "Chicken breast" }],
+    });
+
+    function ChickenRecipeMatch() {
+      const { matchRecipe } = useDiet();
+      const match = matchRecipe({
+        ingredients: [{ slug: "chicken-breast", name: "Chicken breast" }],
+      });
+      return <p>{match.matches ? "Allowed" : "Chicken recipe excluded"}</p>;
+    }
+
+    render(
+      <DietProvider>
+        <ChickenRecipeMatch />
+      </DietProvider>,
+    );
+
+    expect(
+      await screen.findByText("Chicken recipe excluded"),
+    ).toBeInTheDocument();
+  });
 });

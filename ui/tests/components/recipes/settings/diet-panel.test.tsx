@@ -46,13 +46,15 @@ describe("DietPanel", () => {
           key: "meat",
           label: "Meat",
           sub: "Meat ingredients",
+          broaderGroupKeys: [],
           ingredientSlugs: ["bacon"],
         },
         {
-          key: "chilli",
-          label: "Chilli",
-          sub: "Chilli ingredients",
-          ingredientSlugs: ["chilli"],
+          key: "poultry",
+          label: "Poultry",
+          sub: "Chicken, turkey, and related ingredients",
+          broaderGroupKeys: [],
+          ingredientSlugs: ["chicken-breast"],
         },
       ],
       ingredients: [{ slug: "bacon", name: "Bacon", category: "protein" }],
@@ -69,20 +71,20 @@ describe("DietPanel", () => {
     render(<DietPanel />);
 
     const meat = await screen.findByRole("button", { name: /Meat/ });
-    const chilli = screen.getByRole("button", { name: /Chilli/ });
+    const poultry = screen.getByRole("button", { name: /Poultry/ });
 
     expect(meat).toHaveAttribute("aria-pressed", "true");
     expect(meat).toBeDisabled();
     expect(meat).toHaveTextContent("covered by preset");
-    expect(chilli).toHaveAttribute("aria-pressed", "false");
-    expect(chilli).not.toBeDisabled();
+    expect(poultry).toHaveAttribute("aria-pressed", "false");
+    expect(poultry).not.toBeDisabled();
   });
 
-  it("updates the shared diet cache after a successful save", async () => {
+  it("saves poultry as a custom group exclusion", async () => {
     const { queryClient } = render(<DietPanel />);
-    const chilli = await screen.findByRole("button", { name: /Chilli/ });
+    const poultry = await screen.findByRole("button", { name: /Poultry/ });
 
-    fireEvent.click(chilli);
+    fireEvent.click(poultry);
     fireEvent.click(screen.getByRole("button", { name: "Save diet profile" }));
 
     expect(await screen.findByText("saved")).toBeInTheDocument();
@@ -90,7 +92,7 @@ describe("DietPanel", () => {
       queryClient.getQueryData(recipeQueryKeys.dietProfile("diet-user")),
     ).toEqual(
       expect.objectContaining({
-        excludedGroupKeys: ["chilli"],
+        excludedGroupKeys: ["poultry"],
       }),
     );
   });
