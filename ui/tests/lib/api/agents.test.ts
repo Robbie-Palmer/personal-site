@@ -63,6 +63,33 @@ describe("agent access API", () => {
     );
   });
 
+  it("rejects unknown capability grant statuses", async () => {
+    fetchMock.mockResolvedValueOnce(
+      Response.json({
+        agents: [
+          {
+            agent_id: "agent-1",
+            name: "Meal planner",
+            status: "active",
+            mode: "delegated",
+            host_id: "host-1",
+            host_name: "Kitchen helper host",
+            agent_capability_grants: [
+              { capability: "recipes.read", status: "unknown" },
+            ],
+            created_at: "2026-08-22T09:00:00.000Z",
+            last_used_at: null,
+            expires_at: "2026-09-21T09:00:00.000Z",
+          },
+        ],
+      }),
+    );
+
+    await expect(listAgents()).rejects.toThrow(
+      "The agent list response was invalid.",
+    );
+  });
+
   it("revokes exactly the selected agent", async () => {
     fetchMock.mockResolvedValueOnce(
       Response.json({ agent_id: "agent-1", status: "revoked" }),

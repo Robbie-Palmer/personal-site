@@ -87,25 +87,7 @@ const cookLogReadInput = z
       })
       .optional(),
   })
-  .strict()
-  .superRefine((input, context) => {
-    if (!input.from || !input.to) return;
-    const from = Date.parse(input.from);
-    const to = Date.parse(input.to);
-    if (from > to) {
-      context.addIssue({
-        code: "custom",
-        path: ["from"],
-        message: "from must not be after to",
-      });
-    } else if (to - from > MAX_COOK_LOG_RANGE_MS) {
-      context.addIssue({
-        code: "custom",
-        path: ["from"],
-        message: "Cook log range must not exceed 90 days",
-      });
-    }
-  });
+  .strict();
 
 const noArgumentsInput = z.object({}).strict();
 

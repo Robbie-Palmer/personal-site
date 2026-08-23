@@ -8,11 +8,18 @@ export type AgentStatus =
   | "rejected"
   | "claimed";
 
+export type AgentCapabilityGrantStatus =
+  | "active"
+  | "pending"
+  | "denied"
+  | "revoked"
+  | "consumed";
+
 export type AgentCapabilityGrant = {
   capability: string;
   description?: string;
   expiresAt?: string;
-  status: string;
+  status: AgentCapabilityGrantStatus;
 };
 
 export type AgentSummary = {
@@ -46,11 +53,22 @@ function nullableString(value: unknown): string | null | undefined {
   return value === null || typeof value === "string" ? value : undefined;
 }
 
+const AGENT_CAPABILITY_GRANT_STATUSES = new Set<AgentCapabilityGrantStatus>([
+  "active",
+  "pending",
+  "denied",
+  "revoked",
+  "consumed",
+]);
+
 function capabilityGrant(value: unknown): AgentCapabilityGrant | undefined {
   if (
     !isRecord(value) ||
     typeof value.capability !== "string" ||
-    typeof value.status !== "string"
+    typeof value.status !== "string" ||
+    !AGENT_CAPABILITY_GRANT_STATUSES.has(
+      value.status as AgentCapabilityGrantStatus,
+    )
   ) {
     return undefined;
   }
@@ -69,7 +87,7 @@ function capabilityGrant(value: unknown): AgentCapabilityGrant | undefined {
   }
   return {
     capability: value.capability,
-    status: value.status,
+    status: value.status as AgentCapabilityGrantStatus,
     ...(typeof value.description === "string"
       ? { description: value.description }
       : {}),
@@ -155,10 +173,10 @@ export async function listAgents(
     throw new Error("The agent list response was invalid.");
   }
   const agents = body.agents.map(parseAgentSummary);
-  if (agents.some((agent) => !agent)) {
+  if (!agents.every((agent): agent is AgentSummary => agent !== undefined)) {
     throw new Error("The agent list response was invalid.");
   }
-  return agents as AgentSummary[];
+  return agents;
 }
 
 export async function getAgent(
