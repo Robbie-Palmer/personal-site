@@ -80,6 +80,9 @@ env_value() {
 MEDIA_DIR="$(env_value MEDIA_DIR)"
 JELLYFIN_PORT="$(env_value JELLYFIN_PORT)"
 JELLYFIN_PORT="${JELLYFIN_PORT:-8096}"
+JELLYFIN_CONFIG_DIR="$(env_value JELLYFIN_CONFIG_DIR)"
+JELLYFIN_CONFIG_DIR="${JELLYFIN_CONFIG_DIR:-./data/config}"
+[[ "$JELLYFIN_CONFIG_DIR" == /* ]] || JELLYFIN_CONFIG_DIR="${JELLYFIN_DIR}/${JELLYFIN_CONFIG_DIR}"
 
 if [[ -z "$MEDIA_DIR" ]]; then
   echo "MEDIA_DIR is not set in $ENV_FILE" >&2
@@ -92,7 +95,30 @@ if [[ ! -d "$MEDIA_DIR" ]]; then
 fi
 mkdir -p "$MEDIA_DIR/TV" "$MEDIA_DIR/Movies"
 
-# 3. VM setup --------------------------------------------------------------
+# 3. Trakt plugin ------------------------------------------------------------
+# Pinned release: v30 carries the fix for a MissingMethodException under
+# Jellyfin 10.11 (see ADR 021). Installed manually so a fresh bootstrap gets
+# the plugin without relying on the dashboard catalog.
+TRAKT_PLUGIN_VERSION="30.0.0.0"
+TRAKT_PLUGIN_SHA256="61e7b311de2d113d2d0656135d5656740cfc27e000e2dba5aa4e9aa150d43faa"
+TRAKT_PLUGIN_DIR="${JELLYFIN_CONFIG_DIR}/plugins/Trakt/${TRAKT_PLUGIN_VERSION}"
+if [[ -f "${TRAKT_PLUGIN_DIR}/Trakt.dll" ]]; then
+  echo "Trakt plugin ${TRAKT_PLUGIN_VERSION} already installed."
+else
+  workdir="$(mktemp -d)"
+  trap 'rm -rf "$workdir"' EXIT
+  curl -fsSL \
+    "https://github.com/jellyfin/jellyfin-plugin-trakt/releases/download/v${TRAKT_PLUGIN_VERSION%%.*}/trakt_${TRAKT_PLUGIN_VERSION}.zip" \
+    -o "${workdir}/trakt.zip"
+  echo "${TRAKT_PLUGIN_SHA256}  ${workdir}/trakt.zip" | shasum -a 256 -c - \
+    || { echo "Trakt plugin checksum mismatch" >&2; exit 1; }
+  unzip -o -q "${workdir}/trakt.zip" -d "${workdir}/plugin"
+  mkdir -p "$TRAKT_PLUGIN_DIR"
+  cp "${workdir}/plugin/Trakt.dll" "${workdir}/plugin/meta.json" "$TRAKT_PLUGIN_DIR/"
+  echo "Installed Trakt plugin ${TRAKT_PLUGIN_VERSION} into $TRAKT_PLUGIN_DIR"
+fi
+
+# 4. VM setup --------------------------------------------------------------
 if colima status >/dev/null 2>&1; then
   echo "colima is already running; keeping its current configuration."
   echo "If the media drive is not visible to containers, recreate it with:"
@@ -108,7 +134,7 @@ else
     --mount /Volumes
 fi
 
-# 4. LaunchAgent -----------------------------------------------------------
+# 5. LaunchAgent -----------------------------------------------------------
 # Escape sed metacharacters in replacement strings to prevent injection.
 sed_escape() { printf '%s' "$1" | sed 's/[&/\]/\\&/g'; }
 HOMELAB_ROOT_ESC="$(sed_escape "$HOMELAB_ROOT")"
@@ -129,12 +155,12 @@ if ! launchctl kickstart -k "gui/$(id -u)/${LAUNCHD_AGENT}"; then
 fi
 echo "Installed and started LaunchAgent ${LAUNCHD_AGENT}"
 
-# 5. Bring up the stack ----------------------------------------------------
+# 6. Bring up the stack ----------------------------------------------------
 DOCKER_CONTEXT=colima docker compose \
   --project-directory "$JELLYFIN_DIR" \
   up -d
 
-# 6. Configure Jellyfin ----------------------------------------------------
+# 7. Configure Jellyfin ----------------------------------------------------
 echo "Waiting for Jellyfin to accept connections..."
 healthy=false
 for _ in $(seq 1 20); do
@@ -150,7 +176,7 @@ if [[ "$healthy" != "true" ]]; then
 fi
 bash "${JELLYFIN_DIR}/scripts/provision.sh"
 
-# 7. Report access ----------------------------------------------------------
+# 8. Report access ----------------------------------------------------------
 echo ""
 echo "Jellyfin is up. Access the web UI at:"
 echo "  local:   http://localhost:${JELLYFIN_PORT}"

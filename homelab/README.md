@@ -116,8 +116,9 @@ mise run //homelab:media-provision   # re-run wiring; safe to repeat
   added to the [Trakt](https://trakt.tv) watchlist lands in the library on
   its own — see the recommendation-loop caveat below.
 - **Recommendation loop (Trakt)**: Jellyfin scrobbles plays via the Trakt
-  plugin, and Sonarr/Radarr import lists watch `robbie_palmer_1cefe3`'s
-  Trakt watchlist, so a phone tap becomes a grab ([ADR 021](/projects/homelab/adrs/021-trakt-watchlist)).
+  plugin (installed automatically by the Jellyfin bootstrap), and
+  Sonarr/Radarr import lists watch `robbie_palmer_1cefe3`'s Trakt watchlist,
+  so a phone tap enters the grab pipeline ([ADR 021](/projects/homelab/adrs/021-trakt-watchlist)).
   The three authorizations are one-time and manual: Jellyfin dashboard →
   Plugins → Trakt → authorize; then in Radarr *Settings → Lists* and Sonarr
   *Settings → Lists*, add a "Trakt User" list, hit "Authenticate with

@@ -23,16 +23,18 @@ the API-friendly alternative for both movies and shows.
 Two native integrations, each authorized once by hand:
 
 * **Watched state**: the official [Jellyfin Trakt plugin][trakt-plugin]
-  (pinned v30, the first 10.11-compatible build) is installed into the live
-  config volume. Authorizing it in the Jellyfin dashboard scrobbles every
-  play to Trakt going forward.
+  (pinned v30, which fixes a `MissingMethodException` under Jellyfin 10.11)
+  is installed into the live config volume — and now by the Jellyfin
+  bootstrap script itself, so fresh installs get it too. Authorizing it in
+  the Jellyfin dashboard scrobbles every play to Trakt going forward.
 * **Watchlist as acquisition queue**: Sonarr and Radarr each get a native
   **Trakt User** import list over `robbie_palmer_1cefe3`'s watchlist,
   authenticated through their own "Authenticate with Trakt" buttons. The
   lists bind to the TRaSH quality profiles from ADR 019 (`WEB-1080p` for
   TV, `HD Bluray + WEB` for movies), monitor everything they import, and
-  search on add — so a watchlist tap becomes a grab through the normal
-  pipeline with no further input.
+  search on add — so a watchlist tap enters the normal pipeline right away.
+  Whether it ends in a grab still depends on release availability and the
+  profile's scoring, exactly as for anything added by hand.
 
 Because each integration authenticates as the user's own Trakt account, the
 profile can stay private; nothing is read through anonymous endpoints.
