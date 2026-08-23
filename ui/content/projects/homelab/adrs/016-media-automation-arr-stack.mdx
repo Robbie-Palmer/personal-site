@@ -8,11 +8,10 @@ tech_stack: ["Sonarr", "Radarr", "Prowlarr", "qBittorrent", "Docker"]
 # Context
 
 [Jellyfin](/projects/homelab/adrs/011-jellyfin) solves playback, but not
-supply. Every episode I wanted meant finding a torrent by hand, waiting for
-it in a GUI client, renaming the file to something Jellyfin parses, moving it
-into the right season folder, and rescanning the library. Silo season three
-went like that, file by file, and each step was toil I will repeat every week
-for every show.
+supply. Every episode meant finding a torrent by hand, waiting for it in a
+GUI client, renaming the file to something Jellyfin parses, moving it into
+the right season folder, and rescanning the library — toil I would repeat
+weekly for every show in the library.
 
 The hub already runs Docker under colima with launchd agents for
 self-healing, so whatever I add should follow the same shape: declared in
@@ -42,8 +41,7 @@ The flow looks like this:
 
 <Mermaid
   chart={`flowchart LR
-TPB["ThePirateBay"]
-YTS["YTS"]
+Trackers["Public trackers"]
 Guides["TRaSH Guides"]
 
 subgraph stack["Media automation"]
@@ -63,8 +61,7 @@ end
 Jellyfin["Jellyfin"]
 Clients["Fire TV and tailnet devices"]
 
-TPB -->|"searches"| Prowlarr
-YTS -->|"searches"| Prowlarr
+Trackers -->|"searches"| Prowlarr
 Prowlarr -->|"syncs indexers"| Sonarr
 Prowlarr -->|"syncs indexers"| Radarr
 Sonarr -->|"grabs"| QB
@@ -80,7 +77,7 @@ Guides -->|"nightly profile sync"| Recyclarr
 classDef external fill:#475569,color:#fff,stroke:#334155
 classDef service fill:#0f766e,color:#fff,stroke:#115e59
 classDef storage fill:#b45309,color:#fff,stroke:#92400e
-class TPB,YTS,Guides,Clients external
+class Trackers,Guides,Clients external
 class Prowlarr,Sonarr,Radarr,QB,Recyclarr,Jellyfin service
 class Downloads,TV,Movies storage
 `}
@@ -138,7 +135,8 @@ crashes while the VM runs, and launchd covers VM death and hub reboots.
 * Five more long-running containers on a 4GB VM alongside Jellyfin,
   SilverBullet, and the photo backup. Memory pressure is the first thing to
   watch.
-* Public-tracker reachability from a .NET HTTP stack is fragile: eztv's CDN
-  rejects Prowlarr's TLS handshake outright, so that indexer stays disabled.
+* Public-tracker reachability from a .NET HTTP stack is fragile: some
+  indexer CDNs reject Prowlarr's TLS handshake outright, so those definitions
+  stay out of the provisioned set.
 * The Netdata alerting ([ADR 009](/projects/homelab/adrs/009-netdata)) should
   cover these containers too; today nothing pages if Sonarr dies.

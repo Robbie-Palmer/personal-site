@@ -11,12 +11,12 @@ Sonarr and Radarr both need torrent indexers to search. The obvious question:
 with exactly two apps and two public indexers, isn't a separate indexer
 manager one service too many? It's a fair suspicion, and I nearly skipped it.
 
-The constraint that decides it: Sonarr has no native ThePirateBay
-implementation. Its built-in indexer list is mostly private trackers plus a
-couple of public specials. To search TPB from Sonarr you need a Torznab
-endpoint, which means running an indexer proxy anyway. Radarr does have a
-native YTS implementation, so for movies alone Prowlarr would be optional.
-For TV it isn't.
+The constraint that decides it: Sonarr ships no native support for the
+major public trackers — its built-in list is mostly private trackers plus a
+couple of public specials. To reach them from Sonarr you need a Torznab
+endpoint, which means running an indexer proxy anyway. Radarr does ship one
+native movie-tracker implementation, so for movies alone Prowlarr would be
+optional. For TV it isn't.
 
 # Decision
 
@@ -34,8 +34,9 @@ Compose network, not localhost.
 ## Native per-app indexers
 
 * **Pros**: One less container, fewer API keys floating around.
-* **Cons**: No TPB in Sonarr at all; YTS only in Radarr. Each new indexer
-  gets configured twice with different schema shapes.
+* **Cons**: Sonarr gets no coverage of the major public trackers at all;
+  Radarr's one native definition covers only movies. Each new indexer gets
+  configured twice with different schema shapes.
 * **Decision**: Rejected for TV; would fragment movies onto a different
   mechanism than shows use.
 
@@ -51,7 +52,8 @@ Compose network, not localhost.
 
 ## Skip TV automation, keep manual grabs for shows
 
-* **Pros**: Radarr's native YTS would cover movies with no extra service.
+* **Pros**: Radarr's one native tracker definition would cover movies with
+  no extra service.
 * **Cons**: TV is most of what we actually watch week to week.
 * **Decision**: Rejected. It optimizes the half of the library I touch least.
 
@@ -66,15 +68,14 @@ Compose network, not localhost.
 ### Cons
 
 * One more container (\~200MB RSS) on the VM, doing a job that is only partly
-  necessary. If Sonarr ever ships native TPB support, this ADR should be
-  revisited honestly: Prowlarr would then be redundant for our two-app setup.
-* Indexer reachability problems concentrate here. eztv's CDN refuses
-  Prowlarr's .NET TLS fingerprint entirely (wget connects, .NET gets cut
-  mid-handshake), and Knaben fails the same way; both stay out of the
-  provisioned set.
-* A single TV indexer is too thin in practice: during the first end-to-end
-  QA pass (South Park season 27), TPB's Torznab endpoint returned zero
-  results for two aired episodes that LimeTorrents and TorrentDownload both
-  carry with thousands of seeders. The provisioned set is therefore four
-  definitions: thepiratebay and yts plus limetorrents and torrentdownload,
-  all validated live from this network.
+  necessary. If Sonarr ever ships native support for major public trackers,
+  this ADR should be revisited honestly: Prowlarr would then be redundant
+  for our two-app setup.
+* Indexer reachability problems concentrate here. Some aggregator sites
+  refuse Prowlarr's .NET TLS fingerprint entirely (wget connects, .NET gets
+  cut mid-handshake); those definitions stay out of the provisioned set.
+* A single TV tracker proved too thin in practice during end-to-end testing:
+  its search endpoint returned zero results for two aired episodes that
+  other public trackers carry with thousands of seeders. Provisioning
+  therefore spans four definitions across several public trackers, each
+  validated live from this network before being committed.

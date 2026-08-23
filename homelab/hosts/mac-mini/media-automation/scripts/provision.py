@@ -23,15 +23,11 @@ SONARR = f"http://localhost:{os.environ.get('SONARR_PORT', '8989')}"
 RADARR = f"http://localhost:{os.environ.get('RADARR_PORT', '7878')}"
 QBIT = f"http://localhost:{os.environ.get('QBITTORRENT_PORT', '8080')}"
 
-# Public Cardigann definitions provisioned into Prowlarr and synced to the apps.
-# Base URL overrides: some mirrors block datacenter/user-agent traffic or have
-# broken TLS from this network; thepiratebay.org answers while piratebay.org
-# returns 403 from here.
-#
-# EZTV is deliberately absent: its CDN drops .NET TLS handshakes mid-flight,
-# so Prowlarr can connect with curl but never validates. Knaben fails the same
-# way. LimeTorrents and TorrentDownload answer directly and carry TV releases
-# TPB misses (verified live during the South Park S27 QA pass).
+# Public Cardigann definitions provisioned into Prowlarr and synced to the
+# apps. The identifiers below are Prowlarr definition names required for
+# provisioning to function; see ADR 017 for why this set spans several public
+# trackers and why some well-known aggregators are excluded (their CDNs drop
+# .NET TLS handshakes, so Prowlarr can never validate them).
 INDEXER_DEFINITIONS = ["thepiratebay", "yts", "limetorrents", "torrentdownload"]
 INDEXER_BASE_URLS = {
     "thepiratebay": "https://thepiratebay.org/",
