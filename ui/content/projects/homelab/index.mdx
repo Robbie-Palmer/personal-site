@@ -178,10 +178,12 @@ class Storage data
 `}
 />
 
-## Live deployment
+## Deployment
 
-The Mac mini owns the main workloads and the Raspberry Pi keeps DNS and
-monitoring alive during hub maintenance.
+### Device context
+
+The Mac mini is the home hub. The Raspberry Pi keeps DNS available during hub
+maintenance and owns the printer connection.
 
 <Mermaid
   chart={`flowchart LR
@@ -192,12 +194,12 @@ Printer["Canon MX3100"]
 FireTV["Fire TV Stick"]
 Drive[("10TB HDD")]
 
-Mini["Mac mini<br/>Primary DNS<br/>Hotspot Shield VPN<br/>t3-code and agents<br/>Ente sync<br/>Jellyfin<br/>Netdata parent"]
-Pi["Raspberry Pi<br/>Fallback DNS<br/>CUPS<br/>Netdata child"]
+Mini["Mac mini<br/>Home hub"]
+Pi["Raspberry Pi<br/>Fallback host"]
 
 Router -->|"Primary DNS"| Mini
 Router -->|"Fallback DNS"| Pi
-Pi -->|"Metrics and DNS config"| Mini
+Pi -->|"Metrics"| Mini
 Mini --> Drive
 Mini --> FireTV
 Mini --> Slack
@@ -211,7 +213,62 @@ class Drive data
 `}
 />
 
-## Proposed deployment
+### Mac mini containers
+
+The Mac mini hosts the lab's main services. Hotspot Shield routes its outbound
+traffic through an encrypted tunnel.
+
+<Mermaid
+  chart={`flowchart TB
+subgraph mini["Mac mini"]
+DNS["AdGuard Home<br/>Primary DNS"]
+VPN["Hotspot Shield<br/>All outbound traffic"]
+Dev["t3-code<br/>Coding agents"]
+Backup["Ente sync<br/>Photo backup"]
+Media["Jellyfin<br/>Media server"]
+Monitor["Netdata<br/>Parent node"]
+Storage[("10TB HDD")]
+end
+
+Ente["Ente cloud"] --> Backup
+Backup --> Storage
+Media --> Storage
+Media --> FireTV["Fire TV Stick"]
+Dev --> Code["GitHub and<br/>AI providers"]
+Monitor --> Slack["Slack"]
+VPN --> Internet["Internet"]
+
+classDef service fill:#0f766e,color:#fff,stroke:#115e59
+classDef data fill:#4338ca,color:#fff,stroke:#3730a3
+class DNS,VPN,Dev,Backup,Media,Monitor service
+class Storage data
+`}
+/>
+
+### Raspberry Pi containers
+
+The Pi runs the fallback DNS resolver, sends metrics to the Mac mini, and
+connects the old Canon printer to the network.
+
+<Mermaid
+  chart={`flowchart LR
+subgraph pi["Raspberry Pi"]
+DNS["AdGuard Home<br/>Fallback DNS"]
+Monitor["Netdata<br/>Child node"]
+Print["CUPS<br/>Print server"]
+end
+
+
+DNS -->|"Syncs config"| Primary["Primary DNS<br/>Mac mini"]
+Monitor -->|"Sends metrics"| Hub["Netdata parent<br/>Mac mini"]
+Print --> Printer["Canon MX3100"]
+
+classDef service fill:#0f766e,color:#fff,stroke:#115e59
+class DNS,Monitor,Print service
+`}
+/>
+
+### Proposed devices
 
 The Mac mini will wake the Asus desktop and 4080 laptop for GPU jobs, and run
 browser tests on the phone lab. The View 20 will check the live hosts over
