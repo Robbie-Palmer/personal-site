@@ -33,6 +33,9 @@ export SONARR_PORT="$(env_value SONARR_PORT)"; export SONARR_PORT="${SONARR_PORT
 export RADARR_PORT="$(env_value RADARR_PORT)"; export RADARR_PORT="${RADARR_PORT:-7878}"
 export QBITTORRENT_PORT="$(env_value QBITTORRENT_PORT)"; export QBITTORRENT_PORT="${QBITTORRENT_PORT:-8080}"
 export QBITTORRENT_PASSWORD="$(env_value QBITTORRENT_PASSWORD)"
+export TRAKT_USERNAME="$(env_value TRAKT_USERNAME)"
+export TRAKT_CLIENT_ID="$(env_value TRAKT_CLIENT_ID)"
+export TRAKT_CLIENT_SECRET="$(env_value TRAKT_CLIENT_SECRET)"
 
 api_key() {
   local container="$1"

@@ -16,7 +16,31 @@ export DOCKER_CONTEXT="colima"
 
 MEDIA_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 CHECK_INTERVAL_SECONDS="${CHECK_INTERVAL_SECONDS:-60}"
+TRAKT_SYNC_INTERVAL_SECONDS="${TRAKT_SYNC_INTERVAL_SECONDS:-3600}"
 LOG_TS="+%F %T"
+
+# One Trakt pass per interval (ADR 021). Quiet no-op until the bridge has
+# been authorized with `trakt_sync.py auth`.
+run_trakt_sync() {
+  local watermark="${MEDIA_DIR}/data/trakt/last_sync"
+  local now marker key value
+  now="$(date +%s)"
+  marker="$(cat "$watermark" 2>/dev/null || echo 0)"
+  if (( now - marker < TRAKT_SYNC_INTERVAL_SECONDS )); then
+    return 0
+  fi
+  # The LaunchAgent does not read .env; pick up the bridge's own settings.
+  while IFS= read -r line; do
+    key="${line%%=*}"; value="${line#*=}"
+    case "$key" in
+      TRAKT_USERNAME|TRAKT_CLIENT_ID|TRAKT_CLIENT_SECRET) export "$key=$value" ;;
+    esac
+  done < "${MEDIA_DIR}/.env"
+  date +%s > "$watermark"
+  MEDIA_AUTOMATION_DIR="$MEDIA_DIR" python3 \
+    "${MEDIA_DIR}/scripts/trakt_sync.py" sync >&2 \
+    || echo "$(date "$LOG_TS") trakt sync failed; retrying next interval" >&2
+}
 
 colima_running() {
   if colima status >/dev/null 2>&1; then
@@ -52,6 +76,7 @@ while true; do
       --project-directory "$MEDIA_DIR" \
       up -d >/dev/null 2>&1 \
       || echo "$(date "$LOG_TS") docker compose up failed; retrying next cycle" >&2
+    run_trakt_sync
   elif colima_running; then
     echo "$(date "$LOG_TS") no VPN tunnel on the default route; holding the stack (ADR 020)" >&2
   fi
