@@ -1,0 +1,63 @@
+name: media
+
+services:
+  prowlarr:
+    image: lscr.io/linuxserver/prowlarr:${PROWLARR_VERSION:-latest}
+    container_name: prowlarr
+    restart: unless-stopped
+    ports:
+      - "${PROWLARR_PORT:-9696}:9696"
+    environment:
+      TZ: "${TZ:-UTC}"
+      PUID: "${PUID:-501}"
+      PGID: "${PGID:-20}"
+    volumes:
+      - ./data/prowlarr:/config
+
+  sonarr:
+    image: lscr.io/linuxserver/sonarr:${SONARR_VERSION:-latest}
+    container_name: sonarr
+    restart: unless-stopped
+    ports:
+      - "${SONARR_PORT:-8989}:8989"
+    environment:
+      TZ: "${TZ:-UTC}"
+      PUID: "${PUID:-501}"
+      PGID: "${PGID:-20}"
+    volumes:
+      - ./data/sonarr:/config
+      - "${DOWNLOADS_DIR:?set DOWNLOADS_DIR in the media-automation .env file}:/downloads"
+      - "${MEDIA_DIR:?set MEDIA_DIR in the media-automation .env file}:/media"
+
+  radarr:
+    image: lscr.io/linuxserver/radarr:${RADARR_VERSION:-latest}
+    container_name: radarr
+    restart: unless-stopped
+    ports:
+      - "${RADARR_PORT:-7878}:7878"
+    environment:
+      TZ: "${TZ:-UTC}"
+      PUID: "${PUID:-501}"
+      PGID: "${PGID:-20}"
+    volumes:
+      - ./data/radarr:/config
+      - "${DOWNLOADS_DIR}:/downloads"
+      - "${MEDIA_DIR}:/media"
+
+  qbittorrent:
+    image: lscr.io/linuxserver/qbittorrent:${QBITTORRENT_VERSION:-latest}
+    container_name: qbittorrent
+    restart: unless-stopped
+    ports:
+      - "${QBITTORRENT_PORT:-8080}:8080"
+      - "6881:6881"
+      - "6881:6881/udp"
+    environment:
+      TZ: "${TZ:-UTC}"
+      PUID: "${PUID:-501}"
+      PGID: "${PGID:-20}"
+      WEBUI_PORT: "${QBITTORRENT_PORT:-8080}"
+      TORRENTING_PORT: "6881"
+    volumes:
+      - ./data/qbittorrent:/config
+      - "${DOWNLOADS_DIR}:/downloads"

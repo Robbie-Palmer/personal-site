@@ -1,5 +1,7 @@
 # Per-host local configuration; never commit real values
 hosts/mac-mini/jellyfin/.env
+hosts/mac-mini/media-automation/.env
 
 # Runtime state that exists only on the hub (Jellyfin config, metadata, cache)
 hosts/mac-mini/jellyfin/data/
+hosts/mac-mini/media-automation/data/
