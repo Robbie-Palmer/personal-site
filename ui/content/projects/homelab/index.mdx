@@ -403,17 +403,17 @@ They will not become DNS servers, general compute nodes, or permanent cameras.
 The lab is being built incrementally, starting from the highest-value
 workloads and layering on the rest:
 
-| Phase | Workload                                                      | Status      |
-| ----- | ------------------------------------------------------------- | ----------- |
-| 1     | Photo backup (Ente → 10TB HDD)                                | Live        |
-| 2     | Agentic development hub (t3-code + agents)                    | Live        |
-| 3     | DNS privacy (AdGuard Home, primary + failover)                | Live        |
-| 4     | CUPS printing on the Pi (avoiding printer e-waste)            | Live        |
-| 5     | NixOS GPU worker for batch CV jobs, with DVC-managed datasets | Proposed    |
-| 6     | Jellyfin media server for the Fire TV Stick                   | In progress |
-| 7     | Physical Android and iOS device lab                           | Proposed    |
-| 8     | Cellular watchdog on the View 20                              | Proposed    |
-| 9     | Second compute node (idle 4080 laptop)                        | Idea        |
+| Phase | Workload                                                      | Status   |
+| ----- | ------------------------------------------------------------- | -------- |
+| 1     | Photo backup (Ente → 10TB HDD)                                | Live     |
+| 2     | Agentic development hub (t3-code + agents)                    | Live     |
+| 3     | DNS privacy (AdGuard Home, primary + failover)                | Live     |
+| 4     | CUPS printing on the Pi (avoiding printer e-waste)            | Live     |
+| 5     | NixOS GPU worker for batch CV jobs, with DVC-managed datasets | Proposed |
+| 6     | Jellyfin media server for the Fire TV Stick                   | Live     |
+| 7     | Physical Android and iOS device lab                           | Proposed |
+| 8     | Cellular watchdog on the View 20                              | Proposed |
+| 9     | Second compute node (idle 4080 laptop)                        | Idea     |
 
 # What this is not
 
@@ -514,9 +514,8 @@ narrowly scoped alert credential.
 
 ## Media server scope creep
 
-Jellyfin is the most consumer-facing thing on the roadmap and the easiest to
+Jellyfin is the lab's most consumer-facing service and the easiest one to
 over-invest in.
 
-**Mitigation.** It's explicitly a Phase 6 "nice to have." It only gets built
-after the higher-priority workloads are solid, and it stays behind the
-tailnet with a simple client story.
+**Mitigation.** Keep it as one container behind the tailnet, serving the Fire
+TV Stick. Add complexity only to fix a playback or operational problem.
