@@ -112,7 +112,17 @@ mise run //homelab:media-provision   # re-run wiring; safe to repeat
 ### Media automation caveats
 
 - **Adding a series or film** happens in Sonarr/Radarr's UI (or their APIs);
-  everything downstream is automatic.
+  everything downstream is automatic. Or skip the UIs entirely: anything
+  added to the [Trakt](https://trakt.tv) watchlist lands in the library on
+  its own — see the recommendation-loop caveat below.
+- **Recommendation loop (Trakt)**: Jellyfin scrobbles plays via the Trakt
+  plugin, and Sonarr/Radarr import lists watch `robbie_palmer_1cefe3`'s
+  Trakt watchlist, so a phone tap becomes a grab ([ADR 021](/projects/homelab/adrs/021-trakt-watchlist)).
+  The three authorizations are one-time and manual: Jellyfin dashboard →
+  Plugins → Trakt → authorize; then in Radarr *Settings → Lists* and Sonarr
+  *Settings → Lists*, add a "Trakt User" list, hit "Authenticate with
+  Trakt", and bind the TRaSH profiles (WEB-1080p / HD Bluray + WEB). List
+  refresh runs at most every 12 hours; press Refresh for same-day picks.
 - **qBittorrent bans IPs after five failed logins** for an hour. Scripts
   should try each credential once; if you lock yourself out,
   `docker restart qbittorrent` clears the ban list.

@@ -1118,4 +1118,12 @@ export const technologies: TechnologyContent[] = [
     website: "https://recyclarr.dev",
     type: "tool",
   },
+  {
+    name: "Trakt",
+    added: "2026-08-23",
+    description:
+      "Social tracker for movies and shows whose watchlist feeds Sonarr and Radarr import lists",
+    website: "https://trakt.tv",
+    type: "tool",
+  },
 ];
