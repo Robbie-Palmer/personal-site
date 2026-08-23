@@ -8,10 +8,10 @@ tech_stack: ["Sonarr", "Radarr", "Prowlarr", "qBittorrent", "Docker"]
 # Context
 
 [Jellyfin](/projects/homelab/adrs/011-jellyfin) solves playback, but not
-supply. Every episode meant finding a torrent by hand, waiting for it in a
-GUI client, renaming the file to something Jellyfin parses, moving it into
-the right season folder, and rescanning the library — toil I would repeat
-weekly for every show in the library.
+supply. Each new episode needs the same mechanical treatment: locate a
+release, download it, rename it to something Jellyfin parses, file it into
+the right season folder, rescan the library. That pipeline never varies,
+which makes it software's job rather than a recurring chore.
 
 The hub already runs Docker under colima with launchd agents for
 self-healing, so whatever I add should follow the same shape: declared in

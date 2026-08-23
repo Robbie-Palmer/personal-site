@@ -7,9 +7,9 @@ tech_stack: ["Prowlarr", "Sonarr", "Radarr"]
 
 # Context
 
-Sonarr and Radarr both need torrent indexers to search. The obvious question:
-with exactly two apps and two public indexers, isn't a separate indexer
-manager one service too many? It's a fair suspicion, and I nearly skipped it.
+Sonarr and Radarr both need torrent indexers to search, which raises a fair
+question: with only two apps, isn't a dedicated indexer manager one service
+too many?
 
 The constraint that decides it: Sonarr ships no native support for the
 major public trackers — its built-in list is mostly private trackers plus a
@@ -54,7 +54,7 @@ Compose network, not localhost.
 
 * **Pros**: Radarr's one native tracker definition would cover movies with
   no extra service.
-* **Cons**: TV is most of what we actually watch week to week.
+* **Cons**: Covers movies only, leaving TV outside the automation.
 * **Decision**: Rejected. It optimizes the half of the library I touch least.
 
 # Consequences
