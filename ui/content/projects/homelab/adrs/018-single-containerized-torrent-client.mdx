@@ -7,18 +7,14 @@ tech_stack: ["qBittorrent", "Docker", "Colima"]
 
 # Context
 
-When I started wiring the acquisition stack, the Mac mini was already running
-two desktop torrent clients: Transmission.app and qBittorrent.app, the latter
-with its WebUI switched off. Neither was doing much; they were leftovers from
-manual grabs.
-
 The \*arr apps need a client they can drive over an API: submit a magnet,
-watch progress, run a script on completion, tag by category. A GUI app
-launched from the Dock has no supervision story under launchd, no pinned
-version, and its WebUI (the API's transport) was off anyway.
+watch progress, run a script on completion, tag by category. That rules out
+a desktop GUI app — no supervision under launchd, no pinned version, and an
+API transport whose settings live in a preferences pane.
 
-Three clients on one machine is not resilience, it is drift waiting to
-happen: different versions, different settings, ports nobody remembers.
+Sonarr and Radarr can each register their own download client, but running
+two would split versions, settings, and credentials across services for no
+benefit. One shared client, separated by categories, is the simpler shape.
 
 # Decision
 
@@ -31,24 +27,21 @@ in the gitignored `.env`, saving to `/Volumes/Expansion/Downloads`.
 * First boot runs without a stored password: qBittorrent prints a temporary
   one into its logs, and provisioning logs in with it once and sets the real
   password through the API. No password ever lands in the repo or the image.
-* The desktop Transmission.app and qBittorrent.app are retired from service.
-  They stay installed until I next think about them; nothing points at them.
-
-One operational scar worth recording: colima's config had `/Volumes` mounted
-read-only into the VM, which only became visible when a *new* directory
-(`Downloads`) appeared read-only to containers while the older `Media` mount
-kept working. The fix was making `/Volumes` writable in colima's config and
-restarting the VM. Any new host directory shared into containers depends on
-that setting staying true.
+  One operational scar worth recording: colima's config had `/Volumes` mounted
+  read-only into the VM, which only became visible when a *new* directory
+  (`Downloads`) appeared read-only to containers while the older `Media` mount
+  kept working. The fix was making `/Volumes` writable in colima's config and
+  restarting the VM. Any new host directory shared into containers depends on
+  that setting staying true.
 
 # Alternatives
 
-## Keep desktop qBittorrent.app as the automation target
+## Drive a desktop client instead
 
 * **Pros**: Zero new containers.
 * **Cons**: Its lifecycle belongs to macOS LaunchServices, not launchd;
-  version upgrades arrive through the app's own updater mid-flight; the WebUI
-  setting lives in a GUI preferences pane that can silently change.
+  version upgrades arrive whenever the app's updater feels like it; API
+  settings sit in a GUI preferences pane that can silently change.
 * **Decision**: Rejected. The API path needs headless determinism more than
   it needs one fewer container.
 
@@ -72,13 +65,9 @@ that setting staying true.
 * One client, one config file, one log stream, pinned by Compose.
 * Credentials never touch disk unencrypted outside the gitignored `.env`,
   and provisioning can rebuild the whole setup from scratch on a fresh hub.
-* Port 8080 stayed free because the desktop app's WebUI was off; the
-  container claims it cleanly.
 
 ### Cons
 
 * Scripts must respect qBittorrent's ban-on-failed-logins: five bad
   authentication attempts lock the client IP out for an hour, so provisioning
   tries each credential at most once and fails loudly instead of retrying.
-* The retired desktop apps still auto-start if someone clicks them; deleting
-  them outright is the honest end state.
