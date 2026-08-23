@@ -1,0 +1,103 @@
+---
+title: "ADR 016: Automated media acquisition"
+date: "2026-08-23"
+status: "Accepted"
+tech_stack: ["Sonarr", "Radarr", "Prowlarr", "qBittorrent", "Docker"]
+---
+
+# Context
+
+[Jellyfin](/projects/homelab/adrs/011-jellyfin) solves playback, but not
+supply. Every episode I wanted meant finding a torrent by hand, waiting for
+it in a GUI client, renaming the file to something Jellyfin parses, moving it
+into the right season folder, and rescanning the library. Silo season three
+went like that, file by file, and each step was toil I will repeat every week
+for every show.
+
+The hub already runs Docker under colima with launchd agents for
+self-healing, so whatever I add should follow the same shape: declared in
+`homelab/`, bootstrapped with mise, kept alive by launchd, reachable only on
+the LAN and tailnet.
+
+# Decision
+
+Run the standard four-piece acquisition stack on the Mac mini, in one Compose
+project (`homelab/hosts/mac-mini/media-automation/`):
+
+* **qBittorrent** (containerized) downloads torrents into
+  `/Volumes/Expansion/Downloads`. See [ADR 018](/projects/homelab/adrs/018-single-containerized-torrent-client)
+  for why this replaces the desktop clients.
+* **Sonarr** watches TV series and **Radarr** watches movies. When an episode
+  or film becomes available they search the indexers, pick a release, send it
+  to qBittorrent, and import the finished download straight into Jellyfin's
+  library folders (`/media/TV`, `/media/Movies`) renamed to Jellyfin's
+  naming scheme.
+* **[Prowlarr](/projects/homelab/adrs/017-prowlarr-indexer-management)**
+  manages the torrent indexers once and syncs them to both apps.
+
+The flow looks like this:
+
+```text
+Prowlarr ──sync──▶ Sonarr ──grab──▶ qBittorrent ──import──▶ /media/TV ──▶ Jellyfin
+   │                ▲                    │
+   │             Radarr                 │
+   └──sync──────────┴──────◀─────────────┘
+        (searches indexers, sends magnets)
+```
+
+Wiring between the four services happens through their REST APIs, driven by
+an idempotent `provision.py` script rather than hand-clicking in four web
+UIs. Downloads carry per-app categories (`tv-sonarr`, `radarr`) so each app
+only ever sees its own torrents. Downloads sit on the same physical volume as
+the library, so imports are fast moves instead of cross-disk copies.
+
+A launchd agent (`homelab.media`) re-checks every minute and brings up colima
+and the Compose stack if either died, same as Jellyfin's agent. The two
+layers overlap on purpose: `restart: unless-stopped` covers container
+crashes while the VM runs, and launchd covers VM death and hub reboots.
+
+# Alternatives
+
+## Keep grabbing files by hand
+
+* **Pros**: No new services, no indexers to maintain.
+* **Cons**: The rename-move-rescan loop is weekly toil, and it silently stops
+  whenever I'm busy, so the library goes stale.
+* **Decision**: Rejected. This ADR exists because I already did this for a
+  whole season.
+
+## All-in-one bundle images (DockSTARTer-style)
+
+* **Pros**: One container promises the whole stack pre-wired.
+* **Cons**: Opaque internals, upgrade risk concentrated in one image, and
+  debugging means learning the bundle's abstractions on top of the four apps'
+  own ones.
+* **Decision**: Rejected. Four plain linuxserver.io containers with explicit
+  wiring stay debuggable when one of them breaks at 2am.
+
+## Native installs on macOS
+
+* **Pros**: No VM layer.
+* **Decision**: Rejected. Everything else on the hub already runs under
+  colima with the same launchd pattern; a second supervision story for four
+  long-running processes buys nothing.
+
+# Consequences
+
+### Pros
+
+* Subscribing to a show once means episodes appear in Jellyfin on their own.
+* The whole stack is reproducible from the repo: `.env.example`,
+  `bootstrap.sh`, idempotent provisioning, mise tasks (`//homelab:media-*`).
+* One place to see indexer health (Prowlarr) and one queue to watch
+  (qBittorrent).
+
+### Cons
+
+* Four more long-running services on a 4GB VM alongside Jellyfin,
+  SilverBullet, and the photo backup. Memory pressure is the first thing to
+  watch.
+* Public-tracker reachability from a .NET HTTP stack is fragile: eztv's CDN
+  rejects Prowlarr's TLS handshake outright, so that indexer stays disabled.
+* The Netdata alerting ([ADR 009](/projects/homelab/adrs/009-netdata)) should
+  cover these containers too; today nothing pages if Sonarr dies.

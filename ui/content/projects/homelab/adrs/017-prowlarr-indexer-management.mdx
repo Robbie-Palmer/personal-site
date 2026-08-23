@@ -1,0 +1,73 @@
+---
+title: "ADR 017: Prowlarr manages the indexers"
+date: "2026-08-23"
+status: "Accepted"
+tech_stack: ["Prowlarr", "Sonarr", "Radarr"]
+---
+
+# Context
+
+Sonarr and Radarr both need torrent indexers to search. The obvious question:
+with exactly two apps and two public indexers, isn't a separate indexer
+manager one service too many? It's a fair suspicion, and I nearly skipped it.
+
+The constraint that decides it: Sonarr has no native ThePirateBay
+implementation. Its built-in indexer list is mostly private trackers plus a
+couple of public specials. To search TPB from Sonarr you need a Torznab
+endpoint, which means running an indexer proxy anyway. Radarr does have a
+native YTS implementation, so for movies alone Prowlarr would be optional.
+For TV it isn't.
+
+# Decision
+
+Run **Prowlarr** as the single indexer manager. Indexers are defined once,
+tested once (the UI shows per-indexer health and last-search status), and
+synced to Sonarr and Radarr automatically. Adding a third app later needs
+zero indexer work.
+
+Provisioning registers Prowlarr as an *application* to each app with its API
+key and container hostname (`http://sonarr:8989`), so the sync runs over the
+Compose network, not localhost.
+
+# Alternatives
+
+## Native per-app indexers
+
+* **Pros**: One less container, fewer API keys floating around.
+* **Cons**: No TPB in Sonarr at all; YTS only in Radarr. Each new indexer
+  gets configured twice with different schema shapes.
+* **Decision**: Rejected for TV; would fragment movies onto a different
+  mechanism than shows use.
+
+## Jackett
+
+* **Pros**: The older, lighter indexer proxy; exposes Torznab feeds fine.
+* **Cons**: The Servarr projects themselves steer people from Jackett to
+  Prowlarr now. With Jackett I'd still wire Torznab endpoints into each app
+  by hand, and indexer health checks live in yet another UI instead of being
+  pushed into the apps' own dashboards.
+* **Decision**: Rejected. Same job, more manual wiring, upstream treats it as
+  the legacy path.
+
+## Skip TV automation, keep manual grabs for shows
+
+* **Pros**: Radarr's native YTS would cover movies with no extra service.
+* **Cons**: TV is most of what we actually watch week to week.
+* **Decision**: Rejected. It optimizes the half of the library I touch least.
+
+# Consequences
+
+### Pros
+
+* One definition per indexer, tested in one place, synced everywhere.
+* Search debugging happens in Prowlarr's UI before touching either app.
+* App onboarding is trivial: register the app, get all indexers.
+
+### Cons
+
+* One more container (\~200MB RSS) on the VM, doing a job that is only partly
+  necessary. If Sonarr ever ships native TPB support, this ADR should be
+  revisited honestly: Prowlarr would then be redundant for our two-app setup.
+* Indexer reachability problems concentrate here: eztv's CDN refuses
+  Prowlarr's .NET TLS fingerprint entirely (wget connects, .NET gets cut
+  mid-handshake), so that indexer is disabled until its mirrors change.
