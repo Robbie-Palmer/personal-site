@@ -22,6 +22,7 @@ type DietLabelOption = {
 };
 
 export type DietGroupOption = DietLabelOption & {
+  /** Direct classification edges only; do not infer transitive diet exclusions. */
   broaderGroupKeys: string[];
   ingredientSlugs: string[];
 };
