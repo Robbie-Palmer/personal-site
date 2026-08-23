@@ -71,6 +71,19 @@ def verdict_for(vcodec, acodec):
     return "needs server transcoding on every client"
 
 
+def container_warnings(ext, fmt, video):
+    fmt_names = (fmt.get("format_name") or "").split(",")
+    primary_fmt = next((n for n in fmt_names if n != "webm"), fmt_names[0] if fmt_names else "")
+    primary_key = primary_fmt.split(",")[0]
+    allowed = CONTAINER_FOR.get(primary_key, set())
+    if ext and allowed and ext not in allowed:
+        target = primary_key if primary_key in allowed else min(allowed)
+        return [f"  WARNING: .{ext} extension does not match actual container ({primary_fmt}); rename to {target}"]
+    if video is not None and primary_key and primary_key not in CONTAINER_FOR:
+        return [f"  NOTE: unrecognized container '{primary_fmt}' for a video stream; extension cross-check skipped"]
+    return []
+
+
 def main():
     ext = sys.argv[1].lower() if len(sys.argv) > 1 else ""
     d = json.load(sys.stdin)
@@ -81,12 +94,6 @@ def main():
     audio = next((s for s in streams if s.get("codec_type") == "audio"), None)
     subs = [s.get("codec_name") for s in streams if s.get("codec_type") == "subtitle"]
 
-    fmt_names = (fmt.get("format_name") or "").split(",")
-    primary_fmt = next((n for n in fmt_names if n != "webm"), fmt_names[0] if fmt_names else "")
-    primary_key = primary_fmt.split(",")[0]
-    allowed = CONTAINER_FOR.get(primary_key, set())
-    mislabeled = bool(ext and allowed and ext not in allowed)
-
     vcodec = (video or {}).get("codec_name", "?")
     acodec = (audio or {}).get("codec_name") if audio else None
     res = f"{video.get('width')}x{video.get('height')}" if video else "-"
@@ -96,20 +103,17 @@ def main():
     size = int(num(fmt.get("size")))
     bitrate = int(num(fmt.get("bit_rate")))
 
-    print(f"  actual: {'/'.join(fmt_names)} | video {vcodec} {res}@{fps} | audio {acodec or 'no audio'}"
+    print(f"  actual: {'/'.join((fmt.get('format_name') or '').split(','))} | video {vcodec} {res}@{fps} | audio {acodec or 'no audio'}"
           + (f" | subs: {','.join(subs)}" if subs else ""))
     print(f"  duration {hms(duration)} | size {mb(size)} | bitrate {bitrate / 1000:.0f} kbps")
-    if mislabeled:
-        target = primary_key if primary_key in allowed else sorted(allowed)[0]
-        print(f"  WARNING: .{ext} extension does not match actual container ({primary_fmt}); rename to {target}")
-    elif video is not None and primary_key and primary_key not in CONTAINER_FOR:
-        print(f"  NOTE: unrecognized container '{primary_fmt}' for a video stream; extension cross-check skipped")
+    for line in container_warnings(ext, fmt, video):
+        print(line)
     print(f"  expect: {verdict_for(vcodec, acodec)}")
 
 
 if __name__ == "__main__":
     try:
         main()
-    except (json.JSONDecodeError, ValueError, KeyError, AttributeError, TypeError) as exc:
+    except (ValueError, KeyError, AttributeError, TypeError) as exc:
         print(f"  could not parse ffprobe output: {exc}", file=sys.stderr)
         sys.exit(1)
