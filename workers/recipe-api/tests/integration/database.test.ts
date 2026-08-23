@@ -933,41 +933,43 @@ describe("recipe API PostgreSQL integration", () => {
   });
 
   it("allows edge replacement and rejects cycles in the group hierarchy", async () => {
-    const reversed = await client<
-      { broaderGroupKey: string; narrowerGroupKey: string }[]
-    >`
-      update ingredient_group_hierarchy
-      set
-        narrower_group_key = 'poultry',
-        broader_group_key = 'chicken'
-      where
-        narrower_group_key = 'chicken'
-        and broader_group_key = 'poultry'
-      returning
-        narrower_group_key as "narrowerGroupKey",
-        broader_group_key as "broaderGroupKey"
-    `;
-    expect(reversed).toEqual([
-      { narrowerGroupKey: "poultry", broaderGroupKey: "chicken" },
-    ]);
-    await expect(
-      client`
-        insert into ingredient_group_hierarchy (
-          narrower_group_key,
-          broader_group_key
-        ) values ('chicken', 'poultry')
-      `,
-    ).rejects.toMatchObject({ code: "23514" });
-
-    await client`
-      update ingredient_group_hierarchy
-      set
-        narrower_group_key = 'chicken',
-        broader_group_key = 'poultry'
-      where
-        narrower_group_key = 'poultry'
-        and broader_group_key = 'chicken'
-    `;
+    try {
+      const reversed = await client<
+        { broaderGroupKey: string; narrowerGroupKey: string }[]
+      >`
+        update ingredient_group_hierarchy
+        set
+          narrower_group_key = 'poultry',
+          broader_group_key = 'chicken'
+        where
+          narrower_group_key = 'chicken'
+          and broader_group_key = 'poultry'
+        returning
+          narrower_group_key as "narrowerGroupKey",
+          broader_group_key as "broaderGroupKey"
+      `;
+      expect(reversed).toEqual([
+        { narrowerGroupKey: "poultry", broaderGroupKey: "chicken" },
+      ]);
+      await expect(
+        client`
+          insert into ingredient_group_hierarchy (
+            narrower_group_key,
+            broader_group_key
+          ) values ('chicken', 'poultry')
+        `,
+      ).rejects.toMatchObject({ code: "23514" });
+    } finally {
+      await client`
+        update ingredient_group_hierarchy
+        set
+          narrower_group_key = 'chicken',
+          broader_group_key = 'poultry'
+        where
+          narrower_group_key = 'poultry'
+          and broader_group_key = 'chicken'
+      `;
+    }
   });
 
   it("serializes concurrent opposing hierarchy edges", async () => {
