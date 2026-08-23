@@ -253,6 +253,23 @@ if (
 ) {
   throw new Error("Chicken ingredient-group hierarchy did not match");
 }
+const poultryGroup = dietOptions.groups.find(
+  (group) => group.key === "poultry",
+);
+if (!poultryGroup) {
+  throw new Error("Poultry ingredient group was missing");
+}
+if (
+  ![
+    "chicken-breast",
+    "chicken-thigh",
+    "chicken-stock",
+    "chicken-stock-pot",
+    "turkey-mince",
+  ].every((slug) => poultryGroup.ingredientSlugs.includes(slug))
+) {
+  throw new Error("Poultry did not inherit the chicken group ingredients");
+}
 const stockGroup = dietOptions.groups.find((group) => group.key === "stock");
 if (!stockGroup) {
   throw new Error("Stock ingredient group was missing");

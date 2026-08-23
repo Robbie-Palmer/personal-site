@@ -3,6 +3,14 @@ ALTER TABLE "ingredient_group_hierarchy" ADD COLUMN "relation_type" "ingredient_
 UPDATE "ingredient_group_hierarchy"
 SET "relation_type" = 'classification';--> statement-breakpoint
 ALTER TABLE "ingredient_group_hierarchy" ALTER COLUMN "relation_type" SET NOT NULL;--> statement-breakpoint
+DELETE FROM "ingredient_group_member"
+WHERE "group_key" = 'poultry'
+	AND "ingredient_slug" IN (
+		'chicken-breast',
+		'chicken-thigh',
+		'chicken-stock',
+		'chicken-stock-pot'
+	);--> statement-breakpoint
 CREATE OR REPLACE FUNCTION "reject_ingredient_group_hierarchy_cycle"()
 RETURNS trigger
 LANGUAGE plpgsql
