@@ -19,6 +19,7 @@ env_value() {
 }
 
 export MEDIA_DIR DOWNLOADS_DIR
+export MEDIA_AUTOMATION_DIR="$MEDIA_DIR"
 export PROWLARR_PORT="$(env_value PROWLARR_PORT)"; export PROWLARR_PORT="${PROWLARR_PORT:-9696}"
 export SONARR_PORT="$(env_value SONARR_PORT)"; export SONARR_PORT="${SONARR_PORT:-8989}"
 export RADARR_PORT="$(env_value RADARR_PORT)"; export RADARR_PORT="${RADARR_PORT:-7878}"

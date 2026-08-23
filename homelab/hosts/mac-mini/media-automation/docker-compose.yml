@@ -61,3 +61,24 @@ services:
     volumes:
       - ./data/qbittorrent:/config
       - "${DOWNLOADS_DIR}:/downloads"
+
+  # Syncs TRaSH Guides quality profiles and custom formats into Sonarr and
+  # Radarr. Runs in cron mode (default @daily); see ADR 019. The official
+  # image publishes no latest tag, so the major version is pinned.
+  recyclarr:
+    image: ghcr.io/recyclarr/recyclarr:${RECYCLARR_VERSION:-8}
+    container_name: recyclarr
+    restart: unless-stopped
+    depends_on:
+      - sonarr
+      - radarr
+    user: "${PUID:-501}:${PGID:-20}"
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - 'no-new-privileges:true'
+    environment:
+      TZ: "${TZ:-UTC}"
+    volumes:
+      - ./data/recyclarr:/config

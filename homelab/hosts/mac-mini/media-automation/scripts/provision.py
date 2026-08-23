@@ -35,6 +35,21 @@ INDEXER_BASE_URLS = {
 SONARR_CATEGORY = "tv-sonarr"
 RADARR_CATEGORY = "radarr"
 
+RECYCLARR_CONFIG_DIR = os.path.join(
+    os.environ.get("MEDIA_AUTOMATION_DIR", "."), "data", "recyclarr")
+
+# TRaSH Guides starter profiles, see ADR 019. Recyclarr v8 has no include-by-
+# name templates; the pre-built configs live in recyclarr/config-templates and
+# are copied wholesale with base_url/api_key substituted.
+RECYCLARR_TEMPLATES = [
+    ("sonarr",
+     "https://raw.githubusercontent.com/recyclarr/config-templates/master/"
+     "sonarr/templates/web-1080p.yml"),
+    ("radarr",
+     "https://raw.githubusercontent.com/recyclarr/config-templates/master/"
+     "radarr/templates/hd-bluray-web.yml"),
+]
+
 
 class Api:
     def __init__(self, base, key=None):
@@ -60,6 +75,55 @@ class Api:
 
     def post(self, path, payload=None):
         return self.request("POST", path, payload)
+
+
+def ensure_recyclarr_config():
+    """Write the Recyclarr config with current API keys if it doesn't exist.
+
+    An existing file is left alone so manual edits (extra profiles, custom
+    format score overrides) survive re-provisioning.
+    """
+    from urllib.request import urlopen
+    config_dir = RECYCLARR_CONFIG_DIR
+    os.makedirs(config_dir, exist_ok=True)
+    path = os.path.join(config_dir, "recyclarr.yml")
+    if os.path.exists(path):
+        print("Recyclarr: config already present")
+        return
+    keys = {"sonarr": os.environ["SONARR_API_KEY"],
+            "radarr": os.environ["RADARR_API_KEY"]}
+    sections = []
+    for app, url in RECYCLARR_TEMPLATES:
+        with urlopen(url, timeout=60) as resp:
+            template = resp.read().decode()
+        section = template.replace(
+            f"Put your {app.capitalize()} URL here", f"http://{app}:_PORT_"
+        ).replace(
+            "Put your API key here", keys[app]
+        ).replace("_PORT_", "8989" if app == "sonarr" else "7878")
+        sections.append(section)
+    with open(path, "w") as fh:
+        fh.write("\n".join(sections))
+    os.chmod(path, 0o600)
+    print(f"Recyclarr: wrote {path} from upstream TRaSH templates")
+
+
+def run_initial_recyclarr_sync():
+    """Trigger one sync immediately instead of waiting for the cron tick."""
+    import subprocess
+    result = subprocess.run(
+        ["docker", "exec", "recyclarr", "recyclarr", "sync"],
+        capture_output=True, text=True, timeout=600,
+    )
+    output = (result.stdout + result.stderr).strip().splitlines()
+    for line in output[-12:]:
+        print(f"  {line}")
+    if result.returncode != 0:
+        raise SystemExit(
+            f"recyclarr sync failed (exit {result.returncode}); check the "
+            "template names in scripts/provision.py against recyclarr.dev"
+        )
+    print("Recyclarr: initial sync completed")
 
 
 def wait_port(host, port, name, timeout=180):
@@ -314,14 +378,18 @@ def main():
     print("Prowlarr:")
     ensure_indexers(prowlarr)
 
+    ensure_recyclarr_config()
+
     print("Indexer sync:")
     sonarr_ok = wait_for_synced_indexers(sonarr, "Sonarr")
     radarr_ok = wait_for_synced_indexers(radarr, "Radarr")
     if not (sonarr_ok and radarr_ok):
         print("  note: sync can take a couple of minutes on first run;")
-        print("  re-run //media:provision to confirm.")
+        print("  re-run //homelab:media-provision to confirm.")
     else:
         print("Provisioning complete.")
+
+    run_initial_recyclarr_sync()
 
 
 if __name__ == "__main__":

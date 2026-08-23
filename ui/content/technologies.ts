@@ -1110,4 +1110,12 @@ export const technologies: TechnologyContent[] = [
     website: "https://github.com/abiosoft/colima",
     type: "tool",
   },
+  {
+    name: "Recyclarr",
+    added: "2026-08-23",
+    description:
+      "CLI and container that syncs TRaSH Guides quality profiles and custom formats into Sonarr and Radarr",
+    website: "https://recyclarr.dev",
+    type: "tool",
+  },
 ];

@@ -64,14 +64,17 @@ mise run //homelab:verify
 
 ## Media automation on the Mac mini
 
-The *arr stack (ADRs 016–018) feeds the Jellyfin library automatically:
+The *arr stack (ADRs 016–019) feeds the Jellyfin library automatically:
 [Prowlarr](/projects/homelab/adrs/017-prowlarr-indexer-management) manages
 the torrent indexers and syncs them to Sonarr (TV) and Radarr (movies), which
 send grabs to the containerized
 [qBittorrent](/projects/homelab/adrs/018-single-containerized-torrent-client)
 and import finished downloads into `/media/TV` and `/media/Movies` with
-Jellyfin-friendly names. A launchd agent (`homelab.media`) keeps all of it
-running across reboots, same as Jellyfin's.
+Jellyfin-friendly names.
+[Recyclarr](/projects/homelab/adrs/019-recyclarr-trash-guides) keeps both
+apps' quality profiles on the TRaSH Guides with a nightly sync. A launchd
+agent (`homelab.media`) keeps all of it running across reboots, same as
+Jellyfin's.
 
 Web UIs (LAN/tailnet only): Prowlarr **9696**, Sonarr **8989**, Radarr
 **7878**, qBittorrent **8080**. Login is `admin`; qBittorrent's password is
@@ -120,6 +123,13 @@ mise run //homelab:media-provision   # re-run wiring; safe to repeat
   writable.** If a bind mount shows up read-only inside containers, check
   `writable: true` for `/Volumes` in `~/.colima/default/colima.yaml`, then
   `colima stop && colima start`.
+- **New series and films need the right profile.** Recyclarr creates the
+  TRaSH quality profiles; pick them (WEB 1080p for TV, HD Bluray + WEB for
+  movies) when adding media. Items added before the profiles existed keep
+  their old profile until switched manually.
+- **Recyclarr sync runs nightly** (`@daily` in-container cron). Manual run:
+  `docker exec recyclarr recyclarr sync`. Logs live in
+  `data/recyclarr/logs/`.
 - The [Netdata](/projects/homelab/adrs/009-netdata) alerting should cover
   these containers as well.
 
