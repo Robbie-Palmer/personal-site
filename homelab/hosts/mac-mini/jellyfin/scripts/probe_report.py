@@ -15,6 +15,7 @@ CONTAINER_FOR = {
     "mpegts": {"ts", "m2ts"},
     "flv": {"flv"},
     "asf": {"asf", "wmv"},
+    "webm": {"webm", "mkv"},
 }
 
 BROWSER_VIDEO = {"h264", "vp8", "vp9", "av1"}
@@ -81,7 +82,8 @@ def main():
 
     fmt_names = (fmt.get("format_name") or "").split(",")
     primary_fmt = next((n for n in fmt_names if n != "webm"), fmt_names[0] if fmt_names else "")
-    allowed = CONTAINER_FOR.get(primary_fmt.split(",")[0], set())
+    primary_key = primary_fmt.split(",")[0]
+    allowed = CONTAINER_FOR.get(primary_key, set())
     mislabeled = bool(ext and allowed and ext not in allowed)
 
     vcodec = (video or {}).get("codec_name", "?")
@@ -98,12 +100,14 @@ def main():
     print(f"  duration {hms(duration)} | size {mb(size)} | bitrate {bitrate // 1000} kbps")
     if mislabeled:
         print(f"  WARNING: .{ext} extension does not match actual container ({primary_fmt}); rename to {sorted(allowed)[0]}")
+    elif video is not None and primary_key and primary_key not in CONTAINER_FOR:
+        print(f"  NOTE: unrecognized container '{primary_fmt}' for a video stream; extension cross-check skipped")
     print(f"  expect: {verdict_for(vcodec, acodec)}")
 
 
 if __name__ == "__main__":
     try:
         main()
-    except (json.JSONDecodeError, ValueError) as exc:
+    except (json.JSONDecodeError, ValueError, KeyError, AttributeError, TypeError) as exc:
         print(f"  could not parse ffprobe output: {exc}", file=sys.stderr)
         sys.exit(1)
