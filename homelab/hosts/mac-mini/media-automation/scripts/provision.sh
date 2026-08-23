@@ -35,7 +35,8 @@ export QBITTORRENT_PORT="$(env_value QBITTORRENT_PORT)"; export QBITTORRENT_PORT
 export QBITTORRENT_PASSWORD="$(env_value QBITTORRENT_PASSWORD)"
 
 api_key() {
-  docker exec "$1" cat /config/config.xml 2>/dev/null \
+  local container="$1"
+  docker exec "$container" cat /config/config.xml 2>/dev/null \
     | sed -n 's/.*<ApiKey>\(.*\)<\/ApiKey>.*/\1/p' | head -1
 }
 

@@ -36,6 +36,13 @@ INDEXER_BASE_URLS = {
 SONARR_CATEGORY = "tv-sonarr"
 RADARR_CATEGORY = "radarr"
 
+# Container-internal endpoints on the private Compose network. TLS would
+# require an internal CA to issue certificates for hostnames like "sonarr",
+# so plain HTTP is intentional (Sonar S5332 suppressed at each definition).
+SONARR_URL = "http://sonarr:8989"  # NOSONAR
+RADARR_URL = "http://radarr:7878"  # NOSONAR
+PROWLARR_URL = "http://prowlarr:9696"  # NOSONAR
+
 RECYCLARR_CONFIG_DIR = os.path.join(
     os.environ.get("MEDIA_AUTOMATION_DIR", "."), "data", "recyclarr")
 
@@ -97,8 +104,11 @@ def ensure_recyclarr_config():
     for app, url in RECYCLARR_TEMPLATES:
         with urlopen(url, timeout=60) as resp:
             template = resp.read().decode()
+        # The generated config targets container hostnames over the private
+        # Compose network; plain HTTP is intentional there (Sonar S5332).
         section = template.replace(
-            f"Put your {app.capitalize()} URL here", f"http://{app}:_PORT_"
+            f"Put your {app.capitalize()} URL here",
+            f"http://{app}:_PORT_"  # NOSONAR
         ).replace(
             "Put your API key here", keys[app]
         ).replace("_PORT_", "8989" if app == "sonarr" else "7878")
@@ -272,8 +282,7 @@ def definition_of(indexer):
     return None
 
 
-def ensure_indexers(prowlarr):
-    existing_defs = {definition_of(idx) for idx in prowlarr.get("/api/v1/indexer")}
+def _indexer_schemas(prowlarr, wanted):
     schemas = {}
     for entry in prowlarr.get("/api/v1/indexer/schema"):
         definition = next(
@@ -281,8 +290,30 @@ def ensure_indexers(prowlarr):
              if f.get("name") == "definitionFile"),
             None,
         )
-        if definition in INDEXER_DEFINITIONS:
+        if definition in wanted:
             schemas[definition] = entry
+    return schemas
+
+
+def _build_indexer_payload(prowlarr, definition, schema):
+    payload = json.loads(json.dumps(schema))
+    payload["name"] = definition
+    payload["enable"] = True
+    payload["tags"] = []
+    if definition in INDEXER_BASE_URLS:
+        for field in payload.get("fields", []):
+            if field.get("name") == "baseUrl":
+                field["value"] = INDEXER_BASE_URLS[definition]
+    if not payload.get("appProfileId"):
+        profiles = prowlarr.get("/api/v1/appprofile")
+        standard = next((p["id"] for p in profiles if p.get("name") == "Standard"), None)
+        payload["appProfileId"] = standard or profiles[0]["id"]
+    return payload
+
+
+def ensure_indexers(prowlarr):
+    existing_defs = {definition_of(idx) for idx in prowlarr.get("/api/v1/indexer")}
+    schemas = _indexer_schemas(prowlarr, set(INDEXER_DEFINITIONS))
 
     for definition in INDEXER_DEFINITIONS:
         if definition in existing_defs:
@@ -292,18 +323,7 @@ def ensure_indexers(prowlarr):
         if schema is None:
             print(f"  ! definition '{definition}' not available in this Prowlarr; skipping")
             continue
-        payload = json.loads(json.dumps(schema))
-        payload["name"] = definition
-        payload["enable"] = True
-        payload["tags"] = []
-        if definition in INDEXER_BASE_URLS:
-            for field in payload.get("fields", []):
-                if field.get("name") == "baseUrl":
-                    field["value"] = INDEXER_BASE_URLS[definition]
-        if not payload.get("appProfileId"):
-            profiles = prowlarr.get("/api/v1/appprofile")
-            standard = next((p["id"] for p in profiles if p.get("name") == "Standard"), None)
-            payload["appProfileId"] = standard or profiles[0]["id"]
+        payload = _build_indexer_payload(prowlarr, definition, schema)
         result = prowlarr.post("/api/v1/indexer", payload)
         print(f"  added indexer '{result['name']}'")
 
@@ -311,8 +331,8 @@ def ensure_indexers(prowlarr):
     app_schemas = {e["implementation"]: e for e in prowlarr.get("/api/v1/applications/schema")}
     registered = []
     for implementation, base_url, key in (
-        ("Sonarr", "http://sonarr:8989", os.environ["SONARR_API_KEY"]),
-        ("Radarr", "http://radarr:7878", os.environ["RADARR_API_KEY"]),
+        ("Sonarr", SONARR_URL, os.environ["SONARR_API_KEY"]),
+        ("Radarr", RADARR_URL, os.environ["RADARR_API_KEY"]),
     ):
         if any(a.get("implementation") == implementation for a in apps):
             print(f"  application {implementation} already registered")
@@ -322,7 +342,7 @@ def ensure_indexers(prowlarr):
         values.update({
             "apiKey": key,
             "baseUrl": f"{base_url}/",
-            "prowlarrUrl": "http://prowlarr:9696",
+            "prowlarrUrl": PROWLARR_URL,
         })
         schema["fields"] = [{"name": k, "value": v} for k, v in values.items()]
         schema["name"] = implementation
@@ -345,10 +365,10 @@ def ensure_indexers(prowlarr):
 
 def wait_for_synced_indexers(app, name, minimum=1, timeout=120):
     deadline = time.time() + timeout
-    count = len(app.get(f"/api/v3/indexer"))
+    count = len(app.get("/api/v3/indexer"))
     while count < minimum and time.time() < deadline:
         time.sleep(6)
-        count = len(app.get(f"/api/v3/indexer"))
+        count = len(app.get("/api/v3/indexer"))
     print(f"  {name}: {count} synced indexer(s)")
     return count
 

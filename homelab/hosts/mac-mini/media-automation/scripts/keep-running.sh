@@ -16,10 +16,13 @@ export DOCKER_CONTEXT="colima"
 
 MEDIA_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 CHECK_INTERVAL_SECONDS="${CHECK_INTERVAL_SECONDS:-60}"
+LOG_TS="+%F %T"
 
 colima_running() {
-  colima status >/dev/null 2>&1
-  return $?
+  if colima status >/dev/null 2>&1; then
+    return 0
+  fi
+  return 1
 }
 
 vpn_tunnel_active() {
@@ -30,7 +33,7 @@ vpn_tunnel_active() {
 
 while true; do
   if ! colima_running; then
-    echo "$(date '+%F %T') colima is not running; starting it" >&2
+    echo "$(date "$LOG_TS") colima is not running; starting it" >&2
     colima start \
       --vm-type vz \
       --mount-type virtiofs \
@@ -38,16 +41,16 @@ while true; do
       --memory "${COLIMA_MEMORY:-4}" \
       --mount "${HOME}:w" \
       --mount /Volumes >/dev/null 2>&1 \
-      || echo "$(date '+%F %T') colima start failed; retrying next cycle" >&2
+      || echo "$(date "$LOG_TS") colima start failed; retrying next cycle" >&2
   fi
 
   if colima_running && vpn_tunnel_active; then
     docker compose \
       --project-directory "$MEDIA_DIR" \
       up -d >/dev/null 2>&1 \
-      || echo "$(date '+%F %T') docker compose up failed; retrying next cycle" >&2
+      || echo "$(date "$LOG_TS") docker compose up failed; retrying next cycle" >&2
   elif colima_running; then
-    echo "$(date '+%F %T') no VPN tunnel on the default route; holding the stack (ADR 020)" >&2
+    echo "$(date "$LOG_TS") no VPN tunnel on the default route; holding the stack (ADR 020)" >&2
   fi
 
   sleep "$CHECK_INTERVAL_SECONDS"

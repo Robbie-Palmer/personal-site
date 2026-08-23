@@ -84,7 +84,7 @@ PY
 fi
 
 # 2. LaunchAgent ---------------------------------------------------------------
-sed_escape() { printf '%s' "$1" | sed 's/[&/\]/\\&/g'; }
+sed_escape() { local value="$1"; printf '%s' "$value" | sed 's/[&/\]/\\&/g'; }
 HOMELAB_ROOT_ESC="$(sed_escape "$HOMELAB_ROOT")"
 HOME_ESC="$(sed_escape "$HOME")"
 sed \
