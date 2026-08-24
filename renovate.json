@@ -10,11 +10,24 @@
     {
       "customType": "regex",
       "description": "Track pip packages pinned in workflow run steps (e.g. dvc[s3]==x.y.z)",
-      "managerFilePatterns": ["/^\\.github/workflows/[^/]+\\.ya?ml$/"],
+      "managerFilePatterns": [
+        "/^\\.github/workflows/[^/]+\\.ya?ml$/"
+      ],
       "matchStrings": [
         "pip install[^']*'(?<depName>[a-zA-Z0-9._-]+)(?:\\[[a-zA-Z0-9,_-]+\\])?==(?<currentValue>[0-9][^']+)'"
       ],
       "datasourceTemplate": "pypi"
+    },
+    {
+      "customType": "regex",
+      "description": "Track homelab container image pins expressed as compose variable defaults (${SVC_VERSION:-tag})",
+      "managerFilePatterns": [
+        "/homelab/hosts/mac-mini/.+/docker-compose\\.yml$/"
+      ],
+      "matchStrings": [
+        "image:\\s*(?<depName>[a-z0-9./-]+):\\$\\{(?:PROWLARR|SONARR|RADARR|QBITTORRENT|JELLYFIN)_VERSION:-(?<currentValue>[^}]+)\\}"
+      ],
+      "datasourceTemplate": "docker"
     }
   ],
   "lockFileMaintenance": {
@@ -23,85 +36,158 @@
   },
   "packageRules": [
     {
-      "matchUpdateTypes": ["major"],
+      "matchUpdateTypes": [
+        "major"
+      ],
       "dependencyDashboardApproval": true
     },
     {
       "description": "Auto-merge devDependencies (non-major)",
-      "matchDepTypes": ["devDependencies"],
-      "matchUpdateTypes": ["minor", "patch"],
+      "matchDepTypes": [
+        "devDependencies"
+      ],
+      "matchUpdateTypes": [
+        "minor",
+        "patch"
+      ],
       "minimumReleaseAge": "3 days",
       "automerge": true
     },
     {
       "description": "Auto-merge production patches",
-      "matchDepTypes": ["dependencies"],
-      "matchUpdateTypes": ["patch"],
+      "matchDepTypes": [
+        "dependencies"
+      ],
+      "matchUpdateTypes": [
+        "patch"
+      ],
       "automerge": true
     },
     {
       "description": "Auto-merge GitHub Actions (all updates)",
-      "matchManagers": ["github-actions"],
-      "matchUpdateTypes": ["minor", "patch", "major"],
+      "matchManagers": [
+        "github-actions"
+      ],
+      "matchUpdateTypes": [
+        "minor",
+        "patch",
+        "major"
+      ],
       "automerge": true
     },
     {
       "description": "Auto-merge mise-managed dev tooling - linters, scanners and toolchains that CI exercises on every PR",
-      "matchManagers": ["mise"],
-      "matchUpdateTypes": ["minor", "patch"],
+      "matchManagers": [
+        "mise"
+      ],
+      "matchUpdateTypes": [
+        "minor",
+        "patch"
+      ],
       "minimumReleaseAge": "3 days",
       "automerge": true
     },
     {
       "description": "Review the Neon backup toolchain by hand - the backup job runs against real data and no CI job proves these beforehand",
-      "matchManagers": ["mise"],
-      "matchDepNames": ["awscli", "age", "jq"],
+      "matchManagers": [
+        "mise"
+      ],
+      "matchDepNames": [
+        "awscli",
+        "age",
+        "jq"
+      ],
       "minimumReleaseAge": "7 days",
       "automerge": false
     },
     {
       "description": "Auto-merge pip tooling pinned in workflow run steps (e.g. dvc)",
-      "matchManagers": ["custom.regex"],
-      "matchUpdateTypes": ["minor", "patch"],
+      "matchManagers": [
+        "custom.regex"
+      ],
+      "matchUpdateTypes": [
+        "minor",
+        "patch"
+      ],
       "minimumReleaseAge": "3 days",
       "automerge": true
     },
     {
       "description": "ml-pipelines is offline tooling with no deploy of its own, so treat its runtime dependencies like devDependencies",
-      "matchFileNames": ["ml-pipelines/**"],
-      "matchDepTypes": ["dependencies"],
-      "matchUpdateTypes": ["minor", "patch"],
+      "matchFileNames": [
+        "ml-pipelines/**"
+      ],
+      "matchDepTypes": [
+        "dependencies"
+      ],
+      "matchUpdateTypes": [
+        "minor",
+        "patch"
+      ],
       "minimumReleaseAge": "3 days",
       "automerge": true
     },
     {
       "description": "Keep the pnpm version pinned in package.json (packageManager) and .mise.toml in one PR so they land together",
-      "matchPackageNames": ["pnpm", "pnpm/pnpm"],
+      "matchPackageNames": [
+        "pnpm",
+        "pnpm/pnpm"
+      ],
       "groupName": "pnpm"
     },
     {
       "description": "pnpm is dev tooling in practice, so auto-merge it on the devDependencies terms",
-      "matchPackageNames": ["pnpm", "pnpm/pnpm"],
-      "matchUpdateTypes": ["minor", "patch"],
+      "matchPackageNames": [
+        "pnpm",
+        "pnpm/pnpm"
+      ],
+      "matchUpdateTypes": [
+        "minor",
+        "patch"
+      ],
       "minimumReleaseAge": "3 days",
       "automerge": true
     },
     {
       "description": "drizzle-orm (dependencies) and drizzle-kit (devDependencies) generate and apply the same migrations, so land them together and review by hand",
-      "matchPackageNames": ["drizzle-orm", "drizzle-kit"],
+      "matchPackageNames": [
+        "drizzle-orm",
+        "drizzle-kit"
+      ],
       "groupName": "drizzle",
       "minimumReleaseAge": "7 days",
       "automerge": false
     },
     {
       "description": "Group the Cloudflare Workers toolchain so wrangler and its types/test-pool packages stay aligned",
-      "matchPackageNames": ["wrangler", "@cloudflare/**"],
+      "matchPackageNames": [
+        "wrangler",
+        "@cloudflare/**"
+      ],
       "groupName": "cloudflare workers toolchain"
     },
     {
       "description": "Disable release age for lockfile maintenance",
-      "matchUpdateTypes": ["lockFileMaintenance"],
+      "matchUpdateTypes": [
+        "lockFileMaintenance"
+      ],
       "minimumReleaseAge": null
+    },
+    {
+      "description": "Media stack images run unattended against real data - group and review bumps by hand instead of automerging",
+      "matchManagers": [
+        "custom.regex"
+      ],
+      "matchDepNames": [
+        "lscr.io/linuxserver/prowlarr",
+        "lscr.io/linuxserver/sonarr",
+        "lscr.io/linuxserver/radarr",
+        "lscr.io/linuxserver/qbittorrent",
+        "jellyfin/jellyfin"
+      ],
+      "groupName": "media stack images",
+      "minimumReleaseAge": "7 days",
+      "automerge": false
     }
   ]
 }

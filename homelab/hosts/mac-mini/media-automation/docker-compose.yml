@@ -45,7 +45,7 @@ services:
       - "${MEDIA_DIR:?set MEDIA_DIR in the media-automation .env file}:/media"
 
   qbittorrent:
-    image: lscr.io/linuxserver/qbittorrent:${QBITTORRENT_VERSION:-libtorrentv1}
+    image: lscr.io/linuxserver/qbittorrent:${QBITTORRENT_VERSION:-5.2.3-libtorrentv1}
     container_name: qbittorrent
     restart: unless-stopped
     ports:
