@@ -265,7 +265,7 @@ Cloudflare observability destination remains manual. Rotate in this order:
 3. **Deploy the three runtimes** — apply Terraform for Pages, then redeploy
    `recipe-api` and `recipe-ingest`. Direct trace/log export now uses the new
    key everywhere.
-4. **`posthog-logs` Workers Observability destination** (⚠️ **manual**) —
+4. **`posthog-logs` Workers Observability destination** (manual step) —
    Cloudflare Dashboard → Workers & Pages → Observability → Telemetry →
    `posthog-logs` → update the `Authorization: Bearer <phc_…>` header. Neither
    Terraform nor Doppler can reach this: there is a Cloudflare API for

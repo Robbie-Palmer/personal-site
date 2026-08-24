@@ -5,34 +5,25 @@ This top-level project is the deployable service proposed by
 The ADR remains in the Personal Site content tree for now, but the service is
 not a Personal Site runtime component.
 
-The service is a visible, stateful publisher:
-
-- a Worker verifies GitHub App webhook signatures and rejects other
-  repositories;
-- one SQLite Durable Object per pull request deduplicates deliveries, review
-  configurations, and already-reviewed heads, assigns durable hunk and finding
-  identities, and enforces per-PR run and cost ceilings;
-- Durable Object alarms provide a trailing-edge debounce boundary, coalescing
-  rapid events to one review of the latest pull request state after a quiet
-  period;
-- the same alarm handler runs delayed finding evaluation and retries committed
-  outcomes that could not be published to R2, so a finalization-time outage
-  cannot strand them in SQLite when no later pull-request event arrives;
-- a Cloudflare Workflow fetches the PR through GitHub App authentication, runs
-  the shared OpenRouter and OpenCode scout ensemble,
-  reconciles candidates with the same OpenRouter merger, publishes each
-  line-addressable finding as a native review comment with a stable hidden
-  finding ID, and keeps a separate rolling run/cost/coverage comment;
-  OpenRouter and OpenCode scouts use separate
-  Workflow steps so a stalled free provider cannot replay completed paid calls,
-  while deterministic publication and storage steps remain retryable;
-- the private `ai-review-data` R2 bucket stores versioned terminal records for
-  published, skipped, denied, and failed runs, including raw candidates,
-  published findings, change characteristics, stable identities, and provider
-  cost, latency, token, cache, availability, and failure metrics; and
-- the former stateless GitHub Actions orchestrator is retired; its prompts,
-  model clients, validation, and rendering code remain as the shared review
-  engine imported by this service.
+The service is a visible, stateful publisher. A Worker verifies GitHub App
+webhook signatures and rejects other repositories. One SQLite Durable Object
+per pull request deduplicates deliveries and already-reviewed heads, assigns
+durable hunk and finding identities, enforces per-PR run and cost ceilings,
+and uses its alarm both as a trailing-edge debounce (rapid events coalesce to
+one review of the latest state) and as the retry path for delayed finding
+evaluation and unpublished outcomes. A Cloudflare Workflow fetches the PR
+through GitHub App authentication, runs the shared OpenRouter and OpenCode
+scout ensemble, reconciles candidates with the same OpenRouter merger,
+publishes each line-addressable finding as a native review comment with a
+stable hidden finding ID, and keeps a separate rolling run/cost/coverage
+comment. Scouts run as separate Workflow steps, so a stalled free provider
+cannot replay completed paid calls, while deterministic publication and
+storage steps remain retryable. The private `ai-review-data` R2 bucket stores versioned terminal
+records for published, skipped, denied, and failed runs, including raw
+candidates, provider cost, latency, token, cache, availability, and failure
+metrics. The former stateless GitHub Actions orchestrator is retired; its
+prompts, model clients, validation, and rendering code remain as the shared
+review engine imported by this service.
 
 Automatic runs cover non-draft PR opens, ready-for-review transitions, reopens,
 and synchronized heads. After the first completed review, synchronized heads
@@ -77,9 +68,8 @@ justify higher published prices than the current multi-provider route.
 - `ai-review/wrangler.toml` owns the Worker, Durable Object, Workflow, bindings,
   and non-secret runtime configuration.
 - Changed-file context is fetched through bounded GitHub GraphQL batches rather
-  than one REST request per path. This keeps large reviews comfortably below
-  Cloudflare's subrequest ceiling without changing the shared prompt or
-  coverage budgets.
+  than one REST request per path. This keeps large reviews below Cloudflare's
+  subrequest ceiling without changing the shared prompt or coverage budgets.
 - `infra/` owns the shared Cloudflare account's private R2 bucket.
 - R2 expires review records after 365 days and aborts incomplete multipart
   uploads after seven days. Cloudflare provider v4 cannot represent those

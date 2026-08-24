@@ -13,19 +13,6 @@ mise x -- dvc pull    # download data
 mise x -- dvc push    # upload after adding new images
 ```
 
-## Project Structure
-
-```text
-recipe-parsing/
-├── .dvc/
-│   ├── config          # Remote configuration (committed)
-│   └── config.local    # Credentials (git-ignored)
-├── data/
-│   ├── recipe-images/              # Image data (tracked by DVC, not git)
-│   └── ground-truth.json           # Ground truth annotations
-└── README.md
-```
-
 The parsing algorithm itself (prompts, OpenRouter calls, Cooklang handling,
 canonicalization, and the canonical ingredient and equipment registries) lives
 in the shared [`recipe-parsing` package](../../packages/recipe-parsing/), which

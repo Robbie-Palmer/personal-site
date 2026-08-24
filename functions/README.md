@@ -1,10 +1,8 @@
 # Cloudflare Pages Functions
 
-This directory contains [Cloudflare Pages Functions][pages-functions] -
-serverless functions that run at the edge alongside the static site.
-
-Cloudflare Pages automatically detects and deploys functions from this
-directory. No additional configuration is required.
+[Cloudflare Pages Functions][pages-functions] run at the edge alongside the
+static site. Pages detects and deploys them from this directory with no extra
+configuration.
 
 ## Functions
 
@@ -82,8 +80,8 @@ Pages Functions export OTLP/protobuf traces and logs directly to PostHog using:
 
 ## Future Migration
 
-When migrating to Cloudflare Workers (for SSR support, subdomain routing,
-etc.), delete this directory and add equivalent routes in the Worker
-configuration. The proxy logic is nearly identical.
+When migrating to Cloudflare Workers (SSR support, subdomain routing), delete
+this directory and add equivalent routes in the Worker configuration; the
+proxy logic is nearly identical.
 
 [pages-functions]: https://developers.cloudflare.com/pages/functions/

@@ -199,5 +199,5 @@ docker run \
 
 For archive format, ownership and privilege portability are `pg_restore`
 choices; the corresponding `pg_dump` flags are ignored for archive output.
-Perform a real scratch restore periodically—listing an archive confirms its
+Perform a real scratch restore periodically. Listing an archive confirms its
 structure, not that the application behaves correctly with the restored data.
