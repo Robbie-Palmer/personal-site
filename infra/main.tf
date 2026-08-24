@@ -13,6 +13,12 @@ locals {
     RECIPE_API_PREVIEW_ORIGIN_TEMPLATE = var.recipe_api_preview_origin_template
     CF_PAGES_HOST                      = var.cf_pages_host
   }
+  pages_production_environment_variables = merge(local.pages_environment_variables, {
+    DEPLOYMENT_ENV = "production"
+  })
+  pages_preview_environment_variables = merge(local.pages_environment_variables, {
+    DEPLOYMENT_ENV = "preview"
+  })
   pages_secrets = {
     GITHUB_TOKEN = var.github_token
   }
@@ -47,14 +53,14 @@ resource "cloudflare_pages_project" "personal_site" {
 
   deployment_configs {
     production {
-      environment_variables = local.pages_environment_variables
+      environment_variables = local.pages_production_environment_variables
       secrets               = local.pages_secrets
       compatibility_date    = "2026-05-28"
       compatibility_flags   = ["nodejs_compat"]
     }
 
     preview {
-      environment_variables = local.pages_environment_variables
+      environment_variables = local.pages_preview_environment_variables
       secrets               = local.pages_secrets
       compatibility_date    = "2026-05-28"
       compatibility_flags   = ["nodejs_compat"]
