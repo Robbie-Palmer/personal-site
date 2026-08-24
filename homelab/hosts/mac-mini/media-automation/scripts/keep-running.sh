@@ -35,26 +35,26 @@ UNHEALTHY_NAMES=()
 UNHEALTHY_COUNTS=()
 
 unhealthy_count() {
-  local i
+  local i name="$1"
   for ((i = 0; i < ${#UNHEALTHY_NAMES[@]}; i++)); do
-    if [[ "${UNHEALTHY_NAMES[$i]}" == "$1" ]]; then
+    if [[ "${UNHEALTHY_NAMES[$i]}" == "$name" ]]; then
       echo "${UNHEALTHY_COUNTS[$i]}"
-      return
+      return 0
     fi
   done
   echo 0
 }
 
 unhealthy_set() {
-  local i
+  local i name="$1" count="$2"
   for ((i = 0; i < ${#UNHEALTHY_NAMES[@]}; i++)); do
-    if [[ "${UNHEALTHY_NAMES[$i]}" == "$1" ]]; then
-      UNHEALTHY_COUNTS[$i]="$2"
-      return
+    if [[ "${UNHEALTHY_NAMES[$i]}" == "$name" ]]; then
+      UNHEALTHY_COUNTS[$i]="$count"
+      return 0
     fi
   done
-  UNHEALTHY_NAMES+=("$1")
-  UNHEALTHY_COUNTS+=("$2")
+  UNHEALTHY_NAMES+=("$name")
+  UNHEALTHY_COUNTS+=("$count")
 }
 
 colima_running() {
@@ -88,10 +88,12 @@ GAUGE_RESEND_SECONDS="${GAUGE_RESEND_SECONDS:-10}"
 declare -a LAST_GAUGES=()
 
 gauge() {
+  local name="$1" value="$2"
   # Netdata's StatsD listener takes "<name>:<value>|g" per the StatsD
   # protocol; a comma instead of a colon parses as a DogStatsD tag and the
   # value never registers.
-  printf '%s:%s|g\n' "$1" "$2" > "/dev/udp/${STATSD_HOST}/${STATSD_PORT}"
+  printf '%s:%s|g\n' "$name" "$value" > "/dev/udp/${STATSD_HOST}/${STATSD_PORT}"
+  return 0
 }
 
 resend_gauges() {
@@ -99,6 +101,7 @@ resend_gauges() {
   for line in ${LAST_GAUGES[@]+"${LAST_GAUGES[@]}"}; do
     printf '%s\n' "$line" > "/dev/udp/${STATSD_HOST}/${STATSD_PORT}"
   done
+  return 0
 }
 
 report_gauges() {
@@ -110,6 +113,7 @@ report_gauges() {
   fresh+=("media_prowlarr_up:$(service_up http://localhost:9696/ping && echo 1 || echo 0)|g")
   fresh+=("media_qbittorrent_up:$(service_up http://localhost:8080/api/v2/app/version && echo 1 || echo 0)|g")
   LAST_GAUGES=("${fresh[@]}")
+  return 0
 }
 
 # Restarts containers that Docker marks unhealthy for too many consecutive
@@ -142,6 +146,7 @@ watch_container_health() {
   done < <(docker ps -q 2>/dev/null \
     | xargs -n 25 docker inspect \
       --format '{{.Name}}{{"\t"}}{{if .State.Health}}{{.State.Health.Status}}{{else if .State.Running}}running{{else}}stopped{{end}}' 2>/dev/null)
+  return 0
 }
 
 while true; do
