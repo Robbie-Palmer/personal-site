@@ -53,41 +53,14 @@ since DVC doesn't support environment variable substitution in config files.
 
 ## Common DVC Workflows
 
-Each project exposes its own tasks, so run them by project path from anywhere
-in the repo.
-
-### Pull data
-
-After cloning or checking out a branch:
+Each project exposes its own mise tasks, runnable from anywhere in the repo:
+`pull`, `repro`, `push`, and a passthrough `dvc` task for anything else:
 
 ```bash
 mise run //ml-pipelines/recipe-parsing:pull
-```
-
-### Reproduce a pipeline
-
-```bash
-mise run //ml-pipelines/recipe-parsing:repro
-```
-
-### Any other DVC command
-
-Pass it through the `dvc` task:
-
-```bash
-mise run //ml-pipelines/recipe-parsing:dvc -- status
-mise run //ml-pipelines/recipe-parsing:dvc -- add data/my-dataset
-```
-
-### Add new data
-
-```bash
-# Track new files with DVC
-mise run //ml-pipelines/recipe-parsing:dvc -- add data/my-dataset
-
-# Commit the .dvc tracking file (autostage is enabled, so it's already staged)
-git commit -m "Add dataset"
-
-# Push data to R2
 mise run //ml-pipelines/recipe-parsing:push
+mise run //ml-pipelines/recipe-parsing:dvc -- status
 ```
+
+When adding data, `dvc add` autostages the tracking file; commit it, then push
+the data to R2.
