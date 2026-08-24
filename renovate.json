@@ -25,7 +25,7 @@
         "/homelab/hosts/mac-mini/.+/docker-compose\\.yml$/"
       ],
       "matchStrings": [
-        "image:\\s*(?<depName>[a-z0-9./-]+):\\$\\{(?:PROWLARR|SONARR|RADARR|QBITTORRENT|JELLYFIN)_VERSION:-(?<currentValue>[^}]+)\\}"
+        "image:\\s*(?<depName>[a-z0-9./-]+):\\$\\{(?:PROWLARR|SONARR|RADARR|QBITTORRENT|JELLYFIN|RECYCLARR)_VERSION:-(?<currentValue>[^}]+)\\}"
       ],
       "datasourceTemplate": "docker"
     }
@@ -183,7 +183,8 @@
         "lscr.io/linuxserver/sonarr",
         "lscr.io/linuxserver/radarr",
         "lscr.io/linuxserver/qbittorrent",
-        "jellyfin/jellyfin"
+        "jellyfin/jellyfin",
+        "ghcr.io/recyclarr/recyclarr"
       ],
       "groupName": "media stack images",
       "minimumReleaseAge": "7 days",

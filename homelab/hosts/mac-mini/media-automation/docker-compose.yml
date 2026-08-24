@@ -68,7 +68,7 @@ services:
   # Radarr. Runs in cron mode (default @daily); see ADR 019. The official
   # image publishes no latest tag, so the major version is pinned.
   recyclarr:
-    image: ghcr.io/recyclarr/recyclarr:${RECYCLARR_VERSION:-8}
+    image: ghcr.io/recyclarr/recyclarr:${RECYCLARR_VERSION:-8.7.1}
     container_name: recyclarr
     restart: unless-stopped
     depends_on:
