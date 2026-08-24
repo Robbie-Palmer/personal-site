@@ -13,7 +13,8 @@ How to write and publish blog posts for robbiepalmer.me.
    mise //ui:images:sync
    ```
 
-5. Test locally with `mise //ui:dev`, then visit `/blog/your-post-title`
+5. Test locally with `mise //ui:dev`, then visit
+   `/blog/2023-05-23-your-post-title` (the slug is the full filename)
 6. Commit the `.mdx` file only. Images never enter git.
 
 ## File naming

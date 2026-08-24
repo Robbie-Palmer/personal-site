@@ -16,7 +16,7 @@ through GitHub App authentication, runs the shared OpenRouter and OpenCode
 scout ensemble, reconciles candidates with the same OpenRouter merger,
 publishes each line-addressable finding as a native review comment with a
 stable hidden finding ID, and keeps a separate rolling run/cost/coverage
-comment. Scouts run as separate Workflow steps so a stalled free provider
+comment. Scouts run as separate Workflow steps, so a stalled free provider
 cannot replay completed paid calls, while deterministic publication and
 storage steps remain retryable. The private `ai-review-data` R2 bucket stores versioned terminal
 records for published, skipped, denied, and failed runs, including raw
