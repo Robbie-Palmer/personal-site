@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  Bot,
   Home,
   KeyRound,
   Leaf,
@@ -15,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { authClient } from "@/lib/auth-client";
 import { cn } from "@/lib/generic/styles";
 import { AccountPanel } from "./account-panel";
+import { AgentsPanel } from "./agents-panel";
 import { DietPanel } from "./diet-panel";
 import { HouseholdPanel } from "./household-panel";
 import { SecurityPanel } from "./security-panel";
@@ -25,6 +27,7 @@ const SECTIONS = [
   { id: "units", label: "Units & measurements", icon: Scale },
   { id: "household", label: "Household", icon: Home },
   { id: "diet", label: "Your diet", icon: Leaf },
+  { id: "agents", label: "Agents", icon: Bot },
   { id: "signin", label: "Sign-in & security", icon: KeyRound },
 ] as const;
 type SectionId = (typeof SECTIONS)[number]["id"];
@@ -121,6 +124,7 @@ export function SettingsView() {
             <HouseholdPanel currentUser={session.user} />
           )}
           {section === "diet" && <DietPanel />}
+          {section === "agents" && <AgentsPanel />}
           {section === "signin" && (
             <SecurityPanel currentSessionToken={session.session.token} />
           )}

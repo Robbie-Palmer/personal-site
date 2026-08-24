@@ -15,14 +15,12 @@ import {
 import {
   and,
   count,
-  countDistinct,
   desc,
   eq,
   exists,
   gt,
   gte,
   inArray,
-  isNotNull,
   isNull,
   lt,
   notInArray,
@@ -44,6 +42,7 @@ import { parseSchemaOrgRecipeHtml } from "recipe-parsing/schema-org";
 import { recipeAgentConfiguration } from "./agent-auth";
 import { createAuth } from "./auth";
 import { verifyCloudflareAccess } from "./cloudflare-access";
+import { cookingInsightsResponse } from "./cooking-reads";
 import { hasPostgresErrorCode } from "./db/errors";
 import {
   decodeFeedCursor,
@@ -833,58 +832,6 @@ async function recipeBoxResponse(db: Db, userId: string) {
     recipeSlugs,
     // Remove after the Postgres-backed UI has been deployed everywhere.
     staticRecipeSlugs: recipeSlugs,
-  };
-}
-
-async function cookingInsightsResponse(db: Db, userId: string) {
-  const [summaries, recent] = await Promise.all([
-    db
-      .select({
-        cookModeStarts: count(),
-        mealsCooked: count(schema.cookingSession.completedAt),
-      })
-      .from(schema.cookingSession)
-      .where(eq(schema.cookingSession.userId, userId)),
-    db
-      .select({
-        id: schema.cookingSession.id,
-        recipeSlug: schema.cookingSession.recipeSlug,
-        recipeTitle: schema.cookingSession.recipeTitle,
-        servings: schema.cookingSession.servings,
-        startedAt: schema.cookingSession.startedAt,
-        completedAt: schema.cookingSession.completedAt,
-      })
-      .from(schema.cookingSession)
-      .where(
-        and(
-          eq(schema.cookingSession.userId, userId),
-          isNotNull(schema.cookingSession.completedAt),
-        ),
-      )
-      .orderBy(desc(schema.cookingSession.completedAt))
-      .limit(20),
-  ]);
-  const summary = summaries[0];
-
-  // count(column) excludes NULL; distinct recipes need their own completed-only
-  // query because the slug itself is present on incomplete starts too.
-  const [completedDistinct] = await db
-    .select({
-      count: countDistinct(schema.cookingSession.recipeSlug),
-    })
-    .from(schema.cookingSession)
-    .where(
-      and(
-        eq(schema.cookingSession.userId, userId),
-        isNotNull(schema.cookingSession.completedAt),
-      ),
-    );
-
-  return {
-    cookModeStarts: summary?.cookModeStarts ?? 0,
-    mealsCooked: summary?.mealsCooked ?? 0,
-    distinctRecipesCooked: completedDistinct?.count ?? 0,
-    recent,
   };
 }
 

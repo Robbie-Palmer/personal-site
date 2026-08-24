@@ -4,47 +4,19 @@ import { Bot, Check, LoaderCircle, Lock, X } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
+import {
+  type AgentDetail,
+  type AgentHost,
+  decideAgentApproval,
+  getAgent,
+  getAgentHost,
+} from "@/lib/api/agents";
 import { authClient } from "@/lib/auth-client";
-
-type CapabilityGrant = {
-  capability: string;
-  description?: string;
-  status: string;
-};
-
-type AgentRequest = {
-  agent_id: string;
-  name: string;
-  status: string;
-  host_id: string;
-  agent_capability_grants: CapabilityGrant[];
-};
 
 type ApprovalIntent = {
   agentId: string;
   code: string;
 };
-
-function isAgentRequest(value: unknown): value is AgentRequest {
-  if (!value || typeof value !== "object") return false;
-  const candidate = value as Partial<AgentRequest>;
-  return (
-    typeof candidate.agent_id === "string" &&
-    typeof candidate.name === "string" &&
-    typeof candidate.status === "string" &&
-    typeof candidate.host_id === "string" &&
-    Array.isArray(candidate.agent_capability_grants) &&
-    candidate.agent_capability_grants.every(
-      (grant) =>
-        grant !== null &&
-        typeof grant === "object" &&
-        typeof grant.capability === "string" &&
-        typeof grant.status === "string" &&
-        (grant.description === undefined ||
-          typeof grant.description === "string"),
-    )
-  );
-}
 
 function readApprovalIntent(): ApprovalIntent | null {
   const params = new URLSearchParams(globalThis.location.search);
@@ -56,18 +28,21 @@ function readApprovalIntent(): ApprovalIntent | null {
   return { agentId, code };
 }
 
-async function responseError(response: Response): Promise<string> {
-  const body = (await response.json().catch(() => null)) as {
-    message?: string;
-    error?: string;
-  } | null;
-  return body?.message ?? body?.error ?? "The request could not be completed.";
+function dateLabel(value: string | null): string {
+  if (!value) return "No expiry supplied";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Unknown expiry";
+  return new Intl.DateTimeFormat(undefined, {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(date);
 }
 
 export function AgentApprovalView() {
   const { data: session, isPending: sessionPending } = authClient.useSession();
   const [intent, setIntent] = useState<ApprovalIntent | null | undefined>();
-  const [agent, setAgent] = useState<AgentRequest | null>(null);
+  const [agent, setAgent] = useState<AgentDetail | null>(null);
+  const [host, setHost] = useState<AgentHost | null>(null);
   const [loading, setLoading] = useState(false);
   const [pendingAction, setPendingAction] = useState<"approve" | "deny" | null>(
     null,
@@ -85,19 +60,24 @@ export function AgentApprovalView() {
     setLoading(true);
     setError(null);
 
-    void fetch(
-      `/api/auth/agent/get?agent_id=${encodeURIComponent(intent.agentId)}`,
-      { credentials: "include", signal: controller.signal },
-    )
-      .then(async (response) => {
-        if (!response.ok) throw new Error(await responseError(response));
-        const body: unknown = await response.json();
-        if (!isAgentRequest(body)) {
-          throw new Error("The agent request response was invalid.");
+    void (async () => {
+      try {
+        const loadedAgent = await getAgent(intent.agentId, controller.signal);
+        if (controller.signal.aborted) return;
+        setAgent(loadedAgent);
+        setLoading(false);
+        try {
+          const loadedHost = await getAgentHost(
+            loadedAgent.hostId,
+            controller.signal,
+          );
+          if (!controller.signal.aborted) setHost(loadedHost);
+        } catch (cause) {
+          if (cause instanceof DOMException && cause.name === "AbortError")
+            return;
+          if (!controller.signal.aborted) setHost(null);
         }
-        setAgent(body);
-      })
-      .catch((cause: unknown) => {
+      } catch (cause) {
         if (cause instanceof DOMException && cause.name === "AbortError")
           return;
         setError(
@@ -105,8 +85,9 @@ export function AgentApprovalView() {
             ? cause.message
             : "The agent request could not be loaded.",
         );
-      })
-      .finally(() => setLoading(false));
+        setLoading(false);
+      }
+    })();
 
     return () => controller.abort();
   }, [intent, session]);
@@ -116,17 +97,11 @@ export function AgentApprovalView() {
     setPendingAction(action);
     setError(null);
     try {
-      const response = await fetch("/api/auth/agent/approve-capability", {
-        method: "POST",
-        credentials: "include",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          agent_id: intent.agentId,
-          user_code: intent.code,
-          action,
-        }),
+      await decideAgentApproval({
+        agentId: intent.agentId,
+        code: intent.code,
+        action,
       });
-      if (!response.ok) throw new Error(await responseError(response));
       setResult(action === "approve" ? "approved" : "denied");
     } catch (cause) {
       setError(
@@ -207,7 +182,7 @@ export function AgentApprovalView() {
         <div className="mt-5 rounded-xl border border-[var(--line-strong)] bg-[var(--paper-warm)] p-4">
           <p className="rt-mono text-[var(--ink-3)]">Requested access</p>
           <ul className="mt-3 space-y-3">
-            {agent.agent_capability_grants
+            {agent.capabilityGrants
               .filter((grant) => grant.status === "pending")
               .map((grant) => (
                 <li key={grant.capability}>
@@ -222,9 +197,20 @@ export function AgentApprovalView() {
                 </li>
               ))}
           </ul>
-          <p className="rt-mono mt-4 text-xs text-[var(--ink-3)]">
-            Host {agent.host_id}
-          </p>
+          <dl className="rt-mono mt-4 space-y-1 text-xs text-[var(--ink-3)]">
+            <div className="flex gap-1">
+              <dt>Host</dt>
+              <dd>{host?.name ?? agent.hostId}</dd>
+            </div>
+            <div className="flex gap-1">
+              <dt>Account</dt>
+              <dd>{session.user.email}</dd>
+            </div>
+            <div className="flex gap-1">
+              <dt>Access expires</dt>
+              <dd>{dateLabel(agent.expiresAt)}</dd>
+            </div>
+          </dl>
         </div>
       )}
 

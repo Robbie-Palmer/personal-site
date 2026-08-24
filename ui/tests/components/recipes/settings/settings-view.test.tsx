@@ -21,6 +21,8 @@ const mocks = vi.hoisted(() => ({
   getHouseholdMembers: vi.fn(),
   getHouseholdInvitations: vi.fn(),
   getIncomingHouseholdInvitations: vi.fn(),
+  listAgents: vi.fn(),
+  revokeAgent: vi.fn(),
 }));
 
 vi.mock("@/lib/auth-client", () => ({
@@ -42,6 +44,12 @@ vi.mock("@/lib/api/households", async (importOriginal) => ({
   getHouseholdMembers: mocks.getHouseholdMembers,
   getHouseholdInvitations: mocks.getHouseholdInvitations,
   getIncomingHouseholdInvitations: mocks.getIncomingHouseholdInvitations,
+}));
+
+vi.mock("@/lib/api/agents", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/api/agents")>()),
+  listAgents: mocks.listAgents,
+  revokeAgent: mocks.revokeAgent,
 }));
 
 function renderSettingsView() {
@@ -91,6 +99,8 @@ describe("SettingsView", () => {
     mocks.getHouseholdMembers.mockResolvedValue([]);
     mocks.getHouseholdInvitations.mockResolvedValue([]);
     mocks.getIncomingHouseholdInvitations.mockResolvedValue([]);
+    mocks.listAgents.mockResolvedValue([]);
+    mocks.revokeAgent.mockResolvedValue(undefined);
     mocks.createHousehold.mockResolvedValue({});
   });
 
@@ -151,6 +161,18 @@ describe("SettingsView", () => {
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /github/i })).toBeInTheDocument();
     expect(screen.getByText("this device")).toBeInTheDocument();
+  });
+
+  it("opens agent access management from settings", async () => {
+    const user = userEvent.setup();
+    renderSettingsView();
+
+    await user.click(screen.getByRole("button", { name: "Agents" }));
+
+    expect(
+      await screen.findByText("Who can read your cooking data."),
+    ).toBeInTheDocument();
+    expect(screen.getByText("No agents connected.")).toBeInTheDocument();
   });
 
   it("saves a custom units ladder from the units settings panel", async () => {

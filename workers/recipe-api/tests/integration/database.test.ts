@@ -10,6 +10,10 @@ import {
   vi,
 } from "vitest";
 import { createAuth } from "../../src/auth";
+import {
+  cookingLogResponse,
+  decodeCookingLogCursor,
+} from "../../src/cooking-reads";
 import { app, type Bindings } from "../../src/index";
 
 const databaseURL = process.env.DATABASE_URL;
@@ -511,6 +515,72 @@ describe("recipe API PostgreSQL integration", () => {
         .from(schema.cookingSession)
         .where(eq(schema.cookingSession.userId, cook.id)),
     ).toHaveLength(0);
+  });
+
+  it("scopes and paginates delegated cooking-log reads", async () => {
+    const cook = await createUser("History Cook", "history-cook@example.test");
+    const otherCook = await createUser(
+      "Other History Cook",
+      "other-history-cook@example.test",
+    );
+    await db.insert(schema.cookingSession).values([
+      {
+        id: "2f64837b-3f3e-4c18-ae39-35df6808dc61",
+        userId: cook.id,
+        recipeSlug: "older-soup",
+        recipeTitle: "Older Soup",
+        servings: 2,
+        startedAt: new Date("2026-08-19T17:00:00.000Z"),
+        completedAt: new Date("2026-08-19T18:00:00.000Z"),
+      },
+      {
+        id: "2f64837b-3f3e-4c18-ae39-35df6808dc62",
+        userId: cook.id,
+        recipeSlug: "newer-stew",
+        recipeTitle: "Newer Stew",
+        servings: 4,
+        startedAt: new Date("2026-08-20T17:00:00.000Z"),
+        completedAt: new Date("2026-08-20T18:00:00.000Z"),
+      },
+      {
+        id: "2f64837b-3f3e-4c18-ae39-35df6808dc63",
+        userId: otherCook.id,
+        recipeSlug: "private-pasta",
+        recipeTitle: "Private Pasta",
+        servings: 8,
+        startedAt: new Date("2026-08-21T17:00:00.000Z"),
+        completedAt: new Date("2026-08-21T18:00:00.000Z"),
+      },
+    ]);
+
+    const range = {
+      from: new Date("2026-08-01T00:00:00.000Z"),
+      to: new Date("2026-08-31T23:59:59.999Z"),
+      limit: 1,
+    };
+    const firstPage = await cookingLogResponse(db, cook.id, range);
+
+    expect(firstPage.items).toMatchObject([
+      {
+        id: "2f64837b-3f3e-4c18-ae39-35df6808dc62",
+        recipeSlug: "newer-stew",
+      },
+    ]);
+    expect(firstPage.nextCursor).not.toBeNull();
+
+    const secondPage = await cookingLogResponse(db, cook.id, {
+      ...range,
+      cursor: decodeCookingLogCursor(firstPage.nextCursor ?? undefined),
+    });
+    expect(secondPage).toMatchObject({
+      items: [
+        {
+          id: "2f64837b-3f3e-4c18-ae39-35df6808dc61",
+          recipeSlug: "older-soup",
+        },
+      ],
+      nextCursor: null,
+    });
   });
 
   it("persists household membership and preserves notification snapshots", async () => {
