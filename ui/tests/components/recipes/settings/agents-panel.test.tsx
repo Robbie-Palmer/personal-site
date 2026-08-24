@@ -57,6 +57,19 @@ describe("AgentsPanel", () => {
     expect(screen.getByText("Expires")).toBeInTheDocument();
   });
 
+  it("explains what agents can do and how to connect one", async () => {
+    mocks.listAgents.mockResolvedValueOnce([]);
+    render(<AgentsPanel />);
+
+    expect(await screen.findByText("No agents connected.")).toBeInTheDocument();
+    expect(screen.getByText(/Access is read-only for now/)).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        /Start the connection from an Agent Auth-compatible app/,
+      ),
+    ).toBeInTheDocument();
+  });
+
   it("revokes one agent and reloads the list", async () => {
     const user = userEvent.setup();
     mocks.listAgents

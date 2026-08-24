@@ -117,8 +117,13 @@ export function AgentsPanel() {
         <div className="rounded-xl border border-dashed border-[var(--line-strong)] bg-[var(--card)] p-6 text-center">
           <Bot className="mx-auto size-6 text-[var(--terracotta)]" />
           <p className="rt-display mt-3 text-3xl">No agents connected.</p>
-          <p className="rt-body mt-1 text-sm text-[var(--ink-3)]">
-            Agent access appears here after you approve a request.
+          <p className="rt-body mx-auto mt-2 max-w-lg text-sm text-[var(--ink-2)]">
+            Agents can help find recipes and make sense of your cooking history.
+            Access is read-only for now, so an agent cannot change anything.
+          </p>
+          <p className="rt-body mx-auto mt-3 max-w-lg text-sm text-[var(--ink-3)]">
+            Start the connection from an Agent Auth-compatible app. You will get
+            an approval request here showing exactly what it wants to read.
           </p>
         </div>
       )}
