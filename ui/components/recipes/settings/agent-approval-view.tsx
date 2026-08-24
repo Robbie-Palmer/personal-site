@@ -60,10 +60,12 @@ export function AgentApprovalView() {
     setLoading(true);
     setError(null);
 
-    void getAgent(intent.agentId, controller.signal)
-      .then(async (loadedAgent) => {
+    void (async () => {
+      try {
+        const loadedAgent = await getAgent(intent.agentId, controller.signal);
         if (controller.signal.aborted) return;
         setAgent(loadedAgent);
+        setLoading(false);
         try {
           const loadedHost = await getAgentHost(
             loadedAgent.hostId,
@@ -75,8 +77,7 @@ export function AgentApprovalView() {
             return;
           if (!controller.signal.aborted) setHost(null);
         }
-      })
-      .catch((cause: unknown) => {
+      } catch (cause) {
         if (cause instanceof DOMException && cause.name === "AbortError")
           return;
         setError(
@@ -84,10 +85,9 @@ export function AgentApprovalView() {
             ? cause.message
             : "The agent request could not be loaded.",
         );
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) setLoading(false);
-      });
+        setLoading(false);
+      }
+    })();
 
     return () => controller.abort();
   }, [intent, session]);

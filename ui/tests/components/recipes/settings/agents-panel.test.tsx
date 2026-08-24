@@ -86,6 +86,7 @@ describe("AgentsPanel", () => {
     );
     expect(mocks.revokeAgent).toHaveBeenCalledWith("agent-1");
     await waitFor(() => expect(mocks.listAgents).toHaveBeenCalledTimes(2));
+    expect(mocks.listAgents).toHaveBeenLastCalledWith(expect.any(AbortSignal));
     expect(await screen.findByText("Revoked")).toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: "Revoke access" }),
@@ -105,5 +106,22 @@ describe("AgentsPanel", () => {
       "Revocation unavailable",
     );
     expect(screen.getByText("Meal planner")).toBeInTheDocument();
+  });
+
+  it("keeps a successful revocation visible when refresh fails", async () => {
+    const user = userEvent.setup();
+    mocks.listAgents
+      .mockResolvedValueOnce([activeAgent])
+      .mockRejectedValueOnce(new Error("Agent list refresh failed"));
+    render(<AgentsPanel />);
+
+    await user.click(
+      await screen.findByRole("button", { name: "Revoke access" }),
+    );
+
+    expect(await screen.findByText("Revoked")).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Agent list refresh failed",
+    );
   });
 });

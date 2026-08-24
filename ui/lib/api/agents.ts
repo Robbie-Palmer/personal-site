@@ -237,7 +237,7 @@ export async function decideAgentApproval(input: {
   code: string;
   action: "approve" | "deny";
 }): Promise<void> {
-  await apiRequest("/api/auth/agent/approve-capability", {
+  const body = await apiRequest<unknown>("/api/auth/agent/approve-capability", {
     method: "POST",
     json: {
       agent_id: input.agentId,
@@ -246,4 +246,12 @@ export async function decideAgentApproval(input: {
     },
     fallbackMessage: "The approval decision could not be saved.",
   });
+  const expectedStatus = input.action === "approve" ? "approved" : "denied";
+  if (
+    !isRecord(body) ||
+    body.status !== expectedStatus ||
+    (body.agentId !== undefined && body.agentId !== input.agentId)
+  ) {
+    throw new Error("The approval decision response was invalid.");
+  }
 }

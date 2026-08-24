@@ -384,7 +384,10 @@ describe("recipe Agent Auth capabilities", () => {
         },
         agentSession(),
       ),
-    ).rejects.toThrow("Cook log range must not exceed 90 days");
+    ).rejects.toMatchObject({
+      status: "BAD_REQUEST",
+      message: "Cook log range must not exceed 90 days",
+    });
     await expect(
       executeRecipeAgentCapability(
         queryDb([]),

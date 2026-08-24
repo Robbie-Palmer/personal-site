@@ -4,6 +4,7 @@ import {
   type AgentSession,
   type Capability,
 } from "@better-auth/agent-auth";
+import { APIError } from "better-auth";
 import { and, desc, eq, ilike, inArray, or, type SQL } from "drizzle-orm";
 import type { Db } from "recipe-db";
 import * as schema from "recipe-db/schema";
@@ -115,10 +116,12 @@ function cookingLogQuery(input: z.infer<typeof cookLogReadInput>) {
   }
 
   if (from > to) {
-    throw new Error("from must not be after to");
+    throw new APIError("BAD_REQUEST", { message: "from must not be after to" });
   }
   if (to.getTime() - from.getTime() > MAX_COOK_LOG_RANGE_MS) {
-    throw new Error("Cook log range must not exceed 90 days");
+    throw new APIError("BAD_REQUEST", {
+      message: "Cook log range must not exceed 90 days",
+    });
   }
 
   return { from, to, limit: input.limit, cursor };

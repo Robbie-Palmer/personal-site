@@ -1,7 +1,7 @@
 "use client";
 
 import { Bot, Clock, LoaderCircle, ShieldX } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { type AgentSummary, listAgents, revokeAgent } from "@/lib/api/agents";
 import { PanelHead } from "./panel-head";
@@ -33,6 +33,7 @@ export function AgentsPanel() {
   const [agents, setAgents] = useState<AgentSummary[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [revokingId, setRevokingId] = useState<string | null>(null);
+  const loadControllerRef = useRef<AbortController | null>(null);
 
   async function load(signal?: AbortSignal) {
     setError(null);
@@ -49,8 +50,12 @@ export function AgentsPanel() {
   // biome-ignore lint/correctness/useExhaustiveDependencies: load the user's agents once when this panel mounts
   useEffect(() => {
     const controller = new AbortController();
+    loadControllerRef.current = controller;
     void load(controller.signal);
-    return () => controller.abort();
+    return () => {
+      controller.abort();
+      loadControllerRef.current = null;
+    };
   }, []);
 
   async function revoke(agent: AgentSummary) {
@@ -63,7 +68,14 @@ export function AgentsPanel() {
     setError(null);
     try {
       await revokeAgent(agent.id);
-      await load();
+      setAgents(
+        (current) =>
+          current?.map((item) =>
+            item.id === agent.id ? { ...item, status: "revoked" } : item,
+          ) ?? null,
+      );
+      const signal = loadControllerRef.current?.signal;
+      if (signal) await load(signal);
     } catch (cause) {
       setError(
         cause instanceof Error

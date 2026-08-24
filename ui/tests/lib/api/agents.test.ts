@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { listAgents, revokeAgent } from "@/lib/api/agents";
+import { decideAgentApproval, listAgents, revokeAgent } from "@/lib/api/agents";
 
 const fetchMock = vi.fn<typeof fetch>();
 
@@ -133,5 +133,19 @@ describe("agent access API", () => {
         body: JSON.stringify({ agent_id: "agent-1" }),
       }),
     );
+  });
+
+  it("rejects a mismatched approval response", async () => {
+    fetchMock.mockResolvedValueOnce(
+      Response.json({ status: "approved", agentId: "agent-2" }),
+    );
+
+    await expect(
+      decideAgentApproval({
+        agentId: "agent-1",
+        code: "ABCD-1234",
+        action: "approve",
+      }),
+    ).rejects.toThrow("The approval decision response was invalid.");
   });
 });

@@ -141,6 +141,52 @@ describe("AgentApprovalView", () => {
     ).toBeInTheDocument();
   });
 
+  it("allows approval while optional host metadata is still loading", async () => {
+    let resolveHost: (response: Response) => void = () => {};
+    const hostResponse = new Promise<Response>((resolve) => {
+      resolveHost = resolve;
+    });
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(
+        Response.json({
+          agent_id: "agent-1",
+          name: "Meal planner",
+          status: "pending",
+          mode: "delegated",
+          host_id: "host-1",
+          created_at: "2026-08-22T09:00:00.000Z",
+          activated_at: null,
+          last_used_at: null,
+          expires_at: "2026-09-21T09:00:00.000Z",
+          agent_capability_grants: [
+            { capability: "recipes.search", status: "pending" },
+          ],
+        }),
+      )
+      .mockImplementationOnce(() => hostResponse)
+      .mockResolvedValueOnce(Response.json({ status: "approved" }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<AgentApprovalView />);
+
+    expect(await screen.findByText("Allow Meal planner?")).toBeInTheDocument();
+    await userEvent.click(
+      screen.getByRole("button", { name: "Approve access" }),
+    );
+    expect(
+      await screen.findByText("Agent access approved."),
+    ).toBeInTheDocument();
+
+    resolveHost(
+      Response.json({
+        id: "host-1",
+        name: "Kitchen helper host",
+        status: "active",
+      }),
+    );
+  });
+
   it("shows an error when the agent response is malformed", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({})));
 
