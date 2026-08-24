@@ -2,7 +2,7 @@ name: media
 
 services:
   prowlarr:
-    image: lscr.io/linuxserver/prowlarr:${PROWLARR_VERSION:-latest}
+    image: lscr.io/linuxserver/prowlarr:${PROWLARR_VERSION:-2.5.2.5491-ls156}
     container_name: prowlarr
     restart: unless-stopped
     ports:
@@ -15,7 +15,7 @@ services:
       - ./data/prowlarr:/config
 
   sonarr:
-    image: lscr.io/linuxserver/sonarr:${SONARR_VERSION:-latest}
+    image: lscr.io/linuxserver/sonarr:${SONARR_VERSION:-4.0.19.2979-ls322}
     container_name: sonarr
     restart: unless-stopped
     ports:
@@ -30,7 +30,7 @@ services:
       - "${MEDIA_DIR:?set MEDIA_DIR in the media-automation .env file}:/media"
 
   radarr:
-    image: lscr.io/linuxserver/radarr:${RADARR_VERSION:-latest}
+    image: lscr.io/linuxserver/radarr:${RADARR_VERSION:-6.3.0.10514-ls313}
     container_name: radarr
     restart: unless-stopped
     ports:
@@ -45,7 +45,7 @@ services:
       - "${MEDIA_DIR:?set MEDIA_DIR in the media-automation .env file}:/media"
 
   qbittorrent:
-    image: lscr.io/linuxserver/qbittorrent:${QBITTORRENT_VERSION:-latest}
+    image: lscr.io/linuxserver/qbittorrent:${QBITTORRENT_VERSION:-5.2.3-libtorrentv1}
     container_name: qbittorrent
     restart: unless-stopped
     ports:
@@ -68,7 +68,7 @@ services:
   # Radarr. Runs in cron mode (default @daily); see ADR 019. The official
   # image publishes no latest tag, so the major version is pinned.
   recyclarr:
-    image: ghcr.io/recyclarr/recyclarr:${RECYCLARR_VERSION:-8}
+    image: ghcr.io/recyclarr/recyclarr:${RECYCLARR_VERSION:-8.7.1}
     container_name: recyclarr
     restart: unless-stopped
     depends_on:
