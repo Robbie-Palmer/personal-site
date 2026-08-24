@@ -147,8 +147,16 @@ mise run //homelab:media-provision   # re-run wiring; safe to repeat
   agent refuse to start the containers until the hub's default route runs
   through a VPN tunnel interface, so torrent traffic never touches the
   residential line during the boot race ([ADR 020](/projects/homelab/adrs/020-vpn-gated-stack)).
-- The [Netdata](/projects/homelab/adrs/009-netdata) alerting should cover
-  these containers as well.
+- **Health gauges and alerts.** The keep-running agent probes every service
+  endpoint each cycle (plus the VPN tunnel itself) and pushes 0/1 gauges into
+  Netdata's local StatsD listener; it also restarts any container Docker marks
+  unhealthy for three consecutive cycles, since a hung process never exits and
+  Docker's own restart policy never fires for one.
+  [`netdata/health.d/media_automation.conf`](hosts/mac-mini/netdata/health.d/media_automation.conf)
+  turns those gauges into Slack alerts through the existing Netdata
+  notification pipeline. Install it with:
+  `cp hosts/mac-mini/netdata/health.d/media_automation.conf /opt/homebrew/etc/netdata/health.d/`
+  and restart netdata.
 
 ## SilverBullet on the Mac mini
 
@@ -228,8 +236,11 @@ mise run //homelab:sb-verify
 - **SilverBullet listens on localhost only.** The Docker compose file binds
   `127.0.0.1`. Remote access goes through Tailscale Serve, not direct
   port exposure.
-- The [Netdata](/projects/homelab/adrs/009-netdata) alerting should also
-  check the SilverBullet container health.
+- **SilverBullet health is watched too.** The media-automation keep-running
+  agent reports the SilverBullet container's Docker health as a Netdata gauge,
+  and the shared
+  [`media_automation.conf`](hosts/mac-mini/netdata/health.d/media_automation.conf)
+  alarm file raises a Slack alert if it stays unhealthy or exits.
 
 ## Basic Memory on the Mac mini
 
