@@ -28,6 +28,12 @@ LOG_TS="+%F %T"
 STATSD_HOST="${STATSD_HOST:-127.0.0.1}"
 STATSD_PORT="${STATSD_PORT:-8125}"
 
+# The qBittorrent probe must match the host port compose publishes. Read the
+# same variable the compose file interpolates, without sourcing the .env's
+# secrets into this process.
+QBITTORRENT_PORT="$(sed -n 's/^QBITTORRENT_PORT=//p' "$MEDIA_DIR/.env" 2>/dev/null | tr -d '\"'"'"' \r')"
+QBITTORRENT_PORT="${QBITTORRENT_PORT:-8080}"
+
 # Consecutive unhealthy cycles per container. Two parallel indexed arrays
 # instead of an associative array: launchd runs this under /bin/bash, and
 # macOS's bash 3.2 predates declare -A.
@@ -111,7 +117,7 @@ report_gauges() {
   fresh+=("media_sonarr_up:$(service_up http://localhost:8989/ping && echo 1 || echo 0)|g")
   fresh+=("media_radarr_up:$(service_up http://localhost:7878/ping && echo 1 || echo 0)|g")
   fresh+=("media_prowlarr_up:$(service_up http://localhost:9696/ping && echo 1 || echo 0)|g")
-  fresh+=("media_qbittorrent_up:$(service_up http://localhost:8080/api/v2/app/version && echo 1 || echo 0)|g")
+  fresh+=("media_qbittorrent_up:$(service_up "http://localhost:${QBITTORRENT_PORT}/api/v2/app/version" && echo 1 || echo 0)|g")
   LAST_GAUGES=("${fresh[@]}")
   return 0
 }
@@ -119,7 +125,7 @@ report_gauges() {
 # Restarts containers that Docker marks unhealthy for too many consecutive
 # cycles, and appends every tracked container's health as a gauge line.
 watch_container_health() {
-  local name health
+  local name health cycles
   while IFS=$'\t' read -r name health; do
     name="${name#/}"
     [[ -n "$name" ]] || continue

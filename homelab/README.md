@@ -58,9 +58,10 @@ mise run //homelab:verify
   on the LAN during the few seconds bootstrap runs.
 - **The drive must be mounted before bootstrap.** If the volume isn't
   connected or auto-mounted at login, the mount point won't exist.
-- The [Netdata](/projects/homelab/adrs/009-netdata) alerting on the hub
-  should gain a check for the Jellyfin container and the media drive, so a
-  dead stack is noticed before the family does.
+- The [Netdata](/projects/homelab/adrs/009-netdata) alerting on the hub now
+  covers the Jellyfin container (see the media automation section below);
+  the media drive itself is the remaining gap, so a dead disk is only
+  noticed when playback fails.
 
 ## Media automation on the Mac mini
 
