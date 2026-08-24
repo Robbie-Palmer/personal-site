@@ -101,7 +101,7 @@ kit would solve a software problem with more hardware.
   an upgrade can never silently break the GPU and every change is reviewable
   and rollbackable.
 * As the lab owner, I want Netdata to tell Slack when something is
-  overheating or down, so I find out about problems before they matter.
+  overheating, down, or hung, so I find out about problems before they matter.
 * As a web developer, I want agents to test changes on real Android 10, newer
   Android, and iOS 15 hardware, so mobile regressions are caught before
   a pull request merges.
@@ -399,7 +399,10 @@ owns the photo backup pipeline, the lab's two most important jobs.
   either way; only the mini's own traffic is tunnelled.
 * **Monitoring.** It runs [Netdata](/projects/homelab/adrs/009-netdata),
   connected to my Slack workspace via a Slack app, to alarm on anything
-  going wrong.
+  going wrong. The media stack feeds it per-service health gauges through
+  its StatsD listener, and the supervisor that keeps that stack alive
+  restarts containers Docker marks unhealthy — the hung-process case a
+  restart policy can never catch.
 * **Media.** It runs [Jellyfin](/projects/homelab/adrs/011-jellyfin) to serve
   TV shows and movies to my Fire TV Stick, in Docker Compose under colima
   with its config declared in `homelab/hosts/mac-mini/jellyfin/` in this
