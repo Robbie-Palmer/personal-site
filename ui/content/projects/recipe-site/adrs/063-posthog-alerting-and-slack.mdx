@@ -130,7 +130,9 @@ the workspace is initially more conspicuous than deploying a small Worker.
 Keep the three production alert definitions in Terraform and treat PostHog as the source of truth
 for operational alert state.
 
-* Alert on error and fatal logs for `recipe-api`, `recipe-ingest`, and `recipe-pages`.
+* Alert on error and fatal logs for `recipe-api`, `recipe-ingest`, and `recipe-pages` only when the
+  `deployment.environment.name` resource attribute is `production`. Preview deployments use the
+  same service names and must not notify the production channel.
 * Preserve the different sensitivity of interactive API, background ingestion, and quiet Pages
   workloads rather than applying one global threshold.
 * Simulate material threshold changes against at least seven days of production history.

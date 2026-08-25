@@ -12,6 +12,18 @@
 locals {
   posthog_log_alert_collection_path = "/api/projects/${var.posthog_project_id}/logs/alerts/"
   posthog_log_alert_item_path       = "${local.posthog_log_alert_collection_path}{id}/"
+  posthog_production_filter_group = {
+    type = "AND"
+    values = [{
+      type = "AND"
+      values = [{
+        key      = "deployment.environment.name"
+        type     = "log_resource_attribute"
+        operator = "exact"
+        value    = "production"
+      }]
+    }]
+  }
 
   posthog_log_alerts = {
     recipe_api_sustained_errors = {
@@ -47,6 +59,7 @@ locals {
       filters = {
         severityLevels = ["error", "fatal"]
         serviceNames   = alert.service_names
+        filterGroup    = local.posthog_production_filter_group
       }
       threshold_count     = alert.threshold_count
       threshold_operator  = "above"
