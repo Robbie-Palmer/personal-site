@@ -146,16 +146,18 @@
       "groupName": "pnpm"
     },
     {
-      "description": "pnpm is dev tooling in practice, so auto-merge it on the devDependencies terms",
+      "description": "Auto-merge pnpm updates after the pinned binary passes the workspace compatibility check",
       "matchPackageNames": [
         "pnpm",
         "pnpm/pnpm"
       ],
       "matchUpdateTypes": [
         "minor",
-        "patch"
+        "patch",
+        "major"
       ],
       "minimumReleaseAge": "3 days",
+      "dependencyDashboardApproval": false,
       "automerge": true
     },
     {

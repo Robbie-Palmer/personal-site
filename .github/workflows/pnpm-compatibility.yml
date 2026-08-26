@@ -1,0 +1,33 @@
+name: pnpm compatibility
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: jdx/mise-action@3c2e0cf82a5b2e5249f0d3635a4d83d0ae861518 # v4.2.5
+        with:
+          experimental: true
+
+      - name: Verify pnpm pins
+        shell: bash
+        run: |
+          package_version="$(node --print "require('./package.json').packageManager.replace(/^pnpm@/, '')")"
+          mise_version="$(mise x -- pnpm --version)"
+
+          if [[ "$package_version" != "$mise_version" ]]; then
+            echo "::error::pnpm versions differ: package.json=$package_version, mise=$mise_version"
+            exit 1
+          fi
+
+      - name: Verify frozen workspace install
+        run: mise x -- pnpm install --frozen-lockfile
