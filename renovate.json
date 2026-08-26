@@ -64,6 +64,17 @@
       "automerge": true
     },
     {
+      "description": "Auto-merge Mermaid minor updates covered by browser rendering tests",
+      "matchPackageNames": [
+        "mermaid"
+      ],
+      "matchUpdateTypes": [
+        "minor",
+        "patch"
+      ],
+      "automerge": true
+    },
+    {
       "description": "Auto-merge GitHub Actions (all updates)",
       "matchManagers": [
         "github-actions"
