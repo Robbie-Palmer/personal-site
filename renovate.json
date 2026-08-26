@@ -88,12 +88,11 @@
       "automerge": true
     },
     {
-      "description": "Review the Neon backup toolchain by hand - the backup job runs against real data and no CI job proves these beforehand",
+      "description": "Review age and jq by hand - the backup job runs against real data and no CI job proves these beforehand",
       "matchManagers": [
         "mise"
       ],
       "matchDepNames": [
-        "awscli",
         "age",
         "jq"
       ],
