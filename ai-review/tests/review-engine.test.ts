@@ -1059,6 +1059,76 @@ describe("stateful review engine", () => {
     ).rejects.toThrow("head changed");
   });
 
+  it("reports active guardrails on an explicit manual review", async () => {
+    let rollingComment = "";
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = new URL(String(input));
+        if (url.pathname === "/app/installations/456/access_tokens") {
+          return json({ token: "installation-token" });
+        }
+        if (url.pathname.endsWith("/pulls/42")) {
+          return json({ head: { sha: params.headSha } });
+        }
+        if (
+          url.pathname.endsWith("/issues/42/comments") &&
+          init?.method === "GET"
+        ) {
+          return json([]);
+        }
+        if (
+          url.pathname.endsWith("/pulls/42/comments") &&
+          init?.method === "GET"
+        ) {
+          return json([]);
+        }
+        if (
+          url.pathname.endsWith("/issues/42/comments") &&
+          init?.method === "POST"
+        ) {
+          rollingComment = String(
+            (JSON.parse(String(init.body)) as { body: string }).body,
+          );
+          return json({ id: 987 });
+        }
+        throw new Error(`Unexpected request: ${init?.method ?? "GET"} ${url}`);
+      }),
+    );
+    const env = environment();
+    env.AI_REVIEW_PUBLICATION_POLICY_VERSION = "publication-test-v2";
+    env.AI_REVIEW_RELIABILITY_POLICY_VERSION = "reliability-test-v2";
+    env.AI_REVIEW_MAX_VISIBLE_FINDINGS = "4";
+    env.AI_REVIEW_MODEL_FAILURE_THRESHOLD = "2";
+    env.AI_REVIEW_MODEL_COOLDOWN_SECONDS = "90";
+
+    await publishReview(
+      env,
+      { ...params, force: true },
+      { headSha: params.headSha, paths: [], omitted: [] },
+      {
+        models: [],
+        candidates: {},
+        failed: [],
+        candidateCounts: {},
+        invalidCounts: {},
+        outOfScopeCounts: {},
+        costs: {},
+        metrics: [],
+      },
+      { result: { summary: "No defects.", findings: [] }, cost: 0 },
+      { hunks: [], candidates: {}, publishedFindings: [], hiddenFindings: [] },
+      { runs: 0, total_usd: 0 },
+    );
+
+    expect(rollingComment).toContain("Advisory review");
+    expect(rollingComment).toContain("Active guardrails");
+    expect(rollingComment).toContain("publication-test-v2");
+    expect(rollingComment).toContain("at most 4 visible open findings");
+    expect(rollingComment).toContain("reliability-test-v2");
+    expect(rollingComment).toContain("2 consecutive failures for 90 seconds");
+  });
+
   it("runs and visibly publishes the same OpenRouter plus OpenCode ensemble", async () => {
     const publishedBodies: string[] = [];
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -1274,11 +1344,16 @@ describe("stateful review engine", () => {
     expect(publishedBodies[1]).toContain(STATEFUL_REVIEW_MARKER);
     expect(publishedBodies[1]).toContain("## Stateful AI code review");
     expect(publishedBodies[1]).toContain("Coverage: Full coverage");
+    expect(publishedBodies[1]).toContain("Advisory review");
     expect(put).toHaveBeenCalledOnce();
     const record = JSON.parse(String(put.mock.calls[0]?.[1])) as {
       schemaVersion: number;
       status: string;
       findings: { published: Array<{ findingId: string }> };
+      guardrailPolicy: {
+        publication: { version: string; maxVisibleFindings: number };
+        reliability: { version: string; consecutiveFailureThreshold: number };
+      };
       hunks: Array<{ hunkId: string }>;
       models: Array<{
         provider: string;
@@ -1287,6 +1362,16 @@ describe("stateful review engine", () => {
     };
     expect(record.status).toBe("published");
     expect(record.schemaVersion).toBe(2);
+    expect(record.guardrailPolicy).toMatchObject({
+      publication: {
+        version: "deterministic-publication-v1",
+        maxVisibleFindings: 7,
+      },
+      reliability: {
+        version: "consecutive-failures-v1",
+        consecutiveFailureThreshold: 3,
+      },
+    });
     expect(record.findings.published[0]?.findingId).toMatch(/^f_[a-f0-9]{24}$/);
     expect(record.hunks[0]?.hunkId).toMatch(/^h_[a-f0-9]{24}$/);
     expect(record.models.map(({ provider }) => provider)).toContain("opencode");
@@ -1411,5 +1496,98 @@ describe("stateful review engine", () => {
       artifacts.candidates["model/scout"]?.[0]?.findingId,
     );
     expect(artifacts.publishedFindings[0]?.hunkIds).toEqual([hunks[1]?.hunkId]);
+  });
+
+  it("retains every raw candidate and hidden publication decision in R2", async () => {
+    const candidates = [
+      {
+        severity: "critical" as const,
+        file: "a.ts",
+        line: 1,
+        title: "Critical defect",
+        evidence: "The new branch always throws.",
+        recommendation: "Return the handled value.",
+        confidence: 0.95,
+      },
+      {
+        severity: "high" as const,
+        file: "b.ts",
+        line: 1,
+        title: "Speculative defect",
+        evidence: "The value may be absent.",
+        recommendation: "Consider checking the value.",
+        confidence: 0.9,
+      },
+      {
+        severity: "medium" as const,
+        file: "c.ts",
+        line: 1,
+        title: "Bounded defect",
+        evidence: "The loop omits its final element.",
+        recommendation: "Include the final index.",
+        confidence: 0.85,
+      },
+    ];
+    const scouts = {
+      models: ["model/scout"],
+      candidates: { "model/scout": candidates },
+      failed: [],
+      candidateCounts: { "model/scout": 3 },
+      invalidCounts: { "model/scout": 0 },
+      outOfScopeCounts: { "model/scout": 0 },
+      costs: { "model/scout": 0 },
+      metrics: [],
+    };
+    const merged = {
+      result: {
+        summary: "Three candidates.",
+        findings: candidates.map((candidate) => ({
+          ...candidate,
+          source_models: ["model/scout"],
+          status: "open" as const,
+          resolution_note: "",
+        })),
+      },
+      cost: 0,
+    };
+    const prepared = {
+      headSha: params.headSha,
+      paths: candidates.map(({ file }) => file),
+      omitted: [],
+      hunks: [],
+    };
+    const artifacts = await identifyReviewArtifacts(
+      prepared,
+      scouts,
+      merged,
+      {
+        version: "publication-test-v1",
+        maxVisibleFindings: 1,
+        rejectedLanguage: [],
+      },
+    );
+    expect(artifacts.candidates["model/scout"]).toHaveLength(3);
+    expect(artifacts.publishedFindings).toHaveLength(1);
+    expect(artifacts.hiddenFindings).toHaveLength(2);
+
+    const put = vi.fn();
+    await recordReview({
+      env: environment(put),
+      params,
+      instanceId: "guardrail-record",
+      prepared,
+      scouts,
+      merged,
+      artifacts,
+      publication: { runCostUsd: 0, findings: [] },
+      timestamp: new Date("2026-08-26T12:00:00Z"),
+    });
+    const record = JSON.parse(String(put.mock.calls[0]?.[1])) as {
+      candidates: Record<string, unknown[]>;
+      findings: { published: unknown[]; hidden: unknown[] };
+    };
+    expect(record.candidates["model/scout"]).toHaveLength(3);
+    expect(record.findings.published).toHaveLength(1);
+    expect(record.findings.hidden).toHaveLength(2);
   });
 });

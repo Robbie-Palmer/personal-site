@@ -32,6 +32,13 @@ import {
   type Env,
   type ReviewWorkflowParams,
 } from "./env";
+import {
+  guardrailPolicy,
+  manualGuardrailStatement,
+  selectPublishedFindings,
+  type HiddenFinding,
+  type PublicationPolicy,
+} from "./guardrails";
 import { createInstallationToken } from "./github-app";
 import {
   publishFindingComments,
@@ -142,6 +149,16 @@ export interface ModelMetric {
   costUsd: number;
   usage?: ModelUsage;
   error?: string;
+  skipped?: boolean;
+  consecutiveFailures?: number;
+  cooldownUntil?: string;
+}
+
+export interface CircuitSkippedModel {
+  model: string;
+  provider: "opencode" | "openrouter";
+  consecutiveFailures: number;
+  cooldownUntil: string;
 }
 
 export interface ScoutRun {
@@ -153,10 +170,16 @@ export interface ScoutRun {
   outOfScopeCounts: Record<string, number>;
   costs: Record<string, number>;
   metrics: ModelMetric[];
+  circuitSkipped?: CircuitSkippedModel[];
 }
 
 interface ScoutRunOptions {
   providers?: Array<Scout["provider"]>;
+  observationId?: string;
+}
+
+interface MergeRunOptions {
+  observationId?: string;
 }
 
 export interface MergedRun {
@@ -214,6 +237,7 @@ export interface IdentifiedReviewArtifacts {
   hunks: ReviewHunk[];
   candidates: Record<string, IdentifiedFinding[]>;
   publishedFindings: IdentifiedMergedFinding[];
+  hiddenFindings?: Array<HiddenFinding<IdentifiedMergedFinding>>;
 }
 
 export interface ReviewPublication {
@@ -725,6 +749,7 @@ export async function identifyReviewArtifacts(
   prepared: PreparedReview,
   scouts: ScoutRun,
   merged: MergedRun,
+  publicationPolicy: PublicationPolicy = guardrailPolicy({}).publication,
 ): Promise<IdentifiedReviewArtifacts> {
   const hunks = prepared.hunks ?? [];
   const candidates: Record<string, IdentifiedFinding[]> = {};
@@ -740,7 +765,7 @@ export async function identifyReviewArtifacts(
   const mergedFindings = Array.isArray(merged.result.findings)
     ? (merged.result.findings as MergedFinding[])
     : [];
-  const publishedFindings = await Promise.all(
+  const identifiedFindings = await Promise.all(
     mergedFindings.map(async (finding): Promise<IdentifiedMergedFinding> => {
       const sourceCandidates = finding.source_models.flatMap(
         (model) => candidates[model] ?? [],
@@ -760,7 +785,16 @@ export async function identifyReviewArtifacts(
       };
     }),
   );
-  return { hunks, candidates, publishedFindings };
+  const { published, hidden } = selectPublishedFindings(
+    identifiedFindings,
+    publicationPolicy,
+  );
+  return {
+    hunks,
+    candidates,
+    publishedFindings: published,
+    hiddenFindings: hidden,
+  };
 }
 
 function coordinatorStub(env: Env, params: ReviewWorkflowParams) {
@@ -911,6 +945,7 @@ export async function prepareReview(
     scoutSchema,
     statefulMergerSystem,
     statefulMergerSchema,
+    guardrails: guardrailPolicy(env),
   });
   return {
     headSha,
@@ -984,6 +1019,93 @@ function errorMessage(error: unknown): string {
   return (error instanceof Error ? error.message : String(error)).slice(0, 500);
 }
 
+const MODEL_RELIABILITY_COORDINATOR = "__ai-review-model-reliability__";
+
+function isCircuitSkippedModel(value: unknown): value is CircuitSkippedModel {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const decision = value as Partial<CircuitSkippedModel>;
+  return (
+    typeof decision.model === "string" &&
+    (decision.provider === "openrouter" || decision.provider === "opencode") &&
+    typeof decision.consecutiveFailures === "number" &&
+    Number.isSafeInteger(decision.consecutiveFailures) &&
+    decision.consecutiveFailures > 0 &&
+    typeof decision.cooldownUntil === "string" &&
+    !Number.isNaN(Date.parse(decision.cooldownUntil))
+  );
+}
+
+async function plannedCircuitSkips(
+  env: Env,
+  scouts: Scout[],
+): Promise<CircuitSkippedModel[]> {
+  if (!env.PR_STATE || scouts.length === 0) return [];
+  try {
+    const stub = env.PR_STATE.get(
+      env.PR_STATE.idFromName(MODEL_RELIABILITY_COORDINATOR),
+    );
+    const response = await stub.fetch(
+      "https://coordinator.internal/models/plan",
+      {
+        method: "POST",
+        body: JSON.stringify({ models: scouts }),
+        signal: AbortSignal.timeout(10_000),
+      },
+    );
+    if (!response.ok) throw new Error(`model plan failed (${response.status})`);
+    const result = (await response.json()) as { skipped?: unknown };
+    return Array.isArray(result.skipped)
+      ? result.skipped.filter(isCircuitSkippedModel)
+      : [];
+  } catch (error) {
+    console.error("Could not load model circuit-breaker state", {
+      type: error instanceof Error ? error.name : typeof error,
+    });
+    return [];
+  }
+}
+
+async function recordModelReliability(
+  env: Env,
+  observationId: string,
+  metrics: ModelMetric[],
+): Promise<void> {
+  if (!env.PR_STATE || metrics.length === 0) return;
+  const attempted = metrics.filter(({ skipped }) => !skipped);
+  if (attempted.length === 0) return;
+  try {
+    const stub = env.PR_STATE.get(
+      env.PR_STATE.idFromName(MODEL_RELIABILITY_COORDINATOR),
+    );
+    const response = await stub.fetch(
+      "https://coordinator.internal/models/record",
+      {
+        method: "POST",
+        body: JSON.stringify({
+          observationId,
+          policy: guardrailPolicy(env).reliability,
+          metrics: attempted.map(({ model, provider, ok, error }) => ({
+            model,
+            provider,
+            ok,
+            error,
+          })),
+        }),
+        signal: AbortSignal.timeout(10_000),
+      },
+    );
+    if (!response.ok) {
+      throw new Error(`model reliability record failed (${response.status})`);
+    }
+  } catch (error) {
+    // Model calls are not idempotent. Do not replay paid inference merely
+    // because the health observation could not be written.
+    console.error("Could not record model circuit-breaker state", {
+      type: error instanceof Error ? error.name : typeof error,
+    });
+  }
+}
+
 function validateScoutPayload(
   payload: JsonObject,
   allowedFiles: Set<string>,
@@ -1034,7 +1156,7 @@ export async function runScouts(
       `Scout model IDs must be unique across providers: ${duplicateModels.join(", ")}`,
     );
   }
-  const runnableScouts: Scout[] = [
+  const configuredScouts: Scout[] = [
     ...(providers.has("openrouter")
       ? settings.openRouterScouts.map(
           (model): Scout => ({ model, provider: "openrouter" }),
@@ -1046,8 +1168,20 @@ export async function runScouts(
         )
       : []),
   ];
+  const unavailableScouts: Scout[] = availability.unavailable.map((model) => ({
+    model,
+    provider: "opencode",
+  }));
+  const circuitSkipped = await plannedCircuitSkips(env, [
+    ...configuredScouts,
+    ...unavailableScouts,
+  ]);
+  const skippedModels = new Set(circuitSkipped.map(({ model }) => model));
+  const runnableScouts = configuredScouts.filter(
+    ({ model }) => !skippedModels.has(model),
+  );
   const models = [
-    ...runnableScouts.map(({ model }) => model),
+    ...configuredScouts.map(({ model }) => model),
     ...availability.unavailable,
   ];
   const source = dataPrompt(
@@ -1087,16 +1221,34 @@ export async function runScouts(
   const invalidCounts: Record<string, number> = {};
   const outOfScopeCounts: Record<string, number> = {};
   const candidateCounts: Record<string, number> = {};
-  const failed = [...availability.unavailable];
-  const metrics: ModelMetric[] = availability.unavailable.map((model) => ({
-    model,
-    provider: "opencode",
-    role: "scout",
-    ok: false,
-    latencyMs: 0,
-    costUsd: 0,
-    error: "model is unavailable in the live OpenCode catalogue",
-  }));
+  const failed = availability.unavailable.filter(
+    (model) => !skippedModels.has(model),
+  );
+  const metrics: ModelMetric[] = [
+    ...circuitSkipped.map((decision) => ({
+      model: decision.model,
+      provider: decision.provider,
+      role: "scout" as const,
+      ok: false,
+      skipped: true,
+      consecutiveFailures: decision.consecutiveFailures,
+      cooldownUntil: decision.cooldownUntil,
+      latencyMs: 0,
+      costUsd: 0,
+      error: "model skipped during circuit-breaker cooldown",
+    })),
+    ...availability.unavailable
+      .filter((model) => !skippedModels.has(model))
+      .map((model) => ({
+        model,
+        provider: "opencode" as const,
+        role: "scout" as const,
+        ok: false,
+        latencyMs: 0,
+        costUsd: 0,
+        error: "model is unavailable in the live OpenCode catalogue",
+      })),
+  ];
   const allowedFiles = new Set(prepared.paths);
   for (const { scout, latencyMs, outcome } of settled) {
     if (outcome.status === "rejected") {
@@ -1141,6 +1293,12 @@ export async function runScouts(
       }
     }
   }
+  await recordModelReliability(
+    env,
+    options.observationId ??
+      `${params.deliveryId}:${[...providers].sort().join(",")}`,
+    metrics,
+  );
   return {
     models,
     candidates,
@@ -1150,6 +1308,7 @@ export async function runScouts(
     outOfScopeCounts,
     costs,
     metrics,
+    circuitSkipped,
   };
 }
 
@@ -1172,6 +1331,7 @@ export function combineScoutRuns(...runs: ScoutRun[]): ScoutRun {
     ),
     costs: Object.assign({}, ...runs.map(({ costs }) => costs)),
     metrics: runs.flatMap(({ metrics }) => metrics),
+    circuitSkipped: runs.flatMap(({ circuitSkipped }) => circuitSkipped ?? []),
   };
 }
 
@@ -1180,6 +1340,7 @@ export async function mergeFindings(
   params: ReviewWorkflowParams,
   prepared: PreparedReview,
   scouts: ScoutRun,
+  options: MergeRunOptions = {},
 ): Promise<MergedRun> {
   if (Object.keys(scouts.candidates).length === 0) {
     const findingResolutions = (prepared.replayFindings ?? []).map(
@@ -1203,6 +1364,44 @@ export async function mergeFindings(
   }
   const settings = modelSettings(env, params, "not-used-for-model-calls");
   const reviewer = new Reviewer(settings);
+  const circuitSkip = (
+    await plannedCircuitSkips(env, [{
+      model: settings.merger,
+      provider: "openrouter",
+    }])
+  )[0];
+  if (circuitSkip) {
+    const findingResolutions = (prepared.replayFindings ?? []).map(
+      ({ findingId }) => ({
+        finding_id: findingId,
+        verdict: "uncertain" as const,
+        evidence: "The merger was in circuit-breaker cooldown, so controlled replay could not be evaluated.",
+      }),
+    );
+    return {
+      result: {
+        summary:
+          "The merger was in circuit-breaker cooldown, so this run has no publishable findings.",
+        findings: [],
+        ...(findingResolutions.length > 0
+          ? { finding_resolutions: findingResolutions }
+          : {}),
+      },
+      cost: 0,
+      metric: {
+        model: circuitSkip.model,
+        provider: circuitSkip.provider,
+        role: "merger",
+        ok: false,
+        skipped: true,
+        consecutiveFailures: circuitSkip.consecutiveFailures,
+        cooldownUntil: circuitSkip.cooldownUntil,
+        latencyMs: 0,
+        costUsd: 0,
+        error: "model skipped during circuit-breaker cooldown",
+      },
+    };
+  }
   const prompt = `<DATA kind=scout-candidates>
 ${JSON.stringify(scouts.candidates)}
 </DATA>
@@ -1219,14 +1418,32 @@ ${prepared.context ?? ""}
 ${prepared.threads ?? ""}
 </DATA>`;
   const started = Date.now();
-  const merged = await reviewer.callMerger(
-    settings.merger,
-    statefulMergerSystem,
-    prompt,
-    "merged_code_review",
-    statefulMergerSchema,
-    MERGER_MAX_TOKENS,
-  );
+  let merged: ModelResult;
+  try {
+    merged = await reviewer.callMerger(
+      settings.merger,
+      statefulMergerSystem,
+      prompt,
+      "merged_code_review",
+      statefulMergerSchema,
+      MERGER_MAX_TOKENS,
+    );
+  } catch (error) {
+    await recordModelReliability(
+      env,
+      options.observationId ?? `${params.deliveryId}:merger`,
+      [{
+        model: settings.merger,
+        provider: "openrouter",
+        role: "merger",
+        ok: false,
+        latencyMs: Date.now() - started,
+        costUsd: 0,
+        error: errorMessage(error),
+      }],
+    );
+    throw error;
+  }
   const allowedFiles = new Set(prepared.paths);
   merged.payload.findings = (
     validateFindings(merged.payload, {
@@ -1283,18 +1500,24 @@ ${prepared.threads ?? ""}
       "Merger omitted or invalidated a required controlled replay resolution",
     );
   }
+  const metric: ModelMetric = {
+    model: settings.merger,
+    provider: "openrouter",
+    role: "merger",
+    ok: true,
+    latencyMs: Date.now() - started,
+    costUsd: merged.cost,
+    usage: merged.usage,
+  };
+  await recordModelReliability(
+    env,
+    options.observationId ?? `${params.deliveryId}:merger`,
+    [metric],
+  );
   return {
     result: merged.payload,
     cost: merged.cost,
-    metric: {
-      model: settings.merger,
-      provider: "openrouter",
-      role: "merger",
-      ok: true,
-      latencyMs: Date.now() - started,
-      costUsd: merged.cost,
-      usage: merged.usage,
-    },
+    metric,
   };
 }
 
@@ -1346,12 +1569,28 @@ export async function publishReview(
     typeof merged.result.summary === "string"
       ? merged.result.summary
       : "Review complete.";
-  const result = prepared.coverage
-    ? {
-        ...merged.result,
-        summary: `${coverageStatement(prepared.coverage)}\n\n${reviewSummary}`,
-      }
-    : merged.result;
+  const policy = guardrailPolicy(env);
+  const summaryParts = [
+    prepared.coverage ? coverageStatement(prepared.coverage) : undefined,
+    reviewSummary,
+    "Advisory review: investigate each finding before making a merge decision.",
+    params.force ? `Active guardrails: ${manualGuardrailStatement(policy)}` : undefined,
+    artifacts.hiddenFindings?.length
+      ? `Publication guardrails withheld ${artifacts.hiddenFindings.length} finding(s). Raw scout candidates remain in the versioned review record.`
+      : undefined,
+    scouts.circuitSkipped?.length
+      ? `Incomplete model coverage: circuit-breaker cooldown skipped ${scouts.circuitSkipped
+          .map(({ model }) => model)
+          .join(", ")}.`
+      : undefined,
+    merged.metric?.skipped
+      ? `Incomplete model coverage: merger ${merged.metric.model} was skipped during circuit-breaker cooldown.`
+      : undefined,
+  ].filter((part): part is string => Boolean(part));
+  const result = {
+    ...merged.result,
+    summary: summaryParts.join("\n\n"),
+  };
   const body = renderComment({
     result,
     headSha: prepared.headSha,
@@ -1521,6 +1760,7 @@ export async function recordReviewTerminal(options: {
           env.AI_REVIEW_ZDR?.trim().toLowerCase() ?? "",
         ),
       },
+      guardrailPolicy: guardrailPolicy(env),
       trigger: {
         deliveryId: params.deliveryId,
         eventName: params.eventName,
@@ -1544,6 +1784,7 @@ export async function recordReviewTerminal(options: {
           ? {
               summary,
               published: artifacts?.publishedFindings ?? [],
+              hidden: artifacts?.hiddenFindings ?? [],
             }
           : undefined,
       models: scouts

@@ -144,14 +144,20 @@ describe("ReviewWorkflow orchestration", () => {
       expect.anything(),
       payload,
       prepared,
-      { providers: ["openrouter"] },
+      {
+        providers: ["openrouter"],
+        observationId: `${event.instanceId}:openrouter`,
+      },
     );
     expect(engine.runScouts).toHaveBeenNthCalledWith(
       2,
       expect.anything(),
       payload,
       prepared,
-      { providers: ["opencode"] },
+      {
+        providers: ["opencode"],
+        observationId: `${event.instanceId}:opencode`,
+      },
     );
     expect(engine.combineScoutRuns).toHaveBeenCalledWith(scouts, emptyScouts);
     expect(engine.mergeFindings).toHaveBeenCalledOnce();
@@ -169,6 +175,10 @@ describe("ReviewWorkflow orchestration", () => {
       prepared,
       scouts,
       merged,
+      expect.objectContaining({
+        version: "deterministic-publication-v1",
+        maxVisibleFindings: 7,
+      }),
     );
     expect(engine.recordReview).toHaveBeenCalledWith(
       expect.objectContaining({

@@ -20,6 +20,7 @@ import {
   type FindingOutcomeManualOverride,
   summarizeFindingInteractions,
 } from "./finding-outcomes";
+import { guardrailPolicy } from "./guardrails";
 import { createInstallationToken } from "./github-app";
 import type { FindingPublication } from "./finding-lifecycle";
 import {
@@ -175,6 +176,25 @@ const CREATE_REVIEW_FINDING_EVALUATIONS_TABLE =
   "evaluator_version TEXT NOT NULL, " +
   "evidence_json TEXT NOT NULL, " +
   "evaluated_at TEXT NOT NULL)";
+const CREATE_REVIEW_MODEL_HEALTH_TABLE =
+  "CREATE TABLE IF NOT EXISTS review_model_health (" +
+  "model TEXT PRIMARY KEY, " +
+  "provider TEXT NOT NULL, " +
+  "consecutive_failures INTEGER NOT NULL DEFAULT 0, " +
+  "total_failures INTEGER NOT NULL DEFAULT 0, " +
+  "total_successes INTEGER NOT NULL DEFAULT 0, " +
+  "cooldown_until_ms INTEGER, " +
+  "last_error TEXT, " +
+  "updated_at TEXT NOT NULL)";
+const CREATE_REVIEW_MODEL_HEALTH_OBSERVATIONS_TABLE =
+  "CREATE TABLE IF NOT EXISTS review_model_health_observations (" +
+  "observation_id TEXT NOT NULL, " +
+  "model TEXT NOT NULL, " +
+  "provider TEXT NOT NULL, " +
+  "ok INTEGER NOT NULL, " +
+  "error TEXT, " +
+  "observed_at TEXT NOT NULL, " +
+  "PRIMARY KEY (observation_id, model))";
 const DEFAULT_DEBOUNCE_DELAY_MS = 120_000;
 const MINIMUM_DEBOUNCE_DELAY_MS = 1_000;
 const MAXIMUM_DEBOUNCE_DELAY_MS = 3_600_000;
@@ -762,6 +782,8 @@ export class PullRequestCoordinator extends DurableObject<Env> {
       );
     }
     this.ctx.storage.sql.exec(CREATE_REVIEW_FINDING_EVALUATIONS_TABLE);
+    this.ctx.storage.sql.exec(CREATE_REVIEW_MODEL_HEALTH_TABLE);
+    this.ctx.storage.sql.exec(CREATE_REVIEW_MODEL_HEALTH_OBSERVATIONS_TABLE);
   }
 
   async fetch(request: Request): Promise<Response> {
@@ -776,7 +798,180 @@ export class PullRequestCoordinator extends DurableObject<Env> {
     if (path === "/reviews/baseline") return this.reviewBaseline(request);
     if (path === "/reviews/complete") return this.completeReview(request);
     if (path === "/reviews/fail") return this.failReview(request);
+    if (path === "/models/plan") return this.planModelAvailability(request);
+    if (path === "/models/record") return this.recordModelAvailability(request);
     return new Response("Not found", { status: 404 });
+  }
+
+  private async planModelAvailability(request: Request): Promise<Response> {
+    const body = (await request.json().catch(() => null)) as {
+      models?: unknown;
+    } | null;
+    if (
+      !body ||
+      !Array.isArray(body.models) ||
+      body.models.length > 50 ||
+      !body.models.every(
+        (candidate) =>
+          isRecord(candidate) &&
+          typeof candidate.model === "string" &&
+          candidate.model.length > 0 &&
+          candidate.model.length <= 200 &&
+          (candidate.provider === "openrouter" ||
+            candidate.provider === "opencode"),
+      )
+    ) {
+      return json({ error: "Invalid model availability plan" }, 400);
+    }
+    const now = Date.now();
+    const skipped = body.models.flatMap((candidate) => {
+      const model = candidate as {
+        model: string;
+        provider: "openrouter" | "opencode";
+      };
+      const health = this.ctx.storage.sql
+        .exec<{
+          consecutive_failures: number;
+          cooldown_until_ms: number | null;
+        }>(
+          `SELECT consecutive_failures, cooldown_until_ms
+           FROM review_model_health WHERE model = ?`,
+          model.model,
+        )
+        .toArray()[0];
+      const cooldownUntil = Number(health?.cooldown_until_ms ?? 0);
+      if (!health || cooldownUntil <= now) return [];
+      return [{
+        model: model.model,
+        provider: model.provider,
+        consecutiveFailures: Number(health.consecutive_failures),
+        cooldownUntil: new Date(cooldownUntil).toISOString(),
+      }];
+    });
+    return json({ skipped });
+  }
+
+  private async recordModelAvailability(request: Request): Promise<Response> {
+    const body = (await request.json().catch(() => null)) as {
+      observationId?: unknown;
+      policy?: unknown;
+      metrics?: unknown;
+    } | null;
+    const policy = isRecord(body?.policy) ? body.policy : undefined;
+    if (
+      !body ||
+      typeof body.observationId !== "string" ||
+      body.observationId.length === 0 ||
+      body.observationId.length > 255 ||
+      !policy ||
+      typeof policy.version !== "string" ||
+      policy.version.length === 0 ||
+      typeof policy.consecutiveFailureThreshold !== "number" ||
+      !Number.isSafeInteger(policy.consecutiveFailureThreshold) ||
+      policy.consecutiveFailureThreshold < 1 ||
+      policy.consecutiveFailureThreshold > 20 ||
+      typeof policy.cooldownSeconds !== "number" ||
+      !Number.isSafeInteger(policy.cooldownSeconds) ||
+      policy.cooldownSeconds < 1 ||
+      policy.cooldownSeconds > 7 * 24 * 60 * 60 ||
+      !Array.isArray(body.metrics) ||
+      body.metrics.length > 50 ||
+      !body.metrics.every(
+        (metric) =>
+          isRecord(metric) &&
+          typeof metric.model === "string" &&
+          metric.model.length > 0 &&
+          metric.model.length <= 200 &&
+          (metric.provider === "openrouter" || metric.provider === "opencode") &&
+          typeof metric.ok === "boolean" &&
+          (metric.error === undefined ||
+            (typeof metric.error === "string" && metric.error.length <= 500)),
+      )
+    ) {
+      return json({ error: "Invalid model availability observation" }, 400);
+    }
+
+    const observedAt = new Date();
+    const observedAtIso = observedAt.toISOString();
+    const failureThreshold = policy.consecutiveFailureThreshold as number;
+    const cooldownMs = (policy.cooldownSeconds as number) * 1_000;
+    let recorded = 0;
+    this.ctx.storage.transactionSync(() => {
+      for (const candidate of body.metrics as Array<{
+        model: string;
+        provider: "openrouter" | "opencode";
+        ok: boolean;
+        error?: string;
+      }>) {
+        const existing = this.ctx.storage.sql
+          .exec<{ observation_id: string }>(
+            `SELECT observation_id FROM review_model_health_observations
+             WHERE observation_id = ? AND model = ?`,
+            body.observationId as string,
+            candidate.model,
+          )
+          .toArray()[0];
+        if (existing) continue;
+        const current = this.ctx.storage.sql
+          .exec<{
+            consecutive_failures: number;
+            total_failures: number;
+            total_successes: number;
+          }>(
+            `SELECT consecutive_failures, total_failures, total_successes
+             FROM review_model_health WHERE model = ?`,
+            candidate.model,
+          )
+          .toArray()[0];
+        const consecutiveFailures = candidate.ok
+          ? 0
+          : Number(current?.consecutive_failures ?? 0) + 1;
+        const totalFailures =
+          Number(current?.total_failures ?? 0) + (candidate.ok ? 0 : 1);
+        const totalSuccesses =
+          Number(current?.total_successes ?? 0) + (candidate.ok ? 1 : 0);
+        const cooldownUntil =
+          !candidate.ok &&
+          consecutiveFailures >= failureThreshold
+            ? observedAt.getTime() + cooldownMs
+            : null;
+        this.ctx.storage.sql.exec(
+          `INSERT INTO review_model_health
+           (model, provider, consecutive_failures, total_failures,
+            total_successes, cooldown_until_ms, last_error, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+           ON CONFLICT(model) DO UPDATE SET
+             provider = excluded.provider,
+             consecutive_failures = excluded.consecutive_failures,
+             total_failures = excluded.total_failures,
+             total_successes = excluded.total_successes,
+             cooldown_until_ms = excluded.cooldown_until_ms,
+             last_error = excluded.last_error,
+             updated_at = excluded.updated_at`,
+          candidate.model,
+          candidate.provider,
+          consecutiveFailures,
+          totalFailures,
+          totalSuccesses,
+          cooldownUntil,
+          candidate.ok ? null : (candidate.error ?? "model call failed"),
+          observedAtIso,
+        );
+        this.ctx.storage.sql.exec(
+          `INSERT INTO review_model_health_observations
+           (observation_id, model, provider, ok, error, observed_at)
+           VALUES (?, ?, ?, ?, ?, ?)`,
+          body.observationId as string,
+          candidate.model,
+          candidate.provider,
+          candidate.ok ? 1 : 0,
+          candidate.error ?? null,
+          observedAtIso,
+        );
+        recorded += 1;
+      }
+    });
+    return json({ recorded });
   }
 
   private appendFindingOutcome(options: {
@@ -2206,6 +2401,7 @@ export class ReviewWorkflow extends WorkflowEntrypoint<
           () =>
             runScouts(this.env, event.payload, prepared!, {
               providers: ["openrouter"],
+              observationId: `${event.instanceId}:openrouter`,
             }),
         );
         incurredCostUsd = Object.values(openRouterScouts.costs).reduce(
@@ -2219,6 +2415,7 @@ export class ReviewWorkflow extends WorkflowEntrypoint<
           () =>
             runScouts(this.env, event.payload, prepared!, {
               providers: ["opencode"],
+              observationId: `${event.instanceId}:opencode`,
             }),
         );
         scouts = combineScoutRuns(openRouterScouts, openCodeScouts);
@@ -2226,7 +2423,10 @@ export class ReviewWorkflow extends WorkflowEntrypoint<
         merged = await workflowStep.do(
           "merge-current-scout-findings",
           MODEL_STEP_CONFIG,
-          () => mergeFindings(this.env, event.payload, prepared!, scouts!),
+          () =>
+            mergeFindings(this.env, event.payload, prepared!, scouts!, {
+              observationId: `${event.instanceId}:merger`,
+            }),
         );
         incurredCostUsd += merged.cost;
       } else {
@@ -2250,7 +2450,12 @@ export class ReviewWorkflow extends WorkflowEntrypoint<
       }
       failedPhase = "identify-review-artifacts";
       artifacts = await workflowStep.do("identify-review-artifacts", () =>
-        identifyReviewArtifacts(prepared!, scouts!, merged!),
+        identifyReviewArtifacts(
+          prepared!,
+          scouts!,
+          merged!,
+          guardrailPolicy(this.env).publication,
+        ),
       );
       failedPhase = "publish-rolling-comment";
       const publication = await workflowStep.do("publish-rolling-comment", () =>
