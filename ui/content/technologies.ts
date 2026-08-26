@@ -765,6 +765,14 @@ export const technologies: TechnologyContent[] = [
     type: "library",
   },
   {
+    name: "cosmos.gl",
+    added: "2026-08-27",
+    description:
+      "GPU-accelerated force graph layout and rendering with touch interaction and collision handling",
+    website: "https://github.com/cosmosgl/graph",
+    type: "library",
+  },
+  {
     name: "PostHog",
     added: "2026-02-14",
     description:

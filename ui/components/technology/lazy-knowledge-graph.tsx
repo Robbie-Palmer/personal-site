@@ -3,10 +3,10 @@
 import dynamic from "next/dynamic";
 import type { GraphData } from "@/lib/api/graph-data";
 
-const SigmaGraphClient = dynamic(
+const CosmosGraphClient = dynamic(
   () =>
-    import("@/components/technology/sigma-graph-client").then(
-      (mod) => mod.SigmaGraphClient,
+    import("@/components/technology/cosmos-graph-client").then(
+      (mod) => mod.CosmosGraphClient,
     ),
   {
     ssr: false,
@@ -19,5 +19,5 @@ const SigmaGraphClient = dynamic(
 );
 
 export function LazyKnowledgeGraph({ data }: Readonly<{ data: GraphData }>) {
-  return <SigmaGraphClient data={data} />;
+  return <CosmosGraphClient data={data} />;
 }
