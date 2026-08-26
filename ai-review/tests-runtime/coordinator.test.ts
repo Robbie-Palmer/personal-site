@@ -63,7 +63,10 @@ describe("PullRequestCoordinator in workerd", () => {
       stub.fetch("https://coordinator.test/models/plan", {
         method: "POST",
         body: JSON.stringify({
-          models: [{ model, provider: "openrouter" }],
+          models: [
+            { model, provider: "openrouter" },
+            { model, provider: "opencode" },
+          ],
         }),
       });
     await expect((await plan()).json()).resolves.toMatchObject({
@@ -77,7 +80,8 @@ describe("PullRequestCoordinator in workerd", () => {
             total_failures: number;
           }>(
             `SELECT consecutive_failures, total_failures
-             FROM review_model_health WHERE model = ?`,
+             FROM review_model_health WHERE provider = ? AND model = ?`,
+            "openrouter",
             model,
           )
           .toArray(),
@@ -98,7 +102,8 @@ describe("PullRequestCoordinator in workerd", () => {
             total_successes: number;
           }>(
             `SELECT consecutive_failures, total_failures, total_successes
-             FROM review_model_health WHERE model = ?`,
+             FROM review_model_health WHERE provider = ? AND model = ?`,
+            "openrouter",
             model,
           )
           .toArray(),

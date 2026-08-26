@@ -178,14 +178,15 @@ const CREATE_REVIEW_FINDING_EVALUATIONS_TABLE =
   "evaluated_at TEXT NOT NULL)";
 const CREATE_REVIEW_MODEL_HEALTH_TABLE =
   "CREATE TABLE IF NOT EXISTS review_model_health (" +
-  "model TEXT PRIMARY KEY, " +
+  "model TEXT NOT NULL, " +
   "provider TEXT NOT NULL, " +
   "consecutive_failures INTEGER NOT NULL DEFAULT 0, " +
   "total_failures INTEGER NOT NULL DEFAULT 0, " +
   "total_successes INTEGER NOT NULL DEFAULT 0, " +
   "cooldown_until_ms INTEGER, " +
   "last_error TEXT, " +
-  "updated_at TEXT NOT NULL)";
+  "updated_at TEXT NOT NULL, " +
+  "PRIMARY KEY (provider, model))";
 const CREATE_REVIEW_MODEL_HEALTH_OBSERVATIONS_TABLE =
   "CREATE TABLE IF NOT EXISTS review_model_health_observations (" +
   "observation_id TEXT NOT NULL, " +
@@ -194,7 +195,7 @@ const CREATE_REVIEW_MODEL_HEALTH_OBSERVATIONS_TABLE =
   "ok INTEGER NOT NULL, " +
   "error TEXT, " +
   "observed_at TEXT NOT NULL, " +
-  "PRIMARY KEY (observation_id, model))";
+  "PRIMARY KEY (observation_id, provider, model))";
 const DEFAULT_DEBOUNCE_DELAY_MS = 120_000;
 const MINIMUM_DEBOUNCE_DELAY_MS = 1_000;
 const MAXIMUM_DEBOUNCE_DELAY_MS = 3_600_000;
@@ -880,7 +881,8 @@ export class PullRequestCoordinator extends DurableObject<Env> {
           cooldown_until_ms: number | null;
         }>(
           `SELECT consecutive_failures, cooldown_until_ms
-           FROM review_model_health WHERE model = ?`,
+           FROM review_model_health WHERE provider = ? AND model = ?`,
+          model.provider,
           model.model,
         )
         .toArray()[0];
@@ -946,8 +948,9 @@ export class PullRequestCoordinator extends DurableObject<Env> {
         const existing = this.ctx.storage.sql
           .exec<{ observation_id: string }>(
             `SELECT observation_id FROM review_model_health_observations
-             WHERE observation_id = ? AND model = ?`,
+             WHERE observation_id = ? AND provider = ? AND model = ?`,
             body.observationId as string,
+            candidate.provider,
             candidate.model,
           )
           .toArray()[0];
@@ -955,7 +958,8 @@ export class PullRequestCoordinator extends DurableObject<Env> {
         const current = this.ctx.storage.sql
           .exec<StoredModelHealth>(
             `SELECT consecutive_failures, total_failures, total_successes
-             FROM review_model_health WHERE model = ?`,
+             FROM review_model_health WHERE provider = ? AND model = ?`,
+            candidate.provider,
             candidate.model,
           )
           .toArray()[0];
@@ -971,8 +975,7 @@ export class PullRequestCoordinator extends DurableObject<Env> {
            (model, provider, consecutive_failures, total_failures,
             total_successes, cooldown_until_ms, last_error, updated_at)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-           ON CONFLICT(model) DO UPDATE SET
-             provider = excluded.provider,
+           ON CONFLICT(provider, model) DO UPDATE SET
              consecutive_failures = excluded.consecutive_failures,
              total_failures = excluded.total_failures,
              total_successes = excluded.total_successes,

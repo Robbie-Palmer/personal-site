@@ -450,22 +450,22 @@ describe("PullRequestCoordinator", () => {
     const observations = new Set<string>();
     sqlExec.mockImplementation((query: string, ...values: unknown[]) => {
       if (query.includes("FROM review_model_health_observations")) {
-        const key = `${values[0]}:${values[1]}`;
+        const key = `${values[0]}:${values[1]}:${values[2]}`;
         return {
           rowsWritten: 0,
           toArray: () =>
             observations.has(key) ? [{ observation_id: values[0] }] : [],
         };
       }
-      if (query.includes("FROM review_model_health WHERE model")) {
-        const row = health.get(String(values[0]));
+      if (query.includes("FROM review_model_health WHERE provider")) {
+        const row = health.get(`${values[0]}:${values[1]}`);
         return { rowsWritten: 0, toArray: () => (row ? [row] : []) };
       }
       if (
         query.includes("INSERT INTO review_model_health") &&
         !query.includes("review_model_health_observations")
       ) {
-        health.set(String(values[0]), {
+        health.set(`${values[1]}:${values[0]}`, {
           consecutive_failures: Number(values[2]),
           total_failures: Number(values[3]),
           total_successes: Number(values[4]),
@@ -473,7 +473,7 @@ describe("PullRequestCoordinator", () => {
         });
       }
       if (query.includes("INSERT INTO review_model_health_observations")) {
-        observations.add(`${values[0]}:${values[1]}`);
+        observations.add(`${values[0]}:${values[2]}:${values[1]}`);
       }
       return { rowsWritten: 1, toArray: () => [] };
     });
@@ -496,6 +496,7 @@ describe("PullRequestCoordinator", () => {
           body: JSON.stringify({
             models: [
               { model: "model-a", provider: "openrouter" },
+              { model: "model-a", provider: "opencode" },
               { model: "model-b", provider: "opencode" },
               { model: "unknown", provider: "openrouter" },
             ],
@@ -540,11 +541,11 @@ describe("PullRequestCoordinator", () => {
         cooldownUntil: "2026-08-27T00:01:00.000Z",
       }],
     });
-    expect(health.get("model-a")).toMatchObject({
+    expect(health.get("openrouter:model-a")).toMatchObject({
       total_failures: 2,
       total_successes: 0,
     });
-    expect(health.get("model-b")).toMatchObject({
+    expect(health.get("opencode:model-b")).toMatchObject({
       consecutive_failures: 0,
       total_successes: 1,
     });
@@ -554,7 +555,7 @@ describe("PullRequestCoordinator", () => {
     await record("observation-3", [
       { model: "model-a", provider: "openrouter", ok: true },
     ]);
-    expect(health.get("model-a")).toMatchObject({
+    expect(health.get("openrouter:model-a")).toMatchObject({
       consecutive_failures: 0,
       total_failures: 2,
       total_successes: 1,
