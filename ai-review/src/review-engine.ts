@@ -1296,7 +1296,9 @@ export async function runScouts(
   await recordModelReliability(
     env,
     options.observationId ??
-      `${params.deliveryId}:${[...providers].sort().join(",")}`,
+      `${params.deliveryId}:${[...providers]
+        .sort((a, b) => a.localeCompare(b))
+        .join(",")}`,
     metrics,
   );
   return {

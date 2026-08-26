@@ -198,6 +198,51 @@ const CREATE_REVIEW_MODEL_HEALTH_OBSERVATIONS_TABLE =
 const DEFAULT_DEBOUNCE_DELAY_MS = 120_000;
 const MINIMUM_DEBOUNCE_DELAY_MS = 1_000;
 const MAXIMUM_DEBOUNCE_DELAY_MS = 3_600_000;
+
+interface ModelAvailabilityMetric {
+  model: string;
+  provider: "openrouter" | "opencode";
+  ok: boolean;
+  error?: string;
+}
+
+type StoredModelHealth = {
+  consecutive_failures: number;
+  total_failures: number;
+  total_successes: number;
+};
+
+function nextModelHealth(
+  current: StoredModelHealth | undefined,
+  candidate: ModelAvailabilityMetric,
+  failureThreshold: number,
+  observedAtMs: number,
+  cooldownMs: number,
+) {
+  const totalFailures = Number(current?.total_failures ?? 0);
+  const totalSuccesses = Number(current?.total_successes ?? 0);
+  if (candidate.ok) {
+    return {
+      consecutiveFailures: 0,
+      totalFailures,
+      totalSuccesses: totalSuccesses + 1,
+      cooldownUntil: null,
+      lastError: null,
+    };
+  }
+  const consecutiveFailures =
+    Number(current?.consecutive_failures ?? 0) + 1;
+  return {
+    consecutiveFailures,
+    totalFailures: totalFailures + 1,
+    totalSuccesses,
+    cooldownUntil:
+      consecutiveFailures >= failureThreshold
+        ? observedAtMs + cooldownMs
+        : null,
+    lastError: candidate.error ?? "model call failed",
+  };
+}
 const COORDINATOR_TIMEOUT_MS = 10_000;
 const MAXIMUM_WEBHOOK_BODY_BYTES = 2 * 1024 * 1024;
 const REVIEW_RUN_LEASE_MS = 30 * 60 * 1_000;
@@ -897,12 +942,7 @@ export class PullRequestCoordinator extends DurableObject<Env> {
     const cooldownMs = (policy.cooldownSeconds as number) * 1_000;
     let recorded = 0;
     this.ctx.storage.transactionSync(() => {
-      for (const candidate of body.metrics as Array<{
-        model: string;
-        provider: "openrouter" | "opencode";
-        ok: boolean;
-        error?: string;
-      }>) {
+      for (const candidate of body.metrics as ModelAvailabilityMetric[]) {
         const existing = this.ctx.storage.sql
           .exec<{ observation_id: string }>(
             `SELECT observation_id FROM review_model_health_observations
@@ -913,28 +953,19 @@ export class PullRequestCoordinator extends DurableObject<Env> {
           .toArray()[0];
         if (existing) continue;
         const current = this.ctx.storage.sql
-          .exec<{
-            consecutive_failures: number;
-            total_failures: number;
-            total_successes: number;
-          }>(
+          .exec<StoredModelHealth>(
             `SELECT consecutive_failures, total_failures, total_successes
              FROM review_model_health WHERE model = ?`,
             candidate.model,
           )
           .toArray()[0];
-        const consecutiveFailures = candidate.ok
-          ? 0
-          : Number(current?.consecutive_failures ?? 0) + 1;
-        const totalFailures =
-          Number(current?.total_failures ?? 0) + (candidate.ok ? 0 : 1);
-        const totalSuccesses =
-          Number(current?.total_successes ?? 0) + (candidate.ok ? 1 : 0);
-        const cooldownUntil =
-          !candidate.ok &&
-          consecutiveFailures >= failureThreshold
-            ? observedAt.getTime() + cooldownMs
-            : null;
+        const next = nextModelHealth(
+          current,
+          candidate,
+          failureThreshold,
+          observedAt.getTime(),
+          cooldownMs,
+        );
         this.ctx.storage.sql.exec(
           `INSERT INTO review_model_health
            (model, provider, consecutive_failures, total_failures,
@@ -950,11 +981,11 @@ export class PullRequestCoordinator extends DurableObject<Env> {
              updated_at = excluded.updated_at`,
           candidate.model,
           candidate.provider,
-          consecutiveFailures,
-          totalFailures,
-          totalSuccesses,
-          cooldownUntil,
-          candidate.ok ? null : (candidate.error ?? "model call failed"),
+          next.consecutiveFailures,
+          next.totalFailures,
+          next.totalSuccesses,
+          next.cooldownUntil,
+          next.lastError,
           observedAtIso,
         );
         this.ctx.storage.sql.exec(

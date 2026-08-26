@@ -330,6 +330,238 @@ describe("PullRequestCoordinator", () => {
     expect(storage.kv.put).not.toHaveBeenCalled();
   });
 
+  it("rejects malformed model availability plans and observations", async () => {
+    const { coordinator } = coordinatorFixture();
+    const post = (path: string, body: unknown) =>
+      coordinator.fetch(
+        new Request(`https://coordinator.test${path}`, {
+          method: "POST",
+          body: JSON.stringify(body),
+        }),
+      );
+    const validModel = { model: "provider/model", provider: "openrouter" };
+    const invalidPlans = [
+      null,
+      {},
+      { models: Array.from({ length: 51 }, () => validModel) },
+      { models: [null] },
+      { models: [{ ...validModel, model: 1 }] },
+      { models: [{ ...validModel, model: "" }] },
+      { models: [{ ...validModel, model: "x".repeat(201) }] },
+      { models: [{ ...validModel, provider: "other" }] },
+    ];
+    for (const body of invalidPlans) {
+      expect((await post("/models/plan", body)).status).toBe(400);
+    }
+    expect(
+      (
+        await coordinator.fetch(
+          new Request("https://coordinator.test/models/plan", {
+            method: "POST",
+            body: "{",
+          }),
+        )
+      ).status,
+    ).toBe(400);
+
+    const policy = {
+      version: "consecutive-failures-v1",
+      consecutiveFailureThreshold: 2,
+      cooldownSeconds: 60,
+    };
+    const validMetric = { ...validModel, ok: true };
+    const validObservation = {
+      observationId: "observation-1",
+      policy,
+      metrics: [validMetric],
+    };
+    const invalidObservations = [
+      null,
+      { ...validObservation, observationId: 1 },
+      { ...validObservation, observationId: "" },
+      { ...validObservation, observationId: "x".repeat(256) },
+      { ...validObservation, policy: null },
+      { ...validObservation, policy: { ...policy, version: 1 } },
+      { ...validObservation, policy: { ...policy, version: "" } },
+      {
+        ...validObservation,
+        policy: { ...policy, consecutiveFailureThreshold: "2" },
+      },
+      {
+        ...validObservation,
+        policy: { ...policy, consecutiveFailureThreshold: 1.5 },
+      },
+      {
+        ...validObservation,
+        policy: { ...policy, consecutiveFailureThreshold: 0 },
+      },
+      {
+        ...validObservation,
+        policy: { ...policy, consecutiveFailureThreshold: 21 },
+      },
+      {
+        ...validObservation,
+        policy: { ...policy, cooldownSeconds: "60" },
+      },
+      { ...validObservation, policy: { ...policy, cooldownSeconds: 1.5 } },
+      { ...validObservation, policy: { ...policy, cooldownSeconds: 0 } },
+      { ...validObservation, policy: { ...policy, cooldownSeconds: 604_801 } },
+      { ...validObservation, metrics: null },
+      {
+        ...validObservation,
+        metrics: Array.from({ length: 51 }, () => validMetric),
+      },
+      { ...validObservation, metrics: [null] },
+      { ...validObservation, metrics: [{ ...validMetric, model: 1 }] },
+      { ...validObservation, metrics: [{ ...validMetric, model: "" }] },
+      {
+        ...validObservation,
+        metrics: [{ ...validMetric, model: "x".repeat(201) }],
+      },
+      {
+        ...validObservation,
+        metrics: [{ ...validMetric, provider: "other" }],
+      },
+      { ...validObservation, metrics: [{ ...validMetric, ok: "yes" }] },
+      { ...validObservation, metrics: [{ ...validMetric, error: 1 }] },
+      {
+        ...validObservation,
+        metrics: [{ ...validMetric, error: "x".repeat(501) }],
+      },
+    ];
+    for (const body of invalidObservations) {
+      expect((await post("/models/record", body)).status).toBe(400);
+    }
+  });
+
+  it("opens, deduplicates, expires, and resets model cooldowns", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-08-27T00:00:00.000Z"));
+    const { coordinator, sqlExec } = coordinatorFixture();
+    const health = new Map<
+      string,
+      {
+        consecutive_failures: number;
+        total_failures: number;
+        total_successes: number;
+        cooldown_until_ms: number | null;
+      }
+    >();
+    const observations = new Set<string>();
+    sqlExec.mockImplementation((query: string, ...values: unknown[]) => {
+      if (query.includes("FROM review_model_health_observations")) {
+        const key = `${values[0]}:${values[1]}`;
+        return {
+          rowsWritten: 0,
+          toArray: () =>
+            observations.has(key) ? [{ observation_id: values[0] }] : [],
+        };
+      }
+      if (query.includes("FROM review_model_health WHERE model")) {
+        const row = health.get(String(values[0]));
+        return { rowsWritten: 0, toArray: () => (row ? [row] : []) };
+      }
+      if (
+        query.includes("INSERT INTO review_model_health") &&
+        !query.includes("review_model_health_observations")
+      ) {
+        health.set(String(values[0]), {
+          consecutive_failures: Number(values[2]),
+          total_failures: Number(values[3]),
+          total_successes: Number(values[4]),
+          cooldown_until_ms: values[5] === null ? null : Number(values[5]),
+        });
+      }
+      if (query.includes("INSERT INTO review_model_health_observations")) {
+        observations.add(`${values[0]}:${values[1]}`);
+      }
+      return { rowsWritten: 1, toArray: () => [] };
+    });
+    const policy = {
+      version: "consecutive-failures-v1",
+      consecutiveFailureThreshold: 2,
+      cooldownSeconds: 60,
+    };
+    const record = (observationId: string, metrics: unknown[]) =>
+      coordinator.fetch(
+        new Request("https://coordinator.test/models/record", {
+          method: "POST",
+          body: JSON.stringify({ observationId, policy, metrics }),
+        }),
+      );
+    const plan = () =>
+      coordinator.fetch(
+        new Request("https://coordinator.test/models/plan", {
+          method: "POST",
+          body: JSON.stringify({
+            models: [
+              { model: "model-a", provider: "openrouter" },
+              { model: "model-b", provider: "opencode" },
+              { model: "unknown", provider: "openrouter" },
+            ],
+          }),
+        }),
+      );
+
+    await expect(
+      (
+        await record("observation-1", [
+          {
+            model: "model-a",
+            provider: "openrouter",
+            ok: false,
+            error: "provider unavailable",
+          },
+          { model: "model-b", provider: "opencode", ok: true },
+        ])
+      ).json(),
+    ).resolves.toEqual({ recorded: 2 });
+    await expect(
+      (
+        await record("observation-1", [
+          { model: "model-a", provider: "openrouter", ok: false },
+          { model: "model-b", provider: "opencode", ok: true },
+        ])
+      ).json(),
+    ).resolves.toEqual({ recorded: 0 });
+    await expect(
+      (
+        await record("observation-2", [
+          { model: "model-a", provider: "openrouter", ok: false },
+        ])
+      ).json(),
+    ).resolves.toEqual({ recorded: 1 });
+
+    await expect((await plan()).json()).resolves.toMatchObject({
+      skipped: [{
+        model: "model-a",
+        provider: "openrouter",
+        consecutiveFailures: 2,
+        cooldownUntil: "2026-08-27T00:01:00.000Z",
+      }],
+    });
+    expect(health.get("model-a")).toMatchObject({
+      total_failures: 2,
+      total_successes: 0,
+    });
+    expect(health.get("model-b")).toMatchObject({
+      consecutive_failures: 0,
+      total_successes: 1,
+    });
+
+    vi.advanceTimersByTime(60_001);
+    await expect((await plan()).json()).resolves.toEqual({ skipped: [] });
+    await record("observation-3", [
+      { model: "model-a", provider: "openrouter", ok: true },
+    ]);
+    expect(health.get("model-a")).toMatchObject({
+      consecutive_failures: 0,
+      total_failures: 2,
+      total_successes: 1,
+      cooldown_until_ms: null,
+    });
+  });
+
   it("does not schedule while reviews are disabled", async () => {
     const { coordinator, env, storage } = coordinatorFixture();
     env.AI_REVIEW_ENABLED = "false";

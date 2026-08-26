@@ -606,6 +606,160 @@ describe("stateful review engine", () => {
     expect(combined.metrics).toHaveLength(5);
   });
 
+  it("skips models in cooldown and records only attempted scouts", async () => {
+    const callScout = vi
+      .spyOn(Reviewer.prototype, "callOpenRouterScout")
+      .mockResolvedValue({ payload: { findings: [] }, cost: 0.01 });
+    const recordedBodies: unknown[] = [];
+    const coordinatorFetch = vi.fn(
+      async (input: RequestInfo | URL, init?: RequestInit) => {
+        const path = new URL(String(input)).pathname;
+        if (path === "/models/plan") {
+          return json({
+            skipped: [
+              null,
+              [],
+              1,
+              {},
+              { model: "model-a", provider: "other" },
+              {
+                model: "model-a",
+                provider: "openrouter",
+                consecutiveFailures: "2",
+                cooldownUntil: "2026-08-27T00:01:00.000Z",
+              },
+              {
+                model: "model-a",
+                provider: "openrouter",
+                consecutiveFailures: 1.5,
+                cooldownUntil: "2026-08-27T00:01:00.000Z",
+              },
+              {
+                model: "model-a",
+                provider: "openrouter",
+                consecutiveFailures: 0,
+                cooldownUntil: "2026-08-27T00:01:00.000Z",
+              },
+              {
+                model: "model-a",
+                provider: "openrouter",
+                consecutiveFailures: 2,
+                cooldownUntil: 1,
+              },
+              {
+                model: "model-a",
+                provider: "openrouter",
+                consecutiveFailures: 2,
+                cooldownUntil: "not-a-date",
+              },
+              {
+                model: "model-a",
+                provider: "openrouter",
+                consecutiveFailures: 2,
+                cooldownUntil: "2026-08-27T00:01:00.000Z",
+              },
+            ],
+          });
+        }
+        recordedBodies.push(JSON.parse(String(init?.body)));
+        return json({ recorded: 1 });
+      },
+    );
+    const env = environment();
+    env.AI_REVIEW_MODELS = "model-a,model-b";
+    Object.assign(env, {
+      PR_STATE: {
+        idFromName: vi.fn(() => "model-reliability-id"),
+        get: vi.fn(() => ({ fetch: coordinatorFetch })),
+      },
+    });
+
+    const result = await runScouts(
+      env,
+      params,
+      {
+        headSha: params.headSha,
+        diff: "diff",
+        paths: ["app.ts"],
+        omitted: [],
+      },
+      { providers: ["openrouter"], observationId: "scout-observation" },
+    );
+
+    expect(callScout).toHaveBeenCalledOnce();
+    expect(callScout).toHaveBeenCalledWith(
+      "model-b",
+      expect.any(String),
+      expect.any(String),
+    );
+    expect(result.circuitSkipped).toEqual([
+      expect.objectContaining({ model: "model-a", consecutiveFailures: 2 }),
+    ]);
+    expect(result.metrics).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ model: "model-a", skipped: true }),
+        expect.objectContaining({ model: "model-b", ok: true }),
+      ]),
+    );
+    expect(recordedBodies).toEqual([
+      expect.objectContaining({
+        observationId: "scout-observation",
+        metrics: [expect.objectContaining({ model: "model-b", ok: true })],
+      }),
+    ]);
+    expect(
+      combineScoutRuns(result, {
+        models: [],
+        candidates: {},
+        failed: [],
+        candidateCounts: {},
+        invalidCounts: {},
+        outOfScopeCounts: {},
+        costs: {},
+        metrics: [],
+      }).circuitSkipped,
+    ).toHaveLength(1);
+  });
+
+  it("keeps reviewing when circuit-breaker coordination fails", async () => {
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+    vi.spyOn(Reviewer.prototype, "callOpenRouterScout").mockResolvedValue({
+      payload: { findings: [] },
+      cost: 0.01,
+    });
+    const coordinatorFetch = vi.fn(async (input: RequestInfo | URL) => {
+      if (new URL(String(input)).pathname === "/models/plan") throw "offline";
+      return new Response("unavailable", { status: 503 });
+    });
+    const env = environment();
+    env.AI_REVIEW_MODELS = "model-a";
+    Object.assign(env, {
+      PR_STATE: {
+        idFromName: vi.fn(() => "model-reliability-id"),
+        get: vi.fn(() => ({ fetch: coordinatorFetch })),
+      },
+    });
+
+    const result = await runScouts(
+      env,
+      params,
+      {
+        headSha: params.headSha,
+        diff: "diff",
+        paths: ["app.ts"],
+        omitted: [],
+      },
+      { providers: ["openrouter"] },
+    );
+
+    expect(result.metrics).toEqual([
+      expect.objectContaining({ model: "model-a", ok: true }),
+    ]);
+    expect(consoleError).toHaveBeenCalledTimes(2);
+  });
+
   it("records unavailable, rejected, and invalid scout outcomes", async () => {
     vi.spyOn(Reviewer.prototype, "openCodeScoutModels").mockResolvedValue({
       models: [],
@@ -732,6 +886,113 @@ describe("stateful review engine", () => {
         }],
       },
     });
+  });
+
+  it("returns an explicit incomplete result while the merger is cooling down", async () => {
+    const findingId = `f_${"d".repeat(24)}`;
+    const callMerger = vi.spyOn(Reviewer.prototype, "callMerger");
+    const env = environment();
+    Object.assign(env, {
+      PR_STATE: {
+        idFromName: vi.fn(() => "model-reliability-id"),
+        get: vi.fn(() => ({
+          fetch: vi.fn(() =>
+            Promise.resolve(
+              json({
+                skipped: [{
+                  model: "anthropic/claude-sonnet-4.6",
+                  provider: "openrouter",
+                  consecutiveFailures: 3,
+                  cooldownUntil: "2026-08-27T00:01:00.000Z",
+                }],
+              }),
+            )
+          ),
+        })),
+      },
+    });
+
+    const merged = await mergeFindings(
+      env,
+      params,
+      {
+        paths: ["app.ts"],
+        omitted: [],
+        replayFindings: [{
+          findingId,
+          file: "app.ts",
+          title: "Retry is missing",
+          hunkIds: [],
+        }],
+      },
+      {
+        models: ["model/scout"],
+        candidates: { "model/scout": [] },
+        failed: [],
+        candidateCounts: { "model/scout": 0 },
+        invalidCounts: { "model/scout": 0 },
+        outOfScopeCounts: { "model/scout": 0 },
+        costs: { "model/scout": 0 },
+        metrics: [],
+      },
+    );
+
+    expect(callMerger).not.toHaveBeenCalled();
+    expect(merged).toMatchObject({
+      result: {
+        findings: [],
+        finding_resolutions: [{ finding_id: findingId, verdict: "uncertain" }],
+      },
+      cost: 0,
+      metric: { skipped: true, consecutiveFailures: 3 },
+    });
+  });
+
+  it("records a failed merger attempt before propagating the error", async () => {
+    vi.spyOn(Reviewer.prototype, "callMerger").mockRejectedValue(
+      new Error("merger unavailable"),
+    );
+    const recordedBodies: unknown[] = [];
+    const env = environment();
+    Object.assign(env, {
+      PR_STATE: {
+        idFromName: vi.fn(() => "model-reliability-id"),
+        get: vi.fn(() => ({
+          fetch: vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+            if (new URL(String(input)).pathname === "/models/plan") {
+              return json({ skipped: [] });
+            }
+            recordedBodies.push(JSON.parse(String(init?.body)));
+            return json({ recorded: 1 });
+          }),
+        })),
+      },
+    });
+
+    await expect(
+      mergeFindings(
+        env,
+        params,
+        { paths: ["app.ts"], omitted: [] },
+        {
+          models: ["model/scout"],
+          candidates: { "model/scout": [] },
+          failed: [],
+          candidateCounts: { "model/scout": 0 },
+          invalidCounts: { "model/scout": 0 },
+          outOfScopeCounts: { "model/scout": 0 },
+          costs: { "model/scout": 0 },
+          metrics: [],
+        },
+        { observationId: "merger-observation" },
+      ),
+    ).rejects.toThrow("merger unavailable");
+    expect(recordedBodies).toEqual([
+      expect.objectContaining({
+        observationId: "merger-observation",
+        metrics: [expect.objectContaining({ ok: false })],
+      }),
+    ]);
   });
 
   it("keeps only evidence-backed controlled replay verdicts", async () => {
@@ -1115,9 +1376,48 @@ describe("stateful review engine", () => {
         outOfScopeCounts: {},
         costs: {},
         metrics: [],
+        circuitSkipped: [{
+          model: "model/scout",
+          provider: "openrouter",
+          consecutiveFailures: 2,
+          cooldownUntil: "2026-08-27T00:01:00.000Z",
+        }],
       },
-      { result: { summary: "No defects.", findings: [] }, cost: 0 },
-      { hunks: [], candidates: {}, publishedFindings: [], hiddenFindings: [] },
+      {
+        result: { summary: "No defects.", findings: [] },
+        cost: 0,
+        metric: {
+          model: "model/merger",
+          provider: "openrouter",
+          role: "merger",
+          ok: false,
+          skipped: true,
+          latencyMs: 0,
+          costUsd: 0,
+        },
+      },
+      {
+        hunks: [],
+        candidates: {},
+        publishedFindings: [],
+        hiddenFindings: [{
+          finding: {
+            findingId: `f_${"e".repeat(24)}`,
+            hunkIds: [],
+            severity: "low",
+            file: "app.ts",
+            line: 1,
+            title: "Hidden finding",
+            evidence: "The value may be missing.",
+            recommendation: "Guard the lookup.",
+            confidence: 0.6,
+            source_models: ["model/scout"],
+            status: "open",
+            resolution_note: "",
+          },
+          reason: "publication-limit",
+        }],
+      },
       { runs: 0, total_usd: 0 },
     );
 
@@ -1127,6 +1427,9 @@ describe("stateful review engine", () => {
     expect(rollingComment).toContain("at most 4 visible open findings");
     expect(rollingComment).toContain("reliability-test-v2");
     expect(rollingComment).toContain("2 consecutive failures for 90 seconds");
+    expect(rollingComment).toContain("withheld 1 finding");
+    expect(rollingComment).toContain("cooldown skipped model/scout");
+    expect(rollingComment).toContain("merger model/merger was skipped");
   });
 
   it("runs and visibly publishes the same OpenRouter plus OpenCode ensemble", async () => {
