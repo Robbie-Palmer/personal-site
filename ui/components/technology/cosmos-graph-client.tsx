@@ -86,7 +86,12 @@ function deterministicPositions(nodes: readonly GraphNode[]): Float32Array {
 }
 
 function useMediaQuery(query: string): boolean {
-  const [matches, setMatches] = useState(false);
+  const [matches, setMatches] = useState(
+    () =>
+      typeof window !== "undefined" &&
+      typeof window.matchMedia === "function" &&
+      window.matchMedia(query).matches,
+  );
   useEffect(() => {
     const media = window.matchMedia(query);
     const update = () => setMatches(media.matches);
@@ -114,6 +119,7 @@ interface CosmosCanvasProps {
   visibleNodeIds: ReadonlySet<string>;
   visibleEdges: readonly GraphEdge[];
   interactive: boolean;
+  simulate: boolean;
   selectedNodeId: string | null;
   onSelect: (node: SelectedNode | null) => void;
   onReady?: (controls: {
@@ -127,6 +133,7 @@ const CosmosCanvas = memo(function CosmosCanvas({
   visibleNodeIds,
   visibleEdges,
   interactive,
+  simulate,
   selectedNodeId,
   onSelect,
   onReady,
@@ -158,30 +165,31 @@ const CosmosCanvas = memo(function CosmosCanvas({
     ).matches;
     const graph = new Graph(container, {
       backgroundColor: [0, 0, 0, 0],
+      enableSimulation: simulate,
       enableDrag: interactive,
       enableZoom: interactive,
       fitViewOnInit: true,
-      fitViewDelay: 700,
-      fitViewDuration: reducedMotion ? 0 : 600,
+      fitViewDelay: simulate ? 500 : 0,
+      fitViewDuration: reducedMotion || !simulate ? 0 : 350,
       fitViewPadding: interactive ? 0.16 : 0.22,
       hoveredPointCursor: interactive ? "pointer" : "default",
       linkColorInterpolateFromEndpoints: true,
+      linkDefaultWidth: interactive ? 1.75 : 1.5,
       linkGreyoutOpacity: 0.035,
-      linkOpacity: interactive ? 0.24 : 0.2,
+      linkOpacity: interactive ? 0.55 : 0.45,
       pixelRatio: Math.min(window.devicePixelRatio, 2),
       pointGreyoutOpacity: 0.12,
       randomSeed: 38,
       renderHoveredPointRing: interactive,
+      rescalePositions: !simulate,
       simulationCollision: 0.92,
       simulationCollisionPadding: interactive ? 4 : 3,
-      // The passive mobile preview should settle fast so scrolling the page
-      // does not leave a WebGL simulation running for several seconds.
-      simulationDecay: interactive ? 5000 : 8000,
+      simulationDecay: 5000,
       simulationGravity: 0.18,
       simulationLinkDistance: 7,
       simulationLinkSpring: 0.65,
       simulationRepulsion: 0.7,
-      transitionDuration: reducedMotion ? 0 : 650,
+      transitionDuration: reducedMotion || !simulate ? 0 : 400,
       onPointClick: (index) => {
         if (!interactive) return;
         const node = data.nodes[index];
@@ -206,20 +214,24 @@ const CosmosCanvas = memo(function CosmosCanvas({
         4.5 + Math.sqrt(Math.max(node.connections, 1)) * 2.2,
       );
     }
-    graph.setPointPositions(positionsRef.current);
     graph.setPointColors(colors);
     graph.setPointSizes(sizes);
-    graph.render(1, 0);
 
     graph.ready
       .then(() => {
         if (graphRef.current !== graph) return;
         onReady?.({
-          fit: () => graph.fitView(500, 0.16, false),
+          fit: () => graph.fitView(simulate ? 350 : 0, 0.16, false),
           focus: (id) => {
             const index = nodeIndex.get(id);
             if (index !== undefined)
-              graph.zoomToPointByIndex(index, 500, 2.5, true, false);
+              graph.zoomToPointByIndex(
+                index,
+                simulate ? 350 : 250,
+                2.5,
+                true,
+                false,
+              );
           },
         });
       })
@@ -229,7 +241,7 @@ const CosmosCanvas = memo(function CosmosCanvas({
       graphRef.current = null;
       graph.destroy();
     };
-  }, [data, interactive, nodeIndex, onReady, onSelect]);
+  }, [data, interactive, nodeIndex, onReady, onSelect, simulate]);
 
   useEffect(() => {
     const graph = graphRef.current;
@@ -263,8 +275,12 @@ const CosmosCanvas = memo(function CosmosCanvas({
     }
     graph.setPointPositions(nextPositions);
     graph.setLinks(links);
-    graph.render(interactive ? 0.42 : 0.28);
-    graph.start(interactive ? 0.42 : 0.28);
+    if (simulate) {
+      graph.render(0.42);
+      graph.start(0.42);
+    } else {
+      graph.render(0, 0);
+    }
 
     const topIndices = [...visibleIndices]
       .sort(
@@ -293,6 +309,7 @@ const CosmosCanvas = memo(function CosmosCanvas({
     data.nodes,
     interactive,
     nodeIndex,
+    simulate,
     visibleEdges,
     visibleIndices,
     visibleNodeIds,
@@ -591,6 +608,7 @@ export function CosmosGraphClient({ data }: Readonly<{ data: GraphData }>) {
       visibleNodeIds={visibleNodeIds}
       visibleEdges={filtered.edges}
       interactive
+      simulate={!isMobile}
       selectedNodeId={selectedNode?.id ?? null}
       onSelect={selectNode}
       onReady={storeControls}
@@ -640,6 +658,7 @@ export function CosmosGraphClient({ data }: Readonly<{ data: GraphData }>) {
             visibleNodeIds={previewNodeIds}
             visibleEdges={previewEdges}
             interactive={false}
+            simulate={false}
             selectedNodeId={null}
             onSelect={IGNORE_SELECTION}
           />
