@@ -55,7 +55,6 @@ const NODE_TYPE_LABELS: Record<string, string> = {
   tag: "Tags",
 };
 
-const MOBILE_PREVIEW_NODE_LIMIT = 36;
 const TOP_LABEL_LIMIT = 14;
 const IGNORE_SELECTION = () => undefined;
 
@@ -100,18 +99,6 @@ function useMediaQuery(query: string): boolean {
     return () => media.removeEventListener("change", update);
   }, [query]);
   return matches;
-}
-
-function getMobilePreviewIds(data: GraphData): Set<string> {
-  return new Set(
-    [...data.nodes]
-      .filter((node) => node.type !== "tag" && node.type !== "adr")
-      .sort(
-        (a, b) => b.connections - a.connections || a.name.localeCompare(b.name),
-      )
-      .slice(0, MOBILE_PREVIEW_NODE_LIMIT)
-      .map((node) => node.id),
-  );
 }
 
 interface CosmosCanvasProps {
@@ -171,12 +158,12 @@ const CosmosCanvas = memo(function CosmosCanvas({
       fitViewOnInit: true,
       fitViewDelay: simulate ? 500 : 0,
       fitViewDuration: reducedMotion || !simulate ? 0 : 350,
-      fitViewPadding: interactive ? 0.16 : 0.22,
+      fitViewPadding: 0.16,
       hoveredPointCursor: interactive ? "pointer" : "default",
       linkColorInterpolateFromEndpoints: true,
-      linkDefaultWidth: interactive ? 1.75 : 1.5,
+      linkDefaultWidth: 1.75,
       linkGreyoutOpacity: 0.035,
-      linkOpacity: interactive ? 0.55 : 0.45,
+      linkOpacity: 0.55,
       pixelRatio: Math.min(window.devicePixelRatio, 2),
       pointGreyoutOpacity: 0.12,
       randomSeed: 38,
@@ -287,7 +274,7 @@ const CosmosCanvas = memo(function CosmosCanvas({
         (a, b) =>
           (data.nodes[b]?.connections ?? 0) - (data.nodes[a]?.connections ?? 0),
       )
-      .slice(0, interactive ? TOP_LABEL_LIMIT : 8);
+      .slice(0, TOP_LABEL_LIMIT);
     graph.trackPointPositionsByIndices(topIndices);
     const updateLabels = () => {
       if (!graph.isReady) return;
@@ -307,7 +294,6 @@ const CosmosCanvas = memo(function CosmosCanvas({
     return () => window.clearInterval(interval);
   }, [
     data.nodes,
-    interactive,
     nodeIndex,
     simulate,
     visibleEdges,
@@ -547,15 +533,6 @@ export function CosmosGraphClient({ data }: Readonly<{ data: GraphData }>) {
     () => new Set(filtered.nodes.map((node) => node.id)),
     [filtered.nodes],
   );
-  const previewNodeIds = useMemo(() => getMobilePreviewIds(data), [data]);
-  const previewEdges = useMemo(
-    () =>
-      data.edges.filter(
-        (edge) =>
-          previewNodeIds.has(edge.source) && previewNodeIds.has(edge.target),
-      ),
-    [data.edges, previewNodeIds],
-  );
   const searchResults = useMemo(() => {
     const query = searchQuery.trim().toLocaleLowerCase();
     if (!query) return [];
@@ -655,8 +632,8 @@ export function CosmosGraphClient({ data }: Readonly<{ data: GraphData }>) {
         <div className="relative h-[22rem] border-y bg-muted/10">
           <CosmosCanvas
             data={data}
-            visibleNodeIds={previewNodeIds}
-            visibleEdges={previewEdges}
+            visibleNodeIds={visibleNodeIds}
+            visibleEdges={filtered.edges}
             interactive={false}
             simulate={false}
             selectedNodeId={null}
