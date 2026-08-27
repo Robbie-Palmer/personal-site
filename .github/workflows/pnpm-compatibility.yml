@@ -9,6 +9,7 @@ permissions:
 jobs:
   check:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -42,3 +43,19 @@ jobs:
 
       - name: Verify frozen workspace install
         run: mise x -- pnpm install --frozen-lockfile
+
+      - name: Verify workspace checks
+        run: |
+          mise run //ai-review:check
+          mise run //packages/observability:check
+          mise run //packages/recipe-db:check
+          mise run //packages/recipe-parsing:check
+          mise run //ml-pipelines/recipe-parsing:test
+          mise run //ui:check
+          mise run //workers/recipe-api:check
+          mise run //workers/recipe-ingest:check
+
+      - name: Verify production build
+        run: mise run //ui:build
+        env:
+          NEXT_PUBLIC_CF_IMAGES_ACCOUNT_HASH: placeholder
