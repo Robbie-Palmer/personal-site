@@ -1,6 +1,4 @@
 import { ApiError, apiRequest } from "@/lib/api/http";
-import type { RecipeBoxProfile } from "@/lib/api/recipe-box";
-import { getRecipeBoxProfile } from "@/lib/api/recipe-box";
 import type { SavedRecipeApiRecord } from "@/lib/domain/recipe/recipeDraft";
 
 const PAGE_LIMIT = 100;
@@ -68,22 +66,4 @@ export async function getSavedRecipe(
     }
     throw error;
   }
-}
-
-export async function fetchRecipeBoxRecipes(
-  signal?: AbortSignal,
-): Promise<{ recipes: SavedRecipeApiRecord[]; box: RecipeBoxProfile }> {
-  const [owned, readable, box] = await Promise.all([
-    fetchAllSavedRecipes({ scope: "owned", signal }),
-    fetchAllSavedRecipes({ signal }),
-    getRecipeBoxProfile(signal),
-  ]);
-  const ownedSlugs = new Set(owned.map((recipe) => recipe.slug));
-  const selectedSlugs = new Set(box.recipeSlugs);
-  const selectedOrStarterRecipes = readable.filter(
-    (recipe) =>
-      !ownedSlugs.has(recipe.slug) &&
-      (!box.completed || selectedSlugs.has(recipe.slug)),
-  );
-  return { recipes: [...owned, ...selectedOrStarterRecipes], box };
 }

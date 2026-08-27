@@ -1,18 +1,27 @@
 "use client";
 
+import { useQuery } from "@tanstack/react-query";
 import { Bell } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { getNotificationPage } from "@/lib/api/notifications";
 import { authClient } from "@/lib/auth-client";
+import { recipeBootstrapQuery } from "@/lib/query/recipe-queries";
 
 const NOTIFICATION_REFRESH_INTERVAL_MS = 10_000;
 
 export function NotificationBell() {
   const { data: session } = authClient.useSession();
   const sessionUserId = session?.user.id;
+  const bootstrap = useQuery({
+    ...recipeBootstrapQuery(sessionUserId ?? "pending"),
+    enabled: Boolean(sessionUserId),
+  });
   const [unread, setUnread] = useState({ userId: "", count: 0 });
-  const count = unread.userId === sessionUserId ? unread.count : 0;
+  const count =
+    unread.userId === sessionUserId
+      ? unread.count
+      : (bootstrap.data?.unreadNotificationCount ?? 0);
 
   useEffect(() => {
     if (!sessionUserId) return;
@@ -30,7 +39,6 @@ export function NotificationBell() {
       if (document.visibilityState === "visible") refresh();
     };
 
-    refresh();
     const interval = globalThis.setInterval(
       refreshWhenVisible,
       NOTIFICATION_REFRESH_INTERVAL_MS,

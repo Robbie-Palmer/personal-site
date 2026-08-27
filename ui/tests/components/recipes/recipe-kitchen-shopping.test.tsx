@@ -3,7 +3,7 @@ import { act, render, screen } from "@/tests/test-utils";
 
 const mocks = vi.hoisted(() => ({
   buildKitchenCatalog: vi.fn(),
-  fetchRecipeBoxRecipes: vi.fn(),
+  recipeBoxResult: vi.fn(),
   recipeRecordsToShoppingRecipes: vi.fn(),
   useSession: vi.fn(),
 }));
@@ -16,8 +16,12 @@ vi.mock("@/components/recipes/auth-button", () => ({
   AuthButton: () => <button type="button">Log in</button>,
 }));
 
-vi.mock("@/lib/api/saved-recipes", () => ({
-  fetchRecipeBoxRecipes: mocks.fetchRecipeBoxRecipes,
+vi.mock("@/lib/api/recipe-bootstrap", () => ({
+  getRecipeBootstrap: async () => ({
+    recipeBox: await mocks.recipeBoxResult(),
+    diet: { profile: {}, options: {} },
+    unreadNotificationCount: 0,
+  }),
 }));
 
 vi.mock("@/lib/api/recipes", () => ({
@@ -64,12 +68,12 @@ describe("database-backed kitchen and shopping pages", () => {
 
     render(<RecipeShopping />);
     expect(screen.getByText("Log in to make a list")).toBeInTheDocument();
-    expect(mocks.fetchRecipeBoxRecipes).not.toHaveBeenCalled();
+    expect(mocks.recipeBoxResult).not.toHaveBeenCalled();
   });
 
   it("loads recipe-box recipes into the kitchen", async () => {
     const recipes = [{ slug: "lentil-soup" }];
-    mocks.fetchRecipeBoxRecipes.mockImplementation(async () => {
+    mocks.recipeBoxResult.mockImplementation(async () => {
       return { recipes, box: { completed: true, recipeSlugs: [] } };
     });
 
@@ -82,14 +86,14 @@ describe("database-backed kitchen and shopping pages", () => {
 
   it("shows a kitchen load error while ignoring abort errors", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
-    mocks.fetchRecipeBoxRecipes.mockRejectedValueOnce(new Error("offline"));
+    mocks.recipeBoxResult.mockRejectedValueOnce(new Error("offline"));
     const failedView = render(<RecipeKitchen />);
     expect(
       await screen.findByText("Your kitchen could not be loaded."),
     ).toBeInTheDocument();
     failedView.unmount();
 
-    mocks.fetchRecipeBoxRecipes.mockRejectedValueOnce(
+    mocks.recipeBoxResult.mockRejectedValueOnce(
       new DOMException("aborted", "AbortError"),
     );
     render(<RecipeKitchen />);
@@ -102,7 +106,7 @@ describe("database-backed kitchen and shopping pages", () => {
   it("loads recipe-box recipes into the shopping view", async () => {
     const records = [{ slug: "lentil-soup" }];
     const shoppingRecipes = [{ slug: "lentil-soup", title: "Lentil Soup" }];
-    mocks.fetchRecipeBoxRecipes.mockResolvedValue({
+    mocks.recipeBoxResult.mockResolvedValue({
       recipes: records,
       box: { completed: true, recipeSlugs: [] },
     });
@@ -116,14 +120,14 @@ describe("database-backed kitchen and shopping pages", () => {
 
   it("shows a shopping load error while ignoring abort errors", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
-    mocks.fetchRecipeBoxRecipes.mockRejectedValueOnce(new Error("offline"));
+    mocks.recipeBoxResult.mockRejectedValueOnce(new Error("offline"));
     const failedView = render(<RecipeShopping />);
     expect(
       await screen.findByText("Your recipes could not be loaded."),
     ).toBeInTheDocument();
     failedView.unmount();
 
-    mocks.fetchRecipeBoxRecipes.mockRejectedValueOnce(
+    mocks.recipeBoxResult.mockRejectedValueOnce(
       new DOMException("aborted", "AbortError"),
     );
     render(<RecipeShopping />);

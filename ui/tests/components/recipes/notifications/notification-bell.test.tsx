@@ -1,10 +1,12 @@
-import { act, render, screen } from "@testing-library/react";
+import { act, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { NotificationPage } from "@/lib/api/notifications";
+import { render } from "@/tests/test-utils";
 
 const mocks = vi.hoisted(() => ({
   useSession: vi.fn(),
   getNotificationPage: vi.fn(),
+  getRecipeBootstrap: vi.fn(),
 }));
 
 vi.mock("@/lib/auth-client", () => ({
@@ -14,6 +16,10 @@ vi.mock("@/lib/auth-client", () => ({
 vi.mock("@/lib/api/notifications", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/api/notifications")>()),
   getNotificationPage: mocks.getNotificationPage,
+}));
+
+vi.mock("@/lib/api/recipe-bootstrap", () => ({
+  getRecipeBootstrap: mocks.getRecipeBootstrap,
 }));
 
 import { NotificationBell } from "@/components/recipes/notifications/notification-bell";
@@ -31,6 +37,11 @@ describe("NotificationBell", () => {
       nextOffset: null,
       unreadCount: 5,
     });
+    mocks.getRecipeBootstrap.mockResolvedValue({
+      recipeBox: { recipes: [], box: { completed: true, recipeSlugs: [] } },
+      diet: { profile: {}, options: {} },
+      unreadNotificationCount: 5,
+    });
   });
 
   afterEach(() => {
@@ -39,9 +50,16 @@ describe("NotificationBell", () => {
 
   it("polls for requests created after the user signs in", async () => {
     vi.useFakeTimers();
-    mocks.getNotificationPage
-      .mockResolvedValueOnce({ items: [], nextOffset: null, unreadCount: 0 })
-      .mockResolvedValueOnce({ items: [], nextOffset: null, unreadCount: 1 });
+    mocks.getRecipeBootstrap.mockResolvedValueOnce({
+      recipeBox: { recipes: [], box: { completed: true, recipeSlugs: [] } },
+      diet: { profile: {}, options: {} },
+      unreadNotificationCount: 0,
+    });
+    mocks.getNotificationPage.mockResolvedValueOnce({
+      items: [],
+      nextOffset: null,
+      unreadCount: 1,
+    });
 
     render(<NotificationBell />);
     await act(async () => Promise.resolve());
@@ -67,13 +85,13 @@ describe("NotificationBell", () => {
 
     render(<NotificationBell />);
     await act(async () => Promise.resolve());
-    expect(mocks.getNotificationPage).toHaveBeenCalledOnce();
+    expect(mocks.getNotificationPage).not.toHaveBeenCalled();
 
     await act(async () => {
       await vi.advanceTimersByTimeAsync(20_000);
     });
 
-    expect(mocks.getNotificationPage).toHaveBeenCalledOnce();
+    expect(mocks.getNotificationPage).not.toHaveBeenCalled();
   });
 
   it("does not refetch or flicker when the same user's session object refreshes", async () => {
@@ -85,7 +103,7 @@ describe("NotificationBell", () => {
     mocks.useSession.mockReturnValue({ data: { user: { id: "user-1" } } });
     rerender(<NotificationBell />);
 
-    expect(mocks.getNotificationPage).toHaveBeenCalledOnce();
+    expect(mocks.getNotificationPage).not.toHaveBeenCalled();
     expect(
       screen.getByRole("link", { name: "Notifications, 5 unread" }),
     ).toBeInTheDocument();
@@ -96,13 +114,17 @@ describe("NotificationBell", () => {
     const replacementPage = new Promise<NotificationPage>((resolve) => {
       resolveReplacement = resolve;
     });
-    mocks.getNotificationPage
+    mocks.getRecipeBootstrap
       .mockResolvedValueOnce({
-        items: [],
-        nextOffset: null,
-        unreadCount: 5,
+        recipeBox: { recipes: [], box: { completed: true, recipeSlugs: [] } },
+        diet: { profile: {}, options: {} },
+        unreadNotificationCount: 5,
       })
-      .mockReturnValueOnce(replacementPage);
+      .mockImplementationOnce(async () => ({
+        recipeBox: { recipes: [], box: { completed: true, recipeSlugs: [] } },
+        diet: { profile: {}, options: {} },
+        unreadNotificationCount: (await replacementPage).unreadCount,
+      }));
     const { rerender } = render(<NotificationBell />);
     expect(
       await screen.findByRole("link", { name: "Notifications, 5 unread" }),
