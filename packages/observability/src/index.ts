@@ -436,6 +436,8 @@ export async function withPostHogSpan<T>(
     kind?: SpanKind;
     waitUntil?: WaitUntilContext;
     attributes?: Attributes;
+    // Set false only when an enclosing request or workflow span will flush.
+    flush?: boolean;
   },
   operation: (span: Span) => Promise<T>,
 ): Promise<T> {
@@ -495,10 +497,12 @@ export async function withPostHogSpan<T>(
     return result;
   } finally {
     safelyRecordTelemetry("end span", () => span.end());
-    try {
-      await flushAfter(state, options.waitUntil);
-    } catch (error) {
-      reportTelemetryFailure("flush span telemetry", error);
+    if (options.flush !== false) {
+      try {
+        await flushAfter(state, options.waitUntil);
+      } catch (error) {
+        reportTelemetryFailure("flush span telemetry", error);
+      }
     }
   }
 }

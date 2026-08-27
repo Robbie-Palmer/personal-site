@@ -153,6 +153,8 @@ type AppEnv = {
   Variables: Partial<AuthorizationVariables>;
 };
 
+type SpanAttributes = Record<string, boolean | number | string>;
+
 extendZodWithOpenApi(z);
 
 const app = new OpenAPIHono<AppEnv>();
@@ -981,7 +983,9 @@ async function loadOptionalRecipeSession(
 ): Promise<AuthenticatedSession | null> {
   if (!hasLoadableAuthConfiguration(c.env)) return null;
   try {
-    return await loadBetterAuthSession(c, db);
+    return await withRecipeApiSpan(c, "auth.session.lookup", () =>
+      loadBetterAuthSession(c, db),
+    );
   } catch (error) {
     console.error("Recipe session lookup failed", error);
     return null;
@@ -1006,7 +1010,9 @@ async function requireRecipeSession(
   }
 
   try {
-    const session = await loadBetterAuthSession(c, db);
+    const session = await withRecipeApiSpan(c, "auth.session.lookup", () =>
+      loadBetterAuthSession(c, db),
+    );
     if (!session) {
       return {
         success: false,
@@ -1028,6 +1034,35 @@ type WithDbOptions = {
   onError?: (error: unknown) => Response | undefined;
 };
 
+function withRecipeApiSpan<T>(
+  c: Context<AppEnv>,
+  spanName: string,
+  operation: () => Promise<T>,
+  attributes?: SpanAttributes,
+): Promise<T> {
+  let waitUntil:
+    | { waitUntil(promise: Promise<unknown>): void }
+    | undefined;
+  try {
+    waitUntil = c.executionCtx;
+  } catch {
+    // Hono's direct app.request() test helper has no execution context.
+  }
+  return withPostHogSpan(
+    {
+      env: c.env,
+      serviceName: "recipe-api",
+      spanName,
+      traceCarrier: traceCarrierFromHeaders(c.req.raw.headers),
+      waitUntil,
+      attributes,
+      // The outer request span flushes after every route and its children end.
+      flush: false,
+    },
+    operation,
+  );
+}
+
 async function withDatabase(
   c: Context<AppEnv>,
   failureKind: "query" | "mutation" | "lookup",
@@ -1040,16 +1075,31 @@ async function withDatabase(
 
   let client: DbClient | undefined;
   try {
-    const connection = createDb(connectionString);
+    const connection = await withRecipeApiSpan(
+      c,
+      "db.client.create",
+      async () => createDb(connectionString),
+      { "db.system.name": "postgresql" },
+    );
     client = connection.client;
-    return await action(connection.db);
+    return await withRecipeApiSpan(
+      c,
+      "db.operation",
+      () => Promise.resolve(action(connection.db)),
+      { "db.system.name": "postgresql" },
+    );
   } catch (e) {
     const mapped = options?.onError?.(e);
     if (mapped) return mapped;
     console.error(logMessage, e);
     return c.json({ error: `Database ${failureKind} failed` }, 502);
   } finally {
-    await closeDbClient(client);
+    await withRecipeApiSpan(
+      c,
+      "db.client.close",
+      () => closeDbClient(client),
+      { "db.system.name": "postgresql" },
+    );
   }
 }
 
@@ -2977,7 +3027,12 @@ registerRoute("get", "/pantry", async (c) => {
     "GET /pantry query failed",
     async ({ db, session }) => {
       c.header("Cache-Control", "private, no-store");
-      return c.json(await pantryResponse(db, session.user.id));
+      const pantry = await withRecipeApiSpan(c, "pantry.read.query", () =>
+        pantryResponse(db, session.user.id),
+      );
+      return withRecipeApiSpan(c, "http.response.serialize", async () =>
+        c.json(pantry),
+      );
     },
   );
 });
@@ -4161,18 +4216,38 @@ registerRoute("get", "/recipes", async (c) => {
     "query",
     "GET /recipes query failed",
     async (db) => {
-      let visibilityFilter: SQL | undefined;
-      if (scope === "owned") {
-        const session = await requireRecipeSession(c, db);
-        if (!session.success) return session.response;
-        visibilityFilter = eq(schema.recipe.userId, session.session.user.id);
-      } else {
-        const session = await loadOptionalRecipeSession(c, db);
-        visibilityFilter = await readableRecipeFilter(db, session?.user.id);
-      }
-      const page = await listRecipesPage(db, visibilityFilter, cursor, limit.data);
+      const queryResult = await withRecipeApiSpan(
+        c,
+        "recipes.list.query",
+        async () => {
+          let visibilityFilter: SQL | undefined;
+          if (scope === "owned") {
+            const session = await requireRecipeSession(c, db);
+            if (!session.success) return session.response;
+            visibilityFilter = eq(
+              schema.recipe.userId,
+              session.session.user.id,
+            );
+          } else {
+            const session = await loadOptionalRecipeSession(c, db);
+            visibilityFilter = await readableRecipeFilter(db, session?.user.id);
+          }
+          const page = await listRecipesPage(
+            db,
+            visibilityFilter,
+            cursor,
+            limit.data,
+          );
+          return page;
+        },
+        { "app.recipe.scope": scope ?? "readable" },
+      );
+      if (queryResult instanceof Response) return queryResult;
+      const page = queryResult;
       const items = page.recipes.map(recipeResponse);
-      return c.json(paginated ? { items, nextCursor: page.nextCursor } : items);
+      return withRecipeApiSpan(c, "http.response.serialize", async () =>
+        c.json(paginated ? { items, nextCursor: page.nextCursor } : items),
+      );
     },
   );
 });
@@ -4599,27 +4674,41 @@ registerRoute("get", "/recipes/:slug", async (c) => {
     "query",
     "GET /recipes/:slug query failed",
     async (db) => {
-      const session = await loadOptionalRecipeSession(c, db);
-      const recipe = await findRecipeBySlug(db, slug.slug);
-      if (!recipe) return c.notFound();
+      const queryResult = await withRecipeApiSpan(
+        c,
+        "recipes.detail.query",
+        async () => {
+          const session = await loadOptionalRecipeSession(c, db);
+          const recipe = await findRecipeBySlug(db, slug.slug);
+          if (!recipe) return c.notFound();
 
-      if (recipe.visibility !== "public") {
-        if (!session) return c.notFound();
-        const household = {
-          userSharesHouseholdWithOwner: await usersShareHousehold(
-            db,
-            recipe.userId,
-            session.user.id,
-          ),
-        };
-        const decision = authorizeRecipeRead(session.user, recipe, household);
-        if (!decision.allowed) return c.notFound();
-      }
+          if (recipe.visibility !== "public") {
+            if (!session) return c.notFound();
+            const household = {
+              userSharesHouseholdWithOwner: await usersShareHousehold(
+                db,
+                recipe.userId,
+                session.user.id,
+              ),
+            };
+            const decision = authorizeRecipeRead(
+              session.user,
+              recipe,
+              household,
+            );
+            if (!decision.allowed) return c.notFound();
+          }
 
-      return c.json({
-        ...recipeResponse(recipe),
-        owned: session?.user.id === recipe.userId,
-      });
+          return { recipe, session };
+        },
+      );
+      if (queryResult instanceof Response) return queryResult;
+      return withRecipeApiSpan(c, "http.response.serialize", async () =>
+        c.json({
+          ...recipeResponse(queryResult.recipe),
+          owned: queryResult.session?.user.id === queryResult.recipe.userId,
+        }),
+      );
     },
   );
 });
