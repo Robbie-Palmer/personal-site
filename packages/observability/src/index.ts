@@ -436,7 +436,10 @@ export async function withPostHogSpan<T>(
     kind?: SpanKind;
     waitUntil?: WaitUntilContext;
     attributes?: Attributes;
-    // Set false only when an enclosing request or workflow span will flush.
+    /**
+     * Set false only when an enclosing request or workflow span will flush.
+     * @default true
+     */
     flush?: boolean;
   },
   operation: (span: Span) => Promise<T>,
