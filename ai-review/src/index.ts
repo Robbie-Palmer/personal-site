@@ -30,6 +30,7 @@ import {
   failReview,
   identifyReviewArtifacts,
   mergeFindings,
+  modelFailureCostUsd,
   prepareReview,
   publishReview,
   publishSkippedReview,
@@ -2457,10 +2458,20 @@ export class ReviewWorkflow extends WorkflowEntrypoint<
         merged = await workflowStep.do(
           "merge-current-scout-findings",
           MODEL_STEP_CONFIG,
-          () =>
-            mergeFindings(this.env, event.payload, prepared!, scouts!, {
-              observationId: `${event.instanceId}:merger`,
-            }),
+          async () => {
+            try {
+              return await mergeFindings(
+                this.env,
+                event.payload,
+                prepared!,
+                scouts!,
+                { observationId: `${event.instanceId}:merger` },
+              );
+            } catch (error) {
+              incurredCostUsd += modelFailureCostUsd(error);
+              throw error;
+            }
+          },
         );
         incurredCostUsd += merged.cost;
       } else {

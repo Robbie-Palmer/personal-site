@@ -69,6 +69,26 @@ describe("AI review guardrails", () => {
     ]);
   });
 
+  it("applies the configured language policy anywhere in a finding", () => {
+    const policy = guardrailPolicy({}).publication;
+    const speculative = finding(
+      "a",
+      "high",
+      0.9,
+      "Add a guard and verify the value before dereferencing it.",
+    );
+
+    expect(selectPublishedFindings([speculative], policy).hidden).toEqual([
+      { finding: speculative, reason: "speculative-language" },
+    ]);
+    expect(
+      selectPublishedFindings(
+        [speculative],
+        { ...policy, rejectedLanguage: [] },
+      ).published,
+    ).toEqual([speculative]);
+  });
+
   it("bounds configuration and reports both active policy versions", () => {
     const policy = guardrailPolicy({
       AI_REVIEW_MAX_VISIBLE_FINDINGS: "999",

@@ -51,9 +51,12 @@ interface GuardrailFinding {
 }
 
 const REJECTED_LANGUAGE = [
-  "leading consider",
-  "leading verify",
+  "consider",
+  "verify",
   "no fix needed",
+  "no fix is needed",
+  "no fix required",
+  "no fix is required",
 ];
 
 function boundedInteger(
@@ -108,16 +111,24 @@ export function guardrailPolicy(env: Partial<Env>): GuardrailPolicy {
   };
 }
 
-function hasSpeculativeLanguage(finding: GuardrailFinding): boolean {
-  const clauses = [finding.title, finding.evidence, finding.recommendation]
-    .join("\n")
-    .split(/(?:^|[.!?]\s+|\n+)/)
-    .map((clause) => clause.trim());
-  return clauses.some(
-    (clause) =>
-      /^(?:please\s+)?(?:consider|verify)\b/i.test(clause) ||
-      /\bno fix (?:is )?(?:needed|required)\b/i.test(clause),
+function escapeRegularExpression(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function hasSpeculativeLanguage(
+  finding: GuardrailFinding,
+  rejectedLanguage: string[],
+): boolean {
+  const text = [finding.title, finding.evidence, finding.recommendation].join(
+    "\n",
   );
+  return rejectedLanguage.some((phrase) => {
+    const normalized = phrase.trim();
+    return normalized.length > 0 && new RegExp(
+      `\\b${escapeRegularExpression(normalized).replace(/\s+/g, "\\s+")}\\b`,
+      "i",
+    ).test(text);
+  });
 }
 
 const SEVERITY_ORDER: Record<GuardrailFinding["severity"], number> = {
@@ -153,7 +164,7 @@ export function selectPublishedFindings<T extends GuardrailFinding>(
   for (const finding of open) {
     if (seen.has(finding.findingId)) continue;
     seen.add(finding.findingId);
-    if (hasSpeculativeLanguage(finding)) {
+    if (hasSpeculativeLanguage(finding, policy.rejectedLanguage)) {
       hidden.push({ finding, reason: "speculative-language" });
       continue;
     }

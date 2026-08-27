@@ -188,6 +188,17 @@ export interface MergedRun {
   metric?: ModelMetric;
 }
 
+export class MergerOutputError extends Error {
+  constructor(message: string, readonly costUsd: number) {
+    super(message);
+    this.name = "MergerOutputError";
+  }
+}
+
+export function modelFailureCostUsd(error: unknown): number {
+  return error instanceof MergerOutputError ? error.costUsd : 0;
+}
+
 const findingResolutionProperties = {
   finding_id: { type: "string" },
   verdict: {
@@ -1035,6 +1046,10 @@ function isCircuitSkippedModel(value: unknown): value is CircuitSkippedModel {
   );
 }
 
+function scoutIdentity({ model, provider }: Pick<Scout, "model" | "provider">) {
+  return `${provider}\0${model}`;
+}
+
 async function plannedCircuitSkips(
   env: Env,
   scouts: Scout[],
@@ -1054,9 +1069,13 @@ async function plannedCircuitSkips(
     );
     if (!response.ok) throw new Error(`model plan failed (${response.status})`);
     const result = (await response.json()) as { skipped?: unknown };
-    return Array.isArray(result.skipped)
-      ? result.skipped.filter(isCircuitSkippedModel)
-      : [];
+    if (!Array.isArray(result.skipped)) return [];
+    const requestedScouts = new Set(scouts.map(scoutIdentity));
+    return result.skipped.filter(
+      (decision): decision is CircuitSkippedModel =>
+        isCircuitSkippedModel(decision) &&
+        requestedScouts.has(scoutIdentity(decision)),
+    );
   } catch (error) {
     console.error("Could not load model circuit-breaker state", {
       type: error instanceof Error ? error.name : typeof error,
@@ -1176,9 +1195,12 @@ export async function runScouts(
     ...configuredScouts,
     ...unavailableScouts,
   ]);
-  const skippedModels = new Set(circuitSkipped.map(({ model }) => model));
+  const skippedScouts = new Set(
+    circuitSkipped.map(scoutIdentity),
+  );
+  const isSkipped = (scout: Scout) => skippedScouts.has(scoutIdentity(scout));
   const runnableScouts = configuredScouts.filter(
-    ({ model }) => !skippedModels.has(model),
+    (scout) => !isSkipped(scout),
   );
   const models = [
     ...configuredScouts.map(({ model }) => model),
@@ -1222,7 +1244,7 @@ export async function runScouts(
   const outOfScopeCounts: Record<string, number> = {};
   const candidateCounts: Record<string, number> = {};
   const failed = availability.unavailable.filter(
-    (model) => !skippedModels.has(model),
+    (model) => !isSkipped({ model, provider: "opencode" }),
   );
   const metrics: ModelMetric[] = [
     ...circuitSkipped.map((decision) => ({
@@ -1238,7 +1260,7 @@ export async function runScouts(
       error: "model skipped during circuit-breaker cooldown",
     })),
     ...availability.unavailable
-      .filter((model) => !skippedModels.has(model))
+      .filter((model) => !isSkipped({ model, provider: "opencode" }))
       .map((model) => ({
         model,
         provider: "opencode" as const,
@@ -1479,7 +1501,7 @@ ${prepared.context ?? ""}
 ${prepared.threads ?? ""}
 </DATA>`;
   const started = Date.now();
-  let merged: ModelResult;
+  let merged: ModelResult | undefined;
   try {
     merged = await reviewer.callMerger(
       settings.merger,
@@ -1489,8 +1511,16 @@ ${prepared.threads ?? ""}
       statefulMergerSchema,
       MERGER_MAX_TOKENS,
     );
-    normalizeMergedPayload(merged.payload, prepared, scouts.models);
+    const contributingScoutModels = Object.entries(scouts.candidates)
+      .filter(([, findings]) => findings.length > 0)
+      .map(([model]) => model);
+    normalizeMergedPayload(
+      merged.payload,
+      prepared,
+      contributingScoutModels,
+    );
   } catch (error) {
+    const costUsd = merged?.cost ?? 0;
     await recordModelReliability(
       env,
       options.observationId ?? `${params.deliveryId}:merger`,
@@ -1500,10 +1530,13 @@ ${prepared.threads ?? ""}
         role: "merger",
         ok: false,
         latencyMs: Date.now() - started,
-        costUsd: 0,
+        costUsd,
         error: errorMessage(error),
       }],
     );
+    if (costUsd > 0) {
+      throw new MergerOutputError(errorMessage(error), costUsd);
+    }
     throw error;
   }
   const metric: ModelMetric = {

@@ -15,6 +15,8 @@ import {
   identifyReviewArtifacts,
   identifyDiffHunks,
   mergeFindings,
+  MergerOutputError,
+  modelFailureCostUsd,
   prepareReview,
   publishReview,
   publishSkippedReview,
@@ -653,6 +655,12 @@ describe("stateful review engine", () => {
                 cooldownUntil: "not-a-date",
               },
               {
+                model: "model-b",
+                provider: "opencode",
+                consecutiveFailures: 2,
+                cooldownUntil: "2026-08-27T00:01:00.000Z",
+              },
+              {
                 model: "model-a",
                 provider: "openrouter",
                 consecutiveFailures: 2,
@@ -1023,8 +1031,7 @@ describe("stateful review engine", () => {
       },
     });
 
-    await expect(
-      mergeFindings(
+    const failure = mergeFindings(
         env,
         params,
         {
@@ -1048,10 +1055,14 @@ describe("stateful review engine", () => {
           metrics: [],
         },
         { observationId: "invalid-merger-observation" },
-      ),
-    ).rejects.toThrow(
+      );
+    await expect(failure).rejects.toThrow(
       "Merger omitted or invalidated a required controlled replay resolution",
     );
+    await expect(failure).rejects.toBeInstanceOf(MergerOutputError);
+    await failure.catch((error: unknown) => {
+      expect(modelFailureCostUsd(error)).toBe(0.01);
+    });
     expect(recordedBodies).toEqual([
       expect.objectContaining({
         observationId: "invalid-merger-observation",
@@ -1062,6 +1073,76 @@ describe("stateful review engine", () => {
               "Merger omitted or invalidated a required controlled replay resolution",
           }),
         ],
+      }),
+    ]);
+  });
+
+  it("accepts provenance only from scouts that returned candidates", async () => {
+    vi.spyOn(Reviewer.prototype, "callMerger").mockResolvedValue({
+      payload: {
+        summary: "One supported and one unsupported finding.",
+        findings: [
+          {
+            severity: "high",
+            file: "app.ts",
+            line: 1,
+            title: "Supported finding",
+            evidence: "The changed return violates the contract.",
+            recommendation: "Restore the expected return value.",
+            confidence: 0.9,
+            source_models: ["productive", "circuit-skipped"],
+            status: "open",
+            resolution_note: "",
+          },
+          {
+            severity: "medium",
+            file: "app.ts",
+            line: 1,
+            title: "Unsupported finding",
+            evidence: "No successful scout supplied this candidate.",
+            recommendation: "Do not publish it.",
+            confidence: 0.8,
+            source_models: ["circuit-skipped"],
+            status: "open",
+            resolution_note: "",
+          },
+        ],
+      },
+      cost: 0.01,
+      usage: {},
+    } as never);
+
+    const merged = await mergeFindings(
+      environment(),
+      params,
+      { paths: ["app.ts"], omitted: [] },
+      {
+        models: ["productive", "circuit-skipped"],
+        candidates: {
+          productive: [{
+            severity: "high",
+            file: "app.ts",
+            line: 1,
+            title: "Supported finding",
+            evidence: "The changed return violates the contract.",
+            recommendation: "Restore the expected return value.",
+            confidence: 0.9,
+          }],
+          "circuit-skipped": [],
+        },
+        failed: [],
+        candidateCounts: { productive: 1, "circuit-skipped": 0 },
+        invalidCounts: { productive: 0, "circuit-skipped": 0 },
+        outOfScopeCounts: { productive: 0, "circuit-skipped": 0 },
+        costs: { productive: 0.01 },
+        metrics: [],
+      },
+    );
+
+    expect(merged.result.findings).toEqual([
+      expect.objectContaining({
+        title: "Supported finding",
+        source_models: ["productive"],
       }),
     ]);
   });
