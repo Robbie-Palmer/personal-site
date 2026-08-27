@@ -524,6 +524,7 @@ export function CosmosGraphClient({ data }: Readonly<{ data: GraphData }>) {
     fit: () => void;
     focus: (id: string) => void;
   } | null>(null);
+  const mobileTitleRef = useRef<HTMLHeadingElement>(null);
 
   const filtered = useMemo(
     () => filterGraphData(data, hiddenTypes, minConnections),
@@ -630,16 +631,18 @@ export function CosmosGraphClient({ data }: Readonly<{ data: GraphData }>) {
 
       {isMobile ? (
         <div className="relative h-[22rem] border-y bg-muted/10">
-          <CosmosCanvas
-            data={data}
-            visibleNodeIds={visibleNodeIds}
-            visibleEdges={filtered.edges}
-            interactive={false}
-            simulate={false}
-            selectedNodeId={null}
-            onSelect={IGNORE_SELECTION}
-          />
-          <div className="absolute inset-x-0 bottom-4 flex justify-center">
+          <div className="h-full -translate-y-3">
+            <CosmosCanvas
+              data={data}
+              visibleNodeIds={visibleNodeIds}
+              visibleEdges={filtered.edges}
+              interactive={false}
+              simulate={false}
+              selectedNodeId={null}
+              onSelect={IGNORE_SELECTION}
+            />
+          </div>
+          <div className="absolute inset-x-0 bottom-2 flex justify-center">
             <Button
               onClick={() => setMobileOpen(true)}
               className="gap-2 shadow-lg"
@@ -696,9 +699,21 @@ export function CosmosGraphClient({ data }: Readonly<{ data: GraphData }>) {
       <AccessibleGraphIndex nodes={filtered.nodes} />
 
       <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
-        <SheetContent className="inset-0 h-dvh w-screen max-w-none !translate-x-0 gap-0 border-0 p-0 sm:max-w-none">
+        <SheetContent
+          className="inset-0 h-dvh w-screen max-w-none !translate-x-0 gap-0 border-0 p-0 sm:max-w-none"
+          onOpenAutoFocus={(event) => {
+            event.preventDefault();
+            mobileTitleRef.current?.focus();
+          }}
+        >
           <SheetHeader className="border-b pr-14">
-            <SheetTitle>Explore the knowledge graph</SheetTitle>
+            <SheetTitle
+              ref={mobileTitleRef}
+              tabIndex={-1}
+              className="outline-none"
+            >
+              Explore the knowledge graph
+            </SheetTitle>
             <SheetDescription>
               Pinch to zoom, drag to pan, and tap a node for details.
             </SheetDescription>
