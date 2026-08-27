@@ -1337,6 +1337,65 @@ export function combineScoutRuns(...runs: ScoutRun[]): ScoutRun {
   };
 }
 
+function normalizeMergedPayload(
+  payload: JsonObject,
+  prepared: PreparedReview,
+  scoutModels: string[],
+): void {
+  const allowedFiles = new Set(prepared.paths);
+  payload.findings = (
+    validateFindings(payload, {
+      merged: true,
+      allowedFiles,
+    }) as MergedFinding[]
+  )
+    .map((finding) => ({
+      ...finding,
+      source_models: [
+        ...new Set(
+          finding.source_models.filter((model) => scoutModels.includes(model)),
+        ),
+      ],
+    }))
+    .filter((finding) => finding.source_models.length > 0);
+  const replayIds = new Set(
+    (prepared.replayFindings ?? []).map(({ findingId }) => findingId),
+  );
+  const seenResolutionIds = new Set<string>();
+  payload.finding_resolutions = Array.isArray(payload.finding_resolutions)
+    ? payload.finding_resolutions.filter((resolution): boolean => {
+        if (
+          typeof resolution !== "object" ||
+          resolution === null ||
+          !("finding_id" in resolution) ||
+          typeof resolution.finding_id !== "string" ||
+          !replayIds.has(resolution.finding_id) ||
+          seenResolutionIds.has(resolution.finding_id) ||
+          !("verdict" in resolution) ||
+          !["fixed", "still-present", "uncertain"].includes(
+            String(resolution.verdict),
+          ) ||
+          !("evidence" in resolution) ||
+          typeof resolution.evidence !== "string" ||
+          resolution.evidence.trim().length === 0
+        ) {
+          return false;
+        }
+        seenResolutionIds.add(resolution.finding_id);
+        return true;
+      })
+        .map((resolution) => ({
+          ...resolution,
+          evidence: String(resolution.evidence).slice(0, 2_000),
+        }))
+    : [];
+  if (seenResolutionIds.size !== replayIds.size) {
+    throw new Error(
+      "Merger omitted or invalidated a required controlled replay resolution",
+    );
+  }
+}
+
 export async function mergeFindings(
   env: Env,
   params: ReviewWorkflowParams,
@@ -1430,6 +1489,7 @@ ${prepared.threads ?? ""}
       statefulMergerSchema,
       MERGER_MAX_TOKENS,
     );
+    normalizeMergedPayload(merged.payload, prepared, scouts.models);
   } catch (error) {
     await recordModelReliability(
       env,
@@ -1445,62 +1505,6 @@ ${prepared.threads ?? ""}
       }],
     );
     throw error;
-  }
-  const allowedFiles = new Set(prepared.paths);
-  merged.payload.findings = (
-    validateFindings(merged.payload, {
-      merged: true,
-      allowedFiles,
-    }) as MergedFinding[]
-  )
-    .map((finding) => ({
-      ...finding,
-      source_models: [
-        ...new Set(
-          finding.source_models.filter((model) =>
-            scouts.models.includes(model),
-          ),
-        ),
-      ],
-    }))
-    .filter((finding) => finding.source_models.length > 0);
-  const replayIds = new Set(
-    (prepared.replayFindings ?? []).map(({ findingId }) => findingId),
-  );
-  const seenResolutionIds = new Set<string>();
-  merged.payload.finding_resolutions = Array.isArray(
-    merged.payload.finding_resolutions,
-  )
-    ? merged.payload.finding_resolutions.filter((resolution): boolean => {
-        if (
-          typeof resolution !== "object" ||
-          resolution === null ||
-          !("finding_id" in resolution) ||
-          typeof resolution.finding_id !== "string" ||
-          !replayIds.has(resolution.finding_id) ||
-          seenResolutionIds.has(resolution.finding_id) ||
-          !("verdict" in resolution) ||
-          !["fixed", "still-present", "uncertain"].includes(
-            String(resolution.verdict),
-          ) ||
-          !("evidence" in resolution) ||
-          typeof resolution.evidence !== "string" ||
-          resolution.evidence.trim().length === 0
-        ) {
-          return false;
-        }
-        seenResolutionIds.add(resolution.finding_id);
-        return true;
-      })
-        .map((resolution) => ({
-          ...resolution,
-          evidence: String(resolution.evidence).slice(0, 2_000),
-        }))
-    : [];
-  if (seenResolutionIds.size !== replayIds.size) {
-    throw new Error(
-      "Merger omitted or invalidated a required controlled replay resolution",
-    );
   }
   const metric: ModelMetric = {
     model: settings.merger,

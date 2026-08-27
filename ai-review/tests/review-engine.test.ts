@@ -995,6 +995,77 @@ describe("stateful review engine", () => {
     ]);
   });
 
+  it("records an invalid merger response as a reliability failure", async () => {
+    const findingId = `f_${"d".repeat(24)}`;
+    vi.spyOn(Reviewer.prototype, "callMerger").mockResolvedValue({
+      payload: {
+        summary: "Replay omitted.",
+        findings: [],
+        finding_resolutions: [],
+      },
+      cost: 0.01,
+      usage: {},
+    } as never);
+    const recordedBodies: unknown[] = [];
+    const env = environment();
+    Object.assign(env, {
+      PR_STATE: {
+        idFromName: vi.fn(() => "model-reliability-id"),
+        get: vi.fn(() => ({
+          fetch: vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+            if (new URL(String(input)).pathname === "/models/plan") {
+              return json({ skipped: [] });
+            }
+            recordedBodies.push(JSON.parse(String(init?.body)));
+            return json({ recorded: 1 });
+          }),
+        })),
+      },
+    });
+
+    await expect(
+      mergeFindings(
+        env,
+        params,
+        {
+          paths: ["app.ts"],
+          omitted: [],
+          replayFindings: [{
+            findingId,
+            file: "app.ts",
+            title: "Retry is missing",
+            hunkIds: [],
+          }],
+        },
+        {
+          models: ["model/scout"],
+          candidates: { "model/scout": [] },
+          failed: [],
+          candidateCounts: { "model/scout": 0 },
+          invalidCounts: { "model/scout": 0 },
+          outOfScopeCounts: { "model/scout": 0 },
+          costs: { "model/scout": 0 },
+          metrics: [],
+        },
+        { observationId: "invalid-merger-observation" },
+      ),
+    ).rejects.toThrow(
+      "Merger omitted or invalidated a required controlled replay resolution",
+    );
+    expect(recordedBodies).toEqual([
+      expect.objectContaining({
+        observationId: "invalid-merger-observation",
+        metrics: [
+          expect.objectContaining({
+            ok: false,
+            error:
+              "Merger omitted or invalidated a required controlled replay resolution",
+          }),
+        ],
+      }),
+    ]);
+  });
+
   it("keeps only evidence-backed controlled replay verdicts", async () => {
     const findingId = `f_${"d".repeat(24)}`;
     const callMerger = vi
