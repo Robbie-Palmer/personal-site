@@ -135,12 +135,28 @@ Committed non-secret defaults in `wrangler.toml` configure the shared reviewer:
 - `AI_REVIEW_MAX_PR_COST_USD=5` stops new runs after recorded successful or
   failed stateful runs on the PR reach that cumulative cost;
 - `AI_REVIEW_MAX_RUNS_PER_PR=20` caps attempted stateful runs per PR;
+- `AI_REVIEW_PUBLICATION_POLICY_VERSION=deterministic-publication-v1` and
+  `AI_REVIEW_MAX_VISIBLE_FINDINGS=7` identify the publication rules and cap
+  visible open findings. The Worker keeps every accepted scout candidate and
+  records merged findings withheld by the cap or speculative language filter
+  in R2;
+- `AI_REVIEW_RELIABILITY_POLICY_VERSION=consecutive-failures-v1`,
+  `AI_REVIEW_MODEL_FAILURE_THRESHOLD=3`, and
+  `AI_REVIEW_MODEL_COOLDOWN_SECONDS=3600` identify the model health rules. A
+  singleton Durable Object stores idempotent success and failure observations,
+  pauses a model after three consecutive failures, and tries it again after a
+  one-hour cooldown without deleting its failure history;
 - `AI_REVIEW_OUTCOME_WINDOW_SECONDS=604800` waits seven days before labeling
   a silent finding `no-observable-response`, while
   `AI_REVIEW_OUTCOME_EVALUATOR_VERSION` identifies the decision rules stored
   with each evaluation; and
 - `AI_REVIEW_PROMPT_VERSION` participates in the durable idempotency key, so an
   intentional prompt/configuration change can review an unchanged head once.
+
+The rolling comment states that the review is advisory. It also reports
+incomplete coverage when a scout or merger is in cooldown. An explicit
+`/ai-review` run includes both active policy versions and their limits in the
+comment.
 
 The per-PR Durable Object permits only one paid review to be in flight. This
 ensures a later head cannot bypass the cost ceiling while an earlier review's

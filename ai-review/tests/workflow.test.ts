@@ -9,6 +9,7 @@ const engine = vi.hoisted(() => ({
   failReview: vi.fn(),
   identifyReviewArtifacts: vi.fn(),
   mergeFindings: vi.fn(),
+  modelFailureCostUsd: vi.fn(),
   prepareReview: vi.fn(),
   publishReview: vi.fn(),
   publishSkippedReview: vi.fn(),
@@ -115,6 +116,7 @@ beforeEach(() => {
     .mockResolvedValueOnce(emptyScouts);
   engine.combineScoutRuns.mockReturnValue(scouts);
   engine.mergeFindings.mockResolvedValue(merged);
+  engine.modelFailureCostUsd.mockReturnValue(0);
   engine.identifyReviewArtifacts.mockResolvedValue(artifacts);
   engine.publishReview.mockResolvedValue({
     commentId: 123,
@@ -144,14 +146,20 @@ describe("ReviewWorkflow orchestration", () => {
       expect.anything(),
       payload,
       prepared,
-      { providers: ["openrouter"] },
+      {
+        providers: ["openrouter"],
+        observationId: `${event.instanceId}:openrouter`,
+      },
     );
     expect(engine.runScouts).toHaveBeenNthCalledWith(
       2,
       expect.anything(),
       payload,
       prepared,
-      { providers: ["opencode"] },
+      {
+        providers: ["opencode"],
+        observationId: `${event.instanceId}:opencode`,
+      },
     );
     expect(engine.combineScoutRuns).toHaveBeenCalledWith(scouts, emptyScouts);
     expect(engine.mergeFindings).toHaveBeenCalledOnce();
@@ -169,6 +177,10 @@ describe("ReviewWorkflow orchestration", () => {
       prepared,
       scouts,
       merged,
+      expect.objectContaining({
+        version: "deterministic-publication-v1",
+        maxVisibleFindings: 7,
+      }),
     );
     expect(engine.recordReview).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -369,6 +381,32 @@ describe("ReviewWorkflow orchestration", () => {
         incurredCostUsd: 0.4,
       }),
     );
+  });
+
+  it("includes paid invalid merger output in failed review spend", async () => {
+    const error = new Error("invalid merger output");
+    engine.mergeFindings.mockRejectedValue(error);
+    engine.modelFailureCostUsd.mockReturnValue(0.2);
+    const { workflow, step } = fixture();
+
+    await expect(workflow.run(event, step)).rejects.toThrow(
+      "invalid merger output",
+    );
+
+    expect(engine.modelFailureCostUsd).toHaveBeenCalledWith(error);
+    expect(engine.failReview).toHaveBeenCalledWith(
+      expect.anything(),
+      payload,
+      event.instanceId,
+      error,
+      expect.any(Number),
+    );
+    expect(engine.failReview.mock.calls[0]?.[4]).toBeCloseTo(0.6);
+    expect(engine.recordReviewTerminal).toHaveBeenCalledWith(
+      expect.objectContaining({ incurredCostUsd: expect.any(Number) }),
+    );
+    expect(engine.recordReviewTerminal.mock.calls[0]?.[0].incurredCostUsd)
+      .toBeCloseTo(0.6);
   });
 
   it("preserves the original failure when failure-state recording also fails", async () => {

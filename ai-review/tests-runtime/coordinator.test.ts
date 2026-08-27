@@ -20,7 +20,101 @@ function coordinator() {
   );
 }
 
+function modelReliabilityCoordinator() {
+  const bindings = env as unknown as Env;
+  return bindings.PR_STATE.getByName("__ai-review-model-reliability__");
+}
+
 describe("PullRequestCoordinator in workerd", () => {
+  it("opens a bounded model cooldown without double-counting replayed observations", async () => {
+    const stub = modelReliabilityCoordinator();
+    const model = "test/circuit-model";
+    const policy = {
+      version: "consecutive-failures-v1",
+      consecutiveFailureThreshold: 2,
+      cooldownSeconds: 1,
+    };
+    const observe = (observationId: string, ok: boolean) =>
+      stub.fetch("https://coordinator.test/models/record", {
+        method: "POST",
+        body: JSON.stringify({
+          observationId,
+          policy,
+          metrics: [{
+            model,
+            provider: "openrouter",
+            ok,
+            ...(ok ? {} : { error: "provider unavailable" }),
+          }],
+        }),
+      });
+
+    await expect((await observe("circuit-1", false)).json()).resolves.toEqual({
+      recorded: 1,
+    });
+    await expect((await observe("circuit-1", false)).json()).resolves.toEqual({
+      recorded: 0,
+    });
+    await expect((await observe("circuit-2", false)).json()).resolves.toEqual({
+      recorded: 1,
+    });
+
+    const plan = () =>
+      stub.fetch("https://coordinator.test/models/plan", {
+        method: "POST",
+        body: JSON.stringify({
+          models: [
+            { model, provider: "openrouter" },
+            { model, provider: "opencode" },
+          ],
+        }),
+      });
+    await expect((await plan()).json()).resolves.toMatchObject({
+      skipped: [{ model, consecutiveFailures: 2 }],
+    });
+    await runInDurableObject(stub, async (_instance, state) => {
+      expect(
+        state.storage.sql
+          .exec<{
+            consecutive_failures: number;
+            total_failures: number;
+          }>(
+            `SELECT consecutive_failures, total_failures
+             FROM review_model_health WHERE provider = ? AND model = ?`,
+            "openrouter",
+            model,
+          )
+          .toArray(),
+      ).toEqual([{ consecutive_failures: 2, total_failures: 2 }]);
+    });
+
+    await new Promise((resolve) => setTimeout(resolve, 1_100));
+    await expect((await plan()).json()).resolves.toEqual({ skipped: [] });
+    await expect((await observe("circuit-3", true)).json()).resolves.toEqual({
+      recorded: 1,
+    });
+    await runInDurableObject(stub, async (_instance, state) => {
+      expect(
+        state.storage.sql
+          .exec<{
+            consecutive_failures: number;
+            total_failures: number;
+            total_successes: number;
+          }>(
+            `SELECT consecutive_failures, total_failures, total_successes
+             FROM review_model_health WHERE provider = ? AND model = ?`,
+            "openrouter",
+            model,
+          )
+          .toArray(),
+      ).toEqual([{
+        consecutive_failures: 0,
+        total_failures: 2,
+        total_successes: 1,
+      }]);
+    });
+  });
+
   it("persists delivery deduplication and alarms across eviction", async () => {
     const stub = coordinator();
     const first = await stub.fetch("https://coordinator.test/events", {
