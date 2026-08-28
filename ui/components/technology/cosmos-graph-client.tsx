@@ -56,6 +56,9 @@ const NODE_TYPE_LABELS: Record<string, string> = {
 };
 
 const TOP_LABEL_LIMIT = 14;
+const DRAG_SIMULATION_ALPHA = 0.22;
+const FILTER_SIMULATION_ALPHA = 0.16;
+const RELEASE_SIMULATION_ALPHA = 0.12;
 const IGNORE_SELECTION = () => undefined;
 
 type SelectedNode = GraphNode & { totalConnections?: number };
@@ -125,6 +128,8 @@ const CosmosCanvas = memo(function CosmosCanvas({
 }: CosmosCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const graphRef = useRef<Graph | null>(null);
+  const hasRenderedRef = useRef(false);
+  const motionEnabledRef = useRef(false);
   const positionsRef = useRef<Float32Array>(deterministicPositions(data.nodes));
   const [labels, setLabels] = useState<LabelPosition[]>([]);
   const [failed, setFailed] = useState(false);
@@ -145,9 +150,14 @@ const CosmosCanvas = memo(function CosmosCanvas({
     const container = containerRef.current;
     if (!container) return;
 
+    const motionEnabled =
+      interactive &&
+      !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    motionEnabledRef.current = motionEnabled;
+    hasRenderedRef.current = false;
     const graph = new Graph(container, {
       backgroundColor: [0, 0, 0, 0],
-      enableSimulation: false,
+      enableSimulation: motionEnabled,
       enableDrag: interactive,
       enableZoom: interactive,
       fitViewOnInit: true,
@@ -164,7 +174,27 @@ const CosmosCanvas = memo(function CosmosCanvas({
       randomSeed: 38,
       renderHoveredPointRing: interactive,
       rescalePositions: true,
+      simulationCollision: 0.8,
+      simulationCollisionPadding: 3,
+      simulationDecay: 90,
+      simulationFriction: 0.76,
+      simulationGravity: 0.08,
+      simulationLinkDistance: 42,
+      simulationLinkSpring: 0.32,
+      simulationRepulsion: 0.42,
       transitionDuration: 0,
+      onDragStart: () => {
+        if (motionEnabledRef.current)
+          graphRef.current?.start(DRAG_SIMULATION_ALPHA);
+      },
+      onDrag: () => {
+        if (motionEnabledRef.current)
+          graphRef.current?.start(DRAG_SIMULATION_ALPHA);
+      },
+      onDragEnd: () => {
+        if (motionEnabledRef.current)
+          graphRef.current?.start(RELEASE_SIMULATION_ALPHA);
+      },
       onPointClick: (index) => {
         if (!interactive) return;
         const node = data.nodes[index];
@@ -207,6 +237,7 @@ const CosmosCanvas = memo(function CosmosCanvas({
       .catch(() => setFailed(true));
 
     return () => {
+      motionEnabledRef.current = false;
       graphRef.current = null;
       graph.destroy();
     };
@@ -245,6 +276,10 @@ const CosmosCanvas = memo(function CosmosCanvas({
     graph.setPointPositions(nextPositions);
     graph.setLinks(links);
     graph.render(0, 0);
+    if (hasRenderedRef.current && motionEnabledRef.current) {
+      graph.start(FILTER_SIMULATION_ALPHA);
+    }
+    hasRenderedRef.current = true;
 
     const topIndices = [...visibleIndices]
       .sort(
