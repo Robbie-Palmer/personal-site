@@ -2876,6 +2876,7 @@ registerRoute("get", "/api/profile/bootstrap", async (c) => {
     "query",
     "GET /api/profile/bootstrap query failed",
     async ({ db, session }) => {
+      c.header("Cache-Control", "private, no-store");
       const userId = session.user.id;
       const visibilityFilter = await readableRecipeFilter(db, userId);
       if (!visibilityFilter) {

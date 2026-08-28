@@ -4090,6 +4090,7 @@ describe("recipe profile bootstrap", () => {
     };
 
     expect(res.status).toBe(200);
+    expect(res.headers.get("Cache-Control")).toBe("private, no-store");
     expect(body.recipeBox.ownedRecipes.map((recipe) => recipe.slug)).toEqual([
       "private-soup",
     ]);
