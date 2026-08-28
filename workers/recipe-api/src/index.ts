@@ -1060,6 +1060,7 @@ function withRecipeApiSpan<T>(
   spanName: string,
   operation: () => Promise<T>,
   attributes?: SpanAttributes,
+  options?: { flush?: boolean },
 ): Promise<T> {
   let waitUntil:
     | { waitUntil(promise: Promise<unknown>): void }
@@ -1077,8 +1078,9 @@ function withRecipeApiSpan<T>(
       traceCarrier: traceCarrierFromHeaders(c.req.raw.headers),
       waitUntil,
       attributes,
-      // The outer request span flushes after every route and its children end.
-      flush: false,
+      // Request children rely on the outer request flush. Background work
+      // flushes itself because it can finish after the response span.
+      flush: options?.flush ?? false,
     },
     operation,
   );
@@ -1560,7 +1562,7 @@ function pantryPublicationRetryDelayMs(): number {
 }
 
 async function publishPantryChange(
-  env: Bindings,
+  c: Context<AppEnv>,
   db: Db,
   pantry: PantryResponse,
   changeKind: PantryChangeKind,
@@ -1568,10 +1570,11 @@ async function publishPantryChange(
   if (
     pantry.scope.type !== "household" ||
     !pantry.operationId ||
-    !env.HOUSEHOLD_REALTIME
+    !c.env.HOUSEHOLD_REALTIME
   ) {
     return;
   }
+  const householdId = pantry.scope.household.id;
 
   const event: PantryRealtimeEvent = {
     type: "resource.changed",
@@ -1584,12 +1587,13 @@ async function publishPantryChange(
   };
   let lastError: unknown;
   try {
-    const authorizedUserIds = await findHouseholdMemberUserIds(
-      db,
-      pantry.scope.household.id,
+    const authorizedUserIds = await withRecipeApiSpan(
+      c,
+      "pantry.realtime.membership.lookup",
+      () => findHouseholdMemberUserIds(db, householdId),
     );
-    const room = env.HOUSEHOLD_REALTIME.get(
-      env.HOUSEHOLD_REALTIME.idFromName(pantry.resourceId),
+    const room = c.env.HOUSEHOLD_REALTIME.get(
+      c.env.HOUSEHOLD_REALTIME.idFromName(pantry.resourceId),
     );
     for (
       let attempt = 1;
@@ -1597,14 +1601,17 @@ async function publishPantryChange(
       attempt += 1
     ) {
       try {
-        const response = await room.fetch(
-          "https://household-realtime/publish",
-          {
-            method: "POST",
-            headers: { "content-type": "application/json" },
-            body: JSON.stringify({ event, authorizedUserIds }),
-            signal: AbortSignal.timeout(PANTRY_PUBLICATION_TIMEOUT_MS),
-          },
+        const response = await withRecipeApiSpan(
+          c,
+          "pantry.realtime.room.publish",
+          () =>
+            room.fetch("https://household-realtime/publish", {
+              method: "POST",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify({ event, authorizedUserIds }),
+              signal: AbortSignal.timeout(PANTRY_PUBLICATION_TIMEOUT_MS),
+            }),
+          { "app.realtime.publish.attempt": attempt },
         );
         if (response.ok) return;
         lastError = new Error(`Realtime room returned ${response.status}`);
@@ -1635,8 +1642,7 @@ async function publishPantryChange(
 }
 
 async function executeCollaborativePantryOperation(
-  executionCtx: { waitUntil(promise: Promise<unknown>): void } | undefined,
-  env: Bindings,
+  c: Context<AppEnv>,
   db: Db,
   userId: string,
   operationId: string,
@@ -1644,17 +1650,30 @@ async function executeCollaborativePantryOperation(
   changeKind: PantryChangeKind,
   mutate: (tx: DbTransaction, scope: PantryScope) => Promise<void>,
 ): Promise<PantryResponse> {
-  const pantry = await executePantryOperation(
-    db,
-    userId,
-    operationId,
-    commandFingerprint,
-    mutate,
+  const pantry = await withRecipeApiSpan(
+    c,
+    "pantry.mutation.transaction",
+    () =>
+      executePantryOperation(
+        db,
+        userId,
+        operationId,
+        commandFingerprint,
+        mutate,
+      ),
+    { "app.pantry.change.kind": changeKind },
   );
   // The transaction has committed. Publication runs outside the response path,
   // so a stalled room cannot delay this command or later commands queued by the
   // same browser. Clients repair missed snapshots when they reconnect.
-  const publication = publishPantryChange(env, db, pantry, changeKind);
+  const publication = withRecipeApiSpan(
+    c,
+    "pantry.realtime.publish",
+    () => publishPantryChange(c, db, pantry, changeKind),
+    { "app.pantry.change.kind": changeKind },
+    { flush: true },
+  );
+  const executionCtx = requestExecutionContext(c);
   if (executionCtx) executionCtx.waitUntil(publication);
   else await publication;
   return pantry;
@@ -3334,8 +3353,7 @@ registerRoute("put", "/pantry", async (c) => {
       );
 
       const pantry = await executeCollaborativePantryOperation(
-        requestExecutionContext(c),
-        c.env,
+        c,
         db,
         session.user.id,
         operationId,
@@ -3420,8 +3438,7 @@ registerRoute("patch", "/pantry", async (c) => {
       );
 
       const pantry = await executeCollaborativePantryOperation(
-        requestExecutionContext(c),
-        c.env,
+        c,
         db,
         session.user.id,
         operationId,
@@ -3478,8 +3495,7 @@ registerRoute("put", "/pantry/items/:ingredientSlug", async (c) => {
 
       const ingredientSlug = ingredientSlugResult.data;
       const pantry = await executeCollaborativePantryOperation(
-        requestExecutionContext(c),
-        c.env,
+        c,
         db,
         session.user.id,
         operationId,
@@ -3544,8 +3560,7 @@ registerRoute("delete", "/pantry/items/:ingredientSlug", async (c) => {
       }
 
       const pantry = await executeCollaborativePantryOperation(
-        requestExecutionContext(c),
-        c.env,
+        c,
         db,
         session.user.id,
         operationId,
