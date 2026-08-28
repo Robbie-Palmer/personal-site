@@ -4096,7 +4096,7 @@ describe("recipe profile bootstrap", () => {
     ]);
     expect(
       body.recipeBox.readableRecipes.map((recipe) => recipe.slug).sort(),
-    ).toEqual(["private-soup", "public-pasta"]);
+    ).toEqual(["public-pasta"]);
     expect(body.recipeBox.profile).toMatchObject({
       completed: false,
       recipeSlugs: [],

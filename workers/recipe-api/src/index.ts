@@ -2899,8 +2899,17 @@ registerRoute("get", "/api/profile/bootstrap", async (c) => {
         countUnreadNotifications(db, userId),
       ]);
 
+      const ownedRecipeSlugs = new Set(
+        ownedRecipes.map((recipe) => recipe.slug),
+      );
       return c.json({
-        recipeBox: { ownedRecipes, readableRecipes, profile: box },
+        recipeBox: {
+          ownedRecipes,
+          readableRecipes: readableRecipes.filter(
+            (recipe) => !ownedRecipeSlugs.has(recipe.slug),
+          ),
+          profile: box,
+        },
         diet: {
           profile: dietProfileResponse(
             storedDietProfile ?? defaultDietProfile(userId),
