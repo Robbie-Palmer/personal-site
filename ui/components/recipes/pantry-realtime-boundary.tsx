@@ -1,0 +1,158 @@
+"use client";
+
+import { type QueryClient, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
+import { installPantrySnapshot, type Pantry } from "@/lib/api/pantry";
+import { authClient } from "@/lib/auth-client";
+import { recipeQueryKeys } from "@/lib/query/recipe-query-keys";
+import {
+  pantryRealtimeUrl,
+  parsePantryRealtimeMessage,
+} from "@/lib/realtime/pantry-realtime";
+
+type ActiveHouseholdPantry = {
+  userId: string;
+  resourceId: string;
+};
+
+function randomReconnectScale(): number {
+  const [sample = 0] = crypto.getRandomValues(new Uint8Array(1));
+  if (sample < 64) return 0.8;
+  if (sample < 128) return 0.95;
+  if (sample < 192) return 1.05;
+  return 1.2;
+}
+
+function activeHouseholdPantry(
+  queryClient: QueryClient,
+  userId: string | null,
+): ActiveHouseholdPantry | null {
+  if (!userId) return null;
+  const query = queryClient.getQueryCache().find<Pantry>({
+    queryKey: recipeQueryKeys.pantry(userId),
+    exact: true,
+  });
+  const pantry = query?.state.data;
+  return query &&
+    query.getObserversCount() > 0 &&
+    pantry?.scope.type === "household"
+    ? { userId, resourceId: pantry.resourceId }
+    : null;
+}
+
+function sameActivePantry(
+  first: ActiveHouseholdPantry | null,
+  second: ActiveHouseholdPantry | null,
+): boolean {
+  return (
+    first?.userId === second?.userId && first?.resourceId === second?.resourceId
+  );
+}
+
+export function PantryRealtimeBoundary() {
+  const { data: session } = authClient.useSession();
+  const queryClient = useQueryClient();
+  const userId = session?.user.id ?? null;
+  const [activePantry, setActivePantry] =
+    useState<ActiveHouseholdPantry | null>(null);
+
+  useEffect(() => {
+    const update = () => {
+      const next = activeHouseholdPantry(queryClient, userId);
+      setActivePantry((current) =>
+        sameActivePantry(current, next) ? current : next,
+      );
+    };
+    update();
+    return queryClient.getQueryCache().subscribe(update);
+  }, [queryClient, userId]);
+
+  useEffect(() => {
+    if (!activePantry) return;
+
+    const queryKey = recipeQueryKeys.pantry(activePantry.userId);
+    let socket: WebSocket | undefined;
+    let reconnectTimer: ReturnType<typeof setTimeout> | undefined;
+    let reconnectAttempt = 0;
+    let disposed = false;
+    let recovery: Promise<void> | undefined;
+
+    const recover = () => {
+      if (recovery) return;
+      recovery = queryClient
+        .refetchQueries({ queryKey, exact: true })
+        .catch(() => undefined)
+        .finally(() => {
+          recovery = undefined;
+        });
+    };
+
+    const scheduleReconnect = () => {
+      if (disposed || reconnectTimer || !navigator.onLine) return;
+      const baseDelay = Math.min(1_000 * 2 ** reconnectAttempt, 30_000);
+      const jitteredDelay = baseDelay * randomReconnectScale();
+      reconnectAttempt += 1;
+      reconnectTimer = setTimeout(() => {
+        reconnectTimer = undefined;
+        connect();
+      }, jitteredDelay);
+    };
+
+    const connect = () => {
+      if (
+        disposed ||
+        !navigator.onLine ||
+        socket?.readyState === WebSocket.OPEN ||
+        socket?.readyState === WebSocket.CONNECTING
+      ) {
+        return;
+      }
+      socket = new WebSocket(pantryRealtimeUrl(window.location));
+      socket.addEventListener("open", () => {
+        reconnectAttempt = 0;
+      });
+      socket.addEventListener("message", (event) => {
+        if (typeof event.data !== "string") return;
+        const message = parsePantryRealtimeMessage(event.data);
+        if (message?.resourceId !== activePantry.resourceId) return;
+        if (message.type === "subscription.ready") {
+          recover();
+          return;
+        }
+        queryClient.setQueryData<Pantry>(queryKey, (current) =>
+          installPantrySnapshot(current, message.pantry),
+        );
+      });
+      socket.addEventListener("close", scheduleReconnect);
+      socket.addEventListener("error", () => socket?.close());
+    };
+
+    const reconnectNow = () => {
+      if (reconnectTimer) clearTimeout(reconnectTimer);
+      reconnectTimer = undefined;
+      if (
+        socket?.readyState !== WebSocket.OPEN &&
+        socket?.readyState !== WebSocket.CONNECTING
+      ) {
+        connect();
+      }
+      recover();
+    };
+    const recoverOnVisible = () => {
+      if (document.visibilityState === "visible") reconnectNow();
+    };
+
+    window.addEventListener("online", reconnectNow);
+    document.addEventListener("visibilitychange", recoverOnVisible);
+    connect();
+    return () => {
+      disposed = true;
+      if (reconnectTimer) clearTimeout(reconnectTimer);
+      window.removeEventListener("online", reconnectNow);
+      document.removeEventListener("visibilitychange", recoverOnVisible);
+      socket?.close(1_000, "Pantry subscription inactive");
+    };
+  }, [activePantry, queryClient]);
+
+  return null;
+}

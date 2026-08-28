@@ -13,6 +13,7 @@ extends:
 functionsDir: "./spectral-functions"
 functions:
   - noVerbPaths
+  - operationSuccessResponse
   - pluralCollections
 
 rules:
@@ -63,6 +64,15 @@ rules:
     then:
       field: "500"
       function: truthy
+
+  # The built-in rule accepts only 2xx/3xx. WebSocket handshakes succeed with
+  # 101 Switching Protocols, so preserve the invariant with that one addition.
+  operation-success-response:
+    description: Operations define an HTTP or WebSocket success response.
+    severity: warn
+    given: "$.paths[*][*].responses"
+    then:
+      function: operationSuccessResponse
 
   # The upstream OWASP rule requires rate-limit headers on every 2xx/4xx
   # response, including endpoints that are not rate-limited. Keep the useful

@@ -3,6 +3,7 @@
 import { QueryClientProvider, useQueryClient } from "@tanstack/react-query";
 import dynamic from "next/dynamic";
 import { type ReactNode, useEffect, useRef, useState } from "react";
+import { PantryRealtimeBoundary } from "@/components/recipes/pantry-realtime-boundary";
 import { authClient } from "@/lib/auth-client";
 import {
   clearOtherPrivateRecipeQueries,
@@ -58,6 +59,7 @@ export function RecipeQueryProvider({
   return (
     <QueryClientProvider client={queryClient}>
       <RecipeAccountCacheBoundary />
+      <PantryRealtimeBoundary />
       {children}
       {RecipeQueryDevtools ? (
         <RecipeQueryDevtools initialIsOpen={false} />
