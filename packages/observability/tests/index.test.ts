@@ -337,6 +337,31 @@ describe("enabled telemetry", () => {
     consoleError.mockRestore();
   });
 
+  it("can defer flushing child spans to their request boundary", async () => {
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
+    exported.rejectTraceExporterFlush = true;
+
+    await expect(
+      withPostHogSpan(
+        {
+          env: enabledEnv,
+          serviceName: "test-service",
+          spanName: "request.child",
+          flush: false,
+        },
+        async () => "application result",
+      ),
+    ).resolves.toBe("application result");
+
+    exported.rejectTraceExporterFlush = false;
+    expect(consoleError).not.toHaveBeenCalledWith(
+      expect.stringContaining('"stage":"flush traces"'),
+    );
+    consoleError.mockRestore();
+  });
+
   it("fails open if a bundle requests a different service name", async () => {
     const consoleError = vi
       .spyOn(console, "error")
