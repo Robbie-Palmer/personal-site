@@ -9,7 +9,7 @@ export const saveDietProfileMutation = (
   userId: string,
 ) =>
   mutationOptions({
-    mutationKey: [...recipeQueryKeys.diet(userId), "save"],
+    mutationKey: [...recipeQueryKeys.bootstrap(userId), "save-diet"],
     mutationFn: (profile: DietProfile) => saveDietProfile(profile),
     onSuccess: (profile) => {
       queryClient.setQueryData<RecipeBootstrap>(
@@ -27,7 +27,7 @@ export const saveRecipeBoxMutation = (
   userId: string,
 ) =>
   mutationOptions({
-    mutationKey: [...recipeQueryKeys.recipeBox(userId), "save"],
+    mutationKey: [...recipeQueryKeys.bootstrap(userId), "save-recipe-box"],
     mutationFn: (recipeSlugs: string[]) => saveRecipeBoxProfile(recipeSlugs),
     onSuccess: async (box) => {
       queryClient.setQueryData(recipeQueryKeys.recipeBox(userId), box);

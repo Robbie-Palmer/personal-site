@@ -38,7 +38,8 @@ export const dietOptionsQuery = (userId: string) =>
     queryKey: recipeQueryKeys.bootstrap(userId),
     queryFn: ({ signal }) => getRecipeBootstrap(signal),
     select: (bootstrap) => bootstrap.diet.options,
-    staleTime: 60 * 60_000,
+    staleTime: USER_DATA_STALE_TIME,
+    refetchOnWindowFocus: true,
   });
 
 export const recipeBootstrapQuery = (userId: string) =>
