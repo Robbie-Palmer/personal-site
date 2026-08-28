@@ -16,6 +16,17 @@ vi.mock("@/lib/api/diet", async (importOriginal) => ({
   ...apiMocks,
 }));
 
+vi.mock("@/lib/api/recipe-bootstrap", () => ({
+  getRecipeBootstrap: async () => ({
+    recipeBox: { recipes: [], box: { completed: true, recipeSlugs: [] } },
+    diet: {
+      profile: await apiMocks.getDietProfile(),
+      options: await apiMocks.getDietOptions(),
+    },
+    unreadNotificationCount: 0,
+  }),
+}));
+
 vi.mock("@/lib/auth-client", () => ({
   authClient: {
     useSession: authMocks.useSession,

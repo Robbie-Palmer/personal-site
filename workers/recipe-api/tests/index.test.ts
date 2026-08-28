@@ -4038,6 +4038,75 @@ describe("profile recipe box", () => {
   });
 });
 
+describe("recipe profile bootstrap", () => {
+  it("requires authentication", async () => {
+    const res = await app.request("/api/profile/bootstrap", {}, env);
+
+    expect(res.status).toBe(401);
+    expect(await res.json()).toEqual({ error: "Authentication required" });
+  });
+
+  it("returns recipe, diet, box, and notification data together", async () => {
+    authzMock.session = sessionFor({
+      id: "owner-user",
+      email: "owner@example.test",
+      name: "Owner",
+    });
+    seedDietCatalog();
+    dbMock.state.recipes.push(
+      {
+        id: "recipe-owned",
+        slug: "private-soup",
+        title: "Private Soup",
+        description: null,
+        body: null,
+        userId: "owner-user",
+        visibility: "private",
+        createdAt: dbMock.date,
+        updatedAt: dbMock.date,
+      },
+      {
+        id: "recipe-public",
+        slug: "public-pasta",
+        title: "Public Pasta",
+        description: null,
+        body: null,
+        userId: "other-user",
+        visibility: "public",
+        createdAt: dbMock.date,
+        updatedAt: dbMock.date,
+      },
+    );
+
+    const res = await app.request("/api/profile/bootstrap", {}, env);
+    const body = (await res.json()) as {
+      recipeBox: {
+        ownedRecipes: Array<{ slug: string }>;
+        readableRecipes: Array<{ slug: string }>;
+        profile: { completed: boolean; recipeSlugs: string[] };
+      };
+      diet: { profile: { recipeMatchMode: string }; options: { presets: unknown[] } };
+      unreadNotificationCount: number;
+    };
+
+    expect(res.status).toBe(200);
+    expect(res.headers.get("Cache-Control")).toBe("private, no-store");
+    expect(body.recipeBox.ownedRecipes.map((recipe) => recipe.slug)).toEqual([
+      "private-soup",
+    ]);
+    expect(
+      body.recipeBox.readableRecipes.map((recipe) => recipe.slug).sort(),
+    ).toEqual(["public-pasta"]);
+    expect(body.recipeBox.profile).toMatchObject({
+      completed: false,
+      recipeSlugs: [],
+    });
+    expect(body.diet.profile.recipeMatchMode).toBe("hide");
+    expect(body.diet.options.presets).toHaveLength(2);
+    expect(body.unreadNotificationCount).toBe(0);
+  });
+});
+
 describe("profile cooking insights", () => {
   const cookingEvent = {
     sessionId: "018f2b16-43b4-7e7a-8d4b-9f3559865353",

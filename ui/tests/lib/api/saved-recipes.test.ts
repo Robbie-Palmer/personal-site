@@ -1,9 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import {
-  fetchAllSavedRecipes,
-  fetchRecipeBoxRecipes,
-  getSavedRecipe,
-} from "@/lib/api/saved-recipes";
+import { fetchAllSavedRecipes, getSavedRecipe } from "@/lib/api/saved-recipes";
 
 function jsonResponse(body: unknown) {
   return new Response(JSON.stringify(body), {
@@ -81,57 +77,6 @@ describe("fetchAllSavedRecipes", () => {
       message: "The recipe could not be loaded.",
       status: 422,
     });
-  });
-
-  it("combines owned recipes with starters before onboarding is complete", async () => {
-    vi.spyOn(globalThis, "fetch")
-      .mockResolvedValueOnce(
-        jsonResponse({ items: [{ slug: "owned" }], nextCursor: null }),
-      )
-      .mockResolvedValueOnce(
-        jsonResponse({
-          items: [{ slug: "owned" }, { slug: "starter" }],
-          nextCursor: null,
-        }),
-      )
-      .mockResolvedValueOnce(
-        jsonResponse({ completed: false, recipeSlugs: [] }),
-      );
-
-    const result = await fetchRecipeBoxRecipes();
-
-    expect(result.recipes.map((recipe) => recipe.slug)).toEqual([
-      "owned",
-      "starter",
-    ]);
-    expect(result.box.completed).toBe(false);
-  });
-
-  it("limits completed recipe boxes to owned and selected recipes", async () => {
-    vi.spyOn(globalThis, "fetch")
-      .mockResolvedValueOnce(
-        jsonResponse({ items: [{ slug: "owned" }], nextCursor: null }),
-      )
-      .mockResolvedValueOnce(
-        jsonResponse({
-          items: [
-            { slug: "owned" },
-            { slug: "selected" },
-            { slug: "not-selected" },
-          ],
-          nextCursor: null,
-        }),
-      )
-      .mockResolvedValueOnce(
-        jsonResponse({ completed: true, recipeSlugs: ["selected"] }),
-      );
-
-    const result = await fetchRecipeBoxRecipes();
-
-    expect(result.recipes.map((recipe) => recipe.slug)).toEqual([
-      "owned",
-      "selected",
-    ]);
   });
 
   it("bounds pagination when an API repeats its cursor", async () => {

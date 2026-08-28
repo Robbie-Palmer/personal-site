@@ -12,6 +12,8 @@ export const recipeQueryKeys = {
     [...recipeRoot, "public", "cooks", cookId] as const,
   private: () => [...recipeRoot, "private"] as const,
   user: (userId: string) => [...recipeRoot, "private", userId] as const,
+  bootstrap: (userId: string) =>
+    [...recipeRoot, "private", userId, "bootstrap"] as const,
   recipeBox: (userId: string) =>
     [...recipeRoot, "private", userId, "recipe-box"] as const,
   recipeBoxRecipes: (userId: string) =>

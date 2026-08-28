@@ -14,7 +14,7 @@ export function RecipeKitchen() {
   const recipeBox = useQuery({
     ...recipeBoxRecipesQuery(session?.user.id ?? "pending"),
     enabled: !isPending && Boolean(session),
-    select: ({ recipes }) => buildKitchenCatalog(recipes),
+    select: ({ recipeBox }) => buildKitchenCatalog(recipeBox.recipes),
   });
 
   if (isPending) {

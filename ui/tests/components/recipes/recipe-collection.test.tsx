@@ -4,7 +4,7 @@ import { render, screen } from "@/tests/test-utils";
 const mocks = vi.hoisted(() => ({
   session: { data: { user: { id: "user-1" } }, isPending: false },
   dietLoading: false,
-  fetchRecipeBoxRecipes: vi.fn(),
+  recipeBoxResult: vi.fn(),
 }));
 
 vi.mock("@/lib/auth-client", () => ({
@@ -15,8 +15,12 @@ vi.mock("@/components/recipes/diet-provider", () => ({
   useDiet: () => ({ loading: mocks.dietLoading }),
 }));
 
-vi.mock("@/lib/api/saved-recipes", () => ({
-  fetchRecipeBoxRecipes: mocks.fetchRecipeBoxRecipes,
+vi.mock("@/lib/api/recipe-bootstrap", () => ({
+  getRecipeBootstrap: async () => ({
+    recipeBox: await mocks.recipeBoxResult(),
+    diet: { profile: {}, options: {} },
+    unreadNotificationCount: 0,
+  }),
 }));
 
 vi.mock("@/lib/domain/recipe/recipeDraft", () => ({
@@ -67,7 +71,7 @@ describe("RecipeCollection", () => {
       recipes: { slug: string; title: string }[];
       box: { completed: boolean; recipeSlugs: string[] };
     }) => void;
-    mocks.fetchRecipeBoxRecipes.mockReturnValue(
+    mocks.recipeBoxResult.mockReturnValue(
       new Promise((resolve) => {
         resolveBox = resolve;
       }),
@@ -92,7 +96,7 @@ describe("RecipeCollection", () => {
   });
 
   it("does not expose one user's recipes while another user loads", async () => {
-    mocks.fetchRecipeBoxRecipes.mockResolvedValueOnce({
+    mocks.recipeBoxResult.mockResolvedValueOnce({
       recipes: [{ slug: "first", title: "First user's recipe" }],
       box: { completed: true, recipeSlugs: [] },
     });
@@ -106,9 +110,7 @@ describe("RecipeCollection", () => {
       data: { user: { id: "user-2" } },
       isPending: false,
     };
-    mocks.fetchRecipeBoxRecipes.mockReturnValueOnce(
-      new Promise(() => undefined),
-    );
+    mocks.recipeBoxResult.mockReturnValueOnce(new Promise(() => undefined));
     view.rerender(<RecipeCollection />);
 
     expect(
@@ -119,7 +121,7 @@ describe("RecipeCollection", () => {
 
   it("waits for diet preferences before rendering the recipe list", async () => {
     mocks.dietLoading = true;
-    mocks.fetchRecipeBoxRecipes.mockResolvedValue({
+    mocks.recipeBoxResult.mockResolvedValue({
       recipes: [{ slug: "starter", title: "Selected starter" }],
       box: { completed: true, recipeSlugs: ["starter"] },
     });
@@ -139,7 +141,7 @@ describe("RecipeCollection", () => {
 
   it("reports unique catalog stats from the loaded recipe box", async () => {
     const onCatalogStatsChange = vi.fn();
-    mocks.fetchRecipeBoxRecipes.mockResolvedValue({
+    mocks.recipeBoxResult.mockResolvedValue({
       recipes: [
         {
           slug: "pasta",

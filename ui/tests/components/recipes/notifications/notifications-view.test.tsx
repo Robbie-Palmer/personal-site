@@ -164,7 +164,7 @@ describe("NotificationsView", () => {
       queryKey: recipeQueryKeys.recipeBox("user-1"),
     });
     expect(invalidateQueries).toHaveBeenCalledWith({
-      queryKey: recipeQueryKeys.recipeBoxRecipes("user-1"),
+      queryKey: recipeQueryKeys.bootstrap("user-1"),
     });
   });
 
