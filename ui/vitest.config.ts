@@ -1,6 +1,6 @@
 import path from "node:path";
 import react from "@vitejs/plugin-react";
-import { defineConfig } from "vitest/config";
+import { configDefaults, defineConfig } from "vitest/config";
 
 const coverageEnabled = process.env.UI_COVERAGE === "true";
 
@@ -8,6 +8,7 @@ export default defineConfig({
   root: coverageEnabled ? path.resolve(__dirname, "..") : undefined,
   plugins: [react()],
   test: {
+    exclude: [...configDefaults.exclude, "e2e/**"],
     ...(coverageEnabled
       ? { include: ["ui/tests/**/*.{test,spec}.{ts,tsx}"] }
       : {}),

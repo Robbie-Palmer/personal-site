@@ -76,6 +76,12 @@ import {
 } from "./notifications";
 import { fetchRecipePage, RecipeUrlImportError } from "./recipe-url-import";
 import {
+  type PantryChangeKind,
+  type PantryRealtimeEvent,
+  REALTIME_AUTHORIZATION_LIFETIME_MS,
+  realtimeRoomRequestHeaders,
+} from "./realtime-room";
+import {
   findPreviewScenario,
   previewScenarios,
 } from "./preview-scenarios";
@@ -103,6 +109,7 @@ export type Bindings = {
   CF_ACCESS_AUD?: string;
   ARTIFACTS?: R2Bucket;
   RECIPE_INGEST_WORKFLOW?: Workflow;
+  HOUSEHOLD_REALTIME?: DurableObjectNamespace;
 };
 
 type Recipe = typeof schema.recipe.$inferSelect;
@@ -513,6 +520,10 @@ const ERROR_STATUS_CODES = [
   400, 401, 403, 404, 409, 410, 415, 422, 500, 502, 503,
 ] as const;
 
+const SPECIAL_ERROR_STATUS_CODES = new Map<string, readonly number[]>([
+  ["GET /pantry/realtime", [426, 429]],
+]);
+
 const RATE_LIMITED_OPERATIONS = new Set([
   "POST /households/:householdId/invitations",
   "POST /recipe-drafts/url",
@@ -521,9 +532,10 @@ const RATE_LIMITED_OPERATIONS = new Set([
   "POST /recipe-imports",
 ]);
 
-type SuccessStatus = 200 | 201 | 202 | 204;
+type SuccessStatus = 101 | 200 | 201 | 202 | 204;
 
 const SUCCESS_STATUS_OVERRIDES = new Map<string, readonly SuccessStatus[]>([
+  ["GET /pantry/realtime", [101]],
   ["POST /api/profile/cooking-sessions", [200, 201]],
   ["POST /households", [201]],
   ["POST /households/:householdId/invitations", [201]],
@@ -592,6 +604,8 @@ function pathParamsSchema(path: string) {
 
 function successDescription(status: SuccessStatus): string {
   switch (status) {
+    case 101:
+      return "WebSocket protocol upgrade";
     case 201:
       return "Resource created";
     case 202:
@@ -611,15 +625,18 @@ function successResponsesFor(
   const responses: RouteConfig["responses"] = {};
 
   for (const status of statuses) {
-    responses[status] =
-      status === 204
-        ? { description: "Successful response with no content" }
-        : {
-            description: successDescription(status),
-            content: {
-              "application/json": { schema: jsonResponseSchema },
-            },
-          };
+    if (status === 101) {
+      responses[status] = { description: successDescription(status) };
+    } else if (status === 204) {
+      responses[status] = { description: "Successful response with no content" };
+    } else {
+      responses[status] = {
+        description: successDescription(status),
+        content: {
+          "application/json": { schema: jsonResponseSchema },
+        },
+      };
+    }
   }
 
   return responses;
@@ -657,7 +674,10 @@ function registerRoute(
         },
       }
     : Object.fromEntries(
-        ERROR_STATUS_CODES.map((status) => [
+        [
+          ...ERROR_STATUS_CODES,
+          ...(SPECIAL_ERROR_STATUS_CODES.get(key) ?? []),
+        ].map((status) => [
           status,
           {
             description: `Error (${status})`,
@@ -1040,6 +1060,7 @@ function withRecipeApiSpan<T>(
   spanName: string,
   operation: () => Promise<T>,
   attributes?: SpanAttributes,
+  options?: { flush?: boolean },
 ): Promise<T> {
   let waitUntil:
     | { waitUntil(promise: Promise<unknown>): void }
@@ -1057,8 +1078,9 @@ function withRecipeApiSpan<T>(
       traceCarrier: traceCarrierFromHeaders(c.req.raw.headers),
       waitUntil,
       attributes,
-      // The outer request span flushes after every route and its children end.
-      flush: false,
+      // Request children rely on the outer request flush. Background work
+      // flushes itself because it can finish after the response span.
+      flush: options?.flush ?? false,
     },
     operation,
   );
@@ -1526,6 +1548,145 @@ async function executePantryOperation(
     });
     return result;
   });
+}
+
+const PANTRY_PUBLICATION_ATTEMPTS = 2;
+const PANTRY_PUBLICATION_TIMEOUT_MS = 2_000;
+
+function pantryPublicationRetryDelayMs(): number {
+  const [sample = 0] = crypto.getRandomValues(new Uint8Array(1));
+  if (sample < 64) return 20;
+  if (sample < 128) return 33;
+  if (sample < 192) return 47;
+  return 60;
+}
+
+async function publishPantryChange(
+  c: Context<AppEnv>,
+  db: Db,
+  pantry: PantryResponse,
+  changeKind: PantryChangeKind,
+): Promise<void> {
+  if (
+    pantry.scope.type !== "household" ||
+    !pantry.operationId ||
+    !c.env.HOUSEHOLD_REALTIME
+  ) {
+    return;
+  }
+  const householdId = pantry.scope.household.id;
+
+  const event: PantryRealtimeEvent = {
+    type: "resource.changed",
+    resourceType: "pantry",
+    resourceId: pantry.resourceId,
+    revision: pantry.revision,
+    operationId: pantry.operationId,
+    changeKind,
+    pantry,
+  };
+  let lastError: unknown;
+  try {
+    const authorizedUserIds = await withRecipeApiSpan(
+      c,
+      "pantry.realtime.membership.lookup",
+      () => findHouseholdMemberUserIds(db, householdId),
+    );
+    const room = c.env.HOUSEHOLD_REALTIME.get(
+      c.env.HOUSEHOLD_REALTIME.idFromName(pantry.resourceId),
+    );
+    for (
+      let attempt = 1;
+      attempt <= PANTRY_PUBLICATION_ATTEMPTS;
+      attempt += 1
+    ) {
+      try {
+        const response = await withRecipeApiSpan(
+          c,
+          "pantry.realtime.room.publish",
+          () =>
+            room.fetch("https://household-realtime/publish", {
+              method: "POST",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify({ event, authorizedUserIds }),
+              signal: AbortSignal.timeout(PANTRY_PUBLICATION_TIMEOUT_MS),
+            }),
+          { "app.realtime.publish.attempt": attempt },
+        );
+        if (response.ok) return;
+        lastError = new Error(`Realtime room returned ${response.status}`);
+      } catch (error) {
+        lastError = error;
+      }
+      if (attempt < PANTRY_PUBLICATION_ATTEMPTS) {
+        await new Promise((resolve) =>
+          setTimeout(resolve, pantryPublicationRetryDelayMs()),
+        );
+      }
+    }
+  } catch (error) {
+    lastError = error;
+  }
+
+  console.error(
+    JSON.stringify({
+      message: "Pantry realtime publication failed",
+      resourceType: event.resourceType,
+      resourceId: event.resourceId,
+      revision: event.revision,
+      operationId: event.operationId,
+      error:
+        lastError instanceof Error ? lastError.message : String(lastError),
+    }),
+  );
+}
+
+async function executeCollaborativePantryOperation(
+  c: Context<AppEnv>,
+  db: Db,
+  userId: string,
+  operationId: string,
+  commandFingerprint: string,
+  changeKind: PantryChangeKind,
+  mutate: (tx: DbTransaction, scope: PantryScope) => Promise<void>,
+): Promise<PantryResponse> {
+  const pantry = await withRecipeApiSpan(
+    c,
+    "pantry.mutation.transaction",
+    () =>
+      executePantryOperation(
+        db,
+        userId,
+        operationId,
+        commandFingerprint,
+        mutate,
+      ),
+    { "app.pantry.change.kind": changeKind },
+  );
+  // The transaction has committed. Publication runs outside the response path,
+  // so a stalled room cannot delay this command or later commands queued by the
+  // same browser. Clients repair missed snapshots when they reconnect.
+  const publication = withRecipeApiSpan(
+    c,
+    "pantry.realtime.publish",
+    () => publishPantryChange(c, db, pantry, changeKind),
+    { "app.pantry.change.kind": changeKind },
+    { flush: true },
+  );
+  const executionCtx = requestExecutionContext(c);
+  if (executionCtx) executionCtx.waitUntil(publication);
+  else await publication;
+  return pantry;
+}
+
+function requestExecutionContext(
+  c: Context<AppEnv>,
+): { waitUntil(promise: Promise<unknown>): void } | undefined {
+  try {
+    return c.executionCtx;
+  } catch {
+    return undefined;
+  }
 }
 
 function pantryMutationErrorResponse(c: Context<AppEnv>, error: unknown) {
@@ -3103,6 +3264,75 @@ registerRoute("get", "/pantry", async (c) => {
   );
 });
 
+registerRoute("get", "/pantry/realtime", async (c) => {
+  if (c.req.header("upgrade")?.toLowerCase() !== "websocket") {
+    return c.json({ error: "WebSocket upgrade required" }, 426);
+  }
+  if (!isValidAuthURL(c.env.BETTER_AUTH_URL)) {
+    return c.json({ error: "Auth configuration is invalid" }, 503);
+  }
+  const requestOrigin = c.req.header("origin");
+  const allowedOrigin = new URL(c.env.BETTER_AUTH_URL).origin;
+  let parsedRequestOrigin: URL | undefined;
+  try {
+    parsedRequestOrigin = requestOrigin ? new URL(requestOrigin) : undefined;
+  } catch {
+    // Invalid Origin headers are rejected below.
+  }
+  if (
+    !parsedRequestOrigin ||
+    parsedRequestOrigin.username ||
+    parsedRequestOrigin.password ||
+    parsedRequestOrigin.pathname !== "/" ||
+    parsedRequestOrigin.search ||
+    parsedRequestOrigin.hash ||
+    parsedRequestOrigin.origin !== allowedOrigin
+  ) {
+    return c.json({ error: "Realtime origin is not allowed" }, 403);
+  }
+  const realtimeRooms = c.env.HOUSEHOLD_REALTIME;
+  if (!realtimeRooms) {
+    return c.json({ error: "Realtime service is not configured" }, 503);
+  }
+
+  return withRecipeSession(
+    c,
+    "lookup",
+    "GET /pantry/realtime lookup failed",
+    async ({ db, session }) => {
+      const scope = await resolvePantryScope(db, session.user.id);
+      if (scope.type !== "household") {
+        return c.json(
+          { error: "Realtime pantry updates require a household" },
+          409,
+        );
+      }
+
+      const now = Date.now();
+      const authorizationExpiresAt = Math.min(
+        session.session.expiresAt.getTime(),
+        now + REALTIME_AUTHORIZATION_LIFETIME_MS,
+      );
+      if (authorizationExpiresAt <= now) {
+        return authorizationResponse(c, unauthenticated());
+      }
+      const room = realtimeRooms.get(
+        realtimeRooms.idFromName(scope.householdId),
+      );
+      return room.fetch(
+        new Request("https://household-realtime/connect", {
+          headers: realtimeRoomRequestHeaders({
+            userId: session.user.id,
+            sessionId: session.session.id,
+            resourceId: scope.householdId,
+            authorizationExpiresAt,
+          }),
+        }),
+      );
+    },
+  );
+});
+
 registerRoute("put", "/pantry", async (c) => {
   const csrfFailure = validateCsrf(c);
   if (csrfFailure) return csrfFailure;
@@ -3122,11 +3352,13 @@ registerRoute("put", "/pantry", async (c) => {
         ([ingredientSlug]) => ingredientSlug,
       );
 
-      const pantry = await executePantryOperation(
+      const pantry = await executeCollaborativePantryOperation(
+        c,
         db,
         session.user.id,
         operationId,
         pantryStockFingerprint("replace", body.data.stock),
+        "pantry.replaced",
         async (tx, scope) => {
           const unknownSlug = await findUnknownPantryIngredient(
             tx,
@@ -3205,11 +3437,13 @@ registerRoute("patch", "/pantry", async (c) => {
         ([ingredientSlug]) => ingredientSlug,
       );
 
-      const pantry = await executePantryOperation(
+      const pantry = await executeCollaborativePantryOperation(
+        c,
         db,
         session.user.id,
         operationId,
         pantryStockFingerprint("restore", body.data.stock),
+        "pantry.restored",
         async (tx, scope) => {
           const unknownSlug = await findUnknownPantryIngredient(
             tx,
@@ -3260,11 +3494,13 @@ registerRoute("put", "/pantry/items/:ingredientSlug", async (c) => {
       if (!body.success) return body.response;
 
       const ingredientSlug = ingredientSlugResult.data;
-      const pantry = await executePantryOperation(
+      const pantry = await executeCollaborativePantryOperation(
+        c,
         db,
         session.user.id,
         operationId,
         `set:${ingredientSlug}:${body.data.location}`,
+        "pantry.item-set",
         async (tx, scope) => {
           const unknownSlug = await findUnknownPantryIngredient(tx, [
             ingredientSlug,
@@ -3323,11 +3559,13 @@ registerRoute("delete", "/pantry/items/:ingredientSlug", async (c) => {
         return c.json({ error: "Invalid ingredient slug" }, 400);
       }
 
-      const pantry = await executePantryOperation(
+      const pantry = await executeCollaborativePantryOperation(
+        c,
         db,
         session.user.id,
         operationId,
         `remove:${ingredientSlugResult.data}`,
+        "pantry.item-removed",
         async (tx, scope) => {
           await tx
             .delete(schema.pantryItem)
@@ -5435,6 +5673,7 @@ registerRoute("get", "/recipe-imports/:jobId", async (c) => {
   );
 });
 
+export { HouseholdRealtimeRoom } from "./realtime-room";
 export { app };
 
 // Idle rate-limit keys and pantry idempotency receipts do not need permanent

@@ -79,6 +79,14 @@ function wrapper(queryClient: QueryClient) {
   };
 }
 
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((complete) => {
+    resolve = complete;
+  });
+  return { promise, resolve };
+}
+
 describe("useKitchenStockQuery", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -269,47 +277,52 @@ describe("useKitchenStockActions", () => {
     expect(queryClient.getQueryData(queryKey)).toEqual(independentlyInstalled);
   });
 
-  it("bases optimistic removal on the cache after pending queries are cancelled", async () => {
+  it("sends rapid removals concurrently while canonical snapshots advance", async () => {
     const queryClient = createQueryClient();
     const queryKey = recipeQueryKeys.pantry("user-1");
     queryClient.setQueryData(
       queryKey,
-      personalPantry({ milk: "fridge", onion: "fresh" }),
+      personalPantry({ egg: "cupboards", milk: "fridge", onion: "fresh" }),
     );
-    vi.spyOn(queryClient, "cancelQueries").mockImplementation(async () => {
-      queryClient.setQueryData(
-        queryKey,
-        personalPantry({
-          egg: "cupboards",
-          milk: "fridge",
-          onion: "fresh",
-        }),
-      );
-    });
-    let resolveRemoval: ((pantry: Pantry) => void) | undefined;
-    mocks.removePantryItem.mockImplementation(
-      () =>
-        new Promise((resolve) => {
-          resolveRemoval = resolve;
-        }),
+    const firstRemoval = deferred<Pantry>();
+    const secondRemoval = deferred<Pantry>();
+    mocks.removePantryItem
+      .mockReturnValueOnce(firstRemoval.promise)
+      .mockReturnValueOnce(secondRemoval.promise);
+
+    const { result } = renderHook(
+      () => ({
+        actions: useKitchenStockActions(),
+        pantry: useKitchenStockQuery(),
+      }),
+      { wrapper: wrapper(queryClient) },
     );
 
-    const { result } = renderHook(() => useKitchenStockActions(), {
-      wrapper: wrapper(queryClient),
+    act(() => {
+      result.current.actions.removeFromStock("milk");
+      result.current.actions.removeFromStock("egg");
     });
 
-    act(() => result.current.removeFromStock("milk"));
-
-    await waitFor(() =>
-      expect(queryClient.getQueryData(queryKey)).toEqual(
-        personalPantry({ egg: "cupboards", onion: "fresh" }),
-      ),
+    await waitFor(() => {
+      expect(result.current.pantry.data?.stock).toEqual({ onion: "fresh" });
+      expect(mocks.removePantryItem).toHaveBeenCalledTimes(2);
+    });
+    expect(queryClient.getQueryData(queryKey)).toEqual(
+      personalPantry({ egg: "cupboards", milk: "fridge", onion: "fresh" }),
     );
 
     act(() =>
-      resolveRemoval?.(personalPantry({ egg: "cupboards", onion: "fresh" })),
+      firstRemoval.resolve(
+        personalPantry({ egg: "cupboards", onion: "fresh" }, "2"),
+      ),
     );
-    await waitFor(() => expect(result.current.isPending).toBe(false));
+    await waitFor(() => {
+      expect(result.current.pantry.data?.stock).toEqual({ onion: "fresh" });
+    });
+
+    act(() => secondRemoval.resolve(personalPantry({ onion: "fresh" }, "3")));
+    await waitFor(() => expect(result.current.actions.isPending).toBe(false));
+    expect(result.current.pantry.data?.stock).toEqual({ onion: "fresh" });
   });
 
   it("can optimistically set stock before the pantry query has loaded", async () => {

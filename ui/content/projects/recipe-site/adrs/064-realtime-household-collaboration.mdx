@@ -14,12 +14,11 @@ Neon Postgres remains the canonical store for shared pantry and shopping-list da
 validation, and transactional mutations. Add one Cloudflare Durable Object per household to own
 WebSocket connections, post-commit change fan-out, and ephemeral presence.
 
-The initial realtime protocol sends resource invalidations with monotonic revisions rather than
-replicating database rows through the Durable Object. TanStack Query applies an optimistic local
-update for high-value interactions, then reconciles with the canonical API response. Other clients
-receive a WebSocket notification and refetch the affected resource. Initial connection,
-reconnection, revision gaps, window focus, and a low-frequency active-page poll repair missed
-notifications.
+The realtime protocol sends canonical resource snapshots with monotonic revisions. The Durable
+Object forwards committed results but does not store them. TanStack Query keeps the last confirmed
+snapshot, while the UI replays pending local commands over it. Other connected clients install a
+newer WebSocket snapshot without another database read. Initial connection, reconnection, window
+focus, and a low-frequency active-page poll repair missed publications.
 
 Realtime delivery is therefore a latency optimization, not the data-correctness boundary. A
 committed Postgres mutation remains successful even if its subsequent broadcast fails. The UI
@@ -190,21 +189,18 @@ participant DB as Neon Postgres
 participant Room as Household Durable Object
 participant B as React client B
 
-A->>A: Apply optimistic cache update
+A->>A: Record pending local command
 A->>API: Explicit command + operation ID
 API->>API: Authenticate and authorize household access
 API->>DB: Begin transaction
 DB->>DB: Apply mutation and increment resource revision
 DB-->>API: Commit + canonical result + revision
-API->>Room: Publish post-commit invalidation
-Room-->>A: resource.changed
-Room-->>B: resource.changed
 API-->>A: Canonical result + revision
-A->>A: Confirm or reconcile optimistic state
-B->>API: Refetch affected resource
-API->>DB: Read canonical snapshot
-DB-->>B: Snapshot + revision
-API-->>B: Snapshot + revision
+API->>Room: Publish committed snapshot in waitUntil
+Room-->>A: resource.changed + snapshot
+Room-->>B: resource.changed + snapshot
+A->>A: Install snapshot and replay pending commands
+B->>B: Install snapshot
 `}
 />
 
@@ -214,13 +210,14 @@ and workflow completions. Do not scatter direct Durable Object calls across rout
 
 The publication call occurs only after the database commit. Broadcasting before commit could expose
 state that later rolls back. The publisher makes a small bounded number of idempotent retry attempts
-with jitter inside the request's execution budget. Failure to broadcast after those attempts must:
+with jitter through `waitUntil`, outside response latency. Failure to broadcast after those attempts
+must:
 
 * not convert the committed mutation into an apparent failed mutation;
 * return the canonical committed response and revision to the caller;
 * emit a correlated operational error containing the resource, revision, and operation ID but not
   sensitive item contents;
-* rely on snapshot, focus, reconnect, gap, and active-page refetch paths to heal other clients.
+* rely on subscription, focus, reconnect, and active-page refetch paths to heal other clients.
 
 There is intentionally no distributed transaction between Neon and the Durable Object. If later
 requirements demand durable delivery of every intermediate event, add a Postgres transactional
@@ -249,39 +246,45 @@ Allocate a revision with a locked or atomic aggregate-row update such as
 `revision = revision + 1 RETURNING revision`. Do not derive it from client time, `updated_at`, or
 WebSocket arrival order. Serialize `bigint` revisions as decimal strings at the JSON boundary.
 
-The initial server message is deliberately small:
+The pantry event contains the shaped canonical snapshot:
 
 ```json
 {
   "type": "resource.changed",
-  "resourceType": "shopping-list",
-  "resourceId": "list_123",
+  "resourceType": "pantry",
+  "resourceId": "550e8400-e29b-41d4-a716-446655440000",
   "revision": "42",
-  "operationId": "0198...",
-  "changeKind": "item.checked"
+  "operationId": "0198b26e-43dc-7d7f-8cb2-acde48001122",
+  "changeKind": "pantry.item-set",
+  "pantry": {
+    "resourceId": "550e8400-e29b-41d4-a716-446655440000",
+    "revision": "42",
+    "operationId": "0198b26e-43dc-7d7f-8cb2-acde48001122",
+    "scope": { "type": "household", "household": { "id": "550e8400-e29b-41d4-a716-446655440000", "name": "Home" } },
+    "stock": { "onion": "fresh" },
+    "itemVersions": { "onion": "7" }
+  }
 }
 ```
 
-Do not include complete pantry/list snapshots, ingredient notes, session tokens, or unnecessary user
-details in fan-out messages. The canonical HTTP endpoint already owns data shaping and
-authorization.
+Do not include session tokens, user details, or fields outside the authorized HTTP response.
+`publishPantryChange` resolves the current household-member user IDs. The room filters delivery
+against that supplied list and closes sockets for users who are no longer members.
 
 Clients maintain the highest accepted revision for each resource:
 
 * an event with a revision lower than or equal to the cached revision is stale or duplicate and may
   be ignored;
-* the next revision invalidates or patches the resource;
-* a revision gap invalidates and refetches the complete resource;
+* any newer complete snapshot replaces the confirmed resource;
 * an initial connection or reconnection always obtains a canonical snapshot;
 * window focus and network reconnect retain TanStack Query's safety refetch;
 * while a collaborative screen is active, a low-frequency poll provides bounded repair when the
   only post-commit notification was lost and no later revision exposes a gap.
 
 The revision guard applies to every cache installation, not only WebSocket messages. A mutation
-response, refetch result, event patch, or optimistic rollback with a revision lower than the highest
-confirmed revision must never replace newer cached state. Coalesce concurrent invalidations for one
-resource into one in-flight fetch through the TanStack Query key; if another event arrives during
-that fetch, compare its revision with the fetched snapshot and make at most one follow-up fetch.
+response, refetch result, or socket snapshot with a revision lower than the highest confirmed
+revision must never replace newer cached state. Pending local commands stay separate from that
+confirmed snapshot and are replayed in submission order whenever it changes.
 
 The exact active-page interval is a product measurement, not a protocol guarantee. Start around
 30–60 seconds with per-client jitter and no background polling when the page is hidden. WebSockets
@@ -291,22 +294,21 @@ interval remains configurable from observed reliability.
 
 ## Optimistic UI
 
-Use TanStack Query optimistic updates for interactions whose local result is obvious and reversible:
+Use TanStack Query's pending mutation journal for interactions whose local result is obvious and
+reversible:
 
 * check or uncheck an item;
 * add a simple item;
 * change an uncomplicated quantity;
 * remove an item when restoration is deterministic.
 
-The mutation response remains canonical. On rejection, restore the captured cache state only if
-that optimistic layer still owns the affected fields; otherwise refetch. On success, reconcile the
-optimistic entity only when the returned revision is not older than the highest confirmed cache
-revision. TanStack Query documents the corresponding
+The mutation response remains canonical. Render pending commands over the confirmed snapshot rather
+than writing optimistic data into the canonical query cache. When a command fails or succeeds, it
+leaves the pending journal and the UI derives itself again. TanStack Query documents the related
 [optimistic update and rollback model](https://tanstack.com/query/latest/docs/framework/react/guides/optimistic-updates).
 
-Prefer invalidation and refetch for pantry reconciliation, ingredient normalization, merging,
-unit conversion, recipe-derived additions, and other mutations where the server result may differ
-materially from the client's guess.
+Do not speculate when the server result may differ from the command. Those operations remain pending
+until a mutation response or socket snapshot supplies the shaped canonical result.
 
 ## Concurrency Semantics
 
@@ -495,8 +497,7 @@ representative hosted alternative with
 * Explicit idempotent commands define concurrent behavior more clearly than generic CRUD endpoints.
 * The same commands and operation IDs provide a controlled extension point for a future offline
   outbox without committing the whole application to a replicated-document model.
-* The design can evolve from invalidation/refetch to canonical entity patches without changing
-  resource revisions or the source of truth.
+* Complete snapshot events avoid a database read for every connected client after each command.
 
 ## Negative
 
@@ -507,13 +508,25 @@ representative hosted alternative with
 * Each collaborative mutation adds a Postgres write plus a Durable Object invocation and fan-out.
 * WebSocket auth expiry, household membership removal, mobile network changes, backpressure, and
   deployment behavior expand the security and operational surface.
-* Initial invalidation messages cause an additional read on other active clients after each change.
+* Complete snapshots make events larger than invalidations, though pantry payloads remain bounded.
 * This is reconnect-tolerant, not fully offline-first.
 * Offline persistence, queued shared mutations, conflict UX, and CRDT-based local-first editing each
   require separate product and architecture decisions.
 * Presence can occasionally be stale and must never be treated as durable fact.
 
 # Rollout
+
+## Implementation Spike Status
+
+The first candidate is a raw `HouseholdRealtimeRoom` Durable Object in the existing `recipe-api`
+Worker. It exercises authenticated upgrade routing, hibernatable socket attachments, bounded
+authorization alarms, and post-commit snapshot broadcasts without making the room canonical.
+
+This candidate is not a transport-framework decision. Automated tests cover the raw implementation,
+but PartyKit has not yet been implemented and neither candidate has completed comparative manual
+preview QA. The spike must still deploy and exercise the PartyKit alternative described below, then
+record the evidence and selection. Until that comparison is complete, the raw implementation is a
+candidate rather than the preferred approach.
 
 1. **Canonical domain model:** add household pantry and shopping-list aggregates, row versions,
    aggregate revisions, explicit commands, idempotency constraints, and transactional authorization.
@@ -526,10 +539,10 @@ representative hosted alternative with
    reconnect recovery, and observability; select the smaller operational fit without changing the
    protocol or ownership boundaries in this ADR.
 4. **Post-commit publication:** centralize the publisher in the shared domain mutation path and emit
-   revisioned invalidations only after successful commits.
-5. **Client recovery:** add subscription readiness, initial snapshots, highest-revision tracking,
-   gap detection, reconnect snapshots, visibility-aware repair polling, coalesced refetches, and
-   stale-result rejection across every cache write path.
+   revisioned snapshots only after successful commits, outside response latency.
+5. **Client recovery:** add subscription readiness, highest-revision tracking, reconnect snapshots,
+   visibility-aware repair polling, pending-command replay, and stale-result rejection across every
+   cache write path.
 6. **Presence:** derive household/list presence from authenticated connections after the core change
    path is reliable.
 7. **Broader writers:** route agent and workflow pantry/list changes through the same mutation and

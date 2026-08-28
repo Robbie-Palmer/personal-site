@@ -1,6 +1,11 @@
 "use client";
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  useMutation,
+  useMutationState,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { captureRecipeProductActivity } from "@/lib/analytics/recipe-product";
 import {
   installPantrySnapshot,
@@ -20,14 +25,6 @@ import { pantryQuery } from "@/lib/query/pantry-queries";
 import { recipeQueryKeys } from "@/lib/query/recipe-query-keys";
 
 const EMPTY_STOCK: KitchenStock = {};
-
-function stocksEqual(first: KitchenStock, second: KitchenStock): boolean {
-  const firstEntries = Object.entries(first);
-  return (
-    firstEntries.length === Object.keys(second).length &&
-    firstEntries.every(([slug, location]) => second[slug] === location)
-  );
-}
 
 type PantryMutation =
   | {
@@ -52,13 +49,62 @@ type PantryMutation =
       stock: KitchenStock;
     };
 
+function applyPantryMutation(
+  stock: KitchenStock,
+  operation: PantryMutation,
+): KitchenStock {
+  switch (operation.kind) {
+    case "set":
+      return {
+        ...stock,
+        [operation.ingredientSlug]: operation.location,
+      };
+    case "remove": {
+      const next = { ...stock };
+      delete next[operation.ingredientSlug];
+      return next;
+    }
+    case "replace":
+      return { ...operation.stock };
+    case "restore":
+      return { ...operation.stock, ...stock };
+  }
+}
+
 export function useKitchenStockQuery() {
   const { data: session, isPending: sessionPending } = authClient.useSession();
   const userId = session?.user.id;
-  return useQuery({
-    ...pantryQuery(userId ?? "pending"),
+  const userKey = userId ?? "pending";
+  const query = useQuery({
+    ...pantryQuery(userKey),
     enabled: !sessionPending && Boolean(userId),
   });
+  const pending = useMutationState<{
+    operation: PantryMutation;
+    submittedAt: number;
+  }>({
+    filters: {
+      mutationKey: [...recipeQueryKeys.pantry(userKey), "save"],
+      status: "pending",
+    },
+    select: (mutation) => ({
+      operation: mutation.state.variables as PantryMutation,
+      submittedAt: mutation.state.submittedAt,
+    }),
+  });
+  const pendingInSubmissionOrder = pending.toSorted(
+    (first, second) => first.submittedAt - second.submittedAt,
+  );
+  const data = query.data
+    ? {
+        ...query.data,
+        stock: pendingInSubmissionOrder.reduce(
+          (stock, item) => applyPantryMutation(stock, item.operation),
+          query.data.stock,
+        ),
+      }
+    : query.data;
+  return { ...query, data };
 }
 
 export function useKitchenStock(): KitchenStock {
@@ -72,7 +118,6 @@ export function useKitchenStockActions() {
   const queryKey = recipeQueryKeys.pantry(userId);
   const mutation = useMutation({
     mutationKey: [...queryKey, "save"],
-    scope: { id: `pantry:${userId}` },
     mutationFn: (operation: PantryMutation) => {
       switch (operation.kind) {
         case "set":
@@ -92,8 +137,7 @@ export function useKitchenStockActions() {
           return restorePantry(operation.stock, operation.operationId);
       }
     },
-    onMutate: async (operation) => {
-      await queryClient.cancelQueries({ queryKey, exact: true });
+    onMutate: (operation) => {
       const previous = queryClient.getQueryData<Pantry>(queryKey);
       if (operation.kind === "set") {
         const stock = previous?.stock ?? EMPTY_STOCK;
@@ -107,55 +151,6 @@ export function useKitchenStockActions() {
             }).length,
           });
         }
-      }
-      let optimisticStock: KitchenStock | undefined;
-      if (previous) {
-        switch (operation.kind) {
-          case "set":
-            optimisticStock = {
-              ...previous.stock,
-              [operation.ingredientSlug]: operation.location,
-            };
-            break;
-          case "remove":
-            optimisticStock = { ...previous.stock };
-            delete optimisticStock[operation.ingredientSlug];
-            break;
-          case "replace":
-            optimisticStock = { ...operation.stock };
-            break;
-          case "restore":
-            optimisticStock = { ...operation.stock, ...previous.stock };
-            break;
-        }
-        queryClient.setQueryData<Pantry>(queryKey, {
-          ...previous,
-          stock: optimisticStock,
-          itemVersions:
-            operation.kind === "remove"
-              ? Object.fromEntries(
-                  Object.entries(previous.itemVersions).filter(
-                    ([ingredientSlug]) =>
-                      ingredientSlug !== operation.ingredientSlug,
-                  ),
-                )
-              : previous.itemVersions,
-        });
-      }
-      return { optimisticStock, previous };
-    },
-    onError: (_error, _operation, context) => {
-      const previous = context?.previous;
-      const optimisticStock = context?.optimisticStock;
-      if (previous) {
-        queryClient.setQueryData<Pantry>(queryKey, (current) =>
-          current &&
-          (current.resourceId !== previous.resourceId ||
-            current.revision !== previous.revision ||
-            (optimisticStock && !stocksEqual(current.stock, optimisticStock)))
-            ? current
-            : previous,
-        );
       }
     },
     onSuccess: (pantry) => {
