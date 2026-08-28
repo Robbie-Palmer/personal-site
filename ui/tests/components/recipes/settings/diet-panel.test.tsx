@@ -23,6 +23,17 @@ vi.mock("@/lib/api/diet", async (importOriginal) => ({
   ...apiMocks,
 }));
 
+vi.mock("@/lib/api/recipe-bootstrap", () => ({
+  getRecipeBootstrap: async () => ({
+    recipeBox: { recipes: [], box: { completed: true, recipeSlugs: [] } },
+    diet: {
+      profile: await apiMocks.getDietProfile(),
+      options: await apiMocks.getDietOptions(),
+    },
+    unreadNotificationCount: 0,
+  }),
+}));
+
 describe("DietPanel", () => {
   beforeEach(() => {
     apiMocks.getDietProfile.mockResolvedValue({
@@ -89,10 +100,14 @@ describe("DietPanel", () => {
 
     expect(await screen.findByText("saved")).toBeInTheDocument();
     expect(
-      queryClient.getQueryData(recipeQueryKeys.dietProfile("diet-user")),
+      queryClient.getQueryData(recipeQueryKeys.bootstrap("diet-user")),
     ).toEqual(
       expect.objectContaining({
-        excludedGroupKeys: ["poultry"],
+        diet: expect.objectContaining({
+          profile: expect.objectContaining({
+            excludedGroupKeys: ["poultry"],
+          }),
+        }),
       }),
     );
   });

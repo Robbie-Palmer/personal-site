@@ -14,7 +14,8 @@ export function RecipeShopping() {
   const recipeBox = useQuery({
     ...recipeBoxRecipesQuery(session?.user.id ?? "pending"),
     enabled: !isPending && Boolean(session),
-    select: ({ recipes }) => recipeRecordsToShoppingRecipes(recipes),
+    select: ({ recipeBox }) =>
+      recipeRecordsToShoppingRecipes(recipeBox.recipes),
   });
 
   if (isPending) {

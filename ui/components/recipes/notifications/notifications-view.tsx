@@ -194,7 +194,7 @@ export function NotificationsView() {
             queryKey: recipeQueryKeys.recipeBox(sessionUserId),
           }),
           queryClient.invalidateQueries({
-            queryKey: recipeQueryKeys.recipeBoxRecipes(sessionUserId),
+            queryKey: recipeQueryKeys.bootstrap(sessionUserId),
           }),
         ]);
       }

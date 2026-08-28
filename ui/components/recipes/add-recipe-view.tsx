@@ -102,7 +102,7 @@ async function invalidateSavedRecipeQueries({
   if (!userId) return;
   const invalidations = [
     queryClient.invalidateQueries({
-      queryKey: recipeQueryKeys.recipeBoxRecipes(userId),
+      queryKey: recipeQueryKeys.bootstrap(userId),
     }),
     queryClient.invalidateQueries({
       queryKey: recipeQueryKeys.savedRecipe(userId, slug),

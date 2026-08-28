@@ -214,6 +214,7 @@ const pantryOperationReceiptSchema = z
 const feedScopeSchema = z.enum(["public", "following"]);
 const feedLimitSchema = z.coerce.number().int().min(1).max(30).default(12);
 const recipeListLimitSchema = z.coerce.number().int().min(1).max(100).default(100);
+const RECIPE_BOOTSTRAP_LIMIT = 10_000;
 const publicCookIdSchema = z.string().trim().min(1).max(128);
 const PUBLIC_COOK_CONNECTION_LIMIT = 50;
 const feedViewerMembership = alias(schema.member, "feed_viewer_membership");
@@ -1219,6 +1220,19 @@ async function listRecipesPage(
     recipes: page.items.map(({ recipe }) => recipe),
     nextCursor: page.nextCursor,
   };
+}
+
+async function listBootstrapRecipes(db: Db, visibilityFilter: SQL) {
+  const page = await listRecipesPage(
+    db,
+    visibilityFilter,
+    undefined,
+    RECIPE_BOOTSTRAP_LIMIT,
+  );
+  if (page.nextCursor) {
+    throw new Error("Recipe bootstrap limit exceeded");
+  }
+  return page.recipes.map(recipeResponse);
 }
 
 async function findOwnedRecipeBySlug(
@@ -3048,6 +3062,58 @@ registerRoute("get", "/api/profile/recipe-box", async (c) => {
   );
 });
 
+registerRoute("get", "/api/profile/bootstrap", async (c) => {
+  return withRecipeSession(
+    c,
+    "query",
+    "GET /api/profile/bootstrap query failed",
+    async ({ db, session }) => {
+      c.header("Cache-Control", "private, no-store");
+      const userId = session.user.id;
+      const visibilityFilter = await readableRecipeFilter(db, userId);
+      if (!visibilityFilter) {
+        throw new Error("Authenticated recipe visibility filter is missing");
+      }
+
+      const [
+        ownedRecipes,
+        readableRecipes,
+        box,
+        storedDietProfile,
+        dietOptions,
+        unreadNotificationCount,
+      ] = await Promise.all([
+        listBootstrapRecipes(db, eq(schema.recipe.userId, userId)),
+        listBootstrapRecipes(db, visibilityFilter),
+        recipeBoxResponse(db, userId),
+        findDietProfile(db, userId),
+        listDietOptions(db),
+        countUnreadNotifications(db, userId),
+      ]);
+
+      const ownedRecipeSlugs = new Set(
+        ownedRecipes.map((recipe) => recipe.slug),
+      );
+      return c.json({
+        recipeBox: {
+          ownedRecipes,
+          readableRecipes: readableRecipes.filter(
+            (recipe) => !ownedRecipeSlugs.has(recipe.slug),
+          ),
+          profile: box,
+        },
+        diet: {
+          profile: dietProfileResponse(
+            storedDietProfile ?? defaultDietProfile(userId),
+          ),
+          options: dietOptions,
+        },
+        unreadNotificationCount,
+      });
+    },
+  );
+});
+
 registerRoute("put", "/api/profile/recipe-box", async (c) => {
   const csrfFailure = validateCsrf(c);
   if (csrfFailure) return csrfFailure;
@@ -4202,6 +4268,20 @@ registerRoute("delete", "/households/:householdId", async (c) => {
   );
 });
 
+async function countUnreadNotifications(db: Db, userId: string) {
+  const [unread] = await db
+    .select({ value: count() })
+    .from(schema.notificationDelivery)
+    .where(
+      and(
+        eq(schema.notificationDelivery.recipientUserId, userId),
+        isNull(schema.notificationDelivery.readAt),
+        isNull(schema.notificationDelivery.dismissedAt),
+      ),
+    );
+  return unread?.value ?? 0;
+}
+
 registerRoute("get", "/notifications", async (c) => {
   const offset = Number(c.req.query("offset") ?? "0");
   if (!Number.isSafeInteger(offset) || offset < 0) {
@@ -4212,7 +4292,7 @@ registerRoute("get", "/notifications", async (c) => {
     "query",
     "GET /notifications failed",
     async ({ db, session }) => {
-      const [deliveries, [unread]] = await Promise.all([
+      const [deliveries, unreadCount] = await Promise.all([
         db
           .select(notificationBaseSelection)
           .from(schema.notificationDelivery)
@@ -4235,19 +4315,7 @@ registerRoute("get", "/notifications", async (c) => {
           )
           .limit(NOTIFICATION_PAGE_SIZE + 1)
           .offset(offset),
-        db
-          .select({ value: count() })
-          .from(schema.notificationDelivery)
-          .where(
-            and(
-              eq(
-                schema.notificationDelivery.recipientUserId,
-                session.user.id,
-              ),
-              isNull(schema.notificationDelivery.readAt),
-              isNull(schema.notificationDelivery.dismissedAt),
-            ),
-          ),
+        countUnreadNotifications(db, session.user.id),
       ]);
       const hasMore = deliveries.length > NOTIFICATION_PAGE_SIZE;
       const items = await hydrateNotifications(
@@ -4260,7 +4328,7 @@ registerRoute("get", "/notifications", async (c) => {
         {
           items,
           nextOffset: hasMore ? offset + NOTIFICATION_PAGE_SIZE : null,
-          unreadCount: unread?.value ?? 0,
+          unreadCount,
         },
       );
     },

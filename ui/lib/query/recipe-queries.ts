@@ -1,11 +1,7 @@
 import { queryOptions } from "@tanstack/react-query";
-import { getDietOptions, getDietProfile } from "@/lib/api/diet";
+import { getRecipeBootstrap } from "@/lib/api/recipe-bootstrap";
 import { recipeRecordsToCards } from "@/lib/api/recipes";
-import {
-  fetchAllSavedRecipes,
-  fetchRecipeBoxRecipes,
-  getSavedRecipe,
-} from "@/lib/api/saved-recipes";
+import { fetchAllSavedRecipes, getSavedRecipe } from "@/lib/api/saved-recipes";
 import { recipeQueryKeys } from "@/lib/query/recipe-query-keys";
 
 const USER_DATA_STALE_TIME = 5 * 60_000;
@@ -21,25 +17,37 @@ export const publicRecipesQuery = () =>
 
 export const recipeBoxRecipesQuery = (userId: string) =>
   queryOptions({
-    queryKey: recipeQueryKeys.recipeBoxRecipes(userId),
-    queryFn: ({ signal }) => fetchRecipeBoxRecipes(signal),
+    queryKey: recipeQueryKeys.bootstrap(userId),
+    queryFn: ({ signal }) => getRecipeBootstrap(signal),
+    select: (bootstrap) => bootstrap.recipeBox,
     staleTime: USER_DATA_STALE_TIME,
     refetchOnWindowFocus: true,
   });
 
 export const dietProfileQuery = (userId: string) =>
   queryOptions({
-    queryKey: recipeQueryKeys.dietProfile(userId),
-    queryFn: ({ signal }) => getDietProfile(signal),
+    queryKey: recipeQueryKeys.bootstrap(userId),
+    queryFn: ({ signal }) => getRecipeBootstrap(signal),
+    select: (bootstrap) => bootstrap.diet.profile,
     staleTime: USER_DATA_STALE_TIME,
     refetchOnWindowFocus: true,
   });
 
 export const dietOptionsQuery = (userId: string) =>
   queryOptions({
-    queryKey: recipeQueryKeys.dietOptions(userId),
-    queryFn: ({ signal }) => getDietOptions(signal),
-    staleTime: 60 * 60_000,
+    queryKey: recipeQueryKeys.bootstrap(userId),
+    queryFn: ({ signal }) => getRecipeBootstrap(signal),
+    select: (bootstrap) => bootstrap.diet.options,
+    staleTime: USER_DATA_STALE_TIME,
+    refetchOnWindowFocus: true,
+  });
+
+export const recipeBootstrapQuery = (userId: string) =>
+  queryOptions({
+    queryKey: recipeQueryKeys.bootstrap(userId),
+    queryFn: ({ signal }) => getRecipeBootstrap(signal),
+    staleTime: USER_DATA_STALE_TIME,
+    refetchOnWindowFocus: true,
   });
 
 export const savedRecipeQuery = (userId: string | null, slug: string) =>
