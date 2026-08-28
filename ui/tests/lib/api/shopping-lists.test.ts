@@ -22,7 +22,9 @@ describe("shopping-list API client", () => {
       .mockImplementation(async () => Response.json(response));
 
     await expect(getCurrentShoppingList()).resolves.toEqual(response);
-    await expect(saveCurrentShoppingList(snapshot)).resolves.toEqual(response);
+    await expect(saveCurrentShoppingList("list-1", snapshot)).resolves.toEqual(
+      response,
+    );
 
     expect(fetchMock).toHaveBeenNthCalledWith(
       1,
@@ -36,7 +38,7 @@ describe("shopping-list API client", () => {
       2,
       "/api/shopping-lists/current",
       expect.objectContaining({
-        body: JSON.stringify(snapshot),
+        body: JSON.stringify({ listId: "list-1", snapshot }),
         credentials: "same-origin",
         method: "PUT",
       }),
@@ -49,11 +51,13 @@ describe("shopping-list API client", () => {
       .spyOn(globalThis, "fetch")
       .mockResolvedValue(Response.json(next, { status: 201 }));
 
-    await expect(startNewShoppingList(snapshot)).resolves.toEqual(next);
+    await expect(startNewShoppingList("list-1", snapshot)).resolves.toEqual(
+      next,
+    );
     expect(fetchMock).toHaveBeenCalledWith(
       "/api/shopping-lists",
       expect.objectContaining({
-        body: JSON.stringify(snapshot),
+        body: JSON.stringify({ previousListId: "list-1", snapshot }),
         credentials: "same-origin",
         method: "POST",
       }),

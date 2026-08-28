@@ -60,7 +60,7 @@ export function ShoppingListBoundary({
         saving = saving
           .catch(() => undefined)
           .then(async () => {
-            await saveCurrentShoppingList(snapshot);
+            await saveCurrentShoppingList(installedId, snapshot);
             savedSnapshot.current = serialized;
           });
       }, 250);
@@ -94,7 +94,11 @@ export function useStartNewShoppingList() {
   const queryClient = useQueryClient();
   const queryKey = recipeQueryKeys.shoppingList(userId);
   const mutation = useMutation({
-    mutationFn: () => startNewShoppingList(shoppingListContents()),
+    mutationFn: () => {
+      const current = queryClient.getQueryData<StoredShoppingList>(queryKey);
+      if (!current) throw new Error("Shopping list has not loaded");
+      return startNewShoppingList(current.id, shoppingListContents());
+    },
     onSuccess: (next) => {
       clearList();
       queryClient.setQueryData<StoredShoppingList>(queryKey, next);

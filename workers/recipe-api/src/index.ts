@@ -456,6 +456,20 @@ const shoppingListSnapshotSchema = z
   })
   .strict();
 
+const updateShoppingListBodySchema = z
+  .object({
+    listId: z.uuid().max(36),
+    snapshot: shoppingListSnapshotSchema,
+  })
+  .strict();
+
+const createShoppingListBodySchema = z
+  .object({
+    previousListId: z.uuid().max(36),
+    snapshot: shoppingListSnapshotSchema,
+  })
+  .strict();
+
 const updateDietProfileBodySchema = z
   .object({
     presetDietKeys: uniqueDietKeysSchema.default([]),
@@ -508,8 +522,8 @@ const openApiRequestBodySchemas = new Map<string, z.ZodType>([
   ["PUT /pantry", pantryStockBodySchema],
   ["PATCH /pantry", pantryStockBodySchema],
   ["PUT /pantry/items/:ingredientSlug", pantryItemBodySchema],
-  ["PUT /shopping-lists/current", shoppingListSnapshotSchema],
-  ["POST /shopping-lists", shoppingListSnapshotSchema],
+  ["PUT /shopping-lists/current", updateShoppingListBodySchema],
+  ["POST /shopping-lists", createShoppingListBodySchema],
   ["POST /households", createHouseholdBodySchema],
   ["PATCH /households/:householdId", updateHouseholdBodySchema],
   [
@@ -3394,22 +3408,17 @@ registerRoute("put", "/shopping-lists/current", async (c) => {
     "mutation",
     "PUT /shopping-lists/current mutation failed",
     async ({ db, session }) => {
-      const body = await parseJsonBody(c, shoppingListSnapshotSchema);
+      const body = await parseJsonBody(c, updateShoppingListBodySchema);
       if (!body.success) return body.response;
 
       const response = await db.transaction(async (tx) => {
         const scope = await lockPantryScope(tx, session.user.id);
         const current = await findActiveShoppingList(tx, scope);
-        if (!current) {
-          return shoppingListResponse(
-            await createShoppingList(tx, scope, body.data),
-            scope,
-          );
-        }
+        if (!current || current.id !== body.data.listId) return null;
         const [updated] = await tx
           .update(schema.shoppingList)
           .set({
-            snapshot: body.data,
+            snapshot: body.data.snapshot,
             revision: sql`${schema.shoppingList.revision} + 1`,
             updatedAt: new Date(),
           })
@@ -3418,6 +3427,12 @@ registerRoute("put", "/shopping-lists/current", async (c) => {
         if (!updated) throw new Error("Shopping list was not updated");
         return shoppingListResponse(updated, scope);
       });
+      if (!response) {
+        return c.json(
+          { error: "Shopping list changed before this update was saved" },
+          409,
+        );
+      }
       return c.json(response);
     },
   );
@@ -3432,27 +3447,32 @@ registerRoute("post", "/shopping-lists", async (c) => {
     "mutation",
     "POST /shopping-lists mutation failed",
     async ({ db, session }) => {
-      const body = await parseJsonBody(c, shoppingListSnapshotSchema);
+      const body = await parseJsonBody(c, createShoppingListBodySchema);
       if (!body.success) return body.response;
 
       const response = await db.transaction(async (tx) => {
         const scope = await lockPantryScope(tx, session.user.id);
         const current = await findActiveShoppingList(tx, scope);
-        if (current) {
-          await tx
-            .update(schema.shoppingList)
-            .set({
-              status: "archived",
-              snapshot: body.data,
-              revision: sql`${schema.shoppingList.revision} + 1`,
-              closedAt: new Date(),
-              updatedAt: new Date(),
-            })
-            .where(eq(schema.shoppingList.id, current.id));
-        }
+        if (!current || current.id !== body.data.previousListId) return null;
+        await tx
+          .update(schema.shoppingList)
+          .set({
+            status: "archived",
+            snapshot: body.data.snapshot,
+            revision: sql`${schema.shoppingList.revision} + 1`,
+            closedAt: new Date(),
+            updatedAt: new Date(),
+          })
+          .where(eq(schema.shoppingList.id, current.id));
         const next = await createShoppingList(tx, scope);
         return shoppingListResponse(next, scope);
       });
+      if (!response) {
+        return c.json(
+          { error: "A new shopping list has already been started" },
+          409,
+        );
+      }
       return c.json(response, 201);
     },
   );

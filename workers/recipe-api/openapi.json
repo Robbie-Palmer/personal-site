@@ -8622,72 +8622,87 @@
               "schema": {
                 "type": "object",
                 "properties": {
-                  "recipes": {
-                    "type": "array",
-                    "items": {
-                      "type": "object",
-                      "properties": {
-                        "slug": {
+                  "previousListId": {
+                    "type": "string",
+                    "maxLength": 36,
+                    "format": "uuid"
+                  },
+                  "snapshot": {
+                    "type": "object",
+                    "properties": {
+                      "recipes": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "slug": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 200
+                            },
+                            "servings": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 1000,
+                              "format": "int32"
+                            }
+                          },
+                          "required": [
+                            "slug"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "maxItems": 200
+                      },
+                      "checked": {
+                        "type": "array",
+                        "items": {
                           "type": "string",
                           "minLength": 1,
                           "maxLength": 200
                         },
-                        "servings": {
-                          "type": "integer",
-                          "minimum": 1,
-                          "maximum": 1000,
-                          "format": "int32"
-                        }
+                        "maxItems": 1000
                       },
-                      "required": [
-                        "slug"
-                      ],
-                      "additionalProperties": false
-                    },
-                    "maxItems": 200
-                  },
-                  "checked": {
-                    "type": "array",
-                    "items": {
-                      "type": "string",
-                      "minLength": 1,
-                      "maxLength": 200
-                    },
-                    "maxItems": 1000
-                  },
-                  "extras": {
-                    "type": "array",
-                    "items": {
-                      "type": "object",
-                      "properties": {
-                        "id": {
-                          "type": "string",
-                          "minLength": 1,
-                          "maxLength": 200
+                      "extras": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 200
+                            },
+                            "text": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 500
+                            },
+                            "checked": {
+                              "type": "boolean"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "text",
+                            "checked"
+                          ],
+                          "additionalProperties": false
                         },
-                        "text": {
-                          "type": "string",
-                          "minLength": 1,
-                          "maxLength": 500
-                        },
-                        "checked": {
-                          "type": "boolean"
-                        }
-                      },
-                      "required": [
-                        "id",
-                        "text",
-                        "checked"
-                      ],
-                      "additionalProperties": false
+                        "maxItems": 500
+                      }
                     },
-                    "maxItems": 500
+                    "required": [
+                      "recipes",
+                      "checked",
+                      "extras"
+                    ],
+                    "additionalProperties": false
                   }
                 },
                 "required": [
-                  "recipes",
-                  "checked",
-                  "extras"
+                  "previousListId",
+                  "snapshot"
                 ],
                 "additionalProperties": false
               }
@@ -8973,72 +8988,87 @@
               "schema": {
                 "type": "object",
                 "properties": {
-                  "recipes": {
-                    "type": "array",
-                    "items": {
-                      "type": "object",
-                      "properties": {
-                        "slug": {
+                  "listId": {
+                    "type": "string",
+                    "maxLength": 36,
+                    "format": "uuid"
+                  },
+                  "snapshot": {
+                    "type": "object",
+                    "properties": {
+                      "recipes": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "slug": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 200
+                            },
+                            "servings": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 1000,
+                              "format": "int32"
+                            }
+                          },
+                          "required": [
+                            "slug"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "maxItems": 200
+                      },
+                      "checked": {
+                        "type": "array",
+                        "items": {
                           "type": "string",
                           "minLength": 1,
                           "maxLength": 200
                         },
-                        "servings": {
-                          "type": "integer",
-                          "minimum": 1,
-                          "maximum": 1000,
-                          "format": "int32"
-                        }
+                        "maxItems": 1000
                       },
-                      "required": [
-                        "slug"
-                      ],
-                      "additionalProperties": false
-                    },
-                    "maxItems": 200
-                  },
-                  "checked": {
-                    "type": "array",
-                    "items": {
-                      "type": "string",
-                      "minLength": 1,
-                      "maxLength": 200
-                    },
-                    "maxItems": 1000
-                  },
-                  "extras": {
-                    "type": "array",
-                    "items": {
-                      "type": "object",
-                      "properties": {
-                        "id": {
-                          "type": "string",
-                          "minLength": 1,
-                          "maxLength": 200
+                      "extras": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 200
+                            },
+                            "text": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 500
+                            },
+                            "checked": {
+                              "type": "boolean"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "text",
+                            "checked"
+                          ],
+                          "additionalProperties": false
                         },
-                        "text": {
-                          "type": "string",
-                          "minLength": 1,
-                          "maxLength": 500
-                        },
-                        "checked": {
-                          "type": "boolean"
-                        }
-                      },
-                      "required": [
-                        "id",
-                        "text",
-                        "checked"
-                      ],
-                      "additionalProperties": false
+                        "maxItems": 500
+                      }
                     },
-                    "maxItems": 500
+                    "required": [
+                      "recipes",
+                      "checked",
+                      "extras"
+                    ],
+                    "additionalProperties": false
                   }
                 },
                 "required": [
-                  "recipes",
-                  "checked",
-                  "extras"
+                  "listId",
+                  "snapshot"
                 ],
                 "additionalProperties": false
               }
