@@ -3414,7 +3414,7 @@ registerRoute("put", "/shopping-lists/current", async (c) => {
       const response = await db.transaction(async (tx) => {
         const scope = await lockPantryScope(tx, session.user.id);
         const current = await findActiveShoppingList(tx, scope);
-        if (!current || current.id !== body.data.listId) return null;
+        if (current?.id !== body.data.listId) return null;
         const [updated] = await tx
           .update(schema.shoppingList)
           .set({
@@ -3453,7 +3453,7 @@ registerRoute("post", "/shopping-lists", async (c) => {
       const response = await db.transaction(async (tx) => {
         const scope = await lockPantryScope(tx, session.user.id);
         const current = await findActiveShoppingList(tx, scope);
-        if (!current || current.id !== body.data.previousListId) return null;
+        if (current?.id !== body.data.previousListId) return null;
         await tx
           .update(schema.shoppingList)
           .set({
