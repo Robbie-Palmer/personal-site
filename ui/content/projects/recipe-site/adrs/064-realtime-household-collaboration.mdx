@@ -252,23 +252,24 @@ The pantry event contains the shaped canonical snapshot:
 {
   "type": "resource.changed",
   "resourceType": "pantry",
-  "resourceId": "household_123",
+  "resourceId": "550e8400-e29b-41d4-a716-446655440000",
   "revision": "42",
-  "operationId": "0198...",
+  "operationId": "0198b26e-43dc-7d7f-8cb2-acde48001122",
   "changeKind": "pantry.item-set",
   "pantry": {
-    "resourceId": "household_123",
+    "resourceId": "550e8400-e29b-41d4-a716-446655440000",
     "revision": "42",
-    "operationId": "0198...",
-    "scope": { "type": "household", "household": { "id": "household_123", "name": "Home" } },
+    "operationId": "0198b26e-43dc-7d7f-8cb2-acde48001122",
+    "scope": { "type": "household", "household": { "id": "550e8400-e29b-41d4-a716-446655440000", "name": "Home" } },
     "stock": { "onion": "fresh" },
     "itemVersions": { "onion": "7" }
   }
 }
 ```
 
-Do not include session tokens, user details, or fields outside the authorized HTTP response. The
-room rechecks the household-member list before delivery.
+Do not include session tokens, user details, or fields outside the authorized HTTP response.
+`publishPantryChange` resolves the current household-member user IDs. The room filters delivery
+against that supplied list and closes sockets for users who are no longer members.
 
 Clients maintain the highest accepted revision for each resource:
 
