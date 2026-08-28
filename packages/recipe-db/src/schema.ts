@@ -625,6 +625,67 @@ export const pantryItem = pgTable(
   ],
 );
 
+export const shoppingListStatusEnum = pgEnum("shopping_list_status", [
+  "active",
+  "archived",
+]);
+
+export type ShoppingListSnapshot = {
+  recipes: Array<{ slug: string; servings?: number }>;
+  checked: string[];
+  extras: Array<{ id: string; text: string; checked: boolean }>;
+};
+
+/**
+ * One durable shopping trip. Active lists are mutable; starting a new list
+ * keeps the previous list's final snapshot as history.
+ * The owner rule matches pantry ownership so joining a household makes the
+ * current list shared without copying it between individual accounts.
+ */
+export const shoppingList = pgTable(
+  "shopping_list",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    userId: text().references(() => user.id, { onDelete: "cascade" }),
+    organizationId: text().references(() => organization.id, {
+      onDelete: "cascade",
+    }),
+    status: shoppingListStatusEnum().notNull().default("active"),
+    revision: bigint({ mode: "bigint" }).notNull().default(sql`0`),
+    snapshot: jsonb().$type<ShoppingListSnapshot>().notNull(),
+    closedAt: timestamp({ withTimezone: true }),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp({ withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+  },
+  (table) => [
+    check(
+      "shopping_list_owner_check",
+      sql`num_nonnulls(${table.userId}, ${table.organizationId}) = 1`,
+    ),
+    check(
+      "shopping_list_closed_at_check",
+      sql`(${table.status} = 'active' AND ${table.closedAt} IS NULL) OR (${table.status} = 'archived' AND ${table.closedAt} IS NOT NULL)`,
+    ),
+    uniqueIndex("shopping_list_active_user_uidx")
+      .on(table.userId)
+      .where(sql`${table.status} = 'active'`),
+    uniqueIndex("shopping_list_active_household_uidx")
+      .on(table.organizationId)
+      .where(sql`${table.status} = 'active'`),
+    index("shopping_list_user_history_idx").on(
+      table.userId,
+      table.createdAt.desc(),
+    ),
+    index("shopping_list_household_history_idx").on(
+      table.organizationId,
+      table.createdAt.desc(),
+    ),
+  ],
+);
+
 export const ingredientGroup = pgTable("ingredient_group", {
   key: text().primaryKey(),
   label: text().notNull(),

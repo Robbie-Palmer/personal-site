@@ -7,13 +7,16 @@ import { useDiet } from "@/components/recipes/diet-provider";
 import { MealPlanner } from "@/components/recipes/shopping/meal-planner";
 import { RecipePicker } from "@/components/recipes/shopping/recipe-picker";
 import { ShoppingList } from "@/components/recipes/shopping/shopping-list";
+import {
+  ShoppingListBoundary,
+  useStartNewShoppingList,
+} from "@/components/recipes/shopping/shopping-list-boundary";
 import { useShoppingList } from "@/hooks/use-shopping-list";
 import type { ShoppingRecipe } from "@/lib/api/shopping";
 import {
   applyDietRecipeVisibility,
   buildDietRecipeMatches,
 } from "@/lib/domain/diet";
-import { clearList } from "@/lib/shopping/shoppingListStore";
 
 type Step = "plan" | "list";
 
@@ -25,10 +28,21 @@ const STEPS: { id: Step; label: string }[] = [
 export function ShoppingView({
   recipes,
 }: Readonly<{ recipes: ShoppingRecipe[] }>) {
+  return (
+    <ShoppingListBoundary>
+      <ShoppingViewContent recipes={recipes} />
+    </ShoppingListBoundary>
+  );
+}
+
+function ShoppingViewContent({
+  recipes,
+}: Readonly<{ recipes: ShoppingRecipe[] }>) {
   const { diet, matchRecipe } = useDiet();
   const { recipes: selected, plan, extras } = useShoppingList();
   const [step, setStep] = useState<Step>("plan");
   const [showHidden, setShowHidden] = useState(false);
+  const startNewList = useStartNewShoppingList();
   const selectedSlugs = useMemo(
     () => new Set(selected.map((entry) => entry.slug)),
     [selected],
@@ -88,13 +102,15 @@ export function ShoppingView({
         {hasListContent && (
           <button
             type="button"
-            onClick={() => {
-              clearList();
-              setStep("plan");
-            }}
+            onClick={() =>
+              startNewList.mutate(undefined, {
+                onSuccess: () => setStep("plan"),
+              })
+            }
+            disabled={startNewList.isPending}
             className="inline-flex items-center gap-1.5 rt-mono text-[var(--ink-3)] hover:text-[var(--berry)] transition-colors"
           >
-            <Trash2 className="h-3.5 w-3.5" /> clear list
+            <Trash2 className="h-3.5 w-3.5" /> start a new list
           </button>
         )}
       </div>

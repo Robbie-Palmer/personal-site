@@ -1,13 +1,12 @@
 /**
- * Client-side shopping-list store.
+ * Optimistic browser cache for the database-backed shopping list.
  *
  * A module-level store (consumed via useSyncExternalStore in
  * `use-shopping-list`) holding the recipes the user wants to cook, any
  * per-recipe servings override, which ingredients they've ticked off, and any
- * freeform "extra" items. Persisted to localStorage so the list survives
- * reloads and stays in sync across tabs — matching the unit-preference and
- * cooking-timer stores. There is no server component: the site is a static
- * export, so the list lives entirely in the browser for this first pass.
+ * freeform "extra" items. Local storage keeps interaction immediate and lets
+ * tabs converge; the authenticated shopping-list boundary installs and saves
+ * canonical database snapshots.
  */
 
 import { captureRecipeProductActivity } from "@/lib/analytics/recipe-product";
@@ -275,6 +274,13 @@ export function getShoppingListSnapshot(): ShoppingListState {
 
 export function getServerShoppingListSnapshot(): ShoppingListState {
   return EMPTY_STATE;
+}
+
+export function installShoppingListSnapshot(next: ShoppingListState): void {
+  hydrated = true;
+  state = parseState(JSON.stringify(next));
+  persist();
+  emit();
 }
 
 // ── Mutations ──────────────────────────────────────────────────────────────

@@ -203,12 +203,13 @@ describe("recipe Agent Auth capabilities", () => {
     expect(state.writes[0]?.expiresAt.getTime()).toBeGreaterThan(Date.now());
   });
 
-  it("exposes recipe and committed cooking-history reads", () => {
+  it("exposes recipe, shopping-list, and committed cooking-history reads", () => {
     expect(
       RECIPE_SITE_AGENT_CAPABILITIES.map((capability) => capability.name),
     ).toEqual([
       "recipes.search",
       "recipes.read",
+      "shopping_list.read",
       "cook_log.read",
       "cooking_insights.read",
     ]);
@@ -336,6 +337,65 @@ describe("recipe Agent Auth capabilities", () => {
         agentSession(),
       ),
     ).resolves.toEqual({ recipe: null });
+  });
+
+  it("reads the current household shopping list", async () => {
+    const createdAt = new Date("2026-08-20T08:00:00Z");
+    const updatedAt = new Date("2026-08-21T08:00:00Z");
+    const result = await executeRecipeAgentCapability(
+      queryDb(
+        [{ organizationId: "household-1" }],
+        [
+          {
+            id: "00000000-0000-4000-8000-000000000071",
+            userId: null,
+            organizationId: "household-1",
+            status: "active",
+            revision: 4n,
+            snapshot: {
+              recipes: [{ slug: "tomato-soup", servings: 2 }],
+              checked: ["tomato"],
+              extras: [
+                { id: "extra-milk", text: "Milk", checked: false },
+              ],
+            },
+            closedAt: null,
+            createdAt,
+            updatedAt,
+          },
+        ],
+      ),
+      "shopping_list.read",
+      {},
+      agentSession(),
+    );
+
+    expect(result).toEqual({
+      shoppingList: {
+        id: "00000000-0000-4000-8000-000000000071",
+        resourceId: "household-1",
+        scope: "household",
+        revision: "4",
+        snapshot: {
+          recipes: [{ slug: "tomato-soup", servings: 2 }],
+          checked: ["tomato"],
+          extras: [{ id: "extra-milk", text: "Milk", checked: false }],
+        },
+        createdAt,
+        updatedAt,
+      },
+    });
+  });
+
+  it("returns null when the delegated user has no current shopping list", async () => {
+    await expect(
+      executeRecipeAgentCapability(
+        queryDb([], []),
+        "shopping_list.read",
+        {},
+        agentSession(),
+      ),
+    ).resolves.toEqual({ shoppingList: null });
   });
 
   it("reads only bounded completed cooking-log rows for the delegated user", async () => {

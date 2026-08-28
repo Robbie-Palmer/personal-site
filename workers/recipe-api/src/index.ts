@@ -135,6 +135,16 @@ type PantryResponse = {
   stock: Record<string, PantryLocation>;
   itemVersions: Record<string, string>;
 };
+type ShoppingListSnapshot = typeof schema.shoppingList.$inferInsert.snapshot;
+type ShoppingListResponse = {
+  id: string;
+  resourceId: string;
+  revision: string;
+  scope: PantryResponse["scope"];
+  snapshot: ShoppingListSnapshot;
+  createdAt: string;
+  updatedAt: string;
+};
 type DbTransaction = Parameters<Parameters<Db["transaction"]>[0]>[0];
 type InvitationNotificationStatus =
   | "pending"
@@ -413,6 +423,39 @@ const pantryItemBodySchema = z
   })
   .strict();
 
+const shoppingListSnapshotSchema = z
+  .object({
+    recipes: z
+      .array(
+        z
+          .object({
+            slug: z.string().trim().min(1).max(200),
+            servings: z
+              .number()
+              .int()
+              .min(1)
+              .max(1_000)
+              .openapi({ format: "int32" })
+              .optional(),
+          })
+          .strict(),
+      )
+      .max(200),
+    checked: z.array(z.string().trim().min(1).max(200)).max(1_000),
+    extras: z
+      .array(
+        z
+          .object({
+            id: z.string().trim().min(1).max(200),
+            text: z.string().trim().min(1).max(500),
+            checked: z.boolean(),
+          })
+          .strict(),
+      )
+      .max(500),
+  })
+  .strict();
+
 const updateDietProfileBodySchema = z
   .object({
     presetDietKeys: uniqueDietKeysSchema.default([]),
@@ -465,6 +508,8 @@ const openApiRequestBodySchemas = new Map<string, z.ZodType>([
   ["PUT /pantry", pantryStockBodySchema],
   ["PATCH /pantry", pantryStockBodySchema],
   ["PUT /pantry/items/:ingredientSlug", pantryItemBodySchema],
+  ["PUT /shopping-lists/current", shoppingListSnapshotSchema],
+  ["POST /shopping-lists", shoppingListSnapshotSchema],
   ["POST /households", createHouseholdBodySchema],
   ["PATCH /households/:householdId", updateHouseholdBodySchema],
   [
@@ -546,6 +591,7 @@ const SUCCESS_STATUS_OVERRIDES = new Map<string, readonly SuccessStatus[]>([
   ["POST /recipes", [201]],
   ["POST /recipe-imports", [202]],
   ["DELETE /pantry/items/:ingredientSlug", [200]],
+  ["POST /shopping-lists", [201]],
   ["DELETE /recipes/cooks/:cookId/follow", [200]],
   ["DELETE /recipes/:slug/household-share", [200]],
 ]);
@@ -1334,6 +1380,86 @@ function pantryAggregateScopeFilter(scope: PantryScope): SQL {
 
 function pantryResourceId(scope: PantryScope): string {
   return scope.type === "household" ? scope.householdId : scope.userId;
+}
+
+const EMPTY_SHOPPING_LIST: ShoppingListSnapshot = {
+  recipes: [],
+  checked: [],
+  extras: [],
+};
+
+function shoppingListScopeFilter(scope: PantryScope): SQL {
+  return scope.type === "household"
+    ? eq(schema.shoppingList.organizationId, scope.householdId)
+    : eq(schema.shoppingList.userId, scope.userId);
+}
+
+function shoppingListResponse(
+  list: typeof schema.shoppingList.$inferSelect,
+  scope: PantryScope,
+): ShoppingListResponse {
+  return {
+    id: list.id,
+    resourceId: pantryResourceId(scope),
+    revision: list.revision.toString(),
+    scope:
+      scope.type === "household"
+        ? {
+            type: "household",
+            household: {
+              id: scope.householdId,
+              name: scope.householdName,
+            },
+          }
+        : { type: "personal" },
+    snapshot: list.snapshot,
+    createdAt: list.createdAt.toISOString(),
+    updatedAt: list.updatedAt.toISOString(),
+  };
+}
+
+async function createShoppingList(
+  db: Pick<Db, "insert">,
+  scope: PantryScope,
+  snapshot: ShoppingListSnapshot = EMPTY_SHOPPING_LIST,
+) {
+  const [list] = await db
+    .insert(schema.shoppingList)
+    .values({
+      userId: scope.type === "personal" ? scope.userId : null,
+      organizationId: scope.type === "household" ? scope.householdId : null,
+      snapshot,
+    })
+    .returning();
+  if (!list) throw new Error("Shopping list was not created");
+  return list;
+}
+
+async function findActiveShoppingList(
+  db: Pick<Db, "select">,
+  scope: PantryScope,
+) {
+  const [list] = await db
+    .select()
+    .from(schema.shoppingList)
+    .where(
+      and(
+        shoppingListScopeFilter(scope),
+        eq(schema.shoppingList.status, "active"),
+      ),
+    )
+    .limit(1);
+  return list;
+}
+
+async function currentShoppingList(db: Db, userId: string) {
+  return db.transaction(async (tx) => {
+    const scope = await lockPantryScope(tx, userId);
+    const list =
+      (await findActiveShoppingList(tx, scope)) ??
+      (await createShoppingList(tx, scope));
+    return shoppingListResponse(list, scope);
+  });
 }
 
 async function lockPantryScope(
@@ -3243,6 +3369,91 @@ registerRoute("post", "/api/profile/cooking-sessions", async (c) => {
         return c.json({ error: "Cooking session ID is already in use" }, 409);
       }
       return c.json({ cookingSession }, created ? 201 : 200);
+    },
+  );
+});
+
+registerRoute("get", "/shopping-lists/current", async (c) => {
+  return withRecipeSession(
+    c,
+    "query",
+    "GET /shopping-lists/current query failed",
+    async ({ db, session }) => {
+      c.header("Cache-Control", "private, no-store");
+      return c.json(await currentShoppingList(db, session.user.id));
+    },
+  );
+});
+
+registerRoute("put", "/shopping-lists/current", async (c) => {
+  const csrfFailure = validateCsrf(c);
+  if (csrfFailure) return csrfFailure;
+
+  return withRecipeSession(
+    c,
+    "mutation",
+    "PUT /shopping-lists/current mutation failed",
+    async ({ db, session }) => {
+      const body = await parseJsonBody(c, shoppingListSnapshotSchema);
+      if (!body.success) return body.response;
+
+      const response = await db.transaction(async (tx) => {
+        const scope = await lockPantryScope(tx, session.user.id);
+        const current = await findActiveShoppingList(tx, scope);
+        if (!current) {
+          return shoppingListResponse(
+            await createShoppingList(tx, scope, body.data),
+            scope,
+          );
+        }
+        const [updated] = await tx
+          .update(schema.shoppingList)
+          .set({
+            snapshot: body.data,
+            revision: sql`${schema.shoppingList.revision} + 1`,
+            updatedAt: new Date(),
+          })
+          .where(eq(schema.shoppingList.id, current.id))
+          .returning();
+        if (!updated) throw new Error("Shopping list was not updated");
+        return shoppingListResponse(updated, scope);
+      });
+      return c.json(response);
+    },
+  );
+});
+
+registerRoute("post", "/shopping-lists", async (c) => {
+  const csrfFailure = validateCsrf(c);
+  if (csrfFailure) return csrfFailure;
+
+  return withRecipeSession(
+    c,
+    "mutation",
+    "POST /shopping-lists mutation failed",
+    async ({ db, session }) => {
+      const body = await parseJsonBody(c, shoppingListSnapshotSchema);
+      if (!body.success) return body.response;
+
+      const response = await db.transaction(async (tx) => {
+        const scope = await lockPantryScope(tx, session.user.id);
+        const current = await findActiveShoppingList(tx, scope);
+        if (current) {
+          await tx
+            .update(schema.shoppingList)
+            .set({
+              status: "archived",
+              snapshot: body.data,
+              revision: sql`${schema.shoppingList.revision} + 1`,
+              closedAt: new Date(),
+              updatedAt: new Date(),
+            })
+            .where(eq(schema.shoppingList.id, current.id));
+        }
+        const next = await createShoppingList(tx, scope);
+        return shoppingListResponse(next, scope);
+      });
+      return c.json(response, 201);
     },
   );
 });
