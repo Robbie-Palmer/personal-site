@@ -118,7 +118,6 @@ export function useKitchenStockActions() {
   const queryKey = recipeQueryKeys.pantry(userId);
   const mutation = useMutation({
     mutationKey: [...queryKey, "save"],
-    scope: { id: `pantry:${userId}` },
     mutationFn: (operation: PantryMutation) => {
       switch (operation.kind) {
         case "set":

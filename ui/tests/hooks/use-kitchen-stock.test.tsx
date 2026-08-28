@@ -277,7 +277,7 @@ describe("useKitchenStockActions", () => {
     expect(queryClient.getQueryData(queryKey)).toEqual(independentlyInstalled);
   });
 
-  it("keeps rapid queued removals visible while canonical snapshots advance", async () => {
+  it("sends rapid removals concurrently while canonical snapshots advance", async () => {
     const queryClient = createQueryClient();
     const queryKey = recipeQueryKeys.pantry("user-1");
     queryClient.setQueryData(
@@ -305,7 +305,7 @@ describe("useKitchenStockActions", () => {
 
     await waitFor(() => {
       expect(result.current.pantry.data?.stock).toEqual({ onion: "fresh" });
-      expect(mocks.removePantryItem).toHaveBeenCalledTimes(1);
+      expect(mocks.removePantryItem).toHaveBeenCalledTimes(2);
     });
     expect(queryClient.getQueryData(queryKey)).toEqual(
       personalPantry({ egg: "cupboards", milk: "fridge", onion: "fresh" }),
@@ -317,7 +317,6 @@ describe("useKitchenStockActions", () => {
       ),
     );
     await waitFor(() => {
-      expect(mocks.removePantryItem).toHaveBeenCalledTimes(2);
       expect(result.current.pantry.data?.stock).toEqual({ onion: "fresh" });
     });
 
