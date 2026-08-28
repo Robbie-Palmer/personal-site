@@ -106,7 +106,6 @@ interface CosmosCanvasProps {
   visibleNodeIds: ReadonlySet<string>;
   visibleEdges: readonly GraphEdge[];
   interactive: boolean;
-  simulate: boolean;
   selectedNodeId: string | null;
   onSelect: (node: SelectedNode | null) => void;
   onReady?: (controls: {
@@ -120,7 +119,6 @@ const CosmosCanvas = memo(function CosmosCanvas({
   visibleNodeIds,
   visibleEdges,
   interactive,
-  simulate,
   selectedNodeId,
   onSelect,
   onReady,
@@ -147,17 +145,14 @@ const CosmosCanvas = memo(function CosmosCanvas({
     const container = containerRef.current;
     if (!container) return;
 
-    const reducedMotion = window.matchMedia(
-      "(prefers-reduced-motion: reduce)",
-    ).matches;
     const graph = new Graph(container, {
       backgroundColor: [0, 0, 0, 0],
-      enableSimulation: simulate,
+      enableSimulation: false,
       enableDrag: interactive,
       enableZoom: interactive,
       fitViewOnInit: true,
-      fitViewDelay: simulate ? 500 : 0,
-      fitViewDuration: reducedMotion || !simulate ? 0 : 350,
+      fitViewDelay: 0,
+      fitViewDuration: 0,
       fitViewPadding: 0.16,
       hoveredPointCursor: interactive ? "pointer" : "default",
       linkColorInterpolateFromEndpoints: true,
@@ -168,15 +163,8 @@ const CosmosCanvas = memo(function CosmosCanvas({
       pointGreyoutOpacity: 0.12,
       randomSeed: 38,
       renderHoveredPointRing: interactive,
-      rescalePositions: !simulate,
-      simulationCollision: 0.92,
-      simulationCollisionPadding: interactive ? 4 : 3,
-      simulationDecay: 5000,
-      simulationGravity: 0.18,
-      simulationLinkDistance: 7,
-      simulationLinkSpring: 0.65,
-      simulationRepulsion: 0.7,
-      transitionDuration: reducedMotion || !simulate ? 0 : 400,
+      rescalePositions: true,
+      transitionDuration: 0,
       onPointClick: (index) => {
         if (!interactive) return;
         const node = data.nodes[index];
@@ -208,17 +196,11 @@ const CosmosCanvas = memo(function CosmosCanvas({
       .then(() => {
         if (graphRef.current !== graph) return;
         onReady?.({
-          fit: () => graph.fitView(simulate ? 350 : 0, 0.16, false),
+          fit: () => graph.fitView(0, 0.16, false),
           focus: (id) => {
             const index = nodeIndex.get(id);
             if (index !== undefined)
-              graph.zoomToPointByIndex(
-                index,
-                simulate ? 350 : 250,
-                2.5,
-                true,
-                false,
-              );
+              graph.zoomToPointByIndex(index, 250, 2.5, true, false);
           },
         });
       })
@@ -228,7 +210,7 @@ const CosmosCanvas = memo(function CosmosCanvas({
       graphRef.current = null;
       graph.destroy();
     };
-  }, [data, interactive, nodeIndex, onReady, onSelect, simulate]);
+  }, [data, interactive, nodeIndex, onReady, onSelect]);
 
   useEffect(() => {
     const graph = graphRef.current;
@@ -262,12 +244,7 @@ const CosmosCanvas = memo(function CosmosCanvas({
     }
     graph.setPointPositions(nextPositions);
     graph.setLinks(links);
-    if (simulate) {
-      graph.render(0.42);
-      graph.start(0.42);
-    } else {
-      graph.render(0, 0);
-    }
+    graph.render(0, 0);
 
     const topIndices = [...visibleIndices]
       .sort(
@@ -292,14 +269,7 @@ const CosmosCanvas = memo(function CosmosCanvas({
     };
     const interval = window.setInterval(updateLabels, 120);
     return () => window.clearInterval(interval);
-  }, [
-    data.nodes,
-    nodeIndex,
-    simulate,
-    visibleEdges,
-    visibleIndices,
-    visibleNodeIds,
-  ]);
+  }, [data.nodes, nodeIndex, visibleEdges, visibleIndices, visibleNodeIds]);
 
   useEffect(() => {
     const graph = graphRef.current;
@@ -586,7 +556,6 @@ export function CosmosGraphClient({ data }: Readonly<{ data: GraphData }>) {
       visibleNodeIds={visibleNodeIds}
       visibleEdges={filtered.edges}
       interactive
-      simulate={!isMobile}
       selectedNodeId={selectedNode?.id ?? null}
       onSelect={selectNode}
       onReady={storeControls}
@@ -637,7 +606,6 @@ export function CosmosGraphClient({ data }: Readonly<{ data: GraphData }>) {
               visibleNodeIds={visibleNodeIds}
               visibleEdges={filtered.edges}
               interactive={false}
-              simulate={false}
               selectedNodeId={null}
               onSelect={IGNORE_SELECTION}
             />

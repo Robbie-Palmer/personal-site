@@ -68,14 +68,14 @@ The implementation:
 
 # Superseding decision
 
-The fixed Sigma layout made filtering predictable, but it also made the graph feel static. Rebuilding the Graphology instance after every filter change discarded the previous layout, synchronous ForceAtlas2 work blocked the main thread, and rendered node radii could still overlap.
+The fixed Sigma layout made filtering predictable, but rebuilding the Graphology instance after every filter change discarded the previous layout. Synchronous ForceAtlas2 work also blocked the main thread, and rendered node radii could still overlap.
 
-Replace Sigma.js and Graphology with **[cosmos.gl](https://github.com/cosmosgl/graph)**. Keep every node at a stable numeric index and hide filtered nodes with absent positions. The GPU simulation can then reheat the remaining graph without rebuilding its identity.
+Replace Sigma.js and Graphology with **[cosmos.gl](https://github.com/cosmosgl/graph)**. Keep every node at a stable numeric index and hide filtered nodes with absent positions. A deterministic radial layout keeps the graph inside its fitted viewport without rebuilding its identity or running a force simulation after load.
 
 The replacement adds:
 
-* Radius-aware collision and a continuously settling force layout
-* Animated filtering while preserving the positions of surviving nodes
+* A stable layout that remains inside the fitted viewport
+* Filtering while preserving the positions of surviving nodes
 * Node sizing based on global connection count
 * Search, neighbourhood highlighting, direct page links, and a reset control
 * A passive mobile homepage preview that does not capture scrolling
