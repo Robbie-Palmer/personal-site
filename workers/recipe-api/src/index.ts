@@ -464,7 +464,10 @@ const shoppingListScopeSchema = z
       .object({
         type: z.literal("household"),
         household: z
-          .object({ id: z.string().min(1), name: z.string() })
+          .object({
+            id: z.string().min(1).max(200),
+            name: z.string().max(200),
+          })
           .strict(),
       })
       .strict(),
@@ -473,13 +476,13 @@ const shoppingListScopeSchema = z
 
 const shoppingListResponseSchema = z
   .object({
-    id: z.uuid(),
-    resourceId: z.string().min(1),
-    revision: z.string().regex(/^\d+$/),
+    id: z.uuid().max(36),
+    resourceId: z.string().min(1).max(200),
+    revision: z.string().regex(/^\d+$/).max(30),
     scope: shoppingListScopeSchema,
     snapshot: shoppingListSnapshotSchema,
-    createdAt: z.iso.datetime(),
-    updatedAt: z.iso.datetime(),
+    createdAt: z.iso.datetime().max(40),
+    updatedAt: z.iso.datetime().max(40),
   })
   .strict()
   .openapi("ShoppingList");
@@ -487,7 +490,7 @@ const shoppingListResponseSchema = z
 const updateShoppingListBodySchema = z
   .object({
     listId: z.uuid().max(36),
-    revision: z.string().regex(/^\d+$/),
+    revision: z.string().regex(/^\d+$/).max(30),
     snapshot: shoppingListSnapshotSchema,
   })
   .strict();
@@ -495,7 +498,7 @@ const updateShoppingListBodySchema = z
 const createShoppingListBodySchema = z
   .object({
     previousListId: z.uuid().max(36),
-    previousRevision: z.string().regex(/^\d+$/),
+    previousRevision: z.string().regex(/^\d+$/).max(30),
     snapshot: shoppingListSnapshotSchema,
   })
   .strict();

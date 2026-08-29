@@ -207,14 +207,17 @@
         "properties": {
           "id": {
             "type": "string",
+            "maxLength": 36,
             "format": "uuid"
           },
           "resourceId": {
             "type": "string",
-            "minLength": 1
+            "minLength": 1,
+            "maxLength": 200
           },
           "revision": {
             "type": "string",
+            "maxLength": 30,
             "pattern": "^\\d+$"
           },
           "scope": {
@@ -225,10 +228,12 @@
           },
           "createdAt": {
             "type": "string",
+            "maxLength": 40,
             "format": "date-time"
           },
           "updatedAt": {
             "type": "string",
+            "maxLength": 40,
             "format": "date-time"
           }
         },
@@ -274,10 +279,12 @@
                 "properties": {
                   "id": {
                     "type": "string",
-                    "minLength": 1
+                    "minLength": 1,
+                    "maxLength": 200
                   },
                   "name": {
-                    "type": "string"
+                    "type": "string",
+                    "maxLength": 200
                   }
                 },
                 "required": [
@@ -8794,6 +8801,7 @@
                   },
                   "previousRevision": {
                     "type": "string",
+                    "maxLength": 30,
                     "pattern": "^\\d+$"
                   },
                   "snapshot": {
@@ -9096,6 +9104,7 @@
                   },
                   "revision": {
                     "type": "string",
+                    "maxLength": 30,
                     "pattern": "^\\d+$"
                   },
                   "snapshot": {
