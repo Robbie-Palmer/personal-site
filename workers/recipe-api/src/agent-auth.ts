@@ -169,6 +169,46 @@ const completedCookingSessionSchema = {
   },
 } as const;
 
+const shoppingListSnapshotSchema = {
+  type: "object",
+  additionalProperties: false,
+  required: ["recipes", "checked", "extras"],
+  properties: {
+    recipes: {
+      type: "array",
+      maxItems: 200,
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["slug"],
+        properties: {
+          slug: { type: "string", minLength: 1, maxLength: 200 },
+          servings: { type: "integer", minimum: 1, maximum: 1_000 },
+        },
+      },
+    },
+    checked: {
+      type: "array",
+      maxItems: 1_000,
+      items: { type: "string", minLength: 1, maxLength: 200 },
+    },
+    extras: {
+      type: "array",
+      maxItems: 500,
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["id", "text", "checked"],
+        properties: {
+          id: { type: "string", minLength: 1, maxLength: 200 },
+          text: { type: "string", minLength: 1, maxLength: 500 },
+          checked: { type: "boolean" },
+        },
+      },
+    },
+  },
+} as const;
+
 export const RECIPE_SITE_AGENT_CAPABILITIES = [
   {
     name: "recipes.search",
@@ -226,6 +266,52 @@ export const RECIPE_SITE_AGENT_CAPABILITIES = [
               properties: {
                 ...recipeSummarySchema.properties,
                 body: { type: ["string", "null"] },
+              },
+            },
+            { type: "null" },
+          ],
+        },
+      },
+    },
+  },
+  {
+    name: "shopping_list.read",
+    description:
+      "Read the current shopping list belonging to the delegated user or their household.",
+    approvalStrength: "session",
+    grantTTL: READ_GRANT_TTL_SECONDS,
+    input: {
+      type: "object",
+      additionalProperties: false,
+      properties: {},
+    },
+    output: {
+      type: "object",
+      additionalProperties: false,
+      required: ["shoppingList"],
+      properties: {
+        shoppingList: {
+          anyOf: [
+            {
+              type: "object",
+              additionalProperties: false,
+              required: [
+                "id",
+                "resourceId",
+                "scope",
+                "revision",
+                "snapshot",
+                "createdAt",
+                "updatedAt",
+              ],
+              properties: {
+                id: { type: "string", format: "uuid" },
+                resourceId: { type: "string" },
+                scope: { enum: ["personal", "household"] },
+                revision: { type: "string", pattern: "^[0-9]+$" },
+                snapshot: shoppingListSnapshotSchema,
+                createdAt: { type: "string", format: "date-time" },
+                updatedAt: { type: "string", format: "date-time" },
               },
             },
             { type: "null" },
@@ -409,6 +495,41 @@ export async function executeRecipeAgentCapability(
     return {
       recipe: recipe
         ? { ...recipeSummary(recipe, userId), body: recipe.body }
+        : null,
+    };
+  }
+
+  if (capability === "shopping_list.read") {
+    noArgumentsInput.parse(args ?? {});
+    const [membership] = await db
+      .select({ organizationId: schema.member.organizationId })
+      .from(schema.member)
+      .where(eq(schema.member.userId, userId))
+      .limit(1);
+    const scope = membership ? "household" : "personal";
+    const resourceId = membership?.organizationId ?? userId;
+    const ownerFilter = membership
+      ? eq(schema.shoppingList.organizationId, membership.organizationId)
+      : eq(schema.shoppingList.userId, userId);
+    const [shoppingList] = await db
+      .select()
+      .from(schema.shoppingList)
+      .where(
+        and(ownerFilter, eq(schema.shoppingList.status, "active")),
+      )
+      .limit(1);
+
+    return {
+      shoppingList: shoppingList
+        ? {
+            id: shoppingList.id,
+            resourceId,
+            scope,
+            revision: shoppingList.revision.toString(),
+            snapshot: shoppingList.snapshot,
+            createdAt: shoppingList.createdAt.toISOString(),
+            updatedAt: shoppingList.updatedAt.toISOString(),
+          }
         : null,
     };
   }

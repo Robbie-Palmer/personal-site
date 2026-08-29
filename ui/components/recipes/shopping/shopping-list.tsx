@@ -260,7 +260,7 @@ function ExtrasSection({
   ];
   return (
     <div className="mt-6">
-      {showItems && <SectionHeading title="extras" />}
+      {showItems && <SectionHeading title="added items" />}
       {showItems && extras.length > 0 && (
         <div className="mt-1">
           {ordered.map((extra) => (
@@ -279,8 +279,8 @@ function ExtrasSection({
           ref={inputRef}
           value={text}
           onChange={(e) => setText(e.target.value)}
-          placeholder="Add an extra (milk, bread…)"
-          aria-label="Add an extra item"
+          placeholder="Add an item (milk, bread…)"
+          aria-label="Add a shopping-list item"
           className="bg-[var(--card)]"
         />
         <button
@@ -508,14 +508,23 @@ export function ShoppingList({
 
   if (selected.length === 0 && state.extras.length === 0) {
     return (
-      <div className="rounded-xl border-[1.25px] border-dashed border-[var(--line-strong)] bg-[var(--card)] p-10 text-center">
-        <p className="rt-display text-3xl text-[var(--ink-2)]">
-          Nothing on the list yet
-        </p>
-        <p className="rt-body text-[var(--ink-3)] mt-2">
-          Pick some recipes above and their ingredients will gather here,
-          combined and sorted for the shop.
-        </p>
+      <div className="rounded-xl border-[1.25px] border-dashed border-[var(--line-strong)] bg-[var(--card)] p-6 sm:p-10">
+        <div className="text-center">
+          <p className="rt-display text-3xl text-[var(--ink-2)]">
+            Nothing on the list yet
+          </p>
+          <p className="rt-body text-[var(--ink-3)] mt-2">
+            Add anything you need below. Recipes can add their ingredients too,
+            whenever you want them.
+          </p>
+        </div>
+        <div className="flex justify-center">
+          <ExtrasSection
+            extras={state.extras}
+            onToggle={handleExtraToggle}
+            showItems={false}
+          />
+        </div>
       </div>
     );
   }
@@ -546,13 +555,33 @@ export function ShoppingList({
         </output>
       )}
 
-      {pantry.error && (
+      {pantry.error && !pantry.data && (
         <p
           className="rt-body mt-3 rounded-md border border-[var(--berry)]/35 bg-[var(--berry)]/8 px-3 py-2 text-sm text-[var(--berry)]"
           role="alert"
         >
           Your pantry could not be loaded, so this is the full shopping list
           without kitchen filtering.
+        </p>
+      )}
+
+      {pantry.error && pantry.data && (
+        <p
+          className="rt-body mt-3 rounded-md border border-[var(--berry)]/35 bg-[var(--berry)]/8 px-3 py-2 text-sm text-[var(--berry)]"
+          role="alert"
+        >
+          Your pantry could not be refreshed. This list is using the last pantry
+          data that loaded.
+        </p>
+      )}
+
+      {stockActions.error && (
+        <p
+          className="rt-body mt-3 rounded-md border border-[var(--berry)]/35 bg-[var(--berry)]/8 px-3 py-2 text-sm text-[var(--berry)]"
+          role="alert"
+        >
+          That pantry change was not saved, so the ingredient was restored. Try
+          again or refresh the page.
         </p>
       )}
 

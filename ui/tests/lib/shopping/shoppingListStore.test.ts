@@ -7,6 +7,7 @@ import {
   clearList,
   clearMealPlan,
   getShoppingListSnapshot,
+  installShoppingListSnapshot,
   markShoppingTripCompleted,
   removeExtra,
   removeRecipe,
@@ -198,9 +199,13 @@ describe("shoppingListStore", () => {
   });
 
   it("syncs state from a cross-tab storage event", () => {
-    const seen: number[] = [];
-    const unsub = subscribeShoppingList(() =>
-      seen.push(getShoppingListSnapshot().recipes.length),
+    installShoppingListSnapshot(getShoppingListSnapshot(), "list-1");
+    const seen: Array<{ count: number; source: string }> = [];
+    const unsub = subscribeShoppingList((source) =>
+      seen.push({
+        count: getShoppingListSnapshot().recipes.length,
+        source,
+      }),
     );
     globalThis.dispatchEvent(
       new StorageEvent("storage", {
@@ -210,13 +215,57 @@ describe("shoppingListStore", () => {
           plan: [{ day: "tue", slot: "lunch", slug: "z" }],
           checked: [],
           extras: [],
+          listId: "list-1",
         }),
       }),
     );
     expect(getShoppingListSnapshot().recipes).toHaveLength(3);
     expect(getShoppingListSnapshot().recipes).toContainEqual({ slug: "z" });
     expect(getShoppingListSnapshot().plan).toHaveLength(1);
-    expect(seen).toContain(3); // subscribers were notified
+    expect(seen).toContainEqual({ count: 3, source: "storage" });
+    unsub();
+  });
+
+  it("ignores storage events until the active list is installed", () => {
+    addRecipe("current");
+    const unsub = subscribeShoppingList(() => {});
+
+    globalThis.dispatchEvent(
+      new StorageEvent("storage", {
+        key: STORAGE_KEY,
+        newValue: JSON.stringify({
+          recipes: [{ slug: "foreign" }],
+          plan: [],
+          checked: [],
+          extras: [],
+          listId: "list-2",
+        }),
+      }),
+    );
+
+    expect(getShoppingListSnapshot().recipes).toEqual([{ slug: "current" }]);
+    unsub();
+  });
+
+  it("ignores browser storage from another shopping list", () => {
+    addRecipe("current");
+    installShoppingListSnapshot(getShoppingListSnapshot(), "list-1");
+    const seen: string[] = [];
+    const unsub = subscribeShoppingList((source) => seen.push(source));
+    globalThis.dispatchEvent(
+      new StorageEvent("storage", {
+        key: STORAGE_KEY,
+        newValue: JSON.stringify({
+          recipes: [{ slug: "other" }],
+          plan: [],
+          checked: [],
+          extras: [],
+          listId: "list-2",
+        }),
+      }),
+    );
+    expect(getShoppingListSnapshot().recipes).toEqual([{ slug: "current" }]);
+    expect(seen).toEqual(["storage"]);
     unsub();
   });
 });

@@ -16,7 +16,9 @@ const mocks = vi.hoisted(() => ({
 }));
 
 const pantryState = vi.hoisted(() => ({
+  actionError: null as Error | null,
   error: null as Error | null,
+  hasData: true,
   isPending: false,
   stock: {} as Record<string, "fridge" | "cupboards" | "fresh">,
 }));
@@ -28,12 +30,14 @@ vi.mock("@/lib/analytics/recipe-product", () => ({
 
 vi.mock("@/hooks/use-kitchen-stock", () => ({
   useKitchenStockActions: () => ({
-    error: null,
+    error: pantryState.actionError,
     isPending: false,
     removeFromStock: vi.fn(),
   }),
   useKitchenStockQuery: () => ({
-    data: { scope: { type: "personal" }, stock: pantryState.stock },
+    data: pantryState.hasData
+      ? { scope: { type: "personal" }, stock: pantryState.stock }
+      : undefined,
     error: pantryState.error,
     isPending: pantryState.isPending,
   }),
@@ -103,7 +107,9 @@ const butterRecipes: ShoppingRecipe[] = [
 
 describe("ShoppingList value analytics", () => {
   beforeEach(() => {
+    pantryState.actionError = null;
     pantryState.error = null;
+    pantryState.hasData = true;
     pantryState.isPending = false;
     pantryState.stock = {};
     localStorage.clear();
@@ -189,7 +195,9 @@ const aisleHeadings = () =>
 
 describe("ShoppingList aisle view section completion", () => {
   beforeEach(() => {
+    pantryState.actionError = null;
     pantryState.error = null;
+    pantryState.hasData = true;
     pantryState.isPending = false;
     pantryState.stock = {};
     localStorage.clear();
@@ -225,7 +233,9 @@ describe("ShoppingList aisle view section completion", () => {
 
 describe("ShoppingList pantry state", () => {
   beforeEach(() => {
+    pantryState.actionError = null;
     pantryState.error = null;
+    pantryState.hasData = true;
     pantryState.isPending = false;
     pantryState.stock = {};
     localStorage.clear();
@@ -253,6 +263,7 @@ describe("ShoppingList pantry state", () => {
 
   it("shows the full local list when pantry loading fails", () => {
     pantryState.error = new Error("load failed");
+    pantryState.hasData = false;
 
     render(<ShoppingList recipes={recipes} />);
 
@@ -260,6 +271,31 @@ describe("ShoppingList pantry state", () => {
       "full shopping list without kitchen filtering",
     );
     expect(screen.getByText("garlic")).toBeInTheDocument();
+  });
+
+  it("uses the last pantry snapshot when a refresh fails", () => {
+    pantryState.stock = { garlic: "fridge" };
+    pantryState.error = new Error("refresh failed");
+
+    render(<ShoppingList recipes={recipes} />);
+
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "using the last pantry data that loaded",
+    );
+    expect(
+      screen.getByRole("heading", { name: /already have/i }),
+    ).toBeInTheDocument();
+  });
+
+  it("explains why an optimistic pantry removal was restored", () => {
+    pantryState.stock = { garlic: "fridge" };
+    pantryState.actionError = new Error("delete failed");
+
+    render(<ShoppingList recipes={recipes} />);
+
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "pantry change was not saved",
+    );
   });
 
   it("does not let stocked salted butter hide unsalted butter", () => {
@@ -283,7 +319,9 @@ describe("ShoppingList pantry state", () => {
 
 describe("ShoppingList extras", () => {
   beforeEach(() => {
+    pantryState.actionError = null;
     pantryState.error = null;
+    pantryState.hasData = true;
     pantryState.isPending = false;
     pantryState.stock = {};
     localStorage.clear();
@@ -294,6 +332,20 @@ describe("ShoppingList extras", () => {
 
   afterEach(() => {
     __resetShoppingListForTests();
+  });
+
+  it("can start an empty list with a manually entered item", async () => {
+    __resetShoppingListForTests();
+    const user = userEvent.setup();
+    render(<ShoppingList recipes={recipes} />);
+
+    const input = screen.getByRole("textbox", {
+      name: "Add a shopping-list item",
+    });
+    await user.type(input, "milk");
+    await user.click(screen.getByRole("button", { name: "Add" }));
+
+    expect(screen.getByText("milk")).toBeInTheDocument();
   });
 
   it("mixes extras into the ingredient-only list", async () => {
@@ -347,7 +399,9 @@ describe("ShoppingList extras", () => {
     const user = userEvent.setup();
     render(<ShoppingList recipes={recipes} />);
 
-    const input = screen.getByRole("textbox", { name: "Add an extra item" });
+    const input = screen.getByRole("textbox", {
+      name: "Add a shopping-list item",
+    });
     await user.clear(input);
     await user.type(input, "milk");
     await user.click(screen.getByRole("button", { name: "Add" }));

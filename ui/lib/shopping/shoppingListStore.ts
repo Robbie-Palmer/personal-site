@@ -1,13 +1,12 @@
 /**
- * Client-side shopping-list store.
+ * Optimistic browser cache for the database-backed shopping list.
  *
  * A module-level store (consumed via useSyncExternalStore in
  * `use-shopping-list`) holding the recipes the user wants to cook, any
  * per-recipe servings override, which ingredients they've ticked off, and any
- * freeform "extra" items. Persisted to localStorage so the list survives
- * reloads and stays in sync across tabs — matching the unit-preference and
- * cooking-timer stores. There is no server component: the site is a static
- * export, so the list lives entirely in the browser for this first pass.
+ * freeform "extra" items. Local storage keeps interaction immediate and lets
+ * tabs converge; the authenticated shopping-list boundary installs and saves
+ * canonical database snapshots.
  */
 
 import { captureRecipeProductActivity } from "@/lib/analytics/recipe-product";
@@ -68,6 +67,8 @@ export type ShoppingListState = {
   extras: ExtraItem[];
 };
 
+export type ShoppingListChangeSource = "install" | "local" | "storage";
+
 const STORAGE_KEY = "recipe-shopping-list:v1";
 const COMPLETED_TRIP_STORAGE_KEY = "recipe-shopping-trip-completed:v1";
 const COMPLETED_TRIP_LOCK_NAME = "recipe-shopping-trip-completion";
@@ -81,8 +82,9 @@ const EMPTY_STATE: ShoppingListState = {
 
 let state: ShoppingListState = EMPTY_STATE;
 let hydrated = false;
+let activeListId: string | undefined;
 let completedTripRecordedFallback = false;
-const listeners = new Set<() => void>();
+const listeners = new Set<(source: ShoppingListChangeSource) => void>();
 
 /**
  * Persistently remember that the current checked-list cycle already produced
@@ -117,7 +119,7 @@ export async function markShoppingTripCompleted(): Promise<boolean> {
   return claimShoppingTripCompletion();
 }
 
-function resetShoppingTripCompletion(): void {
+export function resetShoppingTripCompletion(): void {
   completedTripRecordedFallback = false;
   try {
     localStorage.removeItem(COMPLETED_TRIP_STORAGE_KEY);
@@ -225,20 +227,23 @@ function hydrate(): void {
 
 function persist(): void {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({ ...state, listId: activeListId }),
+    );
   } catch {
     // ignore write failures (quota, private browsing)
   }
 }
 
-function emit(): void {
-  for (const listener of listeners) listener();
+function emit(source: ShoppingListChangeSource): void {
+  for (const listener of listeners) listener(source);
 }
 
 function setState(next: ShoppingListState): void {
   state = next;
   persist();
-  emit();
+  emit("local");
 }
 
 // A single, module-wide storage listener (hooked once on first subscribe, like
@@ -248,9 +253,19 @@ function setState(next: ShoppingListState): void {
 let storageListenerHooked = false;
 
 function handleStorage(event: StorageEvent): void {
-  if (event.key !== STORAGE_KEY) return;
+  if (event.key !== STORAGE_KEY || !activeListId || !event.newValue) return;
+  try {
+    const incoming: unknown = JSON.parse(event.newValue);
+    if (!isRecord(incoming)) return;
+    if (incoming.listId !== activeListId) {
+      emit("storage");
+      return;
+    }
+  } catch {
+    return;
+  }
   state = parseState(event.newValue);
-  emit();
+  emit("storage");
 }
 
 function hookStorageListener(): void {
@@ -259,7 +274,9 @@ function hookStorageListener(): void {
   globalThis.addEventListener("storage", handleStorage);
 }
 
-export function subscribeShoppingList(callback: () => void): () => void {
+export function subscribeShoppingList(
+  callback: (source: ShoppingListChangeSource) => void,
+): () => void {
   hydrate();
   hookStorageListener();
   listeners.add(callback);
@@ -275,6 +292,19 @@ export function getShoppingListSnapshot(): ShoppingListState {
 
 export function getServerShoppingListSnapshot(): ShoppingListState {
   return EMPTY_STATE;
+}
+
+export function installShoppingListSnapshot(
+  next: ShoppingListState,
+  listId?: string,
+  source: Extract<ShoppingListChangeSource, "install" | "local"> = "install",
+  persistSnapshot = true,
+): void {
+  hydrated = true;
+  activeListId = listId;
+  state = parseState(JSON.stringify(next));
+  if (persistSnapshot) persist();
+  emit(source);
 }
 
 // ── Mutations ──────────────────────────────────────────────────────────────
@@ -414,6 +444,7 @@ export function __resetShoppingListForTests(): void {
   }
   state = EMPTY_STATE;
   hydrated = false;
+  activeListId = undefined;
   completedTripRecordedFallback = false;
   listeners.clear();
 }
