@@ -182,6 +182,7 @@ deploy credentials or privileged GCP credentials:
 
 - `CF_PAGES_PREVIEW_ACCESS_APPLICATION_ID` (unmasked)
 - `CLOUDFLARE_API_TOKEN`
+- `CLOUDFLARE_SLACK_WEBHOOK_URL`
 - `GITHUB_TOKEN` or `MISE_GITHUB_TOKEN`
 - `TF_API_TOKEN`
 - `NEON_API_KEY`
@@ -314,6 +315,7 @@ into each service-specific Doppler config.
 - `CF_PAGES_PREVIEW_ACCESS_APPLICATION_ID` (unmasked; syncs to a GitHub Actions variable)
 - `CLOUDFLARE_API_TOKEN`
 - `CLOUDFLARE_ACCOUNT_ID`
+- `CLOUDFLARE_SLACK_WEBHOOK_URL`
 - `CF_IMAGES_ACCOUNT_HASH`
 - `POSTHOG_KEY`
 - `MISE_GITHUB_TOKEN`

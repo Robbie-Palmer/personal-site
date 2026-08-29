@@ -230,6 +230,32 @@ After import, `mise run //infra:plan` should show no PostHog changes. Do not
 edit managed dashboards or insights in the PostHog UI without also updating
 `posthog_resources.json`, because Terraform will treat that as drift.
 
+## Cloudflare Notifications
+
+Cloudflare notification policies are managed in `cloudflare_alerts.tf` and
+deliver to the shared `#production-alerts` Slack channel through a
+`cloudflare_notification_policy_webhooks` destination. The Slack incoming
+webhook URL is a sensitive variable (`slack_webhook_url`) sourced from Doppler
+(`CLOUDFLARE_SLACK_WEBHOOK_URL` in `dev_infra` and `prd_infra`) and mapped by
+`scripts/doppler-terraform-env`.
+
+The managed policies cover major/critical Cloudflare incidents affecting
+Pages, Workers, R2, SSL, and DNS; expiring Access service tokens; Universal
+SSL certificate events; and an R2 storage usage threshold. The account's
+auto-created budget email alert remains in place.
+
+The Pages deployment-failure policy is not yet Terraform-managed: the API
+rejects every `pages_event_alert` `event` filter value, so the policy must be
+created once in the dashboard (Pages project, production environment,
+"Deployment failed") and then imported:
+
+```bash
+terraform import 'cloudflare_notification_policy.pages_deployments' '<account-id>/<policy-id>'
+```
+
+Test the destination after applying via Notifications → Destinations →
+Webhooks → Send test; the message should reach `#production-alerts`.
+
 ## Neon Database
 
 ### `recipes`
