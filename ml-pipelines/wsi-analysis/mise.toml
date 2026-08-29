@@ -29,6 +29,11 @@ description = "Run WSI analysis tests"
 depends = ["sync"]
 run = "uv run --locked pytest"
 
+[tasks."test:coverage"]
+description = "Run WSI analysis tests and write Cobertura coverage for SonarQube"
+depends = ["sync"]
+run = "uv run --locked pytest --cov-report=xml:coverage.xml"
+
 [tasks.check]
 description = "Run all WSI analysis checks"
 depends = ["lint", "typecheck", "test"]
