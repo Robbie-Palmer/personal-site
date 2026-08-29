@@ -222,12 +222,14 @@ function runVale(files: string[]): ValeAlert[] {
 /*  Main                                                               */
 /* ------------------------------------------------------------------ */
 
+type DiffMode = "cached" | "working" | "auto";
+
 interface ProseOptions {
   files: string[];
   staged: boolean;
   strict: boolean;
   all: boolean;
-  explicitDiff: "cached" | "working" | "auto" | null;
+  explicitDiff: DiffMode | null;
   base: string;
 }
 
@@ -240,7 +242,7 @@ function requireValue(argv: string[], i: number, flag: string): string {
   return value;
 }
 
-function parseDiffType(value: string): "cached" | "working" | "auto" {
+function parseDiffType(value: string): DiffMode {
   if (value === "cached" || value === "working" || value === "auto") return value;
   console.error(`prose-lint: unknown diff type ${value}`);
   process.exit(1);
@@ -291,7 +293,7 @@ function contentFilesOnly(files: string[]): string[] {
 function changedLinesFor(
   file: string,
   base: string,
-  mode: "cached" | "working" | "auto",
+  mode: DiffMode,
 ): Set<number> | null {
   if (mode === "cached") return changedLines(file, base, true);
   if (mode === "working") return changedLines(file, base, false);
@@ -309,7 +311,7 @@ function buildChangedMap(
   files: string[],
   all: boolean,
   base: string,
-  diffMode: "cached" | "working" | "auto",
+  diffMode: DiffMode,
 ): Map<string, Set<number> | null> {
   const changedMap = new Map<string, Set<number> | null>();
   for (const f of files) {
