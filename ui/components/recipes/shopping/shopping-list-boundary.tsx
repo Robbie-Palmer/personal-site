@@ -122,7 +122,7 @@ export function ShoppingListBoundary({
       </p>
     );
   }
-  if (!current.data || installedId !== current.data.id) {
+  if (!current.data || !installedId) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center">
         <Loader2 className="animate-spin text-[var(--terracotta)]" />

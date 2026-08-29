@@ -6,6 +6,7 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react";
+import { useState } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   ShoppingListBoundary,
@@ -72,10 +73,35 @@ function StartNewButton() {
   );
 }
 
+let statefulChildMounts = 0;
+
+function StatefulStartNewButton() {
+  const startNew = useStartNewShoppingList();
+  const [view, setView] = useState("plan");
+  const [mountNumber] = useState(() => {
+    statefulChildMounts += 1;
+    return statefulChildMounts;
+  });
+  return (
+    <div>
+      <p data-testid="current-view" data-mount={mountNumber}>
+        Current view: {view}
+      </p>
+      <button type="button" onClick={() => setView("list")}>
+        Show list
+      </button>
+      <button type="button" onClick={startNew.start}>
+        Start new
+      </button>
+    </div>
+  );
+}
+
 describe("ShoppingListBoundary", () => {
   beforeEach(() => {
     __resetShoppingListForTests();
     localStorage.clear();
+    statefulChildMounts = 0;
     vi.clearAllMocks();
     mocks.getCurrentShoppingList.mockResolvedValue(storedList);
     mocks.saveCurrentShoppingList.mockResolvedValue(storedList);
@@ -266,6 +292,37 @@ describe("ShoppingListBoundary", () => {
         checked: [],
         extras: [],
       }),
+    );
+  });
+
+  it("keeps child view state while installing the replacement list", async () => {
+    const nextListId = "00000000-0000-4000-8000-000000000081";
+    renderWithQueryClient(
+      <ShoppingListBoundary>
+        <StatefulStartNewButton />
+      </ShoppingListBoundary>,
+    );
+    await screen.findByRole("button", { name: "Show list" });
+    fireEvent.click(screen.getByRole("button", { name: "Show list" }));
+    expect(screen.getByTestId("current-view")).toHaveTextContent(
+      "Current view: list",
+    );
+    act(() => addExtra("Milk"));
+
+    fireEvent.click(screen.getByRole("button", { name: "Start new" }));
+
+    await waitFor(() => {
+      const stored = JSON.parse(
+        localStorage.getItem("recipe-shopping-list:v1") ?? "{}",
+      ) as { listId?: string };
+      expect(stored.listId).toBe(nextListId);
+    });
+    expect(screen.getByTestId("current-view")).toHaveTextContent(
+      "Current view: list",
+    );
+    expect(screen.getByTestId("current-view")).toHaveAttribute(
+      "data-mount",
+      "1",
     );
   });
 
