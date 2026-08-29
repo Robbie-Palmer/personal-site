@@ -13,11 +13,30 @@ on:
 
 permissions:
   contents: read
-  pull-requests: write
 
 jobs:
+  wsi-analysis-check:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ml-pipelines/wsi-analysis
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: jdx/mise-action@3c2e0cf82a5b2e5249f0d3635a4d83d0ae861518 # v4.2.5
+        with:
+          experimental: true
+
+      - name: Check WSI analysis Python project
+        run: mise run //ml-pipelines/wsi-analysis:check
+
   dvc-validate-and-report:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
     environment:
       name: production-ci
     env:

@@ -490,6 +490,8 @@ function buildRoutesJson(): string {
         "/api/notifications/*",
         "/api/pantry",
         "/api/pantry/*",
+        "/api/shopping-lists",
+        "/api/shopping-lists/*",
         "/api/recipes",
         "/api/recipes/*",
         "/api/recipe-imports",

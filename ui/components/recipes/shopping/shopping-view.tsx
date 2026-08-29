@@ -7,28 +7,42 @@ import { useDiet } from "@/components/recipes/diet-provider";
 import { MealPlanner } from "@/components/recipes/shopping/meal-planner";
 import { RecipePicker } from "@/components/recipes/shopping/recipe-picker";
 import { ShoppingList } from "@/components/recipes/shopping/shopping-list";
+import {
+  ShoppingListBoundary,
+  useStartNewShoppingList,
+} from "@/components/recipes/shopping/shopping-list-boundary";
 import { useShoppingList } from "@/hooks/use-shopping-list";
 import type { ShoppingRecipe } from "@/lib/api/shopping";
 import {
   applyDietRecipeVisibility,
   buildDietRecipeMatches,
 } from "@/lib/domain/diet";
-import { clearList } from "@/lib/shopping/shoppingListStore";
 
 type Step = "plan" | "list";
 
 const STEPS: { id: Step; label: string }[] = [
-  { id: "plan", label: "1 · Plan the week" },
-  { id: "list", label: "2 · Shopping list" },
+  { id: "plan", label: "Plan meals" },
+  { id: "list", label: "Shopping list" },
 ];
 
 export function ShoppingView({
+  recipes,
+}: Readonly<{ recipes: ShoppingRecipe[] }>) {
+  return (
+    <ShoppingListBoundary>
+      <ShoppingViewContent recipes={recipes} />
+    </ShoppingListBoundary>
+  );
+}
+
+function ShoppingViewContent({
   recipes,
 }: Readonly<{ recipes: ShoppingRecipe[] }>) {
   const { diet, matchRecipe } = useDiet();
   const { recipes: selected, plan, extras } = useShoppingList();
   const [step, setStep] = useState<Step>("plan");
   const [showHidden, setShowHidden] = useState(false);
+  const startNewList = useStartNewShoppingList();
   const selectedSlugs = useMemo(
     () => new Set(selected.map((entry) => entry.slug)),
     [selected],
@@ -61,16 +75,16 @@ export function ShoppingView({
   const recipeNoun = count === 1 ? "recipe" : "recipes";
   const plannedCount = plan.length;
   const plannedNoun = plannedCount === 1 ? "meal" : "meals";
-  const extraNoun = extras.length === 1 ? "extra item" : "extra items";
+  const itemNoun = extras.length === 1 ? "item" : "items";
   const hasListContent = count > 0 || plannedCount > 0 || extras.length > 0;
   let summary =
-    "Plan meals for the week or choose recipes directly and we'll build the list.";
+    "Add items directly, or choose recipes and we'll gather their ingredients.";
   if (count > 0) {
     summary = `${count} ${recipeNoun} selected · ${plannedCount} ${plannedNoun} scheduled.`;
   } else if (plannedCount > 0) {
     summary = `${plannedCount} ${plannedNoun} scheduled.`;
   } else if (extras.length > 0) {
-    summary = `${extras.length} ${extraNoun} on the shopping list.`;
+    summary = `${extras.length} ${itemNoun} on the shopping list.`;
   }
 
   return (
@@ -78,7 +92,7 @@ export function ShoppingView({
       <div className="flex flex-wrap items-end justify-between gap-4 mb-4">
         <div>
           <p className="rt-mono text-[var(--terracotta)]">
-            Shopping · weekly plan
+            {step === "plan" ? "Shopping · meal plan" : "Shopping"}
           </p>
           <h1 className="rt-display text-5xl md:text-6xl mt-2">
             {step === "plan" ? "What's the plan?" : "Shopping list."}
@@ -88,16 +102,24 @@ export function ShoppingView({
         {hasListContent && (
           <button
             type="button"
-            onClick={() => {
-              clearList();
-              setStep("plan");
-            }}
+            onClick={startNewList.start}
+            disabled={startNewList.isPending}
             className="inline-flex items-center gap-1.5 rt-mono text-[var(--ink-3)] hover:text-[var(--berry)] transition-colors"
           >
-            <Trash2 className="h-3.5 w-3.5" /> clear list
+            <Trash2 className="h-3.5 w-3.5" /> start a new list
           </button>
         )}
       </div>
+
+      {startNewList.isError && (
+        <p
+          role="alert"
+          className="rt-body mb-4 rounded-md border border-[var(--berry)]/30 bg-[var(--cream-dark)] px-3 py-2 text-sm text-[var(--berry)]"
+        >
+          A new shopping list could not be started. Your previous list has been
+          restored.
+        </p>
+      )}
 
       {diet.active && (
         <DietListNotice
@@ -155,8 +177,7 @@ export function ShoppingView({
             <button
               type="button"
               onClick={() => setStep("list")}
-              disabled={!hasListContent}
-              className="inline-flex items-center gap-2 rounded-md bg-[var(--terracotta)] px-4 py-2 text-white font-medium hover:bg-[var(--terracotta-deep)] disabled:opacity-40 disabled:hover:bg-[var(--terracotta)] transition-colors"
+              className="inline-flex items-center gap-2 rounded-md bg-[var(--terracotta)] px-4 py-2 text-white font-medium hover:bg-[var(--terracotta-deep)] transition-colors"
             >
               View shopping list
               <ArrowRight className="h-4 w-4" />

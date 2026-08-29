@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "name": "cptac-coad-wsi-sample",
+  "description": "A development sample of DICOM-converted whole-slide microscopy images from CPTAC-COAD, plus derived tiles.",
+  "collection_id": "cptac_coad",
+  "source": {
+    "name": "Imaging Data Commons",
+    "url": "https://portal.imaging.datacommons.cancer.gov/",
+    "doi": "10.5281/zenodo.12666784"
+  },
+  "license": {
+    "name": "Creative Commons Attribution 3.0",
+    "spdx_id": "CC-BY-3.0",
+    "url": "https://creativecommons.org/licenses/by/3.0/"
+  },
+  "attribution": "Clunie, D., Clifford, W., Pot, D., Wagner, U., Farahani, K., Kim, E., and Fedorov, A. (2024). DICOM converted Slide Microscopy images for the CPTAC-COAD collection. Zenodo.",
+  "intended_use": "Development and evaluation of computational-pathology data pipelines. Review the source collection's terms before redistributing or using the data in a product."
+}

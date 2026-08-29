@@ -9,6 +9,7 @@ config_roots = [
     "ml-pipelines",
     "ml-pipelines/recipe-dataset",
     "ml-pipelines/recipe-parsing",
+    "ml-pipelines/wsi-analysis",
     "packages/recipe-db",
     "packages/observability",
     "packages/recipe-parsing",
@@ -26,7 +27,7 @@ verbose = false
 node = "lts"
 "github:pnpm/pnpm" = "11.24.0"
 vale = "3.12.0"
-terraform = "1.15.9"
+terraform = "1.16.0"
 tflint = "0.64.0"
 actionlint = "1.7.12"
 zizmor = "1.29.0"
@@ -318,6 +319,7 @@ depends = [
     "//packages/observability:test:coverage",
     "//packages/recipe-parsing:test:coverage",
     "//ml-pipelines/recipe-parsing:test:coverage",
+    "//ml-pipelines/wsi-analysis:test:coverage",
     "//workers/recipe-api:test:coverage",
     "//workers/recipe-ingest:test:coverage",
 ]

@@ -185,7 +185,18 @@ export async function proxyRecipeApiRequest(
     return Response.json({ error: "Invalid API path" }, { status: 400 });
   }
 
-  const destinationUrl = new URL(apiBase);
+  let destinationUrl: URL;
+  try {
+    destinationUrl = new URL(apiBase);
+  } catch {
+    return Response.json({ error: "Invalid Recipe API URL" }, { status: 503 });
+  }
+  if (destinationUrl.protocol !== "https:") {
+    return Response.json(
+      { error: "Recipe API URL must use HTTPS" },
+      { status: 503 },
+    );
+  }
   destinationUrl.pathname = destinationPath;
   destinationUrl.search = url.search;
   const destination = destinationUrl.toString();

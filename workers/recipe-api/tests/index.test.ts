@@ -141,6 +141,21 @@ const dbMock = vi.hoisted(() => {
     result: Record<string, unknown>;
     createdAt: Date;
   };
+  type ShoppingListRow = {
+    id: string;
+    userId: string | null;
+    organizationId: string | null;
+    status: "active" | "archived";
+    revision: bigint;
+    snapshot: {
+      recipes: Array<{ slug: string; servings?: number }>;
+      checked: string[];
+      extras: Array<{ id: string; text: string; checked: boolean }>;
+    };
+    closedAt: Date | null;
+    createdAt: Date;
+    updatedAt: Date;
+  };
 
   const state = {
     users: [] as UserRow[],
@@ -191,6 +206,7 @@ const dbMock = vi.hoisted(() => {
     pantryItems: [] as PantryItemRow[],
     pantryAggregates: [] as PantryAggregateRow[],
     pantryOperations: [] as PantryOperationRow[],
+    shoppingLists: [] as ShoppingListRow[],
     pantryOperationSweeps: 0,
     ingredientGroupMembers: [] as {
       groupKey: string;
@@ -325,6 +341,7 @@ const dbMock = vi.hoisted(() => {
     state.pantryItems = [];
     state.pantryAggregates = [];
     state.pantryOperations = [];
+    state.shoppingLists = [];
     state.pantryOperationSweeps = 0;
     state.ingredientGroupMembers = [];
     state.ingredientGroupHierarchy = [];
@@ -342,6 +359,101 @@ const dbMock = vi.hoisted(() => {
   }
 
   function queryRows(query: string, params: unknown[] = []) {
+    const shoppingSnapshot = (value: unknown) =>
+      (typeof value === "string" ? JSON.parse(value) : value) as ShoppingListRow["snapshot"];
+    const shoppingDate = (value: unknown) =>
+      value instanceof Date ? value : new Date(value as string);
+    if (query.startsWith('insert into "shopping_list"')) {
+      const list: ShoppingListRow = {
+        id: `00000000-0000-4000-8000-${String(state.shoppingLists.length + 80).padStart(12, "0")}`,
+        userId: (params[0] as string | null) ?? null,
+        organizationId: (params[1] as string | null) ?? null,
+        status: "active",
+        revision: 0n,
+        snapshot: shoppingSnapshot(params[2]),
+        closedAt: null,
+        createdAt: date,
+        updatedAt: date,
+      };
+      state.shoppingLists.push(list);
+      return [
+        [
+          list.id,
+          list.userId,
+          list.organizationId,
+          list.status,
+          list.revision,
+          list.snapshot,
+          list.closedAt,
+          list.createdAt,
+          list.updatedAt,
+        ],
+      ];
+    }
+
+    if (query.startsWith('update "shopping_list"')) {
+      const archiving = query.includes('"status" =');
+      const id = params.find((param) =>
+        state.shoppingLists.some((candidate) => candidate.id === param),
+      ) as string | undefined;
+      const list = state.shoppingLists.find((candidate) => candidate.id === id);
+      const expectedRevision = params.find(
+        (param): param is bigint => typeof param === "bigint",
+      );
+      if (
+        !list ||
+        (expectedRevision !== undefined && list.revision !== expectedRevision)
+      ) {
+        return [];
+      }
+      if (archiving) {
+        list.status = params[0] as "archived";
+        list.snapshot = shoppingSnapshot(params[1]);
+        list.closedAt = shoppingDate(params[2]);
+        list.updatedAt = shoppingDate(params[3]);
+      } else {
+        list.snapshot = shoppingSnapshot(params[0]);
+        list.updatedAt = shoppingDate(params[1]);
+      }
+      list.revision += 1n;
+      return archiving
+        ? []
+        : [
+            [
+              list.id,
+              list.userId,
+              list.organizationId,
+              list.status,
+              list.revision,
+              list.snapshot,
+              list.closedAt,
+              list.createdAt,
+              list.updatedAt,
+            ],
+          ];
+    }
+
+    if (query.includes('from "shopping_list"')) {
+      const ownerId = params[0] as string;
+      return state.shoppingLists
+        .filter(
+          (list) =>
+            list.status === "active" &&
+            (list.userId === ownerId || list.organizationId === ownerId),
+        )
+        .map((list) => [
+          list.id,
+          list.userId,
+          list.organizationId,
+          list.status,
+          list.revision,
+          list.snapshot,
+          list.closedAt,
+          list.createdAt,
+          list.updatedAt,
+        ]);
+    }
+
     if (query.startsWith('insert into "app_rate_limit"')) {
       const key = params[0] as string;
       const count = (state.rateLimitCounts.get(key) ?? 0) + 1;
@@ -4224,6 +4336,196 @@ describe("profile cooking insights", () => {
     expect(res.status).toBe(409);
     expect(await res.json()).toEqual({
       error: "Cooking session ID is already in use",
+    });
+  });
+});
+
+describe("shopping list flows", () => {
+  const mutationHeaders = {
+    "content-type": "application/json",
+    origin: "http://localhost:3000",
+  };
+  const snapshot = {
+    recipes: [{ slug: "tomato-soup", servings: 2 }],
+    checked: ["tomato"],
+    extras: [{ id: "extra-milk", text: "Milk", checked: false }],
+  };
+
+  beforeEach(() => {
+    authzMock.session = sessionFor({
+      id: "owner-user",
+      email: "owner@example.test",
+      name: "Owner",
+    });
+  });
+
+  it("makes the SQL test double reject a competing stale revision", () => {
+    const list = {
+      id: "00000000-0000-4000-8000-000000000080",
+      userId: "owner-user",
+      organizationId: null,
+      status: "active" as const,
+      revision: 0n,
+      snapshot,
+      closedAt: null,
+      createdAt: dbMock.date,
+      updatedAt: dbMock.date,
+    };
+    dbMock.state.shoppingLists.push(list);
+    const updateSql =
+      'update "shopping_list" set "snapshot" = $1 where ("shopping_list"."id" = $2 and "shopping_list"."revision" = $3)';
+    const params = [snapshot, dbMock.date, list.id, 0n];
+
+    expect(dbMock.queryRows(updateSql, params)).toHaveLength(1);
+    expect(dbMock.queryRows(updateSql, params)).toEqual([]);
+    expect(list.revision).toBe(1n);
+  });
+
+  it("creates, updates, archives, and replaces a personal list", async () => {
+    const initialResponse = await app.request(
+      "/shopping-lists/current",
+      {},
+      env,
+    );
+    expect(initialResponse.status).toBe(200);
+    const initial = (await initialResponse.json()) as {
+      id: string;
+      revision: string;
+    };
+    expect(initial).toMatchObject({
+      resourceId: "owner-user",
+      revision: "0",
+      scope: { type: "personal" },
+      snapshot: { recipes: [], checked: [], extras: [] },
+    });
+
+    const updateResponse = await app.request(
+      "/shopping-lists/current",
+      {
+        method: "PUT",
+        headers: mutationHeaders,
+        body: JSON.stringify({
+          listId: initial.id,
+          revision: initial.revision,
+          snapshot,
+        }),
+      },
+      env,
+    );
+    expect(updateResponse.status).toBe(200);
+    expect(await updateResponse.json()).toMatchObject({
+      id: initial.id,
+      revision: "1",
+      snapshot,
+    });
+
+    const staleRevisionUpdate = await app.request(
+      "/shopping-lists/current",
+      {
+        method: "PUT",
+        headers: mutationHeaders,
+        body: JSON.stringify({
+          listId: initial.id,
+          revision: initial.revision,
+          snapshot,
+        }),
+      },
+      env,
+    );
+    expect(staleRevisionUpdate.status).toBe(409);
+
+    const staleUpdate = await app.request(
+      "/shopping-lists/current",
+      {
+        method: "PUT",
+        headers: mutationHeaders,
+        body: JSON.stringify({
+          listId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+          revision: "0",
+          snapshot,
+        }),
+      },
+      env,
+    );
+    expect(staleUpdate.status).toBe(409);
+
+    const staleReset = await app.request(
+      "/shopping-lists",
+      {
+        method: "POST",
+        headers: mutationHeaders,
+        body: JSON.stringify({
+          previousListId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+          previousRevision: "0",
+          snapshot,
+        }),
+      },
+      env,
+    );
+    expect(staleReset.status).toBe(409);
+
+    const resetResponse = await app.request(
+      "/shopping-lists",
+      {
+        method: "POST",
+        headers: mutationHeaders,
+        body: JSON.stringify({
+          previousListId: initial.id,
+          previousRevision: "1",
+          snapshot,
+        }),
+      },
+      env,
+    );
+    expect(resetResponse.status).toBe(201);
+    const next = (await resetResponse.json()) as { id: string };
+    expect(next).toMatchObject({
+      revision: "0",
+      snapshot: { recipes: [], checked: [], extras: [] },
+    });
+    expect(next.id).not.toBe(initial.id);
+    expect(dbMock.state.shoppingLists).toEqual([
+      expect.objectContaining({
+        id: initial.id,
+        status: "archived",
+        snapshot,
+        closedAt: expect.any(Date),
+      }),
+      expect.objectContaining({ id: next.id, status: "active" }),
+    ]);
+  });
+
+  it("uses the household as the current-list owner", async () => {
+    dbMock.state.organizations.push({
+      id: HOUSEHOLD_ID,
+      name: "Park Road",
+      slug: "park-road",
+      logo: null,
+      metadata: null,
+      createdAt: dbMock.date,
+      updatedAt: dbMock.date,
+    });
+    dbMock.state.members.push({
+      id: OWNER_MEMBER_ID,
+      organizationId: HOUSEHOLD_ID,
+      userId: "owner-user",
+      role: "owner",
+      createdAt: dbMock.date,
+    });
+
+    const response = await app.request("/shopping-lists/current", {}, env);
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      resourceId: HOUSEHOLD_ID,
+      scope: {
+        type: "household",
+        household: { id: HOUSEHOLD_ID, name: "Park Road" },
+      },
+    });
+    expect(dbMock.state.shoppingLists[0]).toMatchObject({
+      userId: null,
+      organizationId: HOUSEHOLD_ID,
     });
   });
 });
