@@ -32,18 +32,43 @@ WHERE run_id = 'run-1'
 GROUP BY status;
 SQL
 
-duckdb -csv -noheader <<SQL | diff -u - <(printf '3.0,3\n')
-SELECT published_finding_count, count(*)
-FROM read_parquet('$output/v1/finding_latest.parquet')
-CROSS JOIN read_parquet('$output/v1/pull_request_fact.parquet')
-GROUP BY published_finding_count;
+duckdb -csv -noheader <<SQL | diff -u - <(printf '1.0\n')
+SELECT coverage_rate
+FROM read_parquet('$output/v1/review_run_fact.parquet') WHERE run_id = 'run-2';
+SQL
+
+duckdb -csv -noheader <<SQL | diff -u - <(printf 'prompt-1,NULL,NULL,NULL,NULL,1.0,NULL,NULL,false\n')
+SELECT prompt_version, publication_policy_version, change_size, change_size_band, coverage_rate,
+       published_finding_count, accepted_finding_count, acceptance_rate, finding_identity_available
+FROM read_parquet('$output/v1/review_run_fact.parquet') WHERE run_id = 'run-0';
+SQL
+
+duckdb -csv -noheader <<SQL | diff -u - <(printf 'superseded,censored,false,false,false,false\n')
+SELECT outcome, outcome_kind, accepted, fixed, rejected, no_response
+FROM read_parquet('$output/v1/finding_latest.parquet') WHERE finding_id = 'f_superseded';
+SQL
+
+duckdb -csv -noheader <<SQL | diff -u - <(printf '7,4.0,1.0,true\n8,1.0,NULL,false\n')
+SELECT pull_request_number, published_finding_count, accepted_finding_count, finding_identity_available
+FROM read_parquet('$output/v1/pull_request_fact.parquet') ORDER BY pull_request_number;
 SQL
 
 duckdb -csv -noheader <<SQL | diff -u - <(printf '2,true,true,1,1\n')
 SELECT array_length(prompt_versions), list_contains(prompt_versions, 'prompt-2'),
        list_contains(prompt_versions, 'prompt-3'), array_length(task_types),
        array_length(originating_agents)
-FROM read_parquet('$output/v1/pull_request_fact.parquet');
+FROM read_parquet('$output/v1/pull_request_fact.parquet') WHERE pull_request_number = 7;
+SQL
+
+duckdb -csv -noheader <<SQL | diff -u - <(printf '[prompt-1],[1],false\n')
+SELECT prompt_versions, record_schema_versions, finding_identity_available
+FROM read_parquet('$output/v1/pull_request_fact.parquet') WHERE pull_request_number = 8;
+SQL
+
+duckdb -csv -noheader <<SQL | diff -u - <(printf 'model-a,700,NULL,0.125\nmodel-a,800,1250.0,0.2\n')
+SELECT model, uncached_input_tokens, accepted_findings_per_million_uncached_tokens, cache_hit_rate
+FROM read_parquet('$output/v1/model_run_fact.parquet')
+WHERE run_id IN ('run-0', 'run-1') ORDER BY run_id;
 SQL
 
 "$here/build-scorecard.sh" "$here/fixtures" "$concurrent/output" >"$concurrent/first.log" 2>&1 &

@@ -34,7 +34,7 @@ run = "pnpm test:coverage"
 
 [tasks.check]
 description = "Run all stateful AI review checks"
-depends = ["typecheck", "test", "test:stateless", "test:workerd", "scorecard:test"]
+depends = ["typecheck", "test", "test:stateless", "test:workerd", "scorecard:test", "scorecard:report:test", "scorecard:replay:test"]
 
 [tasks.deploy]
 description = "Deploy the stateful AI review Worker"
@@ -74,9 +74,25 @@ depends = ["install"]
 run = "bash scripts/verify-lifecycle.sh"
 
 [tasks."scorecard:build"]
-description = "Build deterministic DuckDB scorecard marts from schema-v2 JSON"
+description = "Build deterministic DuckDB scorecard marts from schema-v1 and schema-v2 JSON"
 run = "bash analytics/build-scorecard.sh"
 
 [tasks."scorecard:test"]
-description = "Test scorecard marts against fixed schema-v2 fixtures"
+description = "Test scorecard marts against fixed schema-v1 and schema-v2 fixtures"
 run = "bash analytics/test-scorecard.sh"
+
+[tasks."scorecard:report"]
+description = "Generate versioned JSON and Markdown scorecard reports from built marts"
+run = "pnpm exec tsx analytics/report.ts"
+
+[tasks."scorecard:report:test"]
+description = "Test the scorecard report CLI against mixed schema-version fixtures"
+run = "bash analytics/test-report.sh"
+
+[tasks."scorecard:replay"]
+description = "Plan or execute an opt-in, budget-capped controlled replay from a frozen manifest"
+run = "pnpm exec tsx analytics/replay.ts"
+
+[tasks."scorecard:replay:test"]
+description = "Test controlled replay opt-in gating and budget enforcement"
+run = "bash analytics/test-replay.sh"

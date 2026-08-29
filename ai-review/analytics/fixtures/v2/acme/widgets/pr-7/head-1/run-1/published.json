@@ -6,15 +6,87 @@
   "pullRequestNumber": 7,
   "headSha": "head-1",
   "promptVersion": "prompt-2",
-  "pullRequest": {"taskType": "bug", "originatingAgent": "codex"},
-  "change": {"additions": 30, "deletions": 10, "changedFiles": 2, "riskSignals": ["auth"], "repositoryAreas": ["api"]},
-  "coverage": {"totalHunks": 4, "reviewedHunkIds": ["h1", "h2", "h3"], "unchangedHunkIds": ["h4"]},
-  "findings": {"published": [
-    {"findingId": "f_fixed", "file": "api/auth.ts", "severity": "high", "title": "Unsafe fallback", "source_models": ["model-a"]},
-    {"findingId": "f_rejected", "file": "api/auth.ts", "severity": "medium", "title": "Missing check", "source_models": ["model-a"]},
-    {"findingId": "f_silent", "file": "api/route.ts", "severity": "low", "title": "Unclear error", "source_models": ["model-a"]}
-  ]},
-  "models": [{"model": "model-a", "provider": "openrouter", "role": "scout", "ok": true, "latencyMs": 1200, "costUsd": 0.12, "usage": {"inputTokens": 1000, "cachedInputTokens": 200, "outputTokens": 100}}],
+  "pullRequest": {
+    "taskType": "bug",
+    "originatingAgent": "codex"
+  },
+  "change": {
+    "additions": 30,
+    "deletions": 10,
+    "changedFiles": 2,
+    "riskSignals": [
+      "auth"
+    ],
+    "repositoryAreas": [
+      "api"
+    ]
+  },
+  "coverage": {
+    "totalHunks": 4,
+    "reviewedHunkIds": [
+      "h1",
+      "h2",
+      "h3"
+    ],
+    "unchangedHunkIds": [
+      "h4"
+    ]
+  },
+  "findings": {
+    "published": [
+      {
+        "findingId": "f_fixed",
+        "file": "api/auth.ts",
+        "severity": "high",
+        "title": "Unsafe fallback",
+        "source_models": [
+          "model-a"
+        ]
+      },
+      {
+        "findingId": "f_rejected",
+        "file": "api/auth.ts",
+        "severity": "medium",
+        "title": "Missing check",
+        "source_models": [
+          "model-a"
+        ]
+      },
+      {
+        "findingId": "f_silent",
+        "file": "api/route.ts",
+        "severity": "low",
+        "title": "Unclear error",
+        "source_models": [
+          "model-a"
+        ]
+      }
+    ]
+  },
+  "models": [
+    {
+      "model": "model-a",
+      "provider": "openrouter",
+      "role": "scout",
+      "ok": true,
+      "latencyMs": 1200,
+      "costUsd": 0.12,
+      "usage": {
+        "inputTokens": 1000,
+        "cachedInputTokens": 200,
+        "outputTokens": 100
+      }
+    }
+  ],
   "runCostUsd": 0.30,
-  "workflow": {"instanceId": "run-1", "triggeredAt": "2026-08-01T10:00:00Z", "recordedAt": "2026-08-01T10:02:00Z"}
+  "workflow": {
+    "instanceId": "run-1",
+    "triggeredAt": "2026-08-01T10:00:00Z",
+    "recordedAt": "2026-08-01T10:02:00Z"
+  },
+  "guardrailPolicy": {
+    "publication": {
+      "version": "deterministic-publication-v1"
+    }
+  }
 }

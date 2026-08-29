@@ -243,7 +243,11 @@ object write without creating another revision.
 
 The DuckDB batch in `analytics/` builds versioned `finding_latest`,
 `review_run_fact`, `model_run_fact`, and `pull_request_fact` Parquet marts plus
-a checksum-bearing machine-readable manifest. The latest outcome is the highest
+a checksum-bearing machine-readable manifest. It reads schema-v1 and schema-v2
+records without rewriting historical objects: schema v1 (which predates record
+types and durable finding identities) contributes spend, token, call, and
+published-finding counts, while outcome-derived metrics remain available only
+where durable identities exist. The latest outcome is the highest
 `outcomeVersion`; `finding_history` remains in the transient DuckDB build so
 revision resolution is explicit and testable. Unknown schema versions, unknown
 record types, duplicate revisions, and outcome/evidence joins to unpublished
@@ -268,6 +272,54 @@ findings as their denominator, cost uses accepted findings, token efficiency
 uses uncached input tokens, and coverage uses reviewed over total hunks. Outputs
 retain prompt, risk, change-size, repository-area, task, originating-agent, and
 time dimensions for stratification.
+
+### Scorecard report and controlled replay CLI
+
+The report CLI turns a built marts release into versioned JSON and Markdown
+suitable for ADR evidence, without a dashboard:
+
+```bash
+mise run //ai-review:scorecard:build   # produce marts first
+mise run //ai-review:scorecard:report -- --marts /path/to/output/v1 --output /path/to/report
+```
+
+Reports expose sample sizes (runs, PRs, model calls, published and adjudicated
+findings), censored outcomes (`superseded`, still-incomplete outcomes, and
+legacy findings without durable identity), and every ADR metric including
+review efficiency and time to useful finding. The `time to useful finding`
+metric is measured from the PR's first recorded review trigger because PR-ready
+timestamps are not recorded. Slices are selected with `--slices` over model,
+prompt, repository area, risk, change size, task type, and originating agent;
+dimensions absent from a record are reported as `(unknown)` rather than
+estimated. Model comparisons are grouped by role, prompt version, and
+publication policy version, so the merger is reported separately from scouts
+(source-model attribution credits scouts only) and incompatible configurations
+are never mixed; aggregating a model across them requires an explicit
+`--allow-mixed-compatibility`, and
+`--min-sample-size` suppresses values whose denominator is below the fixed
+threshold while keeping the sample size visible. `--baseline` accepts a JSON
+file with the stateless GitHub Actions baseline for review-efficiency ratios.
+Rebuilding the same marts produces byte-identical reports.
+
+The replay CLI plans or executes a controlled replay from a frozen
+`replay-manifest` record:
+
+```bash
+mise run //ai-review:scorecard:replay -- --manifest /path/to/replays/frozen-set-1.json --output /path/to/plan
+mise run //ai-review:scorecard:replay -- --manifest /path/to/replays/frozen-set-1.json --output /path/to/result \
+  --yes --max-cost-usd 5 --models model-a,model-b --executor "/path/to/review-executor"
+```
+
+Without `--yes` the CLI only validates the manifest and writes a
+`controlled-replay-plan.json`; nothing is executed and no executor is invoked.
+Execution requires `--yes`, a positive `--max-cost-usd` cap, a fixed model set,
+and an executor command that receives each frozen PR (repository, PR number,
+head SHA, prompt version, models, remaining budget) as JSON on stdin and emits
+one JSON object with a `costUsd` on stdout. The CLI stops before any execution
+that would breach the cap, records each skipped PR in
+`controlled-replay-result.json`, and exits non-zero if the executor fails.
+Replay outputs are versioned records; the CLI never rewrites the historical
+objects it reads.
 
 ## Deploy
 

@@ -1,0 +1,1 @@
+{"schemaVersion":2,"recordType":"finding-outcome","outcomeVersion":1,"repository":"acme/widgets","pullRequestNumber":7,"findingId":"f_superseded","outcome":"superseded","outcomeKind":"censored","basis":"pull-request-finalization","confidence":1,"evaluatorVersion":"deterministic-outcomes-v1","occurredAt":"2026-08-03T09:00:00Z","recordedAt":"2026-08-03T09:00:01Z"}

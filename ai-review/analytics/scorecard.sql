@@ -5,15 +5,26 @@ CREATE TABLE raw_objects AS
 SELECT json, filename
 FROM read_json_objects([__INPUT_FILES__], filename = true);
 
+-- Schema v2 carries recordType; schema v1 predates it and only ever stored
+-- published review-run terminal records. Both are read here; neither is
+-- rewritten. Any other schema version or shape fails the build.
+CREATE TEMP TABLE typed_objects AS
+SELECT filename, json,
+       try_cast(json_extract_string(json, '$.schemaVersion') AS BIGINT) AS schema_version,
+       json_extract_string(json, '$.recordType') AS record_type,
+       json_extract_string(json, '$.status') AS status
+FROM raw_objects;
+
 CREATE TEMP TABLE invalid_objects AS
-SELECT filename, json_extract_string(json, '$.schemaVersion') AS schema_version,
-       json_extract_string(json, '$.recordType') AS record_type
-FROM raw_objects
+SELECT filename, schema_version, record_type
+FROM typed_objects
 WHERE json_type(json, '$.schemaVersion') NOT IN ('BIGINT', 'UBIGINT')
-   OR try_cast(json_extract_string(json, '$.schemaVersion') AS BIGINT) IS DISTINCT FROM 2
-   OR json_extract_string(json, '$.recordType') IS NULL
-   OR json_extract_string(json, '$.recordType') NOT IN
-      ('review-run-terminal', 'finding-interaction-evidence', 'finding-outcome', 'replay-manifest');
+   OR (schema_version = 2 AND
+       (record_type IS NULL OR record_type NOT IN
+          ('review-run-terminal', 'finding-interaction-evidence', 'finding-outcome', 'replay-manifest')))
+   OR (schema_version = 1 AND
+       (record_type IS NOT NULL OR status IS DISTINCT FROM 'published'))
+   OR (schema_version IS DISTINCT FROM 1 AND schema_version IS DISTINCT FROM 2);
 
 SELECT CASE WHEN count(*) = 0 THEN 1 ELSE error(
   'Unknown schema version or record type: ' || string_agg(filename || ' (' || coalesce(schema_version, 'null') || ', ' || coalesce(record_type, 'null') || ')', ', ')
@@ -22,26 +33,37 @@ SELECT CASE WHEN count(*) = 0 THEN 1 ELSE error(
 CREATE TABLE review_run_candidates AS
 SELECT
   filename,
+  schema_version AS record_schema_version,
   json_extract_string(json, '$.workflow.instanceId') AS run_id,
   json_extract_string(json, '$.repository') AS repository,
   try_cast(json_extract_string(json, '$.pullRequestNumber') AS INTEGER) AS pull_request_number,
   json_extract_string(json, '$.headSha') AS head_sha,
   json_extract_string(json, '$.status') AS status,
   json_extract_string(json, '$.promptVersion') AS prompt_version,
+  json_extract_string(json, '$.guardrailPolicy.publication.version') AS publication_policy_version,
   json_extract_string(json, '$.pullRequest.taskType') AS task_type,
   json_extract_string(json, '$.pullRequest.originatingAgent') AS originating_agent,
-  json_extract_string(json, '$.workflow.triggeredAt')::TIMESTAMPTZ AS triggered_at,
-  coalesce(try_cast(json_extract_string(json, '$.change.additions') AS BIGINT), 0) AS additions,
-  coalesce(try_cast(json_extract_string(json, '$.change.deletions') AS BIGINT), 0) AS deletions,
+  coalesce(
+    try_cast(json_extract_string(json, '$.workflow.triggeredAt') AS TIMESTAMPTZ),
+    try_cast(json_extract_string(json, '$.workflow.timestamp') AS TIMESTAMPTZ)
+  ) AS triggered_at,
+  try_cast(json_extract_string(json, '$.change.additions') AS BIGINT) AS additions,
+  try_cast(json_extract_string(json, '$.change.deletions') AS BIGINT) AS deletions,
   coalesce(try_cast(json_extract_string(json, '$.change.changedFiles') AS BIGINT), 0) AS changed_files,
-  coalesce(try_cast(json_extract_string(json, '$.coverage.totalHunks') AS BIGINT), 0) AS total_hunks,
-  coalesce(json_array_length(json_extract(json, '$.coverage.reviewedHunkIds')), 0) AS reviewed_hunks,
+  try_cast(json_extract_string(json, '$.coverage.totalHunks') AS BIGINT) AS total_hunks,
+  CASE WHEN schema_version = 2
+       THEN coalesce(json_array_length(json_extract(json, '$.coverage.reviewedHunkIds')), 0) END AS reviewed_hunks,
   coalesce(try_cast(json_extract_string(json, '$.runCostUsd') AS DOUBLE), 0) AS run_cost_usd,
-  json_extract(json, '$.change.riskSignals') AS risk_signals,
-  json_extract(json, '$.change.repositoryAreas') AS repository_areas,
-  json_extract(json, '$.findings.published') AS published_findings,
+  coalesce(json_extract(json, '$.change.riskSignals'), '[]'::JSON) AS risk_signals,
+  coalesce(json_extract(json, '$.change.repositoryAreas'), '[]'::JSON) AS repository_areas,
+  CASE WHEN schema_version = 2
+       THEN json_extract(json, '$.findings.published')
+       ELSE json_extract(json, '$.findings.findings') END AS published_findings,
+  schema_version = 2 AS finding_identity_available,
   json_extract(json, '$.models') AS models
-FROM raw_objects WHERE json_extract_string(json, '$.recordType') = 'review-run-terminal';
+FROM typed_objects
+WHERE record_type = 'review-run-terminal'
+   OR (schema_version = 1 AND status = 'published');
 
 SELECT CASE WHEN count(*) > 0 THEN 1 ELSE error('At least one review-run-terminal object is required') END FROM review_run_candidates;
 SELECT CASE WHEN count(*) = 0 THEN 1 ELSE error('Review runs have missing or invalid required fields') END
@@ -128,7 +150,7 @@ SELECT r.run_id, r.repository, r.pull_request_number, r.head_sha, r.prompt_versi
        json_extract_string(f.value, '$.title') AS title,
        json_extract(f.value, '$.source_models') AS source_models
 FROM review_runs r, LATERAL json_each(coalesce(r.published_findings, '[]'::JSON)) f
-WHERE r.status = 'published';
+WHERE r.status = 'published' AND r.finding_identity_available;
 
 SELECT CASE WHEN count(*) = 0 THEN 1 ELSE error('Published findings have missing or invalid required fields') END
 FROM published_findings
@@ -174,24 +196,36 @@ WITH finding_counts AS (
   FROM finding_latest GROUP BY run_id
 )
 SELECT r.* EXCLUDE (published_findings, models),
-  additions + deletions AS change_size,
-  CASE WHEN additions + deletions < 50 THEN 'small' WHEN additions + deletions < 250 THEN 'medium' ELSE 'large' END AS change_size_band,
-  coalesce(f.published_count, 0) AS published_finding_count,
-  coalesce(f.accepted_count, 0) AS accepted_finding_count,
-  coalesce(f.fixed_count, 0) AS fixed_finding_count,
-  coalesce(f.rejected_count, 0) AS rejected_finding_count,
-  coalesce(f.no_response_count, 0) AS no_response_finding_count,
-  CASE WHEN total_hunks = 0 THEN NULL ELSE reviewed_hunks::DOUBLE / total_hunks END AS coverage_rate,
-  CASE WHEN coalesce(f.accepted_count, 0) = 0 THEN NULL ELSE run_cost_usd / f.accepted_count END AS cost_per_accepted_finding,
-  CASE WHEN coalesce(f.accepted_count, 0) + coalesce(f.rejected_count, 0) = 0 THEN NULL ELSE f.accepted_count::DOUBLE / (f.accepted_count + f.rejected_count) END AS acceptance_rate,
-  CASE WHEN coalesce(f.published_count, 0) = 0 THEN NULL ELSE coalesce(f.fixed_count, 0)::DOUBLE / f.published_count END AS fix_through_rate,
-  CASE WHEN coalesce(f.published_count, 0) = 0 THEN NULL ELSE coalesce(f.rejected_count, 0)::DOUBLE / f.published_count END AS noise_rate,
-  CASE WHEN coalesce(f.published_count, 0) = 0 THEN NULL ELSE coalesce(f.no_response_count, 0)::DOUBLE / f.published_count END AS no_response_rate
+  r.additions + r.deletions AS change_size,
+  CASE WHEN r.additions + r.deletions IS NULL THEN NULL
+       WHEN r.additions + r.deletions < 50 THEN 'small'
+       WHEN r.additions + r.deletions < 250 THEN 'medium'
+       ELSE 'large' END AS change_size_band,
+  CASE WHEN r.finding_identity_available THEN coalesce(f.published_count, 0)
+       ELSE coalesce(json_array_length(coalesce(r.published_findings, '[]'::JSON)), 0) END AS published_finding_count,
+  CASE WHEN r.finding_identity_available THEN coalesce(f.accepted_count, 0) END AS accepted_finding_count,
+  CASE WHEN r.finding_identity_available THEN coalesce(f.fixed_count, 0) END AS fixed_finding_count,
+  CASE WHEN r.finding_identity_available THEN coalesce(f.rejected_count, 0) END AS rejected_finding_count,
+  CASE WHEN r.finding_identity_available THEN coalesce(f.no_response_count, 0) END AS no_response_finding_count,
+  CASE WHEN r.total_hunks IS NULL OR r.total_hunks = 0 THEN NULL
+       ELSE r.reviewed_hunks::DOUBLE / r.total_hunks END AS coverage_rate,
+  CASE WHEN NOT r.finding_identity_available OR coalesce(f.accepted_count, 0) = 0 THEN NULL
+       ELSE r.run_cost_usd / f.accepted_count END AS cost_per_accepted_finding,
+  CASE WHEN NOT r.finding_identity_available
+        OR coalesce(f.accepted_count, 0) + coalesce(f.rejected_count, 0) = 0 THEN NULL
+       ELSE f.accepted_count::DOUBLE / (f.accepted_count + f.rejected_count) END AS acceptance_rate,
+  CASE WHEN NOT r.finding_identity_available OR coalesce(f.published_count, 0) = 0 THEN NULL
+       ELSE coalesce(f.fixed_count, 0)::DOUBLE / f.published_count END AS fix_through_rate,
+  CASE WHEN NOT r.finding_identity_available OR coalesce(f.published_count, 0) = 0 THEN NULL
+       ELSE coalesce(f.rejected_count, 0)::DOUBLE / f.published_count END AS noise_rate,
+  CASE WHEN NOT r.finding_identity_available OR coalesce(f.published_count, 0) = 0 THEN NULL
+       ELSE coalesce(f.no_response_count, 0)::DOUBLE / f.published_count END AS no_response_rate
 FROM review_runs r LEFT JOIN finding_counts f USING (run_id);
 
 CREATE TABLE model_run_fact AS
 WITH model_rows AS (
-SELECT r.run_id, r.repository, r.pull_request_number, r.head_sha, r.prompt_version, r.triggered_at,
+SELECT r.run_id, r.repository, r.pull_request_number, r.head_sha, r.prompt_version,
+  r.publication_policy_version, r.record_schema_version, rf.finding_identity_available,
   json_extract_string(m.value, '$.model') AS model,
   json_extract_string(m.value, '$.provider') AS provider,
   json_extract_string(m.value, '$.role') AS role,
@@ -212,21 +246,27 @@ GROUP BY m.run_id, m.model
 SELECT m.*,
   input_tokens - cached_input_tokens AS uncached_input_tokens,
   CASE WHEN input_tokens = 0 THEN NULL ELSE cached_input_tokens::DOUBLE / input_tokens END AS cache_hit_rate,
-  CASE WHEN input_tokens - cached_input_tokens = 0 THEN NULL ELSE a.accepted_count::DOUBLE * 1000000.0 / (input_tokens - cached_input_tokens) END AS accepted_findings_per_million_uncached_tokens
+  CASE WHEN NOT m.finding_identity_available OR input_tokens - cached_input_tokens = 0 THEN NULL
+       ELSE a.accepted_count::DOUBLE * 1000000.0 / (input_tokens - cached_input_tokens) END AS accepted_findings_per_million_uncached_tokens
 FROM model_rows m JOIN attributed a USING (run_id, model);
 
 CREATE TABLE pull_request_fact AS
 SELECT repository, pull_request_number,
   min(triggered_at) AS first_review_at, max(triggered_at) AS last_review_at,
   count(*) AS review_run_count, sum(run_cost_usd) AS total_cost_usd,
+  min(finding_identity_available) AS finding_identity_available,
+  list_sort(list_distinct(list(record_schema_version))) AS record_schema_versions,
   sum(published_finding_count) AS published_finding_count,
   sum(accepted_finding_count) AS accepted_finding_count,
   sum(fixed_finding_count) AS fixed_finding_count,
   sum(rejected_finding_count) AS rejected_finding_count,
   sum(no_response_finding_count) AS no_response_finding_count,
   sum(reviewed_hunks) AS reviewed_hunks, sum(total_hunks) AS total_hunks,
-  CASE WHEN sum(total_hunks) = 0 THEN NULL ELSE sum(reviewed_hunks)::DOUBLE / sum(total_hunks) END AS coverage_rate,
-  CASE WHEN sum(accepted_finding_count) = 0 THEN NULL ELSE sum(run_cost_usd) / sum(accepted_finding_count) END AS cost_per_accepted_finding,
+  CASE WHEN sum(total_hunks) IS NULL OR sum(total_hunks) = 0 THEN NULL
+       ELSE sum(reviewed_hunks)::DOUBLE / sum(total_hunks) END AS coverage_rate,
+  CASE WHEN coalesce(sum(accepted_finding_count) FILTER (WHERE finding_identity_available), 0) = 0 THEN NULL
+       ELSE sum(run_cost_usd) FILTER (WHERE finding_identity_available)
+            / sum(accepted_finding_count) FILTER (WHERE finding_identity_available) END AS cost_per_accepted_finding,
   list_sort(list_distinct(list(prompt_version) FILTER (WHERE prompt_version IS NOT NULL))) AS prompt_versions,
   list_sort(list_distinct(list(task_type) FILTER (WHERE task_type IS NOT NULL))) AS task_types,
   list_sort(list_distinct(list(originating_agent) FILTER (WHERE originating_agent IS NOT NULL))) AS originating_agents

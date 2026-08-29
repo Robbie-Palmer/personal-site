@@ -1,7 +1,7 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
   "exclude": ["exports", "types", "nsExports", "nsTypes", "enumMembers"],
-  "ignoreBinaries": ["mise", "typecheck", "wrangler"],
+  "ignoreBinaries": ["mise", "typecheck", "wrangler", "duckdb"],
   "workspaces": {
     ".": {
       "entry": [
@@ -15,6 +15,7 @@
       "entry": [
         "tests/cloudflare-workers.ts",
         "tests-runtime/**/*.test.ts",
+        "analytics/*.ts",
         "vitest.workerd.config.ts"
       ],
       "ignoreDependencies": ["cloudflare"]
