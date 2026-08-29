@@ -226,6 +226,27 @@ describe("shoppingListStore", () => {
     unsub();
   });
 
+  it("ignores storage events until the active list is installed", () => {
+    addRecipe("current");
+    const unsub = subscribeShoppingList(() => {});
+
+    globalThis.dispatchEvent(
+      new StorageEvent("storage", {
+        key: STORAGE_KEY,
+        newValue: JSON.stringify({
+          recipes: [{ slug: "foreign" }],
+          plan: [],
+          checked: [],
+          extras: [],
+          listId: "list-2",
+        }),
+      }),
+    );
+
+    expect(getShoppingListSnapshot().recipes).toEqual([{ slug: "current" }]);
+    unsub();
+  });
+
   it("ignores browser storage from another shopping list", () => {
     addRecipe("current");
     installShoppingListSnapshot(getShoppingListSnapshot(), "list-1");

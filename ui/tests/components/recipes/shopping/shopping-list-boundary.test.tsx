@@ -12,6 +12,7 @@ import {
   ShoppingListBoundary,
   useStartNewShoppingList,
 } from "@/components/recipes/shopping/shopping-list-boundary";
+import { ApiError } from "@/lib/api/http";
 import type { StoredShoppingList } from "@/lib/api/shopping-lists";
 import {
   __resetShoppingListForTests,
@@ -209,6 +210,103 @@ describe("ShoppingListBoundary", () => {
     expect(mocks.saveCurrentShoppingList).not.toHaveBeenCalled();
   });
 
+  it("refreshes the revision before saving a cross-tab change", async () => {
+    const remoteList = {
+      ...storedList,
+      revision: "1",
+      snapshot: {
+        ...emptySnapshot,
+        extras: [{ id: "extra-bread", text: "Bread", checked: false }],
+      },
+    };
+    mocks.getCurrentShoppingList
+      .mockResolvedValueOnce(storedList)
+      .mockResolvedValue(remoteList);
+    mocks.saveCurrentShoppingList.mockResolvedValue({
+      ...remoteList,
+      revision: "2",
+    });
+    renderWithQueryClient(
+      <ShoppingListBoundary>
+        <p>List ready</p>
+      </ShoppingListBoundary>,
+    );
+    await screen.findByText("List ready");
+
+    act(() => {
+      globalThis.dispatchEvent(
+        new StorageEvent("storage", {
+          key: "recipe-shopping-list:v1",
+          newValue: JSON.stringify({
+            ...remoteList.snapshot,
+            listId: storedList.id,
+          }),
+        }),
+      );
+    });
+    await waitFor(
+      () => expect(mocks.getCurrentShoppingList).toHaveBeenCalledTimes(2),
+      { timeout: 2_000 },
+    );
+    act(() => addExtra("Milk"));
+
+    await waitFor(
+      () =>
+        expect(mocks.saveCurrentShoppingList).toHaveBeenCalledWith(
+          storedList.id,
+          "1",
+          expect.objectContaining({
+            extras: expect.arrayContaining([
+              expect.objectContaining({ text: "Bread" }),
+              expect.objectContaining({ text: "Milk" }),
+            ]),
+          }),
+        ),
+      { timeout: 2_000 },
+    );
+  });
+
+  it("rebases a local edit and retries after a revision conflict", async () => {
+    const remoteList = {
+      ...storedList,
+      revision: "1",
+      snapshot: {
+        ...emptySnapshot,
+        extras: [{ id: "extra-bread", text: "Bread", checked: false }],
+      },
+    };
+    mocks.getCurrentShoppingList
+      .mockResolvedValueOnce(storedList)
+      .mockResolvedValue(remoteList);
+    mocks.saveCurrentShoppingList
+      .mockRejectedValueOnce(new ApiError("conflict", 409))
+      .mockResolvedValueOnce({ ...remoteList, revision: "2" });
+    renderWithQueryClient(
+      <ShoppingListBoundary>
+        <p>List ready</p>
+      </ShoppingListBoundary>,
+    );
+    await screen.findByText("List ready");
+
+    act(() => addExtra("Milk"));
+
+    await waitFor(
+      () =>
+        expect(mocks.saveCurrentShoppingList).toHaveBeenNthCalledWith(
+          2,
+          storedList.id,
+          "1",
+          expect.objectContaining({
+            extras: expect.arrayContaining([
+              expect.objectContaining({ text: "Bread" }),
+              expect.objectContaining({ text: "Milk" }),
+            ]),
+          }),
+        ),
+      { timeout: 3_000 },
+    );
+  });
+
   it("clears a local meal plan owned by another shopping-list scope", async () => {
     localStorage.setItem("recipe-shopping-plan-resource", "other-user");
     setPlannedMeal("fri", "dinner", "private-recipe");
@@ -268,6 +366,14 @@ describe("ShoppingListBoundary", () => {
       checked: [],
       extras: [],
     });
+    expect(
+      JSON.parse(localStorage.getItem("recipe-shopping-list:v1") ?? "{}"),
+    ).toEqual(
+      expect.objectContaining({
+        extras: [expect.objectContaining({ text: "Milk" })],
+        listId: storedList.id,
+      }),
+    );
     await waitFor(() =>
       expect(mocks.startNewShoppingList).toHaveBeenCalledWith(
         storedList.id,
@@ -323,6 +429,46 @@ describe("ShoppingListBoundary", () => {
     expect(screen.getByTestId("current-view")).toHaveAttribute(
       "data-mount",
       "1",
+    );
+  });
+
+  it("carries unsaved edits into a replacement list without dropping remote items", async () => {
+    const nextList = {
+      ...storedList,
+      id: "00000000-0000-4000-8000-000000000081",
+      snapshot: {
+        ...emptySnapshot,
+        extras: [{ id: "extra-bread", text: "Bread", checked: false }],
+      },
+    };
+    const { queryClient } = renderWithQueryClient(
+      <ShoppingListBoundary>
+        <p>List ready</p>
+      </ShoppingListBoundary>,
+    );
+    await screen.findByText("List ready");
+    act(() => addExtra("Milk"));
+
+    act(() => {
+      queryClient.setQueryData(
+        ["recipes", "private", "user-1", "shopping-list"],
+        nextList,
+      );
+    });
+
+    await waitFor(
+      () =>
+        expect(mocks.saveCurrentShoppingList).toHaveBeenCalledWith(
+          nextList.id,
+          nextList.revision,
+          expect.objectContaining({
+            extras: expect.arrayContaining([
+              expect.objectContaining({ text: "Bread" }),
+              expect.objectContaining({ text: "Milk" }),
+            ]),
+          }),
+        ),
+      { timeout: 2_000 },
     );
   });
 
@@ -387,6 +533,8 @@ describe("ShoppingListBoundary", () => {
         expect.objectContaining({ text: "Milk" }),
       ]),
     );
+    await new Promise((resolve) => setTimeout(resolve, 350));
+    expect(mocks.saveCurrentShoppingList).not.toHaveBeenCalled();
   });
 
   it("does not overwrite local edits when the loaded list refetches", async () => {

@@ -381,8 +381,8 @@ describe("recipe Agent Auth capabilities", () => {
           checked: ["tomato"],
           extras: [{ id: "extra-milk", text: "Milk", checked: false }],
         },
-        createdAt,
-        updatedAt,
+        createdAt: createdAt.toISOString(),
+        updatedAt: updatedAt.toISOString(),
       },
     });
   });

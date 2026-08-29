@@ -253,16 +253,16 @@ function setState(next: ShoppingListState): void {
 let storageListenerHooked = false;
 
 function handleStorage(event: StorageEvent): void {
-  if (event.key !== STORAGE_KEY) return;
-  if (activeListId) {
-    try {
-      const incoming: unknown = event.newValue
-        ? JSON.parse(event.newValue)
-        : null;
-      if (!isRecord(incoming) || incoming.listId !== activeListId) return;
-    } catch {
+  if (event.key !== STORAGE_KEY || !activeListId || !event.newValue) return;
+  try {
+    const incoming: unknown = JSON.parse(event.newValue);
+    if (!isRecord(incoming)) return;
+    if (incoming.listId !== activeListId) {
+      emit("storage");
       return;
     }
+  } catch {
+    return;
   }
   state = parseState(event.newValue);
   emit("storage");
@@ -298,11 +298,12 @@ export function installShoppingListSnapshot(
   next: ShoppingListState,
   listId?: string,
   source: Extract<ShoppingListChangeSource, "install" | "local"> = "install",
+  persistSnapshot = true,
 ): void {
   hydrated = true;
   activeListId = listId;
   state = parseState(JSON.stringify(next));
-  persist();
+  if (persistSnapshot) persist();
   emit(source);
 }
 

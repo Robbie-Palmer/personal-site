@@ -527,8 +527,8 @@ export async function executeRecipeAgentCapability(
             scope,
             revision: shoppingList.revision.toString(),
             snapshot: shoppingList.snapshot,
-            createdAt: shoppingList.createdAt,
-            updatedAt: shoppingList.updatedAt,
+            createdAt: shoppingList.createdAt.toISOString(),
+            updatedAt: shoppingList.updatedAt.toISOString(),
           }
         : null,
     };
