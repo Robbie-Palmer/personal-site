@@ -908,7 +908,7 @@ export class Reviewer {
     const usage = isObject(response.usage) ? response.usage : {};
     return {
       payload: parseModelPayload(completionContent(choice, model)),
-      cost: Number(usage.cost ?? 0),
+      cost: finiteNumber(response.cost ?? usage.cost),
       usage: modelUsage(usage),
     };
   }

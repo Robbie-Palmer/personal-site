@@ -186,7 +186,7 @@ test("default OpenRouter scouts enforce their model-specific price ceiling", asy
   assert.equal(attempts, expectedByModel.size);
 });
 
-test("default OpenRouter merger enforces its model-specific price ceiling", async (context) => {
+test("default OpenRouter merger enforces its price ceiling and records top-level cost", async (context) => {
   context.mock.method(globalThis, "fetch", async (_input, init) => {
     const body = JSON.parse(String(init?.body)) as {
       model?: string;
@@ -196,7 +196,8 @@ test("default OpenRouter merger enforces its model-specific price ceiling", asyn
     assert.deepEqual(body.provider?.max_price, { prompt: 0.75, completion: 3.75 });
     return Response.json({
       choices: [{ finish_reason: "stop", message: { content: '{"summary":"","findings":[]}' } }],
-      usage: { cost: 0 },
+      cost: 0.42,
+      usage: {},
     });
   });
   const reviewer = new Reviewer({
@@ -211,7 +212,7 @@ test("default OpenRouter merger enforces its model-specific price ceiling", asyn
     requireZdr: false,
   });
 
-  await reviewer.callMerger(
+  const result = await reviewer.callMerger(
     DEFAULT_MERGER,
     "system",
     "user",
@@ -219,6 +220,7 @@ test("default OpenRouter merger enforces its model-specific price ceiling", asyn
     { type: "object" },
     6_000,
   );
+  assert.equal(result.cost, 0.42);
 });
 
 test("duplicate scout model IDs are detected across providers", () => {
