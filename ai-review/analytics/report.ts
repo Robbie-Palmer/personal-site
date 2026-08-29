@@ -349,7 +349,11 @@ function metricsFor(subset: Subset, options: MetricOptions): Metrics {
     identityPullRequests > 0 ? identityCalls.length / identityPullRequests : null;
   const uncachedTokensPerPullRequest =
     identityPullRequests > 0 ? identityUncached / identityPullRequests : null;
-
+  const modelCallsSuppressed = identityPullRequests < options.minSampleSize;
+  const uncachedSuppressed =
+    modelCallsPerPullRequest === null ||
+    uncachedTokensPerPullRequest === null ||
+    identityPullRequests < options.minSampleSize;
   return {
     acceptanceRate: entry(
       adjudicated > 0 ? accepted / adjudicated : null,
@@ -384,7 +388,11 @@ function metricsFor(subset: Subset, options: MetricOptions): Metrics {
         options,
       ),
       baseline:
-        baseline && modelCallsPerPullRequest !== null && uncachedTokensPerPullRequest !== null
+        baseline &&
+        !modelCallsSuppressed &&
+        !uncachedSuppressed &&
+        modelCallsPerPullRequest !== null &&
+        uncachedTokensPerPullRequest !== null
           ? {
               modelCallsPerPullRequest: {
                 value: baseline.modelCallsPerPullRequest,

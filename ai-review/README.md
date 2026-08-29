@@ -319,8 +319,9 @@ one JSON object with a finite non-negative `costUsd` on stdout; output
 without a valid `costUsd` fails the replay. The executor is responsible for
 honouring the remaining budget it receives; the CLI never starts an execution
 without budget left, records each skipped PR in
-`controlled-replay-result.json`, and exits non-zero when the executor fails or
-reports a cost that breaches the cap.
+`controlled-replay-result.json`, and exits non-zero when the executor fails,
+exceeds the five-minute executor timeout, or reports a cost that breaches the
+cap.
 Replay outputs are versioned records; the CLI never rewrites the historical
 objects it reads.
 

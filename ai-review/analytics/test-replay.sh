@@ -8,6 +8,8 @@ run_replay() {
   (cd "$here/.." && pnpm exec tsx analytics/replay.ts "$@")
 }
 
+export AI_REVIEW_EXECUTOR_TIMEOUT_MS="${AI_REVIEW_EXECUTOR_TIMEOUT_MS:-8000}"
+
 executor="$work/executor.mjs"
 cat > "$executor" <<'JS'
 const chunks = [];
@@ -20,6 +22,20 @@ JS
 failing_executor="$work/failing-executor.mjs"
 cat > "$failing_executor" <<'JS'
 process.exit(3);
+JS
+
+stalled_executor="$work/stalled-executor.mjs"
+cat > "$stalled_executor" <<'JS'
+setInterval(() => {}, 1000);
+JS
+
+invalid_cost_executor="$work/invalid-cost-executor.mjs"
+cat > "$invalid_cost_executor" <<'JS'
+const chunks = [];
+process.stdin.on("data", (chunk) => chunks.push(chunk));
+process.stdin.on("end", () => {
+  process.stdout.write(`${JSON.stringify({ findingCount: 2 })}\n`);
+});
 JS
 
 fixture_manifest="$here/fixtures/v2/acme/widgets/pr-7/replays/frozen-set-1.json"
@@ -119,14 +135,6 @@ jq -e '
   (.executions[0] | .status == "executor-failed" and .error != null and .result == null)
 ' "$failed_out/controlled-replay-result.json" > /dev/null
 
-invalid_cost_executor="$work/invalid-cost-executor.mjs"
-cat > "$invalid_cost_executor" <<'JS'
-const chunks = [];
-process.stdin.on("data", (chunk) => chunks.push(chunk));
-process.stdin.on("end", () => {
-  process.stdout.write(`${JSON.stringify({ findingCount: 2 })}\n`);
-});
-JS
 invalid_cost_out="$work/invalid-cost"
 if run_replay --manifest "$two_pr_manifest" --output "$invalid_cost_out" --yes --max-cost-usd 1 \
     --models model-a --executor "node $invalid_cost_executor" >"$work/invalid-cost.log" 2>&1; then
@@ -138,6 +146,24 @@ jq -e '
   (.executions | length == 1) and
   (.executions[0] | .status == "executor-failed" and (.error | contains("invalid costUsd")))
 ' "$invalid_cost_out/controlled-replay-result.json" > /dev/null
+
+stalled_out="$work/stalled"
+stall_start=$(date +%s)
+if run_replay --manifest "$two_pr_manifest" --output "$stalled_out" --yes --max-cost-usd 1 \
+    --models model-a --executor "node $stalled_executor" >"$work/stalled.log" 2>&1; then
+  echo "stalled executor did not fail the replay" >&2
+  exit 1
+fi
+stalled_elapsed=$(( $(date +%s) - stall_start ))
+if [[ $stalled_elapsed -gt 120 ]]; then
+  echo "stalled executor was not timed out promptly (took ${stalled_elapsed}s)" >&2
+  exit 1
+fi
+jq -e '
+  .aborted == true and
+  (.executions | length == 1) and
+  (.executions[0] | .status == "executor-failed" and .error != null)
+' "$stalled_out/controlled-replay-result.json" > /dev/null
 
 bad_manifest="$work/bad-manifest.json"
 jq '.schemaVersion = 1' "$fixture_manifest" > "$bad_manifest"

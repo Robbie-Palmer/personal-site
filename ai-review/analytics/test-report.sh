@@ -101,6 +101,10 @@ jq -e '
   .metrics.reviewEfficiency.baseline.uncachedInputTokensPerPullRequest.ratio == 0.25
 ' "$baseline_out/scorecard-report.json" > /dev/null
 
+baseline_capped="$work/report-baseline-capped"
+run_report --marts "$marts/v1" --output "$baseline_capped" --baseline "$baseline_file" --min-sample-size 3
+jq -e '.metrics.reviewEfficiency.baseline == null' "$baseline_capped/scorecard-report.json" > /dev/null
+
 if run_report --marts "$work/does-not-exist" --output "$work/never" >"$work/error.log" 2>&1; then
   echo "missing marts directory was not rejected" >&2
   exit 1

@@ -23,9 +23,12 @@ fi
 
 sql_list=""
 for file in "${input_files[@]}"; do
-  escaped=${file//\'/\'\'}
+  if [[ "$file" == *"'"* || "$file" == *'\'* ]]; then
+    echo "input path contains a quote or backslash, which the SQL literal escaping cannot represent safely: $file" >&2
+    exit 2
+  fi
   [[ -n "$sql_list" ]] && sql_list+=","
-  sql_list+="'$escaped'"
+  sql_list+="'$file'"
 done
 
 mkdir -p "$OUTPUT_ROOT/.scorecard-releases"

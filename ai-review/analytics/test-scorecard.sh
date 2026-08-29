@@ -86,8 +86,14 @@ fi
 special_input="$special/"$'input\'\'&pipe|"\\\nline'
 mkdir "$special_input"
 cp -R "$here/fixtures/." "$special_input/"
-"$here/build-scorecard.sh" "$special_input" "$special/output" >/dev/null
-jq -e . "$special/output/v1/scorecard-manifest.json" >/dev/null
+if special_error=$("$here/build-scorecard.sh" "$special_input" "$special/output" 2>&1); then
+  echo "input path with a quote was not rejected" >&2
+  exit 1
+fi
+if [[ "$special_error" != *"cannot represent safely"* ]]; then
+  echo "special input path failed for the wrong reason: $special_input_error" >&2
+  exit 1
+fi
 
 cp "$here/fixtures/v2/acme/widgets/pr-7/head-1/run-1/published.json" "$bad/good.json"
 printf '{"schemaVersion":99,"recordType":"review-run-terminal"}\n' > "$bad/unknown.json"

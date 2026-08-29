@@ -31,6 +31,7 @@ interface Execution {
 
 const EXECUTION_USAGE =
   "executing a replay is opt-in and budget-capped: pass --yes --max-cost-usd <n> --models <m1,m2> --executor <command>";
+const REPLAY_EXECUTOR_TIMEOUT_MS = Number(process.env.AI_REVIEW_EXECUTOR_TIMEOUT_MS ?? "") || 300_000;
 
 class UsageError extends Error {}
 
@@ -110,8 +111,14 @@ function runExecutor(
     input: `${JSON.stringify(request)}\n`,
     encoding: "utf8",
     maxBuffer: 64 * 1024 * 1024,
+    timeout: REPLAY_EXECUTOR_TIMEOUT_MS,
   });
-  if (outcome.error) return { ok: false, error: outcome.error.message };
+  if (outcome.error) {
+    return {
+      ok: false,
+      error: outcome.error.message + (outcome.signal ? ` (signal ${outcome.signal})` : ""),
+    };
+  }
   if (outcome.status !== 0) {
     return {
       ok: false,
