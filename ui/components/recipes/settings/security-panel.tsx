@@ -196,7 +196,6 @@ export function SecurityPanel({
     setError(null);
     try {
       const result = await authClient.unlinkAccount({
-        providerId: account.providerId,
         accountId: account.accountId,
       });
       if (result.error) {

@@ -92,6 +92,13 @@
       "when": 1787952892222,
       "tag": "0012_add_shopping_lists",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1788028705375,
+      "tag": "0013_add_account_issuer",
+      "breakpoints": true
     }
   ]
 }

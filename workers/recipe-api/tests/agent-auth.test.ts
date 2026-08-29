@@ -203,6 +203,86 @@ describe("recipe Agent Auth capabilities", () => {
     expect(state.writes[0]?.expiresAt.getTime()).toBeGreaterThan(Date.now());
   });
 
+  it("removes and returns a live secondary-storage entry atomically", async () => {
+    const pending = { deletes: 0, rows: [{ value: "otp-value" }] };
+    const db = {
+      delete: () => ({
+        where: () => {
+          pending.deletes += 1;
+          return {
+            returning: () => Promise.resolve(pending.rows.splice(0, 1)),
+          };
+        },
+      }),
+    } as unknown as Db;
+    const auth = createAuth(db, {
+      BETTER_AUTH_URL: "https://recipes.example.test",
+      BETTER_AUTH_SECRET: "test-secret-at-least-32-characters-long",
+    });
+    const storage = auth.options.secondaryStorage;
+    if (!storage) throw new Error("Secondary storage was not configured");
+
+    await expect(storage.getAndDelete("verification:cached")).resolves.toBe(
+      "otp-value",
+    );
+    expect(pending.deletes).toBe(1);
+  });
+
+  it("returns null for an absent or expired secondary-storage entry", async () => {
+    const db = {
+      delete: () => ({
+        where: () => ({ returning: () => Promise.resolve([]) }),
+      }),
+    } as unknown as Db;
+    const auth = createAuth(db, {
+      BETTER_AUTH_URL: "https://recipes.example.test",
+      BETTER_AUTH_SECRET: "test-secret-at-least-32-characters-long",
+    });
+    const storage = auth.options.secondaryStorage;
+    if (!storage) throw new Error("Secondary storage was not configured");
+
+    await expect(storage.getAndDelete("verification:missing")).resolves.toBe(
+      null,
+    );
+  });
+
+  it("increments a counter atomically with a fresh value and bounded expiry", async () => {
+    const state = {
+      upsert: undefined as
+        | { key: string; value: string; expiresAt: Date }
+        | undefined,
+      updateCount: 0,
+    };
+    const db = {
+      insert: () => ({
+        values: (values: { key: string; value: string; expiresAt: Date }) => {
+          state.upsert = values;
+          return {
+            onConflictDoUpdate: () => {
+              state.updateCount += 1;
+              return {
+                returning: () => Promise.resolve([{ value: "2" }]),
+              };
+            },
+          };
+        },
+      }),
+    } as unknown as Db;
+    const auth = createAuth(db, {
+      BETTER_AUTH_URL: "https://recipes.example.test",
+      BETTER_AUTH_SECRET: "test-secret-at-least-32-characters-long",
+    });
+    const storage = auth.options.secondaryStorage;
+    if (!storage) throw new Error("Secondary storage was not configured");
+
+    await expect(storage.increment("rate-limit:ip", 60)).resolves.toBe(2);
+    expect(state.upsert).toMatchObject({ key: "rate-limit:ip", value: "1" });
+    const ttlMs = (state.upsert?.expiresAt.getTime() ?? 0) - Date.now();
+    expect(ttlMs).toBeGreaterThan(59_000);
+    expect(ttlMs).toBeLessThanOrEqual(60_000);
+    expect(state.updateCount).toBe(1);
+  });
+
   it("exposes recipe, shopping-list, and committed cooking-history reads", () => {
     expect(
       RECIPE_SITE_AGENT_CAPABILITIES.map((capability) => capability.name),

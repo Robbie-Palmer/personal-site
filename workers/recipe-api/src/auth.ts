@@ -1,7 +1,7 @@
 import { betterAuth } from "better-auth";
 import { admin, lastLoginMethod } from "better-auth/plugins";
 import { withCloudflare } from "better-auth-cloudflare";
-import { and, eq, inArray, lte } from "drizzle-orm";
+import { and, eq, gt, inArray, isNull, lte, or, sql } from "drizzle-orm";
 import type { Db } from "recipe-db";
 import * as schema from "recipe-db/schema";
 import { createRecipeAgentAuthPlugin } from "./agent-auth";
@@ -111,6 +111,35 @@ function authSecondaryStorage(db: Db) {
         return null;
       }
       return entry.value;
+    },
+    getAndDelete: async (key: string) => {
+      const [entry] = await db
+        .delete(schema.authSecondaryStorage)
+        .where(
+          and(
+            eq(schema.authSecondaryStorage.key, key),
+            or(
+              isNull(schema.authSecondaryStorage.expiresAt),
+              gt(schema.authSecondaryStorage.expiresAt, new Date()),
+            ),
+          ),
+        )
+        .returning({ value: schema.authSecondaryStorage.value });
+      return entry ? entry.value : null;
+    },
+    increment: async (key: string, ttl: number) => {
+      const expiresAt = new Date(Date.now() + ttl * 1_000);
+      const [entry] = await db
+        .insert(schema.authSecondaryStorage)
+        .values({ key, value: "1", expiresAt })
+        .onConflictDoUpdate({
+          target: schema.authSecondaryStorage.key,
+          set: {
+            value: sql`${schema.authSecondaryStorage.value}::bigint + 1`,
+          },
+        })
+        .returning({ value: schema.authSecondaryStorage.value });
+      return Number(entry?.value ?? 1);
     },
     set: async (key: string, value: string, ttlSeconds?: number) => {
       const boundedTtlSeconds =

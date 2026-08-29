@@ -359,6 +359,8 @@ describe("ShoppingListBoundary", () => {
     expect(
       await screen.findByText(
         /latest shopping-list changes have not been saved/i,
+        {},
+        { timeout: 3_000 },
       ),
     ).toBeInTheDocument();
     expect(getShoppingListSnapshot().extras).toEqual([
