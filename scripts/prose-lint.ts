@@ -20,7 +20,7 @@
 
 import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { isAbsolute, join, relative, resolve } from "node:path";
 
 /**
  * Intentional prose-lint exemptions live in ./prose-exemptions.json (next to
@@ -335,12 +335,14 @@ function buildChangedMap(
 }
 
 const EXEMPTIONS_FILE = resolve(import.meta.dirname, "prose-exemptions.json");
+const REPO_ROOT = resolve(".");
 
 function isExemptionEntry(value: unknown): value is ProseExemption {
   const e = value as Partial<ProseExemption>;
   return (
     typeof e.file === "string" &&
     e.file.length > 0 &&
+    !isAbsolute(e.file) &&
     typeof e.line === "number" &&
     Number.isInteger(e.line) &&
     Array.isArray(e.checks) &&
@@ -360,12 +362,18 @@ function loadExemptions(): ProseExemption[] {
         throw new Error(`malformed entry: ${JSON.stringify(entry)}`);
       }
     }
-    // Normalise file paths to absolute so they match resolve() keys.
-    return parsed.map((e) => ({
-      file: resolve(e.file),
-      line: e.line,
-      checks: e.checks,
-    }));
+    // Normalise file paths to absolute so they match resolve() keys, and
+    // require each one to stay within the repository root.
+    return parsed.map((e) => {
+      const file = resolve(e.file);
+      const rel = relative(REPO_ROOT, file);
+      if (isAbsolute(rel) || rel.startsWith("..")) {
+        throw new Error(
+          `file outside repository root: ${JSON.stringify(e.file)}`,
+        );
+      }
+      return { file, line: e.line, checks: e.checks };
+    });
   } catch (err) {
     console.error(
       `prose-lint: invalid ${EXEMPTIONS_FILE}: ${
