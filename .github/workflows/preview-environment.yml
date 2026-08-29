@@ -334,6 +334,29 @@ jobs:
           NEXT_PUBLIC_CF_IMAGES_ACCOUNT_HASH: ${{ vars.CF_IMAGES_ACCOUNT_HASH }}
           NEXT_PUBLIC_PREVIEW_BACKEND: ${{ needs.detect.outputs.backend }}
 
+      - name: Smoke-test shopping-list routing through Pages
+        env:
+          CF_ACCESS_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
+          CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
+          PREVIEW_HOST: ${{ vars.CLOUDFLARE_PAGES_HOST }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          : "${CF_ACCESS_CLIENT_ID:?CF_ACCESS_CLIENT_ID is required}"
+          : "${CF_ACCESS_CLIENT_SECRET:?CF_ACCESS_CLIENT_SECRET is required}"
+          : "${PREVIEW_HOST:?CLOUDFLARE_PAGES_HOST is required}"
+          response_file="$(mktemp)"
+          status="$(curl --silent --show-error \
+            --output "$response_file" \
+            --write-out '%{http_code}' \
+            --header "CF-Access-Client-Id: $CF_ACCESS_CLIENT_ID" \
+            --header "CF-Access-Client-Secret: $CF_ACCESS_CLIENT_SECRET" \
+            "https://pr-${PR_NUMBER}.${PREVIEW_HOST}/api/shopping-lists/current")"
+          if [ "$status" != "401" ]; then
+            echo "Expected shopping-list proxy to return 401 without a session; received $status"
+            sed -n '1,20p' "$response_file"
+            exit 1
+          fi
+
   comment:
     needs: [detect, backend, frontend]
     if: always() && needs.frontend.result == 'success'
