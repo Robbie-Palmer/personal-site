@@ -1,0 +1,12 @@
+stages:
+  tile:
+    cmd: uv run --locked wsi-analysis prepare
+    deps:
+      - data/wsi
+      - pyproject.toml
+      - src/wsi_analysis
+      - uv.lock
+    params:
+      - tiling
+    outs:
+      - data/tiles

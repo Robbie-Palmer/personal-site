@@ -9,6 +9,7 @@ config_roots = [
     "ml-pipelines",
     "ml-pipelines/recipe-dataset",
     "ml-pipelines/recipe-parsing",
+    "ml-pipelines/wsi-analysis",
     "packages/recipe-db",
     "packages/observability",
     "packages/recipe-parsing",
@@ -293,6 +294,7 @@ depends = [
     "//packages/observability:test:coverage",
     "//packages/recipe-parsing:test:coverage",
     "//ml-pipelines/recipe-parsing:test:coverage",
+    "//ml-pipelines/wsi-analysis:test:coverage",
     "//workers/recipe-api:test:coverage",
     "//workers/recipe-ingest:test:coverage",
 ]

@@ -1,0 +1,6 @@
+outs:
+- md5: 69a022024be7707f523203cebce4f788.dir
+  size: 381433842
+  nfiles: 26
+  hash: md5
+  path: wsi

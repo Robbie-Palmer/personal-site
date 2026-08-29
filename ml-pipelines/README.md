@@ -10,6 +10,8 @@ Current projects:
   evaluation.
 - `recipe-dataset`: acquisition and preparation of reusable recipe text
   corpora for site seeding and future parsing evaluation.
+- `wsi-analysis`: versioned computational-pathology source slides and derived
+  tile datasets, with Python tooling for validation and WSI tiling.
 
 ## Prerequisites
 
