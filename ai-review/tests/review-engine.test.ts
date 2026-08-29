@@ -43,7 +43,7 @@ const privateKey = generateKeyPairSync("rsa", { modulusLength: 2048 }).privateKe
 function environment(put = vi.fn()): Env {
   return {
     AI_REVIEW_MODELS:
-      "moonshotai/kimi-k2.6,deepseek/deepseek-v4-pro,z-ai/glm-5.2,inclusionai/ling-2.6-1t",
+      "moonshotai/kimi-k2.6,deepseek/deepseek-v4-pro,z-ai/glm-5.3-flash,inclusionai/ling-2.6-1t",
     AI_REVIEW_OPENCODE_MODELS: "",
     AI_REVIEW_MERGER_MODEL: "anthropic/claude-sonnet-4.6",
     AI_REVIEW_IGNORED_AUTHORS: "renovate[bot],dependabot[bot]",
@@ -583,7 +583,7 @@ describe("stateful review engine", () => {
     expect(paid.models).toEqual([
       "moonshotai/kimi-k2.6",
       "deepseek/deepseek-v4-pro",
-      "z-ai/glm-5.2",
+      "z-ai/glm-5.3-flash",
       "inclusionai/ling-2.6-1t",
     ]);
 
@@ -601,7 +601,7 @@ describe("stateful review engine", () => {
     expect(combined.models).toEqual([
       "moonshotai/kimi-k2.6",
       "deepseek/deepseek-v4-pro",
-      "z-ai/glm-5.2",
+      "z-ai/glm-5.3-flash",
       "inclusionai/ling-2.6-1t",
       "big-pickle",
     ]);
@@ -791,7 +791,7 @@ describe("stateful review engine", () => {
       "unavailable-free",
       "moonshotai/kimi-k2.6",
       "deepseek/deepseek-v4-pro",
-      "z-ai/glm-5.2",
+      "z-ai/glm-5.3-flash",
       "inclusionai/ling-2.6-1t",
     ]);
     expect(result.invalidCounts["deepseek/deepseek-v4-pro"]).toBe(1);
@@ -810,7 +810,7 @@ describe("stateful review engine", () => {
           ok: false,
         }),
         expect.objectContaining({
-          model: "z-ai/glm-5.2",
+          model: "z-ai/glm-5.3-flash",
           ok: false,
         }),
         expect.objectContaining({
@@ -1777,7 +1777,7 @@ describe("stateful review engine", () => {
     expect(scouts.models).toEqual([
       "moonshotai/kimi-k2.6",
       "deepseek/deepseek-v4-pro",
-      "z-ai/glm-5.2",
+      "z-ai/glm-5.3-flash",
       "inclusionai/ling-2.6-1t",
       "big-pickle",
       "nemotron-3-ultra-free",
