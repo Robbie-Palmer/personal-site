@@ -11,6 +11,8 @@ from pathlib import Path
 from openslide import OpenSlide
 from PIL import Image
 
+_TEMPORARY_SUFFIX = ".png.tmp"
+
 
 @dataclass(frozen=True, slots=True)
 class TileBatch:
@@ -71,7 +73,7 @@ def _extract_batch(slide_path: Path, batch: TileBatch, *, overwrite: bool) -> in
                 math.floor(x * batch.downsample),
                 math.floor(y * batch.downsample),
             )
-            temporary_path = output_path.with_suffix(".png.tmp")
+            temporary_path = output_path.with_suffix(_TEMPORARY_SUFFIX)
             with slide.read_region(level_zero_location, batch.level, batch.tile_size) as image:
                 image.save(temporary_path, format="PNG")
             temporary_path.replace(output_path)
@@ -99,7 +101,7 @@ def _coordinate_tiles(path: Path, tile_size: int) -> dict[tuple[int, int], Path]
 def _link_tile(source: Path, output: Path) -> bool:
     if output.exists():
         return False
-    temporary = output.with_suffix(".png.tmp")
+    temporary = output.with_suffix(_TEMPORARY_SUFFIX)
     temporary.unlink(missing_ok=True)
     try:
         os.link(source, temporary)
@@ -129,7 +131,7 @@ def _downsample_tile(
             with Image.open(child) as image:
                 canvas.paste(image, (offset_x * tile_size, offset_y * tile_size))
 
-    temporary = output.with_suffix(".png.tmp")
+    temporary = output.with_suffix(_TEMPORARY_SUFFIX)
     temporary.unlink(missing_ok=True)
     with canvas.resize((tile_size, tile_size), Image.Resampling.LANCZOS) as tile:
         tile.save(temporary, format="PNG")
@@ -145,24 +147,24 @@ def build_pyramid(
     workers: int,
 ) -> int:
     source_tiles = _coordinate_tiles(source_dir, tile_size)
-    max_dimension = max(max(x for x, _ in source_tiles), max(y for _, y in source_tiles)) + 1
+    max_dimension = max(max(coordinate) for coordinate in source_tiles) + 1
     maximum_zoom = math.ceil(math.log2(max_dimension))
     high_resolution_dir = output_dir / str(maximum_zoom)
     high_resolution_dir.mkdir(parents=True, exist_ok=True)
 
-    written = sum(
-        _link_tile(source, high_resolution_dir / f"{x}_{y}.png")
-        for (x, y), source in source_tiles.items()
-    )
-    current_tiles = {
-        coordinate: high_resolution_dir / f"{coordinate[0]}_{coordinate[1]}.png"
-        for coordinate in source_tiles
-    }
+    written = 0
+    current_tiles: dict[tuple[int, int], Path] = {}
+    for coordinate, source in source_tiles.items():
+        output = high_resolution_dir / f"{coordinate[0]}_{coordinate[1]}.png"
+        written += _link_tile(source, output)
+        current_tiles[coordinate] = output
 
     for zoom in range(maximum_zoom - 1, -1, -1):
         output_level = output_dir / str(zoom)
         output_level.mkdir(parents=True, exist_ok=True)
-        parents = sorted({(x // 2, y // 2) for x, y in current_tiles})
+        parents = sorted(
+            {(coordinate[0] // 2, coordinate[1] // 2) for coordinate in current_tiles}
+        )
         with ThreadPoolExecutor(max_workers=workers) as executor:
             futures = [
                 executor.submit(

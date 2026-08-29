@@ -4,7 +4,7 @@ import json
 from collections import Counter
 from pathlib import Path
 
-from PIL import Image, UnidentifiedImageError
+from PIL import Image
 
 from wsi_analysis.models import (
     DatasetCard,
@@ -102,7 +102,7 @@ def validate_pngs(tile_dir: Path) -> list[ValidationIssue]:
             try:
                 with Image.open(path) as image:
                     image.verify()
-            except (OSError, SyntaxError, UnidentifiedImageError) as error:
+            except (OSError, SyntaxError) as error:
                 issues.append(ValidationIssue(path=path, message=str(error)))
     finally:
         Image.MAX_IMAGE_PIXELS = pixel_limit
