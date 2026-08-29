@@ -36,6 +36,7 @@ type MockGraph = {
 
 const graphState = vi.hoisted(() => ({
   instances: [] as MockGraph[],
+  readyQueue: [] as Promise<void>[],
   rejectReady: false,
 }));
 const capture = vi.hoisted(() => vi.fn());
@@ -86,9 +87,11 @@ vi.mock("@cosmos.gl/graph", () => ({
 
     constructor(_container: HTMLDivElement, config: GraphCallbacks) {
       this.config = config;
-      this.ready = graphState.rejectReady
-        ? Promise.reject(new Error("WebGL unavailable"))
-        : Promise.resolve();
+      this.ready =
+        graphState.readyQueue.shift() ??
+        (graphState.rejectReady
+          ? Promise.reject(new Error("WebGL unavailable"))
+          : Promise.resolve());
       graphState.instances.push(this);
     }
   },
@@ -157,6 +160,7 @@ function currentGraph(): MockGraph {
 describe("CosmosGraphClient", () => {
   beforeEach(() => {
     graphState.instances.length = 0;
+    graphState.readyQueue.length = 0;
     graphState.rejectReady = false;
     capture.mockReset();
     mockMedia();
@@ -245,7 +249,15 @@ describe("CosmosGraphClient", () => {
 
     await user.click(screen.getByRole("button", { name: "Graph filters" }));
     expect(within(dialog).getByLabelText("Min connections")).toBeVisible();
+    const explorerGraph = currentGraph();
+    const fitViewCallsBeforeReset = explorerGraph.fitView.mock.calls.length;
     await user.click(screen.getByRole("button", { name: "Reset graph" }));
+    await waitFor(() => {
+      expect(explorerGraph.fitView.mock.calls.length).toBeGreaterThan(
+        fitViewCallsBeforeReset,
+      );
+      expect(explorerGraph.fitView).toHaveBeenCalledWith(0, 0.16, false);
+    });
 
     await user.click(screen.getByRole("button", { name: "Close" }));
     await waitFor(() =>
@@ -293,5 +305,32 @@ describe("CosmosGraphClient", () => {
       await screen.findByText(/interactive graphics are unavailable/i),
     ).toBeVisible();
     expect(screen.getByText("Accessible graph index (3)")).toBeVisible();
+  });
+
+  it("ignores a readiness failure from a superseded canvas", async () => {
+    let rejectSuperseded!: (reason?: unknown) => void;
+    graphState.readyQueue.push(
+      new Promise<void>((_resolve, reject) => {
+        rejectSuperseded = reject;
+      }),
+      Promise.resolve(),
+    );
+    const { rerender } = render(<CosmosGraphClient data={data} />);
+    const supersededGraph = currentGraph();
+
+    const updatedData = { ...data, nodes: [...data.nodes] };
+    rerender(<CosmosGraphClient data={updatedData} />);
+    expect(graphState.instances).toHaveLength(2);
+    expect(supersededGraph.destroy).toHaveBeenCalled();
+
+    await act(async () => {
+      rejectSuperseded(new Error("Old WebGL context failed"));
+      await Promise.resolve();
+    });
+
+    expect(
+      screen.queryByText(/interactive graphics are unavailable/i),
+    ).toBeNull();
+    expect(currentGraph().destroy).not.toHaveBeenCalled();
   });
 });

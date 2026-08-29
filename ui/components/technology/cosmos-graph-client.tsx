@@ -309,7 +309,9 @@ const CosmosCanvas = memo(function CosmosCanvas({
           },
         });
       })
-      .catch(() => setFailed(true));
+      .catch(() => {
+        if (graphRef.current === graph) setFailed(true);
+      });
 
     return () => {
       dragStateRef.current = null;
@@ -352,15 +354,24 @@ const CosmosCanvas = memo(function CosmosCanvas({
     const updateLabels = () => {
       if (!graph.isReady) return;
       const tracked = graph.getTrackedPointPositionsMap();
-      setLabels(
-        topIndices.flatMap((index) => {
-          const position = tracked.get(index);
-          if (!position) return [];
-          const [x, y] = graph.spaceToScreenPosition(position);
-          return Number.isFinite(x) && Number.isFinite(y)
-            ? [{ index, x, y }]
-            : [];
-        }),
+      const nextLabels = topIndices.flatMap((index) => {
+        const position = tracked.get(index);
+        if (!position) return [];
+        const [x, y] = graph.spaceToScreenPosition(position);
+        return Number.isFinite(x) && Number.isFinite(y)
+          ? [{ index, x, y }]
+          : [];
+      });
+      setLabels((currentLabels) =>
+        currentLabels.length === nextLabels.length &&
+        currentLabels.every(
+          (label, position) =>
+            label.index === nextLabels[position]?.index &&
+            label.x === nextLabels[position]?.x &&
+            label.y === nextLabels[position]?.y,
+        )
+          ? currentLabels
+          : nextLabels,
       );
     };
     const interval = window.setInterval(updateLabels, 120);
@@ -414,6 +425,7 @@ const CosmosCanvas = memo(function CosmosCanvas({
         return (
           <span
             key={node.id}
+            aria-hidden="true"
             className="pointer-events-none absolute max-w-32 -translate-y-1/2 truncate rounded-full border border-background/30 bg-background/75 px-1.5 py-0.5 text-[10px] font-medium leading-none shadow-sm backdrop-blur-sm"
             style={{ left: x + 7, top: y } as CSSProperties}
           >
