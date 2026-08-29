@@ -2,4 +2,4 @@ message: "Use straight quotes instead of curly quotes (AI tell)"
 extends: existence
 level: error
 scope: raw
-raw: '["""]'
+raw: '[“”]'

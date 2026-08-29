@@ -44,6 +44,11 @@ reviews:
     # build — reference artifacts, not hand-authored app code.
     - "!ui/content/projects/*/designs/**"
     - "!ui/public/recipe-site-design/**"
+    # Vendored Vale style packages are imported upstream files the project
+    # treats as read-only (see .vale/styles/README.md); the project's own
+    # styles (e.g. .vale/styles/Unslop) stay in review scope.
+    - "!.vale/styles/proselint/**"
+    - "!.vale/styles/write-good/**"
   path_instructions: []
   abort_on_close: true
   disable_cache: false
