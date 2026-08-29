@@ -16,6 +16,7 @@ import {
   memo,
   useCallback,
   useEffect,
+  useId,
   useMemo,
   useRef,
   useState,
@@ -430,15 +431,19 @@ function FilterControls({
   minConnections,
   onToggleType,
   onMinConnections,
-}: {
+}: Readonly<{
   data: GraphData;
   hiddenTypes: ReadonlySet<string>;
   minConnections: number;
   onToggleType: (type: string) => void;
   onMinConnections: (value: number) => void;
-}) {
+}>) {
+  const minConnectionsId = useId();
   const nodeTypes = useMemo(
-    () => [...new Set(data.nodes.map((node) => node.type))].sort(),
+    () =>
+      [...new Set(data.nodes.map((node) => node.type))].sort((left, right) =>
+        left.localeCompare(right),
+      ),
     [data.nodes],
   );
   const maxConnections = Math.max(
@@ -475,13 +480,13 @@ function FilterControls({
       </div>
       <div className="flex min-h-9 items-center gap-3">
         <label
-          htmlFor="min-connections"
+          htmlFor={minConnectionsId}
           className="shrink-0 text-xs text-muted-foreground"
         >
           Min connections
         </label>
         <input
-          id="min-connections"
+          id={minConnectionsId}
           type="range"
           min={0}
           max={maxConnections}
@@ -500,10 +505,10 @@ function FilterControls({
 function NodeDetails({
   node,
   onClose,
-}: {
+}: Readonly<{
   node: SelectedNode;
   onClose: () => void;
-}) {
+}>) {
   return (
     <Card className="gap-3 border-primary/20 bg-background/95 p-4 shadow-xl backdrop-blur">
       <div className="flex items-start justify-between gap-3">
@@ -544,7 +549,9 @@ function NodeDetails({
   );
 }
 
-function AccessibleGraphIndex({ nodes }: { nodes: readonly SelectedNode[] }) {
+function AccessibleGraphIndex({
+  nodes,
+}: Readonly<{ nodes: readonly SelectedNode[] }>) {
   return (
     <details className="border-t px-4 py-3 text-sm">
       <summary className="cursor-pointer font-medium">
@@ -593,6 +600,8 @@ export function CosmosGraphClient({ data }: Readonly<{ data: GraphData }>) {
     () => filterGraphData(data, hiddenTypes, minConnections),
     [data, hiddenTypes, minConnections],
   );
+  const filteredNodesRef = useRef(filtered.nodes);
+  filteredNodesRef.current = filtered.nodes;
   const visibleNodeIds = useMemo(
     () => new Set(filtered.nodes.map((node) => node.id)),
     [filtered.nodes],
@@ -615,19 +624,16 @@ export function CosmosGraphClient({ data }: Readonly<{ data: GraphData }>) {
     setSelectedNode(null);
   }, []);
 
-  const selectNode = useCallback(
-    (node: SelectedNode | null) => {
-      if (!node) {
-        setSelectedNode(null);
-        return;
-      }
-      const filteredNode = filtered.nodes.find(
-        (candidate) => candidate.id === node.id,
-      );
-      setSelectedNode(filteredNode ?? node);
-    },
-    [filtered.nodes],
-  );
+  const selectNode = useCallback((node: SelectedNode | null) => {
+    if (!node) {
+      setSelectedNode(null);
+      return;
+    }
+    const filteredNode = filteredNodesRef.current.find(
+      (candidate) => candidate.id === node.id,
+    );
+    setSelectedNode(filteredNode ?? node);
+  }, []);
   const storeInlineControls = useCallback((controls: GraphControls | null) => {
     inlineControlsRef.current = controls;
   }, []);
