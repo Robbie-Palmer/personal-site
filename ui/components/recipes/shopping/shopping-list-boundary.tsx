@@ -31,6 +31,7 @@ export function ShoppingListBoundary({
 }: Readonly<{ children: ReactNode }>) {
   const { data: session } = authClient.useSession();
   const userId = session?.user.id ?? "pending";
+  const queryClient = useQueryClient();
   const current = useQuery({
     ...shoppingListQuery(userId),
     enabled: Boolean(session),
@@ -50,10 +51,13 @@ export function ShoppingListBoundary({
         ? getShoppingListSnapshot().plan
         : [];
     localStorage.setItem(PLAN_RESOURCE_KEY, current.data.resourceId);
-    installShoppingListSnapshot({
-      ...current.data.snapshot,
-      plan,
-    });
+    installShoppingListSnapshot(
+      {
+        ...current.data.snapshot,
+        plan,
+      },
+      current.data.id,
+    );
     setInstalledId(current.data.id);
   }, [current.data, installedId]);
 
@@ -61,7 +65,8 @@ export function ShoppingListBoundary({
     if (!installedId) return;
     let timer: ReturnType<typeof setTimeout> | undefined;
     let saving = Promise.resolve();
-    const unsubscribe = subscribeShoppingList(() => {
+    const unsubscribe = subscribeShoppingList((source) => {
+      if (source !== "local") return;
       if (timer) clearTimeout(timer);
       timer = setTimeout(() => {
         const snapshot = shoppingListContents();
@@ -78,6 +83,10 @@ export function ShoppingListBoundary({
             );
             savedSnapshot.current = serialized;
             savedRevision.current = updated.revision;
+            queryClient.setQueryData<StoredShoppingList>(
+              recipeQueryKeys.shoppingList(userId),
+              updated,
+            );
             setSaveFailed(false);
           })
           .catch(() => {
@@ -89,7 +98,7 @@ export function ShoppingListBoundary({
       if (timer) clearTimeout(timer);
       unsubscribe();
     };
-  }, [installedId]);
+  }, [installedId, queryClient, userId]);
 
   if (current.isError && !current.data) {
     return (

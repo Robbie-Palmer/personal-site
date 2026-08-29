@@ -67,6 +67,8 @@ export type ShoppingListState = {
   extras: ExtraItem[];
 };
 
+export type ShoppingListChangeSource = "install" | "local" | "storage";
+
 const STORAGE_KEY = "recipe-shopping-list:v1";
 const COMPLETED_TRIP_STORAGE_KEY = "recipe-shopping-trip-completed:v1";
 const COMPLETED_TRIP_LOCK_NAME = "recipe-shopping-trip-completion";
@@ -80,8 +82,9 @@ const EMPTY_STATE: ShoppingListState = {
 
 let state: ShoppingListState = EMPTY_STATE;
 let hydrated = false;
+let activeListId: string | undefined;
 let completedTripRecordedFallback = false;
-const listeners = new Set<() => void>();
+const listeners = new Set<(source: ShoppingListChangeSource) => void>();
 
 /**
  * Persistently remember that the current checked-list cycle already produced
@@ -224,20 +227,23 @@ function hydrate(): void {
 
 function persist(): void {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({ ...state, listId: activeListId }),
+    );
   } catch {
     // ignore write failures (quota, private browsing)
   }
 }
 
-function emit(): void {
-  for (const listener of listeners) listener();
+function emit(source: ShoppingListChangeSource): void {
+  for (const listener of listeners) listener(source);
 }
 
 function setState(next: ShoppingListState): void {
   state = next;
   persist();
-  emit();
+  emit("local");
 }
 
 // A single, module-wide storage listener (hooked once on first subscribe, like
@@ -248,8 +254,18 @@ let storageListenerHooked = false;
 
 function handleStorage(event: StorageEvent): void {
   if (event.key !== STORAGE_KEY) return;
+  if (activeListId) {
+    try {
+      const incoming: unknown = event.newValue
+        ? JSON.parse(event.newValue)
+        : null;
+      if (!isRecord(incoming) || incoming.listId !== activeListId) return;
+    } catch {
+      return;
+    }
+  }
   state = parseState(event.newValue);
-  emit();
+  emit("storage");
 }
 
 function hookStorageListener(): void {
@@ -258,7 +274,9 @@ function hookStorageListener(): void {
   globalThis.addEventListener("storage", handleStorage);
 }
 
-export function subscribeShoppingList(callback: () => void): () => void {
+export function subscribeShoppingList(
+  callback: (source: ShoppingListChangeSource) => void,
+): () => void {
   hydrate();
   hookStorageListener();
   listeners.add(callback);
@@ -276,11 +294,15 @@ export function getServerShoppingListSnapshot(): ShoppingListState {
   return EMPTY_STATE;
 }
 
-export function installShoppingListSnapshot(next: ShoppingListState): void {
+export function installShoppingListSnapshot(
+  next: ShoppingListState,
+  listId?: string,
+): void {
   hydrated = true;
+  activeListId = listId;
   state = parseState(JSON.stringify(next));
   persist();
-  emit();
+  emit("install");
 }
 
 // ── Mutations ──────────────────────────────────────────────────────────────
@@ -420,6 +442,7 @@ export function __resetShoppingListForTests(): void {
   }
   state = EMPTY_STATE;
   hydrated = false;
+  activeListId = undefined;
   completedTripRecordedFallback = false;
   listeners.clear();
 }

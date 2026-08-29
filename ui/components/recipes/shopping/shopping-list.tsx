@@ -546,13 +546,33 @@ export function ShoppingList({
         </output>
       )}
 
-      {pantry.error && (
+      {pantry.error && !pantry.data && (
         <p
           className="rt-body mt-3 rounded-md border border-[var(--berry)]/35 bg-[var(--berry)]/8 px-3 py-2 text-sm text-[var(--berry)]"
           role="alert"
         >
           Your pantry could not be loaded, so this is the full shopping list
           without kitchen filtering.
+        </p>
+      )}
+
+      {pantry.error && pantry.data && (
+        <p
+          className="rt-body mt-3 rounded-md border border-[var(--berry)]/35 bg-[var(--berry)]/8 px-3 py-2 text-sm text-[var(--berry)]"
+          role="alert"
+        >
+          Your pantry could not be refreshed. This list is using the last pantry
+          data that loaded.
+        </p>
+      )}
+
+      {stockActions.error && (
+        <p
+          className="rt-body mt-3 rounded-md border border-[var(--berry)]/35 bg-[var(--berry)]/8 px-3 py-2 text-sm text-[var(--berry)]"
+          role="alert"
+        >
+          That pantry change was not saved, so the ingredient was restored. Try
+          again or refresh the page.
         </p>
       )}
 

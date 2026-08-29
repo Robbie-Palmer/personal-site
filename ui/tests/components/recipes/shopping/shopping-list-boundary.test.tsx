@@ -11,11 +11,13 @@ import {
   ShoppingListBoundary,
   useStartNewShoppingList,
 } from "@/components/recipes/shopping/shopping-list-boundary";
+import type { StoredShoppingList } from "@/lib/api/shopping-lists";
 import {
   __resetShoppingListForTests,
   addExtra,
   getShoppingListSnapshot,
   setPlannedMeal,
+  toggleChecked,
 } from "@/lib/shopping/shoppingListStore";
 
 const mocks = vi.hoisted(() => ({
@@ -84,9 +86,13 @@ describe("ShoppingListBoundary", () => {
   });
 
   it("installs the server list, keeps the local meal plan separate, and saves edits", async () => {
+    mocks.saveCurrentShoppingList.mockResolvedValue({
+      ...storedList,
+      revision: "1",
+    });
     localStorage.setItem("recipe-shopping-plan-resource", "user-1");
     setPlannedMeal("fri", "dinner", "tomato-soup");
-    renderWithQueryClient(
+    const { queryClient } = renderWithQueryClient(
       <ShoppingListBoundary>
         <p>List ready</p>
       </ShoppingListBoundary>,
@@ -112,6 +118,69 @@ describe("ShoppingListBoundary", () => {
     expect(mocks.saveCurrentShoppingList.mock.calls[0]?.[2]).not.toHaveProperty(
       "plan",
     );
+    expect(
+      queryClient.getQueryData<StoredShoppingList>([
+        "recipes",
+        "private",
+        "user-1",
+        "shopping-list",
+      ])?.revision,
+    ).toBe("1");
+  });
+
+  it("saves a rapid check then uncheck against advancing revisions", async () => {
+    mocks.saveCurrentShoppingList
+      .mockResolvedValueOnce({ ...storedList, revision: "1" })
+      .mockResolvedValueOnce({ ...storedList, revision: "2" });
+    renderWithQueryClient(
+      <ShoppingListBoundary>
+        <p>List ready</p>
+      </ShoppingListBoundary>,
+    );
+    await screen.findByText("List ready");
+
+    act(() => toggleChecked("garlic"));
+    await waitFor(() =>
+      expect(mocks.saveCurrentShoppingList).toHaveBeenCalledTimes(1),
+    );
+    act(() => toggleChecked("garlic"));
+
+    await waitFor(() =>
+      expect(mocks.saveCurrentShoppingList).toHaveBeenNthCalledWith(
+        2,
+        storedList.id,
+        "1",
+        expect.objectContaining({ checked: [] }),
+      ),
+    );
+    expect(getShoppingListSnapshot().checked).toEqual([]);
+  });
+
+  it("does not resave a change received from another tab", async () => {
+    renderWithQueryClient(
+      <ShoppingListBoundary>
+        <p>List ready</p>
+      </ShoppingListBoundary>,
+    );
+    await screen.findByText("List ready");
+    mocks.saveCurrentShoppingList.mockClear();
+
+    act(() => {
+      globalThis.dispatchEvent(
+        new StorageEvent("storage", {
+          key: "recipe-shopping-list:v1",
+          newValue: JSON.stringify({
+            ...emptySnapshot,
+            checked: ["garlic"],
+            listId: storedList.id,
+          }),
+        }),
+      );
+    });
+
+    await new Promise((resolve) => setTimeout(resolve, 350));
+    expect(getShoppingListSnapshot().checked).toEqual(["garlic"]);
+    expect(mocks.saveCurrentShoppingList).not.toHaveBeenCalled();
   });
 
   it("clears a local meal plan owned by another shopping-list scope", async () => {
