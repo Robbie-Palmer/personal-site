@@ -368,9 +368,9 @@ function loadExemptions(): ProseExemption[] {
     }));
   } catch (err) {
     console.error(
-      `prose-lint: invalid ${EXEMPTIONS_FILE}: ${String(
-        (err as Error).message || err,
-      )}`,
+      `prose-lint: invalid ${EXEMPTIONS_FILE}: ${
+        err instanceof Error ? err.message : String(err)
+      }`,
     );
     process.exit(1);
   }
