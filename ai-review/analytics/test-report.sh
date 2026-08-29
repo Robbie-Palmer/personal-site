@@ -109,6 +109,7 @@ if run_report --marts "$work/does-not-exist" --output "$work/never" >"$work/erro
   echo "missing marts directory was not rejected" >&2
   exit 1
 fi
-grep -q "marts directory not found" "$work/error.log"
+grep -q "marts not found at" "$work/error.log"
+grep -q "scorecard:pull" "$work/error.log"
 
 echo "Scorecard report fixture tests passed"

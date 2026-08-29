@@ -73,8 +73,12 @@ description = "Verify the AI review R2 lifecycle policy"
 depends = ["install"]
 run = "bash scripts/verify-lifecycle.sh"
 
+[tasks."scorecard:pull"]
+description = "Pull AI review records from the ai-review-data R2 bucket into the local scorecard cache"
+run = "doppler run --project ai-review --config prd -- python3 analytics/pull-records.py"
+
 [tasks."scorecard:build"]
-description = "Build deterministic DuckDB scorecard marts from schema-v1 and schema-v2 JSON"
+description = "Build deterministic DuckDB scorecard marts from schema-v1 and schema-v2 JSON (defaults to the pulled cache)"
 run = "bash analytics/build-scorecard.sh"
 
 [tasks."scorecard:test"]

@@ -257,15 +257,26 @@ or conflicting terminal combination stops the build. Pull Request-grain marts
 retain distinct prompt versions, task types, and originating agents as lists so
 a multi-run lifecycle is not attributed to one arbitrary scalar value.
 
-Run one deterministic rebuild from a fixed local R2 export prefix with:
+Pull the versioned records from the `ai-review-data` R2 bucket (loads
+credentials from Doppler) and build from them:
 
 ```bash
-mise run //ai-review:scorecard:build -- /path/to/r2-export /path/to/output
+mise run //ai-review:scorecard:pull
+mise run //ai-review:scorecard:build
+mise run //ai-review:scorecard:report
 ```
 
-Paths are resolved relative to `ai-review/` when run through mise; the
-equivalent env form is `AI_REVIEW_SCORECARD_INPUT` and
-`AI_REVIEW_SCORECARD_OUTPUT`.
+`pull` caches the bucket under `~/.cache/ai-review/r2-export` (idempotent:
+objects already present at their listed size are skipped). With no
+arguments, `build` reads that cache and writes marts to
+`~/.cache/ai-review/marts`, and `report` reads the built marts and writes
+`scorecard-report.json` / `.md` to `~/.cache/ai-review/report`. Explicit
+paths override the defaults (`mise run //ai-review:scorecard:build --
+/path/to/r2-export /path/to/output`, `report --marts ... --output ...`);
+paths are resolved relative to `ai-review/` when run through mise. The
+cache root can be redirected with `AI_REVIEW_SCORECARD_CACHE`. Building
+from any other fixed export prefix stays fully deterministic and
+offline.
 
 Metric definitions follow
 [Agentic Code Review ADR 033](/projects/agentic-code-review/adrs/033-duckdb-ai-review-scorecard):

@@ -1,6 +1,7 @@
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
+import os from "node:os";
 import { parseArgs } from "node:util";
 
 type Json = Record<string, unknown>;
@@ -117,11 +118,12 @@ const ALL_DIMENSIONS = [
   "originating-agent",
 ] as const;
 const UNKNOWN = "(unknown)";
+const CACHE_ROOT = process.env.AI_REVIEW_SCORECARD_CACHE || path.join(os.homedir(), ".cache", "ai-review");
 
 class UsageError extends Error {}
 
 const USAGE =
-  "usage: tsx analytics/report.ts --marts <dir> --output <dir> [--format json|markdown|both] " +
+  "usage: tsx analytics/report.ts [--marts <dir>] [--output <dir>] [--format json|markdown|both] " +
   "[--slices <list>] [--min-sample-size <n>] [--allow-mixed-compatibility] [--baseline <file>] [--title <text>]";
 
 function fail(message: string): never {
@@ -894,8 +896,8 @@ function renderMarkdown(report: Json): string {
 function main(): void {
   const args = parseArgs({
     options: {
-      marts: { type: "string" },
-      output: { type: "string" },
+      marts: { type: "string", default: path.join(CACHE_ROOT, "marts", "v1") },
+      output: { type: "string", default: path.join(CACHE_ROOT, "report") },
       format: { type: "string", default: "both" },
       slices: { type: "string", default: ALL_DIMENSIONS.join(",") },
       "min-sample-size": { type: "string", default: "1" },
@@ -907,6 +909,12 @@ function main(): void {
   const { values } = args;
   if (!values.marts) usageError("--marts is required");
   if (!values.output) usageError("--output is required");
+  if (!fs.existsSync(values.marts)) {
+    fail(
+      `marts not found at ${values.marts}; build them with ` +
+        "mise run //ai-review:scorecard:build (after mise run //ai-review:scorecard:pull) or pass --marts",
+    );
+  }
   if (!["json", "markdown", "both"].includes(values.format ?? "both")) {
     usageError(`unsupported format: ${values.format}`);
   }
