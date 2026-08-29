@@ -6,7 +6,8 @@ OUTPUT_ROOT="${AI_REVIEW_SCORECARD_OUTPUT:-${2:-}}"
 MART_VERSION="v1"
 
 if [[ -z "$INPUT_PREFIX" || -z "$OUTPUT_ROOT" ]]; then
-  echo "usage: AI_REVIEW_SCORECARD_INPUT=<directory> AI_REVIEW_SCORECARD_OUTPUT=<directory> $0" >&2
+  echo "usage: mise run //ai-review:scorecard:build -- <r2-export-directory> <output-directory>" >&2
+  echo "       (paths are relative to ai-review/; or set AI_REVIEW_SCORECARD_INPUT and AI_REVIEW_SCORECARD_OUTPUT)" >&2
   exit 2
 fi
 if ! command -v duckdb >/dev/null 2>&1; then

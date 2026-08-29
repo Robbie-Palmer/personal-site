@@ -260,10 +260,12 @@ a multi-run lifecycle is not attributed to one arbitrary scalar value.
 Run one deterministic rebuild from a fixed local R2 export prefix with:
 
 ```bash
-AI_REVIEW_SCORECARD_INPUT=/path/to/r2-export \
-AI_REVIEW_SCORECARD_OUTPUT=/path/to/output \
-mise run //ai-review:scorecard:build
+mise run //ai-review:scorecard:build -- /path/to/r2-export /path/to/output
 ```
+
+Paths are resolved relative to `ai-review/` when run through mise; the
+equivalent env form is `AI_REVIEW_SCORECARD_INPUT` and
+`AI_REVIEW_SCORECARD_OUTPUT`.
 
 Metric definitions follow
 [Agentic Code Review ADR 033](/projects/agentic-code-review/adrs/033-duckdb-ai-review-scorecard):
