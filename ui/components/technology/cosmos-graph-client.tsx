@@ -72,6 +72,10 @@ type DragState = {
   startPointer: [number, number];
   weights: Float32Array;
 };
+type GraphControls = {
+  fitView: () => void;
+  focus: (id: string) => void;
+};
 
 function repelNodesFromDraggedPoint(
   graph: Graph,
@@ -177,10 +181,7 @@ interface CosmosCanvasProps {
   interactive: boolean;
   selectedNodeId: string | null;
   onSelect: (node: SelectedNode | null) => void;
-  onReady?: (controls: {
-    fit: () => void;
-    focus: (id: string) => void;
-  }) => void;
+  onReady?: (controls: GraphControls | null) => void;
 }
 
 const CosmosCanvas = memo(function CosmosCanvas({
@@ -328,7 +329,7 @@ const CosmosCanvas = memo(function CosmosCanvas({
       .then(() => {
         if (graphRef.current !== graph) return;
         onReady?.({
-          fit: () => graph.fitView(0, 0.16, false),
+          fitView: () => graph.fitView(0, 0.16, false),
           focus: (id) => {
             const index = nodeIndex.get(id);
             if (index !== undefined)
@@ -341,6 +342,7 @@ const CosmosCanvas = memo(function CosmosCanvas({
     return () => {
       dragStateRef.current = null;
       graphRef.current = null;
+      onReady?.(null);
       graph.destroy();
     };
   }, [data, interactive, nodeIndex, onReady, onSelect]);
@@ -618,17 +620,15 @@ function AccessibleGraphIndex({ nodes }: { nodes: readonly SelectedNode[] }) {
 
 export function CosmosGraphClient({ data }: Readonly<{ data: GraphData }>) {
   const isMobile = useMediaQuery("(max-width: 639px)");
-  const [mobileOpen, setMobileOpen] = useState(false);
+  const [explorerOpen, setExplorerOpen] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [hiddenTypes, setHiddenTypes] = useState<Set<string>>(new Set());
   const [minConnections, setMinConnections] = useState(0);
   const [selectedNode, setSelectedNode] = useState<SelectedNode | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const controlsRef = useRef<{
-    fit: () => void;
-    focus: (id: string) => void;
-  } | null>(null);
-  const mobileTitleRef = useRef<HTMLHeadingElement>(null);
+  const inlineControlsRef = useRef<GraphControls | null>(null);
+  const explorerControlsRef = useRef<GraphControls | null>(null);
+  const explorerTitleRef = useRef<HTMLHeadingElement>(null);
 
   const filtered = useMemo(
     () => filterGraphData(data, hiddenTypes, minConnections),
@@ -669,22 +669,27 @@ export function CosmosGraphClient({ data }: Readonly<{ data: GraphData }>) {
     },
     [filtered.nodes],
   );
-  const storeControls = useCallback(
-    (controls: { fit: () => void; focus: (id: string) => void }) => {
-      controlsRef.current = controls;
+  const storeInlineControls = useCallback((controls: GraphControls | null) => {
+    inlineControlsRef.current = controls;
+  }, []);
+  const storeExplorerControls = useCallback(
+    (controls: GraphControls | null) => {
+      explorerControlsRef.current = controls;
     },
     [],
   );
+  const activeControls = () =>
+    explorerOpen ? explorerControlsRef.current : inlineControlsRef.current;
 
   const reset = () => {
     setHiddenTypes(new Set());
     setMinConnections(0);
     setSelectedNode(null);
     setSearchQuery("");
-    window.setTimeout(() => controlsRef.current?.fit(), 80);
+    window.setTimeout(() => activeControls()?.fitView(), 80);
   };
 
-  const graph = (
+  const inlineGraph = (
     <CosmosCanvas
       data={data}
       visibleNodeIds={visibleNodeIds}
@@ -692,7 +697,18 @@ export function CosmosGraphClient({ data }: Readonly<{ data: GraphData }>) {
       interactive
       selectedNodeId={selectedNode?.id ?? null}
       onSelect={selectNode}
-      onReady={storeControls}
+      onReady={storeInlineControls}
+    />
+  );
+  const explorerGraph = (
+    <CosmosCanvas
+      data={data}
+      visibleNodeIds={visibleNodeIds}
+      visibleEdges={filtered.edges}
+      interactive
+      selectedNodeId={selectedNode?.id ?? null}
+      onSelect={selectNode}
+      onReady={storeExplorerControls}
     />
   );
 
@@ -708,14 +724,24 @@ export function CosmosGraphClient({ data }: Readonly<{ data: GraphData }>) {
             </p>
           </div>
           {!isMobile && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={reset}
-              className="shrink-0 gap-2"
-            >
-              <RotateCcw className="size-3.5" /> Reset
-            </Button>
+            <div className="flex shrink-0 gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setExplorerOpen(true)}
+                className="gap-2"
+              >
+                <Maximize2 className="size-3.5" /> Full screen
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={reset}
+                className="gap-2"
+              >
+                <RotateCcw className="size-3.5" /> Reset
+              </Button>
+            </div>
           )}
         </div>
         {!isMobile && (
@@ -746,7 +772,7 @@ export function CosmosGraphClient({ data }: Readonly<{ data: GraphData }>) {
           </div>
           <div className="absolute inset-x-0 bottom-2 flex justify-center">
             <Button
-              onClick={() => setMobileOpen(true)}
+              onClick={() => setExplorerOpen(true)}
               className="gap-2 shadow-lg"
             >
               <Maximize2 className="size-4" /> Explore the graph
@@ -755,7 +781,7 @@ export function CosmosGraphClient({ data }: Readonly<{ data: GraphData }>) {
         </div>
       ) : (
         <div className="relative h-[min(68vh,680px)] min-h-[520px] border-y bg-muted/10">
-          {graph}
+          {inlineGraph}
           <div className="absolute left-4 top-4 w-72">
             <div className="relative">
               <Search className="absolute left-3 top-2.5 size-4 text-muted-foreground" />
@@ -775,7 +801,7 @@ export function CosmosGraphClient({ data }: Readonly<{ data: GraphData }>) {
                       type="button"
                       onClick={() => {
                         selectNode(node);
-                        controlsRef.current?.focus(node.id);
+                        inlineControlsRef.current?.focus(node.id);
                         setSearchQuery("");
                       }}
                       className="block w-full truncate px-3 py-2 text-left text-sm hover:bg-muted"
@@ -800,28 +826,34 @@ export function CosmosGraphClient({ data }: Readonly<{ data: GraphData }>) {
 
       <AccessibleGraphIndex nodes={filtered.nodes} />
 
-      <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
+      <Sheet
+        open={explorerOpen}
+        onOpenChange={(open) => {
+          setExplorerOpen(open);
+          if (!open) setFiltersOpen(false);
+        }}
+      >
         <SheetContent
           className="inset-0 h-dvh w-screen max-w-none !translate-x-0 gap-0 border-0 p-0 sm:max-w-none"
           onOpenAutoFocus={(event) => {
             event.preventDefault();
-            mobileTitleRef.current?.focus();
+            explorerTitleRef.current?.focus();
           }}
         >
           <SheetHeader className="border-b pr-14">
             <SheetTitle
-              ref={mobileTitleRef}
+              ref={explorerTitleRef}
               tabIndex={-1}
               className="outline-none"
             >
               Explore the knowledge graph
             </SheetTitle>
             <SheetDescription>
-              Pinch to zoom, drag to pan, and tap a node for details.
+              Drag nodes, pan the canvas, and scroll or pinch to zoom.
             </SheetDescription>
           </SheetHeader>
           <div className="relative min-h-0 flex-1 bg-muted/10">
-            {graph}
+            {explorerGraph}
             <div className="absolute left-3 right-3 top-3 flex gap-2">
               <div className="relative min-w-0 flex-1">
                 <Search className="absolute left-3 top-2.5 size-4 text-muted-foreground" />
@@ -841,7 +873,7 @@ export function CosmosGraphClient({ data }: Readonly<{ data: GraphData }>) {
                         type="button"
                         onClick={() => {
                           selectNode(node);
-                          controlsRef.current?.focus(node.id);
+                          explorerControlsRef.current?.focus(node.id);
                           setSearchQuery("");
                         }}
                         className="block w-full truncate px-3 py-2 text-left text-sm"

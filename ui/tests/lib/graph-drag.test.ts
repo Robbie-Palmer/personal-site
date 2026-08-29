@@ -17,10 +17,10 @@ describe("graph drag propagation", () => {
 
     expect([...weights]).toEqual([
       1,
-      expect.closeTo(0.48),
-      expect.closeTo(0.48),
-      expect.closeTo(0.2),
+      expect.closeTo(0.24),
+      expect.closeTo(0.24),
       expect.closeTo(0.08),
+      expect.closeTo(0.025),
       0,
     ]);
   });

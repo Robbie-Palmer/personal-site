@@ -1,4 +1,4 @@
-const DRAG_PROPAGATION_BY_DEPTH = [1, 0.48, 0.2, 0.08] as const;
+const DRAG_PROPAGATION_BY_DEPTH = [1, 0.24, 0.08, 0.025] as const;
 
 export function buildDragPropagationWeights(
   nodeCount: number,
