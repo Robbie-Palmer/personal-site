@@ -6,29 +6,16 @@ import {
   BookOpen,
   Briefcase,
   Code2,
-  FileText,
   FolderKanban,
   Home,
   Search,
-  Tag,
   X,
 } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import posthog from "posthog-js";
-import {
-  createContext,
-  type ReactNode,
-  Suspense,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
-import { Button } from "@/components/ui/button";
+import { type ReactNode, useCallback, useMemo, useRef, useState } from "react";
 import { useIsMac } from "@/hooks/use-is-mac";
-import { hasTechIcon, TechIcon } from "@/lib/api/tech-icons";
+import { TechIcon } from "@/lib/api/tech-icons";
 import { siteConfig } from "@/lib/config/site-config";
 import { cn } from "@/lib/generic/styles";
 
@@ -52,36 +39,6 @@ interface NavigationItem {
   href: string;
   icon: ReactNode;
   keywords?: string[];
-}
-
-interface CommandPaletteContextValue {
-  registerFilters: (filters: FilterOption[]) => void;
-  unregisterFilters: () => void;
-  open: boolean;
-  setOpen: (open: boolean) => void;
-}
-
-const CommandPaletteContext = createContext<CommandPaletteContextValue | null>(
-  null,
-);
-
-export function useCommandPalette() {
-  const context = useContext(CommandPaletteContext);
-  if (!context) {
-    throw new Error(
-      "useCommandPalette must be used within CommandPaletteProvider",
-    );
-  }
-  return context;
-}
-
-export function useRegisterFilters(filters: FilterOption[]) {
-  const { registerFilters, unregisterFilters } = useCommandPalette();
-
-  useEffect(() => {
-    registerFilters(filters);
-    return () => unregisterFilters();
-  }, [filters, registerFilters, unregisterFilters]);
 }
 
 function HotkeyHint({ className }: Readonly<{ className?: string }>) {
@@ -125,70 +82,6 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
     keywords: ["experience", "jobs", "career", "work history"],
   },
 ];
-
-interface CommandPaletteProviderProps {
-  children: ReactNode;
-  technologies?: PaletteTechnology[];
-}
-
-export function CommandPaletteProvider({
-  children,
-  technologies = [],
-}: Readonly<CommandPaletteProviderProps>) {
-  const [open, setOpen] = useState(false);
-  const [pageFilters, setPageFilters] = useState<FilterOption[]>([]);
-
-  const registerFilters = useCallback((filters: FilterOption[]) => {
-    setPageFilters(filters);
-  }, []);
-
-  const unregisterFilters = useCallback(() => {
-    setPageFilters([]);
-  }, []);
-
-  useEffect(() => {
-    const down = (e: KeyboardEvent) => {
-      if (e.key === "k" && (e.metaKey || e.ctrlKey)) {
-        e.preventDefault();
-        setOpen((prev) => {
-          if (!prev) {
-            posthog.capture("command_palette_opened", {
-              trigger: "keyboard",
-            });
-          }
-          return !prev;
-        });
-      }
-    };
-
-    document.addEventListener("keydown", down);
-    return () => document.removeEventListener("keydown", down);
-  }, []);
-
-  const contextValue = useMemo(
-    () => ({
-      registerFilters,
-      unregisterFilters,
-      open,
-      setOpen,
-    }),
-    [registerFilters, unregisterFilters, open],
-  );
-
-  return (
-    <CommandPaletteContext.Provider value={contextValue}>
-      {children}
-      <Suspense fallback={null}>
-        <CommandPaletteDialog
-          open={open}
-          onOpenChange={setOpen}
-          pageFilters={pageFilters}
-          technologies={technologies}
-        />
-      </Suspense>
-    </CommandPaletteContext.Provider>
-  );
-}
 
 interface CommandPaletteDialogProps {
   open: boolean;
@@ -493,104 +386,4 @@ export function CommandPaletteDialog({
       </DialogPrimitive.Portal>
     </DialogPrimitive.Root>
   );
-}
-
-export function CommandPaletteTrigger({
-  className,
-}: Readonly<{ className?: string }>) {
-  const { setOpen } = useCommandPalette();
-
-  const handleOpen = useCallback(() => {
-    posthog.capture("command_palette_opened", { trigger: "navbar" });
-    setOpen(true);
-  }, [setOpen]);
-
-  return (
-    <>
-      {/* Mobile: icon-only */}
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon-sm"
-        onClick={handleOpen}
-        aria-label="Search"
-        className={cn("md:hidden", className)}
-      >
-        <Search className="size-5" />
-      </Button>
-
-      {/* Desktop: search-field-styled button with hotkey hint */}
-      <button
-        type="button"
-        onClick={handleOpen}
-        aria-label="Search"
-        className={cn(
-          "hidden md:inline-flex items-center gap-2 h-9 w-44 rounded-md border bg-background px-3 text-sm text-muted-foreground shadow-xs transition-colors hover:bg-accent hover:text-accent-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50 outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]",
-          className,
-        )}
-      >
-        <Search className="size-4 shrink-0" />
-        <span className="flex-1 text-left">Search</span>
-        <HotkeyHint />
-      </button>
-    </>
-  );
-}
-
-export function createTechFilterOptions(
-  technologies: Array<{ slug: string; name: string; iconSlug?: string }>,
-): FilterOption[] {
-  return technologies.map((tech) => ({
-    value: tech.slug,
-    label: tech.name,
-    icon: hasTechIcon(tech.name, tech.iconSlug) ? (
-      <TechIcon name={tech.name} iconSlug={tech.iconSlug} className="size-3" />
-    ) : undefined,
-    group: "Technology",
-    paramName: "tech",
-  }));
-}
-
-export function createTagFilterOptions(tags: string[]): FilterOption[] {
-  return tags.map((tag) => ({
-    value: tag,
-    label: tag,
-    icon: <Tag className="size-3" />,
-    group: "Tag",
-    paramName: "tags",
-  }));
-}
-
-export function createStatusFilterOptions(
-  statuses: Array<{ value: string; label: string }>,
-  paramName = "status",
-): FilterOption[] {
-  return statuses.map((status) => ({
-    value: status.value,
-    label: status.label,
-    icon: <FileText className="size-3" />,
-    group: "Status",
-    paramName,
-  }));
-}
-
-export function createRoleFilterOptions(
-  roles: Array<{ slug: string; company: string; logoPath: string }>,
-): FilterOption[] {
-  return roles.map((role) => ({
-    value: role.slug,
-    label: role.company,
-    icon: (
-      // biome-ignore lint/performance/noImgElement: Tiny local logos do not benefit from Next image optimisation.
-      <img
-        src={role.logoPath}
-        alt={`${role.company} logo`}
-        width={12}
-        height={12}
-        className="size-3 object-contain"
-      />
-    ),
-    group: "Role",
-    paramName: "role",
-  }));
 }
