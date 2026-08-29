@@ -1,7 +1,7 @@
 "use client";
 
 import { FileText, Tag } from "lucide-react";
-import type { FilterOption } from "@/components/command-palette";
+import type { FilterOption } from "@/components/command-palette-shell";
 import { hasTechIcon, TechIcon } from "@/lib/api/tech-icons";
 
 export function createTechFilterOptions(

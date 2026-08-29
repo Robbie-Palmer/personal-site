@@ -2,7 +2,7 @@
 
 import { cva } from "class-variance-authority";
 import Link from "next/link";
-import { CommandPaletteTrigger } from "@/components/command-palette";
+import { CommandPaletteTrigger } from "@/components/command-palette-shell";
 import { Button } from "@/components/ui/button";
 import { useNavbarActions } from "@/contexts/navbar-actions-context";
 import { useNavbarVisibility } from "@/hooks/use-navbar-visibility";

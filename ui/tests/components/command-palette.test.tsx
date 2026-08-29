@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   CommandPaletteProvider,
   CommandPaletteTrigger,
-} from "@/components/command-palette";
+} from "@/components/command-palette-shell";
 
 const pushMock = vi.fn();
 const replaceMock = vi.fn();

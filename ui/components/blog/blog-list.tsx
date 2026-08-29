@@ -4,12 +4,12 @@ import { Briefcase, FileText, Tag } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useMemo } from "react";
-import { useCommandPalette } from "@/components/command-palette";
 import {
   createRoleFilterOptions,
   createTagFilterOptions,
   createTechFilterOptions,
 } from "@/components/command-palette-filters";
+import { useCommandPalette } from "@/components/command-palette-shell";
 import { Badge } from "@/components/ui/badge";
 import {
   Card,

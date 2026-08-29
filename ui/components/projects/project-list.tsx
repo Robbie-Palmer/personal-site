@@ -4,13 +4,13 @@ import { Circle, FolderGit2, Tag } from "lucide-react";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useEffect, useMemo } from "react";
-import { useCommandPalette } from "@/components/command-palette";
 import {
   createRoleFilterOptions,
   createStatusFilterOptions,
   createTagFilterOptions,
   createTechFilterOptions,
 } from "@/components/command-palette-filters";
+import { useCommandPalette } from "@/components/command-palette-shell";
 import { FilterableCardGrid } from "@/components/ui/filterable-card-grid";
 import { useFilterParams } from "@/hooks/use-filter-params";
 import type { Project, ProjectStatus } from "@/lib/api/projects";

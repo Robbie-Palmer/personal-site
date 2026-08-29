@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import { CommandPaletteProvider } from "@/components/command-palette";
+import { CommandPaletteProvider } from "@/components/command-palette-shell";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
 import { siteConfig } from "@/lib/config/site-config";
