@@ -13,6 +13,10 @@ import {
   useMemo,
   useState,
 } from "react";
+import type {
+  FilterOption,
+  PaletteTechnology,
+} from "@/components/command-palette-types";
 import { Button } from "@/components/ui/button";
 import { useIsMac } from "@/hooks/use-is-mac";
 import { cn } from "@/lib/generic/styles";
@@ -23,20 +27,10 @@ const CommandPaletteDialog = lazy(() =>
   })),
 );
 
-export interface FilterOption {
-  value: string;
-  label: string;
-  icon?: ReactNode;
-  group: string;
-  paramName: string;
-}
-
-export interface PaletteTechnology {
-  slug: string;
-  name: string;
-  iconSlug?: string;
-  hasIcon: boolean;
-}
+export type {
+  FilterOption,
+  PaletteTechnology,
+} from "@/components/command-palette-types";
 
 interface CommandPaletteContextValue {
   registerFilters: (filters: FilterOption[]) => void;

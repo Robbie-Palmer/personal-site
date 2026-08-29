@@ -14,25 +14,14 @@ import {
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import posthog from "posthog-js";
 import { type ReactNode, useCallback, useMemo, useRef, useState } from "react";
+import type {
+  FilterOption,
+  PaletteTechnology,
+} from "@/components/command-palette-types";
 import { useIsMac } from "@/hooks/use-is-mac";
 import { TechIcon } from "@/lib/api/tech-icons";
 import { siteConfig } from "@/lib/config/site-config";
 import { cn } from "@/lib/generic/styles";
-
-interface FilterOption {
-  value: string;
-  label: string;
-  icon?: ReactNode;
-  group: string;
-  paramName: string;
-}
-
-export interface PaletteTechnology {
-  slug: string;
-  name: string;
-  iconSlug?: string;
-  hasIcon: boolean;
-}
 
 interface NavigationItem {
   label: string;
