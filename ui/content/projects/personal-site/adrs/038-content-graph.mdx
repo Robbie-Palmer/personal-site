@@ -1,8 +1,8 @@
 ---
 title: "ADR 038: Content Knowledge Graph Visualization"
 date: "2026-02-07"
-status: "Proposed"
-tech_stack: ["Sigma.js"]
+status: "Accepted"
+tech_stack: ["cosmos.gl"]
 ---
 
 # Context
@@ -26,7 +26,7 @@ The main libraries for interactive graph visualization in the browser are:
 * **Sigma.js** (`@react-sigma/core`): WebGL-based, purpose-built for graph visualization. Uses `graphology` for the graph data model and provides React hooks for events, layout, and rendering.
 * **Cytoscape.js** (`react-cytoscapejs`): Mature graph library with many layout algorithms (hierarchical, circular, force). More complex API, better suited for analytical/research use cases.
 
-# Decision
+# Original decision
 
 Use **[Sigma.js](https://www.sigmajs.org)** with `@react-sigma/core` for an interactive knowledge graph visualization.
 
@@ -65,3 +65,21 @@ The implementation:
 * **Information density**: With all node types visible, the graph can feel busy.
 * **Accessibility**: WebGL-based rendering is not accessible to screen readers.
 * **Mobile experience**: Interaction is optimized for mouse/trackpad (hover for details). Touch works for pan/zoom but lacks hover states.
+
+# Superseding decision
+
+The fixed Sigma layout made filtering predictable, but rebuilding the Graphology instance after every filter change discarded the previous layout. Synchronous ForceAtlas2 work also blocked the main thread, and rendered node radii could still overlap.
+
+Replace Sigma.js and Graphology with **[cosmos.gl](https://github.com/cosmosgl/graph)**. Keep every node at a stable numeric index and hide filtered nodes with absent positions. A deterministic radial layout keeps the graph inside its fitted viewport without rebuilding its identity. Each filter state gets a new deterministic layout based on its visible nodes, with a finite transition to the new positions. Dragging a node directly displaces nearby connected nodes with a depth-based falloff. Local collision handling pushes overlapping nodes aside without starting a global force simulation.
+
+The replacement adds:
+
+* A stable layout that remains inside the fitted viewport
+* Anchored drag propagation with local collision handling, while filter changes animate once to a newly centred layout
+* Node sizing based on global connection count
+* Search, neighbourhood highlighting, direct page links, and a reset control
+* A passive mobile homepage preview that does not capture scrolling
+* A full-screen explorer on every viewport, with pan, zoom, filters, search, and node details
+* Reduced-motion support, capped mobile pixel density, and an HTML graph index
+
+The HTML index is always available rather than appearing only when WebGL fails. It provides keyboard and screen-reader access to the same filtered nodes and their destination pages.
