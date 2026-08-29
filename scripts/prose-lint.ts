@@ -336,20 +336,42 @@ function buildChangedMap(
 
 const EXEMPTIONS_FILE = resolve(import.meta.dirname, "prose-exemptions.json");
 
+function isExemptionEntry(value: unknown): value is ProseExemption {
+  const e = value as Partial<ProseExemption>;
+  return (
+    typeof e.file === "string" &&
+    e.file.length > 0 &&
+    typeof e.line === "number" &&
+    Number.isInteger(e.line) &&
+    Array.isArray(e.checks) &&
+    e.checks.every((c) => typeof c === "string" && c.length > 0)
+  );
+}
+
 function loadExemptions(): ProseExemption[] {
   if (!existsSync(EXEMPTIONS_FILE)) return [];
   try {
-    const raw = readFileSync(EXEMPTIONS_FILE, "utf-8");
-    const parsed = JSON.parse(raw);
-    const list: ProseExemption[] = Array.isArray(parsed) ? parsed : [];
+    const parsed: unknown = JSON.parse(readFileSync(EXEMPTIONS_FILE, "utf-8"));
+    if (!Array.isArray(parsed)) {
+      throw new Error(`expected a JSON array, got ${typeof parsed}`);
+    }
+    for (const entry of parsed) {
+      if (!isExemptionEntry(entry)) {
+        throw new Error(`malformed entry: ${JSON.stringify(entry)}`);
+      }
+    }
     // Normalise file paths to absolute so they match resolve() keys.
-    return list.map((e) => ({
+    return parsed.map((e) => ({
       file: resolve(e.file),
       line: e.line,
       checks: e.checks,
     }));
-  } catch {
-    console.error(`prose-lint: failed to parse ${EXEMPTIONS_FILE}`);
+  } catch (err) {
+    console.error(
+      `prose-lint: invalid ${EXEMPTIONS_FILE}: ${String(
+        (err as Error).message || err,
+      )}`,
+    );
     process.exit(1);
   }
 }
@@ -358,10 +380,9 @@ function isExempt(
   alert: ValeAlert,
   exemptions: ProseExemption[],
 ): boolean {
+  const file = resolve(alert.File);
   return exemptions.some(
-    (e) =>
-      e.file === resolve(alert.File) &&
-      e.line === alert.Line &&
+    (e) => e.file === file && e.line === alert.Line &&
       e.checks.includes(alert.Check),
   );
 }
