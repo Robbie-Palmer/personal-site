@@ -20,13 +20,23 @@
 
 import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { join, resolve } from "node:path";
 
 /* ------------------------------------------------------------------ */
 /*  Config                                                             */
 /* ------------------------------------------------------------------ */
 
-const VALE_BIN = process.env.VALE_BIN || "vale";
+function resolveBinary(name: string): string {
+  for (const dir of (process.env.PATH || "").split(":")) {
+    if (!dir) continue;
+    const candidate = join(dir, name);
+    if (existsSync(candidate)) return candidate;
+  }
+  return name;
+}
+
+const GIT_BIN = resolveBinary("git");
+const VALE_BIN = process.env.VALE_BIN || resolveBinary("vale");
 const VALE_CONFIG = resolve(import.meta.dirname, "..", ".vale.ini");
 
 /* ------------------------------------------------------------------ */
@@ -80,7 +90,7 @@ function changedLines(
 
   let stdout: string;
   try {
-    stdout = execFileSync("git", args, {
+    stdout = execFileSync(GIT_BIN, args, {
       encoding: "utf-8",
       stdio: ["pipe", "pipe", "pipe"],
     });
@@ -116,7 +126,7 @@ function allLines(file: string): Set<number> {
 
 function isTracked(file: string): boolean {
   try {
-    execFileSync("git", ["ls-files", "--error-unmatch", "--", file], {
+    execFileSync(GIT_BIN, ["ls-files", "--error-unmatch", "--", file], {
       encoding: "utf-8",
       stdio: ["pipe", "pipe", "pipe"],
     });
@@ -221,6 +231,21 @@ interface ProseOptions {
   base: string;
 }
 
+function requireValue(argv: string[], i: number, flag: string): string {
+  const value = argv[i + 1];
+  if (value === undefined || value.startsWith("--")) {
+    console.error(`prose-lint: ${flag} requires a value`);
+    process.exit(1);
+  }
+  return value;
+}
+
+function parseDiffType(value: string): "cached" | "working" | "auto" {
+  if (value === "cached" || value === "working" || value === "auto") return value;
+  console.error(`prose-lint: unknown diff type ${value}`);
+  process.exit(1);
+}
+
 function parseArgs(argv: string[]): ProseOptions {
   const opts: ProseOptions = {
     files: [],
@@ -232,43 +257,20 @@ function parseArgs(argv: string[]): ProseOptions {
   };
 
   for (let i = 0; i < argv.length; i++) {
-    switch (argv[i]) {
-      case "--staged":
-        opts.staged = true;
-        break;
-      case "--strict":
-        opts.strict = true;
-        break;
-      case "--all":
-        opts.all = true;
-        break;
-      case "--base":
-        if (++i >= argv.length || argv[i].startsWith("--")) {
-          console.error("prose-lint: --base requires a value");
-          process.exit(1);
-        }
-        opts.base = argv[i];
-        break;
-      case "--diff": {
-        if (++i >= argv.length || argv[i].startsWith("--")) {
-          console.error("prose-lint: --diff requires a value");
-          process.exit(1);
-        }
-        const value = argv[i];
-        if (value !== "cached" && value !== "working" && value !== "auto") {
-          console.error(`prose-lint: unknown diff type ${value}`);
-          process.exit(1);
-        }
-        opts.explicitDiff = value;
-        break;
-      }
-      default:
-        if (argv[i].startsWith("--")) {
-          console.error(`prose-lint: unknown flag ${argv[i]}`);
-          process.exit(1);
-        }
-        opts.files.push(argv[i]);
-    }
+    const arg = argv[i];
+    if (arg === "--base") {
+      opts.base = requireValue(argv, i, "--base");
+      i++;
+    } else if (arg === "--diff") {
+      opts.explicitDiff = parseDiffType(requireValue(argv, i, "--diff"));
+      i++;
+    } else if (arg === "--staged") opts.staged = true;
+    else if (arg === "--strict") opts.strict = true;
+    else if (arg === "--all") opts.all = true;
+    else if (arg.startsWith("--")) {
+      console.error(`prose-lint: unknown flag ${arg}`);
+      process.exit(1);
+    } else opts.files.push(arg);
   }
   return opts;
 }
@@ -303,6 +305,47 @@ function changedLinesFor(
   return lines;
 }
 
+function buildChangedMap(
+  files: string[],
+  all: boolean,
+  base: string,
+  diffMode: "cached" | "working" | "auto",
+): Map<string, Set<number> | null> {
+  const changedMap = new Map<string, Set<number> | null>();
+  for (const f of files) {
+    const lines = all ? allLines(f) : changedLinesFor(f, base, diffMode);
+    changedMap.set(resolve(f), lines);
+  }
+  return changedMap;
+}
+
+function changedAlerts(
+  alerts: ValeAlert[],
+  changedMap: Map<string, Set<number> | null>,
+): ValeAlert[] {
+  return alerts.filter((alert) => {
+    const changed = changedMap.get(resolve(alert.File));
+    return changed ? changed.has(alert.Line) : false;
+  });
+}
+
+function reportAlerts(alerts: ValeAlert[], strict: boolean): void {
+  let hasBlockers = false;
+  let hasAdvisories = false;
+
+  for (const alert of alerts) {
+    console.log(
+      `${SEVERITY_LABEL[alert.Severity]}  ${alert.File}:${alert.Line}  ${alert.Message}  [${alert.Check}]`,
+    );
+    if (alert.Severity === "error") hasBlockers = true;
+    if (alert.Severity !== "error") hasAdvisories = true;
+  }
+
+  if (hasBlockers) process.exit(1);
+  if (strict && hasAdvisories) process.exit(2);
+  process.exit(0);
+}
+
 function main(): void {
   const args = process.argv.slice(2);
   if (args.length === 0 || args.includes("--help")) printHelp();
@@ -324,34 +367,14 @@ function main(): void {
   if (existingFiles.length === 0) process.exit(0);
 
   const diffMode = opts.staged ? "cached" : opts.explicitDiff || "auto";
-
-  const changedMap = new Map<string, Set<number> | null>();
-  for (const f of existingFiles) {
-    const lines = opts.all
-      ? allLines(f)
-      : changedLinesFor(f, opts.base, diffMode);
-    changedMap.set(resolve(f), lines);
-  }
-
-  const filtered = runVale(existingFiles).filter((alert) => {
-    const changed = changedMap.get(resolve(alert.File));
-    return changed ? changed.has(alert.Line) : false;
-  });
-
-  let hasBlockers = false;
-  let hasAdvisories = false;
-
-  for (const alert of filtered) {
-    console.log(
-      `${SEVERITY_LABEL[alert.Severity]}  ${alert.File}:${alert.Line}  ${alert.Message}  [${alert.Check}]`,
-    );
-    if (alert.Severity === "error") hasBlockers = true;
-    if (alert.Severity !== "error") hasAdvisories = true;
-  }
-
-  if (hasBlockers) process.exit(1);
-  if (opts.strict && hasAdvisories) process.exit(2);
-  process.exit(0);
+  const changedMap = buildChangedMap(
+    existingFiles,
+    opts.all,
+    opts.base,
+    diffMode,
+  );
+  const filtered = changedAlerts(runVale(existingFiles), changedMap);
+  reportAlerts(filtered, opts.strict);
 }
 
 main();
