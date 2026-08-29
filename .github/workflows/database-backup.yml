@@ -10,6 +10,8 @@ concurrency:
   group: neon-database-backup
   cancel-in-progress: false
 
+permissions: {}
+
 jobs:
   backup:
     runs-on: ubuntu-latest
