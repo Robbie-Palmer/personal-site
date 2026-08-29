@@ -1,6 +1,6 @@
 "use client";
 
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface ProjectsPageTabsProps {
@@ -14,7 +14,6 @@ export function ProjectsPageTabs({
 }: Readonly<ProjectsPageTabsProps>) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const pathname = usePathname();
 
   const currentTab = searchParams.get("tab") || "projects";
 
@@ -23,7 +22,7 @@ export function ProjectsPageTabs({
     params.set("tab", value);
     // Use replace to avoid filling history stack with tab changes,
     // scroll: false to maintain scroll position when switching tabs
-    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+    router.replace(`/projects?${params.toString()}`, { scroll: false });
   };
 
   return (

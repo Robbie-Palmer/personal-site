@@ -1,23 +1,24 @@
 "use client";
 
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface ProjectTabsProps {
+  projectSlug: string;
   overview: React.ReactNode;
   adrs: React.ReactNode;
   adrCount: number;
 }
 
 export function ProjectTabs({
+  projectSlug,
   overview,
   adrs,
   adrCount,
 }: Readonly<ProjectTabsProps>) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const pathname = usePathname();
 
   const currentTab = searchParams.get("tab") || "overview";
 
@@ -26,7 +27,10 @@ export function ProjectTabs({
     params.set("tab", value);
     // Use replace to avoid filling history stack with tab changes,
     // scroll: false to maintain scroll position when switching tabs
-    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+    router.replace(
+      `/projects/${encodeURIComponent(projectSlug)}?${params.toString()}`,
+      { scroll: false },
+    );
   };
 
   return (
