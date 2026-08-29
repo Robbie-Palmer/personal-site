@@ -9,6 +9,7 @@ config_roots = [
     "ml-pipelines",
     "ml-pipelines/recipe-dataset",
     "ml-pipelines/recipe-parsing",
+    "ml-pipelines/wsi-analysis",
     "packages/recipe-db",
     "packages/observability",
     "packages/recipe-parsing",

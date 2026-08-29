@@ -1,0 +1,6 @@
+.env
+.venv/
+.coverage
+artifacts/
+data/wsi
+data/tiles

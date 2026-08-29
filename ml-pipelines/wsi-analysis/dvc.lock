@@ -1,0 +1,38 @@
+schema: '2.0'
+stages:
+  tile:
+    cmd: uv run --locked wsi-analysis prepare
+    deps:
+    - path: data/wsi
+      hash: md5
+      md5: 69a022024be7707f523203cebce4f788.dir
+      size: 381433842
+      nfiles: 26
+    - path: pyproject.toml
+      hash: md5
+      md5: 1f4b18c8952731aae3e26cac3d88b678
+      size: 1380
+    - path: src/wsi_analysis
+      hash: md5
+      md5: 1ed803240997806ad94dc0dbbdd57b0d.dir
+      size: 18688
+      nfiles: 7
+    - path: uv.lock
+      hash: md5
+      md5: c414a49160facd6badefe1d61d36f759
+      size: 100548
+    params:
+      params.yaml:
+        tiling:
+          slide:
+            data/wsi/cptac_coad/01CO001/2.25.242737894991988167124012498945908182526/SM_1.3.6.1.4.1.5962.99.1.189402092.59963277.1640866941932.2.0/1dd2f639-19f0-4e0f-ae0a-316c8544ee73.dcm
+          output:
+            data/tiles/cptac_coad/01CO001/2.25.242737894991988167124012498945908182526/SM_1.3.6.1.4.1.5962.99.1.189402092.59963277.1640866941932.2.0/1dd2f639-19f0-4e0f-ae0a-316c8544ee73
+          tile_size: 256
+          batch_size: 32
+    outs:
+    - path: data/tiles
+      hash: md5
+      md5: 79f84c33e830ba5086f4adf542146a9b.dir
+      size: 12161287638
+      nfiles: 66932

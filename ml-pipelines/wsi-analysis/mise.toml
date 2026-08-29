@@ -1,0 +1,69 @@
+[tools]
+python = "3.12"
+
+[tasks.sync]
+description = "Install the locked WSI analysis environment"
+run = "uv sync --locked"
+
+[tasks.lock]
+description = "Resolve and update the WSI analysis uv lockfile"
+run = "uv lock"
+
+[tasks.format]
+description = "Format WSI analysis Python code"
+depends = ["sync"]
+run = "uv run --locked ruff format ."
+
+[tasks.lint]
+description = "Lint WSI analysis Python code"
+depends = ["sync"]
+run = "uv run --locked ruff check ."
+
+[tasks.typecheck]
+description = "Type-check WSI analysis Python code"
+depends = ["sync"]
+run = "uv run --locked ty check"
+
+[tasks.test]
+description = "Run WSI analysis tests"
+depends = ["sync"]
+run = "uv run --locked pytest"
+
+[tasks.check]
+description = "Run all WSI analysis checks"
+depends = ["lint", "typecheck", "test"]
+
+[tasks.inventory]
+description = "Write a deterministic inventory of the local WSI dataset"
+depends = ["sync"]
+run = "uv run --locked wsi-analysis inventory"
+
+[tasks.validate]
+description = "Validate dataset metadata, paths, and image files"
+depends = ["sync"]
+run = "uv run --locked wsi-analysis validate --verify-images"
+
+[tasks.run]
+description = "Run the WSI analysis CLI (pass arguments after --)"
+depends = ["sync"]
+run = "uv run --locked wsi-analysis"
+
+[tasks.dvc]
+description = "Run a DVC command against the R2-backed WSI dataset"
+run = "bash ../scripts/doppler-pipeline-env uv tool run --from 'dvc[s3]==3.67.1' dvc"
+
+[tasks.pull]
+description = "Pull WSI source and tile data from R2"
+run = "bash ../scripts/doppler-pipeline-env uv tool run --from 'dvc[s3]==3.67.1' dvc pull"
+
+[tasks.push]
+description = "Push the WSI DVC cache to its private R2 prefix"
+run = "bash ../scripts/doppler-pipeline-env uv tool run --from 'dvc[s3]==3.67.1' dvc push -j 16"
+
+[tasks.repro]
+description = "Reproduce derived tiles from the DVC-tracked WSI data"
+run = "bash ../scripts/doppler-pipeline-env uv tool run --from 'dvc[s3]==3.67.1' dvc repro"
+
+[tasks."status:remote"]
+description = "Check whether the local WSI DVC cache matches R2"
+run = "bash ../scripts/doppler-pipeline-env uv tool run --from 'dvc[s3]==3.67.1' dvc status --cloud"
