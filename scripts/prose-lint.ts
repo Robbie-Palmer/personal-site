@@ -22,6 +22,19 @@ import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 
+/**
+ * Intentional prose-lint exemptions live in ./prose-exemptions.json (next to
+ * this script).  Each entry suppresses a specific rule alert on a specific
+ * line of a specific file — e.g. a published post's wording that we want to
+ * keep as-is.  An entry matches only when the file, line number, and check
+ * name all agree, so it never blanket-suppresses a whole line or file.
+ */
+interface ProseExemption {
+  file: string;
+  line: number;
+  checks: string[];
+}
+
 /* ------------------------------------------------------------------ */
 /*  Config                                                             */
 /* ------------------------------------------------------------------ */
@@ -321,13 +334,47 @@ function buildChangedMap(
   return changedMap;
 }
 
+const EXEMPTIONS_FILE = resolve(import.meta.dirname, "prose-exemptions.json");
+
+function loadExemptions(): ProseExemption[] {
+  if (!existsSync(EXEMPTIONS_FILE)) return [];
+  try {
+    const raw = readFileSync(EXEMPTIONS_FILE, "utf-8");
+    const parsed = JSON.parse(raw);
+    const list: ProseExemption[] = Array.isArray(parsed) ? parsed : [];
+    // Normalise file paths to absolute so they match resolve() keys.
+    return list.map((e) => ({
+      file: resolve(e.file),
+      line: e.line,
+      checks: e.checks,
+    }));
+  } catch {
+    console.error(`prose-lint: failed to parse ${EXEMPTIONS_FILE}`);
+    process.exit(1);
+  }
+}
+
+function isExempt(
+  alert: ValeAlert,
+  exemptions: ProseExemption[],
+): boolean {
+  return exemptions.some(
+    (e) =>
+      e.file === resolve(alert.File) &&
+      e.line === alert.Line &&
+      e.checks.includes(alert.Check),
+  );
+}
+
 function changedAlerts(
   alerts: ValeAlert[],
   changedMap: Map<string, Set<number> | null>,
+  exemptions: ProseExemption[],
 ): ValeAlert[] {
   return alerts.filter((alert) => {
     const changed = changedMap.get(resolve(alert.File));
-    return changed ? changed.has(alert.Line) : false;
+    if (!changed || !changed.has(alert.Line)) return false;
+    return !isExempt(alert, exemptions);
   });
 }
 
@@ -375,7 +422,11 @@ function main(): void {
     opts.base,
     diffMode,
   );
-  const filtered = changedAlerts(runVale(existingFiles), changedMap);
+  const filtered = changedAlerts(
+    runVale(existingFiles),
+    changedMap,
+    loadExemptions(),
+  );
   reportAlerts(filtered, opts.strict);
 }
 
