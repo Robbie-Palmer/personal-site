@@ -132,8 +132,13 @@ function runExecutor(
   }
   const result = parsed as Json;
   const rawCost = result.costUsd;
-  const costUsd = typeof rawCost === "number" && Number.isFinite(rawCost) && rawCost >= 0 ? rawCost : 0;
-  return { ok: true, result, costUsd };
+  if (typeof rawCost !== "number" || !Number.isFinite(rawCost) || rawCost < 0) {
+    return {
+      ok: false,
+      error: `executor reported an invalid costUsd: ${JSON.stringify(rawCost)}`,
+    };
+  }
+  return { ok: true, result, costUsd: rawCost };
 }
 
 function renderMarkdown(result: Json): string {

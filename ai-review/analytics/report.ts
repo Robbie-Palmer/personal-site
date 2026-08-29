@@ -629,13 +629,15 @@ function mixedAggregateEntry(
   classCount: number,
   options: MetricOptions,
 ): ModelComparisonEntry {
+  const modelFindings = subset.findings.filter((finding) => finding.sourceModels.includes(model));
+  const modelCalls = subset.calls.filter((call) => call.model === model);
   const runIds = new Set<string>();
-  for (const call of subset.calls) runIds.add(call.runId);
-  for (const finding of subset.findings) runIds.add(finding.runId);
+  for (const call of modelCalls) runIds.add(call.runId);
+  for (const finding of modelFindings) runIds.add(finding.runId);
   const modelSubset: Subset = {
     runs: subset.runs.filter((run) => runIds.has(run.runId)),
-    findings: subset.findings.filter((finding) => finding.sourceModels.includes(model)),
-    calls: subset.calls.filter((call) => call.model === model),
+    findings: modelFindings,
+    calls: modelCalls,
   };
   return {
     model,

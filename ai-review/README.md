@@ -315,7 +315,8 @@ Without `--yes` the CLI only validates the manifest and writes a
 Execution requires `--yes`, a positive `--max-cost-usd` cap, a fixed model set,
 and an executor command that receives each frozen PR (repository, PR number,
 head SHA, prompt version, models, remaining budget) as JSON on stdin and emits
-one JSON object with a `costUsd` on stdout. The executor is responsible for
+one JSON object with a finite non-negative `costUsd` on stdout; output
+without a valid `costUsd` fails the replay. The executor is responsible for
 honouring the remaining budget it receives; the CLI never starts an execution
 without budget left, records each skipped PR in
 `controlled-replay-result.json`, and exits non-zero when the executor fails or

@@ -119,6 +119,26 @@ jq -e '
   (.executions[0] | .status == "executor-failed" and .error != null and .result == null)
 ' "$failed_out/controlled-replay-result.json" > /dev/null
 
+invalid_cost_executor="$work/invalid-cost-executor.mjs"
+cat > "$invalid_cost_executor" <<'JS'
+const chunks = [];
+process.stdin.on("data", (chunk) => chunks.push(chunk));
+process.stdin.on("end", () => {
+  process.stdout.write(`${JSON.stringify({ findingCount: 2 })}\n`);
+});
+JS
+invalid_cost_out="$work/invalid-cost"
+if run_replay --manifest "$two_pr_manifest" --output "$invalid_cost_out" --yes --max-cost-usd 1 \
+    --models model-a --executor "node $invalid_cost_executor" >"$work/invalid-cost.log" 2>&1; then
+  echo "executor without costUsd was not rejected" >&2
+  exit 1
+fi
+jq -e '
+  .aborted == true and
+  (.executions | length == 1) and
+  (.executions[0] | .status == "executor-failed" and (.error | contains("invalid costUsd")))
+' "$invalid_cost_out/controlled-replay-result.json" > /dev/null
+
 bad_manifest="$work/bad-manifest.json"
 jq '.schemaVersion = 1' "$fixture_manifest" > "$bad_manifest"
 if run_replay --manifest "$bad_manifest" --output "$work/never" >"$work/bad.log" 2>&1; then
