@@ -19,7 +19,7 @@
  */
 
 import { execFileSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 /* ------------------------------------------------------------------ */
@@ -56,8 +56,8 @@ Exit codes:
   2 — only advisory issues on changed lines (non-zero with --strict)
 
 When lint-staged triggers this script it passes the staged file paths
-without flags.  The script detects the pre-commit scenario (staged
-files in args) and uses --diff=cached implicitly.
+without flags.  Run with --staged (via lint:prose:staged) so pre-commit
+enforcement inspects the index rather than the working tree.
 
 Environment:
   VALE_BIN  Override the vale binary path.
@@ -84,8 +84,11 @@ function changedLines(
       encoding: "utf-8",
       stdio: ["pipe", "pipe", "pipe"],
     });
-  } catch {
-    return null;
+  } catch (e: unknown) {
+    const err = e as { stderr?: string };
+    if (err.stderr) console.error(err.stderr.trimEnd());
+    console.error(`prose-lint: git ${args.join(" ")} failed`);
+    process.exit(1);
   }
 
   if (!stdout) return null;
@@ -107,7 +110,7 @@ function allLines(file: string): Set<number> {
     const lineCount = content.split("\n").length;
     return new Set(Array.from({ length: lineCount }, (_, i) => i + 1));
   } catch {
-    return new Set([1]);
+    return new Set();
   }
 }
 
@@ -118,8 +121,12 @@ function isTracked(file: string): boolean {
       stdio: ["pipe", "pipe", "pipe"],
     });
     return true;
-  } catch {
-    return false;
+  } catch (e: unknown) {
+    const err = e as { status?: number; stderr?: string };
+    if (err.status === 1) return false;
+    if (err.stderr) console.error(err.stderr.trimEnd());
+    console.error(`prose-lint: git ls-files failed for ${file}`);
+    process.exit(1);
   }
 }
 
@@ -149,6 +156,9 @@ function runVale(files: string[]): ValeAlert[] {
   const args = ["--config", VALE_CONFIG, "--output", "JSON", ...files];
 
   let stdout: string;
+  let failed = false;
+  let failure = "";
+  let failureStatus = 1;
   try {
     stdout = execFileSync(VALE_BIN, args, {
       encoding: "utf-8",
@@ -156,13 +166,28 @@ function runVale(files: string[]): ValeAlert[] {
       maxBuffer: 10 * 1024 * 1024,
     });
   } catch (e: unknown) {
-    const err = e as { stdout?: string; stderr?: string; status?: number };
+    const err = e as {
+      stdout?: string;
+      stderr?: string;
+      status?: number;
+      message?: string;
+    };
+    failed = true;
+    failureStatus = err.status ?? 1;
     stdout = err.stdout || "";
-    if (!stdout && err.stderr) {
-      console.error(err.stderr);
-      process.exit(err.status ?? 1);
+    if (err.stderr) {
+      failure = err.stderr.trimEnd();
+    } else if (!stdout) {
+      failure = `vale failed: ${String(err.message || "unknown error")}`;
     }
   }
+
+  if (failed && !stdout) {
+    // Spawn/config failure produces no JSON — surface it clearly.
+    console.error(failure || "prose-lint: vale failed to run");
+    process.exit(failureStatus);
+  }
+  if (failure) console.error(failure);
 
   try {
     const parsed: ValeOutput = JSON.parse(stdout);
@@ -218,11 +243,25 @@ function parseArgs(argv: string[]): ProseOptions {
         opts.all = true;
         break;
       case "--base":
-        opts.base = argv[++i] || "HEAD";
+        if (++i >= argv.length || argv[i].startsWith("--")) {
+          console.error("prose-lint: --base requires a value");
+          process.exit(1);
+        }
+        opts.base = argv[i];
         break;
-      case "--diff":
-        opts.explicitDiff = argv[++i] as "cached" | "working" | "auto";
+      case "--diff": {
+        if (++i >= argv.length || argv[i].startsWith("--")) {
+          console.error("prose-lint: --diff requires a value");
+          process.exit(1);
+        }
+        const value = argv[i];
+        if (value !== "cached" && value !== "working" && value !== "auto") {
+          console.error(`prose-lint: unknown diff type ${value}`);
+          process.exit(1);
+        }
+        opts.explicitDiff = value;
         break;
+      }
       default:
         if (argv[i].startsWith("--")) {
           console.error(`prose-lint: unknown flag ${argv[i]}`);
@@ -234,12 +273,17 @@ function parseArgs(argv: string[]): ProseOptions {
   return opts;
 }
 
-function contentFilesOnly(files: string[]): string[] {
-  return files.filter(
-    (f) =>
-      !f.replaceAll("\\", "/").startsWith(".vale/") &&
-      !f.includes("/.vale/"),
+function isValeStylePath(file: string): boolean {
+  const norm = file.replaceAll("\\", "/");
+  return (
+    norm.startsWith("./.vale/") ||
+    norm.startsWith(".vale/") ||
+    norm.includes("/.vale/")
   );
+}
+
+function contentFilesOnly(files: string[]): string[] {
+  return files.filter((f) => !isValeStylePath(f));
 }
 
 function changedLinesFor(
@@ -274,17 +318,22 @@ function main(): void {
   const contentFiles = contentFilesOnly(opts.files);
   if (contentFiles.length === 0) process.exit(0);
 
+  // Files staged as deletions no longer exist on disk; Vale can't lint
+  // them, and their removal needs no prose review.
+  const existingFiles = contentFiles.filter((f) => existsSync(f));
+  if (existingFiles.length === 0) process.exit(0);
+
   const diffMode = opts.staged ? "cached" : opts.explicitDiff || "auto";
 
   const changedMap = new Map<string, Set<number> | null>();
-  for (const f of contentFiles) {
+  for (const f of existingFiles) {
     const lines = opts.all
       ? allLines(f)
       : changedLinesFor(f, opts.base, diffMode);
     changedMap.set(resolve(f), lines);
   }
 
-  const filtered = runVale(contentFiles).filter((alert) => {
+  const filtered = runVale(existingFiles).filter((alert) => {
     const changed = changedMap.get(resolve(alert.File));
     return changed ? changed.has(alert.Line) : false;
   });
