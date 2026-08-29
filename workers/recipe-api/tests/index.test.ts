@@ -5674,6 +5674,50 @@ describe("household membership flows", () => {
     expect(body.unreadCount).toBe(101);
   });
 
+  it("returns an unread count without hydrating the notification archive", async () => {
+    authzMock.session = sessionFor({
+      id: "owner-user",
+      email: "owner@example.test",
+      name: "Owner",
+    });
+    dbMock.state.notificationDeliveries.push(
+      {
+        id: "delivery-unread",
+        eventId: "missing-event-unread",
+        recipientUserId: "owner-user",
+        readAt: null,
+        dismissedAt: null,
+      },
+      {
+        id: "delivery-read",
+        eventId: "missing-event-read",
+        recipientUserId: "owner-user",
+        readAt: dbMock.date,
+        dismissedAt: null,
+      },
+      {
+        id: "delivery-dismissed",
+        eventId: "missing-event-dismissed",
+        recipientUserId: "owner-user",
+        readAt: null,
+        dismissedAt: dbMock.date,
+      },
+      {
+        id: "delivery-other-user",
+        eventId: "missing-event-other-user",
+        recipientUserId: "other-user",
+        readAt: null,
+        dismissedAt: null,
+      },
+    );
+
+    const res = await app.request("/notifications/unread-count", {}, env);
+
+    expect(res.status).toBe(200);
+    expect(res.headers.get("cache-control")).toBe("private, no-store");
+    await expect(res.json()).resolves.toEqual({ unreadCount: 1 });
+  });
+
   it("hydrates a pending agent approval notification without exposing its code", async () => {
     authzMock.session = sessionFor({
       id: "owner-user",

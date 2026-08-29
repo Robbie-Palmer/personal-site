@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Bell } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { getNotificationPage } from "@/lib/api/notifications";
+import { getUnreadNotificationCount } from "@/lib/api/notifications";
 import { authClient } from "@/lib/auth-client";
 import { recipeBootstrapQuery } from "@/lib/query/recipe-queries";
 
@@ -29,10 +29,8 @@ export function NotificationBell() {
     const refresh = () => {
       controller?.abort();
       controller = new AbortController();
-      void getNotificationPage(0, controller.signal)
-        .then((page) =>
-          setUnread({ userId: sessionUserId, count: page.unreadCount }),
-        )
+      void getUnreadNotificationCount(controller.signal)
+        .then((count) => setUnread({ userId: sessionUserId, count }))
         .catch(() => undefined);
     };
     const refreshWhenVisible = () => {

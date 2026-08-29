@@ -84,6 +84,19 @@ export async function getNotificationPage(
   });
 }
 
+export async function getUnreadNotificationCount(
+  signal?: AbortSignal,
+): Promise<number> {
+  const response = await apiRequest<{ unreadCount: number }>(
+    "/api/notifications/unread-count",
+    {
+      signal,
+      fallbackMessage: "Notification request failed.",
+    },
+  );
+  return response.unreadCount;
+}
+
 export async function getNotifications(signal?: AbortSignal) {
   return (await getNotificationPage(0, signal)).items;
 }
