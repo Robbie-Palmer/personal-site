@@ -19,15 +19,32 @@
     "additions": 30,
     "deletions": 10,
     "changedFiles": 2,
-    "riskSignals": ["auth"],
-    "repositoryAreas": ["api"]
+    "riskSignals": [
+      "auth"
+    ],
+    "repositoryAreas": [
+      "api"
+    ]
   },
   "coverage": {
     "totalHunks": 4,
-    "reviewedHunkIds": ["h1", "h2", "h3"],
-    "unchangedHunkIds": ["h4"]
+    "reviewedHunkIds": [
+      "h1",
+      "h2",
+      "h3"
+    ],
+    "unchangedHunkIds": [
+      "h4"
+    ]
   },
   "runCostUsd": 0.30,
-  "findings": { "published": [] },
-  "models": []
+  "findings": {
+    "published": []
+  },
+  "models": [],
+  "guardrailPolicy": {
+    "publication": {
+      "version": "deterministic-publication-v1"
+    }
+  }
 }

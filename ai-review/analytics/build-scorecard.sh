@@ -3,10 +3,20 @@ set -euo pipefail
 
 INPUT_PREFIX="${AI_REVIEW_SCORECARD_INPUT:-${1:-}}"
 OUTPUT_ROOT="${AI_REVIEW_SCORECARD_OUTPUT:-${2:-}}"
+CACHE_ROOT="${AI_REVIEW_SCORECARD_CACHE:-$HOME/.cache/ai-review}"
 MART_VERSION="v1"
 
+if [[ -z "$INPUT_PREFIX" && -d "$CACHE_ROOT/r2-export" ]]; then
+  INPUT_PREFIX="$CACHE_ROOT/r2-export"
+fi
+if [[ -z "$OUTPUT_ROOT" ]]; then
+  OUTPUT_ROOT="$CACHE_ROOT/marts"
+fi
+
 if [[ -z "$INPUT_PREFIX" || -z "$OUTPUT_ROOT" ]]; then
-  echo "usage: AI_REVIEW_SCORECARD_INPUT=<directory> AI_REVIEW_SCORECARD_OUTPUT=<directory> $0" >&2
+  echo "usage: mise run //ai-review:scorecard:build -- <r2-export-directory> <output-directory>" >&2
+  echo "       (paths are relative to ai-review/; or set AI_REVIEW_SCORECARD_INPUT and AI_REVIEW_SCORECARD_OUTPUT)" >&2
+  echo "       no input given and no pulled export found at $CACHE_ROOT/r2-export; run: mise run //ai-review:scorecard:pull" >&2
   exit 2
 fi
 if ! command -v duckdb >/dev/null 2>&1; then
@@ -23,9 +33,12 @@ fi
 
 sql_list=""
 for file in "${input_files[@]}"; do
-  escaped=${file//\'/\'\'}
+  if [[ "$file" == *"'"* || "$file" == *'\'* ]]; then
+    echo "input path contains a quote or backslash, which the SQL literal escaping cannot represent safely: $file" >&2
+    exit 2
+  fi
   [[ -n "$sql_list" ]] && sql_list+=","
-  sql_list+="'$escaped'"
+  sql_list+="'$file'"
 done
 
 mkdir -p "$OUTPUT_ROOT/.scorecard-releases"

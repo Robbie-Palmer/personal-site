@@ -243,7 +243,11 @@ object write without creating another revision.
 
 The DuckDB batch in `analytics/` builds versioned `finding_latest`,
 `review_run_fact`, `model_run_fact`, and `pull_request_fact` Parquet marts plus
-a checksum-bearing machine-readable manifest. The latest outcome is the highest
+a checksum-bearing machine-readable manifest. It reads schema-v1 and schema-v2
+records without rewriting historical objects: schema v1 (which predates record
+types and durable finding identities) contributes spend, token, call, and
+published-finding counts, while outcome-derived metrics remain available only
+where durable identities exist. The latest outcome is the highest
 `outcomeVersion`; `finding_history` remains in the transient DuckDB build so
 revision resolution is explicit and testable. Unknown schema versions, unknown
 record types, duplicate revisions, and outcome/evidence joins to unpublished
@@ -253,13 +257,26 @@ or conflicting terminal combination stops the build. Pull Request-grain marts
 retain distinct prompt versions, task types, and originating agents as lists so
 a multi-run lifecycle is not attributed to one arbitrary scalar value.
 
-Run one deterministic rebuild from a fixed local R2 export prefix with:
+Pull the versioned records from the `ai-review-data` R2 bucket (loads
+credentials from Doppler) and build from them:
 
 ```bash
-AI_REVIEW_SCORECARD_INPUT=/path/to/r2-export \
-AI_REVIEW_SCORECARD_OUTPUT=/path/to/output \
+mise run //ai-review:scorecard:pull
 mise run //ai-review:scorecard:build
+mise run //ai-review:scorecard:report
 ```
+
+`pull` caches the bucket under `~/.cache/ai-review/r2-export` (idempotent:
+objects already present at their listed size are skipped). With no
+arguments, `build` reads that cache and writes marts to
+`~/.cache/ai-review/marts`, and `report` reads the built marts and writes
+`scorecard-report.json` / `.md` to `~/.cache/ai-review/report`. Explicit
+paths override the defaults (`mise run //ai-review:scorecard:build --
+/path/to/r2-export /path/to/output`, `report --marts ... --output ...`);
+paths are resolved relative to `ai-review/` when run through mise. The
+cache root can be redirected with `AI_REVIEW_SCORECARD_CACHE`. Building
+from any other fixed export prefix stays fully deterministic and
+offline.
 
 Metric definitions follow
 [Agentic Code Review ADR 033](/projects/agentic-code-review/adrs/033-duckdb-ai-review-scorecard):
@@ -268,6 +285,58 @@ findings as their denominator, cost uses accepted findings, token efficiency
 uses uncached input tokens, and coverage uses reviewed over total hunks. Outputs
 retain prompt, risk, change-size, repository-area, task, originating-agent, and
 time dimensions for stratification.
+
+### Scorecard report and controlled replay CLI
+
+The report CLI turns a built marts release into versioned JSON and Markdown
+suitable for ADR evidence, without a dashboard:
+
+```bash
+mise run //ai-review:scorecard:build   # produce marts first
+mise run //ai-review:scorecard:report -- --marts /path/to/output/v1 --output /path/to/report
+```
+
+Reports expose sample sizes (runs, PRs, model calls, published and adjudicated
+findings), censored outcomes (`superseded`, still-incomplete outcomes, and
+legacy findings without durable identity), and every ADR metric including
+review efficiency and time to useful finding. The `time to useful finding`
+metric is measured from the PR's first recorded review trigger because PR-ready
+timestamps are not recorded. Slices are selected with `--slices` over model,
+prompt, repository area, risk, change size, task type, and originating agent;
+dimensions absent from a record are reported as `(unknown)` rather than
+estimated. Model comparisons are grouped by role, prompt version, and
+publication policy version, so the merger is reported separately from scouts
+(source-model attribution credits scouts only) and incompatible configurations
+are never mixed; aggregating a model across them requires an explicit
+`--allow-mixed-compatibility`, and
+`--min-sample-size` suppresses values whose denominator is below the fixed
+threshold while keeping the sample size visible. `--baseline` accepts a JSON
+file with the stateless GitHub Actions baseline for review-efficiency ratios.
+Rebuilding the same marts produces byte-identical reports.
+
+The replay CLI plans or executes a controlled replay from a frozen
+`replay-manifest` record:
+
+```bash
+mise run //ai-review:scorecard:replay -- --manifest /path/to/replays/frozen-set-1.json --output /path/to/plan
+mise run //ai-review:scorecard:replay -- --manifest /path/to/replays/frozen-set-1.json --output /path/to/result \
+  --yes --max-cost-usd 5 --models model-a,model-b --executor "/path/to/review-executor"
+```
+
+Without `--yes` the CLI only validates the manifest and writes a
+`replay-plan.json`; nothing is executed and no executor is invoked.
+Execution requires `--yes`, a positive `--max-cost-usd` cap, a fixed model set,
+and an executor command that receives each frozen PR (repository, PR number,
+head SHA, prompt version, models, remaining budget) as JSON on stdin and emits
+one JSON object with a finite non-negative `costUsd` on stdout; output
+without a valid `costUsd` fails the replay. The executor is responsible for
+honouring the remaining budget it receives; the CLI never starts an execution
+without budget left, records each skipped PR in
+`controlled-replay-result.json`, and exits non-zero when the executor fails,
+exceeds the five-minute executor timeout, or reports a cost that breaches the
+cap.
+Replay outputs are versioned records; the CLI never rewrites the historical
+objects it reads.
 
 ## Deploy
 
