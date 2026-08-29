@@ -974,7 +974,7 @@ function main(): void {
     modelComparison,
     notes: [
       "Outcome-derived metrics (acceptance, fix-through, noise, no-response share, cost per accepted finding) use only findings with durable finding identities from schema-v2 records; schema-v1 runs contribute spend, token, and call metrics with published-finding counts retained.",
-      "The no-response share includes findings labeled no-observable-response and findings whose outcome is still incomplete; superseded findings are censored and excluded from every outcome metric.",
+      "The no-response share includes findings labeled no-observable-response and findings whose outcome is still incomplete; superseded findings are censored and excluded from the adjudicated-acceptance denominator, while fix-through and noise keep all published findings as their denominator.",
       "Time to useful finding is measured from the PR's first recorded review trigger because PR-ready timestamps are not recorded; it is reported for PRs with at least one accepted finding.",
       "Model comparisons group by role, prompt version, and publication policy version; the merger is reported separately from scouts because source-model attribution credits scouts only, and pass --allow-mixed-compatibility to aggregate a model across incompatible classes.",
       "Cost per accepted finding counts spend from runs whose findings carry durable identities only, so legacy spend never enters an outcome denominator.",
