@@ -18,9 +18,9 @@
  *       --strict is passed, otherwise still exits 0)
  */
 
-import { execSync } from "child_process";
-import { readFileSync } from "fs";
-import { resolve } from "path";
+import { execSync } from "node:child_process";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 
 /* ------------------------------------------------------------------ */
 /*  Config                                                             */
@@ -130,6 +130,12 @@ interface ValeAlert {
   Severity: "error" | "warning" | "suggestion";
 }
 
+const SEVERITY_LABEL: Record<ValeAlert["Severity"], string> = {
+  error: "BLOCK",
+  warning: "WARN",
+  suggestion: "SUGGEST",
+};
+
 interface ValeOutput {
   [file: string]: ValeAlert[];
 }
@@ -183,102 +189,113 @@ function runVale(files: string[]): ValeAlert[] {
 /*  Main                                                               */
 /* ------------------------------------------------------------------ */
 
-function main(): void {
-  const args = process.argv.slice(2);
+interface ProseOptions {
+  files: string[];
+  staged: boolean;
+  strict: boolean;
+  explicitDiff: "cached" | "working" | "auto" | null;
+  base: string;
+}
 
-  if (args.length === 0 || args.includes("--help")) {
-    printHelp();
-  }
+function parseArgs(argv: string[]): ProseOptions {
+  const opts: ProseOptions = {
+    files: [],
+    staged: false,
+    strict: false,
+    explicitDiff: null,
+    base: "HEAD",
+  };
 
-  const fileArgs: string[] = [];
-  let staged = false;
-  let strict = false;
-  let explicitDiff: "cached" | "working" | "auto" | null = null;
-  let base = "HEAD";
-
-  for (let i = 0; i < args.length; i++) {
-    switch (args[i]) {
+  for (let i = 0; i < argv.length; i++) {
+    switch (argv[i]) {
       case "--staged":
-        staged = true;
+        opts.staged = true;
         break;
       case "--strict":
-        strict = true;
+        opts.strict = true;
         break;
       case "--base":
-        base = args[++i] || "HEAD";
+        opts.base = argv[++i] || "HEAD";
         break;
       case "--diff":
-        explicitDiff = args[++i] as "cached" | "working" | "auto";
+        opts.explicitDiff = argv[++i] as "cached" | "working" | "auto";
         break;
       default:
-        if (args[i].startsWith("--")) {
-          console.error(`prose-lint: unknown flag ${args[i]}`);
+        if (argv[i].startsWith("--")) {
+          console.error(`prose-lint: unknown flag ${argv[i]}`);
           process.exit(1);
         }
-        fileArgs.push(args[i]);
+        opts.files.push(argv[i]);
     }
   }
+  return opts;
+}
 
-  if (fileArgs.length === 0) {
+function contentFilesOnly(files: string[]): string[] {
+  return files.filter(
+    (f) =>
+      !f.replaceAll("\\", "/").startsWith(".vale/") &&
+      !f.includes("/.vale/"),
+  );
+}
+
+function changedLinesFor(
+  file: string,
+  base: string,
+  mode: "cached" | "working" | "auto",
+): Set<number> | null {
+  if (mode === "cached") return changedLines(file, base, true);
+  if (mode === "working") return changedLines(file, base, false);
+
+  let lines = changedLines(file, base, false);
+  lines ??= changedLines(file, base, true);
+  // Untracked files have no base content to diff against, so scan the
+  // whole file.  Tracked-but-unchanged files yield no set and are
+  // skipped entirely, keeping enforcement deterministic to the diff.
+  if (lines === null && !isTracked(file)) lines = allLines(file);
+  return lines;
+}
+
+function main(): void {
+  const args = process.argv.slice(2);
+  if (args.length === 0 || args.includes("--help")) printHelp();
+
+  const opts = parseArgs(args);
+  if (opts.files.length === 0) {
     console.error("prose-lint: no files specified");
     process.exit(1);
   }
 
   // Vendored Vale styles under .vale/ are style definitions, not site
   // content — never lint them against their own rules.
-  const contentFiles = fileArgs.filter(
-    (f) => !f.replaceAll("\\", "/").startsWith(".vale/") &&
-      !f.includes("/.vale/"),
-  );
+  const contentFiles = contentFilesOnly(opts.files);
   if (contentFiles.length === 0) process.exit(0);
 
-  const diffMode = staged ? "cached" : explicitDiff || "auto";
+  const diffMode = opts.staged ? "cached" : opts.explicitDiff || "auto";
 
   const changedMap = new Map<string, Set<number> | null>();
   for (const f of contentFiles) {
-    if (diffMode === "cached") {
-      changedMap.set(resolve(f), changedLines(f, base, true));
-    } else if (diffMode === "working") {
-      changedMap.set(resolve(f), changedLines(f, base, false));
-    } else {
-      let lines = changedLines(f, base, false);
-      if (lines === null) lines = changedLines(f, base, true);
-      // Untracked files have no base content to diff against, so scan the
-      // whole file.  Tracked-but-unchanged files yield no set and are
-      // skipped entirely, keeping enforcement deterministic to the diff.
-      if (lines === null && !isTracked(f)) lines = allLines(f);
-      changedMap.set(resolve(f), lines);
-    }
+    changedMap.set(resolve(f), changedLinesFor(f, opts.base, diffMode));
   }
 
-  const allAlerts = runVale(contentFiles);
-
-  const filtered = allAlerts.filter((a) => {
-    const changed = changedMap.get(resolve(a.File));
-    if (!changed) return false;
-    return changed.has(a.Line);
+  const filtered = runVale(contentFiles).filter((alert) => {
+    const changed = changedMap.get(resolve(alert.File));
+    return changed ? changed.has(alert.Line) : false;
   });
 
   let hasBlockers = false;
   let hasAdvisories = false;
 
-  for (const a of filtered) {
-    const label =
-      a.Severity === "error"
-        ? "BLOCK"
-        : a.Severity === "warning"
-          ? "WARN"
-          : "SUGGEST";
+  for (const alert of filtered) {
     console.log(
-      `${label}  ${a.File}:${a.Line}  ${a.Message}  [${a.Check}]`,
+      `${SEVERITY_LABEL[alert.Severity]}  ${alert.File}:${alert.Line}  ${alert.Message}  [${alert.Check}]`,
     );
-    if (a.Severity === "error") hasBlockers = true;
-    if (a.Severity === "warning" || a.Severity === "suggestion")
-      hasAdvisories = true;
+    if (alert.Severity === "error") hasBlockers = true;
+    if (alert.Severity !== "error") hasAdvisories = true;
   }
 
   if (hasBlockers) process.exit(1);
-  if (strict && hasAdvisories) process.exit(2);
+  if (opts.strict && hasAdvisories) process.exit(2);
   process.exit(0);
 }
 
