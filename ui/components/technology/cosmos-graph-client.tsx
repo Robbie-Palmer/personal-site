@@ -41,6 +41,7 @@ import {
   getCollisionDisplacement,
 } from "@/lib/domain/technology/graphDrag";
 import { filterGraphData } from "@/lib/domain/technology/graphFilter";
+import { calculateGraphLayout } from "@/lib/domain/technology/graphLayout";
 
 const NODE_COLORS: Record<string, string> = {
   project: "#3b82f6",
@@ -62,6 +63,7 @@ const NODE_TYPE_LABELS: Record<string, string> = {
 
 const TOP_LABEL_LIMIT = 14;
 const COLLISION_PADDING = 5;
+const FILTER_LAYOUT_DURATION = 650;
 const IGNORE_SELECTION = () => undefined;
 
 type SelectedNode = GraphNode & { totalConnections?: number };
@@ -144,19 +146,6 @@ function hexToRgba(hex: string, alpha = 1): [number, number, number, number] {
   ];
 }
 
-function deterministicPositions(nodes: readonly GraphNode[]): Float32Array {
-  const positions = new Float32Array(nodes.length * 2);
-  const typeOrder = Object.keys(NODE_COLORS);
-  for (const [index, node] of nodes.entries()) {
-    const typeIndex = Math.max(typeOrder.indexOf(node.type), 0);
-    const angle = typeIndex * ((Math.PI * 2) / typeOrder.length) + index * 2.4;
-    const radius = 160 + (index % 11) * 19;
-    positions[index * 2] = Math.cos(angle) * radius;
-    positions[index * 2 + 1] = Math.sin(angle) * radius;
-  }
-  return positions;
-}
-
 function useMediaQuery(query: string): boolean {
   const [matches, setMatches] = useState(
     () =>
@@ -198,7 +187,6 @@ const CosmosCanvas = memo(function CosmosCanvas({
   const dragStateRef = useRef<DragState | null>(null);
   const hasRenderedRef = useRef(false);
   const hoveredPointIndexRef = useRef<number | null>(null);
-  const positionsRef = useRef<Float32Array>(deterministicPositions(data.nodes));
   const [labels, setLabels] = useState<LabelPosition[]>([]);
   const [failed, setFailed] = useState(false);
   const nodeIndex = useMemo(
@@ -279,23 +267,6 @@ const CosmosCanvas = memo(function CosmosCanvas({
         activeGraph.render(0, 0);
       },
       onDragEnd: () => {
-        const activeGraph = graphRef.current;
-        if (activeGraph) {
-          const current = activeGraph.getPointPositions();
-          for (let index = 0; index < data.nodes.length; index += 1) {
-            const x = current[index * 2];
-            const y = current[index * 2 + 1];
-            if (
-              typeof x === "number" &&
-              typeof y === "number" &&
-              Number.isFinite(x) &&
-              Number.isFinite(y)
-            ) {
-              positionsRef.current[index * 2] = x;
-              positionsRef.current[index * 2 + 1] = y;
-            }
-          }
-        }
         dragStateRef.current = null;
       },
       onPointClick: (index) => {
@@ -351,35 +322,23 @@ const CosmosCanvas = memo(function CosmosCanvas({
     const graph = graphRef.current;
     if (!graph) return;
 
-    const current = graph.getPointPositions();
-    for (let index = 0; index < data.nodes.length; index += 1) {
-      const x = current[index * 2];
-      const y = current[index * 2 + 1];
-      if (
-        typeof x === "number" &&
-        typeof y === "number" &&
-        Number.isFinite(x) &&
-        Number.isFinite(y)
-      ) {
-        positionsRef.current[index * 2] = x;
-        positionsRef.current[index * 2 + 1] = y;
-      }
-    }
-    const nextPositions = new Float32Array(positionsRef.current);
-    for (const [index, node] of data.nodes.entries()) {
-      if (!visibleNodeIds.has(node.id)) {
-        nextPositions[index * 2] = Number.NaN;
-        nextPositions[index * 2 + 1] = Number.NaN;
-      }
-    }
+    dragStateRef.current = null;
+    const nextPositions = calculateGraphLayout(data.nodes, visibleNodeIds);
     const links = new Float32Array(visibleEdges.length * 2);
     for (const [index, edge] of visibleEdges.entries()) {
       links[index * 2] = nodeIndex.get(edge.source) ?? 0;
       links[index * 2 + 1] = nodeIndex.get(edge.target) ?? 0;
     }
-    graph.setPointPositions(nextPositions, hasRenderedRef.current);
+    const shouldAnimate =
+      hasRenderedRef.current &&
+      !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const transitionDuration = shouldAnimate ? FILTER_LAYOUT_DURATION : 0;
+    graph.setPointPositions(nextPositions);
     graph.setLinks(links);
-    graph.render(0, 0);
+    graph.render(0, transitionDuration);
+    if (hasRenderedRef.current && visibleIndices.length > 0) {
+      graph.fitView(transitionDuration, 0.16, false);
+    }
     hasRenderedRef.current = true;
 
     const topIndices = [...visibleIndices]
