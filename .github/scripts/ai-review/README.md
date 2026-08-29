@@ -31,7 +31,9 @@ The shared engine accepts these runtime variables:
   Laguna S 2.1, Ling 3.0 Flash, and North Mini Code are excluded after live runs
   showed that they provided no useful incremental coverage or failed too often.
   The override is limited to six enabled free IDs.
-- `AI_REVIEW_MERGER_MODEL`: defaults to `anthropic/claude-sonnet-4.6`.
+- `AI_REVIEW_MERGER_MODEL`: defaults to `google/gemini-3.7-flash`. The default
+  merger accepts only providers priced at or below $0.75 per million input
+  tokens and $3.75 per million output tokens.
 - `AI_REVIEW_IGNORED_AUTHORS`: comma-separated PR authors to skip. Defaults to
   `renovate[bot],dependabot[bot]`.
 - `AI_REVIEW_ZDR=true`: restricts paid OpenRouter scout and merger routing to

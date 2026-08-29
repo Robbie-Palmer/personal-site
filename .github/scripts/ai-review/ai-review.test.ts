@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   completionContent,
+  DEFAULT_MERGER,
   duplicateScoutModels,
   ignored,
   isCreditExhaustion,
@@ -183,6 +184,43 @@ test("default OpenRouter scouts enforce their model-specific price ceiling", asy
     await reviewer.callOpenRouterScout(model, "system", "user");
   }
   assert.equal(attempts, expectedByModel.size);
+});
+
+test("default OpenRouter merger enforces its price ceiling and records top-level cost", async (context) => {
+  context.mock.method(globalThis, "fetch", async (_input, init) => {
+    const body = JSON.parse(String(init?.body)) as {
+      model?: string;
+      provider?: { max_price?: { prompt?: number; completion?: number } };
+    };
+    assert.equal(body.model, DEFAULT_MERGER);
+    assert.deepEqual(body.provider?.max_price, { prompt: 0.75, completion: 3.75 });
+    return Response.json({
+      choices: [{ finish_reason: "stop", message: { content: '{"summary":"","findings":[]}' } }],
+      cost: 0.42,
+      usage: {},
+    });
+  });
+  const reviewer = new Reviewer({
+    githubToken: "github-token",
+    openRouterKey: "openrouter-key",
+    repository: "Robbie-Palmer/personal-site",
+    prNumber: 837,
+    openRouterScouts: [],
+    openCodeScouts: [],
+    merger: DEFAULT_MERGER,
+    ignoredAuthors: [],
+    requireZdr: false,
+  });
+
+  const result = await reviewer.callMerger(
+    DEFAULT_MERGER,
+    "system",
+    "user",
+    "merged_findings",
+    { type: "object" },
+    6_000,
+  );
+  assert.equal(result.cost, 0.42);
 });
 
 test("duplicate scout model IDs are detected across providers", () => {

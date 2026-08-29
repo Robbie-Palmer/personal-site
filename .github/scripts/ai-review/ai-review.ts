@@ -109,6 +109,12 @@ export const OPENROUTER_SCOUT_MAX_PRICES: Record<
   "z-ai/glm-5.3-flash": { prompt: 0.075, completion: 0.25 },
   "inclusionai/ling-2.6-1t": { prompt: 0.08, completion: 0.65 },
 };
+export const OPENROUTER_MERGER_MAX_PRICES: Record<
+  string,
+  { prompt: number; completion: number }
+> = {
+  "google/gemini-3.7-flash": { prompt: 0.75, completion: 3.75 },
+};
 const KNOWN_FREE_SCOUTS = [
   "big-pickle",
   "nemotron-3-ultra-free",
@@ -122,7 +128,7 @@ const EXCLUDED_FREE_SCOUTS = new Set([
   "north-mini-code-free",
 ]);
 const REASONING_DISABLED_MODELS = new Set(["moonshotai/kimi-k2.6"]);
-export const DEFAULT_MERGER = "anthropic/claude-sonnet-4.6";
+export const DEFAULT_MERGER = "google/gemini-3.7-flash";
 export const DEFAULT_IGNORED_AUTHORS = ["renovate[bot]", "dependabot[bot]"];
 const IGNORED_FILENAMES = new Set([
   ".terraform.lock.hcl",
@@ -880,6 +886,8 @@ export class Reviewer {
       allow_fallbacks: true,
       require_parameters: true,
     };
+    const maxPrice = OPENROUTER_MERGER_MAX_PRICES[model];
+    if (maxPrice) provider.max_price = maxPrice;
     if (this.settings.requireZdr) Object.assign(provider, { zdr: true, data_collection: "deny" });
     const response = await this.openRouter.request<JsonObject>("POST", "/chat/completions", {
       body: {
@@ -900,7 +908,7 @@ export class Reviewer {
     const usage = isObject(response.usage) ? response.usage : {};
     return {
       payload: parseModelPayload(completionContent(choice, model)),
-      cost: Number(usage.cost ?? 0),
+      cost: finiteNumber(response.cost ?? usage.cost),
       usage: modelUsage(usage),
     };
   }

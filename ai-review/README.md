@@ -56,10 +56,10 @@ does not erase an already-recorded analytical outcome.
 
 OpenRouter is the default paid inference gateway because its broader model and
 provider catalogue, provider failover, model fallbacks, and price/performance
-routing are useful properties of the architecture itself. The initial route
-retains the proven ensemble: Kimi K2.6 and DeepSeek V4 Pro through OpenRouter,
-eligible live free models through OpenCode Zen, and Claude Sonnet 4.6 as the
-OpenRouter merger. Workers AI is deliberately not
+routing are useful properties of the architecture itself. The current route
+runs the paid scout ensemble through OpenRouter, eligible live free models
+through OpenCode Zen, and Gemini 3.7 Flash as the price-capped OpenRouter
+merger. Workers AI is deliberately not
 bound or used: its narrower catalogue and provider-specific integration do not
 justify higher published prices than the current multi-provider route.
 

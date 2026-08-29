@@ -45,7 +45,7 @@ function environment(put = vi.fn()): Env {
     AI_REVIEW_MODELS:
       "moonshotai/kimi-k2.6,deepseek/deepseek-v4-pro,z-ai/glm-5.3-flash,inclusionai/ling-2.6-1t",
     AI_REVIEW_OPENCODE_MODELS: "",
-    AI_REVIEW_MERGER_MODEL: "anthropic/claude-sonnet-4.6",
+    AI_REVIEW_MERGER_MODEL: "google/gemini-3.7-flash",
     AI_REVIEW_IGNORED_AUTHORS: "renovate[bot],dependabot[bot]",
     AI_REVIEW_ZDR: "false",
     AI_REVIEW_APP_BOT_LOGIN: "robbie-palmer-ai-review[bot]",
@@ -908,7 +908,7 @@ describe("stateful review engine", () => {
             Promise.resolve(
               json({
                 skipped: [{
-                  model: "anthropic/claude-sonnet-4.6",
+                  model: "google/gemini-3.7-flash",
                   provider: "openrouter",
                   consecutiveFailures: 3,
                   cooldownUntil: "2026-08-27T00:01:00.000Z",
@@ -1676,7 +1676,7 @@ describe("stateful review engine", () => {
         if (url.hostname === "openrouter.ai") {
           expect(body.provider?.allow_fallbacks).toBe(true);
         }
-        const isMerger = body.model === "anthropic/claude-sonnet-4.6";
+        const isMerger = body.model === "google/gemini-3.7-flash";
         const content = isMerger
           ? {
               summary: "One concrete issue.",
