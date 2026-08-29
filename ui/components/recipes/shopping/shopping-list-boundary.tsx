@@ -24,6 +24,8 @@ function shoppingListContents(): ShoppingListContents {
   return { recipes, checked, extras };
 }
 
+const PLAN_RESOURCE_KEY = "recipe-shopping-plan-resource";
+
 export function ShoppingListBoundary({
   children,
 }: Readonly<{ children: ReactNode }>) {
@@ -36,15 +38,21 @@ export function ShoppingListBoundary({
   const [installedId, setInstalledId] = useState<string>();
   const savedSnapshot = useRef<string | undefined>(undefined);
   const savedRevision = useRef<string | undefined>(undefined);
+  const [saveFailed, setSaveFailed] = useState(false);
 
   useEffect(() => {
     if (!current.data || current.data.id === installedId) return;
     const serialized = JSON.stringify(current.data.snapshot);
     savedSnapshot.current = serialized;
     savedRevision.current = current.data.revision;
+    const plan =
+      localStorage.getItem(PLAN_RESOURCE_KEY) === current.data.resourceId
+        ? getShoppingListSnapshot().plan
+        : [];
+    localStorage.setItem(PLAN_RESOURCE_KEY, current.data.resourceId);
     installShoppingListSnapshot({
       ...current.data.snapshot,
-      plan: getShoppingListSnapshot().plan,
+      plan,
     });
     setInstalledId(current.data.id);
   }, [current.data, installedId]);
@@ -70,6 +78,10 @@ export function ShoppingListBoundary({
             );
             savedSnapshot.current = serialized;
             savedRevision.current = updated.revision;
+            setSaveFailed(false);
+          })
+          .catch(() => {
+            setSaveFailed(true);
           });
       }, 250);
     });
@@ -93,7 +105,17 @@ export function ShoppingListBoundary({
       </div>
     );
   }
-  return children;
+  return (
+    <>
+      {saveFailed ? (
+        <p className="rt-body bg-[var(--cream-dark)] px-4 py-2 text-center">
+          Your latest shopping-list changes have not been saved. They remain on
+          this device; edit the list to try again.
+        </p>
+      ) : null}
+      {children}
+    </>
+  );
 }
 
 export function useStartNewShoppingList() {

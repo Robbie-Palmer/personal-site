@@ -201,6 +201,171 @@
           "approval_methods",
           "endpoints"
         ]
+      },
+      "ShoppingList": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "resourceId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "revision": {
+            "type": "string",
+            "pattern": "^\\d+$"
+          },
+          "scope": {
+            "$ref": "#/components/schemas/ShoppingListScope"
+          },
+          "snapshot": {
+            "$ref": "#/components/schemas/ShoppingListSnapshot"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "resourceId",
+          "revision",
+          "scope",
+          "snapshot",
+          "createdAt",
+          "updatedAt"
+        ],
+        "additionalProperties": false
+      },
+      "ShoppingListScope": {
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "personal"
+                ]
+              }
+            },
+            "required": [
+              "type"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "household"
+                ]
+              },
+              "household": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "name": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "id",
+                  "name"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "type",
+              "household"
+            ],
+            "additionalProperties": false
+          }
+        ]
+      },
+      "ShoppingListSnapshot": {
+        "type": "object",
+        "properties": {
+          "recipes": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "slug": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 200
+                },
+                "servings": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 1000,
+                  "format": "int32"
+                }
+              },
+              "required": [
+                "slug"
+              ],
+              "additionalProperties": false
+            },
+            "maxItems": 200
+          },
+          "checked": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "maxItems": 1000
+          },
+          "extras": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 200
+                },
+                "text": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 500
+                },
+                "checked": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "id",
+                "text",
+                "checked"
+              ],
+              "additionalProperties": false
+            },
+            "maxItems": 500
+          }
+        },
+        "required": [
+          "recipes",
+          "checked",
+          "extras"
+        ],
+        "additionalProperties": false
       }
     },
     "parameters": {}
@@ -8632,76 +8797,7 @@
                     "pattern": "^\\d+$"
                   },
                   "snapshot": {
-                    "type": "object",
-                    "properties": {
-                      "recipes": {
-                        "type": "array",
-                        "items": {
-                          "type": "object",
-                          "properties": {
-                            "slug": {
-                              "type": "string",
-                              "minLength": 1,
-                              "maxLength": 200
-                            },
-                            "servings": {
-                              "type": "integer",
-                              "minimum": 1,
-                              "maximum": 1000,
-                              "format": "int32"
-                            }
-                          },
-                          "required": [
-                            "slug"
-                          ],
-                          "additionalProperties": false
-                        },
-                        "maxItems": 200
-                      },
-                      "checked": {
-                        "type": "array",
-                        "items": {
-                          "type": "string",
-                          "minLength": 1,
-                          "maxLength": 200
-                        },
-                        "maxItems": 1000
-                      },
-                      "extras": {
-                        "type": "array",
-                        "items": {
-                          "type": "object",
-                          "properties": {
-                            "id": {
-                              "type": "string",
-                              "minLength": 1,
-                              "maxLength": 200
-                            },
-                            "text": {
-                              "type": "string",
-                              "minLength": 1,
-                              "maxLength": 500
-                            },
-                            "checked": {
-                              "type": "boolean"
-                            }
-                          },
-                          "required": [
-                            "id",
-                            "text",
-                            "checked"
-                          ],
-                          "additionalProperties": false
-                        },
-                        "maxItems": 500
-                      }
-                    },
-                    "required": [
-                      "recipes",
-                      "checked",
-                      "extras"
-                    ],
-                    "additionalProperties": false
+                    "$ref": "#/components/schemas/ShoppingListSnapshot"
                   }
                 },
                 "required": [
@@ -8720,7 +8816,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/JsonResponse"
+                  "$ref": "#/components/schemas/ShoppingList"
                 }
               }
             }
@@ -8857,7 +8953,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/JsonResponse"
+                  "$ref": "#/components/schemas/ShoppingList"
                 }
               }
             }
@@ -9003,76 +9099,7 @@
                     "pattern": "^\\d+$"
                   },
                   "snapshot": {
-                    "type": "object",
-                    "properties": {
-                      "recipes": {
-                        "type": "array",
-                        "items": {
-                          "type": "object",
-                          "properties": {
-                            "slug": {
-                              "type": "string",
-                              "minLength": 1,
-                              "maxLength": 200
-                            },
-                            "servings": {
-                              "type": "integer",
-                              "minimum": 1,
-                              "maximum": 1000,
-                              "format": "int32"
-                            }
-                          },
-                          "required": [
-                            "slug"
-                          ],
-                          "additionalProperties": false
-                        },
-                        "maxItems": 200
-                      },
-                      "checked": {
-                        "type": "array",
-                        "items": {
-                          "type": "string",
-                          "minLength": 1,
-                          "maxLength": 200
-                        },
-                        "maxItems": 1000
-                      },
-                      "extras": {
-                        "type": "array",
-                        "items": {
-                          "type": "object",
-                          "properties": {
-                            "id": {
-                              "type": "string",
-                              "minLength": 1,
-                              "maxLength": 200
-                            },
-                            "text": {
-                              "type": "string",
-                              "minLength": 1,
-                              "maxLength": 500
-                            },
-                            "checked": {
-                              "type": "boolean"
-                            }
-                          },
-                          "required": [
-                            "id",
-                            "text",
-                            "checked"
-                          ],
-                          "additionalProperties": false
-                        },
-                        "maxItems": 500
-                      }
-                    },
-                    "required": [
-                      "recipes",
-                      "checked",
-                      "extras"
-                    ],
-                    "additionalProperties": false
+                    "$ref": "#/components/schemas/ShoppingListSnapshot"
                   }
                 },
                 "required": [
@@ -9091,7 +9118,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/JsonResponse"
+                  "$ref": "#/components/schemas/ShoppingList"
                 }
               }
             }

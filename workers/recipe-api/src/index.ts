@@ -454,7 +454,35 @@ const shoppingListSnapshotSchema = z
       )
       .max(500),
   })
-  .strict();
+  .strict()
+  .openapi("ShoppingListSnapshot");
+
+const shoppingListScopeSchema = z
+  .discriminatedUnion("type", [
+    z.object({ type: z.literal("personal") }).strict(),
+    z
+      .object({
+        type: z.literal("household"),
+        household: z
+          .object({ id: z.string().min(1), name: z.string() })
+          .strict(),
+      })
+      .strict(),
+  ])
+  .openapi("ShoppingListScope");
+
+const shoppingListResponseSchema = z
+  .object({
+    id: z.uuid(),
+    resourceId: z.string().min(1),
+    revision: z.string().regex(/^\d+$/),
+    scope: shoppingListScopeSchema,
+    snapshot: shoppingListSnapshotSchema,
+    createdAt: z.iso.datetime(),
+    updatedAt: z.iso.datetime(),
+  })
+  .strict()
+  .openapi("ShoppingList");
 
 const updateShoppingListBodySchema = z
   .object({
@@ -612,6 +640,12 @@ const SUCCESS_STATUS_OVERRIDES = new Map<string, readonly SuccessStatus[]>([
   ["DELETE /recipes/:slug/household-share", [200]],
 ]);
 
+const openApiSuccessResponseSchemas = new Map<string, z.ZodType>([
+  ["GET /shopping-lists/current", shoppingListResponseSchema],
+  ["PUT /shopping-lists/current", shoppingListResponseSchema],
+  ["POST /shopping-lists", shoppingListResponseSchema],
+]);
+
 function openApiPath(path: string): string {
   return path.replace(/:(\w+)/g, "{$1}");
 }
@@ -685,6 +719,8 @@ function successResponsesFor(
     SUCCESS_STATUS_OVERRIDES.get(key) ??
     ([method === "delete" ? 204 : 200] as const);
   const responses: RouteConfig["responses"] = {};
+  const responseSchema =
+    openApiSuccessResponseSchemas.get(key) ?? jsonResponseSchema;
 
   for (const status of statuses) {
     if (status === 101) {
@@ -695,7 +731,7 @@ function successResponsesFor(
       responses[status] = {
         description: successDescription(status),
         content: {
-          "application/json": { schema: jsonResponseSchema },
+          "application/json": { schema: responseSchema },
         },
       };
     }

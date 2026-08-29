@@ -84,6 +84,7 @@ describe("ShoppingListBoundary", () => {
   });
 
   it("installs the server list, keeps the local meal plan separate, and saves edits", async () => {
+    localStorage.setItem("recipe-shopping-plan-resource", "user-1");
     setPlannedMeal("fri", "dinner", "tomato-soup");
     renderWithQueryClient(
       <ShoppingListBoundary>
@@ -111,6 +112,41 @@ describe("ShoppingListBoundary", () => {
     expect(mocks.saveCurrentShoppingList.mock.calls[0]?.[2]).not.toHaveProperty(
       "plan",
     );
+  });
+
+  it("clears a local meal plan owned by another shopping-list scope", async () => {
+    localStorage.setItem("recipe-shopping-plan-resource", "other-user");
+    setPlannedMeal("fri", "dinner", "private-recipe");
+
+    renderWithQueryClient(
+      <ShoppingListBoundary>
+        <p>List ready</p>
+      </ShoppingListBoundary>,
+    );
+
+    await screen.findByText("List ready");
+    expect(getShoppingListSnapshot().plan).toEqual([]);
+  });
+
+  it("keeps failed edits local and shows that they are unsaved", async () => {
+    mocks.saveCurrentShoppingList.mockRejectedValue(new Error("conflict"));
+    renderWithQueryClient(
+      <ShoppingListBoundary>
+        <p>List ready</p>
+      </ShoppingListBoundary>,
+    );
+    await screen.findByText("List ready");
+
+    act(() => addExtra("Milk"));
+
+    expect(
+      await screen.findByText(
+        /latest shopping-list changes have not been saved/i,
+      ),
+    ).toBeInTheDocument();
+    expect(getShoppingListSnapshot().extras).toEqual([
+      expect.objectContaining({ text: "Milk" }),
+    ]);
   });
 
   it("archives the loaded list before clearing the optimistic store", async () => {
