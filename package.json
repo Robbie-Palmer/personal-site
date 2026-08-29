@@ -46,7 +46,8 @@
       "mise run //:lint:prose:staged"
     ],
     "**/*.mdx": [
-      "mise run //:lint:mdx"
+      "mise run //:lint:mdx",
+      "mise run //:lint:prose:staged"
     ],
     "*.{yml,yaml}": [
       "mise run //:lint:yaml"

@@ -26,7 +26,7 @@ verbose = false
 [tools]
 node = "lts"
 "github:pnpm/pnpm" = "11.24.0"
-vale = "3.12.0"
+vale = "3.19.0"
 terraform = "1.16.0"
 tflint = "0.64.0"
 actionlint = "1.7.12"
@@ -104,28 +104,28 @@ fi
 """
 
 [tasks."lint:prose"]
-description = "Lint changed lines in Markdown files with Vale (optionally pass files as args; vendored .vale styles are excluded)"
+description = "Lint changed lines in Markdown and MDX files with Vale (optionally pass files as args; vendored .vale styles are excluded)"
 run = """
 #!/usr/bin/env bash
 if [ $# -eq 0 ]; then
-  set -- $(git ls-files '*.md')
+  set -- $(git ls-files '*.md' '*.mdx')
 fi
 pnpm exec tsx scripts/prose-lint.ts "$@"
 """
 
 [tasks."lint:prose:staged"]
-description = "Lint staged Markdown changes with Vale"
+description = "Lint staged Markdown and MDX changes with Vale"
 run = """
 #!/usr/bin/env bash
 if [ $# -eq 0 ]; then
-  set -- $(git diff --cached --name-only -- '*.md')
+  set -- $(git diff --cached --name-only -- '*.md' '*.mdx')
 fi
 pnpm exec tsx scripts/prose-lint.ts --staged "$@"
 """
 
 [tasks."lint:prose:check"]
-description = "Lint all tracked Markdown files with Vale, failing on any alert"
-run = "pnpm exec tsx scripts/prose-lint.ts --strict --all $(git ls-files '*.md')"
+description = "Lint all tracked Markdown and MDX files with Vale, failing on any alert"
+run = "pnpm exec tsx scripts/prose-lint.ts --strict --all $(git ls-files '*.md' '*.mdx')"
 
 [tasks."lint:knip"]
 description = "Detect unused files, dependencies, and exports across the monorepo with Knip"
