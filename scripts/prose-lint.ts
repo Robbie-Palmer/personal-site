@@ -18,7 +18,7 @@
  *       --strict is passed, otherwise still exits 0)
  */
 
-import { execSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
@@ -45,6 +45,8 @@ Options:
   --diff <type>  Diff type: "cached" (staged), "working" (unstaged),
                  or "auto" (default: "auto").  Auto picks working for
                  tracked files, full scan for untracked.
+  --all          Treat every line of every file as changed (whole-file
+                 scan; used by lint:prose:check).
   --strict       Fail on warnings/advisories too (exit 1).
   --help         Print this help and exit.
 
@@ -72,13 +74,16 @@ function changedLines(
   ref: string,
   cached: boolean,
 ): Set<number> | null {
-  const cmd = cached
-    ? `git diff --cached --unified=0 "${ref}" -- "${file}"`
-    : `git diff --unified=0 "${ref}" -- "${file}"`;
+  const args = cached
+    ? ["diff", "--cached", "--unified=0", ref, "--", file]
+    : ["diff", "--unified=0", ref, "--", file];
 
   let stdout: string;
   try {
-    stdout = execSync(cmd, { encoding: "utf-8", stdio: ["pipe", "pipe", "pipe"] });
+    stdout = execFileSync("git", args, {
+      encoding: "utf-8",
+      stdio: ["pipe", "pipe", "pipe"],
+    });
   } catch {
     return null;
   }
@@ -108,7 +113,7 @@ function allLines(file: string): Set<number> {
 
 function isTracked(file: string): boolean {
   try {
-    execSync(`git ls-files --error-unmatch -- "${file}"`, {
+    execFileSync("git", ["ls-files", "--error-unmatch", "--", file], {
       encoding: "utf-8",
       stdio: ["pipe", "pipe", "pipe"],
     });
@@ -141,18 +146,11 @@ interface ValeOutput {
 }
 
 function runVale(files: string[]): ValeAlert[] {
-  const cmd = [
-    VALE_BIN,
-    "--config",
-    VALE_CONFIG,
-    "--output",
-    "JSON",
-    ...files,
-  ].join(" ");
+  const args = ["--config", VALE_CONFIG, "--output", "JSON", ...files];
 
   let stdout: string;
   try {
-    stdout = execSync(cmd, {
+    stdout = execFileSync(VALE_BIN, args, {
       encoding: "utf-8",
       stdio: ["pipe", "pipe", "pipe"],
       maxBuffer: 10 * 1024 * 1024,
@@ -193,6 +191,7 @@ interface ProseOptions {
   files: string[];
   staged: boolean;
   strict: boolean;
+  all: boolean;
   explicitDiff: "cached" | "working" | "auto" | null;
   base: string;
 }
@@ -202,6 +201,7 @@ function parseArgs(argv: string[]): ProseOptions {
     files: [],
     staged: false,
     strict: false,
+    all: false,
     explicitDiff: null,
     base: "HEAD",
   };
@@ -213,6 +213,9 @@ function parseArgs(argv: string[]): ProseOptions {
         break;
       case "--strict":
         opts.strict = true;
+        break;
+      case "--all":
+        opts.all = true;
         break;
       case "--base":
         opts.base = argv[++i] || "HEAD";
@@ -275,7 +278,10 @@ function main(): void {
 
   const changedMap = new Map<string, Set<number> | null>();
   for (const f of contentFiles) {
-    changedMap.set(resolve(f), changedLinesFor(f, opts.base, diffMode));
+    const lines = opts.all
+      ? allLines(f)
+      : changedLinesFor(f, opts.base, diffMode);
+    changedMap.set(resolve(f), lines);
   }
 
   const filtered = runVale(contentFiles).filter((alert) => {

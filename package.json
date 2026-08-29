@@ -43,7 +43,7 @@
     ],
     "**/*.md": [
       "mise run //:lint:markdown",
-      "mise run //:lint:prose"
+      "mise run //:lint:prose:staged"
     ],
     "**/*.mdx": [
       "mise run //:lint:mdx"
