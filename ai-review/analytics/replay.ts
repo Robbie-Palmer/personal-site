@@ -55,8 +55,7 @@ function validateFrozenPullRequests(rawPullRequests: unknown): FrozenPullRequest
     fail("manifest pullRequests must be a non-empty array");
   }
   const seen = new Set<number>();
-  const pullRequests: FrozenPullRequest[] = [];
-  for (const entry of rawPullRequests) {
+  const pullRequests = rawPullRequests.map((entry) => {
     const candidate = entry as Json;
     const pullRequestNumber =
       typeof candidate.pullRequestNumber === "number" ? candidate.pullRequestNumber : Number.NaN;
@@ -69,8 +68,8 @@ function validateFrozenPullRequests(rawPullRequests: unknown): FrozenPullRequest
       fail(`manifest lists pull request ${pullRequestNumber} more than once`);
     }
     seen.add(pullRequestNumber);
-    pullRequests.push({ pullRequestNumber, headSha, promptVersion });
-  }
+    return { pullRequestNumber, headSha, promptVersion };
+  });
   return pullRequests;
 }
 
@@ -192,17 +191,19 @@ function executeReplay(
   let overBudget = false;
   for (const frozen of manifest.pullRequests) {
     const budgetRemainingUsd = round6(capUsd - spentUsd);
+    const execution: Execution = {
+      pullRequestNumber: frozen.pullRequestNumber,
+      headSha: frozen.headSha,
+      promptVersion: frozen.promptVersion,
+      status: "executed",
+      costUsd: 0,
+      budgetRemainingUsd,
+      result: null,
+      error: null,
+    };
     if (budgetRemainingUsd <= 0 || overBudget) {
-      executions.push({
-        pullRequestNumber: frozen.pullRequestNumber,
-        headSha: frozen.headSha,
-        promptVersion: frozen.promptVersion,
-        status: "skipped-budget-exhausted",
-        costUsd: 0,
-        budgetRemainingUsd,
-        result: null,
-        error: null,
-      });
+      execution.status = "skipped-budget-exhausted";
+      executions.push(execution);
       continue;
     }
     const outcome = runExecutor(executor, {
@@ -215,30 +216,16 @@ function executeReplay(
       budgetRemainingUsd,
     });
     if (!outcome.ok) {
-      executions.push({
-        pullRequestNumber: frozen.pullRequestNumber,
-        headSha: frozen.headSha,
-        promptVersion: frozen.promptVersion,
-        status: "executor-failed",
-        costUsd: 0,
-        budgetRemainingUsd,
-        result: null,
-        error: outcome.error,
-      });
+      execution.status = "executor-failed";
+      execution.error = outcome.error;
+      executions.push(execution);
       break;
     }
     spentUsd = round6(spentUsd + outcome.costUsd);
     if (spentUsd > capUsd) overBudget = true;
-    executions.push({
-      pullRequestNumber: frozen.pullRequestNumber,
-      headSha: frozen.headSha,
-      promptVersion: frozen.promptVersion,
-      status: "executed",
-      costUsd: outcome.costUsd,
-      budgetRemainingUsd,
-      result: outcome.result,
-      error: null,
-    });
+    execution.costUsd = outcome.costUsd;
+    execution.result = outcome.result;
+    executions.push(execution);
   }
   return {
     schemaVersion: 1,
@@ -264,6 +251,7 @@ function executeReplay(
         : (executions.find((execution) => execution.status === "executor-failed")?.error ?? null),
   };
 }
+
 
 function main(): void {
   const args = parseArgs({

@@ -465,8 +465,14 @@ function sortedKeys(buckets: Map<string, Subset>): string[] {
   });
 }
 
+function compareStrings(left: string, right: string): number {
+  if (left < right) return -1;
+  if (left > right) return 1;
+  return 0;
+}
+
 function sortStrings(values: string[]): string[] {
-  return values.sort((left, right) => (left < right ? -1 : left > right ? 1 : 0));
+  return values.sort(compareStrings);
 }
 
 function newSubset(): Subset {
@@ -642,7 +648,7 @@ function buildModelComparison(
 ): { groupByCompatibility: boolean; entries: ModelComparisonEntry[]; mixedCompatibilityEntries: ModelComparisonEntry[] } {
   const { groups, classesByModel } = buildCompatibilityGroups(subset);
   const entries: ModelComparisonEntry[] = [...groups.entries()]
-    .sort(([left], [right]) => (left < right ? -1 : left > right ? 1 : 0))
+    .sort(([left], [right]) => compareStrings(left, right))
     .map(([, group]) => ({
       model: group.model,
       role: group.role,
