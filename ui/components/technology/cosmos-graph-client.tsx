@@ -35,6 +35,11 @@ import {
   type GraphNode,
   NON_NAVIGABLE_HREF,
 } from "@/lib/api/graph-data";
+import {
+  applyDragDisplacement,
+  buildDragPropagationWeights,
+  getCollisionDisplacement,
+} from "@/lib/domain/technology/graphDrag";
 import { filterGraphData } from "@/lib/domain/technology/graphFilter";
 
 const NODE_COLORS: Record<string, string> = {
@@ -56,13 +61,74 @@ const NODE_TYPE_LABELS: Record<string, string> = {
 };
 
 const TOP_LABEL_LIMIT = 14;
-const DRAG_SIMULATION_ALPHA = 0.22;
-const FILTER_SIMULATION_ALPHA = 0.16;
-const RELEASE_SIMULATION_ALPHA = 0.12;
+const COLLISION_PADDING = 5;
 const IGNORE_SELECTION = () => undefined;
 
 type SelectedNode = GraphNode & { totalConnections?: number };
 type LabelPosition = { index: number; x: number; y: number };
+type DragState = {
+  rootIndex: number;
+  startPositions: Float32Array;
+  startPointer: [number, number];
+  weights: Float32Array;
+};
+
+function repelNodesFromDraggedPoint(
+  graph: Graph,
+  positions: Float32Array,
+  draggedIndex: number,
+): Float32Array {
+  const draggedX = positions[draggedIndex * 2];
+  const draggedY = positions[draggedIndex * 2 + 1];
+  if (
+    typeof draggedX !== "number" ||
+    typeof draggedY !== "number" ||
+    !Number.isFinite(draggedX) ||
+    !Number.isFinite(draggedY)
+  ) {
+    return positions;
+  }
+
+  const next = new Float32Array(positions);
+  const draggedScreen = graph.spaceToScreenPosition([draggedX, draggedY]);
+  const draggedRadius = graph.spaceToScreenRadius(
+    graph.getPointRadiusByIndex(draggedIndex) ?? 0,
+  );
+
+  for (let index = 0; index < positions.length / 2; index += 1) {
+    if (index === draggedIndex) continue;
+    const x = positions[index * 2];
+    const y = positions[index * 2 + 1];
+    if (
+      typeof x !== "number" ||
+      typeof y !== "number" ||
+      !Number.isFinite(x) ||
+      !Number.isFinite(y)
+    )
+      continue;
+
+    const obstacleScreen = graph.spaceToScreenPosition([x, y]);
+    const obstacleRadius = graph.spaceToScreenRadius(
+      graph.getPointRadiusByIndex(index) ?? 0,
+    );
+    const [pushX, pushY] = getCollisionDisplacement(
+      draggedScreen,
+      obstacleScreen,
+      draggedRadius + obstacleRadius + COLLISION_PADDING,
+      index,
+    );
+    if (pushX === 0 && pushY === 0) continue;
+
+    const pushedPosition = graph.screenToSpacePosition([
+      obstacleScreen[0] + pushX,
+      obstacleScreen[1] + pushY,
+    ]);
+    next[index * 2] = pushedPosition[0];
+    next[index * 2 + 1] = pushedPosition[1];
+  }
+
+  return next;
+}
 
 function hexToRgba(hex: string, alpha = 1): [number, number, number, number] {
   const value = hex.replace("#", "");
@@ -128,8 +194,9 @@ const CosmosCanvas = memo(function CosmosCanvas({
 }: CosmosCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const graphRef = useRef<Graph | null>(null);
+  const dragStateRef = useRef<DragState | null>(null);
   const hasRenderedRef = useRef(false);
-  const motionEnabledRef = useRef(false);
+  const hoveredPointIndexRef = useRef<number | null>(null);
   const positionsRef = useRef<Float32Array>(deterministicPositions(data.nodes));
   const [labels, setLabels] = useState<LabelPosition[]>([]);
   const [failed, setFailed] = useState(false);
@@ -150,14 +217,10 @@ const CosmosCanvas = memo(function CosmosCanvas({
     const container = containerRef.current;
     if (!container) return;
 
-    const motionEnabled =
-      interactive &&
-      !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    motionEnabledRef.current = motionEnabled;
     hasRenderedRef.current = false;
     const graph = new Graph(container, {
       backgroundColor: [0, 0, 0, 0],
-      enableSimulation: motionEnabled,
+      enableSimulation: false,
       enableDrag: interactive,
       enableZoom: interactive,
       fitViewOnInit: true,
@@ -174,26 +237,65 @@ const CosmosCanvas = memo(function CosmosCanvas({
       randomSeed: 38,
       renderHoveredPointRing: interactive,
       rescalePositions: true,
-      simulationCollision: 0.8,
-      simulationCollisionPadding: 3,
-      simulationDecay: 90,
-      simulationFriction: 0.76,
-      simulationGravity: 0.08,
-      simulationLinkDistance: 42,
-      simulationLinkSpring: 0.32,
-      simulationRepulsion: 0.42,
       transitionDuration: 0,
-      onDragStart: () => {
-        if (motionEnabledRef.current)
-          graphRef.current?.start(DRAG_SIMULATION_ALPHA);
+      onPointMouseOver: (index) => {
+        hoveredPointIndexRef.current = index;
       },
-      onDrag: () => {
-        if (motionEnabledRef.current)
-          graphRef.current?.start(DRAG_SIMULATION_ALPHA);
+      onPointMouseOut: () => {
+        if (!dragStateRef.current) hoveredPointIndexRef.current = null;
+      },
+      onDragStart: (event) => {
+        const activeGraph = graphRef.current;
+        const rootIndex = hoveredPointIndexRef.current;
+        if (!activeGraph || rootIndex === null) return;
+        dragStateRef.current = {
+          rootIndex,
+          startPositions: new Float32Array(activeGraph.getPointPositions()),
+          startPointer: activeGraph.screenToSpacePosition([event.x, event.y]),
+          weights: buildDragPropagationWeights(
+            data.nodes.length,
+            rootIndex,
+            (index) => activeGraph.getNeighboringPointIndices(index),
+          ),
+        };
+      },
+      onDrag: (event) => {
+        const activeGraph = graphRef.current;
+        const dragState = dragStateRef.current;
+        if (!activeGraph || !dragState) return;
+        const pointer = activeGraph.screenToSpacePosition([event.x, event.y]);
+        const positions = repelNodesFromDraggedPoint(
+          activeGraph,
+          applyDragDisplacement(
+            dragState.startPositions,
+            dragState.weights,
+            pointer[0] - dragState.startPointer[0],
+            pointer[1] - dragState.startPointer[1],
+          ),
+          dragState.rootIndex,
+        );
+        activeGraph.setPointPositions(positions, true);
+        activeGraph.render(0, 0);
       },
       onDragEnd: () => {
-        if (motionEnabledRef.current)
-          graphRef.current?.start(RELEASE_SIMULATION_ALPHA);
+        const activeGraph = graphRef.current;
+        if (activeGraph) {
+          const current = activeGraph.getPointPositions();
+          for (let index = 0; index < data.nodes.length; index += 1) {
+            const x = current[index * 2];
+            const y = current[index * 2 + 1];
+            if (
+              typeof x === "number" &&
+              typeof y === "number" &&
+              Number.isFinite(x) &&
+              Number.isFinite(y)
+            ) {
+              positionsRef.current[index * 2] = x;
+              positionsRef.current[index * 2 + 1] = y;
+            }
+          }
+        }
+        dragStateRef.current = null;
       },
       onPointClick: (index) => {
         if (!interactive) return;
@@ -237,7 +339,7 @@ const CosmosCanvas = memo(function CosmosCanvas({
       .catch(() => setFailed(true));
 
     return () => {
-      motionEnabledRef.current = false;
+      dragStateRef.current = null;
       graphRef.current = null;
       graph.destroy();
     };
@@ -273,12 +375,9 @@ const CosmosCanvas = memo(function CosmosCanvas({
       links[index * 2] = nodeIndex.get(edge.source) ?? 0;
       links[index * 2 + 1] = nodeIndex.get(edge.target) ?? 0;
     }
-    graph.setPointPositions(nextPositions);
+    graph.setPointPositions(nextPositions, hasRenderedRef.current);
     graph.setLinks(links);
     graph.render(0, 0);
-    if (hasRenderedRef.current && motionEnabledRef.current) {
-      graph.start(FILTER_SIMULATION_ALPHA);
-    }
     hasRenderedRef.current = true;
 
     const topIndices = [...visibleIndices]

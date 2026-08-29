@@ -768,7 +768,7 @@ export const technologies: TechnologyContent[] = [
     name: "cosmos.gl",
     added: "2026-08-27",
     description:
-      "GPU-accelerated graph rendering with touch interaction, viewport controls, and interaction-driven physics",
+      "GPU-accelerated graph rendering with touch interaction, viewport controls, and connected-node drag propagation",
     website: "https://github.com/cosmosgl/graph",
     type: "library",
   },

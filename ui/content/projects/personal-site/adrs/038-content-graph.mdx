@@ -70,12 +70,12 @@ The implementation:
 
 The fixed Sigma layout made filtering predictable, but rebuilding the Graphology instance after every filter change discarded the previous layout. Synchronous ForceAtlas2 work also blocked the main thread, and rendered node radii could still overlap.
 
-Replace Sigma.js and Graphology with **[cosmos.gl](https://github.com/cosmosgl/graph)**. Keep every node at a stable numeric index and hide filtered nodes with absent positions. A deterministic radial layout keeps the initial graph inside its fitted viewport without rebuilding its identity. Short, low-energy force simulations run only after dragging or filtering.
+Replace Sigma.js and Graphology with **[cosmos.gl](https://github.com/cosmosgl/graph)**. Keep every node at a stable numeric index and hide filtered nodes with absent positions. A deterministic radial layout keeps the graph inside its fitted viewport without rebuilding its identity. Dragging a node directly displaces nearby connected nodes with a depth-based falloff. Local collision handling pushes overlapping nodes aside without starting a global force simulation.
 
 The replacement adds:
 
-* A stable initial layout that remains inside the fitted viewport
-* Contained physics after dragging or filtering, while preserving surviving node positions
+* A stable layout that remains inside the fitted viewport
+* Anchored drag propagation with local collision handling, while untouched and filtered nodes keep their positions
 * Node sizing based on global connection count
 * Search, neighbourhood highlighting, direct page links, and a reset control
 * A passive mobile homepage preview that does not capture scrolling
