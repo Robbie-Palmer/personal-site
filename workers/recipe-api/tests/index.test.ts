@@ -6853,6 +6853,23 @@ describe("preview authentication", () => {
     expect(res.status).toBe(404);
   });
 
+  it.each([
+    ["GET", "/api/auth/preview/scenarios"],
+    ["POST", "/api/auth/preview/sign-up"],
+    ["POST", "/api/auth/preview/sign-in"],
+  ])(
+    "does not expose %s %s when the preview environment uses a production hostname",
+    async (method, path) => {
+      const res = await app.request(
+        path,
+        { method },
+        { ...previewEnv, BETTER_AUTH_URL: "https://robbiepalmer.me" },
+      );
+
+      expect(res.status).toBe(404);
+    },
+  );
+
   it("requires complete preview configuration", async () => {
     const res = await app.request(
       "/api/auth/preview/scenarios",

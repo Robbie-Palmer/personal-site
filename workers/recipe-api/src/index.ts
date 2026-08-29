@@ -40,7 +40,7 @@ import {
 import { parseRecipeFile } from "recipe-parsing/recipe-file";
 import { parseSchemaOrgRecipeHtml } from "recipe-parsing/schema-org";
 import { recipeAgentConfiguration } from "./agent-auth";
-import { createAuth } from "./auth";
+import { createAuth, isPreviewAuthEnabled } from "./auth";
 import { verifyCloudflareAccess } from "./cloudflare-access";
 import { cookingInsightsResponse } from "./cooking-reads";
 import { hasPostgresErrorCode } from "./db/errors";
@@ -2952,14 +2952,11 @@ async function requireHouseholdMemberResponse(
 }
 
 async function hasPreviewAccess(request: Request, env: Bindings) {
-  return (
-    env.DEPLOYMENT_ENV === "preview" &&
-    (await verifyCloudflareAccess(request, env))
-  );
+  return isPreviewAuthEnabled(env) && verifyCloudflareAccess(request, env);
 }
 
 registerRoute("get", "/api/auth/preview/scenarios", async (c) => {
-  if (c.env.DEPLOYMENT_ENV !== "preview") return c.notFound();
+  if (!isPreviewAuthEnabled(c.env)) return c.notFound();
   if (!hasAuthConfiguration(c.env)) {
     return c.json({ error: "Preview auth configuration is incomplete" }, 503);
   }
@@ -2977,7 +2974,7 @@ registerRoute("get", "/api/auth/preview/scenarios", async (c) => {
 });
 
 registerRoute("post", "/api/auth/preview/sign-up", async (c) => {
-  if (c.env.DEPLOYMENT_ENV !== "preview") return c.notFound();
+  if (!isPreviewAuthEnabled(c.env)) return c.notFound();
   if (!hasAuthConfiguration(c.env)) {
     return c.json({ error: "Preview auth configuration is incomplete" }, 503);
   }
@@ -3021,7 +3018,7 @@ registerRoute("post", "/api/auth/preview/sign-up", async (c) => {
 });
 
 registerRoute("post", "/api/auth/preview/sign-in", async (c) => {
-  if (c.env.DEPLOYMENT_ENV !== "preview") return c.notFound();
+  if (!isPreviewAuthEnabled(c.env)) return c.notFound();
   if (!hasAuthConfiguration(c.env)) {
     return c.json({ error: "Preview auth configuration is incomplete" }, 503);
   }

@@ -23,6 +23,8 @@ type AuthEnv = {
   BETTER_AUTH_SECRET: string;
 };
 
+type PreviewAuthEnv = Pick<AuthEnv, "BETTER_AUTH_URL" | "DEPLOYMENT_ENV">;
+
 type CreateAuthOptions = {
   allowPreviewSignUp?: boolean;
   autoSignInPreviewSignUp?: boolean;
@@ -33,6 +35,25 @@ const AGENT_AUTH_JTI_RESERVATION_TTL_SECONDS = 2 * 60;
 const AUTH_SECONDARY_STORAGE_DEFAULT_TTL_SECONDS = 30 * 24 * 60 * 60;
 const AUTH_SECONDARY_STORAGE_MAX_TTL_SECONDS = 90 * 24 * 60 * 60;
 
+export function isPreviewAuthEnabled(env: PreviewAuthEnv): boolean {
+  if (env.DEPLOYMENT_ENV !== "preview") return false;
+
+  try {
+    const url = new URL(env.BETTER_AUTH_URL);
+    const isPagesPreview =
+      url.protocol === "https:" &&
+      /^pr-[1-9]\d*\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.pages\.dev$/i.test(
+        url.hostname,
+      );
+    const isLocalDevelopment =
+      url.protocol === "http:" &&
+      ["localhost", "127.0.0.1", "[::1]"].includes(url.hostname);
+    return isPagesPreview || isLocalDevelopment;
+  } catch {
+    return false;
+  }
+}
+
 function rateLimitStorage(db: Db) {
   const namespaced = (key: string) => `auth:${key}`;
   return {
@@ -40,6 +61,7 @@ function rateLimitStorage(db: Db) {
       const result = await enforceRateLimit(db, namespaced(key), {
         max: rule.max,
         windowSeconds: rule.window,
+        failClosed: true,
       });
       return {
         allowed: result.allowed,
@@ -172,7 +194,7 @@ export function createAuth(
 ) {
   const baseURL = new URL(env.BETTER_AUTH_URL).origin;
   const isSecure = baseURL.startsWith("https://");
-  const isPreview = env.DEPLOYMENT_ENV === "preview";
+  const isPreview = isPreviewAuthEnabled(env);
   const socialProviders = isPreview
     ? {}
     : {
