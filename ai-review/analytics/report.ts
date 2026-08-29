@@ -132,14 +132,21 @@ function usageError(message: string): never {
   throw new UsageError(message);
 }
 
+function resolveExistingPath(value: string, label: string): string {
+  if (value.includes("\u0000")) fail(`${label} contains invalid characters`);
+  const resolved = path.resolve(value);
+  if (!fs.existsSync(resolved)) fail(`${label} not found: ${resolved}`);
+  return resolved;
+}
+
 function readRows(martsDir: string, mart: string): Json[] {
-  const file = path.join(martsDir, `${mart}.parquet`);
+  const file = path.join(resolveExistingPath(martsDir, "marts directory"), `${mart}.parquet`);
   if (!fs.existsSync(file)) fail(`missing mart: ${file}`);
   const escaped = file.replaceAll("'", "''");
   const result = spawnSync(
     "duckdb",
     ["-json", "-noheader", "-c", `SET TimeZone='UTC'; SELECT * FROM read_parquet('${escaped}')`],
-    { encoding: "utf8", maxBuffer: 256 * 1024 * 1024 },
+    { encoding: "utf8", maxBuffer: 256 * 1024 * 1024, shell: false },
   );
   if (result.error || result.status !== 0) {
     fail(`duckdb failed reading ${file}: ${result.stderr?.trim() ?? result.error?.message}`);
@@ -167,11 +174,11 @@ function str(value: unknown): string | null {
 }
 
 function stringList(value: unknown): string[] {
-  if (Array.isArray(value)) return value.map((entry) => String(entry));
+  if (Array.isArray(value)) return value.map(String);
   if (typeof value === "string" && value.trim().startsWith("[")) {
     try {
       const parsed: unknown = JSON.parse(value);
-      if (Array.isArray(parsed)) return parsed.map((entry) => String(entry));
+      if (Array.isArray(parsed)) return parsed.map(String);
     } catch {
       return [];
     }
@@ -288,6 +295,29 @@ function entry(
   return metric;
 }
 
+function latencyMetricsFor(subset: Subset): { latencies: number[]; firstTriggerByPullRequest: Map<number, number> } {
+  const firstTriggerByPullRequest = new Map<number, number>();
+  for (const run of subset.runs) {
+    if (!run.findingIdentityAvailable || run.triggeredAt === null) continue;
+    const existing = firstTriggerByPullRequest.get(run.pullRequestNumber);
+    if (existing === undefined || run.triggeredAt.getTime() < existing) {
+      firstTriggerByPullRequest.set(run.pullRequestNumber, run.triggeredAt.getTime());
+    }
+  }
+  const latencyByPullRequest = new Map<number, number>();
+  for (const finding of subset.findings) {
+    if (!finding.accepted || finding.outcomeAt === null) continue;
+    const firstTrigger = firstTriggerByPullRequest.get(finding.pullRequestNumber);
+    if (firstTrigger === undefined) continue;
+    const latency = finding.outcomeAt.getTime() - firstTrigger;
+    const existing = latencyByPullRequest.get(finding.pullRequestNumber);
+    if (existing === undefined || latency < existing) {
+      latencyByPullRequest.set(finding.pullRequestNumber, latency);
+    }
+  }
+  return { latencies: [...latencyByPullRequest.values()], firstTriggerByPullRequest };
+}
+
 function metricsFor(subset: Subset, options: MetricOptions): Metrics {
   const identityRuns = subset.runs.filter((run) => run.findingIdentityAvailable);
   const identityCalls = subset.calls.filter((call) => call.findingIdentityAvailable);
@@ -303,26 +333,7 @@ function metricsFor(subset: Subset, options: MetricOptions): Metrics {
   const cachedTokens = identityCalls.reduce((total, call) => total + call.cachedInputTokens, 0);
   const identityPullRequests = new Set(identityRuns.map((run) => run.pullRequestNumber)).size;
 
-  const latencyByPullRequest = new Map<number, number>();
-  const firstTriggerByPullRequest = new Map<number, number>();
-  for (const run of identityRuns) {
-    if (run.triggeredAt === null) continue;
-    const existing = firstTriggerByPullRequest.get(run.pullRequestNumber);
-    if (existing === undefined || run.triggeredAt.getTime() < existing) {
-      firstTriggerByPullRequest.set(run.pullRequestNumber, run.triggeredAt.getTime());
-    }
-  }
-  for (const finding of subset.findings) {
-    if (!finding.accepted || finding.outcomeAt === null) continue;
-    const firstTrigger = firstTriggerByPullRequest.get(finding.pullRequestNumber);
-    if (firstTrigger === undefined) continue;
-    const latency = finding.outcomeAt.getTime() - firstTrigger;
-    const existing = latencyByPullRequest.get(finding.pullRequestNumber);
-    if (existing === undefined || latency < existing) {
-      latencyByPullRequest.set(finding.pullRequestNumber, latency);
-    }
-  }
-  const latencies = [...latencyByPullRequest.values()];
+  const { latencies } = latencyMetricsFor(subset);
   const medianLatency = median(latencies);
   const maxLatency = latencies.length > 0 ? Math.max(...latencies) : null;
 
@@ -422,18 +433,12 @@ function compatibilityClasses(subset: Subset): string[] {
       `scout\u0000${finding.promptVersion ?? UNKNOWN}|${run?.publicationPolicyVersion ?? UNKNOWN}`,
     );
   }
-  return [...classes].sort();
+  return sortStrings([...classes]);
 }
 
 function assignRuns(subset: Subset, keyOf: (run: RunRow) => string[]): Map<string, Subset> {
   const buckets = new Map<string, Subset>();
-  const bucketFor = (key: string): Subset => {
-    const existing = buckets.get(key);
-    if (existing) return existing;
-    const created: Subset = { runs: [], findings: [], calls: [] };
-    buckets.set(key, created);
-    return created;
-  };
+  const bucketFor = (key: string): Subset => bucketIn(buckets, key);
   const runBuckets = new Map<string, string[]>();
   for (const run of subset.runs) {
     const keys = keyOf(run);
@@ -460,6 +465,64 @@ function sortedKeys(buckets: Map<string, Subset>): string[] {
   });
 }
 
+function sortStrings(values: string[]): string[] {
+  return values.sort((left, right) => (left < right ? -1 : left > right ? 1 : 0));
+}
+
+function newSubset(): Subset {
+  return { runs: [], findings: [], calls: [] };
+}
+
+function bucketIn(buckets: Map<string, Subset>, key: string): Subset {
+  const existing = buckets.get(key);
+  if (existing) return existing;
+  const created = newSubset();
+  buckets.set(key, created);
+  return created;
+}
+
+function buildModelBuckets(subset: Subset): Map<string, Subset> {
+  const buckets = new Map<string, Subset>();
+  for (const call of subset.calls) {
+    const bucket = bucketIn(buckets, call.model);
+    bucket.calls.push(call);
+    const run = subset.runs.find((candidate) => candidate.runId === call.runId);
+    if (run && !bucket.runs.some((candidate) => candidate.runId === run.runId)) {
+      bucket.runs.push(run);
+    }
+  }
+  for (const finding of subset.findings) {
+    for (const model of finding.sourceModels) {
+      const bucket = bucketIn(buckets, model);
+      bucket.findings.push(finding);
+      const run = subset.runs.find((candidate) => candidate.runId === finding.runId);
+      if (run && !bucket.runs.some((candidate) => candidate.runId === run.runId)) {
+        bucket.runs.push(run);
+      }
+    }
+  }
+  return buckets;
+}
+
+function runDimensionKeys(dimension: string, run: RunRow): string[] {
+  switch (dimension) {
+    case "prompt":
+      return [run.promptVersion ?? UNKNOWN];
+    case "repository-area":
+      return run.repositoryAreas.length > 0 ? run.repositoryAreas : [UNKNOWN];
+    case "risk":
+      return run.riskSignals.length > 0 ? run.riskSignals : [UNKNOWN];
+    case "change-size":
+      return [run.changeSizeBand ?? UNKNOWN];
+    case "task-type":
+      return [run.taskType ?? UNKNOWN];
+    case "originating-agent":
+      return [run.originatingAgent ?? UNKNOWN];
+    default:
+      fail(`unknown slice dimension: ${dimension}`);
+  }
+}
+
 function buildSlices(
   subset: Subset,
   dimensions: readonly string[],
@@ -467,55 +530,10 @@ function buildSlices(
   allowMixed: boolean,
 ): Json[] {
   return dimensions.map((dimension) => {
-    let buckets: Map<string, Subset>;
-    if (dimension === "model") {
-      buckets = new Map<string, Subset>();
-      const bucketFor = (key: string): Subset => {
-        const existing = buckets.get(key);
-        if (existing) return existing;
-        const created: Subset = { runs: [], findings: [], calls: [] };
-        buckets.set(key, created);
-        return created;
-      };
-      for (const call of subset.calls) {
-        const bucket = bucketFor(call.model);
-        bucket.calls.push(call);
-        const run = subset.runs.find((candidate) => candidate.runId === call.runId);
-        if (run && !bucket.runs.some((candidate) => candidate.runId === run.runId)) {
-          bucket.runs.push(run);
-        }
-      }
-      for (const finding of subset.findings) {
-        for (const model of finding.sourceModels) {
-          const bucket = bucketFor(model);
-          bucket.findings.push(finding);
-          const run = subset.runs.find((candidate) => candidate.runId === finding.runId);
-          if (run && !bucket.runs.some((candidate) => candidate.runId === run.runId)) {
-            bucket.runs.push(run);
-          }
-        }
-      }
-    } else {
-      const keyOf = (run: RunRow): string[] => {
-        switch (dimension) {
-          case "prompt":
-            return [run.promptVersion ?? UNKNOWN];
-          case "repository-area":
-            return run.repositoryAreas.length > 0 ? run.repositoryAreas : [UNKNOWN];
-          case "risk":
-            return run.riskSignals.length > 0 ? run.riskSignals : [UNKNOWN];
-          case "change-size":
-            return [run.changeSizeBand ?? UNKNOWN];
-          case "task-type":
-            return [run.taskType ?? UNKNOWN];
-          case "originating-agent":
-            return [run.originatingAgent ?? UNKNOWN];
-          default:
-            fail(`unknown slice dimension: ${dimension}`);
-        }
-      };
-      buckets = assignRuns(subset, keyOf);
-    }
+    const buckets =
+      dimension === "model"
+        ? buildModelBuckets(subset)
+        : assignRuns(subset, (run) => runDimensionKeys(dimension, run));
     const values: SliceValue[] = sortedKeys(buckets).map((key) => {
       const bucket = buckets.get(key);
       if (!bucket) fail(`missing slice bucket ${key}`);
@@ -547,19 +565,16 @@ interface ModelComparisonEntry extends Json {
   compatibilityClassCount?: number;
 }
 
-function buildModelComparison(
-  subset: Subset,
-  options: MetricOptions,
-  allowMixed: boolean,
-): { groupByCompatibility: boolean; entries: ModelComparisonEntry[]; mixedCompatibilityEntries: ModelComparisonEntry[] } {
-  const classKey = (role: string | null, promptVersion: string | null, policy: string | null): string =>
-    `${role ?? UNKNOWN}\u0000${promptVersion ?? UNKNOWN}|${policy ?? UNKNOWN}`;
+function buildCompatibilityGroups(subset: Subset): {
+  groups: Map<string, { model: string; role: string | null; promptVersion: string | null; policy: string | null; subset: Subset }>;
+  classesByModel: Map<string, Set<string>>;
+} {
   const groups = new Map<string, { model: string; role: string | null; promptVersion: string | null; policy: string | null; subset: Subset }>();
   const groupFor = (model: string, role: string | null, promptVersion: string | null, policy: string | null) => {
-    const key = `${model}\u0000${classKey(role, promptVersion, policy)}`;
+    const key = `${model}\u0000${role ?? UNKNOWN}\u0000${promptVersion ?? UNKNOWN}|${policy ?? UNKNOWN}`;
     const existing = groups.get(key);
     if (existing) return existing;
-    const created = { model, role, promptVersion, policy, subset: { runs: [], findings: [], calls: [] } as Subset };
+    const created = { model, role, promptVersion, policy, subset: newSubset() };
     groups.set(key, created);
     return created;
   };
@@ -581,19 +596,6 @@ function buildModelComparison(
       pushRun(bucket.subset, run);
     }
   }
-  const entries: ModelComparisonEntry[] = [...groups.entries()]
-    .sort(([left], [right]) => left.localeCompare(right))
-    .map(([, group]) => ({
-      model: group.model,
-      role: group.role,
-      promptVersion: group.promptVersion,
-      publicationPolicyVersion: group.policy,
-      outcomeAttribution: identityRunCount(group.subset) > 0 ? "available" : "unavailable",
-      sampleSizes: sampleSizesFor(group.subset),
-      metrics: metricsFor(group.subset, options),
-    }));
-  const modelNames = new Set<string>();
-  for (const [key] of groups) modelNames.add(key.split("\u0000")[0] ?? UNKNOWN);
   const classesByModel = new Map<string, Set<string>>();
   for (const [key] of groups) {
     const parts = key.split("\u0000");
@@ -604,37 +606,65 @@ function buildModelComparison(
     set.add(className);
     classesByModel.set(model, set);
   }
+  return { groups, classesByModel };
+}
+
+function mixedAggregateEntry(
+  model: string,
+  subset: Subset,
+  classCount: number,
+  options: MetricOptions,
+): ModelComparisonEntry {
+  const runIds = new Set<string>();
+  for (const call of subset.calls) runIds.add(call.runId);
+  for (const finding of subset.findings) runIds.add(finding.runId);
+  const modelSubset: Subset = {
+    runs: subset.runs.filter((run) => runIds.has(run.runId)),
+    findings: subset.findings.filter((finding) => finding.sourceModels.includes(model)),
+    calls: subset.calls.filter((call) => call.model === model),
+  };
+  return {
+    model,
+    role: null,
+    promptVersion: null,
+    publicationPolicyVersion: null,
+    outcomeAttribution: identityRunCount(modelSubset) > 0 ? "available" : "unavailable",
+    sampleSizes: sampleSizesFor(modelSubset),
+    metrics: metricsFor(modelSubset, options),
+    compatibilityClassCount: classCount,
+  };
+}
+
+function buildModelComparison(
+  subset: Subset,
+  options: MetricOptions,
+  allowMixed: boolean,
+): { groupByCompatibility: boolean; entries: ModelComparisonEntry[]; mixedCompatibilityEntries: ModelComparisonEntry[] } {
+  const { groups, classesByModel } = buildCompatibilityGroups(subset);
+  const entries: ModelComparisonEntry[] = [...groups.entries()]
+    .sort(([left], [right]) => (left < right ? -1 : left > right ? 1 : 0))
+    .map(([, group]) => ({
+      model: group.model,
+      role: group.role,
+      promptVersion: group.promptVersion,
+      publicationPolicyVersion: group.policy,
+      outcomeAttribution: identityRunCount(group.subset) > 0 ? "available" : "unavailable",
+      sampleSizes: sampleSizesFor(group.subset),
+      metrics: metricsFor(group.subset, options),
+    }));
   const mixedEntries: ModelComparisonEntry[] = [];
   if (allowMixed) {
-    for (const model of [...modelNames].sort()) {
+    for (const model of sortStrings([...classesByModel.keys()])) {
       const classes = classesByModel.get(model);
       if (!classes || classes.size < 2) continue;
-      const modelSubset: Subset = {
-        runs: [],
-        findings: subset.findings.filter((finding) => finding.sourceModels.includes(model)),
-        calls: subset.calls.filter((call) => call.model === model),
-      };
-      const runIds = new Set<string>();
-      for (const call of modelSubset.calls) runIds.add(call.runId);
-      for (const finding of modelSubset.findings) runIds.add(finding.runId);
-      modelSubset.runs = subset.runs.filter((run) => runIds.has(run.runId));
-      mixedEntries.push({
-        model,
-        role: null,
-        promptVersion: null,
-        publicationPolicyVersion: null,
-        outcomeAttribution: identityRunCount(modelSubset) > 0 ? "available" : "unavailable",
-        sampleSizes: sampleSizesFor(modelSubset),
-        metrics: metricsFor(modelSubset, options),
-        compatibilityClassCount: classes.size,
-      });
+      mixedEntries.push(mixedAggregateEntry(model, subset, classes.size, options));
     }
   }
   return { groupByCompatibility: true, entries, mixedCompatibilityEntries: mixedEntries };
 }
 
 function readManifest(martsDir: string): Json {
-  const file = path.join(martsDir, "scorecard-manifest.json");
+  const file = path.join(resolveExistingPath(martsDir, "marts directory"), "scorecard-manifest.json");
   if (!fs.existsSync(file)) fail(`missing manifest: ${file}`);
   const manifest = JSON.parse(fs.readFileSync(file, "utf8")) as Json;
   if (manifest.schemaVersion !== 1) fail(`unsupported manifest schema version: ${String(manifest.schemaVersion)}`);

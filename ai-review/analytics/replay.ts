@@ -50,27 +50,7 @@ function round6(value: number): number {
   return Math.round(value * 1e6) / 1e6;
 }
 
-function loadManifest(file: string): Manifest {
-  if (!fs.existsSync(file)) fail(`manifest not found: ${file}`);
-  let parsed: Json;
-  try {
-    parsed = JSON.parse(fs.readFileSync(file, "utf8")) as Json;
-  } catch (error) {
-    fail(`manifest is not valid JSON: ${String(error)}`);
-  }
-  if (parsed.schemaVersion !== 2) {
-    fail(`unsupported manifest schema version: ${String(parsed.schemaVersion)}`);
-  }
-  if (parsed.recordType !== "replay-manifest") {
-    fail(`unsupported manifest record type: ${String(parsed.recordType)}`);
-  }
-  const repository = typeof parsed.repository === "string" ? parsed.repository : "";
-  const manifestId = typeof parsed.manifestId === "string" ? parsed.manifestId : "";
-  const createdAt = typeof parsed.createdAt === "string" ? parsed.createdAt : "";
-  if (!repository || !manifestId || !createdAt) {
-    fail("manifest requires repository, manifestId, and createdAt");
-  }
-  const rawPullRequests = parsed.pullRequests;
+function validateFrozenPullRequests(rawPullRequests: unknown): FrozenPullRequest[] {
   if (!Array.isArray(rawPullRequests) || rawPullRequests.length === 0) {
     fail("manifest pullRequests must be a non-empty array");
   }
@@ -91,7 +71,35 @@ function loadManifest(file: string): Manifest {
     seen.add(pullRequestNumber);
     pullRequests.push({ pullRequestNumber, headSha, promptVersion });
   }
-  return { repository, manifestId, createdAt, pullRequests };
+  return pullRequests;
+}
+
+function loadManifest(file: string): Manifest {
+  if (!fs.existsSync(file)) fail(`manifest not found: ${file}`);
+  let parsed: Json;
+  try {
+    parsed = JSON.parse(fs.readFileSync(file, "utf8")) as Json;
+  } catch (error) {
+    fail(`manifest is not valid JSON: ${String(error)}`);
+  }
+  if (parsed.schemaVersion !== 2) {
+    fail(`unsupported manifest schema version: ${String(parsed.schemaVersion)}`);
+  }
+  if (parsed.recordType !== "replay-manifest") {
+    fail(`unsupported manifest record type: ${String(parsed.recordType)}`);
+  }
+  const repository = typeof parsed.repository === "string" ? parsed.repository : "";
+  const manifestId = typeof parsed.manifestId === "string" ? parsed.manifestId : "";
+  const createdAt = typeof parsed.createdAt === "string" ? parsed.createdAt : "";
+  if (!repository || !manifestId || !createdAt) {
+    fail("manifest requires repository, manifestId, and createdAt");
+  }
+  return {
+    repository,
+    manifestId,
+    createdAt,
+    pullRequests: validateFrozenPullRequests(parsed.pullRequests),
+  };
 }
 
 function runExecutor(
@@ -153,58 +161,32 @@ function renderMarkdown(result: Json): string {
   return lines.join("\n");
 }
 
-function main(): void {
-  const args = parseArgs({
-    options: {
-      manifest: { type: "string" },
-      output: { type: "string" },
-      "max-cost-usd": { type: "string" },
-      models: { type: "string" },
-      executor: { type: "string" },
-      yes: { type: "boolean", default: false },
-    },
-  });
-  const { values } = args;
-  if (!values.manifest) usageError("--manifest is required");
-  if (!values.output) usageError("--output is required");
-  const manifest = loadManifest(values.manifest);
-  const outputDir = values.output;
-  fs.mkdirSync(outputDir, { recursive: true });
+function parseModelList(raw: string | undefined): string[] | null {
+  const models = (raw ?? "")
+    .split(",")
+    .map((model) => model.trim())
+    .filter(Boolean);
+  return models.length > 0 ? models : null;
+}
 
+function executionRequirements(values: { "max-cost-usd"?: string; models?: string; executor?: string }): { capUsd: number; models: string[]; executor: string } {
+  const capUsd = Number(values["max-cost-usd"]);
+  if (!Number.isFinite(capUsd) || capUsd <= 0) usageError("--max-cost-usd must be a positive number");
   const models = (values.models ?? "")
     .split(",")
     .map((model) => model.trim())
     .filter(Boolean);
-
-  if (!values.yes) {
-    const plan: Json = {
-      schemaVersion: 1,
-      recordType: "controlled-replay-plan",
-      manifestId: manifest.manifestId,
-      repository: manifest.repository,
-      manifestCreatedAt: manifest.createdAt,
-      manifestPath: values.manifest,
-      frozen: {
-        pullRequests: manifest.pullRequests,
-        models: models.length > 0 ? models : null,
-      },
-      budget: { capUsd: values["max-cost-usd"] ? Number(values["max-cost-usd"]) : null },
-      execution: {
-        optIn: false,
-        note: `no replay was executed; ${EXECUTION_USAGE}`,
-      },
-    };
-    fs.writeFileSync(path.join(outputDir, "replay-plan.json"), `${JSON.stringify(plan, null, 2)}\n`);
-    console.log(`Wrote replay plan for ${manifest.pullRequests.length} frozen pull requests to ${outputDir}`);
-    console.log(`No replay was executed; ${EXECUTION_USAGE}`);
-    return;
-  }
-
-  const capUsd = Number(values["max-cost-usd"]);
-  if (!Number.isFinite(capUsd) || capUsd <= 0) usageError("--max-cost-usd must be a positive number");
   if (models.length === 0) usageError("--models is required to execute a replay");
   if (!values.executor) usageError("--executor is required to execute a replay");
+  return { capUsd, models, executor: values.executor };
+}
 
+function executeReplay(
+  manifest: Manifest,
+  capUsd: number,
+  models: string[],
+  executor: string,
+): Json {
   const executions: Execution[] = [];
   let spentUsd = 0;
   let overBudget = false;
@@ -223,7 +205,7 @@ function main(): void {
       });
       continue;
     }
-    const outcome = runExecutor(values.executor, {
+    const outcome = runExecutor(executor, {
       repository: manifest.repository,
       manifestId: manifest.manifestId,
       pullRequestNumber: frozen.pullRequestNumber,
@@ -258,8 +240,7 @@ function main(): void {
       error: null,
     });
   }
-
-  const result: Json = {
+  return {
     schemaVersion: 1,
     recordType: "controlled-replay-result",
     manifestId: manifest.manifestId,
@@ -282,15 +263,67 @@ function main(): void {
         ? "budget exceeded"
         : (executions.find((execution) => execution.status === "executor-failed")?.error ?? null),
   };
+}
+
+function main(): void {
+  const args = parseArgs({
+    options: {
+      manifest: { type: "string" },
+      output: { type: "string" },
+      "max-cost-usd": { type: "string" },
+      models: { type: "string" },
+      executor: { type: "string" },
+      yes: { type: "boolean", default: false },
+    },
+  });
+  const { values } = args;
+  if (!values.manifest) usageError("--manifest is required");
+  if (!values.output) usageError("--output is required");
+  const manifest = loadManifest(values.manifest);
+  const outputDir = values.output;
+  fs.mkdirSync(outputDir, { recursive: true });
+
+  if (!values.yes) {
+    const plan: Json = {
+      schemaVersion: 1,
+      recordType: "controlled-replay-plan",
+      manifestId: manifest.manifestId,
+      repository: manifest.repository,
+      manifestCreatedAt: manifest.createdAt,
+      manifestPath: values.manifest,
+      frozen: {
+        pullRequests: manifest.pullRequests,
+        models: parseModelList(values.models),
+      },
+      budget: { capUsd: values["max-cost-usd"] ? Number(values["max-cost-usd"]) : null },
+      execution: {
+        optIn: false,
+        note: `no replay was executed; ${EXECUTION_USAGE}`,
+      },
+    };
+    fs.writeFileSync(path.join(outputDir, "replay-plan.json"), `${JSON.stringify(plan, null, 2)}\n`);
+    console.log(`Wrote replay plan for ${manifest.pullRequests.length} frozen pull requests to ${outputDir}`);
+    console.log(`No replay was executed; ${EXECUTION_USAGE}`);
+    return;
+  }
+
+  const { capUsd, models, executor } = executionRequirements(values);
+  const result = executeReplay(manifest, capUsd, models, executor);
   fs.writeFileSync(
     path.join(outputDir, "controlled-replay-result.json"),
     `${JSON.stringify(result, null, 2)}\n`,
   );
   fs.writeFileSync(path.join(outputDir, "controlled-replay-result.md"), renderMarkdown(result));
+  const executed = (result.executions as Execution[]).filter(
+    (execution) => execution.status === "executed",
+  ).length;
+  const budget = result.budget as { capUsd: number; spentUsd: number };
   console.log(
-    `Replay ${manifest.manifestId}: ${executions.filter((execution) => execution.status === "executed").length}/${manifest.pullRequests.length} executed, $${spentUsd.toFixed(6)} of $${capUsd.toFixed(2)} spent`,
+    `Replay ${manifest.manifestId}: ${executed}/${manifest.pullRequests.length} executed, $${budget.spentUsd.toFixed(6)} of $${budget.capUsd.toFixed(2)} spent`,
   );
-  if (executions.some((execution) => execution.status === "executor-failed")) process.exit(1);
+  if (result.aborted === true && (result.executions as Execution[]).some((execution) => execution.status === "executor-failed")) {
+    process.exit(1);
+  }
 }
 
 try {
