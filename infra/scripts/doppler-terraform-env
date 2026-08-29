@@ -45,5 +45,6 @@ set_if_unset TF_VAR_recipe_api_preview_origin_template "${RECIPE_API_PREVIEW_ORI
 set_if_unset TF_VAR_recipe_api_url "${RECIPE_API_URL:-}"
 set_if_unset TF_VAR_cf_pages_host "${CF_PAGES_HOST:-}"
 set_if_unset TF_VAR_cloudflare_pages_preview_access_application_id "${CF_PAGES_PREVIEW_ACCESS_APPLICATION_ID:-}"
+set_if_unset TF_VAR_slack_webhook_url "${CLOUDFLARE_SLACK_WEBHOOK_URL:-}"
 
 exec "$@"

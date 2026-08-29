@@ -215,3 +215,14 @@ variable "neon_pg_version" {
   type        = number
   default     = 17
 }
+
+variable "slack_webhook_url" {
+  description = "Slack incoming webhook URL used by Cloudflare notification policies"
+  type        = string
+  sensitive   = true
+
+  validation {
+    condition     = can(regex("^https://hooks\\.slack\\.com/services/[^/]+/[^/]+/[^/]+$", var.slack_webhook_url))
+    error_message = "slack_webhook_url must be a Slack incoming webhook URL of the form https://hooks.slack.com/services/T.../B.../...."
+  }
+}
