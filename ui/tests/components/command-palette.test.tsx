@@ -53,7 +53,9 @@ describe("CommandPalette", () => {
     if (!trigger) throw new Error("Expected a command-palette trigger");
     await user.click(trigger);
 
-    const dialog = screen.getByRole("dialog", { name: "Command palette" });
+    const dialog = await screen.findByRole("dialog", {
+      name: "Command palette",
+    });
     expect(dialog).toBeInTheDocument();
     await waitFor(() =>
       expect(
@@ -92,7 +94,7 @@ describe("CommandPalette", () => {
     await user.click(trigger);
 
     expect(
-      screen.getByRole("dialog", { name: "Command palette" }),
+      await screen.findByRole("dialog", { name: "Command palette" }),
     ).toHaveFocus();
     expect(
       screen.getByPlaceholderText("Search or type a command..."),
