@@ -55,9 +55,10 @@ function renderWithQueryClient(element: React.ReactNode) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
-  return render(
+  const result = render(
     <QueryClientProvider client={queryClient}>{element}</QueryClientProvider>,
   );
+  return { ...result, queryClient };
 }
 
 function StartNewButton() {
@@ -100,13 +101,14 @@ describe("ShoppingListBoundary", () => {
       () =>
         expect(mocks.saveCurrentShoppingList).toHaveBeenCalledWith(
           storedList.id,
+          storedList.revision,
           expect.objectContaining({
             extras: [expect.objectContaining({ text: "Milk" })],
           }),
         ),
       { timeout: 1_000 },
     );
-    expect(mocks.saveCurrentShoppingList.mock.calls[0]?.[1]).not.toHaveProperty(
+    expect(mocks.saveCurrentShoppingList.mock.calls[0]?.[2]).not.toHaveProperty(
       "plan",
     );
   });
@@ -125,6 +127,7 @@ describe("ShoppingListBoundary", () => {
     await waitFor(() =>
       expect(mocks.startNewShoppingList).toHaveBeenCalledWith(
         storedList.id,
+        storedList.revision,
         expect.objectContaining({
           extras: [expect.objectContaining({ text: "Milk" })],
         }),
@@ -138,6 +141,27 @@ describe("ShoppingListBoundary", () => {
         extras: [],
       }),
     );
+  });
+
+  it("does not overwrite local edits when the loaded list refetches", async () => {
+    const { queryClient } = renderWithQueryClient(
+      <ShoppingListBoundary>
+        <p>List ready</p>
+      </ShoppingListBoundary>,
+    );
+    await screen.findByText("List ready");
+
+    act(() => addExtra("Milk"));
+    act(() => {
+      queryClient.setQueryData(
+        ["recipes", "private", "user-1", "shopping-list"],
+        { ...storedList, revision: "1" },
+      );
+    });
+
+    expect(getShoppingListSnapshot().extras).toEqual([
+      expect.objectContaining({ text: "Milk" }),
+    ]);
   });
 
   it("shows a load error instead of an editable local list", async () => {

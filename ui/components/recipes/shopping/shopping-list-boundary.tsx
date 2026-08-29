@@ -35,17 +35,19 @@ export function ShoppingListBoundary({
   });
   const [installedId, setInstalledId] = useState<string>();
   const savedSnapshot = useRef<string | undefined>(undefined);
+  const savedRevision = useRef<string | undefined>(undefined);
 
   useEffect(() => {
-    if (!current.data) return;
+    if (!current.data || current.data.id === installedId) return;
     const serialized = JSON.stringify(current.data.snapshot);
     savedSnapshot.current = serialized;
+    savedRevision.current = current.data.revision;
     installShoppingListSnapshot({
       ...current.data.snapshot,
       plan: getShoppingListSnapshot().plan,
     });
     setInstalledId(current.data.id);
-  }, [current.data]);
+  }, [current.data, installedId]);
 
   useEffect(() => {
     if (!installedId) return;
@@ -60,8 +62,14 @@ export function ShoppingListBoundary({
         saving = saving
           .catch(() => undefined)
           .then(async () => {
-            await saveCurrentShoppingList(installedId, snapshot);
+            if (!savedRevision.current) return;
+            const updated = await saveCurrentShoppingList(
+              installedId,
+              savedRevision.current,
+              snapshot,
+            );
             savedSnapshot.current = serialized;
+            savedRevision.current = updated.revision;
           });
       }, 250);
     });
@@ -97,7 +105,11 @@ export function useStartNewShoppingList() {
     mutationFn: () => {
       const current = queryClient.getQueryData<StoredShoppingList>(queryKey);
       if (!current) throw new Error("Shopping list has not loaded");
-      return startNewShoppingList(current.id, shoppingListContents());
+      return startNewShoppingList(
+        current.id,
+        current.revision,
+        shoppingListContents(),
+      );
     },
     onSuccess: (next) => {
       clearList();

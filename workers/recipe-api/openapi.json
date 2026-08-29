@@ -8627,6 +8627,10 @@
                     "maxLength": 36,
                     "format": "uuid"
                   },
+                  "previousRevision": {
+                    "type": "string",
+                    "pattern": "^\\d+$"
+                  },
                   "snapshot": {
                     "type": "object",
                     "properties": {
@@ -8702,6 +8706,7 @@
                 },
                 "required": [
                   "previousListId",
+                  "previousRevision",
                   "snapshot"
                 ],
                 "additionalProperties": false
@@ -8993,6 +8998,10 @@
                     "maxLength": 36,
                     "format": "uuid"
                   },
+                  "revision": {
+                    "type": "string",
+                    "pattern": "^\\d+$"
+                  },
                   "snapshot": {
                     "type": "object",
                     "properties": {
@@ -9068,6 +9077,7 @@
                 },
                 "required": [
                   "listId",
+                  "revision",
                   "snapshot"
                 ],
                 "additionalProperties": false

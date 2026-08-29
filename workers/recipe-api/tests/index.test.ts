@@ -393,7 +393,9 @@ const dbMock = vi.hoisted(() => {
 
     if (query.startsWith('update "shopping_list"')) {
       const archiving = query.includes('"status" =');
-      const id = params.at(-1) as string;
+      const id = params.find((param) =>
+        state.shoppingLists.some((candidate) => candidate.id === param),
+      ) as string | undefined;
       const list = state.shoppingLists.find((candidate) => candidate.id === id);
       if (!list) return [];
       if (archiving) {
@@ -4372,7 +4374,11 @@ describe("shopping list flows", () => {
       {
         method: "PUT",
         headers: mutationHeaders,
-        body: JSON.stringify({ listId: initial.id, snapshot }),
+        body: JSON.stringify({
+          listId: initial.id,
+          revision: initial.revision,
+          snapshot,
+        }),
       },
       env,
     );
@@ -4383,6 +4389,21 @@ describe("shopping list flows", () => {
       snapshot,
     });
 
+    const staleRevisionUpdate = await app.request(
+      "/shopping-lists/current",
+      {
+        method: "PUT",
+        headers: mutationHeaders,
+        body: JSON.stringify({
+          listId: initial.id,
+          revision: initial.revision,
+          snapshot,
+        }),
+      },
+      env,
+    );
+    expect(staleRevisionUpdate.status).toBe(409);
+
     const staleUpdate = await app.request(
       "/shopping-lists/current",
       {
@@ -4390,6 +4411,7 @@ describe("shopping list flows", () => {
         headers: mutationHeaders,
         body: JSON.stringify({
           listId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+          revision: "0",
           snapshot,
         }),
       },
@@ -4404,6 +4426,7 @@ describe("shopping list flows", () => {
         headers: mutationHeaders,
         body: JSON.stringify({
           previousListId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+          previousRevision: "0",
           snapshot,
         }),
       },
@@ -4416,7 +4439,11 @@ describe("shopping list flows", () => {
       {
         method: "POST",
         headers: mutationHeaders,
-        body: JSON.stringify({ previousListId: initial.id, snapshot }),
+        body: JSON.stringify({
+          previousListId: initial.id,
+          previousRevision: "1",
+          snapshot,
+        }),
       },
       env,
     );

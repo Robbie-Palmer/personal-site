@@ -35,22 +35,24 @@ export function getCurrentShoppingList(
 
 export function saveCurrentShoppingList(
   listId: string,
+  revision: string,
   snapshot: ShoppingListContents,
 ): Promise<StoredShoppingList> {
   return apiRequest("/api/shopping-lists/current", {
     method: "PUT",
-    json: { listId, snapshot },
+    json: { listId, revision, snapshot },
     fallbackMessage: "Shopping list could not be saved.",
   });
 }
 
 export function startNewShoppingList(
   previousListId: string,
+  previousRevision: string,
   snapshot: ShoppingListContents,
 ): Promise<StoredShoppingList> {
   return apiRequest("/api/shopping-lists", {
     method: "POST",
-    json: { previousListId, snapshot },
+    json: { previousListId, previousRevision, snapshot },
     fallbackMessage: "A new shopping list could not be started.",
   });
 }

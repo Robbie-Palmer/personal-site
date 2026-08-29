@@ -459,6 +459,7 @@ const shoppingListSnapshotSchema = z
 const updateShoppingListBodySchema = z
   .object({
     listId: z.uuid().max(36),
+    revision: z.string().regex(/^\d+$/),
     snapshot: shoppingListSnapshotSchema,
   })
   .strict();
@@ -466,6 +467,7 @@ const updateShoppingListBodySchema = z
 const createShoppingListBodySchema = z
   .object({
     previousListId: z.uuid().max(36),
+    previousRevision: z.string().regex(/^\d+$/),
     snapshot: shoppingListSnapshotSchema,
   })
   .strict();
@@ -3414,7 +3416,12 @@ registerRoute("put", "/shopping-lists/current", async (c) => {
       const response = await db.transaction(async (tx) => {
         const scope = await lockPantryScope(tx, session.user.id);
         const current = await findActiveShoppingList(tx, scope);
-        if (current?.id !== body.data.listId) return null;
+        if (
+          current?.id !== body.data.listId ||
+          current.revision !== BigInt(body.data.revision)
+        ) {
+          return null;
+        }
         const [updated] = await tx
           .update(schema.shoppingList)
           .set({
@@ -3422,7 +3429,12 @@ registerRoute("put", "/shopping-lists/current", async (c) => {
             revision: sql`${schema.shoppingList.revision} + 1`,
             updatedAt: new Date(),
           })
-          .where(eq(schema.shoppingList.id, current.id))
+          .where(
+            and(
+              eq(schema.shoppingList.id, current.id),
+              eq(schema.shoppingList.revision, current.revision),
+            ),
+          )
           .returning();
         if (!updated) throw new Error("Shopping list was not updated");
         return shoppingListResponse(updated, scope);
@@ -3453,7 +3465,12 @@ registerRoute("post", "/shopping-lists", async (c) => {
       const response = await db.transaction(async (tx) => {
         const scope = await lockPantryScope(tx, session.user.id);
         const current = await findActiveShoppingList(tx, scope);
-        if (current?.id !== body.data.previousListId) return null;
+        if (
+          current?.id !== body.data.previousListId ||
+          current.revision !== BigInt(body.data.previousRevision)
+        ) {
+          return null;
+        }
         await tx
           .update(schema.shoppingList)
           .set({
@@ -4505,6 +4522,23 @@ registerRoute("delete", "/households/:householdId", async (c) => {
           .update(schema.pantryAggregate)
           .set({ userId: session.user.id, organizationId: null })
           .where(eq(schema.pantryAggregate.organizationId, householdId));
+        await tx
+          .update(schema.shoppingList)
+          .set({
+            status: "archived",
+            closedAt: new Date(),
+            updatedAt: new Date(),
+          })
+          .where(
+            and(
+              eq(schema.shoppingList.userId, session.user.id),
+              eq(schema.shoppingList.status, "active"),
+            ),
+          );
+        await tx
+          .update(schema.shoppingList)
+          .set({ userId: session.user.id, organizationId: null })
+          .where(eq(schema.shoppingList.organizationId, householdId));
         await tx
           .delete(schema.organization)
           .where(eq(schema.organization.id, householdId));
