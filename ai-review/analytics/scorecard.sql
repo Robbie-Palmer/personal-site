@@ -261,9 +261,12 @@ SELECT repository, pull_request_number,
   sum(fixed_finding_count) AS fixed_finding_count,
   sum(rejected_finding_count) AS rejected_finding_count,
   sum(no_response_finding_count) AS no_response_finding_count,
-  sum(reviewed_hunks) AS reviewed_hunks, sum(total_hunks) AS total_hunks,
-  CASE WHEN sum(total_hunks) IS NULL OR sum(total_hunks) = 0 THEN NULL
-       ELSE sum(reviewed_hunks)::DOUBLE / sum(total_hunks) END AS coverage_rate,
+  sum(reviewed_hunks) FILTER (WHERE finding_identity_available) AS reviewed_hunks,
+  sum(total_hunks) FILTER (WHERE finding_identity_available) AS total_hunks,
+  CASE WHEN sum(total_hunks) FILTER (WHERE finding_identity_available) IS NULL
+        OR sum(total_hunks) FILTER (WHERE finding_identity_available) = 0 THEN NULL
+       ELSE sum(reviewed_hunks) FILTER (WHERE finding_identity_available)::DOUBLE
+            / sum(total_hunks) FILTER (WHERE finding_identity_available) END AS coverage_rate,
   CASE WHEN coalesce(sum(accepted_finding_count) FILTER (WHERE finding_identity_available), 0) = 0 THEN NULL
        ELSE sum(run_cost_usd) FILTER (WHERE finding_identity_available)
             / sum(accepted_finding_count) FILTER (WHERE finding_identity_available) END AS cost_per_accepted_finding,

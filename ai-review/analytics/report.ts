@@ -295,27 +295,32 @@ function entry(
   return metric;
 }
 
-function latencyMetricsFor(subset: Subset): { latencies: number[]; firstTriggerByPullRequest: Map<number, number> } {
-  const firstTriggerByPullRequest = new Map<number, number>();
+function prKey(repository: string, pullRequestNumber: number): string {
+  return `${repository}#${pullRequestNumber}`;
+}
+
+function latencyMetricsFor(subset: Subset): number[] {
+  const firstTriggerByPullRequest = new Map<string, number>();
   for (const run of subset.runs) {
     if (!run.findingIdentityAvailable || run.triggeredAt === null) continue;
-    const existing = firstTriggerByPullRequest.get(run.pullRequestNumber);
+    const key = prKey(run.repository, run.pullRequestNumber);
+    const existing = firstTriggerByPullRequest.get(key);
     if (existing === undefined || run.triggeredAt.getTime() < existing) {
-      firstTriggerByPullRequest.set(run.pullRequestNumber, run.triggeredAt.getTime());
+      firstTriggerByPullRequest.set(key, run.triggeredAt.getTime());
     }
   }
-  const latencyByPullRequest = new Map<number, number>();
+  const latencyByPullRequest = new Map<string, number>();
   for (const finding of subset.findings) {
     if (!finding.accepted || finding.outcomeAt === null) continue;
-    const firstTrigger = firstTriggerByPullRequest.get(finding.pullRequestNumber);
+    const firstTrigger = firstTriggerByPullRequest.get(prKey(finding.repository, finding.pullRequestNumber));
     if (firstTrigger === undefined) continue;
     const latency = finding.outcomeAt.getTime() - firstTrigger;
-    const existing = latencyByPullRequest.get(finding.pullRequestNumber);
+    const existing = latencyByPullRequest.get(prKey(finding.repository, finding.pullRequestNumber));
     if (existing === undefined || latency < existing) {
-      latencyByPullRequest.set(finding.pullRequestNumber, latency);
+      latencyByPullRequest.set(prKey(finding.repository, finding.pullRequestNumber), latency);
     }
   }
-  return { latencies: [...latencyByPullRequest.values()], firstTriggerByPullRequest };
+  return [...latencyByPullRequest.values()];
 }
 
 function metricsFor(subset: Subset, options: MetricOptions): Metrics {
@@ -331,9 +336,11 @@ function metricsFor(subset: Subset, options: MetricOptions): Metrics {
   const identityUncached = identityCalls.reduce((total, call) => total + call.uncachedInputTokens, 0);
   const inputTokens = identityCalls.reduce((total, call) => total + call.inputTokens, 0);
   const cachedTokens = identityCalls.reduce((total, call) => total + call.cachedInputTokens, 0);
-  const identityPullRequests = new Set(identityRuns.map((run) => run.pullRequestNumber)).size;
+  const identityPullRequests = new Set(
+    identityRuns.map((run) => prKey(run.repository, run.pullRequestNumber)),
+  ).size;
 
-  const { latencies } = latencyMetricsFor(subset);
+  const latencies = latencyMetricsFor(subset);
   const medianLatency = median(latencies);
   const maxLatency = latencies.length > 0 ? Math.max(...latencies) : null;
 
@@ -404,7 +411,8 @@ function metricsFor(subset: Subset, options: MetricOptions): Metrics {
 function sampleSizesFor(subset: Subset): SampleSizes {
   return {
     reviewRuns: subset.runs.length,
-    pullRequests: new Set(subset.runs.map((run) => run.pullRequestNumber)).size,
+    pullRequests: new Set(subset.runs.map((run) => prKey(run.repository, run.pullRequestNumber)))
+      .size,
     modelCalls: subset.calls.length,
     publishedFindings: subset.findings.length,
     adjudicatedFindings: subset.findings.filter(

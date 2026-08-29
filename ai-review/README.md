@@ -311,13 +311,15 @@ mise run //ai-review:scorecard:replay -- --manifest /path/to/replays/frozen-set-
 ```
 
 Without `--yes` the CLI only validates the manifest and writes a
-`controlled-replay-plan.json`; nothing is executed and no executor is invoked.
+`replay-plan.json`; nothing is executed and no executor is invoked.
 Execution requires `--yes`, a positive `--max-cost-usd` cap, a fixed model set,
 and an executor command that receives each frozen PR (repository, PR number,
 head SHA, prompt version, models, remaining budget) as JSON on stdin and emits
-one JSON object with a `costUsd` on stdout. The CLI stops before any execution
-that would breach the cap, records each skipped PR in
-`controlled-replay-result.json`, and exits non-zero if the executor fails.
+one JSON object with a `costUsd` on stdout. The executor is responsible for
+honouring the remaining budget it receives; the CLI never starts an execution
+without budget left, records each skipped PR in
+`controlled-replay-result.json`, and exits non-zero when the executor fails or
+reports a cost that breaches the cap.
 Replay outputs are versioned records; the CLI never rewrites the historical
 objects it reads.
 

@@ -308,9 +308,7 @@ function main(): void {
   console.log(
     `Replay ${manifest.manifestId}: ${executed}/${manifest.pullRequests.length} executed, $${budget.spentUsd.toFixed(6)} of $${budget.capUsd.toFixed(2)} spent`,
   );
-  if (result.aborted === true && (result.executions as Execution[]).some((execution) => execution.status === "executor-failed")) {
-    process.exit(1);
-  }
+  if (result.aborted === true) process.exit(1);
 }
 
 try {

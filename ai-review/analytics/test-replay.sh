@@ -92,8 +92,11 @@ exhausted_out="$work/exhausted"
 three_pr_manifest="$work/three-pr-manifest.json"
 jq '.manifestId = "frozen-set-3" | .pullRequests += [{pullRequestNumber: 13, headSha: "head-13", promptVersion: "prompt-2"}]' \
   "$two_pr_manifest" > "$three_pr_manifest"
-run_replay --manifest "$three_pr_manifest" --output "$exhausted_out" --yes --max-cost-usd 0.07 \
-  --models model-a --executor "node $executor"
+if run_replay --manifest "$three_pr_manifest" --output "$exhausted_out" --yes --max-cost-usd 0.07 \
+    --models model-a --executor "node $executor" >"$work/exhausted.log" 2>&1; then
+  echo "budget breach did not fail the replay" >&2
+  exit 1
+fi
 jq -e '
   .manifestId == "frozen-set-3" and
   .budget == {capUsd: 0.07, spentUsd: 0.08, withinBudget: false} and
