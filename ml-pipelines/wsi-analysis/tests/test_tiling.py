@@ -58,16 +58,25 @@ def vendor_slide_plan() -> SlidePlan:
 slide_plan = fixture_union("slide_plan", [fallback_slide_plan, vendor_slide_plan])
 
 
+def _image_dimensions(path: Path) -> tuple[int, int]:
+    with Image.open(path) as image:
+        return image.size
+
+
 def test_batched_preserves_order_and_remainder() -> None:
     assert list(batched([1, 2, 3, 4, 5], 2)) == [(1, 2), (3, 4), (5,)]
 
 
-@parametrize_with_cases("source,expected_counts", prefix="pyramid_")
-def test_build_pyramid_is_resumable(source: Path, expected_counts: dict[int, int]) -> None:
+@parametrize_with_cases("source,expected_counts,expected_dimensions", prefix="pyramid_")
+def test_build_pyramid_is_resumable(
+    source: Path,
+    expected_counts: dict[int, int],
+    expected_dimensions: tuple[int, int],
+) -> None:
     output = source.parent / "pyramid"
 
-    first_count = build_pyramid(source, output, tile_size=2, workers=2)
-    second_count = build_pyramid(source, output, tile_size=2, workers=2)
+    first_count = build_pyramid(source, output, workers=2)
+    second_count = build_pyramid(source, output, workers=2)
 
     actual_counts = {
         int(level.name): len(list(level.glob("*.png")))
@@ -78,6 +87,7 @@ def test_build_pyramid_is_resumable(source: Path, expected_counts: dict[int, int
     assert second_count == 0
     assert actual_counts == expected_counts
     assert not list(output.rglob("*.tmp"))
+    assert {_image_dimensions(path) for path in output.rglob("*.png")} == {expected_dimensions}
 
 
 def test_plan_batches_supports_fallback_and_vendor_tiles(

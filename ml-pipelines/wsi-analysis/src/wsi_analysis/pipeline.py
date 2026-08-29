@@ -30,7 +30,6 @@ def prepare_tiles(
     pyramidal = build_pyramid(
         output / "0",
         output / "pyramid",
-        tile_size=parameters.tile_size,
         workers=settings.workers,
     )
     return extracted, pyramidal, output

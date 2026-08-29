@@ -46,7 +46,6 @@ def test_prepare_tiles_resolves_parameters_from_project_root(tmp_path: Path) -> 
     pyramid.assert_called_once_with(
         output / "0",
         output / "pyramid",
-        tile_size=256,
         workers=3,
     )
 

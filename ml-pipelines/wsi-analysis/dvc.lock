@@ -14,8 +14,8 @@ stages:
       size: 1380
     - path: src/wsi_analysis
       hash: md5
-      md5: 1ed803240997806ad94dc0dbbdd57b0d.dir
-      size: 18688
+      md5: e33052e0443a469d9a296f42fe40d1f3.dir
+      size: 19270
       nfiles: 7
     - path: uv.lock
       hash: md5
@@ -33,6 +33,6 @@ stages:
     outs:
     - path: data/tiles
       hash: md5
-      md5: 79f84c33e830ba5086f4adf542146a9b.dir
-      size: 12161287638
-      nfiles: 66932
+      md5: e7d011abb095483ecb05554f5cea6e30.dir
+      size: 10721736348
+      nfiles: 66888
