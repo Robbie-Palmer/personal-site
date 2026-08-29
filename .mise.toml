@@ -26,6 +26,7 @@ verbose = false
 [tools]
 node = "lts"
 "github:pnpm/pnpm" = "11.24.0"
+vale = "3.12.0"
 terraform = "1.16.0"
 tflint = "0.64.0"
 actionlint = "1.7.12"
@@ -41,7 +42,7 @@ MISE_EXPERIMENTAL = "1"
 # Root-level tasks for repo-wide tooling
 [tasks.lint]
 description = "Lint all files across the entire repo"
-depends = ["//:lint:markdown", "//:lint:mdx", "//:lint:yaml", "//:lint:typos", "//:lint:knip", "//:lint:actions", "//:lint:api", "//ai-review:check", "//ui:lint", "//infra:lint", "//infra:lint:tflint", "//infra-bootstrap:lint", "//infra-bootstrap:lint:tflint"]
+depends = ["//:lint:markdown", "//:lint:mdx", "//:lint:yaml", "//:lint:typos", "//:lint:knip", "//:lint:actions", "//:lint:api", "//:lint:prose", "//ai-review:check", "//ui:lint", "//infra:lint", "//infra:lint:tflint", "//infra-bootstrap:lint", "//infra-bootstrap:lint:tflint"]
 
 [tasks."lint:api"]
 description = "Generate-check and lint the recipe API OpenAPI contract"
@@ -52,9 +53,9 @@ description = "Lint and fix Markdown files (optionally pass files as args)"
 run = """
 #!/usr/bin/env bash
 if [ $# -eq 0 ]; then
-  pnpm exec markdownlint --fix "**/*.md" --ignore node_modules --ignore '**/node_modules' --ignore .terraform --ignore '**/.terraform'
+  pnpm exec markdownlint --fix "**/*.md" --ignore node_modules --ignore '**/node_modules' --ignore '**/.vale/**' --ignore .terraform --ignore '**/.terraform'
 else
-  pnpm exec markdownlint --fix --ignore node_modules --ignore '**/node_modules' --ignore .terraform --ignore '**/.terraform' "$@"
+  pnpm exec markdownlint --fix --ignore node_modules --ignore '**/node_modules' --ignore '**/.vale/**' --ignore .terraform --ignore '**/.terraform' "$@"
 fi
 """
 
@@ -63,9 +64,9 @@ description = "Check Markdown files without fixing (optionally pass files as arg
 run = """
 #!/usr/bin/env bash
 if [ $# -eq 0 ]; then
-  pnpm exec markdownlint "**/*.md" --ignore node_modules --ignore '**/node_modules' --ignore .terraform --ignore '**/.terraform'
+  pnpm exec markdownlint "**/*.md" --ignore node_modules --ignore '**/node_modules' --ignore '**/.vale/**' --ignore .terraform --ignore '**/.terraform'
 else
-  pnpm exec markdownlint --ignore node_modules --ignore '**/node_modules' --ignore .terraform --ignore '**/.terraform' "$@"
+  pnpm exec markdownlint --ignore node_modules --ignore '**/node_modules' --ignore '**/.vale/**' --ignore .terraform --ignore '**/.terraform' "$@"
 fi
 """
 
@@ -96,11 +97,35 @@ description = "Lint YAML files (optionally pass files as args)"
 run = """
 #!/usr/bin/env bash
 if [ $# -eq 0 ]; then
-  pnpm exec yamllint "**/*.{yml,yaml}" --ignore '**/node_modules/**'
+  pnpm exec yamllint "**/*.{yml,yaml}" --ignore '**/node_modules/**' --ignore '**/.vale/**'
 else
-  pnpm exec yamllint --ignore '**/node_modules/**' "$@"
+  pnpm exec yamllint --ignore '**/node_modules/**' --ignore '**/.vale/**' "$@"
 fi
 """
+
+[tasks."lint:prose"]
+description = "Lint changed lines in Markdown files with Vale (optionally pass files as args; vendored .vale styles are excluded)"
+run = """
+#!/usr/bin/env bash
+if [ $# -eq 0 ]; then
+  set -- $(git ls-files '*.md')
+fi
+pnpm exec tsx scripts/prose-lint.ts "$@"
+"""
+
+[tasks."lint:prose:staged"]
+description = "Lint staged Markdown changes with Vale"
+run = """
+#!/usr/bin/env bash
+if [ $# -eq 0 ]; then
+  set -- $(git diff --cached --name-only -- '*.md')
+fi
+pnpm exec tsx scripts/prose-lint.ts --staged "$@"
+"""
+
+[tasks."lint:prose:check"]
+description = "Lint all tracked Markdown files with Vale, failing on any alert"
+run = "pnpm exec tsx scripts/prose-lint.ts --strict --all $(git ls-files '*.md')"
 
 [tasks."lint:knip"]
 description = "Detect unused files, dependencies, and exports across the monorepo with Knip"

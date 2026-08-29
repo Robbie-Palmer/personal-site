@@ -1,0 +1,5 @@
+message: "Sycophantic tone — respond directly instead"
+extends: existence
+level: error
+ignorecase: true
+raw: '(?:Great question|You.re absolutely right|That.s a great|Wonderful question)'

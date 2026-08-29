@@ -24,6 +24,7 @@
     "remark-lint-list-item-indent": "^4.0.1",
     "remark-mdx": "^3.1.0",
     "remark-preset-lint-recommended": "^7.0.0",
+    "tsx": "^4.23.12",
     "yaml-lint": "^1.7.0"
   },
   "lint-staged": {
@@ -41,7 +42,8 @@
       "mise run //infra-bootstrap:lint:tflint"
     ],
     "**/*.md": [
-      "mise run //:lint:markdown"
+      "mise run //:lint:markdown",
+      "mise run //:lint:prose:staged"
     ],
     "**/*.mdx": [
       "mise run //:lint:mdx"

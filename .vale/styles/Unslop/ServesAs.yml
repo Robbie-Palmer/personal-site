@@ -1,0 +1,5 @@
+message: "Fancy way to say 'is' — use 'is' or 'has' instead"
+extends: existence
+level: warning
+ignorecase: true
+raw: '(?:serves as|stands as|boasts|features|offers up)'

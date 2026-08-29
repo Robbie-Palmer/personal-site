@@ -1,0 +1,5 @@
+message: '"not just X, but Y" is an AI tell — state the point directly'
+extends: existence
+level: error
+ignorecase: true
+raw: '\bnot (just|only)\s+[^.!?]*\bbut\b'

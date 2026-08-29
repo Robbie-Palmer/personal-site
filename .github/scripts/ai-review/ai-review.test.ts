@@ -42,6 +42,9 @@ test("ignore patterns match paths and basenames", () => {
   assert.equal(ignored(".env.production"), true);
   assert.equal(ignored("ui/components/card.tsx"), false);
   assert.equal(ignored("workers/recipe-api/src/db/schema.ts"), false);
+  assert.equal(ignored(".vale/styles/proselint/Passive.yml"), true);
+  assert.equal(ignored(".vale/styles/write-good/E-Prime.yml"), true);
+  assert.equal(ignored(".vale/styles/Unslop/AIVocabulary.yml"), false);
 });
 
 test("finding validation rejects incomplete and out-of-diff findings", () => {

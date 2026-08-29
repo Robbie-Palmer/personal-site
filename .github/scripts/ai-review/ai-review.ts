@@ -187,6 +187,14 @@ const IGNORED_DIRECTORIES = new Set([
   "vendor",
 ]);
 
+// Vendored style packages are imported upstream files; the repo must not
+// hand-tweak them, so they stay out of review scope. Styles authored here
+// (for example .vale/styles/Unslop) remain reviewable like any other source.
+const IGNORED_VENDOR_PATHS = [
+  ".vale/styles/proselint/",
+  ".vale/styles/write-good/",
+];
+
 const MAX_DIFF_CHARS = 280_000;
 const MAX_PATCH_CHARS = 60_000;
 const MAX_CONTEXT_CHARS = 180_000;
@@ -446,6 +454,7 @@ export function ignored(path: string): boolean {
   const parts = normalized.split("/").filter(Boolean);
   const basename = parts.at(-1) ?? normalized;
   return (
+    IGNORED_VENDOR_PATHS.some((prefix) => normalized.startsWith(prefix)) ||
     IGNORED_FILENAMES.has(basename) ||
     IGNORED_EXTENSIONS.some((extension) => basename.endsWith(extension)) ||
     parts.slice(0, -1).some((directory) => IGNORED_DIRECTORIES.has(directory)) ||

@@ -1,0 +1,5 @@
+message: "Cutoff disclaimer — find sources or remove"
+extends: existence
+level: error
+ignorecase: true
+raw: '(?:While specific details are limited|As of (?:now|today)|Due to a lack of)'

@@ -1,0 +1,5 @@
+message: "AI vocabulary — replace with a plain word"
+extends: existence
+level: error
+ignorecase: true
+raw: '(?:delve|tapestry|testament|underscore(?:s|d)?|showcase|pivotal|garner|interplay|showcasing)'

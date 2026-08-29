@@ -6,9 +6,10 @@
     ".": {
       "entry": [
         ".github/scripts/ai-review/ai-review.test.ts",
-        "functions/**/*.ts"
+        "functions/**/*.ts",
+        "scripts/prose-lint.ts"
       ],
-      "ignoreDependencies": ["lint-staged", "markdownlint-cli", "remark-cli", "remark-lint", "yaml-lint"]
+      "ignoreDependencies": ["lint-staged", "markdownlint-cli", "remark-cli", "remark-lint", "tsx", "yaml-lint"]
     },
     "ai-review": {
       "entry": [
