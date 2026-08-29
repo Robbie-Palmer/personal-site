@@ -42,10 +42,10 @@ Several constraints narrowed the field:
    Convex's primary differentiator.
 2. **Relational data model preferred.** Auth tables, sharing metadata, and household membership
    are inherently relational. Convex is a document database with no SQL, no JOINs, and no foreign
-   keys — a fundamental mismatch.
+   keys, a fundamental mismatch.
 3. **Postgres ecosystem valued.** Full-text search, vector search, DuckDB integration, and PostGIS
    for other projects make Postgres the long-term database. Starting on SQLite/D1 and migrating
-   later creates schema rewrite debt — the Drizzle community strongly recommends starting with
+   later creates schema rewrite debt. The Drizzle community strongly recommends starting with
    the target dialect.
 4. **Split architecture accepted.** The auth/CRUD layer can stay thin. Heavy processing (ML
    pipelines, import jobs, background workers) lives on separate services. This means Workers'
@@ -104,12 +104,12 @@ auth operations), and access to Durable Objects and Queues for future use.
 
 **Neon** as the application database. Neon is serverless Postgres with scale-to-zero,
 database branching for preview environments, and a generous free tier (0.5 GB storage, 100
-CU-hours/month). It runs real Postgres — not a Postgres-compatible wire protocol — so every
+CU-hours/month). It runs real Postgres, not a Postgres-compatible wire protocol, so every
 Postgres tool, ORM, and auth library works without compatibility concerns.
 
 Neon projects are locked to a single AWS region from a limited set of 8 (us-east-1, us-east-2,
 us-west-2, eu-central-1, eu-west-2, ap-southeast-1, ap-southeast-2, sa-east-1). Region selection
-is permanent — changing regions requires creating a new project and migrating via `pg_dump`/`pg_restore`.
+is permanent. Changing regions requires creating a new project and migrating via `pg_dump`/`pg_restore`.
 Read replicas are same-region only; cross-region read replicas are tracked as a Neon GitHub epic but
 have not shipped. Cross-region logical replication between two Neon projects is possible but keeps
 the subscriber compute active at all times, negating scale-to-zero. This single-region constraint
@@ -121,22 +121,22 @@ mitigates the edge-to-origin latency gap (see below).
 **Hyperdrive** for connection pooling from Workers to Neon. A standard Postgres connection requires
 5+ network round trips (TCP handshake, TLS handshake, authentication); at 150ms per round trip to a
 distant region, that is 750ms+ before the first query. Hyperdrive maintains pre-warmed, authenticated
-connection pools globally — Workers connect to the nearest Hyperdrive node (\~2-4ms) rather than
+connection pools globally. Workers connect to the nearest Hyperdrive node (\~2-4ms) rather than
 establishing a new connection to the database. Cloudflare's benchmarks show \~58% latency reduction
 without caching and \~73% with caching enabled; cached read queries return in \~4ms from the nearest
 edge data center with no database round trip. This is the primary mitigation for Neon's single-region
 constraint: the connection setup penalty disappears, and read-heavy workloads can be served from
 cache. Included in the Workers Paid plan at no additional cost. Neon's serverless driver
-(`@neondatabase/serverless`) is available as a fallback — it uses HTTP (3 round trips per query
+(`@neondatabase/serverless`) is available as a fallback. It uses HTTP (3 round trips per query
 vs 8+ for TCP) but lacks Hyperdrive's connection reuse and caching.
 
-**Hono** as the HTTP framework. Hono runs on Workers, Node.js, Deno, and Bun — making the handler
+**Hono** as the HTTP framework. Hono runs on Workers, Node.js, Deno, and Bun, making the handler
 code portable if the runtime ever changes. It is lightweight, TypeScript-native, and the most
 popular framework for Cloudflare Workers.
 
 **Drizzle** with the Postgres dialect from day one. Starting with Postgres avoids the schema
 rewrite debt that would come from starting on SQLite/D1 and migrating later (Drizzle uses different
-table constructors per dialect — `sqliteTable()` vs `pgTable()` — and the migration is non-trivial).
+table constructors per dialect, `sqliteTable()` vs `pgTable()`, and the migration is non-trivial).
 
 ## Infrastructure as Code
 
@@ -197,7 +197,7 @@ database becomes the canonical storage location.
 
 Recipes are stored with Cooklang syntax preserved as a text column:
 
-* The `cooklang-rs` WASM parser continues to parse recipe text client-side — no change to the
+* The `cooklang-rs` WASM parser continues to parse recipe text client-side. No change to the
   parsing pipeline.
 * Structured metadata (title, cuisine, servings, tags, attribution, status) lives in typed columns.
 * Draft/published workflow is a status column, not a git branch.
@@ -282,8 +282,7 @@ Auth in its cleanest environment.
 Workers with D1 (Cloudflare's SQLite-based database) instead of Neon.
 
 **Why it was considered:** Fewest moving parts, everything on one platform, cheapest. D1 also
-has automatic global read replication across all 6 supported location hints at no additional cost —
-an advantage Neon lacks. Writes go to the primary; reads are served from the nearest replica.
+has automatic global read replication across all 6 supported location hints at no additional cost, an advantage Neon lacks. Writes go to the primary; reads are served from the nearest replica.
 
 **Why it was rejected:**
 
@@ -321,7 +320,7 @@ Postgres-compatible wire protocol.
   Better Auth and Drizzle are tested against real Postgres, not CockroachDB's distributed SQL
   semantics.
 * **Distributed architecture is overkill.** CockroachDB's core differentiator is native
-  multi-region with distributed consensus — a single logical database spanning regions. This
+  multi-region with distributed consensus, a single logical database spanning regions. This
   solves the single-region constraint that Neon has, but a personal recipe site does not need
   region-failure survival or globally distributed writes.
 * **No native edge driver.** Unlike Neon's `@neondatabase/serverless`, CockroachDB has no
@@ -337,7 +336,7 @@ Timescale Cloud runs full Postgres with the TimescaleDB extension for time-serie
 
 * **Specialized for time-series.** Hypertables, continuous aggregates, and columnar compression
   are irrelevant for auth tables and recipe storage.
-* **No free tier.** Starts at \~$17/month minimum — roughly 3x the total cost of Workers + Neon.
+* **No free tier.** Starts at \~$17/month minimum, roughly 3x the total cost of Workers + Neon.
 * **No scale-to-zero.** Instances run 24/7 regardless of traffic.
 * **No edge driver.** No equivalent to Neon's serverless driver for Workers.
 
@@ -360,11 +359,11 @@ The architecture is designed to be extended without wholesale replacement:
 
 **Step-up: Cloudflare Containers.** If V8 isolate constraints compound over time, Cloudflare
 Containers (GA April 2026) provide full Docker/Node.js on Cloudflare. The same Neon database and
-largely the same Hono handler code work in a Container. This is the first escalation step — staying
+largely the same Hono handler code work in a Container. This is the first escalation step, staying
 on platform while removing runtime constraints.
 
-**Scale-up: CSP (AWS / GCP).** If specialized production services become necessary — GPUs, NATS,
-Kubernetes, durable job queues, or the full service catalog — a real cloud service provider is the
+**Scale-up: CSP (AWS / GCP).** If specialized production services become necessary, such as GPUs, NATS,
+Kubernetes, durable job queues, or the full service catalog, a real cloud service provider is the
 right step. These are explicitly out of scope for the authenticated-feature MVP; they are listed as
 the likely next infrastructure tier if the app outgrows thin request/response CRUD. PaaS platforms
 like Railway sit in a middle ground between VPS simplicity and CSP flexibility without enough of
@@ -381,7 +380,7 @@ production import worker is a future infrastructure decision.
 ## Positive
 
 * **Platform consolidation.** Pages, Workers, R2, DNS, Images, and now the API layer are all on
-  Cloudflare — one account, one bill, one set of API tokens.
+  Cloudflare, one account, one bill, one set of API tokens.
 * **Full Postgres from day one.** No SQLite migration debt. FTS, vector search, and the broader
   Postgres ecosystem are available immediately.
 * **Near-zero cold starts.** Workers respond in single-digit milliseconds. Auth flows are fast.

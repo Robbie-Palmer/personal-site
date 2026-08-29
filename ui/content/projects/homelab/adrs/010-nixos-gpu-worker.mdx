@@ -7,10 +7,10 @@ tech_stack: ["NixOS", "Docker"]
 
 # Context
 
-I have an Asus desktop with a GTX 1060 — Pascal-era (`sm_61`), released 2016,
+I have an Asus desktop with a GTX 1060, Pascal-era (`sm_61`), released 2016,
 and now "unsupported" by the modern toolchain: CUDA 13 and the 585+ driver
 branches dropped Pascal entirely. Rather than e-waste it, I'm turning it into
-a headless, wake-on-demand GPU worker for batch computer vision jobs — the
+a headless, wake-on-demand GPU worker for batch computer vision jobs, the
 kind of workload that needs many GPU-hours, not a modern GPU.
 
 Managing dependencies on end-of-life hardware is fiddly: the driver, kernel,
@@ -18,7 +18,7 @@ and CUDA versions all have to be pinned just so, and there's no vendor telling
 you what still works. That's exactly the kind of detail I want declared in a
 config file, not remembered. It's also the kind of system my coding agents
 can maintain well: the whole config is a git repo, so every change is
-reviewable and rollbackable — the same config in produces the same system
+reviewable and rollbackable. The same config in produces the same system
 out. An agent can edit a flake and I can review the diff, instead of someone
 SSH-ing in and hand-editing driver settings on a box that then forgets them.
 
@@ -30,8 +30,8 @@ will live in a `homelab/` directory in this repo.
 Set up the desktop as a **NixOS** configuration managed with flakes,
 declared in this repository, with the GPU stack deliberately pinned:
 
-* An **LTS kernel** (6.12) plus the **580 driver branch** — the last with
-  Pascal support — on `nixos-25.11`, locked there on purpose.
+* An **LTS kernel** (6.12) plus the **580 driver branch**, the last with
+  Pascal support, on `nixos-25.11`, locked there on purpose.
 * **NVIDIA container toolkit + Docker**, so models run via
   `nvidia/cuda:12.x` images only (`--gpus all`). CUDA 13 dropped Pascal, so
   the CUDA 12 image family is the ceiling.
@@ -39,11 +39,11 @@ declared in this repository, with the GPU stack deliberately pinned:
   firewall and SSH for access from the Mac mini / laptop.
 * **Wake-on-LAN** on the real interface plus BIOS power-on-by-PCI-E, so the
   box sleeps when idle and is woken on demand. The WoL magic packet is a
-  Layer 2 broadcast that can't route over the tailnet — it's sent by the Mac
+  Layer 2 broadcast that can't route over the tailnet. It's sent by the Mac
   mini on the home LAN, while the tailnet carries the wake request to it.
 * A `robbie` user in the `docker` and `wheel` groups; no passwords committed
   to the repo.
-* The **1TB HDD** reused as the data disk for models and datasets — Docker
+* The **1TB HDD** reused as the data disk for models and datasets. Docker
   stays on the 111G SSD. It inherits the
   [DVC](/projects/homelab/adrs/008-dvc) approach as the local dataset remote.
 
@@ -53,7 +53,7 @@ declared in this repository, with the GPU stack deliberately pinned:
 
 * **Pros**: No migration effort.
 * **Cons**: Non-reproducible; a kernel/driver update can silently break the
-  GPU with no clean rollback — exactly the failure this project exists to
+  GPU with no clean rollback. Exactly the failure this project exists to
   prevent.
 * **Decision**: Rejected. Declarative config is the point.
 
@@ -67,7 +67,7 @@ declared in this repository, with the GPU stack deliberately pinned:
 ## CUDA 13 / current drivers anyway
 
 * **Pros**: Future-proof tooling.
-* **Cons**: CUDA 13 and 585+ drivers dropped Pascal — the GPU simply won't
+* **Cons**: CUDA 13 and 585+ drivers dropped Pascal. The GPU simply won't
   work. Not a viable option, hence the pin.
 * **Decision**: Rejected. The pin *is* the compatibility strategy.
 
@@ -86,7 +86,7 @@ declared in this repository, with the GPU stack deliberately pinned:
 
 ### Cons
 
-* **Frozen in time**: the box is pinned to nixos-25.11 and CUDA 12 — no new
+* **Frozen in time**: the box is pinned to nixos-25.11 and CUDA 12. No new
   GPU features ever, and staying on the pinned channel is a deliberate,
   ongoing choice.
 * **Docker-container-only GPU**: bare-metal CUDA 13 code won't run; must

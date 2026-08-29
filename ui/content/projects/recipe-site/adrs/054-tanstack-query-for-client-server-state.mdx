@@ -193,7 +193,7 @@ freshness, refetch, request deduplication, mutation invalidation, or async garba
 1. Add `@tanstack/react-query` and a recipe-scoped provider; include Devtools in development only.
 2. Define user-scoped query-key factories and shared retry/error classification before migrating
    components.
-3. Migrate one vertical slice—recipe box, saved recipes, and diet—while retaining the neutral
+3. Migrate one vertical slice, for example recipe box, saved recipes, and diet, while retaining the neutral
    readiness boundary. Remove replaced effects, abort handling, and custom refresh events.
 4. Migrate notifications, households, feeds, and profile resources incrementally. Do not perform a
    flag-day rewrite.

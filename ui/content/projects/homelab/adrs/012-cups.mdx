@@ -7,28 +7,28 @@ tech_stack: ["CUPS"]
 
 # Context
 
-I own a 2011 Canon MX3100 printer. Canon no longer supports it — the vendor
-would have me buy a new printer — but the hardware still works, so the plan
+I own a 2011 Canon MX3100 printer. Canon no longer supports it, the vendor
+would have me buy a new printer, but the hardware still works, so the plan
 is to avoid ewaste by keeping it in service with free software.
 
 My own experience with the open-source route: it printed fine from an old
 Ubuntu 18 setup, but not from Ubuntu 22+ or from macOS, and I couldn't test
 Windows because I don't have a Windows machine. I wasn't willing to keep a
-box running Ubuntu 18 just to hold drivers — it's end-of-life.
+box running Ubuntu 18 just to hold drivers. It's end-of-life.
 
 That points at the Raspberry Pi as the host. Linux is where these open-source
 drivers are actively maintained: Gutenprint formally deprecated macOS support
 in 2024 and no longer produces binaries for modern macOS, while on Linux it's
 the standard driver set. The Pi is always on, already part of the lab, and
 can run a print server that every device on the network reaches. I also want
-to print remotely from my phone — the classic case where a print server
+to print remotely from my phone, the classic case where a print server
 shines.
 
 # Decision
 
 Install **CUPS** on the Raspberry Pi and connect it to the Canon MX3100 via
-its (USB) connection, using **Gutenprint** — the open-source driver suite for
-Canon, Epson, and others — to bridge the gap left by Canon's dropped
+its (USB) connection, using **Gutenprint**, the open-source driver suite for
+Canon, Epson, and others, to bridge the gap left by Canon's dropped
 support.
 
 CUPS exposes the printer over IPP to the whole network, so the Mac, phones,

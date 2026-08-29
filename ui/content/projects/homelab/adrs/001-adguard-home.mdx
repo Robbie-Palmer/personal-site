@@ -7,7 +7,7 @@ tech_stack: ["AdGuard Home"]
 
 # Context
 
-Every device on my home network — phones, laptops, TVs, and streaming boxes —
+Every device on my home network, phones, laptops, TVs, and streaming boxes,
 was sending DNS lookups through the router's upstream, with embedded trackers
 phoning home to advertisers and analytics vendors on every device. There was
 no network-wide way to stop that. I want network-wide ad and tracker blocking
@@ -23,7 +23,7 @@ Requirements:
   LAN regardless of what it's running. Per-device ad blockers don't cover the
   IoT and streaming boxes.
 * **Resilient resolution.** DNS is a single point of failure for the whole
-  house — if the resolver is down, the internet "is down". There must be no
+  house. If the resolver is down, the internet "is down". There must be no
   single box whose failure takes the network with it.
 * **Self-hosted.** No external DNS proxy or commercial filtering service
   sitting between me and my lookups.
@@ -34,7 +34,7 @@ Requirements:
 Run **AdGuard Home** as the local, network-wide DNS filter, deployed in a
 redundant pair: the Mac mini is the primary resolver my home router points
 at, and the Raspberry Pi is the secondary resolver the router also points at.
-If one box is down — e.g. during a reboot — the other keeps the home network
+If one box is down, e.g. during a reboot, the other keeps the home network
 functioning.
 
 The two instances stay in sync with **AdGuardHome-Sync**
@@ -46,7 +46,7 @@ it automatically.
 Because the nodes are on the [Tailscale tailnet](/projects/homelab/adrs/000-tailscale),
 AdGuard Home's DNS is reachable off the home network too: the phone can point
 at the tailnet resolver while on cellular or any other network, so tracking
-and ad blocking follow the device wherever it goes — coverage a
+and ad blocking follow the device wherever it goes. Coverage a
 router-level setup can't provide.
 
 The result has been remarkable: AdGuard Home blocks roughly **33% of all
@@ -62,7 +62,7 @@ were making to trackers and ad servers.
   combo needs a web server and extra packages). On a Pi it does the same job
   with the same result.
 * **Decision**: Rejected. AdGuard Home was picked for its easier install, a
-  friendlier admin UI, and built-in DoH/DoT upstream support — the practical
+  friendlier admin UI, and built-in DoH/DoT upstream support. The practical
   difference on my network is marginal.
 
 ## Router-integrated filtering (e.g. OpenWrt adblock)
@@ -78,14 +78,14 @@ were making to trackers and ad servers.
 * **Pros**: Zero maintenance, managed dashboards.
 * **Cons**: DNS lookups (and their filtering) become a privacy dependency on
   a third party; I want the data about my own network's DNS to stay mine.
-* **Decision**: Rejected. Self-hosting was the point — this ADR exists
+* **Decision**: Rejected. Self-hosting was the point. This ADR exists
   partly because of the privacy motivation.
 
 # Consequences
 
 ### Pros
 
-* **Privacy win**: A third of network DNS traffic was tracking — now blocked
+* **Privacy win**: A third of network DNS traffic was tracking, now blocked
   at the source, including on devices I can't install anything on.
 * **Resilience**: Two independent DNS nodes on separate hardware; router
   fails over automatically.
@@ -106,6 +106,6 @@ were making to trackers and ad servers.
   and need adding to the block list as things change.
 * **DNS is critical infrastructure now**: If both boxes are down, the whole
   network loses resolution. The redundant pair covers any single-box
-  failure, but a total outage is self-concealing — anything that would tell
+  failure, but a total outage is self-concealing. Anything that would tell
   me about it needs DNS to reach the outside world too. In that scenario the
   failure is noticed when the network stops working.

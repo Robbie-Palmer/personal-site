@@ -29,8 +29,8 @@ What is new here is **application security**:
 * rate limiting on auth and write paths
 * server-side authorization enforcement
 
-The chosen backend —
-[Cloudflare Workers](/projects/recipe-site/adrs/033-backend-platform-for-authenticated-features) — provides
+The chosen backend,
+[Cloudflare Workers](/projects/recipe-site/adrs/033-backend-platform-for-authenticated-features), provides
 several security properties by default that reduce the baseline we need to implement ourselves.
 
 # Decision
@@ -73,9 +73,9 @@ needs explicit security engineering.
 Rate limiting uses a layered approach:
 
 * **Cloudflare rate limiting rules** (configured via Terraform in
-  `infra/main.tf`) for broad endpoint protection — e.g. limiting requests per IP to
+  `infra/main.tf`) for broad endpoint protection, e.g. limiting requests per IP to
   auth endpoints. These run at the edge before the Worker is invoked.
-* **Durable Objects or native Cloudflare rate limiting** for application-specific limits — e.g. auth
+* **Durable Objects or native Cloudflare rate limiting** for application-specific limits, e.g. auth
   attempts per user account, household invite frequency. Durable Objects are included in Workers
   Paid and provide the strong consistency needed for high-frequency counters. Cloudflare's native
   rate limiting is preferable where an edge-level rule can express the policy.
@@ -90,8 +90,8 @@ Rate limiting uses a layered approach:
 The implementation uses three tiers. Both application tiers count in Postgres (via Hyperdrive/Neon),
 which is already in the request path and gives the strong consistency these counters need: the
 check-and-increment runs as a single `INSERT ... ON CONFLICT` statement, so concurrent requests
-cannot race a stale counter. Durable Objects are the natural alternative — they would keep counter
-writes off Postgres and closer to the edge — but that is more moving parts than a personal-scale MVP
+cannot race a stale counter. Durable Objects are the natural alternative. They would keep counter
+writes off Postgres and closer to the edge, but that is more moving parts than a personal-scale MVP
 warrants while the database is already there.
 
 | Tier                 | Mechanism                                     | Scope                     | Default threshold  | Over-limit response        |
@@ -103,7 +103,7 @@ warrants while the database is already there.
 
 The edge tier is intentionally the loosest: it absorbs volumetric floods before they reach the
 Worker while leaving normal multi-tab session polling alone. The application tiers tighten
-progressively toward the sensitive sign-in and write paths. Thresholds are configurable — the edge
+progressively toward the sensitive sign-in and write paths. Thresholds are configurable. The edge
 values are Terraform variables (`auth_rate_limit_*`) and the application values live in the Worker
 (`workers/recipe-api/src/auth.ts` and `src/http/rate-limit.ts`).
 

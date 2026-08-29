@@ -401,7 +401,7 @@ owns the photo backup pipeline, the lab's two most important jobs.
   connected to my Slack workspace via a Slack app, to alarm on anything
   going wrong. The media stack feeds it per-service health gauges through
   its StatsD listener, and the supervisor that keeps that stack alive
-  restarts containers Docker marks unhealthy — the hung-process case a
+  restarts containers Docker marks unhealthy, the hung-process case a
   restart policy can never catch.
 * **Media.** It runs [Jellyfin](/projects/homelab/adrs/011-jellyfin) to serve
   TV shows and movies to my Fire TV Stick, in Docker Compose under colima
@@ -409,10 +409,10 @@ owns the photo backup pipeline, the lab's two most important jobs.
   repo. The library lives on the 10TB HDD and is served over the LAN and the
   tailnet only.
 * **Media acquisition.** It runs an automated
-  [arr stack](/projects/homelab/adrs/016-media-automation-arr-stack) —
+  [arr stack](/projects/homelab/adrs/016-media-automation-arr-stack),
   [Prowlarr](/projects/homelab/adrs/017-prowlarr-indexer-management),
   Sonarr, Radarr, [qBittorrent](/projects/homelab/adrs/018-single-containerized-torrent-client),
-  and [Recyclarr](/projects/homelab/adrs/019-recyclarr-trash-guides) — in
+  and [Recyclarr](/projects/homelab/adrs/019-recyclarr-trash-guides), in
   Docker Compose under colima, supervised by a launchd agent that only starts
   it while the VPN tunnel is up ([ADR 020](/projects/homelab/adrs/020-vpn-gated-stack)).
   Trakt watchlist taps become monitored titles, and finished downloads land

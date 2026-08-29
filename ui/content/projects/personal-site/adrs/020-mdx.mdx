@@ -17,7 +17,7 @@ With [Static Site Generation](/projects/personal-site/adrs/015-ssg) as the rende
 
 # Decision
 
-I will use **MDX (Markdown + JSX)** for all content—blog posts, project documentation, and ADRs are `.mdx` files with YAML frontmatter.
+I will use **MDX (Markdown + JSX)** for all content, blog posts, project documentation, and ADRs are `.mdx` files with YAML frontmatter.
 
 # Alternatives Considered
 
@@ -36,14 +36,14 @@ I will use **MDX (Markdown + JSX)** for all content—blog posts, project docume
 **Headless CMS (Contentful, Sanity, Strapi, Ghost)**:
 
 * **Pros**: GUI editing, rich media management, preview modes
-* **Cons**: Content in external database (not git), no PR reviews, can't link to article history on GitHub, vendor lock-in (content locked in proprietary formats/APIs), paid services (tried Ghost—costs money)
+* **Cons**: Content in external database (not git), no PR reviews, can't link to article history on GitHub, vendor lock-in (content locked in proprietary formats/APIs), paid services (tried Ghost, costs money)
 * **Why not**: Violates "content as code" from [ADR 015](/projects/personal-site/adrs/015-ssg). Git versioning is superior, free, and avoids vendor lock-in.
 
 **Notion/Google Docs Export**:
 
 * **Pros**: Familiar writing experience, collaborative editing
 * **Cons**: Fragile export pipeline, formatting breaks, content drift between source and published
-* **Why not**: Saw this fail at a previous employer—links broke, formatting mangled. Better to write in the published format.
+* **Why not**: Saw this fail at a previous employer. Links broke, formatting mangled. Better to write in the published format.
 
 **AsciiDoc**:
 
@@ -73,4 +73,4 @@ I will use **MDX (Markdown + JSX)** for all content—blog posts, project docume
 * **Build Complexity**: Requires compilation (AST transformations, bundler config) vs serving static Markdown
 * **Risk of Over-Engineering**: Easy to over-complicate content with custom components. Requires discipline to stay simple.
 * **Fragmentation Risk**: Component bugs break every post using them. Must keep components stable and well-tested.
-* **Tooling Gaps**: Editor support less polished than Markdown. Linting is tricky—complex setup combining remark-lint (Markdown) and ESLint (JSX). No single tool handles the hybrid format cleanly.
+* **Tooling Gaps**: Editor support less polished than Markdown. Linting is tricky. Complex setup combining remark-lint (Markdown) and ESLint (JSX). No single tool handles the hybrid format cleanly.

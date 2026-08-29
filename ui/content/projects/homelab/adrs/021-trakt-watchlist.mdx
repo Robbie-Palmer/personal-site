@@ -9,7 +9,7 @@ tech_stack: ["Trakt", "Sonarr", "Radarr", "Jellyfin"]
 
 Adding media through Sonarr and Radarr's web UIs works, but the natural place
 to decide what to watch next is a phone, on a couch, in a recommendations
-feed — not an administration panel. A social tracking service turns "that
+feed, not an administration panel. A social tracking service turns "that
 looked interesting" into a library entry: tap watchlist, the stack fetches
 it. Watched-state should flow the other way too, so the tracker's
 recommendations improve off what Jellyfin actually plays.
@@ -23,7 +23,7 @@ the API-friendly alternative for both movies and shows.
 Native integrations only, one OAuth grant each:
 
 * **Watchlist as acquisition queue**: Sonarr and Radarr each get a native
-  **Trakt User** import list over the account's watchlist — authorized once
+  **Trakt User** import list over the account's watchlist, authorized once
   via their own "Authenticate with Trakt" buttons, bound to the TRaSH
   profiles from ADR 019 (`WEB-1080p` + `/media/TV`, `HD Bluray + WEB` +
   `/media/Movies`), monitoring everything and searching on add. A tap enters
@@ -46,7 +46,7 @@ bootstrap doesn't repeat them:
    character.
 2. **Failed syncs lock for 12 hours.** Each list records a last-sync time
    even when the fetch returns nothing, and Servarr skips re-fetching within
-   a minimum refresh interval — so clicking Refresh after fixing a problem
+   a minimum refresh interval, so clicking Refresh after fixing a problem
    does nothing. When debugging, delete and recreate the list (creation runs
    an unlocked test fetch), or wait out the interval.
 
@@ -66,13 +66,13 @@ bootstrap doesn't repeat them:
 ## Custom headless sync service
 
 A small script doing Trakt OAuth itself, polling the watchlist hourly, and
-pushing adds into the \*arr APIs — built as `trakt_sync.py` when the native
+pushing adds into the \*arr APIs, built as `trakt_sync.py` when the native
 path appeared blocked by free-tier limits (one community-app connection at a
 time, app registration VIP-only).
 
 * **Pros**: one connection instead of three; fully scriptable.
 * **Cons**: \~200 lines of token-refresh, diffing, and add-logic duplicating
-  what upstream already maintains — plus the same silent-slug trap would
+  what upstream already maintains, plus the same silent-slug trap would
   have lived in bespoke code with no Test button to catch it.
 * **Decision**: Rejected once the actual failure turned out to be the slug,
   not the tier: with the correct dash-spelled username the native lists
@@ -96,7 +96,7 @@ time, app registration VIP-only).
   \*arr app). A fresh bootstrap needs them redone by hand; the click-paths
   live in the README caveats.
 * List refresh runs at a minimum interval of 12 hours per list; same-day
-  gratification means pressing Refresh — after checking you haven't just
+  gratification means pressing Refresh, after checking you haven't just
   synced.
 * Removing something from the watchlist does not remove or unmonitor it in
   the \*arr apps; the queue drains forward only.

@@ -16,8 +16,8 @@ Search architecture options fall into two categories:
 * **Algolia**: Hosted search-as-a-service with excellent UX, but expensive (pricing escalates with usage) and requires external platform dependency
 * **Elasticsearch**: Enterprise-grade full-text search, but heavyweight infrastructure (JVM, cluster management) overkill for a personal blog
 * **Meilisearch**: Modern self-hosted search engine (\~$30/month cloud or self-host), but requires maintaining server infrastructure
-* **Typesense**: Similar to Meilisearch—powerful but requires backend
-* **Vector Search (Pinecone, Weaviate)**: Semantic search using embeddings, but requires API costs, external platform, and embedding generation pipeline—massive overkill for keyword search
+* **Typesense**: Similar to Meilisearch, powerful but requires backend
+* **Vector Search (Pinecone, Weaviate)**: Semantic search using embeddings, but requires API costs, external platform, and embedding generation pipeline, massive overkill for keyword search
 * **Custom API**: Roll-your-own with database full-text search, but introduces server complexity and hosting costs
 
 **Client-Side Search Libraries:**
@@ -43,9 +43,9 @@ This aligns with [Less Is More](/projects?tab=philosophy#less-is-more) and [LLM-
 
 The implementation searches across weighted fields:
 
-* **Title** (weight: 3) — Most important
-* **Description & Tags** (weight: 2) — Secondary importance
-* **Full Content** (weight: 1) — Tertiary importance
+* **Title** (weight: 3). Most important
+* **Description & Tags** (weight: 2). Secondary importance
+* **Full Content** (weight: 1). Tertiary importance
 
 Configuration uses `threshold: 0.1` for predictable substring matching and `ignoreLocation: true` to find matches anywhere in the text.
 
@@ -57,8 +57,8 @@ Configuration uses `threshold: 0.1` for predictable substring matching and `igno
 * **Platform Independence**: Aligns with [Less Is More](/projects?tab=philosophy#less-is-more). No external dependencies on Algolia, Pinecone, Elasticsearch clusters, or vector databases. Everything runs in the browser.
 * **Fuzzy Search**: Typo tolerance means "machne leraning" finds "machine learning". Better UX than exact-match search, especially on mobile keyboards.
 * **LLM-Native**: Fuse.js has the highest download count (4.9M/week) among client-side search libraries, meaning extensive LLM training data. AI agents can easily generate and modify Fuse.js code.
-* **Simple API**: Minimal configuration—instantiate Fuse with data and keys, call `.search()`. No index building, no embedding pipelines, no complex configuration files.
-* **SSG-Compatible**: Works with Next.js Static Site Generation. Search index is built in-memory from the pre-rendered post list—no build step required.
+* **Simple API**: Minimal configuration. Instantiate Fuse with data and keys, call `.search()`. No index building, no embedding pipelines, no complex configuration files.
+* **SSG-Compatible**: Works with Next.js Static Site Generation. Search index is built in-memory from the pre-rendered post list. No build step required.
 * **Instant Results**: No network latency. Search is as fast as the user's device can process it.
 
 ### Cons

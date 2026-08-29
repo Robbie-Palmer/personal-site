@@ -90,7 +90,7 @@ license.
 
    The script validates CalVer naming, rejects versions older than what
    Cloudflare already has, uploads only new images, and skips existing ones.
-3. Reference the image ID in frontmatter — include the `blog/` prefix and date,
+3. Reference the image ID in frontmatter. Include the `blog/` prefix and date,
    omit the extension:
 
    ```yaml

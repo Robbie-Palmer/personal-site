@@ -62,9 +62,9 @@ cumulative scorecard fields are intended to support removing scouts that are
 noisy or not cost-effective.
 
 Free-model availability is refreshed from OpenCode at the start of every run.
-Models removed from the catalogue are skipped. The six default scouts—Kimi
+Models removed from the catalogue are skipped. The six default scouts, Kimi
 K2.6, DeepSeek V4 Pro, GLM 5.2, Ling 2.6 1T, Big Pickle, and Nemotron 3 Ultra
-Free—run in bounded concurrent batches.
+Free, run in bounded concurrent batches.
 GitHub and free-provider transient failures use bounded retries, while paid
 OpenRouter completion POSTs make one HTTP attempt because the provider exposes
 no idempotency key. Nemotron receives a 180-second timeout, and individual

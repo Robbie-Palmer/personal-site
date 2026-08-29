@@ -16,18 +16,18 @@ Component library options fall into two categories:
 * **Bootstrap**: Battle-tested, comprehensive components, but opinionated utility-first styles that conflict with Tailwind, hard to customize without fighting framework CSS
 * **Material UI (MUI)**: Massive ecosystem and feature-rich, but heavy bundle size (\~300KB+), opinionated Material Design aesthetic, complex theming system separate from Tailwind
 * **Chakra UI**: Excellent DX and beginner-friendly, but ships its own CSS-in-JS theming system that doesn't leverage Tailwind, adds runtime overhead
-* **DaisyUI**: Tailwind-based component classes shipped via npm, but components are black boxes in `node_modules`—no visibility into implementation, harder to customize beyond theme variables
+* **DaisyUI**: Tailwind-based component classes shipped via npm, but components are black boxes in `node_modules`, no visibility into implementation, harder to customize beyond theme variables
 
 **Headless/Unstyled Component Libraries:**
 
-* **Radix UI**: Best-in-class accessible primitives with ARIA compliance and keyboard navigation, but completely unstyled—requires building every component from scratch
+* **Radix UI**: Best-in-class accessible primitives with ARIA compliance and keyboard navigation, but completely unstyled, requires building every component from scratch
 * **Headless UI**: Tailwind Labs' official headless components, integrates well with Tailwind, but less comprehensive than Radix (fewer components, less accessibility features)
 * **React Aria**: Adobe's accessibility-focused library with excellent ARIA support, but verbose API, not Tailwind-native, steeper learning curve
-* **shadcn/ui**: Pre-styled Radix components built with Tailwind that you copy into your codebase—combines headless flexibility with styled component convenience
+* **shadcn/ui**: Pre-styled Radix components built with Tailwind that you copy into your codebase, combines headless flexibility with styled component convenience
 
 I want a solution that prioritizes:
 
-* **Accessibility by Default**: Web standards-compliant components with proper ARIA attributes, keyboard navigation, and focus management—maintained by experts, not hand-rolled
+* **Accessibility by Default**: Web standards-compliant components with proper ARIA attributes, keyboard navigation, and focus management, maintained by experts, not hand-rolled
 * **Code Ownership**: Components live in my codebase, not hidden in `node_modules`, allowing full customization and transparency
 * **Headless Architecture**: Accessible primitives without opinionated visual styles, enabling complete design system control
 * **Tailwind-Native**: Components use Tailwind classes and design tokens, not separate CSS or theming systems
@@ -40,13 +40,13 @@ I decided to use **[shadcn/ui](https://ui.shadcn.com/)**.
 
 This aligns with [The Goldilocks Zone](/projects?tab=philosophy#the-goldilocks-zone), [Less Is More](/projects?tab=philosophy#less-is-more), and [LLM-Optimized](/projects?tab=philosophy#llm-optimized). shadcn/ui is built on Radix UI (battle-tested accessibility) and Tailwind CSS (industry standard), with extensive LLM training data due to rapid adoption.
 
-shadcn/ui is not a traditional npm package—it's a **collection of copy-paste components**. When you install a component, the source code is copied into `ui/components/ui/`, giving you full ownership and customization control.
+shadcn/ui is not a traditional npm package. It's a **collection of copy-paste components**. When you install a component, the source code is copied into `ui/components/ui/`, giving you full ownership and customization control.
 
 The implementation uses:
 
 * **Radix UI primitives** for accessibility, keyboard navigation, and ARIA compliance
 * **class-variance-authority (CVA)** for type-safe variant management
-* **Tailwind CSS** for all styling—no custom CSS files or separate theming system
+* **Tailwind CSS** for all styling, no custom CSS files or separate theming system
 * **Lucide icons** for consistent iconography
 
 # Consequences
@@ -60,7 +60,7 @@ The implementation uses:
 * **Tailwind-Native Design System**: Components use your Tailwind config's colors, spacing, and typography. Changing `theme.colors.primary` updates all components automatically. No fighting CSS specificity or maintaining parallel theming systems.
 * **Best of Both Worlds**: Get the speed of pre-styled components (like Bootstrap/MUI) with the flexibility of headless libraries (like Radix). Components are production-ready but fully customizable since you own the source.
 * **LLM-Native**: shadcn/ui exploded in popularity in 2024-2025, becoming one of the most discussed UI libraries. Extensive documentation, tutorials, and examples mean AI agents can generate shadcn components accurately and suggest customizations.
-* **No Runtime Overhead**: Unlike Chakra's CSS-in-JS, all styling is Tailwind classes compiled at build time. Zero JavaScript for theming—just static CSS.
+* **No Runtime Overhead**: Unlike Chakra's CSS-in-JS, all styling is Tailwind classes compiled at build time. Zero JavaScript for theming. Just static CSS.
 * **Composable & Extensible**: Since components are in your codebase, you can compose them freely. Create `<IconButton>` by combining `<Button>` with icon logic, or build `<ConfirmDialog>` by extending the base `<Dialog>` component.
 * **Type-Safe Variant Management with CVA**: shadcn/ui uses [class-variance-authority (CVA)](https://cva.style/docs) for managing component variants, which provides significant developer experience and maintainability benefits:
   * **TypeScript Autocomplete**: Get IDE autocomplete for all variant options (`variant="outline" size="sm"`), catching invalid props at compile time instead of runtime
@@ -76,4 +76,4 @@ The implementation uses:
 * **Manual Component Management**: Each component must be explicitly added via CLI (`npx shadcn@latest add button`). Unlike traditional libraries where all components are available after one `npm install`, you incrementally copy components as needed.
 * **Update Complexity**: Updates aren't automatic like npm packages. When shadcn releases a new component version, you must manually re-run the CLI or merge changes. Requires tracking upstream changes if you've customized components.
 * **Not a Design System**: Unlike Material UI (Material Design) or Chakra (Chakra's aesthetic), shadcn doesn't impose a cohesive visual language. You must define your own design system via Tailwind config. More freedom, but requires design decisions.
-* **Component Count**: Fewer components than mature libraries like MUI (90+ components) or DaisyUI (63 components). shadcn focuses on primitives—you'll build specialized components yourself by composing primitives.
+* **Component Count**: Fewer components than mature libraries like MUI (90+ components) or DaisyUI (63 components). shadcn focuses on primitives. You'll build specialized components yourself by composing primitives.

@@ -1,0 +1,37 @@
+[
+  {
+    "file": "ui/content/blog/2022-03-02-the-philosophy-of-data-science.mdx",
+    "line": 301,
+    "checks": ["proselint.But"]
+  },
+  {
+    "file": "ui/content/blog/2022-03-02-the-philosophy-of-data-science.mdx",
+    "line": 364,
+    "checks": ["Unslop.Puffery"]
+  },
+  {
+    "file": "ui/content/blog/2022-03-02-the-philosophy-of-data-science.mdx",
+    "line": 420,
+    "checks": ["proselint.Very"]
+  },
+  {
+    "file": "ui/content/blog/2022-03-02-the-philosophy-of-data-science.mdx",
+    "line": 439,
+    "checks": ["Unslop.Puffery"]
+  },
+  {
+    "file": "ui/content/blog/2022-03-02-the-philosophy-of-data-science.mdx",
+    "line": 446,
+    "checks": ["Unslop.Puffery"]
+  },
+  {
+    "file": "ui/content/blog/2022-03-02-the-philosophy-of-data-science.mdx",
+    "line": 515,
+    "checks": ["write-good.ThereIs"]
+  },
+  {
+    "file": "ui/content/blog/2022-03-02-the-philosophy-of-data-science.mdx",
+    "line": 663,
+    "checks": ["write-good.So"]
+  }
+]

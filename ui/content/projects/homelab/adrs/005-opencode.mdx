@@ -7,14 +7,14 @@ tech_stack: ["opencode"]
 
 # Context
 
-The hub's agent lineup is Claude Code, Codex, and Grok Build — three
+The hub's agent lineup is Claude Code, Codex, and Grok Build, three
 proprietary agents, each tied to a commercial model family and subscription.
 I want at least one open-source agent in the mix for the same reasons the
 rest of the lab is built on open tooling: no account dependency, no per-token
 surprise, and the freedom to point it at any model.
 
 opencode is an open-source, terminal-based agent that is intentionally
-model-agnostic — it can run against API providers or any OpenAI-compatible
+model-agnostic. It can run against API providers or any OpenAI-compatible
 endpoint. That's what matters here, because open weight is how you get to the
 interesting models:
 
@@ -26,7 +26,7 @@ interesting models:
   waiting for a commercial agent vendor to wire them in.
 
 To be clear: I'm **not** planning to self-host models. Open weight is a good
-direction, but local inference isn't — self-hostable models are too small and
+direction, but local inference isn't. Self-hostable models are too small and
 weak, and the frontier open-weight models (Kimi K3 reportedly needs on the
 order of $2M of GPUs to serve a single instance) are only runnable by
 third-party providers anyway. Open weight means provider competition, not a
@@ -39,7 +39,7 @@ Install **opencode** on the Mac mini alongside the proprietary agents.
 opencode provides the model-agnostic fallback: if a provider's allowance is
 exhausted or its pricing changes, opencode can be pointed at a different
 model without changing the tool. It's also the way to use free and
-open-weight models — DeepSeek, Big Pickle, Kimi K3, whatever comes next —
+open-weight models, DeepSeek, Big Pickle, Kimi K3, whatever comes next,
 through whichever provider serves them.
 
 # Alternatives
@@ -56,7 +56,7 @@ through whichever provider serves them.
 * **Pros**: Fewer tools to maintain.
 * **Cons**: Leaves no model-agnostic fallback; all agent capacity depends on
   commercial accounts.
-* **Decision**: Rejected. The open-source slot is deliberate — it's the
+* **Decision**: Rejected. The open-source slot is deliberate. It's the
   resilience fallback for the whole agent stack.
 
 # Consequences

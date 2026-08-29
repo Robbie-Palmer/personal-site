@@ -15,7 +15,7 @@ workable option, years of family photos live only behind someone else's
 decisions.
 
 I want a regular, automated sync from Ente down to a local 10TB HDD connected
-to the Mac mini — an offline backup I own. Manual syncing has already proven
+to the Mac mini, an offline backup I own. Manual syncing has already proven
 itself painful, so this must be a monitored, repeatable pipeline, not a
 script I have to remember to run.
 
@@ -24,19 +24,19 @@ script I have to remember to run.
 Connect the Mac mini to **Ente** and run regular syncs from it down to the
 connected 10TB HDD.
 
-Ente's CLI supports export/backup flows, so the hub can pull the library —
-which stays in Ente's cloud — down on a schedule into the backup drive. The
+Ente's CLI supports export/backup flows, so the hub can pull the library,
+which stays in Ente's cloud, down on a schedule into the backup drive. The
 drive is
 formatted as a straightforward filesystem layout (not a proprietary archive)
 so the photos remain readable by normal tools even if every Ente tool
 disappears. A backup that fails quietly is barely better than no backup, so
 the sync has to be watched and has to raise an alarm on failure or a full
-drive — a pipeline to monitor, not a script to forget.
+drive, a pipeline to monitor, not a script to forget.
 
 The Mac mini is the right owner for this: it's always on, and it already
 hosts the backup drive. That does mean sharing a box with the
 [agent stack](/projects/homelab/adrs/006-t3-code), which is a risk rather
-than a benefit — the Codex decision flags it as the reason to keep
+than a benefit. The Codex decision flags it as the reason to keep
 least-privilege rules tight around the photo library and backup drive.
 
 # Alternatives
@@ -77,7 +77,7 @@ least-privilege rules tight around the photo library and backup drive.
 
 ### Cons
 
-* **Local storage dependency**: the 10TB drive is a single physical disk —
+* **Local storage dependency**: the 10TB drive is a single physical disk.
   a NAS or offsite copy would close that gap.
 * **Sync pipeline to maintain**: Ente's CLI/export paths can change.
 * **Privacy boundary to respect**: the photo library and backup drive must

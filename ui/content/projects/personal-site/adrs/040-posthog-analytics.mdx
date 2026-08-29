@@ -13,11 +13,11 @@ Cloudflare provides basic analytics in its dashboard (page views, unique visitor
 
 The requirements break down into several tiers:
 
-1. **Basic web analytics** (immediate): Page views, unique visitors, traffic sources, top content—the baseline that Cloudflare fails to deliver usably.
+1. **Basic web analytics** (immediate): Page views, unique visitors, traffic sources, top content, the baseline that Cloudflare fails to deliver usably.
 2. **Success metrics and feedback loops** (immediate): Define what "good" looks like for content and features, measure it, and use the data to decide where to invest effort.
-3. **User flow analysis** (near-term): Understand how visitors navigate through the site—where they land, what paths they take, where they drop off.
+3. **User flow analysis** (near-term): Understand how visitors navigate through the site, where they land, what paths they take, where they drop off.
 4. **A/B testing** (near-term): Experiment with content presentation, CTAs, and feature variations to optimise based on evidence rather than intuition.
-5. **Deeper product analytics** (future): Funnels, cohort analysis, session replay, feature flags—as sub-projects grow in complexity.
+5. **Deeper product analytics** (future): Funnels, cohort analysis, session replay, feature flags, as sub-projects grow in complexity.
 
 The platform choice matters because analytics tends to expand in scope. Starting with a minimal tool that only covers tier 1 means introducing a second (or third) platform later when needs grow. Consolidating on a platform that can serve all tiers from the start avoids that churn.
 
@@ -31,11 +31,11 @@ PostHog is integrated client-side via the `posthog-js` SDK, initialised in `inst
 
 ### Breadth of Platform
 
-PostHog is not just an analytics tool—it is a product platform covering analytics, session replay, feature flags, A/B testing (Experiments), surveys, data pipelines, and a data warehouse. Choosing PostHog for basic analytics doesn't mean adopting a narrow tool that will need replacing; it means adopting a platform that grows with the project. When the need for A/B testing or feature flags arises, it's a configuration change within the same platform, not a new vendor integration.
+PostHog is not just an analytics tool. It is a product platform covering analytics, session replay, feature flags, A/B testing (Experiments), surveys, data pipelines, and a data warehouse. Choosing PostHog for basic analytics doesn't mean adopting a narrow tool that will need replacing; it means adopting a platform that grows with the project. When the need for A/B testing or feature flags arises, it's a configuration change within the same platform, not a new vendor integration.
 
 ### Generous Free Tier
 
-PostHog's free tier includes 1 million events/month for analytics, 5,000 session recordings/month, 1 million feature flag requests/month, and unlimited experimentation. For a personal site, this is effectively unlimited—there is no realistic scenario where these limits are hit. This removes cost as a factor entirely and means analytics can be comprehensive without being selective about what to track.
+PostHog's free tier includes 1 million events/month for analytics, 5,000 session recordings/month, 1 million feature flag requests/month, and unlimited experimentation. For a personal site, this is effectively unlimited. No realistic scenario hits these limits. This removes cost as a factor entirely and means analytics can be comprehensive without being selective about what to track.
 
 ### Success Metrics and Feedback Loops
 
@@ -68,25 +68,25 @@ PostHog is built for engineers. The SDK is straightforward, the documentation is
 ### Google Analytics (GA4)
 
 * **Pros**: Industry standard. Extensive documentation and ecosystem. Free tier covers most use cases.
-* **Cons**: Privacy concerns—Google uses analytics data for its own advertising purposes. Requires cookie consent banners for GDPR compliance. Complex configuration for custom events and funnels. The GA4 migration fragmented the ecosystem and degraded UX significantly. Does not offer feature flags, A/B testing, or session replay—would still need additional platforms for those capabilities.
+* **Cons**: Privacy concerns. Google uses analytics data for its own advertising purposes. Requires cookie consent banners for GDPR compliance. Complex configuration for custom events and funnels. The GA4 migration fragmented the ecosystem and degraded UX significantly. Does not offer feature flags, A/B testing, or session replay, would still need additional platforms for those capabilities.
 * **Decision**: Rejected. The privacy trade-offs and platform limitations don't justify the ecosystem advantage for a personal site.
 
 ### Plausible Analytics
 
 * **Pros**: Privacy-first. Simple, clean dashboard. No cookies required. Open source. EU-hosted.
-* **Cons**: Intentionally minimal—covers only tier 1 (basic analytics). While it supports custom events and funnels, its user analysis capabilities are limited. No built-in A/B testing, session replay, or feature flags. Would require adding a second platform as soon as needs go beyond page views. Paid only (no free tier for cloud-hosted).
+* **Cons**: Intentionally minimal, covers only tier 1 (basic analytics). While it supports custom events and funnels, its user analysis capabilities are limited. No built-in A/B testing, session replay, or feature flags. Would require adding a second platform as soon as needs go beyond page views. Paid only (no free tier for cloud-hosted).
 * **Decision**: Rejected. Too narrow. Solves the immediate problem but creates the same platform proliferation issue it was meant to avoid.
 
 ### Mixpanel
 
 * **Pros**: Strong product analytics. Good funnel and cohort analysis. Generous free tier (20M events/month).
-* **Cons**: Focused on product analytics rather than web analytics—less suited for content-heavy sites. A/B testing is only available on the Enterprise plan (starting at \~$1,667/month). No built-in session replay and limited feature flags compared to PostHog. Would still require additional platforms for a complete toolset. More complex setup for what starts as a simple analytics need.
+* **Cons**: Focused on product analytics rather than web analytics, less suited for content-heavy sites. A/B testing is only available on the Enterprise plan (starting at \~$1,667/month). No built-in session replay and limited feature flags compared to PostHog. Would still require additional platforms for a complete toolset. More complex setup for what starts as a simple analytics need.
 * **Decision**: Rejected. Better suited for SaaS products than a personal site with growing sub-projects.
 
 ### Amplitude
 
 * **Pros**: Powerful behavioural analytics. Good visualisation tools. Free tier available.
-* **Cons**: Similar to Mixpanel in scope—strong on product analytics, but weaker on broader platform features compared to PostHog (e.g., feature flags are less integrated). While it offers A/B testing and session replay, its enterprise-oriented UX is heavyweight for a personal project.
+* **Cons**: Similar to Mixpanel in scope, strong on product analytics, but weaker on broader platform features compared to PostHog (e.g., feature flags are less integrated). While it offers A/B testing and session replay, its enterprise-oriented UX is heavyweight for a personal project.
 * **Decision**: Rejected. Overkill for analytics alone, yet still incomplete as a platform.
 
 # Consequences
@@ -96,7 +96,7 @@ PostHog is built for engineers. The SDK is straightforward, the documentation is
 * **Comprehensive Analytics from Day One**: Basic web analytics, custom event tracking, and user flow analysis are all available immediately without waiting for "the next platform."
 * **Evidence-Based Decisions**: Success metrics and dashboards create a feedback loop for prioritising content and features based on data rather than intuition.
 * **Experimentation Capability**: A/B testing is available within the same platform when needed, without a separate integration.
-* **Platform Consolidation**: One platform covers analytics, experimentation, session replay, and feature flags—[Less Is More](/projects?tab=philosophy#less-is-more). No need to evaluate, integrate, and maintain multiple specialist tools.
+* **Platform Consolidation**: One platform covers analytics, experimentation, session replay, and feature flags, [Less Is More](/projects?tab=philosophy#less-is-more). No need to evaluate, integrate, and maintain multiple specialist tools.
 * **Zero Cost at Current Scale**: The free tier is generous enough that cost is not a consideration for a personal site.
 * **Ad-Blocker Resilience**: Proxying through the site's own domain via `/ingest/*` ensures analytics data is collected even when visitors use ad blockers.
 * **Privacy-Conscious Setup**: EU data residency, first-party domain proxying, and no reliance on third-party cookies.

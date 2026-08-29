@@ -20,7 +20,20 @@
 
 import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { isAbsolute, join, relative, resolve } from "node:path";
+
+/**
+ * Intentional prose-lint exemptions live in ./prose-exemptions.json (next to
+ * this script).  Each entry suppresses a specific rule alert on a specific
+ * line of a specific file — e.g. a published post's wording that we want to
+ * keep as-is.  An entry matches only when the file, line number, and check
+ * name all agree, so it never blanket-suppresses a whole line or file.
+ */
+interface ProseExemption {
+  file: string;
+  line: number;
+  checks: string[];
+}
 
 /* ------------------------------------------------------------------ */
 /*  Config                                                             */
@@ -321,13 +334,76 @@ function buildChangedMap(
   return changedMap;
 }
 
+const EXEMPTIONS_FILE = resolve(import.meta.dirname, "prose-exemptions.json");
+const REPO_ROOT = resolve(".");
+
+function isExemptionEntry(value: unknown): value is ProseExemption {
+  const e = value as Partial<ProseExemption>;
+  return (
+    typeof e.file === "string" &&
+    e.file.length > 0 &&
+    !isAbsolute(e.file) &&
+    typeof e.line === "number" &&
+    Number.isInteger(e.line) &&
+    Array.isArray(e.checks) &&
+    e.checks.every((c) => typeof c === "string" && c.length > 0)
+  );
+}
+
+function loadExemptions(): ProseExemption[] {
+  if (!existsSync(EXEMPTIONS_FILE)) return [];
+  try {
+    const parsed: unknown = JSON.parse(readFileSync(EXEMPTIONS_FILE, "utf-8"));
+    if (!Array.isArray(parsed)) {
+      throw new Error(`expected a JSON array, got ${typeof parsed}`);
+    }
+    for (const entry of parsed) {
+      if (!isExemptionEntry(entry)) {
+        throw new Error(`malformed entry: ${JSON.stringify(entry)}`);
+      }
+    }
+    // Normalise file paths to absolute so they match resolve() keys, and
+    // require each one to stay within the repository root.
+    return parsed.map((e) => {
+      const file = resolve(e.file);
+      const rel = relative(REPO_ROOT, file);
+      if (isAbsolute(rel) || rel.startsWith("..")) {
+        throw new Error(
+          `file outside repository root: ${JSON.stringify(e.file)}`,
+        );
+      }
+      return { file, line: e.line, checks: e.checks };
+    });
+  } catch (err) {
+    console.error(
+      `prose-lint: invalid ${EXEMPTIONS_FILE}: ${
+        err instanceof Error ? err.message : String(err)
+      }`,
+    );
+    process.exit(1);
+  }
+}
+
+function isExempt(
+  alert: ValeAlert,
+  exemptions: ProseExemption[],
+): boolean {
+  const file = resolve(alert.File);
+  return exemptions.some(
+    (e) => e.file === file && e.line === alert.Line &&
+      e.checks.includes(alert.Check),
+  );
+}
+
 function changedAlerts(
   alerts: ValeAlert[],
   changedMap: Map<string, Set<number> | null>,
+  exemptions: ProseExemption[],
 ): ValeAlert[] {
   return alerts.filter((alert) => {
     const changed = changedMap.get(resolve(alert.File));
-    return changed ? changed.has(alert.Line) : false;
+    if (!changed || !changed.has(alert.Line)) return false;
+    return !isExempt(alert, exemptions);
   });
 }
 
@@ -375,7 +451,11 @@ function main(): void {
     opts.base,
     diffMode,
   );
-  const filtered = changedAlerts(runVale(existingFiles), changedMap);
+  const filtered = changedAlerts(
+    runVale(existingFiles),
+    changedMap,
+    loadExemptions(),
+  );
   reportAlerts(filtered, opts.strict);
 }
 

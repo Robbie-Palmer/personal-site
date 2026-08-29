@@ -442,7 +442,7 @@ Realtime transport does not weaken the authorization model:
   room; its reconnect snapshot repairs any dropped invalidations;
 * do not log WebSocket payloads containing pantry/list contents;
 * close or expire sockets after membership, household, session, or authorization changes;
-* treat realtime receipt as a view permission only—writes continue through the existing
+* treat realtime receipt as a view permission only. Writes continue through the existing
   authorization and CSRF-protected API;
 * expose connection, rejection, broadcast-failure, and revision-gap metrics without high-cardinality
   ingredient names or user content.

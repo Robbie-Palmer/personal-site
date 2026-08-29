@@ -30,7 +30,7 @@ and Kafka, I aimed to enable detecting and responding to threats in milliseconds
 I built a suite of stream-processing accelerators to provide granular, entity-level control over unstructured data in motion:
 
 * **PII Detector App**: A stream-processing application using cutting-edge NLP models (spaCy/Huggingface) to inspect messages, detect 25+ entity types (names, credit cards, SSNs), and redact them in real-time.
-* **Granular Governance**: Instead of locking down entire datasets, I enabled "entity-level" governance—redacting only the sensitive PII while letting the rest of the valuable data flow to downstream analytics.
+* **Granular Governance**: Instead of locking down entire datasets, I enabled "entity-level" governance, redacting only the sensitive PII while letting the rest of the valuable data flow to downstream analytics.
 * **Ecosystem Integration**: Developed components for the entire Kafka ecosystem:
   * **ksqlDB UDFs**: SQL functions for ad-hoc PII queries.
   * **Kafka Connect SMTs**: Single Message Transforms to redact data *before* it even hits the broker.

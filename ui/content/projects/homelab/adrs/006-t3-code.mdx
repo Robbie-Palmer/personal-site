@@ -8,14 +8,14 @@ tech_stack: ["t3-code"]
 # Context
 
 The Mac mini's primary use case is remote, mobile-friendly, agentic
-development. It hosts four coding agents — [Claude Code](/projects/homelab/adrs/002-claude-code),
+development. It hosts four coding agents, [Claude Code](/projects/homelab/adrs/002-claude-code),
 [Codex](/projects/homelab/adrs/003-codex) (two subscriptions),
 [Grok Build](/projects/homelab/adrs/004-grok-build), and
-[opencode](/projects/homelab/adrs/005-opencode) — and I want to drive them
+[opencode](/projects/homelab/adrs/005-opencode), and I want to drive them
 from a phone over the tailnet without juggling four different CLIs or web
 UIs.
 
-The agents themselves are already covered by earlier decisions — Claude Code
+The agents themselves are already covered by earlier decisions. Claude Code
 [inherited](/projects/homelab/adrs/002-claude-code) from `personal-site:012-claude-code`,
 Codex [inherited](/projects/homelab/adrs/003-codex) from `personal-site:043-codex`,
 plus [Grok Build](/projects/homelab/adrs/004-grok-build) and
@@ -29,7 +29,7 @@ Requirements:
   of the four agents with a model/tool choice, preserving thread and project
   context across them.
 * **Bring your own subscription.** It must not resell tokens or require its
-  own API keys — it wires in the credentials and plans I already pay for
+  own API keys. It wires in the credentials and plans I already pay for
   (including both distinct Codex subscriptions, each keeping its own
   allowance).
 * **Mobile-friendly and remote.** It has to be usable from a phone over the
@@ -60,13 +60,13 @@ best-fitting one per task.
 ## Use each agent's own CLI/web UI, no orchestrator
 
 * **Pros**: No extra layer to maintain.
-* **Cons**: t3-code doesn't interfere with the agent harnesses — it drives
+* **Cons**: t3-code doesn't interfere with the agent harnesses. It drives
   the same CLIs directly, so the agents are just as capable either way; the
   difference is the surface. Without an orchestrator there are four different
   UIs, four sets of shortcuts and mental models, and no shared thread or
   project context. I used the Claude and Codex apps from mobile for a while,
   and t3-code is a far better UX for juggling multiple sessions and
-  coordinating work on GitHub — and Codex required a user-provided machine
+  coordinating work on GitHub. Codex required a user-provided machine
   to run on anyway before remote development environments existed.
 * **Decision**: Rejected. The orchestrator is a coordinator, not a
   replacement for the agents.
@@ -77,7 +77,7 @@ best-fitting one per task.
 * **Cons**: Rebuilds what t3-code already does (session management, provider
   switching, diff viewing, PR workflow, remote pairing) for zero marginal
   benefit.
-* **Decision**: Rejected. t3-code is open source (MIT) and forkable — if it
+* **Decision**: Rejected. t3-code is open source (MIT) and forkable. If it
   doesn't do something, I extend it rather than reimplement it.
 
 ## Only run hosted cloud agent environments
@@ -107,7 +107,7 @@ best-fitting one per task.
 * **New orchestration dependency**: t3-code is young; the provider landscape
   it wraps changes quickly.
 * **Host availability**: remote sessions depend on the Mac mini staying up,
-  which is exactly what an always-on hub is for — but it does make the hub a
+  which is exactly what an always-on hub is for, but it does make the hub a
   single point of failure for all agent work.
 * **Configuration surface**: agent auth, t3-code pairing, and the tailnet
   binding all need to be kept working together.

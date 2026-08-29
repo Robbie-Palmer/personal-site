@@ -111,7 +111,7 @@ interface DomainRepository {
 
 **Separate forward/reverse edges** with automatic maintenance means:
 
-* Bidirectionality is inherent—add an edge once, traverse both directions
+* Bidirectionality is inherent. Add an edge once, traverse both directions
 * No risk of forward/reverse getting out of sync
 
 **Typed query helpers** preserve type safety at the API level:
@@ -211,7 +211,7 @@ const results = db.all(`
 **Cons:**
 
 * **Runtime dependency**: Need SQLite bindings (native module), complicates builds
-* **Type safety gap**: SQL queries are strings—no compile-time checking that column names exist or types match
+* **Type safety gap**: SQL queries are strings. No compile-time checking that column names exist or types match
 * **Impedance mismatch**: Still need to hydrate results back into TypeScript objects
 * **Overkill**: For \~50 entities and simple relationship queries, SQL overhead isn't justified
 * **Build complexity**: Database must be created, populated, and queried during build
@@ -231,7 +231,7 @@ Move content out of git into a managed CMS with built-in relational modeling and
 **What CMS relationship handling actually provides:**
 
 * **Declarative schema**: Define `Project.technologies: Reference[] -> Technology` once in a UI, and the CMS enforces it everywhere
-* **Automatic bidirectional queries**: Query `technology.usedBy.projects` without building indexes—it just works
+* **Automatic bidirectional queries**: Query `technology.usedBy.projects` without building indexes. It just works
 * **UI-enforced referential integrity**: Content editors pick from dropdowns of valid references, can't create dangling pointers
 * **Cascading awareness**: Warns before deleting a Technology that would break Project references
 * **GraphQL with nested resolution**: `{ project { technologies { name } } }` resolves automatically
@@ -315,7 +315,7 @@ interface DomainIndexes {
 
 **Pros:**
 
-* Maximum type safety—each map has fully typed keys and values
+* Maximum type safety. Each map has fully typed keys and values
 * No NodeId parsing needed
 * Direct mapping to SQL tables
 
@@ -360,7 +360,7 @@ This would provide SQL-like expressiveness for complex queries like
 
 **Decision**: Keep this in the back pocket. Start with the content graph and write ad-hoc query functions as needed.
 If we find ourselves writing the same nested-loop pattern repeatedly, the traversal API becomes worth building.
-The graph is the foundation either way—the traversal API would just be a fluent wrapper on top.
+The graph is the foundation either way. The traversal API would just be a fluent wrapper on top.
 
 # Consequences
 
@@ -371,7 +371,7 @@ The graph is the foundation either way—the traversal API would just be a fluen
 * **Type Safety at API Layer**: Query helpers return typed results. NodeId parsing is encapsulated.
 * **No Cartesian Explosion**: Unified edge storage via NodeIds avoids proliferating typed maps.
 * **Clear SQL Migration Path**: Edge maps become join tables. Query helpers become SQL queries.
-* **Single Source of Truth**: Graph is derived from entity relations—no separate data to sync.
+* **Single Source of Truth**: Graph is derived from entity relations. No separate data to sync.
 * **Zero Runtime Dependencies**: No native modules, no database drivers, no external services. Pure TypeScript.
 * **Matches Domain Language**: `getTechnologiesForProject()`, `getContentUsingTechnology()` - API reads like the domain.
 

@@ -26,23 +26,23 @@ installed and authenticated, since it injects the credentials.
 Secrets come from the Doppler config `dev_ml_pipelines`, injected by
 `scripts/doppler-pipeline-env`. It holds:
 
-- `R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY` — DVC remote access. The wrapper
+- `R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY`. DVC remote access. The wrapper
   maps them to the `AWS_*` names DVC's S3 remote reads, matching how CI maps
   them.
-- `OPENROUTER_API_KEY` — the LLM stages.
+- `OPENROUTER_API_KEY`. The LLM stages.
 
 You need an R2 API token for the credentials themselves.
 Go to [Cloudflare R2](https://dash.cloudflare.com/?to=/:account/r2/overview) →
 Manage R2 API Tokens to create one.
 
-**For local development** — Create a **User API Token**:
+**For local development**, Create a **User API Token**:
 
 1. Permissions: **Object Read & Write**
 2. Specify bucket: `dvc`
 3. Put the **Access Key ID** and **Secret Access Key** into Doppler
    `dev_ml_pipelines`
 
-**For CI (GitHub Actions)** — Create an **Account API Token**:
+**For CI (GitHub Actions)**, Create an **Account API Token**:
 
 1. Permissions: **Object Read**
 2. Specify bucket: `dvc`

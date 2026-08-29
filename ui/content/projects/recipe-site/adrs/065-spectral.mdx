@@ -17,7 +17,7 @@ the one that outlives any single file: the **HTTP contract** of the recipe API.
 SonarQube scores health within files
 ([ADR 048](/projects/personal-site/adrs/048-sonarqube)), Knip finds unreachable
 code ([ADR 052](/projects/personal-site/adrs/052-knip)), Gitleaks blocks secrets
-([ADR 054](/projects/personal-site/adrs/054-gitleaks)) — all of which cover the
+([ADR 054](/projects/personal-site/adrs/054-gitleaks)), all of which cover the
 recipe-api Worker's code. None of them can see that `POST /recipes/import-url`
 puts a verb in a path, or that a `GET` and a `POST` on the same URL mean two
 unrelated things.
@@ -30,13 +30,13 @@ without a gate:
 
 * **Verbs in paths.** `POST /recipes/import-url` and `POST /recipes/import-file`
   are RPC-shaped actions sitting beside the properly-modelled async job resource
-  `POST /recipe-imports` (+ `GET /recipe-imports/:jobId`) — one concept, two
+  `POST /recipe-imports` (+ `GET /recipe-imports/:jobId`), one concept, two
   shapes.
 * **Method/resource mismatch.** `GET /api/profile/cooking-insights` returns a
-  read model, but `POST` to the *same* path creates a `cookingSession` — a
+  read model, but `POST` to the *same* path creates a `cookingSession`, a
   different resource entirely.
 * **Action paths that are really methods.** `PUT /pantry/restore` is an
-  idempotent additive merge into the pantry singleton — i.e. `PATCH /pantry` —
+  idempotent additive merge into the pantry singleton, i.e. `PATCH /pantry`,
   wearing a verb in its URL.
 * **Inconsistent error shapes.** Handlers return JSON `{ error }` bodies in most
   places, while `c.notFound()` previously fell back to Hono's plain-text 404,
@@ -45,7 +45,7 @@ without a gate:
 Two facts make the timing favourable. **One atomic consumer:** the only client
 of the recipe API today is the UI in this same repository, behind the proxy, so
 renaming `import-url`/`import-file` or folding `pantry/restore` into
-`PATCH /pantry` is a same-PR change to both sides, not a versioned migration —
+`PATCH /pantry` is a same-PR change to both sides, not a versioned migration,
 and that window closes the moment the API is public. **The proxy already
 normalises the prefix:** callers only ever see `/api/*` (the internal split
 where profile and auth keep `/api` and everything else drops it never reaches a
@@ -57,7 +57,7 @@ contract cleanup will ever be.
 
 Adopt **Spectral** as the recipe API's governance linter, driven by an
 **OpenAPI** document generated from the routes' shared Zod schemas via
-**`@hono/zod-openapi`** — its `createRoute` pattern makes the route definition,
+**`@hono/zod-openapi`**, its `createRoute` pattern makes the route definition,
 its request schemas, its shared response envelopes, and the spec one declaration,
 so the contract cannot drift from the code. This is chosen over the lower-churn
 `hono-openapi` (which bolts metadata onto the existing handlers) deliberately:
@@ -68,13 +68,13 @@ and linted on every change.
 
 Rulesets, pinned by version:
 
-* **`spectral:oas`** — the built-in OpenAPI correctness baseline.
-* **`@stoplight/spectral-owasp-ruleset`** — the OWASP API Security rules:
+* **`spectral:oas`**, the built-in OpenAPI correctness baseline.
+* **`@stoplight/spectral-owasp-ruleset`**, the OWASP API Security rules:
   bounded arrays (`maxItems`) and strings (`maxLength`) against payload-DoS, a
   `429` documented on rate-limited operations (URL/photo import and
   recommendations already rate-limit), no credentials in query strings, a
   declared security scheme per operation.
-* **A small custom project ruleset** — plural collection nouns, no verbs in
+* **A small custom project ruleset**, plural collection nouns, no verbs in
   paths (with an explicit allowlist for legitimate state-transition actions such
   as `accept` / `decline` / `leave` / `read-all`), method-per-intent, and a
   single shared error envelope.
@@ -85,10 +85,10 @@ Enforcement:
 * A **blocking** CI job on any change under `workers/recipe-api`, justified the
   same way Knip's and zizmor's were
   ([ADR 049](/projects/personal-site/adrs/049-zizmor)): the baseline is greened
-  first. The inconsistencies above are fixed in the adopting change —
+  first. The inconsistencies above are fixed in the adopting change,
   `import-url`/`import-file` renamed to reflect that they return drafts,
   `cooking-insights` `POST` split to `cooking-sessions`, `pantry/restore` folded
-  into `PATCH /pantry`, and the error envelope unified — verified by the worker's
+  into `PATCH /pantry`, and the error envelope unified, verified by the worker's
   typecheck, unit tests, and a full build. There are no external consumers to
   break.
 * **`oasdiff`** diffs the committed `openapi.json` against the PR and fails on
@@ -98,8 +98,8 @@ Enforcement:
 
 **Versioning** stays deferred: a single unversioned `/api` for now, because the
 one consumer ships atomically with the API. The strategy is recorded here so the
-choice is made once — **URL-based `/api/v1`** when the first independent client
-(mobile app, third-party integration) appears — and the `oasdiff` gate ensures
+choice is made once, **URL-based `/api/v1`** when the first independent client
+(mobile app, third-party integration) appears, and the `oasdiff` gate ensures
 the first breaking change is a deliberate version bump rather than an accident.
 
 # Rules (Concrete Set)
@@ -118,11 +118,11 @@ green quickly rather than flood the first PR.
 | `owasp:api4:2023-array-limit`           | OWASP                        | error    | list responses need `maxItems`                                                         |
 | `owasp:api4:2023-string-limit`          | OWASP                        | error    | `title`/`source` need `maxLength`                                                      |
 | `rate-limited-operations-document-429`  | custom (OWASP-scoped)        | error    | import + recommendation ops document `429` and `Retry-After`                           |
-| `owasp:api2:2023-no-credentials-in-url` | OWASP                        | error    | no `?token=` in query — stays green as a guardrail                                     |
+| `owasp:api2:2023-no-credentials-in-url` | OWASP                        | error    | no `?token=` in query, stays green as a guardrail                                      |
 
 **Boundary.** Spectral lints the contract's *shape*, not its *intent*. It flags
 the import verbs and `pantry/restore` structurally, but it cannot see that
-`POST /api/profile/cooking-insights` creates a `cookingSession` — that is a
+`POST /api/profile/cooking-insights` creates a `cookingSession`, that is a
 right-method / wrong-resource mismatch the spec considers valid. Semantic
 findings like this are fixed by hand in the greening pass and guarded going
 forward by a lightweight route-introspection test
@@ -137,7 +137,7 @@ The axis is the **externally-observable HTTP contract**, orthogonal to
 everything already running: file-local health (SonarQube), cross-module
 reachability (Knip), secrets (Gitleaks). On the determinism axis of
 [ADR 048](/projects/personal-site/adrs/048-sonarqube) it lands squarely in the
-deterministic column — an AI reviewer *might* notice a singular/plural slip
+deterministic column, an AI reviewer *might* notice a singular/plural slip
 inside one diff's blast radius; Spectral fails the same rule on the same path
 every time. Biome, the monorepo's formatter/linter, has no equivalent rules for
 REST conventions, so this is genuinely uncovered ground rather than a duplicate
@@ -145,15 +145,15 @@ gate.
 
 # Alternatives Considered
 
-| Tool                                          | Role                        | Pros                                                                                                                                                       | Cons                                                                                                         | Verdict                                                                              |
-| --------------------------------------------- | --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------ |
-| **Spectral + generated OpenAPI** *(accepted)* | Contract linting            | Sees request/response schemas, not just paths; composable rulesets (OWASP, custom); the spec doubles as docs and a typed-client source; unlocks `oasdiff`. | Requires generating and committing a spec; OWASP ruleset churns and needs pinning.                           | **Accepted.**                                                                        |
-| **Route-introspection Vitest test**           | Path/method assertions      | No spec, trivial to write against Hono's `app.routes`; sees routes that bypass the spec.                                                                   | Blind to request/response bodies — can't do OWASP payload limits, error-envelope, or breaking-change checks. | Rejected as *sole* solution; kept as the permanent parity guard against spec bypass. |
-| **`@hono/zod-openapi`** *(accepted bridge)*   | Spec generation             | Tightest coupling; route, schema, and spec are one declaration, so no drift.                                                                               | Rewrites \~40 routes to the `createRoute` pattern.                                                           | **Accepted:** the churn buys a genuine single source of truth.                       |
-| **`hono-openapi`**                            | Spec generation             | Annotates existing handlers; far less churn.                                                                                                               | Spec is a parallel annotation that can drift from the handler it describes.                                  | Rejected: lower cost, weaker guarantee than the accepted bridge.                     |
-| **Optic**                                     | Spec-from-traffic + diffing | Captures the real contract from tests/traffic; strong breaking-change UX.                                                                                  | Heavier; leans SaaS; overlaps `oasdiff` on the part we need.                                                 | Rejected: more than the job needs today.                                             |
-| **Biome / ESLint plugin**                     | Lint rules                  | Biome already in the stack.                                                                                                                                | No REST-convention rules exist for Biome; we don't run ESLint.                                               | Not available.                                                                       |
-| **Status quo / hand review**                  | n/a                         | Nothing new.                                                                                                                                               | The four drift classes above say it doesn't hold as the API grows.                                           | Rejected.                                                                            |
+| Tool                                          | Role                        | Pros                                                                                                                                                       | Cons                                                                                                        | Verdict                                                                              |
+| --------------------------------------------- | --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| **Spectral + generated OpenAPI** *(accepted)* | Contract linting            | Sees request/response schemas, not just paths; composable rulesets (OWASP, custom); the spec doubles as docs and a typed-client source; unlocks `oasdiff`. | Requires generating and committing a spec; OWASP ruleset churns and needs pinning.                          | **Accepted.**                                                                        |
+| **Route-introspection Vitest test**           | Path/method assertions      | No spec, trivial to write against Hono's `app.routes`; sees routes that bypass the spec.                                                                   | Blind to request/response bodies, can't do OWASP payload limits, error-envelope, or breaking-change checks. | Rejected as *sole* solution; kept as the permanent parity guard against spec bypass. |
+| **`@hono/zod-openapi`** *(accepted bridge)*   | Spec generation             | Tightest coupling; route, schema, and spec are one declaration, so no drift.                                                                               | Rewrites \~40 routes to the `createRoute` pattern.                                                          | **Accepted:** the churn buys a genuine single source of truth.                       |
+| **`hono-openapi`**                            | Spec generation             | Annotates existing handlers; far less churn.                                                                                                               | Spec is a parallel annotation that can drift from the handler it describes.                                 | Rejected: lower cost, weaker guarantee than the accepted bridge.                     |
+| **Optic**                                     | Spec-from-traffic + diffing | Captures the real contract from tests/traffic; strong breaking-change UX.                                                                                  | Heavier; leans SaaS; overlaps `oasdiff` on the part we need.                                                | Rejected: more than the job needs today.                                             |
+| **Biome / ESLint plugin**                     | Lint rules                  | Biome already in the stack.                                                                                                                                | No REST-convention rules exist for Biome; we don't run ESLint.                                              | Not available.                                                                       |
+| **Status quo / hand review**                  | n/a                         | Nothing new.                                                                                                                                               | The four drift classes above say it doesn't hold as the API grows.                                          | Rejected.                                                                            |
 
 # Where It Sits On The Adoption Curve
 
@@ -161,7 +161,7 @@ gate.
 deep LLM corpus, `oasdiff` is stable, and OpenAPI itself is a decade-old
 standard. The newer piece is the **Zod-to-OpenAPI bridge**
 (`@hono/zod-openapi`), which sits in the
-[Goldilocks zone](/projects?tab=philosophy#the-goldilocks-zone) — young enough
+[Goldilocks zone](/projects?tab=philosophy#the-goldilocks-zone), young enough
 that its corpus is thinner, accepted because the alternatives either rot (a
 hand-maintained spec) or drift (annotation-based `hono-openapi`). The OWASP
 ruleset is actively maintained and version-pinned so a rule addition can't
@@ -175,10 +175,10 @@ silently redden an unrelated PR.
 * [LLM-Optimized](/projects?tab=philosophy#llm-optimized). Agents write most new
   routes; a deterministic contract gate is exactly the guardrail that keeps
   agentic velocity from becoming agentic drift, and the generated `openapi.json`
-  is machine-readable context an agent can read before adding the next endpoint —
+  is machine-readable context an agent can read before adding the next endpoint,
   the same instinct as the site's agent-friendly Markdown twins.
 * [Less Is More](/projects?tab=philosophy#less-is-more). One generated artifact,
-  three pinned rulesets, one CI job — and it *removes* surface by forcing the
+  three pinned rulesets, one CI job, and it *removes* surface by forcing the
   duplicate import shapes and mismatched methods to converge.
 * [Respect Goodhart's Law](/projects?tab=philosophy#respect-goodharts-and-conways-laws).
   Legitimate action endpoints are allowlisted openly rather than suppressed with
@@ -214,8 +214,8 @@ silently redden an unrelated PR.
 
 ## Positive
 
-* A deterministic, blocking gate on the recipe API's contract — naming, methods,
-  security limits, and breaking changes — on every `workers/recipe-api` change.
+* A deterministic, blocking gate on the recipe API's contract, naming, methods,
+  security limits, and breaking changes, on every `workers/recipe-api` change.
 * The four audited drift classes are fixed while the API still has one atomic
   consumer, before any of them calcifies into a breaking change.
 * The committed `openapi.json` becomes documentation, a typed-client source, and
@@ -225,5 +225,5 @@ silently redden an unrelated PR.
 
 * The heaviest linter adoption so far: routes must be wired to emit schemas, a
   refactor rather than a config file.
-* Two more moving parts to keep truthful — the generated spec and its `oasdiff`
-  baseline — plus an OWASP ruleset whose upgrades need review.
+* Two more moving parts to keep truthful, the generated spec and its `oasdiff`
+  baseline, plus an OWASP ruleset whose upgrades need review.

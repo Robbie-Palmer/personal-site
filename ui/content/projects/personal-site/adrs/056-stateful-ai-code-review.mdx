@@ -142,15 +142,15 @@ the live PR memory sooner so an already-addressed finding is not repeated.
 
 Each finding receives one versioned outcome:
 
-* **confirmed-fixed** — a later commit addresses the cited issue, supported by
+* **confirmed-fixed**. A later commit addresses the cited issue, supported by
   the changed hunk and preferably thread resolution or acknowledgement;
-* **acknowledged** — the author accepts the issue but it is deferred or resolved
+* **acknowledged**. The author accepts the issue but it is deferred or resolved
   outside an attributable code change;
-* **rejected** — the author explicitly explains that it is wrong, irrelevant,
+* **rejected**. The author explicitly explains that it is wrong, irrelevant,
   or not worth acting on;
-* **superseded** — the affected code disappears or changes for another reason,
+* **superseded**. The affected code disappears or changes for another reason,
   so reviewer impact cannot be inferred; or
-* **no observable response** — the finding is unresolved or silently ignored
+* **no observable response**. The finding is unresolved or silently ignored
   when the window closes. This is a workflow outcome, not evidence that the
   finding was correct or incorrect.
 
@@ -217,7 +217,7 @@ when replaying representative PR histories and then running live PRs shows:
 * **Create reusable review infrastructure.** Webhook ingestion, durable
   context, policy-based triggering, multi-model review, suggestion delivery,
   and feedback capture generalise beyond code. Future products could reuse
-  these primitives for content review—for example, suggesting recipe
+  these primitives for content review, for example, suggesting recipe
   improvements or adapting public recipes to a user's diet and preferences.
   Each product still requires its own ADR for domain policy, safety, privacy,
   and user experience.
