@@ -13,9 +13,10 @@ import { authClient } from "@/lib/auth-client";
 import { recipeQueryKeys } from "@/lib/query/recipe-query-keys";
 import { shoppingListQuery } from "@/lib/query/shopping-list-queries";
 import {
-  clearList,
   getShoppingListSnapshot,
   installShoppingListSnapshot,
+  resetShoppingTripCompletion,
+  type ShoppingListState,
   subscribeShoppingList,
 } from "@/lib/shopping/shoppingListStore";
 
@@ -25,6 +26,7 @@ function shoppingListContents(): ShoppingListContents {
 }
 
 const PLAN_RESOURCE_KEY = "recipe-shopping-plan-resource";
+const pendingShoppingListSaves = new Map<string, Promise<void>>();
 
 export function ShoppingListBoundary({
   children,
@@ -66,7 +68,13 @@ export function ShoppingListBoundary({
     let timer: ReturnType<typeof setTimeout> | undefined;
     let saving = Promise.resolve();
     const unsubscribe = subscribeShoppingList((source) => {
-      if (source !== "local") return;
+      if (source !== "local") {
+        if (source === "install" && timer) {
+          clearTimeout(timer);
+          timer = undefined;
+        }
+        return;
+      }
       if (timer) clearTimeout(timer);
       timer = setTimeout(() => {
         const snapshot = shoppingListContents();
@@ -92,6 +100,13 @@ export function ShoppingListBoundary({
           .catch(() => {
             setSaveFailed(true);
           });
+        const pending = saving;
+        pendingShoppingListSaves.set(installedId, pending);
+        void pending.then(() => {
+          if (pendingShoppingListSaves.get(installedId) === pending) {
+            pendingShoppingListSaves.delete(installedId);
+          }
+        });
       }, 250);
     });
     return () => {
@@ -133,19 +148,46 @@ export function useStartNewShoppingList() {
   const queryClient = useQueryClient();
   const queryKey = recipeQueryKeys.shoppingList(userId);
   const mutation = useMutation({
-    mutationFn: () => {
-      const current = queryClient.getQueryData<StoredShoppingList>(queryKey);
-      if (!current) throw new Error("Shopping list has not loaded");
-      return startNewShoppingList(
-        current.id,
-        current.revision,
-        shoppingListContents(),
-      );
+    mutationFn: async ({
+      current,
+      previous,
+    }: {
+      current: StoredShoppingList;
+      previous: ShoppingListState;
+    }) => {
+      await pendingShoppingListSaves.get(current.id);
+      const latest =
+        queryClient.getQueryData<StoredShoppingList>(queryKey) ?? current;
+      if (latest.id !== current.id) {
+        throw new Error("A new shopping list has already been started");
+      }
+      return startNewShoppingList(latest.id, latest.revision, {
+        recipes: previous.recipes,
+        checked: previous.checked,
+        extras: previous.extras,
+      });
     },
     onSuccess: (next) => {
-      clearList();
+      resetShoppingTripCompletion();
       queryClient.setQueryData<StoredShoppingList>(queryKey, next);
     },
+    onError: (_error, { current, previous }) => {
+      installShoppingListSnapshot(previous, current.id, "local");
+    },
   });
-  return mutation;
+  const start = () => {
+    const current = queryClient.getQueryData<StoredShoppingList>(queryKey);
+    if (!current || mutation.isPending) return;
+    const previous = getShoppingListSnapshot();
+
+    // An install updates the screen immediately without scheduling an empty
+    // PUT against the list that the POST is about to archive.
+    installShoppingListSnapshot(
+      { recipes: [], plan: [], checked: [], extras: [] },
+      current.id,
+    );
+    mutation.mutate({ current, previous });
+  };
+
+  return { ...mutation, start };
 }

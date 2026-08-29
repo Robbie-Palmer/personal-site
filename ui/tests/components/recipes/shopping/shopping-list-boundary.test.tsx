@@ -66,7 +66,7 @@ function renderWithQueryClient(element: React.ReactNode) {
 function StartNewButton() {
   const startNew = useStartNewShoppingList();
   return (
-    <button type="button" onClick={() => startNew.mutate()}>
+    <button type="button" onClick={startNew.start}>
       Start new
     </button>
   );
@@ -218,7 +218,14 @@ describe("ShoppingListBoundary", () => {
     ]);
   });
 
-  it("archives the loaded list before clearing the optimistic store", async () => {
+  it("clears immediately, then archives the loaded list", async () => {
+    let finishStarting: ((list: StoredShoppingList) => void) | undefined;
+    mocks.startNewShoppingList.mockImplementation(
+      () =>
+        new Promise<StoredShoppingList>((resolve) => {
+          finishStarting = resolve;
+        }),
+    );
     renderWithQueryClient(
       <ShoppingListBoundary>
         <StartNewButton />
@@ -229,6 +236,12 @@ describe("ShoppingListBoundary", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Start new" }));
 
+    expect(getShoppingListSnapshot()).toEqual({
+      recipes: [],
+      plan: [],
+      checked: [],
+      extras: [],
+    });
     await waitFor(() =>
       expect(mocks.startNewShoppingList).toHaveBeenCalledWith(
         storedList.id,
@@ -238,6 +251,14 @@ describe("ShoppingListBoundary", () => {
         }),
       ),
     );
+    expect(mocks.saveCurrentShoppingList).not.toHaveBeenCalled();
+
+    act(() =>
+      finishStarting?.({
+        ...storedList,
+        id: "00000000-0000-4000-8000-000000000081",
+      }),
+    );
     await waitFor(() =>
       expect(getShoppingListSnapshot()).toEqual({
         recipes: [],
@@ -245,6 +266,69 @@ describe("ShoppingListBoundary", () => {
         checked: [],
         extras: [],
       }),
+    );
+  });
+
+  it("archives against the revision from a save already in flight", async () => {
+    let finishSaving: ((list: StoredShoppingList) => void) | undefined;
+    mocks.saveCurrentShoppingList.mockImplementation(
+      () =>
+        new Promise<StoredShoppingList>((resolve) => {
+          finishSaving = resolve;
+        }),
+    );
+    renderWithQueryClient(
+      <ShoppingListBoundary>
+        <StartNewButton />
+      </ShoppingListBoundary>,
+    );
+    await screen.findByRole("button", { name: "Start new" });
+    act(() => addExtra("Milk"));
+    await waitFor(() =>
+      expect(mocks.saveCurrentShoppingList).toHaveBeenCalledOnce(),
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Start new" }));
+
+    expect(getShoppingListSnapshot().extras).toEqual([]);
+    expect(mocks.startNewShoppingList).not.toHaveBeenCalled();
+
+    act(() =>
+      finishSaving?.({
+        ...storedList,
+        revision: "1",
+        snapshot:
+          mocks.saveCurrentShoppingList.mock.calls[0]?.[2] ?? emptySnapshot,
+      }),
+    );
+    await waitFor(() =>
+      expect(mocks.startNewShoppingList).toHaveBeenCalledWith(
+        storedList.id,
+        "1",
+        expect.objectContaining({
+          extras: [expect.objectContaining({ text: "Milk" })],
+        }),
+      ),
+    );
+  });
+
+  it("restores the previous list when starting a new one fails", async () => {
+    mocks.startNewShoppingList.mockRejectedValue(new Error("offline"));
+    renderWithQueryClient(
+      <ShoppingListBoundary>
+        <StartNewButton />
+      </ShoppingListBoundary>,
+    );
+    await screen.findByRole("button", { name: "Start new" });
+    act(() => addExtra("Milk"));
+
+    fireEvent.click(screen.getByRole("button", { name: "Start new" }));
+
+    expect(getShoppingListSnapshot().extras).toEqual([]);
+    await waitFor(() =>
+      expect(getShoppingListSnapshot().extras).toEqual([
+        expect.objectContaining({ text: "Milk" }),
+      ]),
     );
   });
 

@@ -119,7 +119,7 @@ export async function markShoppingTripCompleted(): Promise<boolean> {
   return claimShoppingTripCompletion();
 }
 
-function resetShoppingTripCompletion(): void {
+export function resetShoppingTripCompletion(): void {
   completedTripRecordedFallback = false;
   try {
     localStorage.removeItem(COMPLETED_TRIP_STORAGE_KEY);
@@ -297,12 +297,13 @@ export function getServerShoppingListSnapshot(): ShoppingListState {
 export function installShoppingListSnapshot(
   next: ShoppingListState,
   listId?: string,
+  source: Extract<ShoppingListChangeSource, "install" | "local"> = "install",
 ): void {
   hydrated = true;
   activeListId = listId;
   state = parseState(JSON.stringify(next));
   persist();
-  emit("install");
+  emit(source);
 }
 
 // ── Mutations ──────────────────────────────────────────────────────────────

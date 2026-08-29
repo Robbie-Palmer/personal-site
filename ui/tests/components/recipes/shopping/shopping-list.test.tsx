@@ -334,6 +334,20 @@ describe("ShoppingList extras", () => {
     __resetShoppingListForTests();
   });
 
+  it("can start an empty list with a manually entered item", async () => {
+    __resetShoppingListForTests();
+    const user = userEvent.setup();
+    render(<ShoppingList recipes={recipes} />);
+
+    const input = screen.getByRole("textbox", {
+      name: "Add a shopping-list item",
+    });
+    await user.type(input, "milk");
+    await user.click(screen.getByRole("button", { name: "Add" }));
+
+    expect(screen.getByText("milk")).toBeInTheDocument();
+  });
+
   it("mixes extras into the ingredient-only list", async () => {
     const user = userEvent.setup();
     render(<ShoppingList recipes={recipes} />);
@@ -385,7 +399,9 @@ describe("ShoppingList extras", () => {
     const user = userEvent.setup();
     render(<ShoppingList recipes={recipes} />);
 
-    const input = screen.getByRole("textbox", { name: "Add an extra item" });
+    const input = screen.getByRole("textbox", {
+      name: "Add a shopping-list item",
+    });
     await user.clear(input);
     await user.type(input, "milk");
     await user.click(screen.getByRole("button", { name: "Add" }));

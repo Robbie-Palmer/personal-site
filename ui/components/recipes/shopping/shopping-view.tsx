@@ -21,8 +21,8 @@ import {
 type Step = "plan" | "list";
 
 const STEPS: { id: Step; label: string }[] = [
-  { id: "plan", label: "1 · Plan the week" },
-  { id: "list", label: "2 · Shopping list" },
+  { id: "plan", label: "Plan meals" },
+  { id: "list", label: "Shopping list" },
 ];
 
 export function ShoppingView({
@@ -75,16 +75,16 @@ function ShoppingViewContent({
   const recipeNoun = count === 1 ? "recipe" : "recipes";
   const plannedCount = plan.length;
   const plannedNoun = plannedCount === 1 ? "meal" : "meals";
-  const extraNoun = extras.length === 1 ? "extra item" : "extra items";
+  const itemNoun = extras.length === 1 ? "item" : "items";
   const hasListContent = count > 0 || plannedCount > 0 || extras.length > 0;
   let summary =
-    "Plan meals for the week or choose recipes directly and we'll build the list.";
+    "Add items directly, or choose recipes and we'll gather their ingredients.";
   if (count > 0) {
     summary = `${count} ${recipeNoun} selected · ${plannedCount} ${plannedNoun} scheduled.`;
   } else if (plannedCount > 0) {
     summary = `${plannedCount} ${plannedNoun} scheduled.`;
   } else if (extras.length > 0) {
-    summary = `${extras.length} ${extraNoun} on the shopping list.`;
+    summary = `${extras.length} ${itemNoun} on the shopping list.`;
   }
 
   return (
@@ -92,7 +92,7 @@ function ShoppingViewContent({
       <div className="flex flex-wrap items-end justify-between gap-4 mb-4">
         <div>
           <p className="rt-mono text-[var(--terracotta)]">
-            Shopping · weekly plan
+            {step === "plan" ? "Shopping · meal plan" : "Shopping"}
           </p>
           <h1 className="rt-display text-5xl md:text-6xl mt-2">
             {step === "plan" ? "What's the plan?" : "Shopping list."}
@@ -102,11 +102,7 @@ function ShoppingViewContent({
         {hasListContent && (
           <button
             type="button"
-            onClick={() =>
-              startNewList.mutate(undefined, {
-                onSuccess: () => setStep("plan"),
-              })
-            }
+            onClick={startNewList.start}
             disabled={startNewList.isPending}
             className="inline-flex items-center gap-1.5 rt-mono text-[var(--ink-3)] hover:text-[var(--berry)] transition-colors"
           >
@@ -114,6 +110,16 @@ function ShoppingViewContent({
           </button>
         )}
       </div>
+
+      {startNewList.isError && (
+        <p
+          role="alert"
+          className="rt-body mb-4 rounded-md border border-[var(--berry)]/30 bg-[var(--cream-dark)] px-3 py-2 text-sm text-[var(--berry)]"
+        >
+          A new shopping list could not be started. Your previous list has been
+          restored.
+        </p>
+      )}
 
       {diet.active && (
         <DietListNotice
@@ -171,8 +177,7 @@ function ShoppingViewContent({
             <button
               type="button"
               onClick={() => setStep("list")}
-              disabled={!hasListContent}
-              className="inline-flex items-center gap-2 rounded-md bg-[var(--terracotta)] px-4 py-2 text-white font-medium hover:bg-[var(--terracotta-deep)] disabled:opacity-40 disabled:hover:bg-[var(--terracotta)] transition-colors"
+              className="inline-flex items-center gap-2 rounded-md bg-[var(--terracotta)] px-4 py-2 text-white font-medium hover:bg-[var(--terracotta-deep)] transition-colors"
             >
               View shopping list
               <ArrowRight className="h-4 w-4" />
