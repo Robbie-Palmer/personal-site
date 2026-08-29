@@ -9,8 +9,8 @@ import {
   createStatusFilterOptions,
   createTagFilterOptions,
   createTechFilterOptions,
-  useCommandPalette,
-} from "@/components/command-palette";
+} from "@/components/command-palette-filters";
+import { useCommandPalette } from "@/components/command-palette-shell";
 import { FilterableCardGrid } from "@/components/ui/filterable-card-grid";
 import { useFilterParams } from "@/hooks/use-filter-params";
 import type { Project, ProjectStatus } from "@/lib/api/projects";

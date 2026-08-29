@@ -8,8 +8,8 @@ import {
   createRoleFilterOptions,
   createTagFilterOptions,
   createTechFilterOptions,
-  useCommandPalette,
-} from "@/components/command-palette";
+} from "@/components/command-palette-filters";
+import { useCommandPalette } from "@/components/command-palette-shell";
 import { Badge } from "@/components/ui/badge";
 import {
   Card,
