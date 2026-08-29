@@ -203,29 +203,28 @@ function executeReplay(
     };
     if (budgetRemainingUsd <= 0 || overBudget) {
       execution.status = "skipped-budget-exhausted";
-      executions.push(execution);
-      continue;
+    } else {
+      const outcome = runExecutor(executor, {
+        repository: manifest.repository,
+        manifestId: manifest.manifestId,
+        pullRequestNumber: frozen.pullRequestNumber,
+        headSha: frozen.headSha,
+        promptVersion: frozen.promptVersion,
+        models,
+        budgetRemainingUsd,
+      });
+      if (!outcome.ok) {
+        execution.status = "executor-failed";
+        execution.error = outcome.error;
+      } else {
+        spentUsd = round6(spentUsd + outcome.costUsd);
+        if (spentUsd > capUsd) overBudget = true;
+        execution.costUsd = outcome.costUsd;
+        execution.result = outcome.result;
+      }
     }
-    const outcome = runExecutor(executor, {
-      repository: manifest.repository,
-      manifestId: manifest.manifestId,
-      pullRequestNumber: frozen.pullRequestNumber,
-      headSha: frozen.headSha,
-      promptVersion: frozen.promptVersion,
-      models,
-      budgetRemainingUsd,
-    });
-    if (!outcome.ok) {
-      execution.status = "executor-failed";
-      execution.error = outcome.error;
-      executions.push(execution);
-      break;
-    }
-    spentUsd = round6(spentUsd + outcome.costUsd);
-    if (spentUsd > capUsd) overBudget = true;
-    execution.costUsd = outcome.costUsd;
-    execution.result = outcome.result;
     executions.push(execution);
+    if (execution.status === "executor-failed") break;
   }
   return {
     schemaVersion: 1,
