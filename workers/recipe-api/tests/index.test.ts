@@ -397,7 +397,15 @@ const dbMock = vi.hoisted(() => {
         state.shoppingLists.some((candidate) => candidate.id === param),
       ) as string | undefined;
       const list = state.shoppingLists.find((candidate) => candidate.id === id);
-      if (!list) return [];
+      const expectedRevision = params.find(
+        (param): param is bigint => typeof param === "bigint",
+      );
+      if (
+        !list ||
+        (expectedRevision !== undefined && list.revision !== expectedRevision)
+      ) {
+        return [];
+      }
       if (archiving) {
         list.status = params[0] as "archived";
         list.snapshot = shoppingSnapshot(params[1]);
@@ -4349,6 +4357,28 @@ describe("shopping list flows", () => {
       email: "owner@example.test",
       name: "Owner",
     });
+  });
+
+  it("makes the SQL test double reject a competing stale revision", () => {
+    const list = {
+      id: "00000000-0000-4000-8000-000000000080",
+      userId: "owner-user",
+      organizationId: null,
+      status: "active" as const,
+      revision: 0n,
+      snapshot,
+      closedAt: null,
+      createdAt: dbMock.date,
+      updatedAt: dbMock.date,
+    };
+    dbMock.state.shoppingLists.push(list);
+    const updateSql =
+      'update "shopping_list" set "snapshot" = $1 where ("shopping_list"."id" = $2 and "shopping_list"."revision" = $3)';
+    const params = [snapshot, dbMock.date, list.id, 0n];
+
+    expect(dbMock.queryRows(updateSql, params)).toHaveLength(1);
+    expect(dbMock.queryRows(updateSql, params)).toEqual([]);
+    expect(list.revision).toBe(1n);
   });
 
   it("creates, updates, archives, and replaces a personal list", async () => {
