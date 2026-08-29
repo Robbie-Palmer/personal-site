@@ -1,0 +1,5 @@
+message: "Use periods or commas instead of em dashes (AI tell)"
+extends: existence
+level: error
+scope: raw
+raw: "—"

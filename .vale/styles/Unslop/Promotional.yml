@@ -1,0 +1,5 @@
+message: "Promotional language — use neutral descriptions"
+extends: existence
+level: warning
+ignorecase: true
+raw: '(?:nestled|vibrant|breathtaking|groundbreaking|renowned|stunning|must.?visit|world.?class)'

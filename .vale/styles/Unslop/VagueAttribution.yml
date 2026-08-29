@@ -1,0 +1,5 @@
+message: "Vague attribution — name the source or delete"
+extends: existence
+level: error
+ignorecase: true
+raw: '(?:Experts (?:believe|say|agree|suggest)|Industry reports (?:suggest|indicate|show)|Some critics argue|Some say that)'

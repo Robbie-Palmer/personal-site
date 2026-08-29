@@ -59,6 +59,9 @@ importers:
       remark-preset-lint-recommended:
         specifier: ^7.0.0
         version: 7.0.1(supports-color@10.2.2)
+      tsx:
+        specifier: ^4.23.12
+        version: 4.23.12
       yaml-lint:
         specifier: ^1.7.0
         version: 1.7.0

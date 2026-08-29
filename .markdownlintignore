@@ -1,5 +1,6 @@
 node_modules
 **/node_modules
+.vale
 .git
 .next
 out

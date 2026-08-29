@@ -1,0 +1,5 @@
+message: "Puffery — state what happened instead"
+extends: existence
+level: error
+ignorecase: true
+raw: '(?:pivotal moment|evolving landscape|setting the stage for|indelible mark|deeply rooted|testament to|transformative|game.?changer|revolutionary)'

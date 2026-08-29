@@ -1,0 +1,5 @@
+message: "Superficial -ing phrase — expand with real sources or delete"
+extends: existence
+level: warning
+ignorecase: true
+raw: ', (?:highlighting|ensuring|reflecting|showcasing|fostering|underscoring)'

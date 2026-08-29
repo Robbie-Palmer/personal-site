@@ -1,0 +1,5 @@
+message: "Abstract metaphor noun — use a concrete word instead"
+extends: existence
+level: suggestion
+ignorecase: true
+raw: '(?:north star|flywheel|gold.?plating|bedrock|endgame|nexus|vantage)'

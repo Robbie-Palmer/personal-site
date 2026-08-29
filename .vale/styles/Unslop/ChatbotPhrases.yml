@@ -1,0 +1,5 @@
+message: "Remove chatbot phrase (AI tell)"
+extends: existence
+level: error
+ignorecase: true
+raw: '(?:\bI hope this helps\b|\bLet me know if\b|\bOf course\b|\bCertainly\b|\bsmoking gun\b)'

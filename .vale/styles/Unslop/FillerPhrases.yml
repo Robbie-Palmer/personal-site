@@ -1,0 +1,5 @@
+message: "Filler phrase — use the shorter alternative"
+extends: existence
+level: error
+ignorecase: true
+raw: '(?:in order to|due to the fact that|it is important to note that|in the event that|at this point in time|for the purpose of|by means of)'
