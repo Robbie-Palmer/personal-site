@@ -250,6 +250,8 @@ describe("shoppingListStore", () => {
   it("ignores browser storage from another shopping list", () => {
     addRecipe("current");
     installShoppingListSnapshot(getShoppingListSnapshot(), "list-1");
+    const seen: string[] = [];
+    const unsub = subscribeShoppingList((source) => seen.push(source));
     globalThis.dispatchEvent(
       new StorageEvent("storage", {
         key: STORAGE_KEY,
@@ -263,5 +265,7 @@ describe("shoppingListStore", () => {
       }),
     );
     expect(getShoppingListSnapshot().recipes).toEqual([{ slug: "current" }]);
+    expect(seen).toEqual(["storage"]);
+    unsub();
   });
 });

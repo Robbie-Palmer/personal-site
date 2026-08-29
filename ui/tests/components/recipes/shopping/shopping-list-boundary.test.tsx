@@ -321,6 +321,30 @@ describe("ShoppingListBoundary", () => {
     expect(getShoppingListSnapshot().plan).toEqual([]);
   });
 
+  it("loads the server list when local plan storage is unavailable", async () => {
+    const getItem = vi
+      .spyOn(Storage.prototype, "getItem")
+      .mockImplementationOnce(() => {
+        throw new DOMException("storage unavailable");
+      });
+    const setItem = vi
+      .spyOn(Storage.prototype, "setItem")
+      .mockImplementationOnce(() => {
+        throw new DOMException("storage unavailable");
+      });
+
+    renderWithQueryClient(
+      <ShoppingListBoundary>
+        <p>List ready</p>
+      </ShoppingListBoundary>,
+    );
+
+    expect(await screen.findByText("List ready")).toBeInTheDocument();
+    expect(getShoppingListSnapshot().plan).toEqual([]);
+    getItem.mockRestore();
+    setItem.mockRestore();
+  });
+
   it("keeps failed edits local and shows that they are unsaved", async () => {
     mocks.saveCurrentShoppingList.mockRejectedValue(new Error("conflict"));
     renderWithQueryClient(

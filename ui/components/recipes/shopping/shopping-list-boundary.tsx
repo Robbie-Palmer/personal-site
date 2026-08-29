@@ -26,62 +26,70 @@ function shoppingListContents(): ShoppingListContents {
   return { recipes, checked, extras };
 }
 
+function mergeKeyedValues<T>(
+  baseline: T[],
+  local: T[],
+  remote: T[],
+  keyFor: (value: T) => string,
+): T[] {
+  const baselineByKey = new Map(
+    baseline.map((value) => [keyFor(value), value]),
+  );
+  const localByKey = new Map(local.map((value) => [keyFor(value), value]));
+  const merged = new Map(remote.map((value) => [keyFor(value), value]));
+  for (const value of baseline) {
+    const key = keyFor(value);
+    if (!localByKey.has(key)) merged.delete(key);
+  }
+  for (const value of local) {
+    const key = keyFor(value);
+    if (JSON.stringify(value) !== JSON.stringify(baselineByKey.get(key))) {
+      merged.set(key, value);
+    }
+  }
+  return [...merged.values()];
+}
+
+function mergeCheckedValues(
+  baseline: string[],
+  local: string[],
+  remote: string[],
+): string[] {
+  const localValues = new Set(local);
+  const baselineValues = new Set(baseline);
+  const merged = new Set(remote);
+  for (const value of baseline) {
+    if (!localValues.has(value)) merged.delete(value);
+  }
+  for (const value of local) {
+    if (!baselineValues.has(value)) merged.add(value);
+  }
+  return [...merged];
+}
+
 function mergeLocalShoppingListChanges(
   baseline: ShoppingListContents,
   local: ShoppingListContents,
   remote: ShoppingListContents,
 ): ShoppingListContents {
-  const baselineRecipes = new Map(
-    baseline.recipes.map((recipe) => [recipe.slug, recipe]),
-  );
-  const localRecipes = new Map(
-    local.recipes.map((recipe) => [recipe.slug, recipe]),
-  );
-  const recipes = new Map(
-    remote.recipes.map((recipe) => [recipe.slug, recipe]),
-  );
-  for (const recipe of baseline.recipes) {
-    if (!localRecipes.has(recipe.slug)) recipes.delete(recipe.slug);
-  }
-  for (const recipe of local.recipes) {
-    if (
-      JSON.stringify(recipe) !==
-      JSON.stringify(baselineRecipes.get(recipe.slug))
-    ) {
-      recipes.set(recipe.slug, recipe);
-    }
-  }
-
-  const checked = new Set(remote.checked);
-  const localChecked = new Set(local.checked);
-  for (const ingredient of baseline.checked) {
-    if (!localChecked.has(ingredient)) checked.delete(ingredient);
-  }
-  const baselineChecked = new Set(baseline.checked);
-  for (const ingredient of local.checked) {
-    if (!baselineChecked.has(ingredient)) checked.add(ingredient);
-  }
-
-  const baselineExtras = new Map(
-    baseline.extras.map((extra) => [extra.id, extra]),
-  );
-  const localExtras = new Map(local.extras.map((extra) => [extra.id, extra]));
-  const extras = new Map(remote.extras.map((extra) => [extra.id, extra]));
-  for (const extra of baseline.extras) {
-    if (!localExtras.has(extra.id)) extras.delete(extra.id);
-  }
-  for (const extra of local.extras) {
-    if (
-      JSON.stringify(extra) !== JSON.stringify(baselineExtras.get(extra.id))
-    ) {
-      extras.set(extra.id, extra);
-    }
-  }
-
   return {
-    recipes: [...recipes.values()],
-    checked: [...checked],
-    extras: [...extras.values()],
+    recipes: mergeKeyedValues(
+      baseline.recipes,
+      local.recipes,
+      remote.recipes,
+      (recipe) => recipe.slug,
+    ),
+    checked: mergeCheckedValues(
+      baseline.checked,
+      local.checked,
+      remote.checked,
+    ),
+    extras: mergeKeyedValues(
+      baseline.extras,
+      local.extras,
+      remote.extras,
+      (extra) => extra.id,
+    ),
   };
 }
 
@@ -91,6 +99,22 @@ function parseSavedSnapshot(serialized: string): ShoppingListContents {
 
 const PLAN_RESOURCE_KEY = "recipe-shopping-plan-resource";
 const pendingShoppingListSaves = new Map<string, Promise<void>>();
+
+function readPlanResource(): string | null {
+  try {
+    return localStorage.getItem(PLAN_RESOURCE_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function writePlanResource(resourceId: string): void {
+  try {
+    localStorage.setItem(PLAN_RESOURCE_KEY, resourceId);
+  } catch {
+    // The server-backed shopping list remains usable without local plan state.
+  }
+}
 
 export function ShoppingListBoundary({
   children,
@@ -112,10 +136,10 @@ export function ShoppingListBoundary({
     if (!current.data) return;
     const serialized = JSON.stringify(current.data.snapshot);
     const plan =
-      localStorage.getItem(PLAN_RESOURCE_KEY) === current.data.resourceId
+      readPlanResource() === current.data.resourceId
         ? getShoppingListSnapshot().plan
         : [];
-    localStorage.setItem(PLAN_RESOURCE_KEY, current.data.resourceId);
+    writePlanResource(current.data.resourceId);
 
     if (!installedId) {
       savedSnapshot.current = serialized;
