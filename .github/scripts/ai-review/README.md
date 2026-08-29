@@ -21,7 +21,7 @@ The GitHub App owns triggers, authentication, secrets, and deployment. See its
 The shared engine accepts these runtime variables:
 
 - `AI_REVIEW_MODELS`: comma-separated paid OpenRouter scout models. Defaults to
-  `moonshotai/kimi-k2.6,deepseek/deepseek-v4-pro,z-ai/glm-5.2,inclusionai/ling-2.6-1t`.
+  `moonshotai/kimi-k2.6,deepseek/deepseek-v4-pro,z-ai/glm-5.3-flash,inclusionai/ling-2.6-1t`.
   The default models have per-token price ceilings so a promotional provider
   price increase fails that scout instead of silently spending above the
   expected rate.

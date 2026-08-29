@@ -150,7 +150,7 @@ test("default OpenRouter scouts enforce their model-specific price ceiling", asy
   const expectedByModel = new Map<string, { prompt: number; completion: number }>([
     ["moonshotai/kimi-k2.6", { prompt: 0.7, completion: 2.8 }],
     ["deepseek/deepseek-v4-pro", { prompt: 0.65, completion: 1.3 }],
-    ["z-ai/glm-5.2", { prompt: 0.7, completion: 2.2 }],
+    ["z-ai/glm-5.3-flash", { prompt: 0.075, completion: 0.25 }],
     ["inclusionai/ling-2.6-1t", { prompt: 0.08, completion: 0.65 }],
   ]);
   let attempts = 0;

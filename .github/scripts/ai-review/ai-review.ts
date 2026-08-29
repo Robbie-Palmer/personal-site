@@ -97,7 +97,7 @@ const BOT_LOGINS = new Set(["github-actions[bot]"]);
 export const DEFAULT_OPENROUTER_SCOUTS = [
   "moonshotai/kimi-k2.6",
   "deepseek/deepseek-v4-pro",
-  "z-ai/glm-5.2",
+  "z-ai/glm-5.3-flash",
   "inclusionai/ling-2.6-1t",
 ];
 export const OPENROUTER_SCOUT_MAX_PRICES: Record<
@@ -106,7 +106,7 @@ export const OPENROUTER_SCOUT_MAX_PRICES: Record<
 > = {
   "moonshotai/kimi-k2.6": { prompt: 0.7, completion: 2.8 },
   "deepseek/deepseek-v4-pro": { prompt: 0.65, completion: 1.3 },
-  "z-ai/glm-5.2": { prompt: 0.7, completion: 2.2 },
+  "z-ai/glm-5.3-flash": { prompt: 0.075, completion: 0.25 },
   "inclusionai/ling-2.6-1t": { prompt: 0.08, completion: 0.65 },
 };
 const KNOWN_FREE_SCOUTS = [
