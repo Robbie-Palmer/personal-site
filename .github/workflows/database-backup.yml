@@ -10,12 +10,13 @@ concurrency:
   group: neon-database-backup
   cancel-in-progress: false
 
+permissions:
+  contents: read
+
 jobs:
   backup:
     runs-on: ubuntu-latest
     timeout-minutes: 35
-    permissions:
-      contents: read
     environment:
       name: production-database-backup
     steps:
