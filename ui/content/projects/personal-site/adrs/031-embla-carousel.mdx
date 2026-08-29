@@ -22,7 +22,7 @@ I want a solution that prioritizes:
 * **Headless Architecture**: Pure logic with no UI opinions, allowing me to standardize the design language across the site using my own components and Tailwind classes
 * **Performance**: Lightweight bundle size and smooth 60fps animations
 * **TypeScript Support**: First-class types that align with the **LLM-Optimized** principle
-* **Plugin Architecture**: Extensibility without bloat—load only what's needed
+* **Plugin Architecture**: Extensibility without bloat, load only what's needed
 * **Framework Flexibility**: React integration today, but not locked into React if requirements change
 * **AI Familiarity**: Well-documented APIs that LLMs can work with effectively
 
@@ -36,7 +36,7 @@ I decided to use **[Embla Carousel](https://www.embla-carousel.com/)** with the 
 
 This aligns with [The Goldilocks Zone](/projects?tab=philosophy#the-goldilocks-zone) and [LLM-Optimized](/projects?tab=philosophy#llm-optimized). Embla is TypeScript-first, has clear documentation, and uses a composable hook-based API that AI agents understand well.
 
-Notably, Embla provides a [**builder/playground**](https://www.embla-carousel.com/examples/generator/) on their website where you can generate and copy navigation code (buttons, dots, auto-scroll) directly into your codebase—similar to the **shadcn/ui** philosophy ([ADR 019](/projects/personal-site/adrs/019-shadcn)). This gives us ownership of the implementation rather than hiding it behind opaque library abstractions.
+Notably, Embla provides a [**builder/playground**](https://www.embla-carousel.com/examples/generator/) on their website where you can generate and copy navigation code (buttons, dots, auto-scroll) directly into your codebase, similar to the **shadcn/ui** philosophy ([ADR 019](/projects/personal-site/adrs/019-shadcn)). This gives us ownership of the implementation rather than hiding it behind opaque library abstractions.
 
 ## Interactive Demo
 
@@ -48,8 +48,8 @@ Here's the carousel in action, using the same `ContentCarousel` component that p
 
 ### Pros
 
-* **Truly Headless**: Embla provides only carousel logic—no pre-styled UI components or CSS to override. This allows complete control over the design language, ensuring carousel navigation matches the rest of the site's Tailwind-based aesthetic without fighting vendor styles.
-* **Lightweight**: The core is \~6KB gzipped—significantly smaller than Swiper (\~31-45KB). We only load the auto-scroll plugin (\~2KB) when needed.
+* **Truly Headless**: Embla provides only carousel logic, no pre-styled UI components or CSS to override. This allows complete control over the design language, ensuring carousel navigation matches the rest of the site's Tailwind-based aesthetic without fighting vendor styles.
+* **Lightweight**: The core is \~6KB gzipped, significantly smaller than Swiper (\~31-45KB). We only load the auto-scroll plugin (\~2KB) when needed.
 * **Design System Consistency**: Because we build navigation components from scratch, they naturally align with our existing UI patterns (shadcn/ui components, Tailwind design tokens). No visual inconsistencies from library-imposed styles.
 * **TypeScript-First**: Excellent type inference with `EmblaCarouselType` and `EmblaOptionsType`. The API is fully typed, reducing runtime errors and improving the agentic workflow.
 * **Performance**: Hardware-accelerated transforms, smooth 60fps animations, and no jQuery overhead.

@@ -12,7 +12,7 @@ Dependencies across the entire repository require constant maintenance:
 1. **Security**: Vulnerabilities are discovered regularly and need to be patched quickly across all languages and tooling (npm packages, GitHub Actions, Terraform providers, etc.).
 2. **Compatibility**: Staying current with framework updates (Next.js, React) and tooling (Terraform, GitHub Actions) reduces technical debt and ensures access to new features.
 3. **Velocity**: Manual dependency updates are tedious and error-prone, slowing down development.
-4. **Breadth**: This isn't just a TypeScript concern—the repository includes multiple ecosystems (npm, Terraform, GitHub Actions) that all need maintenance.
+4. **Breadth**: This isn't just a TypeScript concern. The repository includes multiple ecosystems (npm, Terraform, GitHub Actions) that all need maintenance.
 
 I need an automated solution to keep dependencies up-to-date across all languages and tooling without constant manual intervention.
 
@@ -40,8 +40,8 @@ Renovate is a more feature-rich alternative with extensive configuration options
 
 ### Pros
 
-* **[Less Is More](/projects?tab=philosophy#less-is-more)**: Dependabot is built into GitHub—no additional service to sign up for, configure, or maintain. Zero external dependencies means one less thing to manage.
-* **Battle-Tested Familiarity**: I've used Dependabot extensively throughout my career across dozens of repositories. The mental model is already internalized—no learning curve, no surprises.
+* **[Less Is More](/projects?tab=philosophy#less-is-more)**: Dependabot is built into GitHub. No additional service to sign up for, configure, or maintain. Zero external dependencies means one less thing to manage.
+* **Battle-Tested Familiarity**: I've used Dependabot extensively throughout my career across dozens of repositories. The mental model is already internalized. No learning curve, no surprises.
 * **Multi-Ecosystem Support**: Works across all tooling in the repository: npm packages, GitHub Actions, Terraform providers. One tool handles the entire dependency surface area.
 * **Security**: Automated PRs for security vulnerabilities ensure immediate notification across all ecosystems.
 * **[The Goldilocks Zone](/projects?tab=philosophy#the-goldilocks-zone)**: Dependabot is the default, widely used solution. It "just works." Choosing the obvious, stable tool means less cognitive overhead and more energy for innovation where it actually matters.

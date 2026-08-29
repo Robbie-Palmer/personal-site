@@ -96,12 +96,12 @@ denormalized on the batch for efficient list reads, provided child job state rem
 Batch status describes the overall user journey, not execution of one parsing chain. Initial
 states are:
 
-* `preparing` — sources are being validated, deduplicated, or grouped;
-* `processing` — at least one child job is queued or running;
-* `awaiting_review` — processing is terminal and at least one item needs a decision;
-* `completed` — every item is accepted, skipped, rejected, or otherwise terminal;
-* `undoing` and `undone` — a migration rollback is active or complete;
-* `failed` — batch preparation failed before useful child work could be created.
+* `preparing`: sources are being validated, deduplicated, or grouped;
+* `processing`: at least one child job is queued or running;
+* `awaiting_review`: processing is terminal and at least one item needs a decision;
+* `completed`: every item is accepted, skipped, rejected, or otherwise terminal;
+* `undoing` and `undone`: a migration rollback is active or complete;
+* `failed`: batch preparation failed before useful child work could be created.
 
 A failed child job does not normally make the batch itself `failed`.
 

@@ -6,23 +6,23 @@
 [![Maintainability Rating](https://sonarcloud.io/api/project_badges/measure?project=Robbie-Palmer_personal-site&metric=sqale_rating)](https://sonarcloud.io/summary/new_code?id=Robbie-Palmer_personal-site)
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/Robbie-Palmer/personal-site/badge)](https://scorecard.dev/viewer/?uri=github.com/Robbie-Palmer/personal-site)
 
-My personal website — blog, resume, and recipes at [robbiepalmer.me](https://robbiepalmer.me) — plus
+My personal website, blog, resume, and recipes at [robbiepalmer.me](https://robbiepalmer.me), plus
 the projects incubated here alongside it. Each project owns its details in its own README:
 
-- [`ui/`](ui/) — the website itself (Next.js static export on Cloudflare Pages).
+- [`ui/`](ui/), the website itself (Next.js static export on Cloudflare Pages).
   Content authoring guides: [blog](ui/content/blog/README.md),
   [projects](ui/content/projects/README.md)
-- [`functions/`](functions/README.md) — Pages Functions running alongside the static site
-- [`workers/recipe-api/`](workers/recipe-api/README.md) — API and auth Worker behind the recipe features
-- [`workers/recipe-ingest/`](workers/recipe-ingest/README.md) — durable photo-to-recipe ingestion pipeline
-- [`packages/`](packages/) — shared libraries (database schema, domain model, parsing, observability)
-- [`ml-pipelines/`](ml-pipelines/README.md) — DVC-managed ML experiments feeding the recipe features
-- [`ai-review/`](ai-review/README.md) — stateful AI code-review service
-- [`homelab/`](homelab/README.md) — home lab declared as code
-- [`infra/`](infra/README.md) and [`infra-bootstrap/`](infra-bootstrap/README.md) — Terraform roots
+- [`functions/`](functions/README.md), Pages Functions running alongside the static site
+- [`workers/recipe-api/`](workers/recipe-api/README.md), API and auth Worker behind the recipe features
+- [`workers/recipe-ingest/`](workers/recipe-ingest/README.md), durable photo-to-recipe ingestion pipeline
+- [`packages/`](packages/), shared libraries (database schema, domain model, parsing, observability)
+- [`ml-pipelines/`](ml-pipelines/README.md), DVC-managed ML experiments feeding the recipe features
+- [`ai-review/`](ai-review/README.md), stateful AI code-review service
+- [`homelab/`](homelab/README.md), home lab declared as code
+- [`infra/`](infra/README.md) and [`infra-bootstrap/`](infra-bootstrap/README.md), Terraform roots
   for Cloudflare, Neon, and PostHog
-- [`backups/`](backups/README.md) — encrypted Postgres backups to R2
-- [`docs/`](docs/) — internal runbooks: [external dashboards](docs/dashboards.md),
+- [`backups/`](backups/README.md), encrypted Postgres backups to R2
+- [`docs/`](docs/), internal runbooks: [external dashboards](docs/dashboards.md),
   [social preview QA](docs/social-previews.md), [database operations](docs/database.md),
   [preview environments](docs/preview-environments.md), [secrets](docs/secrets.md)
 

@@ -2,7 +2,7 @@
 
 Blog posts ship OpenGraph and Twitter Card metadata for rich social media
 previews. Preview generation happens on external platforms, so this cannot be
-covered by automated tests — verify it manually before merging changes.
+covered by automated tests. Verify it manually before merging changes.
 
 ## When to test
 
@@ -12,7 +12,7 @@ covered by automated tests — verify it manually before merging changes.
 
 ## How to test
 
-Run the checks against whichever environment carries the change — a PR preview
+Run the checks against whichever environment carries the change, a PR preview
 deployment (see [preview environments](preview-environments.md)) or production.
 
 Tools:

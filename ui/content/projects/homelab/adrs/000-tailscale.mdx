@@ -7,9 +7,9 @@ tech_stack: ["Tailscale"]
 
 # Context
 
-The home lab spans several machines in different roles — an always-on hub, a
+The home lab spans several machines in different roles, an always-on hub, a
 small always-on sidekick, and desktop-class hardware I expect to bring in
-later — and I want to reach all of them from any of my personal devices
+later, and I want to reach all of them from any of my personal devices
 (laptops, phones) with no port forwarding, no public exposure, and no
 per-machine VPN configuration. The machines are behind a home router doing
 NAT; some of them are only ever on the tailnet.
@@ -38,7 +38,7 @@ personal devices on a single private tailnet.
 Each node runs the Tailscale client and joins the tailnet; the control plane
 (coordinated through Tailscale's service) handles NAT traversal and hands out
 stable `100.x.y.z` addresses. MagicDNS resolves those to short device names,
-which is what makes the name-based access above work — I reach nodes as
+which is what makes the name-based access above work. I reach nodes as
 `hostname`, never as an IP. My router stays closed: no inbound ports, no
 dynamic DNS, no port forwarding.
 
@@ -49,7 +49,7 @@ node broadcasts the magic packet locally. The always-on hub is what makes
 this work from anywhere.
 
 The tailnet is the lab's trust boundary. Nodes treat traffic arriving over it
-as trusted rather than filtering service by service — the mesh is what keeps
+as trusted rather than filtering service by service. The mesh is what keeps
 things private, so anything joining the tailnet is inside the boundary by
 definition.
 

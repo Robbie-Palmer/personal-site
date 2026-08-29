@@ -8,7 +8,7 @@ tech_stack: ["Docker", "Colima"]
 # Context
 
 The acquisition stack talks to public trackers from the hub, and that traffic
-should never ride the residential line — not during normal operation, and
+should never ride the residential line, not during normal operation, and
 especially not during the boot window. The hub runs a system-wide VPN app,
 but it boots asynchronously alongside everything else: launchd agents bring
 up Colima and the media containers immediately at login, while the VPN
@@ -42,7 +42,7 @@ changes.
   the current consumer VPN app does not. Adds one more container and one
   more failure mode for Jellyfin playback if tuned badly.
 * **Decision**: Deferred. Revisit when the current VPN subscription is
-  replaced with a config-friendly provider — the gate here is designed to
+  replaced with a config-friendly provider. The gate here is designed to
   make that swap trivial.
 
 ## Do nothing
@@ -61,9 +61,9 @@ changes.
 ### Cons
 
 * The gate only covers *startup*. A VPN drop mid-session does not stop
-  already-running containers — closing that needs the gluetun approach.
+  already-running containers. Closing that needs the gluetun approach.
 * A Tailscale exit node also satisfies the gate. Egress still leaves the
   LAN, but through another tailnet device; worth remembering when reading
   logs.
-* Debugging "why is nothing running" after a reboot now starts at the VPN —
-  the hold message names this ADR so future-you finds it fast.
+* Debugging "why is nothing running" after a reboot now starts at the VPN.
+  The hold message names this ADR so future-you finds it fast.

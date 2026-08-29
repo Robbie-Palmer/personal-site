@@ -7,8 +7,8 @@ inherits_from: "personal-site:054-gitleaks"
 The recipe site concentrates the credentials worth stealing: Neon Postgres
 connection strings, better-auth secrets, OAuth client secrets (Google/GitHub
 login), OpenRouter API keys, and Cloudflare tokens for the Workers. Most of
-these are exactly the shapes GitHub's provider-pattern scanning is weakest on —
-a Postgres URL with an inline password or a better-auth signing secret has no
+these are exactly the shapes GitHub's provider-pattern scanning is weakest on. A Postgres URL
+with an inline password or a better-auth signing secret has no
 vendor-recognisable format, but does trip gitleaks' generic and entropy rules
 (see [personal-site ADR 054](/projects/personal-site/adrs/054-gitleaks)).
 
@@ -22,8 +22,8 @@ commit beats rotating after disclosure.
 
 ## Positive
 
-* Database URLs and auth secrets — the credential shapes vendor-pattern
-  scanning misses — are checked before a commit exists, on the side of the
+* Database URLs and auth secrets, the credential shapes vendor-pattern
+  scanning misses, are checked before a commit exists, on the side of the
   monorepo where they circulate most (local `.dev.vars`, seeded QA scenarios,
   integration-test configs).
 

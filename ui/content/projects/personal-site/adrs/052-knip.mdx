@@ -17,17 +17,17 @@ them answer a structural question that matters more as the monorepo grows:
 That blind spot is not hypothetical. The first Knip run over the workspace
 found, after configuration to teach it the repo's dynamic entry points:
 
-* **18 dead source files** — a superseded 12-component cluster in the
+* **18 dead source files**, a superseded 12-component cluster in the
   recipe-parsing viz tool, an orphaned filter-component trio plus its types
   module in the UI, an unused shadcn accordion, and a dangling MDX helper.
-* **8 dependency-manifest errors** — seven unused dependency declarations
+* **8 dependency-manifest errors**, seven unused dependency declarations
   (including two Radix packages and a stale `zod`), and a remark plugin
   referenced by `.remarkrc.js` that only resolved through another package's
   transitive dependencies.
 
 Dead code is not just clutter: it is surface area every reviewer, scanner, AI
 agent, and dependency-update PR pays for on every pass. In an agent-heavy
-workflow the cost compounds — agents read and preserve code that nothing uses,
+workflow the cost compounds. Agents read and preserve code that nothing uses,
 because nothing tells them it is unreferenced.
 
 # Decision
@@ -43,10 +43,10 @@ Adopt **Knip** as the monorepo's dead-code and dependency-hygiene check:
 * A dedicated **blocking** CI workflow on any JS/TS or package-manifest
   change. Blocking is justified the same way actionlint's was in
   [ADR 049](/projects/personal-site/adrs/049-zizmor): the baseline was made
-  green first — the 18 files were deleted and the dependency manifests
+  green first. The 18 files were deleted and the dependency manifests
   corrected in the adopting change, verified by every workspace's typecheck,
   677 unit tests, and a full production build.
-* **Staged adoption**: the `exports`/`types` issue categories (~220 unused
+* **Staged adoption**: the `exports`/`types` issue categories (\~220 unused
   exports at time of writing) are excluded from the gate for now. Deleting a
   file is safe when nothing imports it; demoting hundreds of exports is a
   refactor to do deliberately, not a lint gate to switch on wholesale.
@@ -58,7 +58,7 @@ Adopt **Knip** as the monorepo's dead-code and dependency-hygiene check:
 Reachability analysis across module and workspace boundaries is a different
 axis from everything already running. SonarQube's dead-code rules are
 file-local (an unused private function), and no existing tool relates
-`package.json` declarations to actual imports in both directions — the unused
+`package.json` declarations to actual imports in both directions. The unused
 side caught seven dead declarations in the first run, and the unlisted side
 now guards against the inverse accident (importing a package another workspace
 happens to provide). On the determinism axis of
@@ -68,21 +68,21 @@ where an AI reviewer might or might not notice one in a diff's blast radius.
 
 # Alternatives Considered
 
-| Tool | Role | Pros | Cons | Verdict |
-| --- | --- | --- | --- | --- |
-| **Knip** *(accepted)* | Files + exports + deps | Monorepo-native (reads pnpm workspaces); plugin ecosystem covers Next.js/Vitest/Tailwind; single tool for three issue classes; actively developed. | Dynamic usage (fs-loaded content, mise-invoked binaries) needs explicit config. | **Accepted.** |
-| **ts-prune** | Unused exports | Simple. | Archived by its author, who recommends Knip. | Rejected: unmaintained. |
-| **depcheck** | Unused deps only | Long-standing. | Deps only — no files/exports; weak monorepo support; largely dormant. | Rejected: subset of Knip. |
-| **dependency-cruiser** | Dependency *rules* | Enforces architecture constraints (cycles, layering). | Different problem: constrains allowed imports rather than finding unused code. | Not a substitute; a possible future complement. |
-| **SonarQube dead-code rules** | Within-file | Already running. | Cannot see across modules or into `package.json`. | Insufficient alone: the gap is cross-module. |
-| **Status quo** | n/a | Nothing new. | 18 dead files and an undeclared runtime dependency say otherwise. | Rejected. |
+| Tool                          | Role                   | Pros                                                                                                                                               | Cons                                                                            | Verdict                                         |
+| ----------------------------- | ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- | ----------------------------------------------- |
+| **Knip** *(accepted)*         | Files + exports + deps | Monorepo-native (reads pnpm workspaces); plugin ecosystem covers Next.js/Vitest/Tailwind; single tool for three issue classes; actively developed. | Dynamic usage (fs-loaded content, mise-invoked binaries) needs explicit config. | **Accepted.**                                   |
+| **ts-prune**                  | Unused exports         | Simple.                                                                                                                                            | Archived by its author, who recommends Knip.                                    | Rejected: unmaintained.                         |
+| **depcheck**                  | Unused deps only       | Long-standing.                                                                                                                                     | Deps only. No files/exports; weak monorepo support; largely dormant.            | Rejected: subset of Knip.                       |
+| **dependency-cruiser**        | Dependency *rules*     | Enforces architecture constraints (cycles, layering).                                                                                              | Different problem: constrains allowed imports rather than finding unused code.  | Not a substitute; a possible future complement. |
+| **SonarQube dead-code rules** | Within-file            | Already running.                                                                                                                                   | Cannot see across modules or into `package.json`.                               | Insufficient alone: the gap is cross-module.    |
+| **Status quo**                | n/a                    | Nothing new.                                                                                                                                       | 18 dead files and an undeclared runtime dependency say otherwise.               | Rejected.                                       |
 
 # Where It Sits On The Adoption Curve
 
 **Early majority**, like zizmor in [ADR 049](/projects/personal-site/adrs/049-zizmor):
 Knip has displaced ts-prune/depcheck as the community default for this job and
 is stable and well-documented, but young enough that its LLM corpus is thinner
-than decade-old linters — the usual
+than decade-old linters, the usual
 [Goldilocks-zone](/projects?tab=philosophy#the-goldilocks-zone) trade, accepted
 because the alternatives are unmaintained rather than merely older.
 
@@ -110,8 +110,8 @@ because the alternatives are unmaintained rather than merely older.
   `cloudflare:workers`/`cloudflare:workflows` virtual modules were reported as
   an unlisted `cloudflare` dependency and are now declared in the config.
 * **The exports backlog is deferred**, so unused exports keep accumulating
-  until that category is enabled — bounded by the follow-up to work through
-  the ~220 findings and tighten the gate.
+  until that category is enabled, bounded by the follow-up to work through
+  the \~220 findings and tighten the gate.
 * **Config drift.** New workspaces or dynamic entry points must be added to
   `knip.json`; forgetting one fails CI loudly, which is the safe direction.
 

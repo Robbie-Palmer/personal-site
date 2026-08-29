@@ -4,7 +4,7 @@
 
 This repo uses [mise](https://mise.jdx.dev/) with its experimental monorepo layout. Tasks live in
 `.mise.toml` and per-project `mise.toml` files; discover them with `mise task --all`. Always run
-tasks through mise (`mise //:task-name`, `mise //project:task-name`) — never raw `pnpm run`/`npm run`.
+tasks through mise (`mise //:task-name`, `mise //project:task-name`). Never run raw `pnpm run`/`npm run`.
 
 If mise is unavailable in your environment, fall back to pnpm inside `ui/` (`pnpm install`,
 `pnpm typecheck`, `pnpm lint`, `pnpm test`). The build requires `NEXT_PUBLIC_CF_IMAGES_ACCOUNT_HASH`

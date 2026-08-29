@@ -124,18 +124,18 @@ triggers should be reconsidered so the database protects itself from every write
 The event is the shared parent and deliveries are its per-recipient children. `ON DELETE CASCADE`
 therefore works from event to deliveries: deleting an event removes all of its deliveries. Deleting
 one delivery does not cascade upwards because other recipients may still reference the same event,
-and a foreign key cannot treat “this happened to be the last child” as an instruction to delete its
+and a foreign key cannot treat "this happened to be the last child" as an instruction to delete its
 parent.
 
 Normal dismiss and clear operations do not delete deliveries; they set `dismissed_at`, retaining the
 archive record. Hard deletion can still happen through retention work or when a recipient account
 is deleted. If every delivery for an event is eventually hard-deleted, the event and its subtype
-rows remain valid but no longer appear in anyone's archive. “Orphaned” here means delivery-less,
+rows remain valid but no longer appear in anyone's archive. "Orphaned" here means delivery-less,
 not referentially broken.
 
 For example, a household invitation initially has one delivery to its invitee. If that invitee
 deletes their account, the recipient foreign key cascades away the delivery, but nothing deletes
-the shared event parent. The same can happen to an owner-only “member left” notification when the
+the shared event parent. The same can happen to an owner-only "member left" notification when the
 owner later deletes their account.
 
 That may be desirable for a retention or audit window. If it is not, a periodic transaction can
@@ -162,7 +162,7 @@ operations. This already supports notifications with no actions, links, or diffe
 it does not require an actions table.
 
 Persisted action entities would become useful only if action definitions must be authored or
-changed at runtime without deploying code—for example, an administrator-defined rule chooses the
+changed at runtime without deploying code, for example, an administrator-defined rule chooses the
 label, order, policy, or workflow attached to a particular event. One possible extension would be:
 
 <Mermaid

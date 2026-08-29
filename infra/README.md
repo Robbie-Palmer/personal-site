@@ -55,12 +55,12 @@ Secrets and config mirrored from Doppler:
    - Passed as `TF_VAR_neon_org_id`
 6. **`POSTHOG_KEY`**
    - PostHog project API key (`phc_…`). This is a public, write-only ingestion
-     key — it already ships to browsers via `NEXT_PUBLIC_POSTHOG_KEY`, so it is
+     key, it already ships to browsers via `NEXT_PUBLIC_POSTHOG_KEY`, so it is
      not secret in the usual sense, but it is sourced from Doppler for
      single-source-of-truth config management.
    - Mapped to `TF_VAR_posthog_key` (Terraform → Pages Functions and UI) and
      deployed as a secret to both recipe Workers for direct OTLP tracing.
-     It is **also** used — outside Terraform's reach — as the auth header on
+     It is **also** used, outside Terraform's reach, as the auth header on
      the `posthog-logs` Workers Observability destination. See
      [Rotating `POSTHOG_KEY`](#rotating-posthog_key).
 7. **`POSTHOG_HOST`**
@@ -73,7 +73,7 @@ Secrets and config mirrored from Doppler:
 9. **`MISE_GITHUB_TOKEN`**
    - GitHub token used by mise to download tools during Cloudflare Pages builds.
    - Mapped to `TF_VAR_github_token`, which Terraform passes into the encrypted
-     Pages build secrets (`var.github_token`, required — no default).
+     Pages build secrets (`var.github_token`, required, no default).
 10. **`POSTHOG_API_KEY`**
     - Create at: PostHog → Settings → Personal API keys
     - Required scopes:
@@ -147,7 +147,7 @@ Has DNS records, cache rules, and proxied access configured in Terraform.
 ### `dvc`
 
 Private bucket for ML pipeline data versioned with [DVC](https://dvc.org/).
-Accessed only via S3-compatible API with credentials — no public access.
+Accessed only via S3-compatible API with credentials. No public access.
 Used by `ml-pipelines/` projects, each under their own prefix
 (e.g. `s3://dvc/recipe-parsing`).
 
@@ -258,14 +258,14 @@ OTLP/protobuf trace and correlated-log export from Pages/Workers, and the
 Cloudflare native-log fallback. All direct exporters are automated; the
 Cloudflare observability destination remains manual. Rotate in this order:
 
-1. **Doppler** — update the value. This is the source of truth.
-2. **GitHub environments** — run `scripts/sync-doppler-github-envs.sh`. The
+1. **Doppler**. Update the value. This is the source of truth.
+2. **GitHub environments**. Run `scripts/sync-doppler-github-envs.sh`. The
    next infra apply sets both the browser and Pages Function values; the API
    and ingestion deploy workflows write the same key as a Worker secret.
-3. **Deploy the three runtimes** — apply Terraform for Pages, then redeploy
+3. **Deploy the three runtimes**. Apply Terraform for Pages, then redeploy
    `recipe-api` and `recipe-ingest`. Direct trace/log export now uses the new
    key everywhere.
-4. **`posthog-logs` Workers Observability destination** (manual step) —
+4. **`posthog-logs` Workers Observability destination** (manual step).
    Cloudflare Dashboard → Workers & Pages → Observability → Telemetry →
    `posthog-logs` → update the `Authorization: Bearer <phc_…>` header. Neither
    Terraform nor Doppler can reach this: there is a Cloudflare API for

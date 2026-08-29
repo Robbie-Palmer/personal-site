@@ -281,7 +281,7 @@ available in Cloudflare Workers Logs.
 ### 6. Smoke-test a preview
 
 To validate the pipeline (after recreating any of the above, or when debugging),
-open or update an internal PR — the workflow runs from `main`. Confirm:
+open or update an internal PR. The workflow runs from `main`. Confirm:
 
 1. The PR receives one `Preview environment` comment.
 2. The dedicated Neon preview project contains `preview-pr-<number>` as a child

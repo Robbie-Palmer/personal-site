@@ -21,7 +21,7 @@ However, there is currently no way to visually see the graph itself. A visualiza
 
 The main libraries for interactive graph visualization in the browser are:
 
-* **D3.js** (`d3-force`): The foundational force simulation library. Maximum flexibility but low-level — requires manual rendering, zoom/pan, and React integration. Fights React's declarative model over DOM ownership.
+* **D3.js** (`d3-force`): The foundational force simulation library. Maximum flexibility but low-level. It requires manual rendering, zoom/pan, and React integration. Fights React's declarative model over DOM ownership.
 * **react-force-graph**: React wrapper around `force-graph` (which uses `d3-force` internally). Provides 2D (Canvas) and 3D (WebGL/Three.js) variants with zoom, pan, drag, hover, and click built in. However, incompatible with React 19 due to a [breaking change in ref handling](https://github.com/facebook/react/issues/31613).
 * **Sigma.js** (`@react-sigma/core`): WebGL-based, purpose-built for graph visualization. Uses `graphology` for the graph data model and provides React hooks for events, layout, and rendering.
 * **Cytoscape.js** (`react-cytoscapejs`): Mature graph library with many layout algorithms (hierarchical, circular, force). More complex API, better suited for analytical/research use cases.

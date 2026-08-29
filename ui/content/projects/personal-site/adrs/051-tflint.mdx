@@ -16,17 +16,17 @@ checks, and both leave a gap between them:
   variable/local/output declarations, missing `required_version` constraints,
   and provider argument values that only fail at `apply` time.
 * **Trivy's IaC config scan** ([ADR 047](/projects/personal-site/adrs/047-trivy))
-  looks for *security* misconfigurations — exposed resources, excessive
-  permissions — not correctness or hygiene.
+  looks for *security* misconfigurations, exposed resources, excessive
+  permissions, not correctness or hygiene.
 
 Mapping this onto the determinism axis from
 [ADR 048 (SonarQube)](/projects/personal-site/adrs/048-sonarqube), the way
 [ADR 049 (zizmor)](/projects/personal-site/adrs/049-zizmor) did for workflows:
 
-| | Terraform security | Terraform correctness/hygiene |
-| --- | --- | --- |
-| **Deterministic** | Trivy | `validate` only (permissive) — **gap** |
-| **Non-deterministic** | AI reviewers | AI reviewers |
+|                       | Terraform security | Terraform correctness/hygiene         |
+| --------------------- | ------------------ | ------------------------------------- |
+| **Deterministic**     | Trivy              | `validate` only (permissive), **gap** |
+| **Non-deterministic** | AI reviewers       | AI reviewers                          |
 
 The practical consequence of the gap: dead declarations accumulate silently as
 infrastructure evolves (the exact class of drift that erodes iteration speed),
@@ -40,7 +40,7 @@ preset, for both Terraform roots. Like the other linters it is managed through
 [mise](/projects/personal-site/adrs/004-mise) so CI and laptop run the same
 pinned version:
 
-* A `.tflint.hcl` per Terraform root enables the bundled ruleset — no plugin
+* A `.tflint.hcl` per Terraform root enables the bundled ruleset. No plugin
   downloads, so the lint needs no network and no `tflint --init` in CI.
 * `mise run //infra:lint:tflint` / `//infra-bootstrap:lint:tflint` tasks, wired
   into the root `lint` aggregate, each root's `check` aggregate, and lint-staged
@@ -73,18 +73,18 @@ Weighted by the same test as [ADR 047](/projects/personal-site/adrs/047-trivy)
 and [ADR 049](/projects/personal-site/adrs/049-zizmor): deterministic, free,
 no new platform, mise-manageable.
 
-| Tool | Role | Pros | Cons | Verdict |
-| --- | --- | --- | --- | --- |
-| **TFLint** *(accepted)* | Terraform linter | De-facto standard linter; bundled ruleset needs no network; mise/CI/pre-commit friendly; provider rulesets available if ever needed. | Cloudflare/Neon have no provider-specific ruleset, so coverage is language-level only. | **Accepted.** |
-| **checkov / tfsec** | IaC security scanners | Broad policy libraries. | Security-shaped: overlaps Trivy's config scan, not the hygiene gap. tfsec is folded into Trivy upstream. | Rejected: duplicates ADR 047. |
-| **OPA / conftest** | Policy engine | Arbitrary custom policies over plans. | A policy *language* to author and maintain, not a curated ruleset; heavier than the gap warrants. | Rejected: [Less Is More](/projects?tab=philosophy#less-is-more). |
-| **HCP Terraform policies (Sentinel)** | Managed policy | Runs where the plan runs. | Paid tier; platform lock-in for a linting concern. | Rejected: free tooling covers the gap. |
-| **Status quo** (`validate` + Trivy) | n/a | No new tool. | Leaves the deterministic-hygiene quadrant empty. | Rejected: closing that gap is the point. |
+| Tool                                  | Role                  | Pros                                                                                                                                 | Cons                                                                                                     | Verdict                                                          |
+| ------------------------------------- | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| **TFLint** *(accepted)*               | Terraform linter      | De-facto standard linter; bundled ruleset needs no network; mise/CI/pre-commit friendly; provider rulesets available if ever needed. | Cloudflare/Neon have no provider-specific ruleset, so coverage is language-level only.                   | **Accepted.**                                                    |
+| **checkov / tfsec**                   | IaC security scanners | Broad policy libraries.                                                                                                              | Security-shaped: overlaps Trivy's config scan, not the hygiene gap. tfsec is folded into Trivy upstream. | Rejected: duplicates ADR 047.                                    |
+| **OPA / conftest**                    | Policy engine         | Arbitrary custom policies over plans.                                                                                                | A policy *language* to author and maintain, not a curated ruleset; heavier than the gap warrants.        | Rejected: [Less Is More](/projects?tab=philosophy#less-is-more). |
+| **HCP Terraform policies (Sentinel)** | Managed policy        | Runs where the plan runs.                                                                                                            | Paid tier; platform lock-in for a linting concern.                                                       | Rejected: free tooling covers the gap.                           |
+| **Status quo** (`validate` + Trivy)   | n/a                   | No new tool.                                                                                                                         | Leaves the deterministic-hygiene quadrant empty.                                                         | Rejected: closing that gap is the point.                         |
 
 # Where It Sits On The Adoption Curve
 
 **Late majority.** TFLint has been the default Terraform linter for most of a
-decade, with a stable CLI and a deep documentation/LLM corpus — squarely in the
+decade, with a stable CLI and a deep documentation/LLM corpus, squarely in the
 maturity band the philosophy favours for infrastructure tooling
 ([LLM-Optimized](/projects?tab=philosophy#llm-optimized)), and a counterweight
 to the early-majority picks (zizmor) elsewhere in the stack.
@@ -124,4 +124,4 @@ to the early-majority picks (zizmor) elsewhere in the stack.
 ## Negative
 
 * One more tool version to keep updated (delegated to Renovate).
-* Language-level rules only — provider-specific mistakes still reach `plan`.
+* Language-level rules only. Provider-specific mistakes still reach `plan`.

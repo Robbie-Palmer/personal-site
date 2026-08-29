@@ -7,11 +7,11 @@ tech_stack: ["Netdata"]
 
 # Context
 
-The lab's two core workloads — photo backup and agent hosting — both depend
+The lab's two core workloads, photo backup and agent hosting, both depend
 on the Mac mini being up and healthy, and DNS (AdGuard Home) depends on both
 the Mac mini and the Raspberry Pi. I want to know about problems *before*
 they matter: a dead hub, a full backup drive, or a Pi overheating. Waiting to
-notice manually is how failures slip through — and a backup that fails
+notice manually is how failures slip through, and a backup that fails
 quietly just means the library quietly isn't being backed up.
 
 I already use Slack for ops notifications (the recipe site's
@@ -23,8 +23,8 @@ Requirements:
 * **Low-friction install** on both the Mac mini and the Pi.
 * **Hub-and-spoke collection**: the Pi exports its metrics to the Mac mini
   as the central point, so there's one place to look.
-* **Slack delivery**: alert on anything going wrong — host down, disk full,
-  temperature too high — via a Slack app.
+* **Slack delivery**: alert on anything going wrong, host down, disk full,
+  temperature too high, via a Slack app.
 * **Real-time**, not batch polling.
 
 # Decision
@@ -75,7 +75,7 @@ Until that pilot succeeds, the gap remains.
 ## Uptime checks / pinging only
 
 * **Pros**: Simple.
-* **Cons**: Tells me a host is down but nothing about *why* — disk full,
+* **Cons**: Tells me a host is down but nothing about *why*. Disk full,
   overheating, or memory pressure happen before a host dies.
 * **Decision**: Rejected. I need the metrics, not just the outage.
 
@@ -104,4 +104,4 @@ Until that pilot succeeds, the gap remains.
 * **Alert noise**: thresholds need tuning (temperature alerts especially) to
   avoid paging Slack for nothing.
 * **Hub dependency**: if the Mac mini is down, the Pi's central export
-  destination is down too — the Pi must still alarm independently.
+  destination is down too. The Pi must still alarm independently.

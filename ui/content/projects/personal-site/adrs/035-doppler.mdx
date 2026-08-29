@@ -42,7 +42,7 @@ This approach aligns with:
 ## The "Secret Zero" Problem
 
 The **Secret Zero Problem** (also called the "Bootstrap Secret Problem") is the fundamental challenge that you need a secret to access your secrets vault.
-Doppler doesn't eliminate this problem—it shifts it:
+Doppler doesn't eliminate this problem. It shifts it:
 
 * GitHub Actions needs a `DOPPLER_TOKEN` to authenticate to Doppler
 * This bootstrap token must be stored somewhere (GitHub Secrets)
@@ -104,7 +104,7 @@ Doppler handles source-of-truth management and local secret injection.
 
 ## Negative
 
-* **Platform Dependency**: Adds another platform to manage—[Less Is More](/projects?tab=philosophy#less-is-more)
+* **Platform Dependency**: Adds another platform to manage. [Less Is More](/projects?tab=philosophy#less-is-more)
 * **Secret Zero Persists**: Still requires `DOPPLER_TOKEN` in GitHub Secrets, so we haven't eliminated the bootstrap problem
 * **Vendor Lock-in**: Migrating away from Doppler requires rewriting secret injection across all pipelines
 * **Internet Dependency**: Local development requires network access to Doppler (though CLI supports caching)

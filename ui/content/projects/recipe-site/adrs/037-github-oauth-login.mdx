@@ -23,17 +23,17 @@ baseline ([ADR 035](/projects/recipe-site/adrs/035-application-security-baseline
 
 # Context
 
-The same two goals that drove Google as the default ([ADR 036](/projects/recipe-site/adrs/036-google-oidc-login))
-— frictionless sign-up and keeping password handling with someone else — also argue for a second
+The same two goals that drove Google as the default ([ADR 036](/projects/recipe-site/adrs/036-google-oidc-login)),
+frictionless sign-up and keeping password handling with someone else, also argue for a second
 federated provider rather than email/password. GitHub is that second provider for two reasons:
 
 1. **It fits the technical-friend slice of the audience.** Developers are usually already
-   authenticated to GitHub, so for them "Sign in with GitHub" is the lowest-friction path —
+   authenticated to GitHub, so for them "Sign in with GitHub" is the lowest-friction path,
    the same one-gesture sign-up Google gives the rest of the audience.
 2. **It is the native front door to the Cooklang community.** The recipe format is Cooklang
    ([ADR 030](/projects/recipe-site/adrs/030-cooklang)), whose spec, parsers, and tooling all live
    on GitHub. If the site ever reaches beyond the household and inner circle, that GitHub-centric
-   enthusiast community is the most plausible early audience — and offering GitHub sign-in removes a
+   enthusiast community is the most plausible early audience, and offering GitHub sign-in removes a
    step for exactly those users.
 
 GitHub is a **secondary** method, not the default. Most household members and friends are reached
@@ -73,26 +73,26 @@ The IaC story mirrors Google's ([ADR 036](/projects/recipe-site/adrs/036-google-
 the credential the sign-in flow depends on **cannot be created via Terraform**, so it is a manual
 step, but the resulting secrets are code-owned.
 
-| Element                                  | IaC status                                                                                                                       |
-| ---------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| Element                                   | IaC status                                                                                                                                      |
+| ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
 | **GitHub OAuth App (client ID / secret)** | **No Terraform resource exists.** The `integrations/github` provider authenticates *to* GitHub but has no resource that *creates* an OAuth App. |
-| Client ID / secret stored as app secrets  | Terraformable via the project's secret-management layer.                                                                          |
+| Client ID / secret stored as app secrets  | Terraformable via the project's secret-management layer.                                                                                        |
 
-GitHub OAuth Apps cannot be created through the API at all — only through GitHub's developer
+GitHub OAuth Apps cannot be created through the API at all, only through GitHub's developer
 settings UI. (A manifest flow does exist, but only for *GitHub Apps*, a different installation-level
 product, not the OAuth App that "Sign in with GitHub" uses.)
 
 The upside is that the manual surface is **smaller than Google's**: there is no separate cloud
-project to create, no APIs to enable, and no OAuth consent screen to configure or verify — just one
+project to create, no APIs to enable, and no OAuth consent screen to configure or verify, just one
 registration form that yields a client ID, a secret, and a callback URL. That happens once per
 environment and produces values the rest of the pipeline consumes as code.
 
 ## Same-Origin Proxy
 
-GitHub OAuth has the **same same-origin requirement** as Google. The reasoning — that the Better
+GitHub OAuth has the **same same-origin requirement** as Google. The reasoning, that the Better
 Auth session cookie must stay first-party between the static Cloudflare Pages frontend and the auth
 Worker, and that Cloudflare's default `*.pages.dev` / `*.workers.dev` hosts are cross-site and force
-the fragile `SameSite=None` path — is set out in full in
+the fragile `SameSite=None` path, is set out in full in
 [ADR 036](/projects/recipe-site/adrs/036-google-oidc-login#same-origin-proxy) and applies unchanged.
 
 This is not extra infrastructure: the proxy is needed for Google regardless, and every Better Auth
@@ -120,7 +120,7 @@ Adding GitHub introduces no new monthly line item.
   response stay with GitHub; there is no password store to leak.
 * **Cheap.** No provider cost and no membership fee.
 * **Additive and reuses existing infrastructure.** A few lines of Better Auth config, registered
-  against the same-origin proxy that Google already requires — no new routing infrastructure.
+  against the same-origin proxy that Google already requires. No new routing infrastructure.
 
 ## Negative
 
@@ -128,13 +128,13 @@ Adding GitHub introduces no new monthly line item.
   Google; GitHub mainly serves the technical slice. It earns its place as a secondary path, not as a
   driver of mainstream sign-ups.
 * **Email can be private.** Unlike Google, a GitHub user may hide their email, so the flow must
-  request the `user:email` scope to obtain a verified primary email — a small amount of extra
+  request the `user:email` scope to obtain a verified primary email, a small amount of extra
   handling.
 * **The OAuth App cannot be created via IaC.** As above, registering the OAuth App is a manual
   GitHub-settings step (though simpler than Google's), mitigated by storing the resulting credentials
   in the code-owned secret layer.
 * **No preview-environment story.** OAuth requires pre-registered, static redirect URIs, so
-  ephemeral per-PR preview URLs cannot complete a GitHub sign-in out of the box — the same limitation
+  ephemeral per-PR preview URLs cannot complete a GitHub sign-in out of the box, the same limitation
   documented for Google in
   [ADR 036](/projects/recipe-site/adrs/036-google-oidc-login#consequences).
 * **Hard dependency on GitHub for this path.** Users without a GitHub account use Google instead; a

@@ -2,12 +2,12 @@
 
 This directory declares the home lab's machines as code, following the layout
 planned in [ADR 010](/projects/homelab/adrs/010-nixos-gpu-worker). The goal is
-the same one that motivates the whole lab — the same config in produces the
+the same one that motivates the whole lab, the same config in produces the
 same system out, every change is reviewable and rollbackable, and nothing is
 hand-edited on a box that then forgets it.
 
 All services are reachable only over the home LAN and the
-[Tailscale](/projects/homelab/adrs/000-tailscale) tailnet — the router
+[Tailscale](/projects/homelab/adrs/000-tailscale) tailnet. The router
 forwards no ports, so nothing is ever public.
 
 ## Jellyfin on the Mac mini
@@ -115,14 +115,14 @@ mise run //homelab:media-provision   # re-run wiring; safe to repeat
 - **Adding a series or film** happens in Sonarr/Radarr's UI (or their APIs);
   everything downstream is automatic. Or skip the UIs entirely: anything
   added to the [Trakt](https://trakt.tv) watchlist lands in the library on
-  its own — see the recommendation-loop caveat below.
+  its own. See the recommendation-loop caveat below.
 - **Recommendation loop (Trakt)**: watchlist taps flow into Sonarr/Radarr
   via their native "Trakt User" import lists, and the Jellyfin Trakt plugin
   scrobbles plays back so recommendations improve ([ADR 021](/projects/homelab/adrs/021-trakt-watchlist)).
   Each integration needs a one-time OAuth: in Radarr/Sonarr *Settings →
   Lists*, add "Trakt User", hit "Authenticate with Trakt"; in Jellyfin,
   Plugins → Trakt. Two traps: the list's username must match your profile
-  slug exactly — copy it from your Trakt profile URL (dashes, not
+  slug exactly. Copy it from your Trakt profile URL (dashes, not
   underscores), since a misspelled one returns an empty watchlist instead of
   an error; and lists re-fetch at most every 12 hours, with failures
   counting as a sync, so delete + recreate the list to force an immediate
@@ -231,7 +231,7 @@ mise run //homelab:sb-verify
 - **Shell backend is disabled.** The ADR disables `SB_SHELL_BACKEND` because
   t3-code agents already provide the automation layer. If you need shell
   commands from within SilverBullet, change `SB_SHELL_BACKEND` in the
-  compose file — but review the security implications first.
+  compose file, but review the security implications first.
 - **Authentication is enabled** as defence in depth. The `SB_USER`
   credentials are required for browser and API access.
 - **SilverBullet listens on localhost only.** The Docker compose file binds
@@ -246,7 +246,7 @@ mise run //homelab:sb-verify
 ## Basic Memory on the Mac mini
 
 Basic Memory (ADR 014) is the agent-facing knowledge engine. It runs as a
-host-level Python CLI — no Docker, no launchd agent. The MCP server is
+host-level Python CLI, no Docker, no launchd agent. The MCP server is
 launched on demand by each t3-code agent.
 
 ### Basic Memory one-time bootstrap

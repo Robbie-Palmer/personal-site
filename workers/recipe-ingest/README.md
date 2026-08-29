@@ -4,20 +4,20 @@ Cloudflare Workflows-backed Worker that runs the production photo-to-recipe
 ingestion pipeline. `recipe-api` creates jobs and workflow
 instances; this Worker owns the durable extract → normalize → canonicalize →
 finalize chain, calling OpenRouter through the shared
-[`recipe-parsing`](../../packages/recipe-parsing/) package — the same
+[`recipe-parsing`](../../packages/recipe-parsing/) package, the same
 algorithm the [evaluation pipeline](../../ml-pipelines/recipe-parsing/)
 iterates on and scores.
 
 ## Data flow
 
-- **Postgres (Neon via Hyperdrive)** — `recipe_import_job` status/stage,
+- **Postgres (Neon via Hyperdrive)**, `recipe_import_job` status/stage,
   `recipe_import_artifact` manifests, and `recipe_import_attempt` usage rows.
   The schema lives in [`recipe-db`](../../packages/recipe-db/); `recipe-api`'s
   CD owns the committed Drizzle migrations.
-- **R2 (`recipe-artifacts`)** — source images under
+- **R2 (`recipe-artifacts`)**, source images under
   `imports/{jobId}/source/`, immutable stage snapshots under
   `imports/{jobId}/{stage}/`.
-- **OpenRouter** — extraction, Cooklang normalization, and ingredient
+- **OpenRouter**, extraction, Cooklang normalization, and ingredient
   disambiguation. Models/timeouts are `wrangler.toml` vars mirroring the
   pipeline's `params.yaml`.
 
@@ -39,7 +39,7 @@ wrangler dev -c wrangler.toml -c ../recipe-api/wrangler.toml
 ```
 
 R2 is simulated locally by miniflare. `@cooklang/cooklang` requires the pnpm
-patch in `patches/` to instantiate its WASM under workerd — if the Worker
+patch in `patches/` to instantiate its WASM under workerd. If the Worker
 fails at startup with `wasm.parser_new is not a function`, the patch was not
 applied.
 

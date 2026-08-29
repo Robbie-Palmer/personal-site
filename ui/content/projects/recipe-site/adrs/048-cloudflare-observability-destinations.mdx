@@ -23,11 +23,11 @@ rotation.
 PostHog. Something still has to ship the logs to PostHog's OTLP endpoint. The candidate
 mechanisms:
 
-| Mechanism                                | Control      | Dependencies        | IaC story                  |
-| ---------------------------------------- | ------------ | ------------------- | -------------------------- |
-| **Cloudflare native OTLP destination**   | Low (config) | None in app code    | Dashboard + `wrangler.toml`|
-| `otel-cf-workers` library (in-app OTel)  | High         | Extra runtime dep   | Code-owned                 |
-| Manual `fetch` to OTLP endpoint          | Full         | Hand-rolled         | Code-owned                 |
+| Mechanism                               | Control      | Dependencies      | IaC story                   |
+| --------------------------------------- | ------------ | ----------------- | --------------------------- |
+| **Cloudflare native OTLP destination**  | Low (config) | None in app code  | Dashboard + `wrangler.toml` |
+| `otel-cf-workers` library (in-app OTel) | High         | Extra runtime dep | Code-owned                  |
+| Manual `fetch` to OTLP endpoint         | Full         | Hand-rolled       | Code-owned                  |
 
 A relevant project principle
 ([ADR 033](/projects/recipe-site/adrs/033-backend-platform-for-authenticated-features)):
@@ -42,7 +42,7 @@ application dependencies, and uses standard OTLP. Configuration is in two parts:
 
 1. **Destination** (dashboard): create a `posthog-logs` destination under Workers
    Observability with the OTLP endpoint `https://eu.i.posthog.com/i/v1/logs` and an
-   `Authorization: Bearer phc_…` header (the public PostHog project key — see
+   `Authorization: Bearer phc_…` header (the public PostHog project key, see
    [ADR 047](/projects/recipe-site/adrs/047-posthog-logs)).
 2. **Toggle** (`workers/recipe-api/wrangler.toml`): enable export and reference the
    destination by name.
@@ -80,10 +80,10 @@ Paid subscription are different things; this project has the latter.
 Cloudflare's pricing for the export itself (separate from PostHog's own log storage pricing
 in [ADR 047](/projects/recipe-site/adrs/047-posthog-logs)):
 
-| Plan         | Logs                          | Traces                        | Overage             |
-| ------------ | ----------------------------- | ----------------------------- | ------------------- |
-| Workers Free | Not available                 | Not available                 | —                   |
-| Workers Paid | 10M events/month included     | 10M events/month included     | $0.05 per 1M events |
+| Plan         | Logs                      | Traces                    | Overage             |
+| ------------ | ------------------------- | ------------------------- | ------------------- |
+| Workers Free | Not available             | Not available             | n/a                 |
+| Workers Paid | 10M events/month included | 10M events/month included | $0.05 per 1M events |
 
 During the early-beta period, export is free for Workers Paid; from March 1, 2026 it is
 billed as above. A personal recipe site stays well under 10M log events/month, so the
@@ -94,10 +94,10 @@ meters export events (10M/month free), PostHog meters stored volume (50 GB/month
 
 The feature is in beta, which is acceptable here because:
 
-- The impact is limited to observability. If export breaks, the application is unaffected,
+* The impact is limited to observability. If export breaks, the application is unaffected,
   and `wrangler tail` plus Cloudflare's built-in Workers Logs remain as fallbacks
   ([ADR 047](/projects/recipe-site/adrs/047-posthog-logs)).
-- It uses standard OTLP. If Cloudflare's beta disappoints, the same logs can be pointed at
+* It uses standard OTLP. If Cloudflare's beta disappoints, the same logs can be pointed at
   another OTLP backend, or moved in-app via `otel-cf-workers`, without rewriting the
   application.
 
@@ -113,15 +113,15 @@ integrations cannot reach it.
 
 As a result, the destination's auth header is managed by hand: neither Terraform nor Doppler
 owns it. `POSTHOG_KEY` is propagated automatically everywhere except here, so a key rotation
-that skips the destination header stops log ingestion silently — a `401` that drops logs
+that skips the destination header stops log ingestion silently, a `401` that drops logs
 with no application error.
 
 Mitigations:
 
-- A rotation runbook in `infra/README.md` ("Rotating `POSTHOG_KEY`") lists every consumer
+* A rotation runbook in `infra/README.md` ("Rotating `POSTHOG_KEY`") lists every consumer
   and marks this destination as the manual step.
-- A pointer comment in `workers/recipe-api/wrangler.toml` references that runbook.
-- The public `phc_` project key rotates rarely, which keeps the manual step a low-frequency
+* A pointer comment in `workers/recipe-api/wrangler.toml` references that runbook.
+* The public `phc_` project key rotates rarely, which keeps the manual step a low-frequency
   task.
 
 Managing the destination through a raw Cloudflare API call (for example a
@@ -157,29 +157,29 @@ OTLP-native correlation into PostHog, so it does not serve the
 ## Manual `fetch` to the OTLP endpoint
 
 Hand-rolling OTLP requests from the Worker gives full control and adds no platform
-dependency, but it means owning batching, retries, and the OTLP wire format — work the
+dependency, but it means owning batching, retries, and the OTLP wire format, work the
 platform already does.
 
 # Consequences
 
 ## Positive
 
-- **Lowest effort.** No application dependencies, standard OTLP.
-- **Key stays out of git.** It lives in the dashboard destination.
-- **Managed delivery.** Cloudflare handles batching and transmission; the only knob is
+* **Lowest effort.** No application dependencies, standard OTLP.
+* **Key stays out of git.** It lives in the dashboard destination.
+* **Managed delivery.** Cloudflare handles batching and transmission; the only knob is
   `head_sampling_rate`.
-- **Built-in export visibility.** The Workers Observability dashboard shows per-destination
+* **Built-in export visibility.** The Workers Observability dashboard shows per-destination
   delivery status (last successful delivery, errors) with no extra setup.
-- **Reversible.** OTLP lets the destination be repointed or replaced with `otel-cf-workers`
+* **Reversible.** OTLP lets the destination be repointed or replaced with `otel-cf-workers`
   without application changes.
 
 ## Negative
 
-- **Beta risk.** API and behaviour may change, there is no stability guarantee, and trace
+* **Beta risk.** API and behaviour may change, there is no stability guarantee, and trace
   export to PostHog is unsupported.
-- **Not code-owned.** The destination is dashboard-managed, which breaks the
+* **Not code-owned.** The destination is dashboard-managed, which breaks the
   Terraform/Doppler single-source-of-truth model for this one object.
-- **Failure is effectively silent on rotation.** If a rotation skips the manual auth header,
+* **Failure is effectively silent on rotation.** If a rotation skips the manual auth header,
   exports start failing with no application error, no deployment failure, and no push alert.
   Cloudflare's destination dashboard does record the delivery errors, but only someone who
   looks will notice, so the practical guard is runbook discipline (or a future active health
@@ -187,10 +187,10 @@ platform already does.
 
 # When To Revisit
 
-- The `cloudflare_workers_observability_destination` Terraform resource ships and works, at
+* The `cloudflare_workers_observability_destination` Terraform resource ships and works, at
   which point the destination moves into `infra` and the manual step is removed.
-- The feature leaves beta, prompting a review of guarantees and trace support.
-- Traces or richer in-app instrumentation become worthwhile, prompting adoption of
+* The feature leaves beta, prompting a review of guarantees and trace support.
+* Traces or richer in-app instrumentation become worthwhile, prompting adoption of
   `otel-cf-workers`.
-- A silent ingestion outage occurs, prompting an active health check that logs are arriving
+* A silent ingestion outage occurs, prompting an active health check that logs are arriving
   instead of relying on the rotation runbook.
