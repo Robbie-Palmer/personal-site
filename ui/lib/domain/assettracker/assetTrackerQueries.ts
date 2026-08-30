@@ -1,4 +1,4 @@
-import type { AccountId, AssetType } from "./account";
+import { type AccountId, type AssetType, isLiability } from "./account";
 import {
   computeMoneyWeightedReturn,
   type ExternalFlow,
@@ -78,6 +78,70 @@ export function getNetWorthTimeSeries(
     Array.from(repository.accounts.values()),
     repository.snapshots,
   );
+}
+
+export type AssetAllocationDataPoint = {
+  date: string;
+  /** Positive net asset buckets used as the percentage denominator. */
+  totalAssets: number;
+} & Partial<Record<AssetType, number>>;
+
+/**
+ * Percentage allocation through time, using the same linkage model as the
+ * current composition chart. A linked mortgage therefore reduces property to
+ * home equity. Standalone liabilities and other negative buckets are excluded
+ * because this is allocation *within assets*, not another net-worth series.
+ */
+export function getAssetAllocationTimeSeries(
+  repository: AssetTrackerRepository,
+): AssetAllocationDataPoint[] {
+  const accounts = Array.from(repository.accounts.values());
+  const dates = Array.from(
+    new Set(repository.snapshots.map((snapshot) => snapshot.date)),
+  ).sort((a, b) => a.localeCompare(b));
+  const snapshots = repository.snapshots.toSorted((a, b) =>
+    a.date.localeCompare(b.date),
+  );
+  const latestByAccount = new Map<AccountId, number>();
+  const { absorbedIds, mortgagesByProperty } = buildLinkage(accounts);
+  let snapshotIndex = 0;
+
+  return dates.flatMap((date) => {
+    let snapshot = snapshots[snapshotIndex];
+    while (snapshot && snapshot.date <= date) {
+      latestByAccount.set(snapshot.accountId, snapshot.balance);
+      snapshotIndex++;
+      snapshot = snapshots[snapshotIndex];
+    }
+
+    const totals = new Map<AssetType, number>();
+    for (const account of accounts) {
+      if (absorbedIds.has(account.id) || isLiability(account.assetType)) {
+        continue;
+      }
+      let balance = latestByAccount.get(account.id);
+      if (balance == null) continue;
+      for (const mortgageId of mortgagesByProperty.get(account.id) ?? []) {
+        balance += latestByAccount.get(mortgageId) ?? 0;
+      }
+      if (balance <= 0) continue;
+      totals.set(
+        account.assetType,
+        (totals.get(account.assetType) ?? 0) + balance,
+      );
+    }
+
+    const totalAssets = Array.from(totals.values()).reduce(
+      (sum, value) => sum + value,
+      0,
+    );
+    if (totalAssets <= 0) return [];
+    const point: AssetAllocationDataPoint = { date, totalAssets };
+    for (const [assetType, total] of totals) {
+      point[assetType] = total / totalAssets;
+    }
+    return [point];
+  });
 }
 
 /**

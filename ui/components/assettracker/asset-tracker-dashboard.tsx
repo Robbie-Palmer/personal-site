@@ -11,6 +11,7 @@ import { AccountDetailSheet } from "./account-detail-sheet";
 import { AccountsTable } from "./accounts-table";
 import { AddAccountDrawer } from "./add-account-drawer";
 import { AssetAllocationChart } from "./asset-allocation-chart";
+import { AssetAllocationHistoryChart } from "./asset-allocation-history-chart";
 import { useAssetTracker } from "./asset-tracker-provider";
 import { DataControls } from "./data-controls";
 import { FlowSankeyChart } from "./flow-sankey-chart";
@@ -26,6 +27,7 @@ export function AssetTrackerDashboard() {
     accountDetails,
     netWorthData,
     assetAllocation,
+    assetAllocationHistory,
     portfolioReturn,
     inflation,
   } = useAssetTracker();
@@ -82,6 +84,7 @@ export function AssetTrackerDashboard() {
         </div>
       </div>
       <NetWorthChart data={netWorthData} />
+      <AssetAllocationHistoryChart data={assetAllocationHistory} />
       <PortfolioGoal />
       <div className="grid gap-8 lg:grid-cols-2">
         <UpcomingFlows />

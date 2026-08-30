@@ -2,11 +2,16 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { AssetAllocationHistoryChart } from "@/components/assettracker/asset-allocation-history-chart";
 import { useAssetTracker } from "@/components/assettracker/asset-tracker-provider";
 import { FlowSankeyChart } from "@/components/assettracker/flow-sankey-chart";
 import { PortfolioGoal } from "@/components/assettracker/portfolio-goal";
 import { UpcomingFlows } from "@/components/assettracker/upcoming-flows";
-import { buildFlowSankeyData, todayIsoDate } from "@/lib/domain/assettracker";
+import {
+  buildFlowSankeyData,
+  type PortfolioFinancialIndependence,
+  todayIsoDate,
+} from "@/lib/domain/assettracker";
 
 vi.mock("recharts", () => ({
   ResponsiveContainer: ({ children }: { children: ReactNode }) => (
@@ -35,6 +40,20 @@ vi.mock("@/components/assettracker/asset-tracker-provider", () => ({
 
 const mockUseAssetTracker = vi.mocked(useAssetTracker);
 const FIXED_NOW = new Date("2026-07-03T12:00:00+01:00");
+const EMPTY_FI: PortfolioFinancialIndependence = {
+  periods: [],
+  representativeAnnualExpenditure: null,
+  representativeAnnualSavings: null,
+  savingsRate: null,
+  emergencyFund: 0,
+  emergencyFundMonths: null,
+  target: null,
+  progress: null,
+  expectedRealReturn: null,
+  projection: [],
+  projectedFiDate: null,
+  yearsToFi: null,
+};
 
 function mockAssetTracker(
   overrides: Partial<ReturnType<typeof useAssetTracker>> = {},
@@ -44,15 +63,11 @@ function mockAssetTracker(
     accountDetails: [],
     netWorthData: [],
     assetAllocation: [],
+    assetAllocationHistory: [],
     transfers: [],
     recurringFlows: [],
     incomeHistory: [],
-    financialIndependence: {
-      periods: [],
-      representativeAnnualExpenditure: null,
-      target: null,
-      progress: null,
-    },
+    financialIndependence: EMPTY_FI,
     portfolioReturn: null,
     inflation: 0.025,
     netWorthTarget: null,
@@ -151,6 +166,7 @@ describe("PortfolioGoal", () => {
   it("uses a native progress element for an active goal", () => {
     mockAssetTracker({
       financialIndependence: {
+        ...EMPTY_FI,
         periods: [],
         representativeAnnualExpenditure: 20_000,
         target: 500_000,
@@ -175,6 +191,7 @@ describe("PortfolioGoal", () => {
         { date: "2026-02-28", amount: 4_200 },
       ],
       financialIndependence: {
+        ...EMPTY_FI,
         periods: [
           {
             startDate: "2025-12-31",
@@ -228,6 +245,69 @@ describe("PortfolioGoal", () => {
     expect(document.querySelector('[data-series="income"]')).toBeNull();
     expect(document.querySelector('[data-series="expenditure"]')).toBeNull();
     expect(document.querySelector('[data-series="difference"]')).toBeVisible();
+  });
+
+  it("shows emergency runway, savings rate, and a portfolio years-to-FI projection", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(FIXED_NOW);
+    mockAssetTracker({
+      financialIndependence: {
+        ...EMPTY_FI,
+        representativeAnnualExpenditure: 24_000,
+        representativeAnnualSavings: 12_000,
+        savingsRate: 0.333,
+        emergencyFund: 9_000,
+        emergencyFundMonths: 4.5,
+        target: 600_000,
+        progress: 0.25,
+        expectedRealReturn: 0.04,
+        projection: [
+          { date: "2026-07-03", projected: 150_000 },
+          { date: "2038-07-03", projected: 600_100 },
+        ],
+        projectedFiDate: "2038-07-03",
+        yearsToFi: 12,
+      },
+    });
+
+    render(<PortfolioGoal />);
+
+    expect(screen.getByText("33.3%")).toBeVisible();
+    expect(screen.getByText("£9,000")).toBeVisible();
+    expect(screen.getByText("4.5 months without income")).toBeVisible();
+    expect(screen.getByText("12.0 years")).toBeVisible();
+    expect(screen.getByText("Around Jul 2038")).toBeVisible();
+    expect(
+      screen.getByRole("img", {
+        name: "Projected portfolio net worth against the financial independence target",
+      }),
+    ).toBeVisible();
+  });
+});
+
+describe("AssetAllocationHistoryChart", () => {
+  it("plots percentage series and exposes an accessible data table", () => {
+    render(
+      <AssetAllocationHistoryChart
+        data={[
+          { date: "2025-01-01", totalAssets: 100_000, cash: 0.2, stocks: 0.8 },
+          { date: "2026-01-01", totalAssets: 120_000, cash: 0.1, stocks: 0.9 },
+        ]}
+      />,
+    );
+
+    expect(
+      screen.getByRole("img", {
+        name: "Percentage of assets by asset type over time",
+      }),
+    ).toBeVisible();
+    expect(document.querySelector('[data-series="cash"]')).toBeVisible();
+    expect(document.querySelector('[data-series="stocks"]')).toBeVisible();
+    expect(
+      screen.getByRole("table", {
+        name: "Percentage of assets by asset type over time",
+      }),
+    ).toHaveTextContent("2025-01-0120.0%80.0%2026-01-0110.0%90.0%");
   });
 });
 

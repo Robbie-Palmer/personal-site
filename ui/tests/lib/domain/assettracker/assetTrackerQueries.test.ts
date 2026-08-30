@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { AssetTrackerData } from "@/lib/domain/assettracker/assetTrackerData";
 import {
   getAccountDetail,
+  getAssetAllocationTimeSeries,
   getNetWorthTimeSeries,
   getTotalByAssetType,
 } from "@/lib/domain/assettracker/assetTrackerQueries";
@@ -65,6 +66,45 @@ describe("getTotalByAssetType", () => {
     expect(byType.mortgage).toBeUndefined();
     // Standalone debt still surfaces as its own negative total
     expect(byType.debt).toBe(-2000);
+  });
+});
+
+describe("getAssetAllocationTimeSeries", () => {
+  it("tracks asset-type percentages over time and treats property as home equity", () => {
+    const data = homeData();
+    data.accounts.push({
+      id: "cash",
+      name: "Emergency fund",
+      provider: "Bank",
+      currency: "GBP",
+      assetType: "cash",
+      expectedAnnualReturn: 0,
+      createdAt: "2023-01-01",
+    });
+    data.snapshots.push(
+      { accountId: "cash", date: "2024-01-01", balance: 10_000 },
+      { accountId: "home", date: "2025-01-01", balance: 320_000 },
+      { accountId: "mortgage", date: "2025-01-01", balance: -200_000 },
+      { accountId: "cash", date: "2025-01-01", balance: 20_000 },
+    );
+
+    const series = getAssetAllocationTimeSeries(buildRepository(data));
+
+    expect(series).toHaveLength(2);
+    expect(series[0]).toMatchObject({
+      date: "2024-01-01",
+      totalAssets: 100_000,
+      cash: 0.1,
+      property: 0.9,
+    });
+    expect(series[1]).toMatchObject({
+      date: "2025-01-01",
+      totalAssets: 140_000,
+    });
+    expect(series[1]?.cash).toBeCloseTo(1 / 7);
+    expect(series[1]?.property).toBeCloseTo(6 / 7);
+    expect(series[1]?.debt).toBeUndefined();
+    expect(series[1]?.mortgage).toBeUndefined();
   });
 });
 

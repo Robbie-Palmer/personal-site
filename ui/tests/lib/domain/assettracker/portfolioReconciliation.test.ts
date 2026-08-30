@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { AssetTrackerData } from "@/lib/domain/assettracker";
 import {
   buildRepository,
@@ -6,7 +6,12 @@ import {
   getPortfolioFinancialIndependence,
   reconcilePortfolio,
   representativeAnnualExpenditure,
+  representativeAnnualSavings,
 } from "@/lib/domain/assettracker";
+
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 function portfolioData(): AssetTrackerData {
   return {
@@ -116,6 +121,42 @@ describe("reconcilePortfolio", () => {
     const expected = (5_000 * (365.2425 / 29) + 6_000 * (365.2425 / 31)) / 2;
 
     expect(representativeAnnualExpenditure(periods)).toBeCloseTo(expected);
+  });
+
+  it("derives savings rate, cash runway, and a portfolio FI date", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-01-01T12:00:00Z"));
+    const data = portfolioData();
+    data.accounts.push({
+      id: "cash",
+      name: "Emergency fund",
+      provider: "Bank",
+      currency: "GBP",
+      assetType: "cash",
+      expectedAnnualReturn: 0.01,
+      createdAt: "2024-01-01",
+    });
+    data.snapshots.push(
+      { accountId: "cash", date: "2024-01-31", balance: 12_000 },
+      { accountId: "cash", date: "2024-02-29", balance: 12_000 },
+      { accountId: "cash", date: "2024-03-31", balance: 12_000 },
+    );
+
+    const result = getPortfolioFinancialIndependence(buildRepository(data));
+    const expectedAnnualSavings = representativeAnnualSavings(result.periods);
+
+    expect(result.savingsRate).toBeCloseTo(7_000 / 18_000);
+    expect(result.representativeAnnualSavings).toBe(expectedAnnualSavings);
+    expect(result.emergencyFund).toBe(12_000);
+    expect(result.emergencyFundMonths).toBeCloseTo(
+      (12_000 * 12) / (result.representativeAnnualExpenditure ?? 1),
+    );
+    expect(result.expectedRealReturn).toBeGreaterThan(0);
+    expect(result.yearsToFi).toBeGreaterThan(0);
+    expect(result.projectedFiDate).not.toBeNull();
+    expect(result.projection.at(-1)?.projected).toBeGreaterThanOrEqual(
+      result.target ?? Number.POSITIVE_INFINITY,
+    );
   });
 
   it("includes complete home equity in net worth and FI progress", () => {

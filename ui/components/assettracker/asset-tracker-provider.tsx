@@ -19,6 +19,7 @@ import {
   type AccountId,
   type AccountSummaryView,
   type AddRecurringFlowInput,
+  type AssetAllocationDataPoint,
   type AssetTrackerData,
   type AssetType,
   buildRepository,
@@ -29,6 +30,7 @@ import {
   type DeleteSnapshotInput,
   getAllAccountDetails,
   getAllAccountSummaries,
+  getAssetAllocationTimeSeries,
   getNetWorthTimeSeries,
   getPortfolioAnnualReturn,
   getPortfolioFinancialIndependence,
@@ -53,6 +55,7 @@ interface AssetTrackerContextValue {
   accountDetails: AccountDetailView[];
   netWorthData: NetWorthDataPoint[];
   assetAllocation: { assetType: AssetType; total: number }[];
+  assetAllocationHistory: AssetAllocationDataPoint[];
   transfers: Transfer[];
   recurringFlows: RecurringFlow[];
   incomeHistory: IncomeRecord[];
@@ -166,6 +169,7 @@ export function AssetTrackerProvider({
       accountDetails: getAllAccountDetails(repository),
       netWorthData,
       assetAllocation: getTotalByAssetType(repository),
+      assetAllocationHistory: getAssetAllocationTimeSeries(repository),
       transfers: repository.transfers,
       recurringFlows: repository.recurringFlows,
       incomeHistory: repository.incomeHistory,

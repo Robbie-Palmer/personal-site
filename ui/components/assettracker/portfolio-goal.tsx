@@ -1,5 +1,6 @@
 "use client";
 
+import { format, parseISO } from "date-fns";
 import { useEffect, useState } from "react";
 import {
   Card,
@@ -11,12 +12,14 @@ import {
 import { Input } from "@/components/ui/input";
 import {
   computeTotalBalance,
+  FI_PROJECTION_MAX_YEARS,
   formatAssetTrackerError,
   formatCurrency,
 } from "@/lib/domain/assettracker";
 import { useAssetTracker } from "./asset-tracker-provider";
 import { IncomeExpenditureChart } from "./income-expenditure-chart";
 import { IncomeHistoryImportDrawer } from "./income-history-import-drawer";
+import { PortfolioFiProjectionChart } from "./portfolio-fi-projection-chart";
 
 function signedCurrency(value: number): string {
   if (value === 0) return formatCurrency(0);
@@ -36,8 +39,29 @@ export function PortfolioGoal() {
     String(withdrawalRate * 100),
   );
   const currentNetWorth = computeTotalBalance(accounts);
-  const { periods, representativeAnnualExpenditure, target, progress } =
-    financialIndependence;
+  const {
+    periods,
+    representativeAnnualExpenditure,
+    representativeAnnualSavings,
+    savingsRate,
+    emergencyFund,
+    emergencyFundMonths,
+    target,
+    progress,
+    expectedRealReturn,
+    projection,
+    projectedFiDate,
+    yearsToFi,
+  } = financialIndependence;
+
+  const yearsToFiLabel =
+    yearsToFi === 0
+      ? "Reached"
+      : yearsToFi != null
+        ? `${yearsToFi.toFixed(1)} years`
+        : projection.length > 0
+          ? `>${FI_PROJECTION_MAX_YEARS} years`
+          : "—";
 
   useEffect(() => {
     setWithdrawalRateDraft(String(withdrawalRate * 100));
@@ -72,7 +96,7 @@ export function PortfolioGoal() {
         <IncomeHistoryImportDrawer />
       </CardHeader>
       <CardContent className="flex min-w-0 flex-col gap-5 px-4 sm:px-6">
-        <div className="grid gap-3 sm:grid-cols-3">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <div className="rounded-md border p-3">
             <p className="text-xs text-muted-foreground">
               Representative annual expenditure
@@ -130,6 +154,41 @@ export function PortfolioGoal() {
               home equity
             </p>
           </div>
+          <div className="rounded-md border p-3">
+            <p className="text-xs text-muted-foreground">Savings rate</p>
+            <p className="mt-1 text-xl font-semibold">
+              {savingsRate == null ? "—" : `${(savingsRate * 100).toFixed(1)}%`}
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {representativeAnnualSavings == null
+                ? "Income retained ÷ income"
+                : `${formatCurrency(Math.round(representativeAnnualSavings))}/yr median retained`}
+            </p>
+          </div>
+          <div className="rounded-md border p-3">
+            <p className="text-xs text-muted-foreground">Emergency fund</p>
+            <p className="mt-1 text-xl font-semibold">
+              {formatCurrency(Math.round(emergencyFund))}
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {emergencyFundMonths == null
+                ? "Add reconciled spending to calculate runway"
+                : `${emergencyFundMonths.toFixed(1)} months without income`}
+            </p>
+          </div>
+          <div className="rounded-md border p-3">
+            <p className="text-xs text-muted-foreground">Projected FI</p>
+            <p className="mt-1 text-xl font-semibold">{yearsToFiLabel}</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {projectedFiDate == null
+                ? target == null
+                  ? "Needs reconciled income and expenditure"
+                  : "At current real return and savings"
+                : yearsToFi === 0
+                  ? "Current net worth already meets the target"
+                  : `Around ${format(parseISO(projectedFiDate), "MMM yyyy")}`}
+            </p>
+          </div>
         </div>
 
         {progress != null && (
@@ -145,6 +204,17 @@ export function PortfolioGoal() {
           incomeHistory={incomeHistory}
           periods={periods}
         />
+
+        {target != null &&
+          representativeAnnualSavings != null &&
+          expectedRealReturn != null && (
+            <PortfolioFiProjectionChart
+              projection={projection}
+              target={target}
+              annualSavings={representativeAnnualSavings}
+              expectedRealReturn={expectedRealReturn}
+            />
+          )}
 
         {periods.length > 0 ? (
           <div className="min-w-0 space-y-2">
