@@ -33,6 +33,9 @@ describe("Cloudflare Pages security headers", () => {
     expect(policy).toContain("default-src 'self'");
     expect(policy).toContain("frame-ancestors 'none'");
     expect(policy).toContain("object-src 'none'");
+    expect(policy).toContain(
+      "script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'",
+    );
     expect(policy).toContain("https://imagedelivery.net");
     expect(policy).toContain("https://avatars.githubusercontent.com");
     expect(policy).toContain("https://*.googleusercontent.com");
