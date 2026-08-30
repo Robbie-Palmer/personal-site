@@ -63,7 +63,9 @@ describe("recipe asset aggregation cache", () => {
   it("uses a host-scoped cached recipe list without calling the API", async () => {
     const cacheUrl = `https://pr-123.example.test${CACHE_PATH}`;
     const { cache } = cacheDouble({
-      [cacheUrl]: Response.json([recipe("cached", "Cached recipe")]),
+      [cacheUrl]: Response.json([recipe("cached", "Cached recipe")], {
+        headers: { "x-recipe-cache-created-at": String(Date.now()) },
+      }),
     });
     const open = vi.fn(async () => cache);
     const apiFetch = vi.fn();
@@ -83,7 +85,7 @@ describe("recipe asset aggregation cache", () => {
     expect(apiFetch).not.toHaveBeenCalled();
   });
 
-  it("stores a cache miss for 15 minutes and reuses it across assets", async () => {
+  it("stores a cache miss for five minutes and reuses it across assets", async () => {
     const { cache } = cacheDouble();
     const open = vi.fn(async () => cache);
     const apiFetch = vi.fn(async () =>
@@ -117,7 +119,34 @@ describe("recipe asset aggregation cache", () => {
       }),
     );
     expect(cachedResponse?.headers.get("cache-control")).toBe(
-      "public, s-maxage=900",
+      "public, s-maxage=300",
+    );
+    expect(first.headers.get("cache-control")).toBe(
+      "public, max-age=60, s-maxage=300",
+    );
+  });
+
+  it("does not stack aggregate and rendered asset cache lifetimes", async () => {
+    const now = Date.now();
+    vi.spyOn(Date, "now").mockReturnValue(now);
+    const cacheUrl = `https://robbiepalmer.me${CACHE_PATH}`;
+    const { cache } = cacheDouble({
+      [cacheUrl]: Response.json([recipe("cached", "Cached recipe")], {
+        headers: {
+          "x-recipe-cache-created-at": String(now - 4 * 60_000),
+        },
+      }),
+    });
+    vi.stubGlobal("caches", { open: vi.fn(async () => cache) });
+    vi.stubGlobal("fetch", vi.fn());
+
+    const response = await augmentRecipeAsset(
+      context("https://robbiepalmer.me/llms.txt", []),
+      render,
+    );
+
+    expect(response.headers.get("cache-control")).toBe(
+      "public, max-age=60, s-maxage=60",
     );
   });
 

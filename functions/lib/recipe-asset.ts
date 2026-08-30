@@ -3,11 +3,17 @@ import { isStoredRecipe, listPublicRecipes } from "./public-recipes";
 
 const PUBLIC_RECIPE_CACHE_NAME = "recipe-assets-v1";
 const PUBLIC_RECIPE_CACHE_PATH = "/__recipe-assets/public-recipes.json";
-const PUBLIC_RECIPE_CACHE_TTL_SECONDS = 15 * 60;
+const PUBLIC_RECIPE_CACHE_CREATED_AT_HEADER = "x-recipe-cache-created-at";
+const PUBLIC_RECIPE_CACHE_TTL_SECONDS = 5 * 60;
 const pendingRecipeLists = new Map<
   string,
   Promise<StoredRecipe[] | null>
 >();
+
+type PublicRecipeList = {
+  records: StoredRecipe[] | null;
+  cacheSeconds: number;
+};
 
 export interface RecipeAssetContext {
   request: Request;
@@ -35,17 +41,33 @@ async function openPublicRecipeCache(): Promise<Cache | null> {
 async function readCachedPublicRecipes(
   cache: Cache,
   cacheKey: Request,
-): Promise<StoredRecipe[] | null> {
+): Promise<PublicRecipeList | null> {
   try {
     const response = await cache.match(cacheKey);
     if (!response) return null;
     const value: unknown = await response.json();
-    return Array.isArray(value) &&
-      value.every(
+    if (
+      !Array.isArray(value) ||
+      !value.every(
         (item) => isStoredRecipe(item) && item.visibility === "public",
       )
-      ? value
-      : null;
+    ) {
+      return null;
+    }
+    const createdAtHeader = response.headers.get(
+      PUBLIC_RECIPE_CACHE_CREATED_AT_HEADER,
+    );
+    const createdAt = createdAtHeader ? Number(createdAtHeader) : Number.NaN;
+    const ageSeconds = Number.isFinite(createdAt)
+      ? Math.max(0, Math.floor((Date.now() - createdAt) / 1_000))
+      : PUBLIC_RECIPE_CACHE_TTL_SECONDS;
+    return {
+      records: value,
+      cacheSeconds: Math.max(
+        0,
+        PUBLIC_RECIPE_CACHE_TTL_SECONDS - ageSeconds,
+      ),
+    };
   } catch {
     return null;
   }
@@ -62,6 +84,7 @@ function cachePublicRecipes(
       const response = Response.json(records, {
         headers: {
           "cache-control": `public, s-maxage=${PUBLIC_RECIPE_CACHE_TTL_SECONDS}`,
+          [PUBLIC_RECIPE_CACHE_CREATED_AT_HEADER]: String(Date.now()),
         },
       });
       await cache.put(cacheKey, response);
@@ -76,7 +99,7 @@ function cachePublicRecipes(
 
 async function publicRecipesForAsset(
   context: RecipeAssetContext,
-): Promise<StoredRecipe[] | null> {
+): Promise<PublicRecipeList> {
   const cacheKey = publicRecipeCacheKey(context.request);
   const cache = await openPublicRecipeCache();
   if (cache) {
@@ -85,7 +108,12 @@ async function publicRecipesForAsset(
   }
 
   const pending = pendingRecipeLists.get(cacheKey.url);
-  if (pending) return pending;
+  if (pending) {
+    return {
+      records: await pending,
+      cacheSeconds: PUBLIC_RECIPE_CACHE_TTL_SECONDS,
+    };
+  }
 
   const recipes = listPublicRecipes(context.env);
   pendingRecipeLists.set(cacheKey.url, recipes);
@@ -95,7 +123,15 @@ async function publicRecipesForAsset(
   } else {
     await cacheWrite;
   }
-  return recipes;
+  return {
+    records: await recipes,
+    cacheSeconds: PUBLIC_RECIPE_CACHE_TTL_SECONDS,
+  };
+}
+
+function recipeAssetCacheControl(cacheSeconds: number): string {
+  const browserSeconds = Math.min(60, cacheSeconds);
+  return `public, max-age=${browserSeconds}, s-maxage=${cacheSeconds}`;
 }
 
 export function rewrittenRecipeAssetHeaders(
@@ -118,10 +154,17 @@ export async function augmentRecipeAsset(
   const asset = await context.env.ASSETS.fetch(context.request);
   if (!asset.ok || context.request.method === "HEAD") return asset;
 
-  const recipes = await publicRecipesForAsset(context);
-  if (!recipes) return asset;
+  const { records, cacheSeconds } = await publicRecipesForAsset(context);
+  if (!records) return asset;
 
-  const body = render(await asset.text(), recipes, new URL(context.request.url));
-  const headers = rewrittenRecipeAssetHeaders(asset);
+  const body = render(
+    await asset.text(),
+    records,
+    new URL(context.request.url),
+  );
+  const headers = rewrittenRecipeAssetHeaders(
+    asset,
+    recipeAssetCacheControl(cacheSeconds),
+  );
   return new Response(body, { status: asset.status, headers });
 }
