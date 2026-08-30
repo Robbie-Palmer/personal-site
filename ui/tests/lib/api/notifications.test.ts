@@ -3,6 +3,7 @@ import {
   clearAllNotifications,
   getNotificationPage,
   getNotifications,
+  getUnreadNotificationCount,
   markAllNotificationsRead,
   performNotificationAction,
   updateNotification,
@@ -46,6 +47,18 @@ describe("notification API client", () => {
     );
 
     await expect(getNotifications()).resolves.toEqual(items);
+  });
+
+  it("loads only the unread notification count for the bell", async () => {
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(Response.json({ unreadCount: 7 }));
+
+    await expect(getUnreadNotificationCount()).resolves.toBe(7);
+    expect(fetchMock).toHaveBeenCalledWith("/api/notifications/unread-count", {
+      credentials: "same-origin",
+      signal: undefined,
+    });
   });
 
   it("updates one notification and marks the archive read", async () => {

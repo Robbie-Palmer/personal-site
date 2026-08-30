@@ -8,7 +8,7 @@ import {
   executeRecipeAgentCapability,
   RECIPE_SITE_AGENT_CAPABILITIES,
 } from "../src/agent-auth";
-import { createAuth } from "../src/auth";
+import { createAuth, isPreviewAuthEnabled } from "../src/auth";
 
 function queryDb(...results: unknown[][]): Db {
   let resultIndex = 0;
@@ -139,6 +139,71 @@ function recipe(
 }
 
 describe("recipe Agent Auth capabilities", () => {
+  it("enables preview password auth only for canonical Pages previews and local development", () => {
+    expect(
+      isPreviewAuthEnabled({
+        DEPLOYMENT_ENV: "preview",
+        BETTER_AUTH_URL: "https://pr-42.personal-site-bu5.pages.dev",
+      }),
+    ).toBe(true);
+    expect(
+      isPreviewAuthEnabled({
+        DEPLOYMENT_ENV: "preview",
+        BETTER_AUTH_URL: "http://localhost:3000",
+      }),
+    ).toBe(true);
+
+    for (const BETTER_AUTH_URL of [
+      "https://robbiepalmer.me",
+      "https://pr-42.personal-site-bu5.pages.dev.attacker.example",
+      "https://pr-0.personal-site-bu5.pages.dev",
+      "not-a-url",
+    ]) {
+      expect(
+        isPreviewAuthEnabled({ DEPLOYMENT_ENV: "preview", BETTER_AUTH_URL }),
+      ).toBe(false);
+    }
+  });
+
+  it("does not enable Better Auth password routes for a misconfigured production hostname", () => {
+    const auth = createAuth({} as Db, {
+      DEPLOYMENT_ENV: "preview",
+      BETTER_AUTH_URL: "https://robbiepalmer.me",
+      BETTER_AUTH_SECRET: "test-secret-at-least-32-characters-long",
+    });
+
+    expect(auth.options.emailAndPassword?.enabled).toBe(false);
+  });
+
+  it("enables Better Auth password routes for a canonical Pages preview", () => {
+    const auth = createAuth({} as Db, {
+      DEPLOYMENT_ENV: "preview",
+      BETTER_AUTH_URL: "https://pr-42.personal-site-bu5.pages.dev",
+      BETTER_AUTH_SECRET: "test-secret-at-least-32-characters-long",
+    });
+
+    expect(auth.options.emailAndPassword?.enabled).toBe(true);
+  });
+
+  it("fails closed when Better Auth's rate-limit store is unavailable", async () => {
+    const db = {
+      insert: () => {
+        throw new Error("db down");
+      },
+    } as unknown as Db;
+    const auth = createAuth(db, {
+      BETTER_AUTH_URL: "https://recipes.example.test",
+      BETTER_AUTH_SECRET: "test-secret-at-least-32-characters-long",
+    });
+    const storage = auth.options.rateLimit?.customStorage;
+    if (!storage) throw new Error("Rate-limit storage was not configured");
+    vi.spyOn(console, "error").mockImplementation(() => {});
+
+    await expect(
+      storage.consume("sign-in", { max: 20, window: 60 }),
+    ).resolves.toEqual({ allowed: false, retryAfter: 60 });
+  });
+
   it("keeps PostgreSQL secondary storage after applying Cloudflare options", () => {
     const auth = createAuth({} as Db, {
       BETTER_AUTH_URL: "https://recipes.example.test",

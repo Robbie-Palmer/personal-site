@@ -6,6 +6,7 @@ import { appRateLimit } from "recipe-db/schema";
 export type RateLimitRule = {
   max: number;
   windowSeconds: number;
+  failClosed?: boolean;
 };
 
 export type RateLimitResult = {
@@ -13,8 +14,9 @@ export type RateLimitResult = {
   retryAfter: number;
 };
 
-// One INSERT ... ON CONFLICT keeps the check and increment atomic. Fails open so
-// a counter outage never blocks legitimate traffic.
+// One INSERT ... ON CONFLICT keeps the check and increment atomic. General app
+// traffic fails open during a counter outage, while callers protecting an
+// authentication boundary can opt into failing closed.
 export async function enforceRateLimit(
   db: Db,
   key: string,
@@ -55,6 +57,16 @@ export async function enforceRateLimit(
     const retryAfter = Math.max(1, Math.ceil((resetAt - now.getTime()) / 1000));
     return { allowed: false, retryAfter };
   } catch (error) {
+    if (rule.failClosed) {
+      console.error(
+        "Rate limit check failed; blocking protected request",
+        error,
+      );
+      return {
+        allowed: false,
+        retryAfter: Math.max(1, rule.windowSeconds),
+      };
+    }
     console.error("Rate limit check failed; allowing request", error);
     return { allowed: true, retryAfter: 0 };
   }

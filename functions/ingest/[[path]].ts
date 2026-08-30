@@ -8,6 +8,23 @@ export interface IngestProxyContext {
   env: Env;
 }
 
+const FORWARDED_HEADERS = [
+  "accept",
+  "content-encoding",
+  "content-length",
+  "content-type",
+  "user-agent",
+] as const;
+
+function postHogHeaders(request: Request): Headers {
+  const headers = new Headers();
+  for (const name of FORWARDED_HEADERS) {
+    const value = request.headers.get(name);
+    if (value !== null) headers.set(name, value);
+  }
+  return headers;
+}
+
 export const onRequest = async (
   context: IngestProxyContext,
 ): Promise<Response> => {
@@ -25,7 +42,7 @@ export const onRequest = async (
 
   const requestInit: RequestInit & { duplex?: "half" } = {
     method: context.request.method,
-    headers: context.request.headers,
+    headers: postHogHeaders(context.request),
     body: ["GET", "HEAD"].includes(context.request.method)
       ? undefined
       : context.request.body,
@@ -35,17 +52,6 @@ export const onRequest = async (
   // Workers ignores unknown RequestInit dictionary members.
   if (requestInit.body) requestInit.duplex = "half";
   const upstreamRequest = new Request(destination, requestInit);
-  // Same-origin browser requests can carry credentials for this site. They are
-  // not needed by PostHog and must not be forwarded to a third-party origin.
-  for (const header of [
-    "authorization",
-    "cookie",
-    "cf-connecting-ip",
-    "x-forwarded-for",
-    "x-real-ip",
-  ]) {
-    upstreamRequest.headers.delete(header);
-  }
 
   try {
     const response = await fetch(upstreamRequest);

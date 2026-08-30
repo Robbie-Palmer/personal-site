@@ -41,6 +41,7 @@ import {
 import { getImageUrl } from "@/lib/integrations/cloudflare-images";
 
 const OUT_DIR = path.join(process.cwd(), "out");
+const BASE_HEADERS_PATH = path.join(process.cwd(), "public", "_headers");
 
 const hasImagesAccountHash = Boolean(
   process.env.NEXT_PUBLIC_CF_IMAGES_ACCOUNT_HASH,
@@ -532,7 +533,8 @@ function buildHeadersFile(pages: GeneratedPage[]): string {
       `  Link: <${markdownUrl(page.htmlPath)}>; rel="alternate"; type="text/markdown"`,
     ].join("\n"),
   );
-  return `${blocks.join("\n")}\n`;
+  const baseHeaders = fs.readFileSync(BASE_HEADERS_PATH, "utf8").trimEnd();
+  return `${baseHeaders}\n${blocks.join("\n")}\n`;
 }
 
 function writeFile(relativePath: string, content: string): void {

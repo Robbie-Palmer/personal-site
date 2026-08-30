@@ -60,7 +60,7 @@ export function decodeCookingLogCursor(
 }
 
 export async function cookingInsightsResponse(db: Db, userId: string) {
-  const [summaries, recent] = await Promise.all([
+  const [summaries, recent, completedDistinctRows] = await Promise.all([
     db
       .select({
         cookModeStarts: count(),
@@ -86,22 +86,23 @@ export async function cookingInsightsResponse(db: Db, userId: string) {
       )
       .orderBy(desc(schema.cookingSession.completedAt))
       .limit(20),
+    db
+      .select({
+        count: countDistinct(schema.cookingSession.recipeSlug),
+      })
+      .from(schema.cookingSession)
+      .where(
+        and(
+          eq(schema.cookingSession.userId, userId),
+          isNotNull(schema.cookingSession.completedAt),
+        ),
+      ),
   ]);
   const summary = summaries[0];
 
   // count(column) excludes NULL; distinct recipes need their own completed-only
   // query because the slug itself is present on incomplete starts too.
-  const [completedDistinct] = await db
-    .select({
-      count: countDistinct(schema.cookingSession.recipeSlug),
-    })
-    .from(schema.cookingSession)
-    .where(
-      and(
-        eq(schema.cookingSession.userId, userId),
-        isNotNull(schema.cookingSession.completedAt),
-      ),
-    );
+  const completedDistinct = completedDistinctRows[0];
 
   return {
     cookModeStarts: summary?.cookModeStarts ?? 0,

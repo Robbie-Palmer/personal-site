@@ -1,11 +1,10 @@
 import { act, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { NotificationPage } from "@/lib/api/notifications";
 import { render } from "@/tests/test-utils";
 
 const mocks = vi.hoisted(() => ({
   useSession: vi.fn(),
-  getNotificationPage: vi.fn(),
+  getUnreadNotificationCount: vi.fn(),
   getRecipeBootstrap: vi.fn(),
 }));
 
@@ -15,7 +14,7 @@ vi.mock("@/lib/auth-client", () => ({
 
 vi.mock("@/lib/api/notifications", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/api/notifications")>()),
-  getNotificationPage: mocks.getNotificationPage,
+  getUnreadNotificationCount: mocks.getUnreadNotificationCount,
 }));
 
 vi.mock("@/lib/api/recipe-bootstrap", () => ({
@@ -32,11 +31,7 @@ describe("NotificationBell", () => {
       value: "visible",
     });
     mocks.useSession.mockReturnValue({ data: { user: { id: "user-1" } } });
-    mocks.getNotificationPage.mockResolvedValue({
-      items: [],
-      nextOffset: null,
-      unreadCount: 5,
-    });
+    mocks.getUnreadNotificationCount.mockResolvedValue(5);
     mocks.getRecipeBootstrap.mockResolvedValue({
       recipeBox: { recipes: [], box: { completed: true, recipeSlugs: [] } },
       diet: { profile: {}, options: {} },
@@ -55,11 +50,7 @@ describe("NotificationBell", () => {
       diet: { profile: {}, options: {} },
       unreadNotificationCount: 0,
     });
-    mocks.getNotificationPage.mockResolvedValueOnce({
-      items: [],
-      nextOffset: null,
-      unreadCount: 1,
-    });
+    mocks.getUnreadNotificationCount.mockResolvedValueOnce(1);
 
     render(<NotificationBell />);
     await act(async () => Promise.resolve());
@@ -85,13 +76,13 @@ describe("NotificationBell", () => {
 
     render(<NotificationBell />);
     await act(async () => Promise.resolve());
-    expect(mocks.getNotificationPage).not.toHaveBeenCalled();
+    expect(mocks.getUnreadNotificationCount).not.toHaveBeenCalled();
 
     await act(async () => {
       await vi.advanceTimersByTimeAsync(20_000);
     });
 
-    expect(mocks.getNotificationPage).not.toHaveBeenCalled();
+    expect(mocks.getUnreadNotificationCount).not.toHaveBeenCalled();
   });
 
   it("does not refetch or flicker when the same user's session object refreshes", async () => {
@@ -103,15 +94,15 @@ describe("NotificationBell", () => {
     mocks.useSession.mockReturnValue({ data: { user: { id: "user-1" } } });
     rerender(<NotificationBell />);
 
-    expect(mocks.getNotificationPage).not.toHaveBeenCalled();
+    expect(mocks.getUnreadNotificationCount).not.toHaveBeenCalled();
     expect(
       screen.getByRole("link", { name: "Notifications, 5 unread" }),
     ).toBeInTheDocument();
   });
 
   it("hides the previous account's count while a replacement account loads", async () => {
-    let resolveReplacement: ((page: NotificationPage) => void) | undefined;
-    const replacementPage = new Promise<NotificationPage>((resolve) => {
+    let resolveReplacement: ((count: number) => void) | undefined;
+    const replacementCount = new Promise<number>((resolve) => {
       resolveReplacement = resolve;
     });
     mocks.getRecipeBootstrap
@@ -123,7 +114,7 @@ describe("NotificationBell", () => {
       .mockImplementationOnce(async () => ({
         recipeBox: { recipes: [], box: { completed: true, recipeSlugs: [] } },
         diet: { profile: {}, options: {} },
-        unreadNotificationCount: (await replacementPage).unreadCount,
+        unreadNotificationCount: await replacementCount,
       }));
     const { rerender } = render(<NotificationBell />);
     expect(
@@ -136,7 +127,7 @@ describe("NotificationBell", () => {
     expect(
       screen.getByRole("link", { name: "Notifications" }),
     ).toBeInTheDocument();
-    resolveReplacement?.({ items: [], nextOffset: null, unreadCount: 2 });
+    resolveReplacement?.(2);
     expect(
       await screen.findByRole("link", { name: "Notifications, 2 unread" }),
     ).toBeInTheDocument();

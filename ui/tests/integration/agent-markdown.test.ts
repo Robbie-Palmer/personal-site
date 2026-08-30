@@ -169,4 +169,13 @@ describe("agent markdown generation", () => {
     const ruleCount = (headers.match(/^ {2}Link:/gm) ?? []).length;
     expect(ruleCount).toBeLessThanOrEqual(100);
   });
+
+  it("preserves the global security headers in the generated _headers file", () => {
+    const headers = read("_headers");
+    expect(headers).toContain("Content-Security-Policy: default-src 'self'");
+    expect(headers).toContain("frame-ancestors 'none'");
+    expect(headers).toContain("Strict-Transport-Security: max-age=31536000");
+    expect(headers).toContain("X-Content-Type-Options: nosniff");
+    expect(headers).toContain("X-Frame-Options: DENY");
+  });
 });

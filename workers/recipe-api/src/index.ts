@@ -40,7 +40,7 @@ import {
 import { parseRecipeFile } from "recipe-parsing/recipe-file";
 import { parseSchemaOrgRecipeHtml } from "recipe-parsing/schema-org";
 import { recipeAgentConfiguration } from "./agent-auth";
-import { createAuth } from "./auth";
+import { createAuth, isPreviewAuthEnabled } from "./auth";
 import { verifyCloudflareAccess } from "./cloudflare-access";
 import { cookingInsightsResponse } from "./cooking-reads";
 import { hasPostgresErrorCode } from "./db/errors";
@@ -532,6 +532,17 @@ const jsonResponseSchema = z
   .catchall(z.unknown())
   .openapi("JsonResponse");
 
+const notificationUnreadCountResponseSchema = z
+  .object({
+    unreadCount: z
+      .number()
+      .int()
+      .min(0)
+      .max(2_147_483_647)
+      .openapi({ format: "int32" }),
+  })
+  .openapi("NotificationUnreadCountResponse");
+
 const agentConfigurationSchema = z
   .object({
     version: z.string().max(32),
@@ -644,6 +655,7 @@ const SUCCESS_STATUS_OVERRIDES = new Map<string, readonly SuccessStatus[]>([
 ]);
 
 const openApiSuccessResponseSchemas = new Map<string, z.ZodType>([
+  ["GET /notifications/unread-count", notificationUnreadCountResponseSchema],
   ["GET /shopping-lists/current", shoppingListResponseSchema],
   ["PUT /shopping-lists/current", shoppingListResponseSchema],
   ["POST /shopping-lists", shoppingListResponseSchema],
@@ -2060,153 +2072,157 @@ async function hydrateNotifications(
   const agentApprovalEventIds = rows
     .filter(({ kind }) => kind === "agent_approval_requested")
     .map(({ eventId }) => eventId);
-  const agentApprovalRows =
-    agentApprovalEventIds.length === 0
-      ? []
-      : await db
-          .select({
-            eventId: schema.notificationAgentApprovalEvent.eventId,
-            agentId: schema.notificationAgentApprovalEvent.agentIdSnapshot,
-            agentName:
-              schema.notificationAgentApprovalEvent.agentNameSnapshot,
-            capabilities:
-              schema.notificationAgentApprovalEvent.capabilitiesSnapshot,
-            expiresAtSnapshot:
-              schema.notificationAgentApprovalEvent.expiresAtSnapshot,
-            approvalCodeCiphertext:
-              schema.notificationAgentApprovalEvent.approvalCodeCiphertext,
-            approvalStatus: schema.approvalRequest.status,
-            approvalExpiresAt: schema.approvalRequest.expiresAt,
-          })
-          .from(schema.notificationAgentApprovalEvent)
-          .leftJoin(
-            schema.approvalRequest,
-            eq(
-              schema.notificationAgentApprovalEvent.approvalRequestId,
-              schema.approvalRequest.id,
-            ),
-          )
-          .where(
-            inArray(
-              schema.notificationAgentApprovalEvent.eventId,
-              agentApprovalEventIds,
-            ),
-          );
-  const agentApprovalsByEventId = new Map(
-    agentApprovalRows.map((row) => [row.eventId, row]),
-  );
-  const agentApprovalCodesByEventId = new Map(
-    await Promise.all(
-      agentApprovalRows.map(async (row) => [
-        row.eventId,
-        row.approvalCodeCiphertext &&
-        agentApprovalNotificationStatus(
-          row.approvalStatus,
-          row.approvalExpiresAt ?? row.expiresAtSnapshot,
-        ) === "pending"
-          ? await decryptAgentApprovalCode(
-              row.approvalCodeCiphertext,
-              approvalCodeSecret,
-            ).catch(() => null)
-          : null,
-      ] as const),
-    ),
-  );
   const householdEventIds = rows
     .filter(({ kind }) => isHouseholdNotificationKind(kind))
     .map(({ eventId }) => eventId);
-  const householdRows =
-    householdEventIds.length === 0
-      ? []
-      : await db
-          .select({
-            eventId: schema.notificationHouseholdEvent.eventId,
-            householdId: schema.notificationHouseholdEvent.householdId,
-            householdName:
-              schema.notificationHouseholdEvent.householdNameSnapshot,
-            invitationStatus: schema.invitation.status,
-            invitationExpiresAt: schema.invitation.expiresAt,
-          })
-          .from(schema.notificationHouseholdEvent)
-          .leftJoin(
-            schema.notificationHouseholdInvitationEvent,
-            eq(
-              schema.notificationHouseholdEvent.eventId,
-              schema.notificationHouseholdInvitationEvent.eventId,
-            ),
-          )
-          .leftJoin(
-            schema.invitation,
-            eq(
-              schema.notificationHouseholdInvitationEvent.invitationId,
-              schema.invitation.id,
-            ),
-          )
-          .where(
-            inArray(
-              schema.notificationHouseholdEvent.eventId,
-              householdEventIds,
-            ),
-          );
-  const householdsByEventId = new Map(
-    householdRows.map((row) => [row.eventId, row]),
-  );
   const recommendationEventIds = rows
     .filter(({ kind }) => kind === "recipe_recommended")
     .map(({ eventId }) => eventId);
-  const recommendationRows =
-    recommendationEventIds.length === 0
-      ? []
-      : await db
-          .select({
-            eventId: schema.notificationRecipeRecommendationEvent.eventId,
-            recipeId: schema.notificationRecipeRecommendationEvent.recipeId,
-            recipeSlug:
-              schema.notificationRecipeRecommendationEvent.recipeSlugSnapshot,
-            recipeTitle:
-              schema.notificationRecipeRecommendationEvent.recipeTitleSnapshot,
-            recipeVisibility: schema.recipe.visibility,
-            recipeOwnerUserId: schema.recipe.userId,
-          })
-          .from(schema.notificationRecipeRecommendationEvent)
-          .leftJoin(
-            schema.recipe,
-            eq(
-              schema.notificationRecipeRecommendationEvent.recipeId,
-              schema.recipe.id,
+
+  const [agentApprovalRows, householdRows, recommendationRows] =
+    await Promise.all([
+      agentApprovalEventIds.length === 0
+        ? []
+        : db
+            .select({
+              eventId: schema.notificationAgentApprovalEvent.eventId,
+              agentId: schema.notificationAgentApprovalEvent.agentIdSnapshot,
+              agentName:
+                schema.notificationAgentApprovalEvent.agentNameSnapshot,
+              capabilities:
+                schema.notificationAgentApprovalEvent.capabilitiesSnapshot,
+              expiresAtSnapshot:
+                schema.notificationAgentApprovalEvent.expiresAtSnapshot,
+              approvalCodeCiphertext:
+                schema.notificationAgentApprovalEvent.approvalCodeCiphertext,
+              approvalStatus: schema.approvalRequest.status,
+              approvalExpiresAt: schema.approvalRequest.expiresAt,
+            })
+            .from(schema.notificationAgentApprovalEvent)
+            .leftJoin(
+              schema.approvalRequest,
+              eq(
+                schema.notificationAgentApprovalEvent.approvalRequestId,
+                schema.approvalRequest.id,
+              ),
+            )
+            .where(
+              inArray(
+                schema.notificationAgentApprovalEvent.eventId,
+                agentApprovalEventIds,
+              ),
             ),
-          )
-          .where(
-            inArray(
-              schema.notificationRecipeRecommendationEvent.eventId,
-              recommendationEventIds,
+      householdEventIds.length === 0
+        ? []
+        : db
+            .select({
+              eventId: schema.notificationHouseholdEvent.eventId,
+              householdId: schema.notificationHouseholdEvent.householdId,
+              householdName:
+                schema.notificationHouseholdEvent.householdNameSnapshot,
+              invitationStatus: schema.invitation.status,
+              invitationExpiresAt: schema.invitation.expiresAt,
+            })
+            .from(schema.notificationHouseholdEvent)
+            .leftJoin(
+              schema.notificationHouseholdInvitationEvent,
+              eq(
+                schema.notificationHouseholdEvent.eventId,
+                schema.notificationHouseholdInvitationEvent.eventId,
+              ),
+            )
+            .leftJoin(
+              schema.invitation,
+              eq(
+                schema.notificationHouseholdInvitationEvent.invitationId,
+                schema.invitation.id,
+              ),
+            )
+            .where(
+              inArray(
+                schema.notificationHouseholdEvent.eventId,
+                householdEventIds,
+              ),
             ),
-          );
+      recommendationEventIds.length === 0
+        ? []
+        : db
+            .select({
+              eventId: schema.notificationRecipeRecommendationEvent.eventId,
+              recipeId: schema.notificationRecipeRecommendationEvent.recipeId,
+              recipeSlug:
+                schema.notificationRecipeRecommendationEvent.recipeSlugSnapshot,
+              recipeTitle:
+                schema.notificationRecipeRecommendationEvent.recipeTitleSnapshot,
+              recipeVisibility: schema.recipe.visibility,
+              recipeOwnerUserId: schema.recipe.userId,
+            })
+            .from(schema.notificationRecipeRecommendationEvent)
+            .leftJoin(
+              schema.recipe,
+              eq(
+                schema.notificationRecipeRecommendationEvent.recipeId,
+                schema.recipe.id,
+              ),
+            )
+            .where(
+              inArray(
+                schema.notificationRecipeRecommendationEvent.eventId,
+                recommendationEventIds,
+              ),
+            ),
+    ]);
+  const agentApprovalsByEventId = new Map(
+    agentApprovalRows.map((row) => [row.eventId, row]),
+  );
+  const householdsByEventId = new Map(
+    householdRows.map((row) => [row.eventId, row]),
+  );
   const recommendationsByEventId = new Map(
     recommendationRows.map((row) => [row.eventId, row]),
   );
   const recommendationSlugs = recommendationRows.map(
     ({ recipeSlug }) => recipeSlug,
   );
-  const savedRecommendationSlugs =
-    recommendationSlugs.length === 0
-      ? []
-      : await db
-          .select({ recipeSlug: schema.userRecipeBoxItem.recipeSlug })
-          .from(schema.userRecipeBoxItem)
-          .where(
-            and(
-              eq(schema.userRecipeBoxItem.userId, recipientUserId),
-              inArray(schema.userRecipeBoxItem.recipeSlug, recommendationSlugs),
+  const [agentApprovalCodes, savedRecommendationSlugs, recipientMembership] =
+    await Promise.all([
+      Promise.all(
+        agentApprovalRows.map(async (row) => [
+          row.eventId,
+          row.approvalCodeCiphertext &&
+          agentApprovalNotificationStatus(
+            row.approvalStatus,
+            row.approvalExpiresAt ?? row.expiresAtSnapshot,
+          ) === "pending"
+            ? await decryptAgentApprovalCode(
+                row.approvalCodeCiphertext,
+                approvalCodeSecret,
+              ).catch(() => null)
+            : null,
+        ] as const),
+      ),
+      recommendationSlugs.length === 0
+        ? []
+        : db
+            .select({ recipeSlug: schema.userRecipeBoxItem.recipeSlug })
+            .from(schema.userRecipeBoxItem)
+            .where(
+              and(
+                eq(schema.userRecipeBoxItem.userId, recipientUserId),
+                inArray(
+                  schema.userRecipeBoxItem.recipeSlug,
+                  recommendationSlugs,
+                ),
+              ),
             ),
-          );
+      recommendationRows.length === 0
+        ? undefined
+        : findUserHouseholdMembership(db, recipientUserId),
+    ]);
+  const agentApprovalCodesByEventId = new Map(agentApprovalCodes);
   const savedRecipeSlugs = new Set(
     savedRecommendationSlugs.map(({ recipeSlug }) => recipeSlug),
   );
-  const recipientMembership =
-    recommendationRows.length === 0
-      ? undefined
-      : await findUserHouseholdMembership(db, recipientUserId);
   const householdMemberUserIds = new Set(
     recipientMembership
       ? await findHouseholdMemberUserIds(
@@ -2618,14 +2634,12 @@ async function findDietProfile(
   db: Db,
   userId: string,
 ): Promise<DietProfileResponse | undefined> {
-  const [profile] = await db
-    .select()
-    .from(schema.userDietProfile)
-    .where(eq(schema.userDietProfile.userId, userId))
-    .limit(1);
-  if (!profile) return undefined;
-
-  const [presets, ingredients, groups] = await Promise.all([
+  const [profiles, presets, ingredients, groups] = await Promise.all([
+    db
+      .select()
+      .from(schema.userDietProfile)
+      .where(eq(schema.userDietProfile.userId, userId))
+      .limit(1),
     db
       .select({ key: schema.userDietPreset.presetKey })
       .from(schema.userDietPreset)
@@ -2639,6 +2653,8 @@ async function findDietProfile(
       .from(schema.userDietExcludedGroup)
       .where(eq(schema.userDietExcludedGroup.userId, userId)),
   ]);
+  const profile = profiles[0];
+  if (!profile) return undefined;
 
   return {
     presetDietKeys: presets.map((preset) => preset.key),
@@ -2952,14 +2968,11 @@ async function requireHouseholdMemberResponse(
 }
 
 async function hasPreviewAccess(request: Request, env: Bindings) {
-  return (
-    env.DEPLOYMENT_ENV === "preview" &&
-    (await verifyCloudflareAccess(request, env))
-  );
+  return isPreviewAuthEnabled(env) && verifyCloudflareAccess(request, env);
 }
 
 registerRoute("get", "/api/auth/preview/scenarios", async (c) => {
-  if (c.env.DEPLOYMENT_ENV !== "preview") return c.notFound();
+  if (!isPreviewAuthEnabled(c.env)) return c.notFound();
   if (!hasAuthConfiguration(c.env)) {
     return c.json({ error: "Preview auth configuration is incomplete" }, 503);
   }
@@ -2977,7 +2990,7 @@ registerRoute("get", "/api/auth/preview/scenarios", async (c) => {
 });
 
 registerRoute("post", "/api/auth/preview/sign-up", async (c) => {
-  if (c.env.DEPLOYMENT_ENV !== "preview") return c.notFound();
+  if (!isPreviewAuthEnabled(c.env)) return c.notFound();
   if (!hasAuthConfiguration(c.env)) {
     return c.json({ error: "Preview auth configuration is incomplete" }, 503);
   }
@@ -3021,7 +3034,7 @@ registerRoute("post", "/api/auth/preview/sign-up", async (c) => {
 });
 
 registerRoute("post", "/api/auth/preview/sign-in", async (c) => {
-  if (c.env.DEPLOYMENT_ENV !== "preview") return c.notFound();
+  if (!isPreviewAuthEnabled(c.env)) return c.notFound();
   if (!hasAuthConfiguration(c.env)) {
     return c.json({ error: "Preview auth configuration is incomplete" }, 503);
   }
@@ -4601,6 +4614,20 @@ async function countUnreadNotifications(db: Db, userId: string) {
   return unread?.value ?? 0;
 }
 
+registerRoute("get", "/notifications/unread-count", async (c) => {
+  return withRecipeSession(
+    c,
+    "query",
+    "GET /notifications/unread-count failed",
+    async ({ db, session }) => {
+      c.header("Cache-Control", "private, no-store");
+      return c.json({
+        unreadCount: await countUnreadNotifications(db, session.user.id),
+      });
+    },
+  );
+});
+
 registerRoute("get", "/notifications", async (c) => {
   const offset = Number(c.req.query("offset") ?? "0");
   if (!Number.isSafeInteger(offset) || offset < 0) {
@@ -5288,8 +5315,10 @@ registerRoute("get", "/recipes/:slug", async (c) => {
         c,
         "recipes.detail.query",
         async () => {
-          const session = await loadOptionalRecipeSession(c, db);
-          const recipe = await findRecipeBySlug(db, slug.slug);
+          const [session, recipe] = await Promise.all([
+            loadOptionalRecipeSession(c, db),
+            findRecipeBySlug(db, slug.slug),
+          ]);
           if (!recipe) return c.notFound();
 
           if (recipe.visibility !== "public") {

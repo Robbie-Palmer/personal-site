@@ -76,4 +76,18 @@ describe("enforceRateLimit", () => {
 
     expect(result).toEqual({ allowed: true, retryAfter: 0 });
   });
+
+  it("fails closed for protected rules when the counter store throws", async () => {
+    const { db } = fakeDb(() => {
+      throw new Error("db down");
+    });
+
+    const result = await enforceRateLimit(db, "auth:sign-in", {
+      max: 1,
+      windowSeconds: 60,
+      failClosed: true,
+    });
+
+    expect(result).toEqual({ allowed: false, retryAfter: 60 });
+  });
 });

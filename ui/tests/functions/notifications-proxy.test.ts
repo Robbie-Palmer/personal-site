@@ -12,6 +12,7 @@ afterEach(() => {
 describe("notifications proxy", () => {
   it.each([
     ["/api/notifications?fresh=1", "/notifications?fresh=1"],
+    ["/api/notifications/unread-count", "/notifications/unread-count"],
     ["/api/notifications/read-all", "/notifications/read-all"],
     ["/api/notifications/notification-1", "/notifications/notification-1"],
     [
