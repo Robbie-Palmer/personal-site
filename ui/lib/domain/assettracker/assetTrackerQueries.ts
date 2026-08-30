@@ -1,4 +1,9 @@
-import { type AccountId, type AssetType, isLiability } from "./account";
+import {
+  type Account,
+  type AccountId,
+  type AssetType,
+  isLiability,
+} from "./account";
 import {
   computeMoneyWeightedReturn,
   type ExternalFlow,
@@ -86,6 +91,74 @@ export type AssetAllocationDataPoint = {
   totalAssets: number;
 } & Partial<Record<AssetType, number>>;
 
+function isExcludedFromAllocation(
+  account: Account,
+  date: string,
+  absorbedIds: ReadonlySet<AccountId>,
+): boolean {
+  return (
+    absorbedIds.has(account.id) ||
+    isLiability(account.assetType) ||
+    (account.closedAt != null && account.closedAt <= date)
+  );
+}
+
+function getNetAssetBalance(
+  account: Account,
+  date: string,
+  latestByAccount: ReadonlyMap<AccountId, number>,
+  mortgagesByProperty: ReadonlyMap<AccountId, readonly AccountId[]>,
+  accountsById: ReadonlyMap<AccountId, Account>,
+): number | null {
+  let balance = latestByAccount.get(account.id);
+  if (balance == null) return null;
+
+  for (const mortgageId of mortgagesByProperty.get(account.id) ?? []) {
+    const mortgage = accountsById.get(mortgageId);
+    if (mortgage?.closedAt != null && mortgage.closedAt <= date) continue;
+    balance += latestByAccount.get(mortgageId) ?? 0;
+  }
+  return balance;
+}
+
+function buildAllocationPoint(
+  date: string,
+  accounts: readonly Account[],
+  accountsById: ReadonlyMap<AccountId, Account>,
+  latestByAccount: ReadonlyMap<AccountId, number>,
+  absorbedIds: ReadonlySet<AccountId>,
+  mortgagesByProperty: ReadonlyMap<AccountId, readonly AccountId[]>,
+): AssetAllocationDataPoint | null {
+  const totals = new Map<AssetType, number>();
+  for (const account of accounts) {
+    if (isExcludedFromAllocation(account, date, absorbedIds)) continue;
+    const balance = getNetAssetBalance(
+      account,
+      date,
+      latestByAccount,
+      mortgagesByProperty,
+      accountsById,
+    );
+    if (balance == null || balance <= 0) continue;
+    totals.set(
+      account.assetType,
+      (totals.get(account.assetType) ?? 0) + balance,
+    );
+  }
+
+  const totalAssets = Array.from(totals.values()).reduce(
+    (sum, value) => sum + value,
+    0,
+  );
+  if (totalAssets <= 0) return null;
+
+  const point: AssetAllocationDataPoint = { date, totalAssets };
+  for (const [assetType, total] of totals) {
+    point[assetType] = total / totalAssets;
+  }
+  return point;
+}
+
 /**
  * Percentage allocation through time, using the same linkage model as the
  * current composition chart. A linked mortgage therefore reduces property to
@@ -108,49 +181,26 @@ export function getAssetAllocationTimeSeries(
   const latestByAccount = new Map<AccountId, number>();
   const { absorbedIds, mortgagesByProperty } = buildLinkage(accounts);
   let snapshotIndex = 0;
+  const points: AssetAllocationDataPoint[] = [];
 
-  return dates.flatMap((date) => {
+  for (const date of dates) {
     let snapshot = snapshots[snapshotIndex];
     while (snapshot && snapshot.date <= date) {
       latestByAccount.set(snapshot.accountId, snapshot.balance);
       snapshotIndex++;
       snapshot = snapshots[snapshotIndex];
     }
-
-    const totals = new Map<AssetType, number>();
-    for (const account of accounts) {
-      if (
-        absorbedIds.has(account.id) ||
-        isLiability(account.assetType) ||
-        (account.closedAt != null && account.closedAt <= date)
-      ) {
-        continue;
-      }
-      let balance = latestByAccount.get(account.id);
-      if (balance == null) continue;
-      for (const mortgageId of mortgagesByProperty.get(account.id) ?? []) {
-        const mortgage = accountsById.get(mortgageId);
-        if (mortgage?.closedAt != null && mortgage.closedAt <= date) continue;
-        balance += latestByAccount.get(mortgageId) ?? 0;
-      }
-      if (balance <= 0) continue;
-      totals.set(
-        account.assetType,
-        (totals.get(account.assetType) ?? 0) + balance,
-      );
-    }
-
-    const totalAssets = Array.from(totals.values()).reduce(
-      (sum, value) => sum + value,
-      0,
+    const point = buildAllocationPoint(
+      date,
+      accounts,
+      accountsById,
+      latestByAccount,
+      absorbedIds,
+      mortgagesByProperty,
     );
-    if (totalAssets <= 0) return [];
-    const point: AssetAllocationDataPoint = { date, totalAssets };
-    for (const [assetType, total] of totals) {
-      point[assetType] = total / totalAssets;
-    }
-    return [point];
-  });
+    if (point) points.push(point);
+  }
+  return points;
 }
 
 /**
