@@ -5,8 +5,27 @@ locals {
 resource "cloudflare_notification_policy_webhooks" "slack_production_alerts" {
   account_id = var.cloudflare_account_id
   name       = "Slack #production-alerts"
-  url        = "${local.slack_webhook_parts.base}/"
+  url        = local.slack_webhook_parts.base
   secret     = local.slack_webhook_parts.secret
+}
+
+resource "cloudflare_notification_policy" "pages_deployments" {
+  account_id  = var.cloudflare_account_id
+  name        = "Pages deployment failures"
+  description = "Failed production Pages deployments"
+  enabled     = true
+  alert_type  = "pages_event_alert"
+
+  filters {
+    project_id  = ["54cc1492-569c-4072-a77b-47520974c731"]
+    environment = ["ENVIRONMENT_PRODUCTION"]
+    event       = ["EVENT_DEPLOYMENT_FAILED"]
+  }
+
+  webhooks_integration {
+    id   = replace(cloudflare_notification_policy_webhooks.slack_production_alerts.id, "-", "")
+    name = cloudflare_notification_policy_webhooks.slack_production_alerts.name
+  }
 }
 
 resource "cloudflare_notification_policy" "cloudflare_incidents" {
@@ -22,7 +41,8 @@ resource "cloudflare_notification_policy" "cloudflare_incidents" {
   }
 
   webhooks_integration {
-    id = cloudflare_notification_policy_webhooks.slack_production_alerts.id
+    id   = replace(cloudflare_notification_policy_webhooks.slack_production_alerts.id, "-", "")
+    name = cloudflare_notification_policy_webhooks.slack_production_alerts.name
   }
 }
 
@@ -34,7 +54,8 @@ resource "cloudflare_notification_policy" "expiring_service_tokens" {
   alert_type  = "expiring_service_token_alert"
 
   webhooks_integration {
-    id = cloudflare_notification_policy_webhooks.slack_production_alerts.id
+    id   = replace(cloudflare_notification_policy_webhooks.slack_production_alerts.id, "-", "")
+    name = cloudflare_notification_policy_webhooks.slack_production_alerts.name
   }
 }
 
@@ -46,7 +67,8 @@ resource "cloudflare_notification_policy" "universal_ssl_events" {
   alert_type  = "universal_ssl_event_type"
 
   webhooks_integration {
-    id = cloudflare_notification_policy_webhooks.slack_production_alerts.id
+    id   = replace(cloudflare_notification_policy_webhooks.slack_production_alerts.id, "-", "")
+    name = cloudflare_notification_policy_webhooks.slack_production_alerts.name
   }
 }
 
@@ -63,6 +85,7 @@ resource "cloudflare_notification_policy" "r2_usage" {
   }
 
   webhooks_integration {
-    id = cloudflare_notification_policy_webhooks.slack_production_alerts.id
+    id   = replace(cloudflare_notification_policy_webhooks.slack_production_alerts.id, "-", "")
+    name = cloudflare_notification_policy_webhooks.slack_production_alerts.name
   }
 }

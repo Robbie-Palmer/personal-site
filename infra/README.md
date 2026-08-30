@@ -244,46 +244,16 @@ Pages, Workers, R2, SSL, and DNS; expiring Access service tokens; Universal
 SSL certificate events; and an R2 storage usage threshold. The account's
 auto-created budget email alert remains in place.
 
-The Pages deployment-failure policy is not yet Terraform-managed: the API
-rejects every `pages_event_alert` `event` filter value, so it cannot be created
-through Terraform. To bring it under management, create it once in the
-dashboard (Notifications → Pages → project `personal-site`, production
-environment, "Deployment failed", Slack destination), then declare the resource
-in `cloudflare_alerts.tf` using the filters the created policy reports:
+All five notification policies, including Pages deployment failures, are
+Terraform-managed in `cloudflare_alerts.tf`. The Pages `event` and
+`environment` filter values use undocumented uppercase enums
+(`EVENT_DEPLOYMENT_FAILED`, `ENVIRONMENT_PRODUCTION`); the API rejects every
+other casing, so these were captured from the dashboard-created policy.
+Mechanism IDs must be passed undashed because the alerting API normalizes
+destination UUIDs, and each `webhooks_integration` block repeats the
+destination `name` so the provider's set hash matches its read-back.
 
-```bash
-curl -s "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/alerting/v3/policies" \
-  -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" | jq '.result[] | select(.alert_type == "pages_event_alert")'
-```
-
-```hcl
-resource "cloudflare_notification_policy" "pages_deployments" {
-  account_id  = var.cloudflare_account_id
-  name        = "Pages deployment failures"
-  description = "Failed production Pages deployments"
-  enabled     = true
-  alert_type  = "pages_event_alert"
-
-  filters {
-    project_id  = ["54cc1492-569c-4072-a77b-47520974c731"]
-    environment = ["production"]
-    event       = ["<values reported by the created policy>"]
-  }
-
-  webhooks_integration {
-    id = cloudflare_notification_policy_webhooks.slack_production_alerts.id
-  }
-}
-```
-
-Import it, then apply to confirm zero drift:
-
-```bash
-terraform import 'cloudflare_notification_policy.pages_deployments' '<account-id>/<policy-id>'
-mise run //infra:plan
-```
-
-Test the destination after applying via Notifications → Destinations →
+Test the destination after material changes via Notifications → Destinations →
 Webhooks → Send test; the message should reach `#production-alerts`.
 
 ## Neon Database
