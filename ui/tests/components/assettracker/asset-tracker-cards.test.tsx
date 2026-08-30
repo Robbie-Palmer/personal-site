@@ -12,6 +12,17 @@ vi.mock("recharts", () => ({
   ResponsiveContainer: ({ children }: { children: ReactNode }) => (
     <div>{children}</div>
   ),
+  LineChart: ({ children, data }: { children: ReactNode; data: unknown[] }) => (
+    <div data-chart-data={JSON.stringify(data)} data-testid="line-chart">
+      {children}
+    </div>
+  ),
+  Line: ({ dataKey }: { dataKey: string }) => <div data-series={dataKey} />,
+  CartesianGrid: () => null,
+  ReferenceLine: () => null,
+  XAxis: () => null,
+  YAxis: () => null,
+  Legend: () => null,
   Sankey: ({ align }: { align?: string }) => (
     <div data-align={align} data-testid="flow-sankey" />
   ),
@@ -155,6 +166,68 @@ describe("PortfolioGoal", () => {
     expect(progress.tagName).toBe("PROGRESS");
     expect(progress).toHaveAttribute("max", "1");
     expect(progress).toHaveAttribute("value", "0.25");
+  });
+
+  it("plots income and expenditure and switches to their difference", async () => {
+    mockAssetTracker({
+      incomeHistory: [
+        { date: "2026-01-31", amount: 4_000 },
+        { date: "2026-02-28", amount: 4_200 },
+      ],
+      financialIndependence: {
+        periods: [
+          {
+            startDate: "2025-12-31",
+            endDate: "2026-01-31",
+            openingNetWorth: 100_000,
+            closingNetWorth: 101_500,
+            income: 4_000,
+            netCapitalFlow: 1_500,
+            valuationGain: 0,
+            expenditure: 2_500,
+            days: 31,
+            annualizedExpenditure: 29_455.04,
+          },
+        ],
+        representativeAnnualExpenditure: 29_455.04,
+        target: 736_376,
+        progress: 0.14,
+      },
+    });
+
+    render(<PortfolioGoal />);
+
+    expect(
+      screen.getByRole("img", { name: "Income and expenditure by period" }),
+    ).toBeVisible();
+    expect(screen.getByTestId("line-chart")).toHaveAttribute(
+      "data-chart-data",
+      JSON.stringify([
+        {
+          date: "2026-01-31",
+          income: 4_000,
+          expenditure: 2_500,
+          difference: 1_500,
+        },
+        { date: "2026-02-28", income: 4_200 },
+      ]),
+    );
+    expect(document.querySelector('[data-series="income"]')).toBeVisible();
+    expect(document.querySelector('[data-series="expenditure"]')).toBeVisible();
+    expect(
+      screen.getByRole("table", { name: "Income and expenditure by period" }),
+    ).toHaveTextContent(
+      "2026-01-31£4,000£2,500£1,5002026-02-28£4,200Awaiting reconciliationAwaiting reconciliation",
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: "Difference" }));
+
+    expect(
+      screen.getByRole("img", { name: "Income minus expenditure by period" }),
+    ).toBeVisible();
+    expect(document.querySelector('[data-series="income"]')).toBeNull();
+    expect(document.querySelector('[data-series="expenditure"]')).toBeNull();
+    expect(document.querySelector('[data-series="difference"]')).toBeVisible();
   });
 });
 

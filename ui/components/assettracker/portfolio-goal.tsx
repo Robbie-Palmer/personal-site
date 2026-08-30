@@ -15,6 +15,7 @@ import {
   formatCurrency,
 } from "@/lib/domain/assettracker";
 import { useAssetTracker } from "./asset-tracker-provider";
+import { IncomeExpenditureChart } from "./income-expenditure-chart";
 import { IncomeHistoryImportDrawer } from "./income-history-import-drawer";
 
 function signedCurrency(value: number): string {
@@ -139,6 +140,11 @@ export function PortfolioGoal() {
             className="h-2 w-full overflow-hidden rounded-full bg-muted [appearance:none] [&::-moz-progress-bar]:rounded-full [&::-moz-progress-bar]:bg-primary [&::-webkit-progress-bar]:rounded-full [&::-webkit-progress-bar]:bg-muted [&::-webkit-progress-value]:rounded-full [&::-webkit-progress-value]:bg-primary"
           />
         )}
+
+        <IncomeExpenditureChart
+          incomeHistory={incomeHistory}
+          periods={periods}
+        />
 
         {periods.length > 0 ? (
           <div className="min-w-0 space-y-2">
