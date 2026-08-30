@@ -7,8 +7,8 @@ import { ADRBadge } from "@/components/projects/adr-badge";
 import { ADRPagination } from "@/components/projects/adr-pagination";
 import { EmblaDemoCarousel } from "@/components/technology/embla-demo-carousel";
 import { KnowledgeGraph } from "@/components/technology/knowledge-graph";
+import { LazyRechartsDemoChart } from "@/components/technology/lazy-recharts-demo-chart";
 import { MermaidDemo } from "@/components/technology/mermaid-demo";
-import { RechartsDemoChart } from "@/components/technology/recharts-demo-chart";
 import { ShikiDemo } from "@/components/technology/shiki-demo";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
@@ -31,7 +31,7 @@ const adrComponents = {
   KnowledgeGraph,
   Mermaid,
   MermaidDemo,
-  RechartsDemoChart,
+  RechartsDemoChart: LazyRechartsDemoChart,
   ShikiDemo,
 };
 

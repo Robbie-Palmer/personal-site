@@ -43,7 +43,7 @@ async function waitForPage(url: string, timeout: number): Promise<void> {
   throw new Error(`Static server did not serve ${url} within ${timeout}ms`);
 }
 
-describe("Mermaid browser rendering", () => {
+describe("Visualization browser rendering", () => {
   let browser: Browser;
   let serverProcess: ChildProcess;
 
@@ -134,4 +134,48 @@ describe("Mermaid browser rendering", () => {
       await page.close();
     }
   }, 30_000);
+
+  it.each([
+    ["the technology demo", "/technologies/recharts", 3],
+    ["the wealth article", "/blog/2020-09-27-how-to-build-wealth", 4],
+  ])(
+    "lazy-loads charts for %s",
+    async (_label, path, expectedCharts) => {
+      const page = await browser.newPage();
+      const pageErrors: string[] = [];
+      page.on("pageerror", (error) => pageErrors.push(String(error)));
+
+      try {
+        await page.goto(`${BASE_URL}${path}`, {
+          waitUntil: "domcontentloaded",
+        });
+        await page.waitForFunction(
+          (chartCount) =>
+            document.querySelectorAll(".recharts-responsive-container")
+              .length === chartCount,
+          { timeout: 20_000 },
+          expectedCharts,
+        );
+
+        const chartSizes = await page.$$eval(
+          ".recharts-responsive-container",
+          (containers) =>
+            containers.map((container) => {
+              const bounds = container.getBoundingClientRect();
+              return { height: bounds.height, width: bounds.width };
+            }),
+        );
+
+        expect(pageErrors).toEqual([]);
+        expect(chartSizes).toHaveLength(expectedCharts);
+        for (const chart of chartSizes) {
+          expect(chart.width).toBeGreaterThan(100);
+          expect(chart.height).toBeGreaterThan(100);
+        }
+      } finally {
+        await page.close();
+      }
+    },
+    30_000,
+  );
 });

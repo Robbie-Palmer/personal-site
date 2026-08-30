@@ -2,10 +2,12 @@ import { Tag } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { DebtInvestmentChart } from "@/components/blog/how-to-build-wealth/debt-investment-chart";
-import { FinancialIndependenceChart } from "@/components/blog/how-to-build-wealth/financial-independence-chart";
-import { LisaComparisonChart } from "@/components/blog/how-to-build-wealth/lisa-comparison-chart";
-import { PensionReturnsChart } from "@/components/blog/how-to-build-wealth/pension-returns-chart";
+import {
+  DebtInvestmentChart,
+  FinancialIndependenceChart,
+  LisaComparisonChart,
+  PensionReturnsChart,
+} from "@/components/blog/how-to-build-wealth/lazy-wealth-charts";
 import { ShareButtons } from "@/components/blog/share-buttons";
 import { Markdown } from "@/components/markdown";
 import { Mermaid } from "@/components/mermaid";

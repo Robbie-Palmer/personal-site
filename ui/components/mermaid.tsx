@@ -1,6 +1,5 @@
 "use client";
 
-import mermaid from "mermaid";
 import { useTheme } from "next-themes";
 import { useEffect, useRef, useState } from "react";
 
@@ -24,57 +23,60 @@ export function Mermaid({ chart, className = "" }: Readonly<MermaidProps>) {
     let isCancelled = false;
 
     const renderDiagram = async () => {
-      const isDark = resolvedTheme === "dark";
-      mermaid.initialize({
-        startOnLoad: false,
-        theme: "base",
-        themeVariables: {
-          // Base colors
-          darkMode: isDark,
-          background: isDark ? "#0a0a0a" : "#ffffff",
-          primaryColor: isDark ? "#3b82f6" : "#dbeafe",
-          primaryTextColor: isDark ? "#f9fafb" : "#1e3a5f",
-          primaryBorderColor: isDark ? "#60a5fa" : "#3b82f6",
-          secondaryColor: isDark ? "#4c1d95" : "#ede9fe",
-          secondaryTextColor: isDark ? "#f9fafb" : "#4c1d95",
-          secondaryBorderColor: isDark ? "#8b5cf6" : "#7c3aed",
-          tertiaryColor: isDark ? "#065f46" : "#d1fae5",
-          tertiaryTextColor: isDark ? "#f9fafb" : "#065f46",
-          tertiaryBorderColor: isDark ? "#10b981" : "#059669",
-          // Text and lines
-          textColor: isDark ? "#e5e7eb" : "#1f2937",
-          lineColor: isDark ? "#6b7280" : "#9ca3af",
-          // Flowchart
-          nodeBkg: isDark ? "#1e3a5f" : "#dbeafe",
-          nodeBorder: isDark ? "#60a5fa" : "#3b82f6",
-          nodeTextColor: isDark ? "#f9fafb" : "#1e3a5f",
-          mainBkg: isDark ? "#1f2937" : "#f9fafb",
-          clusterBkg: isDark ? "#1f2937" : "#f3f4f6",
-          clusterBorder: isDark ? "#374151" : "#d1d5db",
-          edgeLabelBackground: isDark ? "#1f2937" : "#f9fafb",
-          // Sequence diagram
-          actorBkg: isDark ? "#1e3a5f" : "#dbeafe",
-          actorBorder: isDark ? "#60a5fa" : "#3b82f6",
-          actorTextColor: isDark ? "#f9fafb" : "#1e3a5f",
-          signalColor: isDark ? "#e5e7eb" : "#1f2937",
-          signalTextColor: isDark ? "#e5e7eb" : "#1f2937",
-          activationBkgColor: isDark ? "#374151" : "#e5e7eb",
-          activationBorderColor: isDark ? "#6b7280" : "#9ca3af",
-          // State diagram
-          labelColor: isDark ? "#e5e7eb" : "#1f2937",
-          altBackground: isDark ? "#374151" : "#f3f4f6",
-          // Font
-          fontSize: "16px",
-        },
-        flowchart: {
-          htmlLabels: true,
-          curve: "basis",
-          padding: 15,
-        },
-      });
-
       try {
         if (isCancelled || !containerRef.current) return;
+
+        const { default: mermaid } = await import("mermaid");
+        if (isCancelled || !containerRef.current) return;
+
+        const isDark = resolvedTheme === "dark";
+        mermaid.initialize({
+          startOnLoad: false,
+          theme: "base",
+          themeVariables: {
+            // Base colors
+            darkMode: isDark,
+            background: isDark ? "#0a0a0a" : "#ffffff",
+            primaryColor: isDark ? "#3b82f6" : "#dbeafe",
+            primaryTextColor: isDark ? "#f9fafb" : "#1e3a5f",
+            primaryBorderColor: isDark ? "#60a5fa" : "#3b82f6",
+            secondaryColor: isDark ? "#4c1d95" : "#ede9fe",
+            secondaryTextColor: isDark ? "#f9fafb" : "#4c1d95",
+            secondaryBorderColor: isDark ? "#8b5cf6" : "#7c3aed",
+            tertiaryColor: isDark ? "#065f46" : "#d1fae5",
+            tertiaryTextColor: isDark ? "#f9fafb" : "#065f46",
+            tertiaryBorderColor: isDark ? "#10b981" : "#059669",
+            // Text and lines
+            textColor: isDark ? "#e5e7eb" : "#1f2937",
+            lineColor: isDark ? "#6b7280" : "#9ca3af",
+            // Flowchart
+            nodeBkg: isDark ? "#1e3a5f" : "#dbeafe",
+            nodeBorder: isDark ? "#60a5fa" : "#3b82f6",
+            nodeTextColor: isDark ? "#f9fafb" : "#1e3a5f",
+            mainBkg: isDark ? "#1f2937" : "#f9fafb",
+            clusterBkg: isDark ? "#1f2937" : "#f3f4f6",
+            clusterBorder: isDark ? "#374151" : "#d1d5db",
+            edgeLabelBackground: isDark ? "#1f2937" : "#f9fafb",
+            // Sequence diagram
+            actorBkg: isDark ? "#1e3a5f" : "#dbeafe",
+            actorBorder: isDark ? "#60a5fa" : "#3b82f6",
+            actorTextColor: isDark ? "#f9fafb" : "#1e3a5f",
+            signalColor: isDark ? "#e5e7eb" : "#1f2937",
+            signalTextColor: isDark ? "#e5e7eb" : "#1f2937",
+            activationBkgColor: isDark ? "#374151" : "#e5e7eb",
+            activationBorderColor: isDark ? "#6b7280" : "#9ca3af",
+            // State diagram
+            labelColor: isDark ? "#e5e7eb" : "#1f2937",
+            altBackground: isDark ? "#374151" : "#f3f4f6",
+            // Font
+            fontSize: "16px",
+          },
+          flowchart: {
+            htmlLabels: true,
+            curve: "basis",
+            padding: 15,
+          },
+        });
 
         containerRef.current.innerHTML = "";
 
