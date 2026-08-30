@@ -71,7 +71,7 @@ Error: Post 2023-05-23-my-post is missing required field: imageAlt
 | File size    | Under 5MB              |
 | Format       | JPG, PNG, WebP, or GIF |
 
-Aim for 1200x630 (the OpenGraph standard) or 1920x1080. Cloudflare converts
+Aim for 1200×630 (the OpenGraph standard) or 1920×1080. Cloudflare converts
 uploads to WebP/AVIF and scales down, never up.
 
 [Unsplash](https://unsplash.com/) and [Pexels](https://www.pexels.com/) are

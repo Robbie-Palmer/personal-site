@@ -35,6 +35,141 @@
     "checks": ["write-good.So"]
   },
   {
+    "file": "ui/content/blog/2022-03-02-the-philosophy-of-data-science.mdx",
+    "line": 261,
+    "checks": ["proselint.Uncomparables"]
+  },
+  {
+    "file": "ui/content/blog/2022-03-02-the-philosophy-of-data-science.mdx",
+    "line": 442,
+    "checks": ["Unslop.Puffery"]
+  },
+  {
+    "file": "ui/content/blog/2022-03-02-the-philosophy-of-data-science.mdx",
+    "line": 535,
+    "checks": ["Unslop.FillerPhrases"]
+  },
+  {
+    "file": "ui/content/blog/2022-03-02-the-philosophy-of-data-science.mdx",
+    "line": 570,
+    "checks": ["Unslop.Puffery"]
+  },
+  {
+    "file": "ui/content/blog/2020-07-25-why-you-should-not-buy-a-house.mdx",
+    "line": 16,
+    "checks": ["proselint.GenderBias"]
+  },
+  {
+    "file": "ui/content/blog/2020-07-25-why-you-should-not-buy-a-house.mdx",
+    "line": 18,
+    "checks": ["proselint.GenderBias"]
+  },
+  {
+    "file": "ui/content/blog/2020-07-25-why-you-should-not-buy-a-house.mdx",
+    "line": 89,
+    "checks": ["proselint.GenderBias"]
+  },
+  {
+    "file": "ui/content/blog/2020-07-25-why-you-should-not-buy-a-house.mdx",
+    "line": 211,
+    "checks": ["proselint.Cliches"]
+  },
+  {
+    "file": "ui/content/blog/2020-07-25-why-you-should-not-buy-a-house.mdx",
+    "line": 326,
+    "checks": ["proselint.GenderBias"]
+  },
+  {
+    "file": "ui/content/blog/2020-07-25-why-you-should-not-buy-a-house.mdx",
+    "line": 331,
+    "checks": ["proselint.GenderBias"]
+  },
+  {
+    "file": "ui/content/blog/2020-09-27-how-to-build-wealth.mdx",
+    "line": 343,
+    "checks": ["proselint.Very"]
+  },
+  {
+    "file": "ui/content/blog/2020-09-27-how-to-build-wealth.mdx",
+    "line": 345,
+    "checks": ["proselint.Very"]
+  },
+  {
+    "file": "ui/content/blog/2020-09-27-how-to-build-wealth.mdx",
+    "line": 363,
+    "checks": ["proselint.Cliches"]
+  },
+  {
+    "file": "ui/content/blog/2023-02-24-effective-ethical-data-science-study-design.mdx",
+    "line": 482,
+    "checks": ["write-good.ThereIs", "Unslop.EmDash"]
+  },
+  {
+    "file": "ui/content/blog/2023-03-28-uniting-machine-learning-data-streaming-1.mdx",
+    "line": 33,
+    "checks": ["Unslop.EmDash"]
+  },
+  {
+    "file": "ui/content/blog/2023-03-28-uniting-machine-learning-data-streaming-1.mdx",
+    "line": 78,
+    "checks": ["Unslop.EmDash"]
+  },
+  {
+    "file": "ui/content/blog/2023-03-28-uniting-machine-learning-data-streaming-1.mdx",
+    "line": 88,
+    "checks": ["Unslop.EmDash"]
+  },
+  {
+    "file": "ui/content/blog/2023-03-28-uniting-machine-learning-data-streaming-1.mdx",
+    "line": 96,
+    "checks": ["Unslop.EmDash"]
+  },
+  {
+    "file": "ui/content/blog/2023-03-28-uniting-machine-learning-data-streaming-1.mdx",
+    "line": 168,
+    "checks": ["proselint.Cliches"]
+  },
+  {
+    "file": "ui/content/blog/2023-03-28-uniting-machine-learning-data-streaming-1.mdx",
+    "line": 180,
+    "checks": ["Unslop.EmDash"]
+  },
+  {
+    "file": "ui/content/blog/2023-03-28-uniting-machine-learning-data-streaming-1.mdx",
+    "line": 196,
+    "checks": ["Unslop.EmDash"]
+  },
+  {
+    "file": "ui/content/blog/2023-03-28-uniting-machine-learning-data-streaming-1.mdx",
+    "line": 212,
+    "checks": ["Unslop.EmDash"]
+  },
+  {
+    "file": "ui/content/blog/2023-04-04-uniting-machine-learning-data-streaming-2.mdx",
+    "line": 31,
+    "checks": ["Unslop.EmDash"]
+  },
+  {
+    "file": "ui/content/blog/2023-04-04-uniting-machine-learning-data-streaming-2.mdx",
+    "line": 41,
+    "checks": ["Unslop.EmDash"]
+  },
+  {
+    "file": "ui/content/blog/2023-04-04-uniting-machine-learning-data-streaming-2.mdx",
+    "line": 69,
+    "checks": ["Unslop.EmDash"]
+  },
+  {
+    "file": "ui/content/blog/2023-04-04-uniting-machine-learning-data-streaming-2.mdx",
+    "line": 155,
+    "checks": ["Unslop.EmDash"]
+  },
+  {
+    "file": "ui/content/blog/2023-04-04-uniting-machine-learning-data-streaming-2.mdx",
+    "line": 215,
+    "checks": ["proselint.Cliches"]
+  },
+  {
     "file": "homelab/README.md",
     "line": 126,
     "checks": ["Unslop.AIVocabulary"]
@@ -63,5 +198,70 @@
     "file": "ui/content/projects/recipe-site/index.mdx",
     "line": 501,
     "checks": ["Unslop.EmDash"]
+  },
+  {
+    "file": ".agents/skills/unslop/SKILL.md",
+    "line": 28,
+    "checks": ["proselint.DateCase", "proselint.DateSpacing"]
+  },
+  {
+    "file": ".agents/skills/unslop/SKILL.md",
+    "line": 34,
+    "checks": ["Unslop.AIVocabulary", "Unslop.Puffery"]
+  },
+  {
+    "file": ".agents/skills/unslop/SKILL.md",
+    "line": 36,
+    "checks": ["Unslop.AIVocabulary", "proselint.Typography"]
+  },
+  {
+    "file": ".agents/skills/unslop/SKILL.md",
+    "line": 38,
+    "checks": ["Unslop.VagueAttribution"]
+  },
+  {
+    "file": ".agents/skills/unslop/SKILL.md",
+    "line": 39,
+    "checks": ["proselint.Typography"]
+  },
+  {
+    "file": ".agents/skills/unslop/SKILL.md",
+    "line": 43,
+    "checks": ["Unslop.AIVocabulary"]
+  },
+  {
+    "file": ".agents/skills/unslop/SKILL.md",
+    "line": 45,
+    "checks": ["Unslop.NotJustBut"]
+  },
+  {
+    "file": ".agents/skills/unslop/SKILL.md",
+    "line": 55,
+    "checks": ["proselint.Typography"]
+  },
+  {
+    "file": ".agents/skills/unslop/SKILL.md",
+    "line": 62,
+    "checks": ["Unslop.ChatbotPhrases", "proselint.Typography"]
+  },
+  {
+    "file": ".agents/skills/unslop/SKILL.md",
+    "line": 63,
+    "checks": ["Unslop.CutoffDisclaimer", "proselint.Typography"]
+  },
+  {
+    "file": ".agents/skills/unslop/SKILL.md",
+    "line": 64,
+    "checks": ["Unslop.Sycophancy"]
+  },
+  {
+    "file": ".agents/skills/unslop/SKILL.md",
+    "line": 68,
+    "checks": ["Unslop.FillerPhrases"]
+  },
+  {
+    "file": ".agents/skills/unslop/SKILL.md",
+    "line": 82,
+    "checks": ["Unslop.FillerPhrases"]
   }
 ]
