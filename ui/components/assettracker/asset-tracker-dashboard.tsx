@@ -3,6 +3,7 @@
 import { useState } from "react";
 import {
   formatAnnualRate,
+  formatCurrency,
   formatTotalBalances,
   realRate,
 } from "@/lib/domain/assettracker";
@@ -11,11 +12,13 @@ import { AccountDetailSheet } from "./account-detail-sheet";
 import { AccountsTable } from "./accounts-table";
 import { AddAccountDrawer } from "./add-account-drawer";
 import { AssetAllocationChart } from "./asset-allocation-chart";
+import { AssetAllocationHistoryChart } from "./asset-allocation-history-chart";
 import { useAssetTracker } from "./asset-tracker-provider";
 import { DataControls } from "./data-controls";
 import { FlowSankeyChart } from "./flow-sankey-chart";
 import { LogBalanceDrawer } from "./log-balance-drawer";
 import { NetWorthChart } from "./net-worth-chart";
+import { PortfolioContributionChart } from "./portfolio-contribution-chart";
 import { PortfolioGoal } from "./portfolio-goal";
 import { RecordTransferDrawer } from "./record-transfer-drawer";
 import { UpcomingFlows } from "./upcoming-flows";
@@ -25,7 +28,9 @@ export function AssetTrackerDashboard() {
     accounts,
     accountDetails,
     netWorthData,
+    contributionData,
     assetAllocation,
+    assetAllocationHistory,
     portfolioReturn,
     inflation,
   } = useAssetTracker();
@@ -34,6 +39,7 @@ export function AssetTrackerDashboard() {
   );
 
   const openAccounts = accounts.filter((a) => a.isOpen);
+  const contributedCapital = contributionData.at(-1)?.contributedCapital;
 
   return (
     <div className="space-y-8">
@@ -51,7 +57,7 @@ export function AssetTrackerDashboard() {
         </div>
       </div>
       <DataControls />
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         <div className="border rounded-lg p-6">
           <p className="text-sm text-muted-foreground">Total Net Worth</p>
           <p className="text-3xl font-bold mt-1">
@@ -73,6 +79,17 @@ export function AssetTrackerDashboard() {
           )}
         </div>
         <div className="border rounded-lg p-6">
+          <p className="text-sm text-muted-foreground">Contributed Capital</p>
+          <p className="text-3xl font-bold mt-1">
+            {contributedCapital == null
+              ? "—"
+              : formatCurrency(contributedCapital)}
+          </p>
+          <p className="text-xs text-muted-foreground mt-1">
+            Deposits minus withdrawals
+          </p>
+        </div>
+        <div className="border rounded-lg p-6">
           <p className="text-sm text-muted-foreground">Open Accounts</p>
           <p className="text-3xl font-bold mt-1">{openAccounts.length}</p>
         </div>
@@ -82,11 +99,13 @@ export function AssetTrackerDashboard() {
         </div>
       </div>
       <NetWorthChart data={netWorthData} />
+      <PortfolioContributionChart data={contributionData} />
+      <AssetAllocationHistoryChart data={assetAllocationHistory} />
+      <PortfolioGoal />
       <div className="grid gap-8 lg:grid-cols-2">
-        <PortfolioGoal />
         <UpcomingFlows />
+        <FlowSankeyChart />
       </div>
-      <FlowSankeyChart />
       <div className="grid gap-8 lg:grid-cols-2">
         <AssetAllocationChart data={assetAllocation} />
         <AccountBalanceChart accounts={accountDetails} />

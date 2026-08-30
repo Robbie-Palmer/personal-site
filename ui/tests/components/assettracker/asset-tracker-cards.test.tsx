@@ -2,16 +2,38 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { AssetAllocationHistoryChart } from "@/components/assettracker/asset-allocation-history-chart";
 import { useAssetTracker } from "@/components/assettracker/asset-tracker-provider";
 import { FlowSankeyChart } from "@/components/assettracker/flow-sankey-chart";
+import { PortfolioContributionChart } from "@/components/assettracker/portfolio-contribution-chart";
 import { PortfolioGoal } from "@/components/assettracker/portfolio-goal";
 import { UpcomingFlows } from "@/components/assettracker/upcoming-flows";
-import { buildFlowSankeyData, todayIsoDate } from "@/lib/domain/assettracker";
+import {
+  buildFlowSankeyData,
+  type PortfolioFinancialIndependence,
+  todayIsoDate,
+} from "@/lib/domain/assettracker";
 
 vi.mock("recharts", () => ({
   ResponsiveContainer: ({ children }: { children: ReactNode }) => (
     <div>{children}</div>
   ),
+  LineChart: ({ children, data }: { children: ReactNode; data: unknown[] }) => (
+    <div data-chart-data={JSON.stringify(data)} data-testid="line-chart">
+      {children}
+    </div>
+  ),
+  Line: ({ dataKey, dot }: { dataKey: string; dot?: boolean }) => (
+    <div
+      data-dots={dot === false ? "hidden" : "visible"}
+      data-series={dataKey}
+    />
+  ),
+  CartesianGrid: () => null,
+  ReferenceLine: () => null,
+  XAxis: () => null,
+  YAxis: () => null,
+  Legend: () => null,
   Sankey: ({ align }: { align?: string }) => (
     <div data-align={align} data-testid="flow-sankey" />
   ),
@@ -24,6 +46,20 @@ vi.mock("@/components/assettracker/asset-tracker-provider", () => ({
 
 const mockUseAssetTracker = vi.mocked(useAssetTracker);
 const FIXED_NOW = new Date("2026-07-03T12:00:00+01:00");
+const EMPTY_FI: PortfolioFinancialIndependence = {
+  periods: [],
+  representativeAnnualExpenditure: null,
+  representativeAnnualSavings: null,
+  savingsRate: null,
+  emergencyFund: 0,
+  emergencyFundMonths: null,
+  target: null,
+  progress: null,
+  expectedRealReturn: null,
+  projection: [],
+  projectedFiDate: null,
+  yearsToFi: null,
+};
 
 function mockAssetTracker(
   overrides: Partial<ReturnType<typeof useAssetTracker>> = {},
@@ -32,13 +68,18 @@ function mockAssetTracker(
     accounts: [],
     accountDetails: [],
     netWorthData: [],
+    contributionData: [],
     assetAllocation: [],
+    assetAllocationHistory: [],
     transfers: [],
     recurringFlows: [],
+    incomeHistory: [],
+    financialIndependence: EMPTY_FI,
     portfolioReturn: null,
     inflation: 0.025,
     netWorthTarget: null,
     netWorthTargetIsReal: false,
+    withdrawalRate: 0.04,
     hasLocalChanges: false,
     createAccount: vi.fn(),
     recordBalance: vi.fn(),
@@ -50,7 +91,10 @@ function mockAssetTracker(
     materializeFlow: vi.fn(),
     setExpectedReturn: vi.fn(),
     setInflation: vi.fn(),
+    setWithdrawalRate: vi.fn(),
     setNetWorthTarget: vi.fn(),
+    importIncomeHistory: vi.fn(),
+    clearIncomeHistory: vi.fn(),
     resetData: vi.fn(),
     exportData: vi.fn(),
     exportCsv: vi.fn(),
@@ -68,22 +112,49 @@ describe("PortfolioGoal", () => {
     vi.clearAllMocks();
   });
 
-  it("accepts whole-number goals that are not offset from the minimum", async () => {
-    const setNetWorthTarget = vi.fn().mockResolvedValue(undefined);
-    mockAssetTracker({ setNetWorthTarget });
+  it("updates the withdrawal rate used to derive the FI target", async () => {
+    const setWithdrawalRate = vi.fn().mockResolvedValue(undefined);
+    mockAssetTracker({ setWithdrawalRate });
 
     render(<PortfolioGoal />);
 
-    const input = screen.getByLabelText("Target net worth") as HTMLInputElement;
-    await userEvent.type(input, "500000");
+    const input = screen.getByLabelText("Withdrawal rate");
+    await userEvent.clear(input);
+    await userEvent.type(input, "3.5");
+    await userEvent.tab();
 
-    expect(input).toHaveAttribute("step", "any");
-    expect(input.validity.stepMismatch).toBe(false);
-    expect(input.checkValidity()).toBe(true);
+    expect(setWithdrawalRate).toHaveBeenCalledWith(0.035);
+  });
 
-    await userEvent.click(screen.getByRole("button", { name: "Set goal" }));
+  it("preserves a stored withdrawal rate without persisting on an unchanged blur", async () => {
+    const setWithdrawalRate = vi.fn().mockResolvedValue(undefined);
+    mockAssetTracker({ withdrawalRate: 0.0355, setWithdrawalRate });
 
-    expect(setNetWorthTarget).toHaveBeenCalledWith(500000, true);
+    render(<PortfolioGoal />);
+
+    const input = screen.getByLabelText("Withdrawal rate");
+    expect(input).toHaveValue(3.55);
+    await userEvent.click(input);
+    await userEvent.tab();
+
+    expect(setWithdrawalRate).not.toHaveBeenCalled();
+  });
+
+  it("rejects an out-of-range withdrawal rate before saving", async () => {
+    const setWithdrawalRate = vi.fn().mockResolvedValue(undefined);
+    mockAssetTracker({ setWithdrawalRate });
+
+    render(<PortfolioGoal />);
+
+    const input = screen.getByLabelText("Withdrawal rate");
+    await userEvent.clear(input);
+    await userEvent.type(input, "0");
+    await userEvent.tab();
+
+    expect(setWithdrawalRate).not.toHaveBeenCalled();
+    expect(
+      screen.getByText("Withdrawal rate must be between 0.1% and 100%"),
+    ).toBeVisible();
   });
 
   it("uses constrained mobile layout classes", () => {
@@ -94,21 +165,197 @@ describe("PortfolioGoal", () => {
     expect(container.querySelector('[data-slot="card"]')).toHaveClass(
       "min-w-0",
     );
-    expect(screen.getByRole("button", { name: "Set goal" })).toHaveClass(
-      "w-full",
-      "sm:w-auto",
-    );
+    expect(
+      screen.getByRole("button", { name: "Add income history" }),
+    ).toBeVisible();
   });
 
   it("uses a native progress element for an active goal", () => {
-    mockAssetTracker({ netWorthTarget: 500_000 });
+    mockAssetTracker({
+      financialIndependence: {
+        ...EMPTY_FI,
+        periods: [],
+        representativeAnnualExpenditure: 20_000,
+        target: 500_000,
+        progress: 0.25,
+      },
+    });
 
     render(<PortfolioGoal />);
 
-    const progress = screen.getByRole("progressbar");
+    const progress = screen.getByRole("progressbar", {
+      name: "Financial independence progress",
+    });
     expect(progress.tagName).toBe("PROGRESS");
     expect(progress).toHaveAttribute("max", "1");
-    expect(progress).toHaveAttribute("value", "0");
+    expect(progress).toHaveAttribute("value", "0.25");
+  });
+
+  it("plots income and expenditure and switches to their difference", async () => {
+    mockAssetTracker({
+      incomeHistory: [
+        { date: "2026-01-31", amount: 4_000 },
+        { date: "2026-02-28", amount: 4_200 },
+      ],
+      financialIndependence: {
+        ...EMPTY_FI,
+        periods: [
+          {
+            startDate: "2025-12-31",
+            endDate: "2026-01-31",
+            openingNetWorth: 100_000,
+            closingNetWorth: 101_500,
+            income: 4_000,
+            netCapitalFlow: 1_500,
+            retainedIncomeSource: "balance-change",
+            valuationGain: 0,
+            expenditure: 2_500,
+            days: 31,
+            annualizedExpenditure: 29_455.04,
+          },
+        ],
+        representativeAnnualExpenditure: 29_455.04,
+        target: 736_376,
+        progress: 0.14,
+      },
+    });
+
+    render(<PortfolioGoal />);
+
+    expect(
+      screen.getByRole("img", { name: "Income and expenditure by period" }),
+    ).toBeVisible();
+    expect(screen.getByTestId("line-chart")).toHaveAttribute(
+      "data-chart-data",
+      JSON.stringify([
+        {
+          date: "2026-01-31",
+          income: 4_000,
+          expenditure: 2_500,
+          difference: 1_500,
+        },
+        { date: "2026-02-28", income: 4_200 },
+      ]),
+    );
+    expect(document.querySelector('[data-series="income"]')).toBeVisible();
+    expect(
+      document.querySelector('[data-series="expenditure"]'),
+    ).toHaveAttribute("data-dots", "visible");
+    expect(
+      screen.getByRole("table", { name: "Income and expenditure by period" }),
+    ).toHaveTextContent(
+      "2026-01-31£4,000£2,500£1,5002026-02-28£4,200Awaiting reconciliationAwaiting reconciliation",
+    );
+    expect(screen.getByText("Balance change")).toBeVisible();
+
+    await userEvent.click(screen.getByRole("button", { name: "Difference" }));
+
+    expect(
+      screen.getByRole("img", { name: "Income minus expenditure by period" }),
+    ).toBeVisible();
+    expect(document.querySelector('[data-series="income"]')).toBeNull();
+    expect(document.querySelector('[data-series="expenditure"]')).toBeNull();
+    expect(
+      document.querySelector('[data-series="difference"]'),
+    ).toHaveAttribute("data-dots", "visible");
+  });
+
+  it("shows emergency runway, savings rate, and a portfolio years-to-FI projection", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(FIXED_NOW);
+    mockAssetTracker({
+      financialIndependence: {
+        ...EMPTY_FI,
+        representativeAnnualExpenditure: 24_000,
+        representativeAnnualSavings: 12_000,
+        savingsRate: 0.333,
+        emergencyFund: 9_000,
+        emergencyFundMonths: 4.5,
+        target: 600_000,
+        progress: 0.25,
+        expectedRealReturn: 0.04,
+        projection: [
+          { date: "2026-07-03", projected: 150_000 },
+          { date: "2038-07-03", projected: 600_100 },
+        ],
+        projectedFiDate: "2038-07-03",
+        yearsToFi: 12,
+      },
+    });
+
+    render(<PortfolioGoal />);
+
+    expect(screen.getByText("33.3%")).toBeVisible();
+    expect(screen.getByText("£9,000")).toBeVisible();
+    expect(screen.getByText("4.5 months without income")).toBeVisible();
+    expect(screen.getByText("12.0 years")).toBeVisible();
+    expect(screen.getByText("Around Jul 2038")).toBeVisible();
+    expect(
+      screen.getByRole("img", {
+        name: "Projected portfolio net worth against the financial independence target",
+      }),
+    ).toBeVisible();
+  });
+});
+
+describe("AssetAllocationHistoryChart", () => {
+  it("plots percentage series and exposes an accessible data table", () => {
+    render(
+      <AssetAllocationHistoryChart
+        data={[
+          { date: "2025-01-01", totalAssets: 100_000, cash: 0.2, stocks: 0.8 },
+          { date: "2026-01-01", totalAssets: 120_000, cash: 0.1, stocks: 0.9 },
+        ]}
+      />,
+    );
+
+    expect(
+      screen.getByRole("img", {
+        name: "Percentage of assets by asset type over time",
+      }),
+    ).toBeVisible();
+    expect(document.querySelector('[data-series="cash"]')).toBeVisible();
+    expect(document.querySelector('[data-series="stocks"]')).toBeVisible();
+    expect(
+      screen.getByRole("table", {
+        name: "Percentage of assets by asset type over time",
+      }),
+    ).toHaveTextContent("2025-01-0120.0%80.0%2026-01-0110.0%90.0%");
+  });
+});
+
+describe("PortfolioContributionChart", () => {
+  it("plots contributed capital independently of worth and exposes its data", () => {
+    render(
+      <PortfolioContributionChart
+        data={[
+          { date: "2025-01-01", contributedCapital: 80_000 },
+          { date: "2026-01-01", contributedCapital: 92_500 },
+        ]}
+      />,
+    );
+
+    expect(
+      screen.getByRole("img", {
+        name: "Cumulative contributed capital over time",
+      }),
+    ).toBeVisible();
+    expect(
+      document.querySelector('[data-series="contributedCapital"]'),
+    ).toBeVisible();
+    expect(
+      screen.getByRole("table", {
+        name: "Cumulative contributed capital over time",
+      }),
+    ).toHaveTextContent("2025-01-01£80,0002026-01-01£92,500");
+  });
+
+  it("explains how to populate an empty contribution history", () => {
+    render(<PortfolioContributionChart data={[]} />);
+
+    expect(
+      screen.getByText(/Import an account's “Total contributed to date”/),
+    ).toBeVisible();
   });
 });
 

@@ -4,18 +4,21 @@ import {
   AssetTrackerDataSchema,
   applyAddRecurringFlow,
   applyClearAccountHistory,
+  applyClearIncomeHistory,
   applyCloseAccount,
   applyCreateAccount,
   applyDeleteCapitalFlow,
   applyDeleteRecurringFlow,
   applyDeleteSnapshot,
   applyImportAccountHistory,
+  applyImportIncomeHistory,
   applyMaterializeFlow,
   applyRecordBalance,
   applyRecordTransfer,
   applySetExpectedReturn,
   applySetInflation,
   applySetNetWorthTarget,
+  applySetWithdrawalRate,
   buildRepository,
   type ClearAccountHistoryInput,
   type CloseAccountInput,
@@ -26,12 +29,14 @@ import {
   getEmptyData,
   getSeedData,
   type ImportAccountHistoryInput,
+  type ImportIncomeHistoryInput,
   type MaterializeFlowInput,
   type RecordBalanceInput,
   type RecordTransferInput,
   type SetExpectedReturnInput,
   type SetInflationInput,
   type SetNetWorthTargetInput,
+  type SetWithdrawalRateInput,
 } from "@/lib/domain/assettracker";
 
 /**
@@ -55,6 +60,10 @@ export interface AssetTrackerApi {
   importAccountHistory(
     input: ImportAccountHistoryInput,
   ): Promise<AssetTrackerData>;
+  importIncomeHistory(
+    input: ImportIncomeHistoryInput,
+  ): Promise<AssetTrackerData>;
+  clearIncomeHistory(): Promise<AssetTrackerData>;
   addRecurringFlow(input: AddRecurringFlowInput): Promise<AssetTrackerData>;
   deleteRecurringFlow(
     input: DeleteRecurringFlowInput,
@@ -63,6 +72,7 @@ export interface AssetTrackerApi {
   setExpectedReturn(input: SetExpectedReturnInput): Promise<AssetTrackerData>;
   setInflation(input: SetInflationInput): Promise<AssetTrackerData>;
   setNetWorthTarget(input: SetNetWorthTargetInput): Promise<AssetTrackerData>;
+  setWithdrawalRate(input: SetWithdrawalRateInput): Promise<AssetTrackerData>;
   importData(raw: unknown): Promise<AssetTrackerData>;
   clear(): Promise<AssetTrackerData>;
   reset(): Promise<AssetTrackerData>;
@@ -77,7 +87,21 @@ export type AssetTrackerLoadResult = {
 export const ASSET_TRACKER_STORAGE_KEY = "assettracker:data:v1";
 
 function parseStored(raw: string): AssetTrackerData {
-  const data = AssetTrackerDataSchema.parse(JSON.parse(raw));
+  const parsed = AssetTrackerDataSchema.parse(JSON.parse(raw));
+  const incomeByDate = new Map(
+    parsed.incomeHistory.map((record) => [record.date, record]),
+  );
+  // Earlier/hand-edited data may contain duplicate period ends. Keep the last
+  // value so one bad series cannot hide the user's otherwise valid portfolio.
+  const data =
+    incomeByDate.size === parsed.incomeHistory.length
+      ? parsed
+      : {
+          ...parsed,
+          incomeHistory: Array.from(incomeByDate.values()).sort((a, b) =>
+            a.date.localeCompare(b.date),
+          ),
+        };
   buildRepository(data); // referential integrity (duplicate IDs, orphan snapshots)
   return data;
 }
@@ -133,6 +157,12 @@ export function createLocalAssetTrackerApi(storage: Storage): AssetTrackerApi {
     async importAccountHistory(input) {
       return write(applyImportAccountHistory(current(), input));
     },
+    async importIncomeHistory(input) {
+      return write(applyImportIncomeHistory(current(), input));
+    },
+    async clearIncomeHistory() {
+      return write(applyClearIncomeHistory(current()));
+    },
     async addRecurringFlow(input) {
       return write(applyAddRecurringFlow(current(), input));
     },
@@ -150,6 +180,9 @@ export function createLocalAssetTrackerApi(storage: Storage): AssetTrackerApi {
     },
     async setNetWorthTarget(input) {
       return write(applySetNetWorthTarget(current(), input));
+    },
+    async setWithdrawalRate(input) {
+      return write(applySetWithdrawalRate(current(), input));
     },
     async importData(raw) {
       const data = AssetTrackerDataSchema.parse(raw);

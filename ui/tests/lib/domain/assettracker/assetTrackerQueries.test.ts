@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 import type { AssetTrackerData } from "@/lib/domain/assettracker/assetTrackerData";
 import {
   getAccountDetail,
+  getAssetAllocationTimeSeries,
   getNetWorthTimeSeries,
+  getPortfolioContributionTimeSeries,
   getTotalByAssetType,
 } from "@/lib/domain/assettracker/assetTrackerQueries";
 import { buildRepository } from "@/lib/domain/assettracker/assetTrackerRepository";
@@ -45,9 +47,10 @@ function homeData(): AssetTrackerData {
       { accountId: "card", date: "2024-01-01", balance: -2000 },
     ],
     capitalFlows: [],
+    incomeHistory: [],
     transfers: [],
     recurringFlows: [],
-    settings: { expectedAnnualInflation: 0.025 },
+    settings: { expectedAnnualInflation: 0.025, withdrawalRate: 0.04 },
   };
 }
 
@@ -67,6 +70,82 @@ describe("getTotalByAssetType", () => {
   });
 });
 
+describe("getAssetAllocationTimeSeries", () => {
+  it("tracks asset-type percentages over time and treats property as home equity", () => {
+    const data = homeData();
+    data.accounts.push({
+      id: "cash",
+      name: "Emergency fund",
+      provider: "Bank",
+      currency: "GBP",
+      assetType: "cash",
+      expectedAnnualReturn: 0,
+      createdAt: "2023-01-01",
+    });
+    data.snapshots.push(
+      { accountId: "cash", date: "2024-01-01", balance: 10_000 },
+      { accountId: "home", date: "2025-01-01", balance: 320_000 },
+      { accountId: "mortgage", date: "2025-01-01", balance: -200_000 },
+      { accountId: "cash", date: "2025-01-01", balance: 20_000 },
+    );
+
+    const series = getAssetAllocationTimeSeries(buildRepository(data));
+
+    expect(series).toHaveLength(2);
+    expect(series[0]).toMatchObject({
+      date: "2024-01-01",
+      totalAssets: 100_000,
+      cash: 0.1,
+      property: 0.9,
+    });
+    expect(series[1]).toMatchObject({
+      date: "2025-01-01",
+      totalAssets: 140_000,
+    });
+    expect(series[1]?.cash).toBeCloseTo(1 / 7);
+    expect(series[1]?.property).toBeCloseTo(6 / 7);
+    expect(series[1]?.debt).toBeUndefined();
+    expect(series[1]?.mortgage).toBeUndefined();
+  });
+
+  it("removes closed accounts even when a closing-day snapshot is non-zero", () => {
+    const data = homeData();
+    data.accounts = [
+      {
+        id: "cash",
+        name: "Cash",
+        provider: "Bank",
+        currency: "GBP",
+        assetType: "cash",
+        expectedAnnualReturn: 0,
+        createdAt: "2024-01-01",
+      },
+      {
+        id: "stocks",
+        name: "Old ISA",
+        provider: "Broker",
+        currency: "GBP",
+        assetType: "stocks",
+        expectedAnnualReturn: 0.05,
+        createdAt: "2024-01-01",
+        closedAt: "2025-01-01",
+      },
+    ];
+    data.snapshots = [
+      { accountId: "cash", date: "2024-01-01", balance: 10_000 },
+      { accountId: "stocks", date: "2024-01-01", balance: 10_000 },
+      { accountId: "cash", date: "2025-01-01", balance: 20_000 },
+      { accountId: "stocks", date: "2025-01-01", balance: 10_000 },
+    ];
+
+    const series = getAssetAllocationTimeSeries(buildRepository(data));
+
+    expect(series[0]).toMatchObject({ cash: 0.5, stocks: 0.5 });
+    expect(series[1]).toMatchObject({ cash: 1, totalAssets: 20_000 });
+    expect(series[1]?.stocks).toBeUndefined();
+  });
+});
+
 describe("getNetWorthTimeSeries", () => {
   it("folds the mortgage into the property series and totals net worth", () => {
     const series = getNetWorthTimeSeries(buildRepository(homeData()));
@@ -75,6 +154,45 @@ describe("getNetWorthTimeSeries", () => {
     expect(point?.Home).toBe(90000);
     expect(point?.Mortgage).toBeUndefined();
     expect(point?.total).toBe(88000); // 90,000 equity − 2,000 card
+  });
+});
+
+describe("getPortfolioContributionTimeSeries", () => {
+  it("accumulates imported and recorded external capital while internal transfers cancel", () => {
+    const data = homeData();
+    data.capitalFlows = [
+      { accountId: "home", date: "2023-01-01", amount: 10_000 },
+      { accountId: "home", date: "2023-02-01", amount: 500 },
+      { accountId: "mortgage", date: "2023-02-01", amount: -500 },
+    ];
+    data.transfers = [
+      {
+        id: "deposit",
+        date: "2023-03-01",
+        toAccountId: "home",
+        amount: 1_000,
+      },
+      {
+        id: "withdrawal",
+        date: "2023-04-01",
+        fromAccountId: "home",
+        amount: 200,
+      },
+      {
+        id: "internal",
+        date: "2023-05-01",
+        fromAccountId: "home",
+        toAccountId: "mortgage",
+        amount: 300,
+      },
+    ];
+
+    expect(getPortfolioContributionTimeSeries(buildRepository(data))).toEqual([
+      { date: "2023-01-01", contributedCapital: 10_000 },
+      { date: "2023-02-01", contributedCapital: 10_000 },
+      { date: "2023-03-01", contributedCapital: 11_000 },
+      { date: "2023-04-01", contributedCapital: 10_800 },
+    ]);
   });
 });
 

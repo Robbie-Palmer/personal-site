@@ -1,4 +1,9 @@
-import type { AccountId, AssetType } from "./account";
+import {
+  type Account,
+  type AccountId,
+  type AssetType,
+  isLiability,
+} from "./account";
 import {
   computeMoneyWeightedReturn,
   type ExternalFlow,
@@ -78,6 +83,165 @@ export function getNetWorthTimeSeries(
     Array.from(repository.accounts.values()),
     repository.snapshots,
   );
+}
+
+export type PortfolioContributionDataPoint = {
+  date: string;
+  /** Deposits less withdrawals accumulated across the whole portfolio. */
+  contributedCapital: number;
+};
+
+/**
+ * Portfolio-level cumulative contributed capital, kept independent of market
+ * value. Equal signed flows for an internal transfer cancel in the total.
+ */
+export function getPortfolioContributionTimeSeries(
+  repository: AssetTrackerRepository,
+): PortfolioContributionDataPoint[] {
+  const flows = repository.capitalFlows.map(({ date, amount }) => ({
+    date,
+    amount,
+  }));
+  for (const transfer of repository.transfers) {
+    if (transfer.fromAccountId == null && transfer.toAccountId != null) {
+      flows.push({ date: transfer.date, amount: transfer.amount });
+    } else if (transfer.toAccountId == null && transfer.fromAccountId != null) {
+      flows.push({ date: transfer.date, amount: -transfer.amount });
+    }
+  }
+  flows.sort((a, b) => a.date.localeCompare(b.date));
+
+  const points: PortfolioContributionDataPoint[] = [];
+  let contributedCapital = 0;
+  for (const flow of flows) {
+    contributedCapital =
+      Math.round((contributedCapital + flow.amount) * 100) / 100;
+    const currentDate = points.at(-1);
+    if (currentDate?.date === flow.date) {
+      currentDate.contributedCapital = contributedCapital;
+    } else {
+      points.push({ date: flow.date, contributedCapital });
+    }
+  }
+  return points;
+}
+
+export type AssetAllocationDataPoint = {
+  date: string;
+  /** Positive net asset buckets used as the percentage denominator. */
+  totalAssets: number;
+} & Partial<Record<AssetType, number>>;
+
+function isExcludedFromAllocation(
+  account: Account,
+  date: string,
+  absorbedIds: ReadonlySet<AccountId>,
+): boolean {
+  return (
+    absorbedIds.has(account.id) ||
+    isLiability(account.assetType) ||
+    (account.closedAt != null && account.closedAt <= date)
+  );
+}
+
+function getNetAssetBalance(
+  account: Account,
+  date: string,
+  latestByAccount: ReadonlyMap<AccountId, number>,
+  mortgagesByProperty: ReadonlyMap<AccountId, readonly AccountId[]>,
+  accountsById: ReadonlyMap<AccountId, Account>,
+): number | null {
+  let balance = latestByAccount.get(account.id);
+  if (balance == null) return null;
+
+  for (const mortgageId of mortgagesByProperty.get(account.id) ?? []) {
+    const mortgage = accountsById.get(mortgageId);
+    if (mortgage?.closedAt != null && mortgage.closedAt <= date) continue;
+    balance += latestByAccount.get(mortgageId) ?? 0;
+  }
+  return balance;
+}
+
+function buildAllocationPoint(
+  date: string,
+  accounts: readonly Account[],
+  accountsById: ReadonlyMap<AccountId, Account>,
+  latestByAccount: ReadonlyMap<AccountId, number>,
+  absorbedIds: ReadonlySet<AccountId>,
+  mortgagesByProperty: ReadonlyMap<AccountId, readonly AccountId[]>,
+): AssetAllocationDataPoint | null {
+  const totals = new Map<AssetType, number>();
+  for (const account of accounts) {
+    if (isExcludedFromAllocation(account, date, absorbedIds)) continue;
+    const balance = getNetAssetBalance(
+      account,
+      date,
+      latestByAccount,
+      mortgagesByProperty,
+      accountsById,
+    );
+    if (balance == null || balance <= 0) continue;
+    totals.set(
+      account.assetType,
+      (totals.get(account.assetType) ?? 0) + balance,
+    );
+  }
+
+  const totalAssets = Array.from(totals.values()).reduce(
+    (sum, value) => sum + value,
+    0,
+  );
+  if (totalAssets <= 0) return null;
+
+  const point: AssetAllocationDataPoint = { date, totalAssets };
+  for (const [assetType, total] of totals) {
+    point[assetType] = total / totalAssets;
+  }
+  return point;
+}
+
+/**
+ * Percentage allocation through time, using the same linkage model as the
+ * current composition chart. A linked mortgage therefore reduces property to
+ * home equity. Standalone liabilities and other negative buckets are excluded
+ * because this is allocation *within assets*, not another net-worth series.
+ */
+export function getAssetAllocationTimeSeries(
+  repository: AssetTrackerRepository,
+): AssetAllocationDataPoint[] {
+  const accounts = Array.from(repository.accounts.values());
+  const accountsById = new Map(
+    accounts.map((account) => [account.id, account]),
+  );
+  const dates = Array.from(
+    new Set(repository.snapshots.map((snapshot) => snapshot.date)),
+  ).sort((a, b) => a.localeCompare(b));
+  const snapshots = repository.snapshots.toSorted((a, b) =>
+    a.date.localeCompare(b.date),
+  );
+  const latestByAccount = new Map<AccountId, number>();
+  const { absorbedIds, mortgagesByProperty } = buildLinkage(accounts);
+  let snapshotIndex = 0;
+  const points: AssetAllocationDataPoint[] = [];
+
+  for (const date of dates) {
+    let snapshot = snapshots[snapshotIndex];
+    while (snapshot && snapshot.date <= date) {
+      latestByAccount.set(snapshot.accountId, snapshot.balance);
+      snapshotIndex++;
+      snapshot = snapshots[snapshotIndex];
+    }
+    const point = buildAllocationPoint(
+      date,
+      accounts,
+      accountsById,
+      latestByAccount,
+      absorbedIds,
+      mortgagesByProperty,
+    );
+    if (point) points.push(point);
+  }
+  return points;
 }
 
 /**

@@ -2,6 +2,7 @@ import { z } from "zod";
 import { AccountContentSchema } from "./account";
 import { BalanceSnapshotSchema } from "./balanceSnapshot";
 import { CapitalFlowSchema } from "./capitalFlow";
+import { IncomeRecordSchema } from "./incomeRecord";
 import { RecurringFlowSchema } from "./recurringFlow";
 import { TransferSchema } from "./transfer";
 
@@ -14,6 +15,7 @@ import { TransferSchema } from "./transfer";
  * parses as the model evolves.
  */
 export const DEFAULT_EXPECTED_INFLATION = 0.025;
+export const DEFAULT_WITHDRAWAL_RATE = 0.04;
 
 export const AssetTrackerSettingsSchema = z.object({
   /** Used to express projected values and rates in today's money */
@@ -22,6 +24,8 @@ export const AssetTrackerSettingsSchema = z.object({
   targetNetWorth: z.number().positive().optional(),
   /** When true the target is in today's money, so inflation must be beaten */
   targetNetWorthIsReal: z.boolean().optional(),
+  /** Sustainable annual portfolio withdrawal used to derive the FI target */
+  withdrawalRate: z.number().positive().max(1).default(DEFAULT_WITHDRAWAL_RATE),
 });
 export type AssetTrackerSettings = z.infer<typeof AssetTrackerSettingsSchema>;
 
@@ -29,10 +33,12 @@ export const AssetTrackerDataSchema = z.object({
   accounts: z.array(AccountContentSchema),
   snapshots: z.array(BalanceSnapshotSchema),
   capitalFlows: z.array(CapitalFlowSchema).default([]),
+  incomeHistory: z.array(IncomeRecordSchema).default([]),
   transfers: z.array(TransferSchema).default([]),
   recurringFlows: z.array(RecurringFlowSchema).default([]),
   settings: AssetTrackerSettingsSchema.default({
     expectedAnnualInflation: DEFAULT_EXPECTED_INFLATION,
+    withdrawalRate: DEFAULT_WITHDRAWAL_RATE,
   }),
 });
 

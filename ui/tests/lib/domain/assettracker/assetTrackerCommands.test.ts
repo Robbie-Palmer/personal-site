@@ -3,17 +3,20 @@ import {
   AssetTrackerCommandError,
   applyAddRecurringFlow,
   applyClearAccountHistory,
+  applyClearIncomeHistory,
   applyCloseAccount,
   applyCreateAccount,
   applyDeleteCapitalFlow,
   applyDeleteRecurringFlow,
   applyDeleteSnapshot,
   applyImportAccountHistory,
+  applyImportIncomeHistory,
   applyMaterializeFlow,
   applyRecordBalance,
   applyRecordTransfer,
   applySetExpectedReturn,
   applySetNetWorthTarget,
+  applySetWithdrawalRate,
   formatAssetTrackerError,
 } from "@/lib/domain/assettracker/assetTrackerCommands";
 import type { AssetTrackerData } from "@/lib/domain/assettracker/assetTrackerData";
@@ -68,9 +71,10 @@ function baseData(): AssetTrackerData {
       { accountId: "old-pension", date: "2023-06-30", balance: 0 },
     ],
     capitalFlows: [],
+    incomeHistory: [],
     transfers: [],
     recurringFlows: [],
-    settings: { expectedAnnualInflation: 0.025 },
+    settings: { expectedAnnualInflation: 0.025, withdrawalRate: 0.04 },
   };
 }
 
@@ -377,6 +381,50 @@ describe("applyImportAccountHistory", () => {
         date: "2024-06-01",
       }),
     ).toThrow(/No deposit or withdrawal/);
+  });
+});
+
+describe("portfolio income settings", () => {
+  it("replaces and sorts the complete income history", () => {
+    const imported = applyImportIncomeHistory(baseData(), {
+      income: [
+        { date: "2025-02-28", amount: 4_200 },
+        { date: "2025-01-31", amount: 4_100 },
+      ],
+    });
+
+    expect(imported.incomeHistory).toEqual([
+      { date: "2025-01-31", amount: 4_100 },
+      { date: "2025-02-28", amount: 4_200 },
+    ]);
+    expect(applyClearIncomeHistory(imported).incomeHistory).toEqual([]);
+  });
+
+  it("rejects duplicate income dates and invalid withdrawal rates", () => {
+    let duplicateError: unknown;
+    try {
+      applyImportIncomeHistory(baseData(), {
+        income: [
+          { date: "2025-01-31", amount: 4_100 },
+          { date: "2025-01-31", amount: 4_200 },
+        ],
+      });
+    } catch (error) {
+      duplicateError = error;
+    }
+    expect(formatAssetTrackerError(duplicateError)).toBe(
+      "Duplicate income record on 2025-01-31",
+    );
+    expect(() => applySetWithdrawalRate(baseData(), { rate: 0 })).toThrow(
+      "Withdrawal rate must be positive",
+    );
+  });
+
+  it("stores an editable withdrawal rate", () => {
+    expect(
+      applySetWithdrawalRate(baseData(), { rate: 0.035 }).settings
+        .withdrawalRate,
+    ).toBe(0.035);
   });
 });
 
