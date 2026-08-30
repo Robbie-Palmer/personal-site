@@ -325,6 +325,12 @@ into each service-specific Doppler config.
 - `POSTHOG_PROJECT_ID` (unmasked; syncs to a GitHub Actions variable)
 - `TF_API_TOKEN`
 
+Rotate `CLOUDFLARE_SLACK_WEBHOOK_URL` by creating a replacement webhook URL in
+the Slack app, setting the new value in both `dev_infra` and `prd_infra`,
+running `scripts/sync-doppler-github-envs.sh production-infra`, then running
+`mise run //infra:plan` and applying the destination update. Verify the new
+URL with a test message before deleting the old webhook from the Slack app.
+
 `prd_bootstrap_infra` should own:
 
 - `GCP_PROJECT_ID` (unmasked)
