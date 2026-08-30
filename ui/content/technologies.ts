@@ -154,6 +154,14 @@ export const technologies: TechnologyContent[] = [
     type: "library",
   },
   {
+    name: "reveal.js",
+    added: "2026-08-30",
+    description:
+      "HTML presentation engine with navigation, speaker tools, and PDF export",
+    website: "https://revealjs.com",
+    type: "library",
+  },
+  {
     name: "Claude Code",
     added: "2026-01-04",
     description: "AI-powered coding assistant",
