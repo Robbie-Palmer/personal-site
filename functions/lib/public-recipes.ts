@@ -42,7 +42,7 @@ function isRecipeVisibility(
   return value === "public" || value === "private" || value === "household";
 }
 
-function isStoredRecipe(value: unknown): value is StoredRecipe {
+export function isStoredRecipe(value: unknown): value is StoredRecipe {
   return (
     isRecord(value) &&
     typeof value.slug === "string" &&
