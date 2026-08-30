@@ -15,7 +15,7 @@ household sharing, and user-specific writes.
 
 # Context
 
-Multiple platform-level controls already exist elsewhere in the site architecture, including:
+Several platform-level controls already exist elsewhere in the site architecture, including:
 
 * repository and CI protections
 * GitHub/secret-management decisions
@@ -31,7 +31,7 @@ What is new here is **application security**:
 
 The chosen backend,
 [Cloudflare Workers](/projects/recipe-site/adrs/033-backend-platform-for-authenticated-features), provides
-multiple security properties by default that reduce the baseline we need to implement ourselves.
+several security properties by default that reduce the baseline we need to implement ourselves.
 
 # Decision
 
@@ -55,7 +55,7 @@ Before authenticated features go live, the application must provide this baselin
 
 ## Workers Security Properties
 
-The Cloudflare Workers runtime provides multiple security properties at no cost:
+The Cloudflare Workers runtime provides several security properties at no cost:
 
 | Property                           | What it means                                                                                                                                                                                  |
 | ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

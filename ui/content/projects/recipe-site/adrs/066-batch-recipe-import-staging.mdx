@@ -47,7 +47,7 @@ Batch use cases introduce concerns that do not belong inside a single job:
 * editors need stable per-item navigation without losing unsaved corrections;
 * shared defaults such as visibility and duplicate policy apply across a batch;
 * collection migrations need provenance and a safe whole-batch undo;
-* photo batches need an explicit mapping from many unordered images to multiple recipes;
+* photo batches need an explicit mapping from many unordered images to several recipes;
 * expensive work must remain independently retryable and idempotent.
 
 The existing final draft artifact is immutable evidence of what the model generated. It should not
@@ -215,7 +215,7 @@ than racing the safety check.
 
 ## Require a Photo Grouping Manifest
 
-Photo batches cannot assume one image equals one recipe because a recipe may span multiple pages.
+Photo batches cannot assume one image equals one recipe because a recipe may span several pages.
 Before starting child workflows, persist a grouping manifest containing:
 
 * every uploaded image exactly once unless the user intentionally excludes it;

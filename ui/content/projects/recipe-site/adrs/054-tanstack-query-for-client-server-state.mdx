@@ -30,7 +30,7 @@ That code is not merely HTTP transport. It is a growing, distributed implementat
 
 * is owned remotely and reached asynchronously;
 * can become stale without any local state transition;
-* may be read concurrently by multiple components;
+* may be read concurrently by several components;
 * must be reconciled after mutations;
 * needs pagination, retry, cancellation, garbage-collection, and focus/reconnect policies;
 * must never reuse private data across authenticated users.
@@ -108,15 +108,15 @@ cached queries are stale immediately, stale active queries may refetch on mount/
 inactive queries are garbage-collected, and failed client queries retry three times. Configure
 resource classes explicitly:
 
-| Resource class                                  | Starting policy                          | Reason                                                            |
-| ----------------------------------------------- | ---------------------------------------- | ----------------------------------------------------------------- |
-| Diet option catalogue/reference data            | long `staleTime` (for example one hour)  | changes rarely; invalidate after catalogue deployment if required |
-| User recipe box, saved recipes, diet, profile   | multiple minutes + mutation invalidation | local writes are known; cross-device changes may arrive later     |
-| Notifications and collaborative household views | short `staleTime`, refetch on focus      | other users/devices can change them                               |
-| Discover/public feeds                           | short `staleTime` with pagination        | freshness matters, but cached navigation should remain fast       |
-| Authorization failures (`401`/`403`)            | no retry; reconcile/refetch session      | repeated requests cannot repair identity or permissions           |
-| Validation/not-found failures (`400`/`404`)     | no retry                                 | deterministic client/request result                               |
-| Network and selected `5xx` failures             | bounded retry with backoff               | transient failure may recover                                     |
+| Resource class                                  | Starting policy                         | Reason                                                            |
+| ----------------------------------------------- | --------------------------------------- | ----------------------------------------------------------------- |
+| Diet option catalogue/reference data            | long `staleTime` (for example one hour) | changes rarely; invalidate after catalogue deployment if required |
+| User recipe box, saved recipes, diet, profile   | several minutes + mutation invalidation | local writes are known; cross-device changes may arrive later     |
+| Notifications and collaborative household views | short `staleTime`, refetch on focus     | other users/devices can change them                               |
+| Discover/public feeds                           | short `staleTime` with pagination       | freshness matters, but cached navigation should remain fast       |
+| Authorization failures (`401`/`403`)            | no retry; reconcile/refetch session     | repeated requests cannot repair identity or permissions           |
+| Validation/not-found failures (`400`/`404`)     | no retry                                | deterministic client/request result                               |
+| Network and selected `5xx` failures             | bounded retry with backoff              | transient failure may recover                                     |
 
 Use query invalidation after successful mutations as the default consistency mechanism. Apply a
 direct cache update when the server returns the canonical updated entity. Reserve optimistic

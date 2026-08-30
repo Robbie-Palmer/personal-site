@@ -26,34 +26,5 @@
     "remark-preset-lint-recommended": "^7.0.0",
     "tsx": "^4.23.12",
     "yaml-lint": "^1.7.0"
-  },
-  "lint-staged": {
-    "ui/**/*.{ts,tsx,js,jsx,json}": [
-      "mise run //ui:format"
-    ],
-    "infra/**/*.tf": [
-      "mise run //infra:format",
-      "mise run //infra:precommit-lint",
-      "mise run //infra:lint:tflint"
-    ],
-    "infra-bootstrap/**/*.tf": [
-      "mise run //infra-bootstrap:format",
-      "mise run //infra-bootstrap:precommit-lint",
-      "mise run //infra-bootstrap:lint:tflint"
-    ],
-    "**/*.md": [
-      "mise run //:lint:markdown",
-      "mise run //:lint:prose:staged"
-    ],
-    "**/*.mdx": [
-      "mise run //:lint:mdx",
-      "mise run //:lint:prose:staged"
-    ],
-    "*.{yml,yaml}": [
-      "mise run //:lint:yaml"
-    ],
-    "homelab/**/*.{yml,yaml}": [
-      "mise run //:lint:yaml"
-    ]
   }
 }

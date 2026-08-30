@@ -14,7 +14,7 @@ I want a tool that enables high velocity for iterating on models, targets, domai
 
 **Dataset versioning.** The pipeline operates on a dataset of recipe images paired with ground-truth
 annotations. These assets are too large and too binary to track in git: even a modest initial batch of images at
-a few megabytes each would bloat every clone and make git operations slow,
+several megabytes each would bloat every clone and make git operations slow,
 and the dataset is expected to grow to hundreds of images as more of the physical recipe book is digitised.
 The target schema will also evolve as we build new features, find new edge cases etc.
 The dataset must be versioned, pinned to a specific hash, so that every experiment can reproduce its exact

@@ -203,7 +203,7 @@ includes:
 ## Cooking
 
 * **Large-text, step-by-step cooking mode** with previous/next navigation and an up-next preview
-* **Inline and custom timers** that persist while navigating, support multiple concurrent timers, and use the
+* **Inline and custom timers** that persist while navigating, support several concurrent timers, and use the
   Screen Wake Lock API where available
 * **Ingredient checklists and equipment lists** alongside the instructions
 * **Cooking sessions and insights** recording starts, completed meals, recently cooked recipes, and variety
@@ -338,7 +338,7 @@ Track whether the suggestion is saved, planned, cooked, repeated, or dismissed, 
 when the behaviour is ambiguous. Community suggestions can come from the graph, but joining, identity, and
 governance should remain human choices rather than silently assigning people to algorithmic cohorts.
 
-Discovery should expose multiple kinds of value instead of replacing five stars with frequency. A reliable
+Discovery should expose several kinds of value instead of replacing five stars with frequency. A reliable
 Tuesday staple, a high-effort celebration dish, and a useful batch-cooking base can all succeed on different
 axes. Let people choose the occasion and show separate evidence for enjoyment, effort, reliability, and repeat
 use wherever the sample supports it.
@@ -507,7 +507,7 @@ document under [`designs/`](https://github.com/Robbie-Palmer/personal-site/tree/
 # Competitor Analysis
 
 The recipe app market has moved beyond the fragmented feature landscape that motivated this project. No single
-product leads every part of the lifecycle, but multiple now cover most of it. As the Cooklang team
+product leads every part of the lifecycle, but several now cover most of it. As the Cooklang team
 [put it](https://cooklang.org/blog/09-cooklang-vs-paprika-vs-mealie/): "every step between 'I want to
 make that' and 'I'm cooking' is a chance to order takeout instead." The most polished cooking experiences still
 skew toward Apple's ecosystem. Import apps have expanded rapidly beyond capture. Self-hosted products cover the
@@ -736,7 +736,7 @@ focused, item-by-item review queue.
 | **[Plan to Eat](https://learn.plantoeat.com/help/import-recipe-files-from-other-programs)**                                          | Imports established collection formats, supports up to 3,000 recipes in one file, and continues after the user leaves the page.                                                                                                                                                                                                                                  | Users choose whether matching titles should be overwritten. Progress and failures are reported beside individual recipe titles.                                                                    | Decide duplicate policy during preflight and isolate failures to individual items rather than failing the batch.                             |
 | **[Paprika](https://www.paprikaapp.com/help/windows/)** and **[AnyList](https://www.anylist.com/recipes/browser-extensions/safari)** | Paprika imports trusted database formats wholesale; both products handle ordinary website capture one recipe at a time.                                                                                                                                                                                                                                          | Individual web imports are shown in an editable recipe screen before the user saves them.                                                                                                          | Keep migration and everyday capture as related but distinct modes, and reuse the familiar edit-before-save experience for uncertain results. |
 | **[CookBook](https://help.cookbookmanager.com/en/article/how-to-import-recipes-from-another-app-1wqhgjs/)**                          | Individual files are self-service, while large collection transfers are queued as a separate assisted service.                                                                                                                                                                                                                                                   | A single imported file is reviewed before saving; collection imports complete in the background and notify the user.                                                                               | A collection import is migration infrastructure, not merely a file input with `multiple` enabled.                                            |
-| **Document and receipt tools**                                                                                                       | [Expensify](https://help.expensify.com/articles/expensify-classic/expenses/Add-an-expense) treats rapid-fire receipt photos as separate items. [Dext](https://help.dext.com/en/articles/416680-why-was-my-document-rejected) sends uploads containing multiple transactions to a manual split tool.                                                              | [Adobe Acrobat](https://helpx.adobe.com/acrobat/web/edit-pdfs/organize-documents/organize-pages.html) uses a visual thumbnail workspace to reorder, insert, rotate, or remove pages before saving. | For photos, expose page grouping and ordering before extraction instead of relying on an invisible boundary guess.                           |
+| **Document and receipt tools**                                                                                                       | [Expensify](https://help.expensify.com/articles/expensify-classic/expenses/Add-an-expense) treats rapid-fire receipt photos as separate items. [Dext](https://help.dext.com/en/articles/416680-why-was-my-document-rejected) sends uploads containing several transactions to a manual split tool.                                                               | [Adobe Acrobat](https://helpx.adobe.com/acrobat/web/edit-pdfs/organize-documents/organize-pages.html) uses a visual thumbnail workspace to reorder, insert, rotate, or remove pages before saving. | For photos, expose page grouping and ordering before extraction instead of relying on an invisible boundary guess.                           |
 
 ### Product Direction
 
@@ -782,16 +782,16 @@ current product site or docs do not establish the capability; it is deliberately
 
 ### Capture and Migration
 
-| Capability                  | Flavorish             | Recify            | Honeydew                    | Tandoor                             | **Recipe Site**                       |
-| --------------------------- | --------------------- | ----------------- | --------------------------- | ----------------------------------- | ------------------------------------- |
-| **Website import**          | AI                    | AI                | AI                          | Structured web import               | **schema.org import**                 |
-| **Photo / document import** | AI photos             | AI photos         | AI photos                   | **AI image, PDF, and text**         | **AI photo workflow**                 |
-| **Social media import**     | Major platforms       | Major platforms   | Major platforms             | No documented first-class flow      | Roadmap                               |
-| **Collection migration**    | Multiple app archives | Not documented    | Not documented              | **Many app archives and formats**   | Cooklang files today; batch roadmap   |
-| **Correction workflow**     | Edit after import     | Editing confirmed | **Review/edit before save** | Import/editor flow                  | **Live editor; durable queue next**   |
-| **AI provider choice**      | Vendor-managed        | Vendor-managed    | Vendor-managed              | **LiteLLM providers + cost limits** | OpenRouter behind owned pipeline      |
-| **Storage ownership**       | Vendor cloud          | Not documented    | Vendor cloud                | **Self-host or hosted**             | **Owned database + portable exports** |
-| **Cooking after capture**   | Multi-recipe mode     | Full-screen swipe | Screen-on + offline         | Standard recipe view                | **Step mode + persistent timers**     |
+| Capability                  | Flavorish            | Recify            | Honeydew                    | Tandoor                             | **Recipe Site**                       |
+| --------------------------- | -------------------- | ----------------- | --------------------------- | ----------------------------------- | ------------------------------------- |
+| **Website import**          | AI                   | AI                | AI                          | Structured web import               | **schema.org import**                 |
+| **Photo / document import** | AI photos            | AI photos         | AI photos                   | **AI image, PDF, and text**         | **AI photo workflow**                 |
+| **Social media import**     | Major platforms      | Major platforms   | Major platforms             | No documented first-class flow      | Roadmap                               |
+| **Collection migration**    | Several app archives | Not documented    | Not documented              | **Many app archives and formats**   | Cooklang files today; batch roadmap   |
+| **Correction workflow**     | Edit after import    | Editing confirmed | **Review/edit before save** | Import/editor flow                  | **Live editor; durable queue next**   |
+| **AI provider choice**      | Vendor-managed       | Vendor-managed    | Vendor-managed              | **LiteLLM providers + cost limits** | OpenRouter behind owned pipeline      |
+| **Storage ownership**       | Vendor cloud         | Not documented    | Vendor cloud                | **Self-host or hosted**             | **Owned database + portable exports** |
+| **Cooking after capture**   | Multi-recipe mode    | Full-screen swipe | Screen-on + offline         | Standard recipe view                | **Step mode + persistent timers**     |
 
 ### Personal Food Lifecycle
 
@@ -1011,14 +1011,14 @@ lead to an editable preview before a recipe is saved.
 
 Batch migration is the next architectural step. One URL or ordinary file should map to one review item;
 collection archives should expand into independently recoverable items with shared provenance. Photo batches
-need an explicit grouping board because one recipe may span multiple images. Failures and ambiguity must remain
+need an explicit grouping board because one recipe may span several images. Failures and ambiguity must remain
 item-scoped so one bad source never blocks the rest of a collection.
 
 # Building Philosophy
 
 This project follows my [building philosophy](/projects?tab=philosophy).
 
-The recipe site is a textbook case for multiple principles:
+The recipe site is a textbook case for several principles:
 
 * **Short feedback loops**, the static recipe list shipped first; real use then pulled cooking mode, timers,
   shopping, and kitchen state forward

@@ -35,7 +35,7 @@ Three architecture families were evaluated:
 | **Node server + Postgres**  | Traditional backend on separate hosting | Maximum flexibility, standard ecosystem              | Most operational overhead, breaks Cloudflare continuity |
 | **Convex**                  | Integrated backend platform             | Highest productivity, zero infrastructure            | Document DB, vendor-specific APIs, no real-time need    |
 
-Multiple constraints narrowed the field:
+Several constraints narrowed the field:
 
 1. **No real-time requirement.** Household sharing, favorites, and cooking logs are
    request/response. Nobody needs to see a heart icon update live across devices. This removed
