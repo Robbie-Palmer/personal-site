@@ -59,6 +59,7 @@ import {
   authorizeOwnerOnly,
   authorizeRecipeRead,
   forbidden,
+  hasSessionSignal,
   loadBetterAuthSession,
   unauthenticated,
 } from "./http/authorization";
@@ -227,6 +228,10 @@ const recipeListLimitSchema = z.coerce.number().int().min(1).max(100).default(10
 const RECIPE_BOOTSTRAP_LIMIT = 10_000;
 const publicCookIdSchema = z.string().trim().min(1).max(128);
 const PUBLIC_COOK_CONNECTION_LIMIT = 50;
+const PUBLIC_RECIPE_READ_CACHE_CONTROL =
+  "public, s-maxage=60, stale-while-revalidate=300";
+const PRIVATE_RECIPE_READ_CACHE_CONTROL = "private, no-store";
+const RECIPE_READ_VARY = "Cookie, Authorization";
 const feedViewerMembership = alias(schema.member, "feed_viewer_membership");
 const feedRecipeOwnerMembership = alias(
   schema.member,
@@ -1066,6 +1071,19 @@ function invalidSlugResponse(c: Context<AppEnv>) {
     },
     400,
   );
+}
+
+function setRecipeReadCacheHeaders(
+  c: Context<AppEnv>,
+  anonymousPublicRead: boolean,
+): void {
+  c.header(
+    "Cache-Control",
+    anonymousPublicRead
+      ? PUBLIC_RECIPE_READ_CACHE_CONTROL
+      : PRIVATE_RECIPE_READ_CACHE_CONTROL,
+  );
+  c.header("Vary", RECIPE_READ_VARY);
 }
 
 function parseRecipeSlug(c: Context<AppEnv>) {
@@ -4858,15 +4876,18 @@ registerRoute("get", "/recipes", async (c) => {
         "recipes.list.query",
         async () => {
           let visibilityFilter: SQL | undefined;
+          let authenticated = false;
           if (scope === "owned") {
             const session = await requireRecipeSession(c, db);
             if (!session.success) return session.response;
+            authenticated = true;
             visibilityFilter = eq(
               schema.recipe.userId,
               session.session.user.id,
             );
           } else {
             const session = await loadOptionalRecipeSession(c, db);
+            authenticated = Boolean(session);
             visibilityFilter = await readableRecipeFilter(db, session?.user.id);
           }
           const page = await listRecipesPage(
@@ -4875,13 +4896,17 @@ registerRoute("get", "/recipes", async (c) => {
             cursor,
             limit.data,
           );
-          return page;
+          return { page, authenticated };
         },
         { "app.recipe.scope": scope ?? "readable" },
       );
       if (queryResult instanceof Response) return queryResult;
-      const page = queryResult;
+      const { page } = queryResult;
       const items = page.recipes.map(recipeResponse);
+      setRecipeReadCacheHeaders(
+        c,
+        !queryResult.authenticated && !hasSessionSignal(c),
+      );
       return withRecipeApiSpan(c, "http.response.serialize", async () =>
         c.json(paginated ? { items, nextCursor: page.nextCursor } : items),
       );
@@ -4977,6 +5002,10 @@ registerRoute("get", "/recipes/discover/feed", async (c) => {
         .limit(limit.data + 1);
 
       const page = paginateRecipeFeed(rows, limit.data);
+      setRecipeReadCacheHeaders(
+        c,
+        scope.data === "public" && !hasSessionSignal(c),
+      );
       return c.json({
         items: page.items.map(({ recipe, author }) => ({
           type: "recipe_added" as const,
@@ -5064,8 +5093,12 @@ registerRoute("get", "/recipes/cooks", async (c) => {
           .orderBy(desc(schema.recipe.createdAt), desc(schema.recipe.id))
           .limit(30);
         const first = rows[0];
-        if (!first) return c.json({ cook: null });
+        if (!first) {
+          setRecipeReadCacheHeaders(c, !hasSessionSignal(c));
+          return c.json({ cook: null });
+        }
         const connections = await cookConnections(db, cookId.data);
+        setRecipeReadCacheHeaders(c, !hasSessionSignal(c));
         return c.json({
           cook: {
             ...first.author,
@@ -5095,6 +5128,7 @@ registerRoute("get", "/recipes/cooks", async (c) => {
         .where(eq(schema.recipe.visibility, "public"))
         .groupBy(schema.user.id, schema.user.name, schema.user.image)
         .orderBy(desc(latestActivityAt));
+      setRecipeReadCacheHeaders(c, !hasSessionSignal(c));
       return c.json({ cooks });
     },
   );
@@ -5342,6 +5376,12 @@ registerRoute("get", "/recipes/:slug", async (c) => {
         },
       );
       if (queryResult instanceof Response) return queryResult;
+      setRecipeReadCacheHeaders(
+        c,
+        queryResult.recipe.visibility === "public" &&
+          !queryResult.session &&
+          !hasSessionSignal(c),
+      );
       return withRecipeApiSpan(c, "http.response.serialize", async () =>
         c.json({
           ...recipeResponse(queryResult.recipe),
