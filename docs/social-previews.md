@@ -24,7 +24,7 @@ Tools:
 
 ## What to verify
 
-- Featured image renders at the correct size (1200x630 for OG).
+- Featured image renders at the correct size (1200×630 for OG).
 - Title, description, and alt text appear as written.
 - Correct card type (`summary_large_image` for Twitter).
 - No broken images or missing metadata.

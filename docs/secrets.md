@@ -77,8 +77,8 @@ the previous secret.
 
 ## Pages Functions
 
-Pages Functions use the Cloudflare Pages project environment. There is no
-separate OAuth secret needed by Pages Functions today.
+Pages Functions use the Cloudflare Pages project environment. Pages Functions
+need no separate OAuth secret today.
 
 The source of truth for deployed Pages Functions config is the matching
 `*_site_ui` Doppler config. Terraform reads related values from `dev_pages_env`

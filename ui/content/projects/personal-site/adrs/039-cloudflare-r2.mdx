@@ -41,7 +41,7 @@ This makes cost predictable and effectively zero at personal-project scale.
 
 The site already runs on Cloudflare: Pages for hosting [ADR 011](/projects/personal-site/adrs/011-cloudflare-pages), DNS [ADR 028](/projects/personal-site/adrs/028-cloudflare-dns), Images [ADR 029](/projects/personal-site/adrs/029-cloudflare-images), and Terraform for IaC [ADR 017](/projects/personal-site/adrs/017-terraform-cloud).
 Adding R2 keeps everything under one account, one billing relationship, and one set of API tokens, [Less Is More](/projects?tab=philosophy#less-is-more).
-There is no new platform to sign up for, no new IAM model to learn, and no cross-cloud networking to configure.
+No new platform to sign up for, no new IAM model to learn, and no cross-cloud networking to configure.
 
 ### S3 API Compatibility
 
@@ -71,7 +71,7 @@ No separate CDN configuration is needed. Cloudflare's edge network sits in front
 ### Google Cloud Storage
 
 * **Pros**: Tight integration with BigQuery and GCP ML tooling.
-* **Cons**: Same platform sprawl and egress cost issues as S3. No synergy with the existing Cloudflare stack.
+* **Cons**: Same platform sprawl and egress cost issues as S3. No integration with the existing Cloudflare stack.
 * **Decision**: Rejected.
 
 ### Git LFS

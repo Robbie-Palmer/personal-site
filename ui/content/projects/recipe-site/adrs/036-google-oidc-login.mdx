@@ -59,8 +59,8 @@ The supporting setup is:
 * Authorized redirect URIs point at the backend's OAuth callback route.
 
 Sign-up and sign-in are the same gesture: a returning user who authenticates with Google lands on
-their existing account; a new user gets one created on first sign-in. There is no separate
-registration step.
+their existing account; a new user gets one created on first sign-in. No separate
+registration step exists.
 
 ## Infrastructure as Code
 
@@ -114,7 +114,7 @@ special `Domain`/`SameSite` handling, there is no CORS preflight, and Google has
 callback URL on that one origin. This is the
 [backend-for-frontend](https://github.com/better-auth/better-auth/issues/7657) pattern.
 
-So **the deployment will front the auth Worker on the site's own origin** rather than expose it on a
+**The deployment will front the auth Worker on the site's own origin** rather than expose it on a
 separate host. The exact mechanism (a Pages route/proxy, a Cloudflare route binding, or equivalent)
 is left to the backend work, but the two halves must stay same-origin: Cloudflare's default
 `*.pages.dev` / `*.workers.dev` hosts are cross-site and would otherwise force the fragile
@@ -155,7 +155,7 @@ Magic links and passkeys are future layers rather than competitors. Magic links 
 no-account-required fallback for users without Google. Passkeys give individual users full
 phishing-resistance: a passkey-only account is unaffected by the methods other people use, and the
 guarantee is only diluted if a single account links a passkey alongside a weaker method like Google.
-So passkeys are worth adding whenever a user wants stronger protection, with no need to drop Google
+Passkeys are worth adding whenever a user wants stronger protection, with no need to drop Google
 for everyone else.
 
 # Consequences
@@ -165,7 +165,7 @@ for everyone else.
 * **Sign-up is a couple of clicks.** No forms, no password, no email verification step.
 * **No password complexity.** Storage, resets, recovery, and breach response are Google's
   responsibility, not ours.
-* **Smaller security surface.** There is no password store to leak and no credential-stuffing
+* **Smaller security surface.** No password store exists to leak and no credential-stuffing
   target.
 * **Cheap.** No auth-provider cost and no membership fee at MVP scale.
 

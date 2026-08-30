@@ -107,7 +107,7 @@ parent-to-required-child existence. PostgreSQL `CHECK` constraints only inspect 
 written and cannot contain a query that checks another table. PostgreSQL also does not implement
 the SQL-standard database-wide `ASSERTION` feature.
 
-There are database-level ways to enforce this stronger rule. A deferred constraint trigger could
+Database-level ways exist to enforce this stronger rule. A deferred constraint trigger could
 inspect the event and all subtype tables at transaction commit. Repeating `kind` in subtype tables,
 then using composite foreign keys and local checks, could enforce parts of the rule, but would still
 not make the parent event require a child row. Both approaches add duplicated state or trigger

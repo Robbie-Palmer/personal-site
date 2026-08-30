@@ -44,8 +44,8 @@ explicitly.
 ## Kaggle duplicate structure
 
 The Kaggle archive contains 62,126 unique source rows, but only 25,021 unique
-recipe-content signatures. There are 14,353 repeated-content groups accounting
-for 37,105 excess rows. Almost all of this is category expansion: the same
+recipe-content signatures. Those 14,353 repeated-content groups account for
+37,105 excess rows. Almost all of this is category expansion: the same
 title, ingredients, and instructions are repeated once per category while the
 category metadata differs. The stats stage therefore writes both the lossless
 source-shaped `recipes.jsonl` and `recipes-deduplicated.jsonl`, which merges

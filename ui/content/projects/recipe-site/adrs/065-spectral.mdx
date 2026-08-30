@@ -5,7 +5,7 @@ status: "Accepted"
 tech_stack: ["Spectral", "OpenAPI", "oasdiff", "Hono"]
 ---
 
-> **Status — Accepted.** The adopting change migrates the governed routes to
+> **Status: Accepted.** The adopting change migrates the governed routes to
 > `@hono/zod-openapi` `createRoute` declarations, commits the generated OpenAPI
 > contract, blocks contract lint and breaking changes in CI, fixes the audited
 > route drift, and removes the route-convention violation baseline.
@@ -89,7 +89,7 @@ Enforcement:
   `import-url`/`import-file` renamed to reflect that they return drafts,
   `cooking-insights` `POST` split to `cooking-sessions`, `pantry/restore` folded
   into `PATCH /pantry`, and the error envelope unified, verified by the worker's
-  typecheck, unit tests, and a full build. There are no external consumers to
+  typecheck, unit tests, and a full build. No external consumers exist to
   break.
 * **`oasdiff`** diffs the committed `openapi.json` against the PR and fails on
   breaking changes (a removed endpoint, a dropped enum value, a newly-required
@@ -202,7 +202,7 @@ silently redden an unrelated PR.
   genuine state transitions; that allowlist must stay small and reviewed, or it
   becomes a place to hide new RPC endpoints.
 * **OWASP false positives.** Bounded strings remain blocking, while the semantic
-  format/pattern rule is disabled for free-form human text. The upstream
+  format/pattern rule is disabled in free-form human text. The upstream
   rate-limit-header rule is replaced with a scoped blocking rule for the five
   operations that actually rate-limit, and the CORS-header rule is disabled
   because this is a same-origin API behind Pages Functions.
@@ -219,7 +219,7 @@ silently redden an unrelated PR.
 * The four audited drift classes are fixed while the API still has one atomic
   consumer, before any of them calcifies into a breaking change.
 * The committed `openapi.json` becomes documentation, a typed-client source, and
-  machine-readable context for agents, for free once generated.
+  machine-readable context for agents, at no cost once generated.
 
 ## Negative
 

@@ -156,8 +156,8 @@ that first consumes the schema. The sequence is:
 1. run `drizzle-kit migrate` against the direct Neon migration URL;
 2. deploy the Worker.
 
-Migrations do not run inside Worker startup or through Hyperdrive. There is one
-serialized CI/CD migration runner, and its completion gates the application
+Migrations do not run inside Worker startup or through Hyperdrive. One
+serialized CI/CD migration runner exists, and its completion gates the application
 deployment.
 
 Schema changes must be backward-compatible with the Worker version already

@@ -64,6 +64,6 @@ Configuration uses `threshold: 0.1` for predictable substring matching and `igno
 ### Cons
 
 * **Larger Bundle**: \~25KB gzipped is larger than FlexSearch (\~7KB). However, this is acceptable for a content-focused site where search significantly improves UX.
-* **Client-Side Performance**: Search runs on the user's device. For very large datasets (thousands of posts), this could be slow on low-end devices. Currently fine for a personal blog with fewer than 100 posts.
+* **Client-Side Performance**: Search runs on the user's device. For large datasets (thousands of posts), this could be slow on low-end devices. Currently fine for a personal blog with fewer than 100 posts.
 * **No Advanced Features**: Lacks stemming (Lunr's "running" → "run"), language-specific tokenization, or relevance tuning that dedicated search engines provide. Acceptable tradeoff for simplicity.
 * **Search on Every Keystroke**: No built-in debouncing or search-as-you-type optimization. Must implement this separately if needed (currently acceptable for small post counts).

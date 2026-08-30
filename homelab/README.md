@@ -130,7 +130,7 @@ mise run //homelab:media-provision   # re-run wiring; safe to repeat
 - **qBittorrent bans IPs after five failed logins** for an hour. Scripts
   should try each credential once; if you lock yourself out,
   `docker restart qbittorrent` clears the ban list.
-- **First provisioning needs a clean slate**: qBittorrent's temporary
+- **First provisioning has no preset password**: qBittorrent's temporary
   first-boot password comes from its logs, so wiping
   `data/qbittorrent/` and re-running bootstrap is the reset path.
 - **New shared host directories require colima to know `/Volumes` is
