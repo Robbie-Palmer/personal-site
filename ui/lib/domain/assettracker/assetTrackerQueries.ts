@@ -96,6 +96,9 @@ export function getAssetAllocationTimeSeries(
   repository: AssetTrackerRepository,
 ): AssetAllocationDataPoint[] {
   const accounts = Array.from(repository.accounts.values());
+  const accountsById = new Map(
+    accounts.map((account) => [account.id, account]),
+  );
   const dates = Array.from(
     new Set(repository.snapshots.map((snapshot) => snapshot.date)),
   ).sort((a, b) => a.localeCompare(b));
@@ -116,12 +119,18 @@ export function getAssetAllocationTimeSeries(
 
     const totals = new Map<AssetType, number>();
     for (const account of accounts) {
-      if (absorbedIds.has(account.id) || isLiability(account.assetType)) {
+      if (
+        absorbedIds.has(account.id) ||
+        isLiability(account.assetType) ||
+        (account.closedAt != null && account.closedAt <= date)
+      ) {
         continue;
       }
       let balance = latestByAccount.get(account.id);
       if (balance == null) continue;
       for (const mortgageId of mortgagesByProperty.get(account.id) ?? []) {
+        const mortgage = accountsById.get(mortgageId);
+        if (mortgage?.closedAt != null && mortgage.closedAt <= date) continue;
         balance += latestByAccount.get(mortgageId) ?? 0;
       }
       if (balance <= 0) continue;

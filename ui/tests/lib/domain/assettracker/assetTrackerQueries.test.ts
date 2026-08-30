@@ -106,6 +106,43 @@ describe("getAssetAllocationTimeSeries", () => {
     expect(series[1]?.debt).toBeUndefined();
     expect(series[1]?.mortgage).toBeUndefined();
   });
+
+  it("removes closed accounts even when a closing-day snapshot is non-zero", () => {
+    const data = homeData();
+    data.accounts = [
+      {
+        id: "cash",
+        name: "Cash",
+        provider: "Bank",
+        currency: "GBP",
+        assetType: "cash",
+        expectedAnnualReturn: 0,
+        createdAt: "2024-01-01",
+      },
+      {
+        id: "stocks",
+        name: "Old ISA",
+        provider: "Broker",
+        currency: "GBP",
+        assetType: "stocks",
+        expectedAnnualReturn: 0.05,
+        createdAt: "2024-01-01",
+        closedAt: "2025-01-01",
+      },
+    ];
+    data.snapshots = [
+      { accountId: "cash", date: "2024-01-01", balance: 10_000 },
+      { accountId: "stocks", date: "2024-01-01", balance: 10_000 },
+      { accountId: "cash", date: "2025-01-01", balance: 20_000 },
+      { accountId: "stocks", date: "2025-01-01", balance: 10_000 },
+    ];
+
+    const series = getAssetAllocationTimeSeries(buildRepository(data));
+
+    expect(series[0]).toMatchObject({ cash: 0.5, stocks: 0.5 });
+    expect(series[1]).toMatchObject({ cash: 1, totalAssets: 20_000 });
+    expect(series[1]?.stocks).toBeUndefined();
+  });
 });
 
 describe("getNetWorthTimeSeries", () => {
