@@ -26,6 +26,58 @@ function signedCurrency(value: number): string {
   return `${value > 0 ? "+" : "−"}${formatCurrency(Math.abs(value))}`;
 }
 
+function optionalCurrency(value: number | null): string {
+  return value == null ? "—" : formatCurrency(Math.round(value));
+}
+
+function percentage(value: number | null, fractionDigits = 0): string {
+  return value == null ? "—" : `${(value * 100).toFixed(fractionDigits)}%`;
+}
+
+function getYearsToFiLabel(
+  yearsToFi: number | null,
+  hasProjection: boolean,
+): string {
+  if (yearsToFi === 0) return "Reached";
+  if (yearsToFi != null) return `${yearsToFi.toFixed(1)} years`;
+  if (hasProjection) return `>${FI_PROJECTION_MAX_YEARS} years`;
+  return "—";
+}
+
+function getAnnualSavingsDescription(annualSavings: number | null): string {
+  if (annualSavings == null) return "Income retained ÷ income";
+  return `${formatCurrency(Math.round(annualSavings))}/yr median retained`;
+}
+
+function getEmergencyFundDescription(months: number | null): string {
+  if (months == null) return "Add reconciled spending to calculate runway";
+  return `${months.toFixed(1)} months without income`;
+}
+
+function getProjectedFiDescription({
+  projectedFiDate,
+  target,
+  yearsToFi,
+}: {
+  projectedFiDate: string | null;
+  target: number | null;
+  yearsToFi: number | null;
+}): string {
+  if (projectedFiDate != null) {
+    if (yearsToFi === 0) return "Current net worth already meets the target";
+    return `Around ${format(parseISO(projectedFiDate), "MMM yyyy")}`;
+  }
+  if (target == null) return "Needs reconciled income and expenditure";
+  return "At current real return and savings";
+}
+
+function getEmptyReconciliationDescription(hasIncome: boolean): string {
+  if (!hasIncome) {
+    return "Add period income history to derive expenditure and an FI target. Account balances and signed deposits or withdrawals provide the rest of the reconciliation.";
+  }
+  return "Income is saved, but there are not yet two usable balance-sheet dates around an income period. Add complete account balances at matching period ends.";
+}
+
 export function PortfolioGoal() {
   const {
     accounts,
@@ -54,14 +106,15 @@ export function PortfolioGoal() {
     yearsToFi,
   } = financialIndependence;
 
-  const yearsToFiLabel =
-    yearsToFi === 0
-      ? "Reached"
-      : yearsToFi != null
-        ? `${yearsToFi.toFixed(1)} years`
-        : projection.length > 0
-          ? `>${FI_PROJECTION_MAX_YEARS} years`
-          : "—";
+  const yearsToFiLabel = getYearsToFiLabel(yearsToFi, projection.length > 0);
+  const projectedFiDescription = getProjectedFiDescription({
+    projectedFiDate,
+    target,
+    yearsToFi,
+  });
+  const emptyReconciliationDescription = getEmptyReconciliationDescription(
+    incomeHistory.length > 0,
+  );
 
   useEffect(() => {
     setWithdrawalRateDraft(String(withdrawalRate * 100));
@@ -102,9 +155,7 @@ export function PortfolioGoal() {
               Representative annual expenditure
             </p>
             <p className="mt-1 text-xl font-semibold">
-              {representativeAnnualExpenditure == null
-                ? "—"
-                : formatCurrency(Math.round(representativeAnnualExpenditure))}
+              {optionalCurrency(representativeAnnualExpenditure)}
             </p>
             <p className="mt-1 text-xs text-muted-foreground">
               Median annualised period
@@ -138,7 +189,7 @@ export function PortfolioGoal() {
               </label>
             </div>
             <p className="mt-1 text-xl font-semibold">
-              {target == null ? "—" : formatCurrency(Math.round(target))}
+              {optionalCurrency(target)}
             </p>
             <p className="mt-1 text-xs text-muted-foreground">
               Annual expenditure ÷ withdrawal rate
@@ -146,9 +197,7 @@ export function PortfolioGoal() {
           </div>
           <div className="rounded-md border p-3">
             <p className="text-xs text-muted-foreground">FI progress</p>
-            <p className="mt-1 text-xl font-semibold">
-              {progress == null ? "—" : `${Math.round(progress * 100)}%`}
-            </p>
+            <p className="mt-1 text-xl font-semibold">{percentage(progress)}</p>
             <p className="mt-1 text-xs text-muted-foreground">
               {formatCurrency(currentNetWorth)} total net worth, including all
               home equity
@@ -157,12 +206,10 @@ export function PortfolioGoal() {
           <div className="rounded-md border p-3">
             <p className="text-xs text-muted-foreground">Savings rate</p>
             <p className="mt-1 text-xl font-semibold">
-              {savingsRate == null ? "—" : `${(savingsRate * 100).toFixed(1)}%`}
+              {percentage(savingsRate, 1)}
             </p>
             <p className="mt-1 text-xs text-muted-foreground">
-              {representativeAnnualSavings == null
-                ? "Income retained ÷ income"
-                : `${formatCurrency(Math.round(representativeAnnualSavings))}/yr median retained`}
+              {getAnnualSavingsDescription(representativeAnnualSavings)}
             </p>
           </div>
           <div className="rounded-md border p-3">
@@ -171,22 +218,14 @@ export function PortfolioGoal() {
               {formatCurrency(Math.round(emergencyFund))}
             </p>
             <p className="mt-1 text-xs text-muted-foreground">
-              {emergencyFundMonths == null
-                ? "Add reconciled spending to calculate runway"
-                : `${emergencyFundMonths.toFixed(1)} months without income`}
+              {getEmergencyFundDescription(emergencyFundMonths)}
             </p>
           </div>
           <div className="rounded-md border p-3">
             <p className="text-xs text-muted-foreground">Projected FI</p>
             <p className="mt-1 text-xl font-semibold">{yearsToFiLabel}</p>
             <p className="mt-1 text-xs text-muted-foreground">
-              {projectedFiDate == null
-                ? target == null
-                  ? "Needs reconciled income and expenditure"
-                  : "At current real return and savings"
-                : yearsToFi === 0
-                  ? "Current net worth already meets the target"
-                  : `Around ${format(parseISO(projectedFiDate), "MMM yyyy")}`}
+              {projectedFiDescription}
             </p>
           </div>
         </div>
@@ -281,9 +320,7 @@ export function PortfolioGoal() {
           </div>
         ) : (
           <p className="rounded-md border border-dashed p-4 text-sm text-muted-foreground">
-            {incomeHistory.length === 0
-              ? "Add period income history to derive expenditure and an FI target. Account balances and signed deposits or withdrawals provide the rest of the reconciliation."
-              : "Income is saved, but there are not yet two usable balance-sheet dates around an income period. Add complete account balances at matching period ends."}
+            {emptyReconciliationDescription}
           </p>
         )}
         {error && <p className="text-sm text-destructive">{error}</p>}
