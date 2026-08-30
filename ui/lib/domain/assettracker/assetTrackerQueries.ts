@@ -85,6 +85,47 @@ export function getNetWorthTimeSeries(
   );
 }
 
+export type PortfolioContributionDataPoint = {
+  date: string;
+  /** Deposits less withdrawals accumulated across the whole portfolio. */
+  contributedCapital: number;
+};
+
+/**
+ * Portfolio-level cumulative contributed capital, kept independent of market
+ * value. Equal signed flows for an internal transfer cancel in the total.
+ */
+export function getPortfolioContributionTimeSeries(
+  repository: AssetTrackerRepository,
+): PortfolioContributionDataPoint[] {
+  const flows = repository.capitalFlows.map(({ date, amount }) => ({
+    date,
+    amount,
+  }));
+  for (const transfer of repository.transfers) {
+    if (transfer.fromAccountId == null && transfer.toAccountId != null) {
+      flows.push({ date: transfer.date, amount: transfer.amount });
+    } else if (transfer.toAccountId == null && transfer.fromAccountId != null) {
+      flows.push({ date: transfer.date, amount: -transfer.amount });
+    }
+  }
+  flows.sort((a, b) => a.date.localeCompare(b.date));
+
+  const points: PortfolioContributionDataPoint[] = [];
+  let contributedCapital = 0;
+  for (const flow of flows) {
+    contributedCapital =
+      Math.round((contributedCapital + flow.amount) * 100) / 100;
+    const currentDate = points.at(-1);
+    if (currentDate?.date === flow.date) {
+      currentDate.contributedCapital = contributedCapital;
+    } else {
+      points.push({ date: flow.date, contributedCapital });
+    }
+  }
+  return points;
+}
+
 export type AssetAllocationDataPoint = {
   date: string;
   /** Positive net asset buckets used as the percentage denominator. */

@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AssetAllocationHistoryChart } from "@/components/assettracker/asset-allocation-history-chart";
 import { useAssetTracker } from "@/components/assettracker/asset-tracker-provider";
 import { FlowSankeyChart } from "@/components/assettracker/flow-sankey-chart";
+import { PortfolioContributionChart } from "@/components/assettracker/portfolio-contribution-chart";
 import { PortfolioGoal } from "@/components/assettracker/portfolio-goal";
 import { UpcomingFlows } from "@/components/assettracker/upcoming-flows";
 import {
@@ -67,6 +68,7 @@ function mockAssetTracker(
     accounts: [],
     accountDetails: [],
     netWorthData: [],
+    contributionData: [],
     assetAllocation: [],
     assetAllocationHistory: [],
     transfers: [],
@@ -319,6 +321,41 @@ describe("AssetAllocationHistoryChart", () => {
         name: "Percentage of assets by asset type over time",
       }),
     ).toHaveTextContent("2025-01-0120.0%80.0%2026-01-0110.0%90.0%");
+  });
+});
+
+describe("PortfolioContributionChart", () => {
+  it("plots contributed capital independently of worth and exposes its data", () => {
+    render(
+      <PortfolioContributionChart
+        data={[
+          { date: "2025-01-01", contributedCapital: 80_000 },
+          { date: "2026-01-01", contributedCapital: 92_500 },
+        ]}
+      />,
+    );
+
+    expect(
+      screen.getByRole("img", {
+        name: "Cumulative contributed capital over time",
+      }),
+    ).toBeVisible();
+    expect(
+      document.querySelector('[data-series="contributedCapital"]'),
+    ).toBeVisible();
+    expect(
+      screen.getByRole("table", {
+        name: "Cumulative contributed capital over time",
+      }),
+    ).toHaveTextContent("2025-01-01£80,0002026-01-01£92,500");
+  });
+
+  it("explains how to populate an empty contribution history", () => {
+    render(<PortfolioContributionChart data={[]} />);
+
+    expect(
+      screen.getByText(/Import an account's “Total contributed to date”/),
+    ).toBeVisible();
   });
 });
 

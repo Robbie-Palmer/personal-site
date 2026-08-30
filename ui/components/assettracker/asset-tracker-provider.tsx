@@ -33,6 +33,7 @@ import {
   getAssetAllocationTimeSeries,
   getNetWorthTimeSeries,
   getPortfolioAnnualReturn,
+  getPortfolioContributionTimeSeries,
   getPortfolioFinancialIndependence,
   getSeedData,
   getTotalByAssetType,
@@ -40,6 +41,7 @@ import {
   type ImportIncomeHistoryInput,
   type IncomeRecord,
   type NetWorthDataPoint,
+  type PortfolioContributionDataPoint,
   type PortfolioFinancialIndependence,
   type RecordBalanceInput,
   type RecordTransferInput,
@@ -54,6 +56,7 @@ interface AssetTrackerContextValue {
   accounts: AccountSummaryView[];
   accountDetails: AccountDetailView[];
   netWorthData: NetWorthDataPoint[];
+  contributionData: PortfolioContributionDataPoint[];
   assetAllocation: { assetType: AssetType; total: number }[];
   assetAllocationHistory: AssetAllocationDataPoint[];
   transfers: Transfer[];
@@ -168,6 +171,7 @@ export function AssetTrackerProvider({
       accounts,
       accountDetails: getAllAccountDetails(repository),
       netWorthData,
+      contributionData: getPortfolioContributionTimeSeries(repository),
       assetAllocation: getTotalByAssetType(repository),
       assetAllocationHistory: getAssetAllocationTimeSeries(repository),
       transfers: repository.transfers,

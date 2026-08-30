@@ -4,6 +4,7 @@ import {
   getAccountDetail,
   getAssetAllocationTimeSeries,
   getNetWorthTimeSeries,
+  getPortfolioContributionTimeSeries,
   getTotalByAssetType,
 } from "@/lib/domain/assettracker/assetTrackerQueries";
 import { buildRepository } from "@/lib/domain/assettracker/assetTrackerRepository";
@@ -153,6 +154,45 @@ describe("getNetWorthTimeSeries", () => {
     expect(point?.Home).toBe(90000);
     expect(point?.Mortgage).toBeUndefined();
     expect(point?.total).toBe(88000); // 90,000 equity − 2,000 card
+  });
+});
+
+describe("getPortfolioContributionTimeSeries", () => {
+  it("accumulates imported and recorded external capital while internal transfers cancel", () => {
+    const data = homeData();
+    data.capitalFlows = [
+      { accountId: "home", date: "2023-01-01", amount: 10_000 },
+      { accountId: "home", date: "2023-02-01", amount: 500 },
+      { accountId: "mortgage", date: "2023-02-01", amount: -500 },
+    ];
+    data.transfers = [
+      {
+        id: "deposit",
+        date: "2023-03-01",
+        toAccountId: "home",
+        amount: 1_000,
+      },
+      {
+        id: "withdrawal",
+        date: "2023-04-01",
+        fromAccountId: "home",
+        amount: 200,
+      },
+      {
+        id: "internal",
+        date: "2023-05-01",
+        fromAccountId: "home",
+        toAccountId: "mortgage",
+        amount: 300,
+      },
+    ];
+
+    expect(getPortfolioContributionTimeSeries(buildRepository(data))).toEqual([
+      { date: "2023-01-01", contributedCapital: 10_000 },
+      { date: "2023-02-01", contributedCapital: 10_000 },
+      { date: "2023-03-01", contributedCapital: 11_000 },
+      { date: "2023-04-01", contributedCapital: 10_800 },
+    ]);
   });
 });
 
