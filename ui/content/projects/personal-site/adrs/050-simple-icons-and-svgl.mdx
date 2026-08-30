@@ -9,7 +9,7 @@ tech_stack: ["Simple Icons", "SVGL"]
 
 The site uses technology and company logos to make experience, project, and stack information easier to scan. The logos need to identify real brands such as tools, platforms, employers, and services.
 
-The current site already serves local logo assets from paths such as `/company-logos/*` and excludes those paths from Cloudflare Images rewriting. That keeps the page render independent of third-party logo APIs and avoids introducing runtime request, availability, privacy, and attribution concerns for a mostly static site.
+The current site already serves local logo assets from paths such as `/company-logos/*` and excludes those paths from Cloudflare Images rewriting. That keeps the page render independent of third-party logo APIs and avoids introducing runtime request, availability, privacy, and attribution concerns for a mainly static site.
 
 The gap is sourcing and maintaining technology and brand logos consistently. A good source needs:
 
@@ -64,7 +64,7 @@ Using both keeps Simple Icons as the default source while leaving a fallback for
 
 ## Iconify
 
-* **Pros**: Huge icon platform with many open-source icon sets, including Simple Icons. Provides APIs, packages, framework integrations, cleanup tooling, and automatic updates. Useful if the project needs one abstraction across many icon sets.
+* **Pros**: Large icon platform with many open-source icon sets, including Simple Icons. Provides APIs, packages, framework integrations, cleanup tooling, and automatic updates. Useful if the project needs one abstraction across many icon sets.
 * **Cons**: Adds an abstraction layer around Simple Icons rather than solving the SVGL gap. It can obscure source-specific metadata and license/guideline checks that matter for brands. The project already uses Lucide React for generic UI icons, so adopting Iconify for logos would add platform surface area without enough benefit.
 * **Decision**: Rejected for brand and technology logos. Consider only if the site later needs many non-brand icon sets under one API.
 

@@ -15,7 +15,7 @@ The major syntax highlighting libraries have different tradeoffs:
 
 * **Prism.js** (via refractor/rehype-prism): Fastest performance, supports 280+ languages, highly modular and customizable, but uses simpler regex-based highlighting that can miss edge cases (e.g., Python f-strings, SQL nested queries, YAML complex anchors)
 * **Highlight.js** (via rehype-highlight): Supports 192 languages, fast and lightweight, but uses heuristic-based detection that can misidentify code blocks and produce less granular token highlighting
-* **Sugar High**: Extremely fast (\~2KB), but only supports JavaScript/TypeScript and lacks broad language coverage
+* **Sugar High**: Fast (\~2KB), but only supports JavaScript/TypeScript and lacks broad language coverage
 
 **Build-Time Highlighters:**
 
@@ -64,7 +64,7 @@ Below are live examples demonstrating Shiki's VS Code-level syntax highlighting.
 
 ### Cons
 
-* **Large Bundle**: \~250KB for Shiki + WASM dependencies, significantly larger than Prism (\~5KB). However, this is acceptable because highlighting runs at build-time. The bundle never ships to the client.
+* **Large Bundle**: \~250KB for Shiki + WASM dependencies, considerably larger than Prism (\~5KB). However, this is acceptable because highlighting runs at build-time. The bundle never ships to the client.
 * **Build Performance**: \~7x slower than Prism for highlighting. For large codebases with hundreds of code blocks, build times could increase. Currently acceptable for a personal blog with moderate code block counts.
 * **No Client-Side Highlighting**: Cannot dynamically highlight user-generated code (e.g., live code editors). Highlighting is static, baked into the HTML at build time. Not a concern for static blog posts.
 * **Theme Lock-In**: Switching themes requires rebuilding the site. Cannot offer users theme selection without pre-generating all theme variants.

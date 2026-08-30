@@ -82,7 +82,7 @@ one recipient twice.
 
 Foreign keys to mutable or deletable domain records use `ON DELETE SET NULL`, while snapshots retain
 the text required to explain historical activity. One event can have multiple deliveries, so a
-household deletion is recorded once even when several members are notified.
+household deletion is recorded once even when multiple members are notified.
 
 The API pages generic deliveries and events first, groups event IDs by represented subtype, and runs
 one hydration query per subtype family. It does not issue one query per notification.
@@ -201,7 +201,7 @@ a requirement for configurable behaviour.
 
 * Domain foreign keys and constraints remain relational.
 * Generic delivery state stays independent of notification content.
-* One event can fan out to several recipients without duplicating event data.
+* One event can fan out to multiple recipients without duplicating event data.
 * New rich types add subtype tables, hydration, an action handler when needed, and a renderer without
   changing the archive shell.
 * Deleted actors and targets do not erase the historical explanation shown to recipients.

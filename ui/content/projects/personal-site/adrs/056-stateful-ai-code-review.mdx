@@ -13,7 +13,7 @@ established that a focused, custom reviewer is economically credible. In
 practice it produced better findings per dollar than Qodo, CodeRabbit,
 Greptile, or the other evaluated services. Its weakness is now orchestration:
 the GitHub Actions implementation is stateless and fires on every push,
-re-sending largely unchanged diffs and repository context. Commit frequency
+re-sending essentially unchanged diffs and repository context. Commit frequency
 therefore drives token spend even when a new commit does not justify another
 full review.
 
@@ -253,7 +253,7 @@ withdrawn. It is a poor fit for a solo public repository.
 
 This retains broad model access and the best observed review economics with no
 migration. It leaves the core problem intact: every qualifying push purchases
-another review of mostly repeated context.
+another review of essentially repeated context.
 
 ## Use Workers AI for Inference
 

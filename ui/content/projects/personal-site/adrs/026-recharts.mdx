@@ -20,11 +20,11 @@ The requirements are:
 
 I will use **Recharts** for all data visualization on the site.
 
-Recharts is a composable charting library built on React components. It uses SVG for rendering, which offers excellent scalability and accessibility.
+Recharts is a composable charting library built on React components. It uses SVG for rendering, which offers strong scalability and accessibility.
 
 ## Interactive Demo
 
-Here are several chart types built with Recharts, demonstrating the composable API:
+Here are a few chart types built with Recharts, demonstrating the composable API:
 
 <RechartsDemoChart />
 
@@ -55,12 +55,12 @@ Here are several chart types built with Recharts, demonstrating the composable A
 **Victory**:
 
 * **Pros**: robust, opinionated, good React Native support.
-* **Cons**: Significantly less popular than Recharts, and their example page is much less impressive. Can be verbose.
+* **Cons**: Considerably less popular than Recharts, and their example page is much less impressive. Can be verbose.
 * **Why not**: Subjective preference for Recharts' API composition style. Recharts has slightly higher adoption and community resources.
 
 **Chart.js (react-chartjs-2)**:
 
-* **Pros**: Canvas-based (great for massive datasets with thousands of points), huge ecosystem.
+* **Pros**: Canvas-based (great for massive datasets with thousands of points), large ecosystem.
 * **Cons**: Canvas rendering makes CSS styling tricky (everything is inside the canvas). Responsive resizing can sometimes be finicky. The React wrapper is just a thin layer over the imperative Chart.js API.
 * **Why not**: SVG (Recharts) is easier to style with CSS and debug in the DOM. I don't have massive datasets requiring Canvas performance.
 

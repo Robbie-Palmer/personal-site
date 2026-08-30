@@ -77,7 +77,7 @@ allowances too volatile for core infrastructure.
 Coding agents enable more parallel work, larger changes, and shorter delivery
 cycles. Review quality and latency grow in importance alongside that additional
 throughput. A strong reviewer is a force multiplier on every coding agent and
-enables several projects beyond the Personal Site.
+enables multiple projects beyond the Personal Site.
 
 ## Velocity and Quality Reinforce Each Other
 
@@ -159,7 +159,7 @@ requirements. Evidence from the initial product must justify that expansion.
 
 # User Stories
 
-* As a developer using several coding agents, I want every material Pull
+* As a developer using multiple coding agents, I want every material Pull
   Request reviewed promptly so validation scales with generation velocity.
 * As a solo maintainer, I want an independent second opinion on code I directed
   an agent to write.
@@ -332,7 +332,7 @@ architectural assumptions.
   | [GitHub Copilot code review](https://docs.github.com/en/copilot/concepts/agents/code-review) | Native GitHub integration, whole-repository context, suggested fixes, automatic reviews, and a low **$10/month** Copilot Pro entry price.                                                          | Review consumes shared GitHub AI Credits, model selection is intentionally unavailable, and from 1 June 2026 agentic reviews also consume GitHub Actions minutes. It consolidates the workflow but increases dependence on the repository host and another mutable shared allowance. |
   | [Graphite AI Reviews](https://graphite.com/pricing)                                          | Integrates review with stacked PRs, inbox, merge queue, CI summaries, and fixes. Its **$40/user/month** Team plan advertises unlimited AI reviews.                                                 | The value proposition is a broader replacement PR workflow. Paying for stacking, inbox, automations, and merge-queue features is unnecessary when the required product is a reviewer inside GitHub.                                                                                  |
   | [Cursor Bugbot](https://cursor.com/pricing)                                                  | Connects PR review to a popular coding-agent environment; agentic Bugbot review is included in the **$40/user/month** Teams product and available through usage-based billing on individual plans. | It couples independent review to the same product family that can generate the change and again bundles coding, cloud agents, administration, analytics, and marketplace features. Reviewer independence and portable evidence matter more here.                                     |
-  | [PR-Agent](https://github.com/The-PR-Agent/pr-agent)                                         | Apache-2.0, self-hostable, model-agnostic, and supports GitHub Actions, Docker, webhooks, several git providers, and multiple review tools.                                                        | It is now a community-maintained legacy project donated by Qodo. Adapting its generic single-call tools to the desired stateful scout-and-merger system required comparable effort to the focused implementation. It remains useful prior art.                                       |
+  | [PR-Agent](https://github.com/The-PR-Agent/pr-agent)                                         | Apache-2.0, self-hostable, model-agnostic, and supports GitHub Actions, Docker, webhooks, multiple review tools.                                                                                   | It is now a community-maintained legacy project donated by Qodo. Adapting its generic single-call tools to the desired stateful scout-and-merger system required comparable effort to the focused implementation. It remains useful prior art.                                       |
   | Direct single-model review                                                                   | Minimal orchestration and potentially the lowest cost for a strong frontier model.                                                                                                                 | Recreates one model's blind spots, provides no comparative evidence, and still needs state, GitHub delivery, budgets, and finding lifecycle. It remains a valid configuration if evaluation shows the ensemble adds no retained value.                                               |
 </div>
 
@@ -369,7 +369,7 @@ useful coverage.
 ## Next: Close the Evaluation Loop
 
 Attribute findings to later changes and human dispositions, replay a fixed PR
-set, compare models fairly, and feed stable lessons into tests and agent
+set, compare models evenhandedly, and feed stable lessons into tests and agent
 guidance.
 
 ## Later: Evidence-Led Enrichment
@@ -388,7 +388,7 @@ generalisation.
 
 # Risks and Counterarguments
 
-* **Buying should usually be cheaper than building.** This project explicitly
+* **Buying should typically be cheaper than building.** This project explicitly
   challenges [Less Is More](/projects?tab=philosophy#less-is-more). Review
   policy, state, and evaluation now enable multiple projects, while coding
   agents have reduced the cost of a narrow custom implementation. A managed
@@ -440,7 +440,7 @@ generalisation.
 Code generation will keep getting cheaper and faster. Models will keep trading
 places. Inference competition will get fiercer. Specialist review vendors will
 keep moving upmarket because enterprise governance and workflow consolidation
-support larger contracts than excellent reviews for solo developers.
+support larger contracts than good reviews for solo developers.
 
 If that bet is right, owning a small, stateful, measurable review system will
 become more valuable with time while owning a particular model integration will

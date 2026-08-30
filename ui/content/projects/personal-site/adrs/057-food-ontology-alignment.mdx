@@ -8,7 +8,7 @@ tech_stack: ["FoodOn", "SSSOM"]
 ## Context
 
 The recipe domain has ingredients, ingredient groups, group membership, and a
-directed hierarchy between groups. The hierarchy supports several broader
+directed hierarchy between groups. The hierarchy supports multiple broader
 groups for one narrower group and any number of levels. A database trigger
 rejects cycles.
 
@@ -129,7 +129,7 @@ remains under local editorial control.
 The current requirements are identifier reuse, explicit mappings, and safe
 hierarchy traversal. PostgreSQL can enforce the local graph and answer those
 queries. An OWL reasoner becomes justified only when the application needs
-inference over imported axioms that cannot be represented clearly in the
+inference over imported axioms that cannot be represented cleanly in the
 relational model.
 
 ## Validation before acceptance
@@ -215,7 +215,7 @@ recording mappings to FoodOn and other ontologies.
 * Mapping and release review become ongoing curation work.
 * Some familiar labels will remain local because the external concept has a
   different scope.
-* Supporting several OBO ontologies adds provenance and licensing records.
+* Supporting multiple OBO ontologies adds provenance and licensing records.
 * The existing hierarchy cannot safely drive every transitive feature until
   its edges have relation types.
 

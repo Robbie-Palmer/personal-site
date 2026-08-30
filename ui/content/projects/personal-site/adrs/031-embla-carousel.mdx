@@ -9,7 +9,7 @@ tech_stack: ["Embla Carousel"]
 
 I need a carousel component to display blog posts on the landing page with auto-scrolling and responsive behavior (1-3 posts per view across mobile to desktop).
 
-Traditional carousel solutions present several tradeoffs:
+Traditional carousel solutions present a few tradeoffs:
 
 * **Swiper.js**: Feature-rich and popular, but heavy (30KB+ gzipped) with many unused features for this simple use case
 * **React Slick**: Widespread in the React ecosystem, but built on jQuery dependencies and lacks TypeScript support
@@ -49,9 +49,9 @@ Here's the carousel in action, using the same `ContentCarousel` component that p
 ### Pros
 
 * **Truly Headless**: Embla provides only carousel logic, no pre-styled UI components or CSS to override. This allows complete control over the design language, ensuring carousel navigation matches the rest of the site's Tailwind-based aesthetic without fighting vendor styles.
-* **Lightweight**: The core is \~6KB gzipped, significantly smaller than Swiper (\~31-45KB). We only load the auto-scroll plugin (\~2KB) when needed.
+* **Lightweight**: The core is \~6KB gzipped, considerably smaller than Swiper (\~31-45KB). We only load the auto-scroll plugin (\~2KB) when needed.
 * **Design System Consistency**: Because we build navigation components from scratch, they naturally align with our existing UI patterns (shadcn/ui components, Tailwind design tokens). No visual inconsistencies from library-imposed styles.
-* **TypeScript-First**: Excellent type inference with `EmblaCarouselType` and `EmblaOptionsType`. The API is fully typed, reducing runtime errors and improving the agentic workflow.
+* **TypeScript-First**: Strong type inference with `EmblaCarouselType` and `EmblaOptionsType`. The API is fully typed, reducing runtime errors and improving the agentic workflow.
 * **Performance**: Hardware-accelerated transforms, smooth 60fps animations, and no jQuery overhead.
 * **Composability**: Plugin architecture means we pay only for features we use. The `AutoScroll` plugin handles the auto-scrolling behavior without polluting the core API.
 * **Code Ownership**: The builder provides copy-paste navigation hooks (`usePrevNextButtons`, `useDotButton`) that live in our codebase (`ui/components/ui/carousel.tsx`). This is transparent, modifiable, and easier for AI agents to reason about than importing opaque components from `node_modules`.

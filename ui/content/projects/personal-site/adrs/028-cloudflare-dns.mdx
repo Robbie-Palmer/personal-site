@@ -10,7 +10,7 @@ tech_stack: ["Cloudflare DNS"]
 I need to manage DNS records for my domain (`robbiepalmer.me`).
 
 **Historical Context**: On my previous project (`robbiepalmer.com`), I used **Dynadot** for both registration and DNS.
-The experience highlighted several pain points with the traditional registrar approach:
+The experience highlighted a few pain points with the traditional registrar approach:
 
 1. **Manual Processes**: DNS management was entirely GUI-based ("Click-Ops"), making it error-prone and tedious.
 2. **No Versioning**: There was no history of changes or ability to rollback.
@@ -33,7 +33,7 @@ I will manage the DNS records via **Terraform** (Infrastructure as Code).
 
 ### AWS Route53
 
-* **Pros**: The industry standard for programmatic DNS. Excellent reliability.
+* **Pros**: The industry standard for programmatic DNS. Strong reliability.
 * **Cons**: Costs money ($0.50 per hosted zone per month). Requires an AWS account, introducing significant "Platform Overhead" (IAM, billing, security config) just for DNS.
 * **Decision**: Rejected due to cost and complexity.
 

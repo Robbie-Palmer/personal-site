@@ -50,7 +50,7 @@ Containers are expected for Python ML workloads in 6-12 months. Learning Trivy o
 
 ### Goldilocks Zone
 
-Trivy is a mature CNCF project with strong adoption, excellent documentation, and active development. It sits in the sweet spot between bleeding-edge experimentation and legacy maintenance mode, reliable, well-supported, and improving ([Goldilocks Zone](/projects?tab=philosophy#the-goldilocks-zone)).
+Trivy is a mature CNCF project with strong adoption, strong documentation, and active development. It sits in the sweet spot between bleeding-edge experimentation and legacy maintenance mode, reliable, well-supported, and improving ([Goldilocks Zone](/projects?tab=philosophy#the-goldilocks-zone)).
 
 ### LLM-Optimized
 
@@ -80,7 +80,7 @@ Trivy is open source and free. CI runs on GitHub Actions within the free tier fo
 
 ### Snyk
 
-* **Pros**: Excellent UX, comprehensive coverage (code, dependencies, containers, IaC). Strong vulnerability database. Free tier available.
+* **Pros**: Strong UX, comprehensive coverage (code, dependencies, containers, IaC). Strong vulnerability database. Free tier available.
 * **Cons**: Requires an external platform/account. Free tier has limits (200 container scans/month). Introduces vendor lock-in compared to open-source alternatives. Violates [Less Is More](/projects?tab=philosophy#less-is-more) by adding another external dashboard.
 * **Decision**: Rejected. GitHub-native tools (CodeQL, Dependabot, Trivy SARIF upload) provide sufficient coverage without platform sprawl.
 
@@ -113,5 +113,5 @@ Trivy is open source and free. CI runs on GitHub Actions within the free tier fo
 
 * **CI Overhead**: Adds another step to CI workflows, increasing build time. Trivy scans are fast (seconds for IaC), but this compounds with other checks. Mitigated by running scans in parallel with other jobs.
 * **False Positives**: IaC scanners occasionally flag low-risk issues or configurations that are intentional. Requires triaging findings and potentially creating ignore files for false positives. This is a one-time cost that decreases over time.
-* **New Tool to Learn**: Adds Trivy to the stack. Configuration, triage, and maintenance require familiarity. Mitigated by excellent documentation and LLM readability.
+* **New Tool to Learn**: Adds Trivy to the stack. Configuration, triage, and maintenance require familiarity. Mitigated by strong documentation and LLM readability.
 * **Dependency on Aqua Security**: Trivy is maintained by Aqua Security. If the project is abandoned or changes direction, migration to another tool would be required. Low risk given CNCF adoption and strong community.

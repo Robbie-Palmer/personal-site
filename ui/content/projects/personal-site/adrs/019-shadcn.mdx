@@ -15,14 +15,14 @@ Component library options fall into two categories:
 
 * **Bootstrap**: Battle-tested, comprehensive components, but opinionated utility-first styles that conflict with Tailwind, hard to customize without fighting framework CSS
 * **Material UI (MUI)**: Massive ecosystem and feature-rich, but heavy bundle size (\~300KB+), opinionated Material Design aesthetic, complex theming system separate from Tailwind
-* **Chakra UI**: Excellent DX and beginner-friendly, but ships its own CSS-in-JS theming system that doesn't leverage Tailwind, adds runtime overhead
+* **Chakra UI**: Strong DX and beginner-friendly, but ships its own CSS-in-JS theming system that doesn't leverage Tailwind, adds runtime overhead
 * **DaisyUI**: Tailwind-based component classes shipped via npm, but components are black boxes in `node_modules`, no visibility into implementation, harder to customize beyond theme variables
 
 **Headless/Unstyled Component Libraries:**
 
-* **Radix UI**: Best-in-class accessible primitives with ARIA compliance and keyboard navigation, but completely unstyled, requires building every component from scratch
+* **Radix UI**: Best-in-class accessible primitives with ARIA compliance and keyboard navigation, but entirely unstyled, requires building every component from scratch
 * **Headless UI**: Tailwind Labs' official headless components, integrates well with Tailwind, but less comprehensive than Radix (fewer components, less accessibility features)
-* **React Aria**: Adobe's accessibility-focused library with excellent ARIA support, but verbose API, not Tailwind-native, steeper learning curve
+* **React Aria**: Adobe's accessibility-focused library with strong ARIA support, but verbose API, not Tailwind-native, steeper learning curve
 * **shadcn/ui**: Pre-styled Radix components built with Tailwind that you copy into your codebase, combines headless flexibility with styled component convenience
 
 I want a solution that prioritizes:

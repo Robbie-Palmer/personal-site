@@ -15,7 +15,7 @@ different price/performance trade-offs. The current
 [`params.yaml`](https://github.com/Robbie-Palmer/personal-site/blob/main/ml-pipelines/recipe-parsing/params.yaml)
 already mixes Gemini 3 Flash Preview and Gemini 2.5 Flash across these stages.
 
-Beyond ingestion, the [recipe-site roadmap](/projects/recipe-site) lists several
+Beyond ingestion, the [recipe-site roadmap](/projects/recipe-site) lists multiple
 AI-powered user-facing features in Phases 2–6: AI URL import, AI photo import for smooth
 onboarding, AI meal planning, and nutritional analysis. Each will benefit from being able to
 pick the right model for the job, swap providers as price/quality moves, and try new frontier
@@ -43,7 +43,7 @@ The recipe site is governed by a small set of strong constraints:
    IAM/SigV4 or service-account setup to access, overhead that doesn't pay back for a recipe
    site.
 4. **Mixed-modality workloads.** Photo-to-recipe needs a vision-capable model; normalisation needs
-   a cheap, fast text model; disambiguation can run on a tiny one. The same gateway must serve
+   a cheap, fast text model; disambiguation can run on a small one. The same gateway must serve
    all three.
 5. **Cooklang is the canonical output.** Whatever model is in the loop, the result lands in
    Cooklang ([ADR 030](/projects/recipe-site/adrs/030-cooklang)). The model returns a JSON
@@ -287,9 +287,9 @@ spend monitoring.
   querying both APIs: Llama 3.3 70B Instruct is **not in Vercel's catalogue at all**
   (OpenRouter has 15 providers for it); Claude Sonnet 4.6 has 3 endpoints on Vercel vs 8 on
   OpenRouter; the long-tail open-weight providers (Groq, Cerebras, Nebius, AkashML, Parasail,
-  Friendli) are largely missing. For closed frontier models the depth is comparable (GPT-5.5:
+  Friendli) are almost entirely absent. For closed frontier models the depth is comparable (GPT-5.5:
   2 vs 2; DeepSeek V3.1: 6 vs 7), and Vercel   occasionally has more depth (Qwen 3 235B: 4 vs 1),
-  but the open-weight long tail is where cost arbitrage lives and OpenRouter is clearly
+  but the open-weight long tail is where cost arbitrage lives and OpenRouter is decisively
   ahead. Fewer published granular routing knobs (no documented equivalent of `provider.zdr`,
   `provider.data_collection: "deny"`, `provider.quantizations`, or
   `provider.preferred_min_throughput`). The product is Vercel-platform tilted: free credits
@@ -403,7 +403,7 @@ acquire Portkey. PANW acquisitions typically de-prioritise self-serve / SMB tier
 enterprise SKUs sold to security teams, push pricing up, and shift the roadmap toward audit /
 compliance / DLP features rather than developer ergonomics. The open-source Portkey gateway
 could stagnate or be re-licensed. This is a yellow flag for any project planning to use
-Portkey self-serve at SMB scale, even though existing customers usually keep service on
+Portkey self-serve at SMB scale, even though existing customers typically keep service on
 grandfathered terms for 12–24 months post-acquisition.
 
 * **Decision**: **Rejected.** Strong enterprise feature set we don't need, BYOK at the

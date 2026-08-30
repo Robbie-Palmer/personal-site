@@ -49,7 +49,7 @@ CRUD:
   one network round trip;
 * the initiating device should respond immediately rather than waiting for the round trip;
 * reconnecting after changing networks or suspending a phone must recover the current list;
-* a pantry reconciliation may update several items atomically and should become visible as one
+* a pantry reconciliation may update multiple items atomically and should become visible as one
   committed change;
 * future agent-authenticated pantry changes from
   [ADR 061](/projects/recipe-site/adrs/061-agent-auth) must use the same authorization, revision, and
@@ -314,14 +314,14 @@ until a mutation response or socket snapshot supplies the shaped canonical resul
 
 Use explicit, idempotent domain commands rather than ambiguous CRUD or UI gestures:
 
-| Intent                         | Command shape                                              | Initial conflict rule                                   |
-| ------------------------------ | ---------------------------------------------------------- | ------------------------------------------------------- |
-| Check an item                  | `setItemChecked(itemId, true, operationId)`                | Last committed explicit value wins                      |
-| Uncheck an item                | `setItemChecked(itemId, false, operationId)`               | Last committed explicit value wins                      |
-| Add a quantity                 | `adjustQuantity(itemId, delta, operationId)`               | Atomic delta; concurrent additions accumulate           |
-| Correct an absolute quantity   | `setQuantity(itemId, value, expectedVersion, operationId)` | Reject or return conflict when the row version is stale |
-| Add a normalized duplicate     | `addOrMergeItem(item, operationId)`                        | Unique key plus transactional merge policy              |
-| Reconcile several pantry items | `reconcilePantry(changes, operationId)`                    | One transaction and one aggregate revision              |
+| Intent                          | Command shape                                              | Initial conflict rule                                   |
+| ------------------------------- | ---------------------------------------------------------- | ------------------------------------------------------- |
+| Check an item                   | `setItemChecked(itemId, true, operationId)`                | Last committed explicit value wins                      |
+| Uncheck an item                 | `setItemChecked(itemId, false, operationId)`               | Last committed explicit value wins                      |
+| Add a quantity                  | `adjustQuantity(itemId, delta, operationId)`               | Atomic delta; concurrent additions accumulate           |
+| Correct an absolute quantity    | `setQuantity(itemId, value, expectedVersion, operationId)` | Reject or return conflict when the row version is stale |
+| Add a normalized duplicate      | `addOrMergeItem(item, operationId)`                        | Unique key plus transactional merge policy              |
+| Reconcile multiple pantry items | `reconcilePantry(changes, operationId)`                    | One transaction and one aggregate revision              |
 
 Do not implement a `toggle` command. Retrying a toggle can reverse an already successful operation,
 whereas retrying `setItemChecked(true)` is safe.
@@ -336,7 +336,7 @@ retry-safe application semantics without claiming transport-level exactly-once d
 These commands also form the compatibility boundary for a future offline outbox. Operations such as
 adding distinct items, setting a checkbox to an explicit value, and applying quantity deltas can be
 stored locally and replayed safely after reconnection. Commands that depend on fresh server state,
-perform normalization, or span several aggregates may remain online-only. Designing that boundary
+perform normalization, or span multiple aggregates may remain online-only. Designing that boundary
 now avoids treating generic row replacement as an offline merge strategy.
 
 Structured shopping-list and pantry rows do not initially need a CRDT. Explicit operations,
@@ -375,7 +375,7 @@ state.
 | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
 | Application shell loads offline            | Cache versioned static assets through the PWA service worker.                                                             | No change to the realtime or canonical-data architecture.                                                               |
 | Previously viewed data remains readable    | Persist selected, privacy-reviewed query snapshots in IndexedDB with age and user/household ownership metadata.           | Revalidate against the canonical API after authentication and reconnection.                                             |
-| Local-only work continues                  | Keep recipe drafts or other unpublished state in a clearly local workspace.                                               | Synchronization begins only when the user explicitly publishes or shares it.                                            |
+| Local-only work continues                  | Keep recipe drafts or other unpublished state in an explicitly local workspace.                                           | Synchronization begins only when the user explicitly publishes or shares it.                                            |
 | Selected shared commands work offline      | Queue an allowlist of idempotent, domain-level operations and replay them after reconnecting.                             | Requires a follow-up ADR for persistence, authorization expiry, conflict UX, and per-command merge/rejection semantics. |
 | Arbitrary shared edits merge automatically | Allow multiple disconnected clients to modify the same complete structure and converge without bespoke conflict handling. | This is a materially different local-first system and is the threshold for evaluating Automerge, Yjs, or a sync engine. |
 
@@ -494,7 +494,7 @@ representative hosted alternative with
 * One hibernatable household room supplies both fan-out and presence while remaining inexpensive
   for sparse usage.
 * Revisioned snapshots make correctness independent of WebSocket reliability or message ordering.
-* Explicit idempotent commands define concurrent behavior more clearly than generic CRUD endpoints.
+* Explicit idempotent commands define concurrent behavior more explicitly than generic CRUD endpoints.
 * The same commands and operation IDs provide a controlled extension point for a future offline
   outbox without committing the whole application to a replicated-document model.
 * Complete snapshot events avoid a database read for every connected client after each command.

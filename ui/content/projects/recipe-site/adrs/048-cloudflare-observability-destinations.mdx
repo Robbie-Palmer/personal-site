@@ -136,7 +136,7 @@ key.
 Instrument the Worker with an OpenTelemetry SDK and export OTLP from application code. This is
 the most extensible option: it produces traces and spans (auto-instrumented `fetch` handlers,
 custom spans around Hyperdrive/Neon queries and auth flows) as well as logs, can fan out to
-several OTLP backends, gives full control over attribute enrichment, sampling, and batching,
+multiple OTLP backends, gives full control over attribute enrichment, sampling, and batching,
 and keeps the whole pipeline code-owned in line with
 [ADR 033](/projects/recipe-site/adrs/033-backend-platform-for-authenticated-features).
 

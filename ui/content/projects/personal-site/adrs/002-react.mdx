@@ -17,10 +17,10 @@ I need a solution that moves beyond simple templating to a true **component-base
 My options include:
 
 * **Vanilla HTML/JS**: The "simplest" approach. Low initial complexity, but complexity grows quadratically with size. Lacks a standard component model, making reuse difficult. State management becomes a manual exercise in DOM manipulation
-* **Static Site Generators (Jekyll, Hugo)**: Excellent for text-heavy content, but adding interactivity requires "sprinkling" jQuery or Vanilla JS, leading to a fragmented codebase ("spaghetti code")
+* **Static Site Generators (Jekyll, Hugo)**: Good for text-heavy content, but adding interactivity requires "sprinkling" jQuery or Vanilla JS, leading to a fragmented codebase ("spaghetti code")
 * **Modern Component Frameworks (Vue, Svelte, Angular, Solid)**:
   * **Angular**: Highly opinionated and heavy. targeted at large enterprise teams. Overkill for a personal site
-  * **Svelte/Vue**: Excellent ergonomics and often smaller bundle sizes. However, they rely on custom template syntax (`v-if`, `{#if}`) rather than JavaScript control flow
+  * **Svelte/Vue**: Strong ergonomics and often smaller bundle sizes. However, they rely on custom template syntax (`v-if`, `{#if}`) rather than JavaScript control flow
 
 I want a library that:
 
@@ -37,8 +37,8 @@ I decided to use **React**.
 This aligns with [The Goldilocks Zone](/projects?tab=philosophy#the-goldilocks-zone). React is the web's "standard library" for UI.
 
 * **vs Vanilla JS**: React provides the declarative model and component boundaries required for complex applications. The "overhead" of the runtime is paid back in maintainability once the application exceeds trivial complexity
-* **vs Svelte/Vue**: While Svelte/Vue have passionate communities and often superior ergonomics for small projects, React's ecosystem dominance is the deciding factor. The probability that a library I need exists for React is significantly higher than for any other framework
-* **vs Angular**: React's "Just JavaScript" (mostly) philosophy aligns better with my preference for composable primitives over rigid framework conventions
+* **vs Svelte/Vue**: While Svelte/Vue have passionate communities and often superior ergonomics for small projects, React's ecosystem dominance is the deciding factor. The probability that a library I need exists for React is considerably higher than for any other framework
+* **vs Angular**: React's "Just JavaScript" philosophy aligns better with my preference for composable primitives over rigid framework conventions
 
 # Consequences
 

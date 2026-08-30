@@ -137,7 +137,7 @@ as an ordered migration sequence, so reconstructing one adds false history and
 extra failure points without improving recovery.
 
 After the baseline, create one migration per coherent, independently deployable
-change. A change can span several tables, indexes, constraints, and its required
+change. A change can span multiple tables, indexes, constraints, and its required
 data backfill. Unrelated changes should not share a migration merely because
 they happen in the same pull request.
 

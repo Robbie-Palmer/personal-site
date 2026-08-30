@@ -34,11 +34,11 @@ The production feature is not a batch-evaluation pipeline. A user uploads one or
 photos, asks the site to parse them, and expects the app to show progress, enforce usage limits,
 handle provider failures, and eventually return an editable draft recipe.
 
-The pipeline has several properties that make a normal request/response endpoint a poor fit:
+The pipeline has multiple properties that make a normal request/response endpoint a poor fit:
 
 * It is multi-step: upload, preprocess, extract, normalize, derive, canonicalize, validate, and
   publish or await review.
-* It calls external providers several times, with different retry and timeout behavior per stage.
+* It calls external providers multiple times, with different retry and timeout behavior per stage.
 * It needs durable progress: a browser tab closing should not cancel the job.
 * It needs per-user quotas and active-job limits before expensive work starts.
 * It needs intermediate artifacts for debugging, user review, and future evaluation against

@@ -144,7 +144,7 @@ from **product development**.
 
 SilverBullet's
 [Library Manager](https://v2.silverbullet.md/Library) distributes libraries as
-collections of Space Lua, templates, and pages, usually through Git-backed
+collections of Space Lua, templates, and pages, typically through Git-backed
 spaces. Its documented extension surface covers commands, slash and page
 templates, widgets, styles, virtual pages, event handlers, and maintenance
 pages. Lower-level
@@ -258,7 +258,7 @@ meaningful compromise, and `-` conflicts with the requirement.
   | Option                           | Agent interface                    | Durable/open corpus                        | Cross-device UX                    | Relevant extension leverage                      | Privacy/cost               | Fit          |
   | -------------------------------- | ---------------------------------- | ------------------------------------------ | ---------------------------------- | ------------------------------------------------ | -------------------------- | ------------ |
   | **Basic Memory + SilverBullet**  | `++` native MCP, CLI, files        | `++` canonical Markdown                    | `+` offline PWA                    | `++` built-ins plus agent-writable Lua/libraries | `++` local, free           | **Pilot**    |
-  | **Basic Memory + Obsidian Sync** | `++` MCP, CLI, files, Obsidian CLI | `++` canonical Markdown                    | `++` native Mac/Linux/Android      | `+` huge registry; much relevant overlap         | `+` E2EE, $4–5/month       | Fallback     |
+  | **Basic Memory + Obsidian Sync** | `++` MCP, CLI, files, Obsidian CLI | `++` canonical Markdown                    | `++` native Mac/Linux/Android      | `+` large registry; much relevant overlap        | `+` E2EE, $4–5/month       | Fallback     |
   | **Basic Memory Cloud**           | `++` hosted MCP and local CLI      | `++` Markdown with local sync              | `++` hosted web/mobile             | `+` young but fast-moving agent/skills surface   | `-` hosted, $15/month      | Rejected     |
   | **Obsidian + self-managed sync** | `++` files and CLI                 | `++` canonical Markdown                    | `+` native apps, fragile sync edge | `+` same registry; custom sync burden            | `++` self-hosted, free     | Not selected |
   | **TriliumNext**                  | `+` ETAPI and scripts              | `~` canonical database, exports            | `+` desktop/web; mobile PWA online | `+` powerful scripting/widgets; active project   | `++` self-hosted, free     | Rejected     |
@@ -363,7 +363,7 @@ to leave without a data migration.
 
 ## Obsidian with self-managed synchronization
 
-* **Pros**: Keeps Obsidian's excellent native clients, graph, plugin ecosystem,
+* **Pros**: Keeps Obsidian's strong native clients, graph, plugin ecosystem,
   local Markdown, and the Basic Memory agent layer without a subscription. A
   Mac mini could host Git, WebDAV, Syncthing, or a community LiveSync backend
   over Tailscale.
@@ -422,7 +422,7 @@ to leave without a data migration.
   unlimited pages, and strong at mixing prose with databases. The official
   [Notion MCP](https://developers.notion.com/guides/mcp/overview) allows
   compatible agents to read and write the workspace in real time, so it is now
-  substantially more agent-friendly than when I last used it.
+  markedly more agent-friendly than when I last used it.
 * **Cons**: Notion remains the source of truth. Markdown export is a migration
   copy, not a live, locally inspectable corpus, and Notion says automatic
   workspace backup is

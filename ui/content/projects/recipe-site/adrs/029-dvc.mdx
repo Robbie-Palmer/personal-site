@@ -14,7 +14,7 @@ I want a tool that enables high velocity for iterating on models, targets, domai
 
 **Dataset versioning.** The pipeline operates on a dataset of recipe images paired with ground-truth
 annotations. These assets are too large and too binary to track in git: even a modest initial batch of images at
-several megabytes each would bloat every clone and make git operations slow,
+a few megabytes each would bloat every clone and make git operations slow,
 and the dataset is expected to grow to hundreds of images as more of the physical recipe book is digitised.
 The target schema will also evolve as we build new features, find new edge cases etc.
 The dataset must be versioned, pinned to a specific hash, so that every experiment can reproduce its exact
@@ -82,7 +82,7 @@ The workflow this enables:
   a cached DAG. Surfacing metrics on PRs requires a custom GitHub Actions integration (W\&B provides a
   GitHub App, but it is less composable than plain CLI output). Closed source and proprietary: no
   self-hosted option without the enterprise tier, deepening vendor dependency.
-* **Decision**: Rejected. Excellent for experiment dashboards but does not solve the pipeline caching
+* **Decision**: Rejected. Good for experiment dashboards but does not solve the pipeline caching
   or dataset versioning problems. Would require DVC or a custom solution alongside it, adding platform
   sprawl.
 
@@ -118,7 +118,7 @@ The workflow this enables:
   Built-in data management with ClearML Data (similar to DVC).
 * **Cons**: Less widely adopted than DVC or MLflow. Smaller community and fewer Stack Overflow
   answers. The pipeline DSL is Python-centric (ClearML PipelineDecorator). Self-hosting adds
-  operational overhead for a personal project. In practice ClearML adds relatively little value
+  operational overhead for a personal project. In practice ClearML adds comparatively little value
   beyond a thin coordination layer between the user and a cloud storage provider (AWS, GCS, etc.).
   it does not eliminate the need to provision and pay for that underlying storage. Its dashboard
   offering is similarly modest: experiment visualisations are essentially static Plotly plots hosted

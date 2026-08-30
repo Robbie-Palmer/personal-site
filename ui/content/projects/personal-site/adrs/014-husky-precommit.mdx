@@ -7,7 +7,7 @@ tech_stack: ["Husky"]
 
 # Context
 
-Without automated checks before commits, several quality issues slip through:
+Without automated checks before commits, a few quality issues slip through:
 
 * **Inconsistent Formatting**: Code style diverges across commits, creating noisy diffs and merge conflicts
 * **Broken Builds in CI**: Linting errors, type errors, or malformed files fail in CI after pushing, slowing down the feedback loop
@@ -113,7 +113,7 @@ This builds directly on top of mise tasks from ADR 004, avoiding duplication. Th
 * **Single Source of Truth**: Lint tasks are defined once in `.mise.toml` and reused by both pre-commit hooks and CI. No duplication between local checks and GitHub Actions.
 * **Monorepo Awareness**: Supports workspace-specific tasks (`//ui:format`, `//infra:format`) while maintaining repo-wide consistency for shared file types (Markdown, YAML).
 * **Low Maintenance**: Husky auto-installs hooks via the `prepare` script on `pnpm install`. No manual setup or git hook configuration required.
-* **Boring Technology**: Husky is the industry standard, with excellent documentation and deep LLM training data. Works seamlessly with the LLM-optimized development workflow.
+* **Boring Technology**: Husky is the industry standard, with strong documentation and deep LLM training data. Works seamlessly with the LLM-optimized development workflow.
 * **Selective Execution**: lint-staged only processes files that are staged, reducing noise and focusing checks on what's actually changing.
 * **Claude Code Guardrails**: Prevents [Claude Code](/projects/personal-site/adrs/012-claude-code) from drifting too far and committing malformed code. Pre-commit hooks act as an immediate correction signal, keeping the AI agent aligned with project standards without requiring constant human oversight.
 
