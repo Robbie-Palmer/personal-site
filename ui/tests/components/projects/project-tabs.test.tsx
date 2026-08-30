@@ -2,6 +2,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ProjectTabs } from "@/components/projects/project-tabs";
+import { ProjectsPageTabs } from "@/components/projects/projects-page-tabs";
 
 const replaceMock = vi.fn();
 
@@ -31,6 +32,22 @@ describe("ProjectTabs", () => {
     );
 
     expect(replaceMock).toHaveBeenCalledWith("/projects/recipe-site?tab=adrs", {
+      scroll: false,
+    });
+  });
+
+  it("uses the canonical projects URL when selecting the philosophy tab", async () => {
+    const user = userEvent.setup();
+    render(
+      <ProjectsPageTabs
+        projects={<div>Projects content</div>}
+        philosophy={<div>Philosophy content</div>}
+      />,
+    );
+
+    await user.click(screen.getByRole("tab", { name: "Building Philosophy" }));
+
+    expect(replaceMock).toHaveBeenCalledWith("/projects?tab=philosophy", {
       scroll: false,
     });
   });
