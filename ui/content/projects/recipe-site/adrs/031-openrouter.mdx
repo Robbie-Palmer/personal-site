@@ -48,8 +48,8 @@ The recipe site is governed by a small set of strong constraints:
 5. **Cooklang is the canonical output.** Whatever model is in the loop, the result lands in
    Cooklang ([ADR 030](/projects/recipe-site/adrs/030-cooklang)). The model returns a JSON
    envelope (`{ frontmatter, body }`) that the gateway constrains via structured outputs; the
-   Cooklang text inside `body` is plain text, validated post-hoc by `cooklang-rs`. So
-   structured-output support across providers is load-bearing for the envelope, even though the
+   Cooklang text inside `body` is plain text, validated post-hoc by `cooklang-rs`. Structured-output
+   support across providers is load-bearing for the envelope, even though the
    format inside it is not JSON.
 
 # Decision
@@ -233,7 +233,7 @@ the residual saving.
 
 # Alternatives Considered
 
-The cross-provider LLM access market splits cleanly into two categories with very different
+The cross-provider LLM access market splits cleanly into two categories with different
 operating models:
 
 * **LLM Aggregators** own a model catalogue *and* the billing relationship with each upstream
@@ -303,12 +303,12 @@ spend monitoring.
   feature ever needs Vercel-only capabilities (a Next.js-on-Vercel deployment, Vercel's app
   attribution), this is worth revisiting.
 
-> **Not an alternative — composable.** The [Vercel AI SDK](https://ai-sdk.dev/) (the
-> client/server *library* — `useChat`, `useCompletion`, `useObject`, streaming primitives) is a
+> **Composable, not an alternative.** The [Vercel AI SDK](https://ai-sdk.dev/) (the
+> client/server *library*, with `useChat`, `useCompletion`, `useObject` and streaming primitives) is a
 > separate product from the Vercel AI Gateway. It is framework-agnostic, runs fine on
 > Cloudflare, and has an [official OpenRouter provider](https://github.com/OpenRouterTeam/ai-sdk-provider)
 > (`@openrouter/ai-sdk-provider`). If we build a streaming chat UI, the Vercel AI SDK on top of
-> OpenRouter is the natural fit — the two compose, they don't compete.
+> OpenRouter is the natural fit; the two compose, they don't compete.
 
 ### [Eden AI](https://www.edenai.co/)
 

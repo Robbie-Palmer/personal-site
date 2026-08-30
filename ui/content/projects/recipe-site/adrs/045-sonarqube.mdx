@@ -61,7 +61,7 @@ results land in GitHub and there is no external console to monitor day to day.
   project's "previous version" new-code definition. It changes only at deliberate release
   boundaries, not on every CI build or commit. Pull-request analysis continues to define new code
   from the target-branch diff.
-* The Sonar web project is used for occasional trend drill-down, the role the GitHub Security tab
+* The Sonar web project is used for occasional trend analysis, the role the GitHub Security tab
   already plays. Day-to-day work stays in GitHub.
 
 # CI And Credentials
@@ -151,7 +151,7 @@ than harmful, and is not a reason to disable anything:
 * The only real cost is mild duplicate-annotation noise on the same line, which is not enough to
   justify turning Sonar's rules off.
 
-So full analysis stays on. CodeQL remains the owner of the GitHub Security-tab SARIF workflow by
+Full analysis stays on. CodeQL remains the owner of the GitHub Security-tab SARIF workflow by
 convention, and Sonar's overlapping findings are accepted as redundant.
 
 # On Coverage

@@ -12,7 +12,7 @@ I need a hosting platform for the personal site that provides:
 1. **Global Performance**: Fast static asset delivery via a CDN.
 2. **Developer Experience**: Automated CI/CD, specifically "Preview Deployments" for every Pull Request to facilitate the review workflow \[ADR 009].
 3. **Cost Efficiency**: Predictable pricing, avoiding "bandwidth billing shocks".
-4. **Ecosystem Synergy**: Tight integration with the DNS and security layer.
+4. **Ecosystem Integration**: Tight integration with the DNS and security layer.
 
 # Decision
 
@@ -32,7 +32,7 @@ Vercel is the creators of Next.js and offers the "gold standard" DX for Next.js 
 * **Architecture**: Vercel's default compute model (Node.js Serverless Functions) is region-centralized (e.g., `us-east-1`), whereas Cloudflare Pages is natively edge-deployed across 275+ cities.
 * **Vendor Lock-in**: Heavy usage of Vercel-specific primitives can make it harder to migrate away.
 * **Cost**: The pricing model can get expensive at scale.
-* **Reasoning**: There is a high chance of migrating to Vercel in the future if I need heavy Server-Side Rendering (SSR). However, "not now" - since I already have Cloudflare configured for DNS/Domains, I want to leverage the synergies of a single platform and the pure edge architecture for this static-first site.
+* **Reasoning**: I might migrate to Vercel in the future if I need heavy Server-Side Rendering (SSR). However, "not now" - since I already have Cloudflare configured for DNS/Domains, I want to leverage the synergies of a single platform and the pure edge architecture for this static-first site.
 
 ## GitHub Pages
 
@@ -58,7 +58,7 @@ The traditional "Boring Tech" infrastructure approach.
 * **Cost**: Cloudflare Pages offers unlimited bandwidth for static requests on the free tier.
 * **Workflow**: Automatic preview deployments for every PR allow me to verify changes in a real environment before merging, [Short Feedback Loops](/projects?tab=philosophy#short-feedback-loops), reinforcing the "CodeRabbit" \[ADR 009] review workflow.
 * **Consolidation**: Aligns with [Less Is More](/projects?tab=philosophy#less-is-more) by keeping DNS, Domain, and Hosting under one roof.
-* **Skill Synergy**: I use Cloudflare extensively at work, but not Vercel. Using Cloudflare Pages deepens my expertise with the platform I rely on professionally.
+* **Skill Fit**: I use Cloudflare extensively at work, but not Vercel. Using Cloudflare Pages deepens my expertise with the platform I rely on professionally.
 
 ### Cons
 

@@ -33,5 +33,35 @@
     "file": "ui/content/blog/2022-03-02-the-philosophy-of-data-science.mdx",
     "line": 663,
     "checks": ["write-good.So"]
+  },
+  {
+    "file": "homelab/README.md",
+    "line": 126,
+    "checks": ["Unslop.AIVocabulary"]
+  },
+  {
+    "file": "ui/content/projects/homelab/adrs/021-trakt-watchlist.mdx",
+    "line": 43,
+    "checks": ["Unslop.AIVocabulary"]
+  },
+  {
+    "file": "ml-pipelines/recipe-dataset/README.md",
+    "line": 35,
+    "checks": ["proselint.Annotations"]
+  },
+  {
+    "file": "ui/content/projects/personal-site/adrs/056-stateful-ai-code-review.mdx",
+    "line": 79,
+    "checks": ["Unslop.EmDash"]
+  },
+  {
+    "file": "ui/content/projects/personal-site/adrs/056-stateful-ai-code-review.mdx",
+    "line": 93,
+    "checks": ["Unslop.EmDash"]
+  },
+  {
+    "file": "ui/content/projects/recipe-site/index.mdx",
+    "line": 501,
+    "checks": ["Unslop.EmDash"]
   }
 ]

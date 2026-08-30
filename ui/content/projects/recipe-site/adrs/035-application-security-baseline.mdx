@@ -55,15 +55,15 @@ Before authenticated features go live, the application must provide this baselin
 
 ## Workers Security Properties
 
-The Cloudflare Workers runtime provides several security properties for free:
+The Cloudflare Workers runtime provides several security properties at no cost:
 
 | Property                           | What it means                                                                                                                                                                                  |
 | ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Managed isolate sandboxing**     | Worker code runs inside Cloudflare-managed V8 isolates rather than a user-managed server process. Global scope may be reused across requests, so request-scoped data must not be stored there. |
 | **Automatic HTTPS**                | All traffic is TLS-terminated at Cloudflare's edge by default. No certificate management.                                                                                                      |
-| **No user-managed server process** | There is no VM or container for us to patch, harden, or expose directly. Application state still belongs in explicit stores, not process memory.                                               |
+| **No user-managed server process** | No VM or container exists for us to patch, harden, or expose directly. Application state still belongs in explicit stores, not process memory.                                                 |
 | **DDoS protection**                | Cloudflare's edge network provides baseline DDoS mitigation for all Workers. No configuration needed.                                                                                          |
-| **No exposed ports**               | Workers are not addressable by IP. All traffic flows through Cloudflare's reverse proxy. There is no server to port-scan.                                                                      |
+| **No exposed ports**               | Workers are not addressable by IP. All traffic flows through Cloudflare's reverse proxy. No server exists to port-scan.                                                                        |
 
 These do not replace the application-level controls above, but they reduce the surface area that
 needs explicit security engineering.

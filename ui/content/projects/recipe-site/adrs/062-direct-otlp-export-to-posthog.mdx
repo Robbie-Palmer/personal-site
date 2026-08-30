@@ -35,12 +35,12 @@ However, the OTel guidance also says
 A conventional sidecar assumes a co-scheduled container or host process. Cloudflare Workers instead
 run as short-lived, geographically distributed
 [V8 isolates rather than per-application containers](https://developers.cloudflare.com/workers/reference/how-workers-works/).
-There is therefore no local sidecar deployment unit. Adding a collector means provisioning a
+No local sidecar deployment unit exists. Adding a collector means provisioning a
 separate, reachable, highly available
 [collector gateway](https://opentelemetry.io/docs/collector/deploy/gateway/), with its own hosting,
 TLS, authentication, scaling, monitoring, upgrades, and failure modes.
 
-There is also a protocol gap in the otherwise attractive Cloudflare-managed path. PostHog requires
+The otherwise attractive Cloudflare-managed path also has a protocol gap. PostHog requires
 OTLP/HTTP protobuf for traces, while Cloudflare's destination export does not support OTLP binary
 and [lists PostHog trace export as unsupported](https://developers.cloudflare.com/workers/observability/exporting-opentelemetry-data/).
 Cloudflare can still export logs to PostHog, so that path remains useful as a fallback.

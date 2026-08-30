@@ -137,8 +137,8 @@ As of **May 27, 2026**, the most decision-relevant cost signals are:
 
 The comparison is less about who has the lowest sticker price and more about **which pricing axis
 becomes load-bearing if the roadmap succeeds**. Better Auth's library avoids both a per-MAU curve
-and a separate M2M token meter. That matters because the planned future shape includes not just
-human users, but potentially agents, MCP tooling, background services, and third-party API access.
+and a separate M2M token meter. That matters because the planned future shape includes human
+users and potentially agents, MCP tooling, background services, and third-party API access.
 
 # Alternatives Considered
 
@@ -184,7 +184,7 @@ linking would be a large amount of undifferentiated work.
 ## Positive
 
 * **Auth config stays in the repo.** Changes are reviewed in PRs instead of hidden in a dashboard.
-* **Costs stay simple.** There is no per-user SaaS pricing curve.
+* **Costs stay simple.** No per-user SaaS pricing curve.
 * **Household sharing gets a head start.** The organization primitive covers membership without
   forcing us to invent it from scratch.
 * **The support surface stays small.** Social OAuth-first avoids password resets, password storage,
@@ -197,7 +197,7 @@ linking would be a large amount of undifferentiated work.
 * **Apple Sign In would add maintenance if adopted later.** In particular, the Apple client secret
   rotation burden would sit with us rather than a SaaS provider.
 * **Dependency review matters.** Better Auth moves quickly, so upgrade hygiene is part of the cost.
-* **There is some business-risk overhang.** Better Auth is VC-backed; if the OSS path degrades, we
+* **Some business-risk overhang.** Better Auth is VC-backed; if the OSS path degrades, we
   may need to revisit sooner than planned.
 
 # When To Revisit
