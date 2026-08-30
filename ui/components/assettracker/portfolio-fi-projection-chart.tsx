@@ -109,11 +109,11 @@ export function PortfolioFiProjectionChart({
             className="size-2 rounded-full"
             style={{ backgroundColor: PROJECTION_COLOR }}
           />
-          Projected net worth
+          <span>Projected net worth</span>
         </span>
         <span className="flex items-center gap-1.5">
           <span aria-hidden="true" className="h-px w-3 bg-muted-foreground" />
-          FI target
+          <span>FI target</span>
         </span>
       </div>
     </div>

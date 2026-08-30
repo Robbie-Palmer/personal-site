@@ -188,7 +188,7 @@ export function IncomeExpenditureChart({
                 className="size-2 rounded-full"
                 style={{ backgroundColor: INCOME_COLOR }}
               />
-              Income
+              <span>Income</span>
             </span>
             {hasExpenditure && (
               <span className="flex items-center gap-1.5">
@@ -197,7 +197,7 @@ export function IncomeExpenditureChart({
                   className="size-2 rounded-full"
                   style={{ backgroundColor: EXPENDITURE_COLOR }}
                 />
-                Expenditure
+                <span>Expenditure</span>
               </span>
             )}
           </>
@@ -208,7 +208,7 @@ export function IncomeExpenditureChart({
               className="size-2 rounded-full"
               style={{ backgroundColor: DIFFERENCE_COLOR }}
             />
-            Income minus expenditure
+            <span>Income minus expenditure</span>
           </span>
         )}
       </div>
