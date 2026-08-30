@@ -151,9 +151,18 @@ Collections, planning, shopping, and cooking history live in separate tools.
 <RecipeProductFlow />
 ```
 
-A small remark plugin will group root nodes between thematic breaks into slide nodes. Parsing the MDX syntax tree
-avoids treating `---` inside code fences or JSX as a boundary. Inside `pitch.mdx`, a thematic break always
-separates slides. Use another visual separator inside a slide.
+A pitch-only remark plugin will group root nodes between thematic breaks into standard `mdxJsxFlowElement` nodes
+named `PitchSlide`. It will run after MDX parsing and only in the pitch-deck compilation pipeline. Ordinary project
+MDX will not register it. Using standard MDX nodes avoids adding a custom mdast node type that another compiler or
+serializer would need to understand.
+
+The plugin will split only on root-level `thematicBreak` nodes. A `---` inside a fenced code block or JSX child
+stays inside its existing node and cannot become a slide boundary. Inside `pitch.mdx`, a root-level thematic break
+always separates slides. Use another visual separator inside a slide.
+
+Transcript conversion takes a separate branch before slide grouping. It removes each complete `PitchNotes` node,
+then passes the remaining, ungrouped MDX through `mdxToAgentMarkdown`. Neither `replaceMdxNodes` nor the Markdown
+serializer will receive deck-only slide nodes.
 
 MDX components may opt into layout or presentation behavior where plain Markdown is insufficient:
 
@@ -174,8 +183,13 @@ MDX components may opt into layout or presentation behavior where plain Markdown
 </PitchNotes>
 ```
 
-`PitchNotes` will render as reveal.js speaker notes. The public Markdown converter will omit them. Notes
-must not contain secrets. The HTML source is public even when the normal audience view hides the notes.
+`PitchNotes` will render an `<aside className="notes">` inside its containing `PitchSlide`. The reveal.js notes
+plugin reads that element for speaker view. The pitch transcript processor will remove the entire `PitchNotes` node
+before calling the public Markdown converter, so it cannot unwrap the note children into `deck.md`, the project
+Markdown twin, or `/llms-full.txt`.
+
+Notes must not contain secrets. The focused deck HTML still contains the hidden `<aside>`, so speaker notes remain
+public even though the audience view and public Markdown outputs omit them.
 
 The project loader will treat `pitch.mdx` as an optional one-to-one child of the project. It will parse and validate
 frontmatter at build time and expose a typed `PitchDeck` value through the project detail view. A missing file means
@@ -410,11 +424,15 @@ This ADR can move to Accepted after one recipe-site pitch deck proves the follow
    `/llms.txt` and `/llms-full.txt`.
 9. Projects without `pitch.mdx` render exactly as they do now.
 10. Unit tests cover deck discovery, frontmatter validation, slide grouping, transcript conversion, and tabs. A
-    browser test covers navigation, focus-scoped keys, the focused route, and the mobile reading mode.
+    slide-grouping fixture covers ordinary project MDX plus `---` inside fenced code and JSX. A browser test covers
+    navigation, focus-scoped keys, the focused route, and the mobile reading mode.
 11. The production bundle report records the compressed JS and CSS delta and confirms that non-deck pages do not
     load reveal.js.
 12. Tests cover the React integration lifecycle. Any vendored source retains the relevant upstream tests and has an
     MIT notice tied to a commit.
+13. A `PitchNotes` fixture contains a unique sentinel. The browser test finds it in the focused route's
+    `aside.notes` and in speaker view. Transcript tests prove that it does not appear in `deck.md`, the project
+    Markdown twin, or `/llms-full.txt`.
 
 If reveal.js core resists the static export or local component model, the spike will compare vendoring its required
 modules with using Embla plus selected reveal.js or Slidev logic. A second application stack is a worse trade than
