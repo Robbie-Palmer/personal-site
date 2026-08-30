@@ -16,8 +16,8 @@ import type { ReactNode } from "react";
 import { EmblaDemoCarousel } from "@/components/technology/embla-demo-carousel";
 import { KnowledgeGraph } from "@/components/technology/knowledge-graph";
 import { LazyLeafletMapDemo } from "@/components/technology/lazy-leaflet-map-demo";
+import { LazyRechartsDemoChart } from "@/components/technology/lazy-recharts-demo-chart";
 import { MermaidDemo } from "@/components/technology/mermaid-demo";
-import { RechartsDemoChart } from "@/components/technology/recharts-demo-chart";
 import { ShikiDemo } from "@/components/technology/shiki-demo";
 import { TechPagination } from "@/components/technology/tech-pagination";
 import { Button } from "@/components/ui/button";
@@ -134,7 +134,7 @@ const TECHNOLOGY_DEMOS: Record<
   sigmadotjs: { icon: Play, component: <KnowledgeGraph /> },
   leaflet: { icon: MapIcon, component: <LazyLeafletMapDemo /> },
   "embla-carousel": { icon: Play, component: <EmblaDemoCarousel /> },
-  recharts: { icon: BarChart3, component: <RechartsDemoChart /> },
+  recharts: { icon: BarChart3, component: <LazyRechartsDemoChart /> },
   mermaid: { icon: Play, component: <MermaidDemo /> },
   shiki: { icon: Play, component: <ShikiDemo /> },
 };

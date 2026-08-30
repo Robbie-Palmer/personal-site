@@ -54,7 +54,7 @@ const noHouseholdReadAccess: HouseholdReadContext = Object.freeze({
   userSharesHouseholdWithOwner: false,
 });
 
-function hasSessionSignal(c: Context): boolean {
+export function hasSessionSignal(c: Context): boolean {
   if (c.req.header("authorization")) return true;
 
   const cookie = c.req.header("cookie");

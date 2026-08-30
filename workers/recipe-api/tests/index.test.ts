@@ -2196,6 +2196,21 @@ const env = {
   GITHUB_CLIENT_SECRET: "github-client-secret",
 };
 
+const PUBLIC_RECIPE_READ_CACHE_CONTROL =
+  "public, s-maxage=60, stale-while-revalidate=300";
+
+function expectPublicRecipeReadCacheHeaders(response: Response) {
+  expect(response.headers.get("cache-control")).toBe(
+    PUBLIC_RECIPE_READ_CACHE_CONTROL,
+  );
+  expect(response.headers.get("vary")).toBe("Cookie, Authorization");
+}
+
+function expectPrivateRecipeReadCacheHeaders(response: Response) {
+  expect(response.headers.get("cache-control")).toBe("private, no-store");
+  expect(response.headers.get("vary")).toBe("Cookie, Authorization");
+}
+
 describe("GET /health", () => {
   it("returns ok", async () => {
     const res = await app.request("/health", {}, env);
@@ -2265,6 +2280,7 @@ describe("GET /recipes", () => {
   it("returns recipes list", async () => {
     const res = await app.request("/recipes", {}, env);
     expect(res.status).toBe(200);
+    expectPublicRecipeReadCacheHeaders(res);
     expect(await res.json()).toEqual([]);
   });
 
@@ -2317,6 +2333,7 @@ describe("GET /recipes", () => {
     const res = await app.request("/recipes?scope=owned", {}, env);
 
     expect(res.status).toBe(200);
+    expectPrivateRecipeReadCacheHeaders(res);
     expect(await res.json()).toEqual([
       expect.objectContaining({
         slug: "my-lentil-soup",
@@ -2405,6 +2422,14 @@ describe("GET /recipes", () => {
 });
 
 describe("recipe discover following feed", () => {
+  it("allows shared caching for the anonymous public feed", async () => {
+    const res = await app.request("/recipes/discover/feed", {}, env);
+
+    expect(res.status).toBe(200);
+    expectPublicRecipeReadCacheHeaders(res);
+    expect(await res.json()).toEqual({ items: [], nextCursor: null });
+  });
+
   it("requires authentication", async () => {
     const res = await app.request(
       "/recipes/discover/feed?scope=following",
@@ -2513,6 +2538,7 @@ describe("recipe discover following feed", () => {
     );
 
     expect(res.status).toBe(200);
+    expectPrivateRecipeReadCacheHeaders(res);
     const body = (await res.json()) as {
       items: Array<{ recipe: { slug: string }; author: { id: string } }>;
     };
@@ -2574,6 +2600,7 @@ describe("GET /recipes/cooks", () => {
     const res = await app.request("/recipes/cooks", {}, env);
 
     expect(res.status).toBe(200);
+    expectPublicRecipeReadCacheHeaders(res);
     expect(await res.json()).toEqual({
       cooks: [
         {
@@ -2585,6 +2612,26 @@ describe("GET /recipes/cooks", () => {
         },
       ],
     });
+  });
+
+  it("keeps credentialed public cook reads out of shared caches", async () => {
+    seedCook();
+    authzMock.session = sessionFor({
+      id: "owner-user",
+      email: "owner@example.test",
+      name: "Owner",
+    });
+
+    const res = await app.request(
+      "/recipes/cooks",
+      {
+        headers: { cookie: "better-auth.session_token=owner-session" },
+      },
+      env,
+    );
+
+    expect(res.status).toBe(200);
+    expectPrivateRecipeReadCacheHeaders(res);
   });
 
   it("returns recent public activity for one cook", async () => {
@@ -2825,6 +2872,30 @@ describe("GET /recipes/:slug", () => {
     });
   });
 
+  it("allows shared caching for an anonymous public recipe", async () => {
+    dbMock.state.recipes.push({
+      id: "recipe-1",
+      slug: "public-soup",
+      title: "Public Soup",
+      description: null,
+      body: null,
+      userId: "owner-user",
+      visibility: "public",
+      createdAt: dbMock.date,
+      updatedAt: dbMock.date,
+    });
+
+    const res = await app.request("/recipes/public-soup", {}, env);
+
+    expect(res.status).toBe(200);
+    expectPublicRecipeReadCacheHeaders(res);
+    expect(await res.json()).toMatchObject({
+      slug: "public-soup",
+      visibility: "public",
+      owned: false,
+    });
+  });
+
   it("includes ownership when an owner reads a public recipe", async () => {
     dbMock.state.recipes.push({
       id: "recipe-1",
@@ -2846,6 +2917,7 @@ describe("GET /recipes/:slug", () => {
     const res = await app.request("/recipes/public-soup", {}, env);
 
     expect(res.status).toBe(200);
+    expectPrivateRecipeReadCacheHeaders(res);
     expect(await res.json()).toMatchObject({
       slug: "public-soup",
       visibility: "public",
@@ -2875,6 +2947,7 @@ describe("GET /recipes/:slug", () => {
     const res = await app.request("/recipes/shared-soup", {}, env);
 
     expect(res.status).toBe(200);
+    expectPrivateRecipeReadCacheHeaders(res);
     expect(await res.json()).toMatchObject({
       slug: "shared-soup",
       title: "Shared Soup",
