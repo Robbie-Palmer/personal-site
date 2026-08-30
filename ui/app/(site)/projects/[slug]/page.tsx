@@ -148,6 +148,7 @@ export default async function ProjectPage({ params }: Readonly<PageProps>) {
         {project.adrs.length > 0 ? (
           <Suspense fallback={<ProjectTabsSkeleton />}>
             <ProjectTabs
+              projectSlug={project.slug}
               adrCount={project.adrs.length}
               overview={
                 <Markdown
