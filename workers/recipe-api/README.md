@@ -59,6 +59,21 @@ OAuth is intentionally disabled in PR previews. The preview workflow seeds
 test scenarios and configures Better Auth's password support only for a
 server-side scenario endpoint guarded by Cloudflare Access.
 
+## Public recipe caching
+
+Anonymous public recipe lists, discovery feeds, cook lists, and recipe details
+use a 60-second shared-cache lifetime with a 300-second stale revalidation
+window. Requests carrying a session cookie or authorization header use
+`private, no-store`, and every recipe read varies on both headers.
+
+The Worker has no globally scoped Cloudflare cache-purge binding. Changing a
+public recipe to private or deleting it can leave the previous public API
+response in a shared cache for no more than 360 seconds. Published recipes use
+this explicit revocation bound. For immediate removal, purge the recipe detail,
+list, discovery feed, and cook-list URLs in Cloudflare. Public recipe pages and
+their `.md`, `.json`, and `.cook` variants use separate cache entries, so purge
+them too when applicable.
+
 ## Household realtime
 
 `GET /pantry/realtime` upgrades authenticated household members to the

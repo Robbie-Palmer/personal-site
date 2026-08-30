@@ -228,6 +228,7 @@ const recipeListLimitSchema = z.coerce.number().int().min(1).max(100).default(10
 const RECIPE_BOOTSTRAP_LIMIT = 10_000;
 const publicCookIdSchema = z.string().trim().min(1).max(128);
 const PUBLIC_COOK_CONNECTION_LIMIT = 50;
+// Visibility revocation follows the bounded CDN window documented in README.md.
 const PUBLIC_RECIPE_READ_CACHE_CONTROL =
   "public, s-maxage=60, stale-while-revalidate=300";
 const PRIVATE_RECIPE_READ_CACHE_CONTROL = "private, no-store";
