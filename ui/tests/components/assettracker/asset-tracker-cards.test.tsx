@@ -22,7 +22,12 @@ vi.mock("recharts", () => ({
       {children}
     </div>
   ),
-  Line: ({ dataKey }: { dataKey: string }) => <div data-series={dataKey} />,
+  Line: ({ dataKey, dot }: { dataKey: string; dot?: boolean }) => (
+    <div
+      data-dots={dot === false ? "hidden" : "visible"}
+      data-series={dataKey}
+    />
+  ),
   CartesianGrid: () => null,
   ReferenceLine: () => null,
   XAxis: () => null,
@@ -230,7 +235,9 @@ describe("PortfolioGoal", () => {
       ]),
     );
     expect(document.querySelector('[data-series="income"]')).toBeVisible();
-    expect(document.querySelector('[data-series="expenditure"]')).toBeVisible();
+    expect(
+      document.querySelector('[data-series="expenditure"]'),
+    ).toHaveAttribute("data-dots", "visible");
     expect(
       screen.getByRole("table", { name: "Income and expenditure by period" }),
     ).toHaveTextContent(
@@ -244,7 +251,9 @@ describe("PortfolioGoal", () => {
     ).toBeVisible();
     expect(document.querySelector('[data-series="income"]')).toBeNull();
     expect(document.querySelector('[data-series="expenditure"]')).toBeNull();
-    expect(document.querySelector('[data-series="difference"]')).toBeVisible();
+    expect(
+      document.querySelector('[data-series="difference"]'),
+    ).toHaveAttribute("data-dots", "visible");
   });
 
   it("shows emergency runway, savings rate, and a portfolio years-to-FI projection", () => {

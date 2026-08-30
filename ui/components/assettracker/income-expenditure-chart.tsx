@@ -160,7 +160,7 @@ export function IncomeExpenditureChart({
                     name="Expenditure"
                     stroke={EXPENDITURE_COLOR}
                     strokeWidth={2.5}
-                    dot={periods.length === 1}
+                    dot
                     connectNulls={false}
                   />
                 )}
@@ -172,7 +172,7 @@ export function IncomeExpenditureChart({
                 name="Income minus expenditure"
                 stroke={DIFFERENCE_COLOR}
                 strokeWidth={2.5}
-                dot={periods.length === 1}
+                dot
                 connectNulls={false}
               />
             )}
