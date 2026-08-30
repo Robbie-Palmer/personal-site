@@ -21,9 +21,9 @@ Cloudflare notifications route to the same inbox:
 * each notification links back to PostHog for investigation.
 
 The PostHog and Slack path is accepted: the workspace, integration, notification settings, and
-end-to-end firing and resolution paths have been configured and tested. The Cloudflare-to-Slack
+end-to-end firing and resolution paths have passed verification. The Cloudflare-to-Slack
 complementary path is also operational: Terraform-managed Cloudflare notification policies deliver
-to the same private Slack channel, and delivery has been verified end to end. This ADR is not a
+to the same private Slack channel, and end-to-end delivery verification succeeded. This ADR is not a
 claim that PostHog and Slack form a
 complete incident-management platform. The system has no on-call schedule,
 acknowledgement deadline, escalation, SMS or voice paging, status page, or independently hosted
@@ -178,7 +178,7 @@ source for failures that originate in Cloudflare or can prevent application tele
 PostHog. Route them to the same private Slack channel, or to a separate private
 `#cloudflare-alerts` channel if their volume or ownership later diverges.
 
-The destination and policies are managed with Cloudflare's
+Terraform manages the destination and policies through Cloudflare's
 [Terraform alerting resources](https://developers.cloudflare.com/api/terraform/resources/alerting/):
 
 * use `cloudflare_notification_policy_webhooks` for the Slack-formatted webhook destination;
