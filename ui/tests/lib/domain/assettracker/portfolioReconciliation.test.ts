@@ -57,6 +57,7 @@ describe("reconcilePortfolio", () => {
       closingNetWorth: 108_000,
       income: 10_000,
       netCapitalFlow: 5_000,
+      retainedIncomeSource: "recorded-flows",
       valuationGain: 3_000,
       expenditure: 5_000,
     });
@@ -67,6 +68,7 @@ describe("reconcilePortfolio", () => {
       closingNetWorth: 113_000,
       income: 8_000,
       netCapitalFlow: 2_000,
+      retainedIncomeSource: "recorded-flows",
       valuationGain: 3_000,
       expenditure: 6_000,
     });
@@ -79,6 +81,36 @@ describe("reconcilePortfolio", () => {
           period.valuationGain,
       ).toBe(period.closingNetWorth);
     }
+  });
+
+  it("falls back to balance changes for balances-only spreadsheet data", () => {
+    const data = portfolioData();
+    data.snapshots = [
+      { accountId: "portfolio", date: "2017-10-28", balance: 10_000 },
+      { accountId: "portfolio", date: "2017-11-28", balance: 10_396 },
+      { accountId: "portfolio", date: "2017-12-28", balance: 11_116.77 },
+      { accountId: "portfolio", date: "2018-01-28", balance: 11_415.42 },
+    ];
+    data.capitalFlows = [];
+    data.incomeHistory = [
+      { date: "2017-11-28", amount: 1_574.36 },
+      { date: "2017-12-28", amount: 1_574.36 },
+      { date: "2018-01-28", amount: 1_574.36 },
+    ];
+
+    const periods = reconcilePortfolio(buildRepository(data));
+
+    expect(periods).toHaveLength(3);
+    for (const [index, expected] of [1_178.36, 853.59, 1_275.71].entries()) {
+      expect(periods[index]?.expenditure).toBeCloseTo(expected);
+    }
+    expect(
+      periods.every(
+        (period) =>
+          period.retainedIncomeSource === "balance-change" &&
+          period.valuationGain === 0,
+      ),
+    ).toBe(true);
   });
 
   it("cancels signed internal transfers across accounts", () => {

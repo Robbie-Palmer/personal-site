@@ -6,6 +6,7 @@ import { DEFAULT_WITHDRAWAL_RATE } from "./assetTrackerData";
 import { getNetWorthTimeSeries } from "./assetTrackerQueries";
 import type { AssetTrackerRepository } from "./assetTrackerRepository";
 import type { NetWorthDataPoint } from "./assetTrackerViews";
+import type { CapitalFlow } from "./capitalFlow";
 
 const DAYS_PER_YEAR = 365.2425;
 export const FI_PROJECTION_MAX_YEARS = 100;
@@ -18,6 +19,8 @@ export type PortfolioReconciliationPeriod = {
   income: number;
   /** Deposits less withdrawals across every account during the period. */
   netCapitalFlow: number;
+  /** Whether retained income came from recorded flows or a balance-change fallback. */
+  retainedIncomeSource: "recorded-flows" | "balance-change";
   /** Closing net worth − opening net worth − net capital flow. */
   valuationGain: number;
   /** Income not retained on the complete balance sheet. */
@@ -94,16 +97,44 @@ function median(values: readonly number[]): number | null {
   return lower == null || upper == null ? null : (lower + upper) / 2;
 }
 
+function reconcileRetainedIncome(
+  periodFlows: readonly CapitalFlow[],
+  balanceChange: number,
+): Pick<
+  PortfolioReconciliationPeriod,
+  "netCapitalFlow" | "retainedIncomeSource" | "valuationGain"
+> {
+  if (periodFlows.length === 0) {
+    return {
+      netCapitalFlow: balanceChange,
+      retainedIncomeSource: "balance-change",
+      valuationGain: 0,
+    };
+  }
+  const netCapitalFlow = periodFlows.reduce(
+    (sum, flow) => sum + flow.amount,
+    0,
+  );
+  return {
+    netCapitalFlow,
+    retainedIncomeSource: "recorded-flows",
+    valuationGain: balanceChange - netCapitalFlow,
+  };
+}
+
 /**
  * Reconciles each imported income period against the complete balance sheet:
  *
  * opening net worth + income − expenditure + valuation gain = closing net worth
  *
- * Signed capital flows across all accounts cancel internal transfers. Their
- * net is therefore the part of income retained (or prior wealth spent), which
- * makes expenditure `income − net capital flow`. The first income row uses the
- * latest earlier balance-sheet observation as its opening boundary; subsequent
- * rows use the previous income date.
+ * Signed capital flows across all accounts cancel internal transfers. When
+ * present, their net is the part of income retained (or prior wealth spent),
+ * which makes expenditure `income − net capital flow`. When none are recorded
+ * for a period, the total balance-sheet change is used as retained income and
+ * valuation gain is assumed to be zero. This fallback matches a balances-only
+ * spreadsheet while keeping the assumption visible to the UI. The first income
+ * row uses the latest earlier balance-sheet observation as its opening boundary;
+ * subsequent rows use the previous income date.
  */
 export function reconcilePortfolio(
   repository: AssetTrackerRepository,
@@ -129,15 +160,12 @@ export function reconcilePortfolio(
       continue;
     }
 
-    const netCapitalFlow = repository.capitalFlows.reduce(
-      (sum, flow) =>
-        flow.date > startDate && flow.date <= record.date
-          ? sum + flow.amount
-          : sum,
-      0,
+    const periodFlows = repository.capitalFlows.filter(
+      (flow) => flow.date > startDate && flow.date <= record.date,
     );
-    const valuationGain = closing.total - opening.total - netCapitalFlow;
-    const expenditure = record.amount - netCapitalFlow;
+    const balanceChange = closing.total - opening.total;
+    const retainedIncome = reconcileRetainedIncome(periodFlows, balanceChange);
+    const expenditure = record.amount - retainedIncome.netCapitalFlow;
 
     periods.push({
       startDate,
@@ -145,8 +173,7 @@ export function reconcilePortfolio(
       openingNetWorth: opening.total,
       closingNetWorth: closing.total,
       income: record.amount,
-      netCapitalFlow,
-      valuationGain,
+      ...retainedIncome,
       expenditure,
       days,
       annualizedExpenditure: (expenditure * DAYS_PER_YEAR) / days,

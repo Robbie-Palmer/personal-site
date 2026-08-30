@@ -205,6 +205,7 @@ describe("PortfolioGoal", () => {
             closingNetWorth: 101_500,
             income: 4_000,
             netCapitalFlow: 1_500,
+            retainedIncomeSource: "balance-change",
             valuationGain: 0,
             expenditure: 2_500,
             days: 31,
@@ -243,6 +244,7 @@ describe("PortfolioGoal", () => {
     ).toHaveTextContent(
       "2026-01-31£4,000£2,500£1,5002026-02-28£4,200Awaiting reconciliationAwaiting reconciliation",
     );
+    expect(screen.getByText("Balance change")).toBeVisible();
 
     await userEvent.click(screen.getByRole("button", { name: "Difference" }));
 

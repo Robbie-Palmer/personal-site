@@ -261,8 +261,9 @@ export function PortfolioGoal() {
               <h3 className="text-sm font-medium">Period reconciliation</h3>
               <p className="text-xs text-muted-foreground">
                 Opening net worth + income − expenditure + valuation gain =
-                closing net worth. Net capital flow is income retained on the
-                balance sheet.
+                closing net worth. Retained income uses recorded net deposits
+                and withdrawals where available; otherwise it falls back to the
+                total net-worth change and assumes zero valuation gain.
               </p>
             </div>
             <div className="overflow-x-auto rounded-md border">
@@ -275,8 +276,9 @@ export function PortfolioGoal() {
                     </th>
                     <th className="px-3 py-2 text-right font-medium">Income</th>
                     <th className="px-3 py-2 text-right font-medium">
-                      Net flow
+                      Retained
                     </th>
+                    <th className="px-3 py-2 font-medium">Basis</th>
                     <th className="px-3 py-2 text-right font-medium">
                       Valuation gain
                     </th>
@@ -302,6 +304,11 @@ export function PortfolioGoal() {
                       </td>
                       <td className="whitespace-nowrap px-3 py-2 text-right">
                         {signedCurrency(period.netCapitalFlow)}
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-2">
+                        {period.retainedIncomeSource === "recorded-flows"
+                          ? "Recorded flows"
+                          : "Balance change"}
                       </td>
                       <td className="whitespace-nowrap px-3 py-2 text-right">
                         {signedCurrency(period.valuationGain)}
