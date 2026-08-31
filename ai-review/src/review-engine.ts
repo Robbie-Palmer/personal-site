@@ -177,13 +177,21 @@ export interface ScoutRun {
   circuitSkipped?: CircuitSkippedModel[];
 }
 
-interface ScoutRunOptions {
+export interface ScoutRunOptions {
   providers?: Array<Scout["provider"]>;
   observationId?: string;
+  isolated?: boolean;
+  systemPrompt?: string;
+  maxTokens?: number;
+  timeoutMs?: number;
 }
 
-interface MergeRunOptions {
+export interface MergeRunOptions {
   observationId?: string;
+  isolated?: boolean;
+  systemPrompt?: string;
+  maxTokens?: number;
+  timeoutMs?: number;
 }
 
 export interface MergedRun {
@@ -1198,10 +1206,12 @@ export async function runScouts(
     model,
     provider: "opencode",
   }));
-  const circuitSkipped = await plannedCircuitSkips(env, [
-    ...configuredScouts,
-    ...unavailableScouts,
-  ]);
+  const circuitSkipped = options.isolated
+    ? []
+    : await plannedCircuitSkips(env, [
+        ...configuredScouts,
+        ...unavailableScouts,
+      ]);
   const skippedScouts = new Set(
     circuitSkipped.map(scoutIdentity),
   );
@@ -1218,6 +1228,10 @@ export async function runScouts(
     prepared.context ?? "",
     prepared.guidelines ?? "",
   );
+  const scoutCallOptions =
+    options.maxTokens !== undefined || options.timeoutMs !== undefined
+      ? { maxTokens: options.maxTokens, timeoutMs: options.timeoutMs }
+      : undefined;
   const settled: Array<{
     scout: Scout;
     latencyMs: number;
@@ -1229,8 +1243,18 @@ export async function runScouts(
     const outcomes = await Promise.allSettled(
       batch.map(({ model, provider }) =>
         provider === "openrouter"
-          ? reviewer.callOpenRouterScout(model, scoutSystem, source)
-          : reviewer.callOpenCodeScout(model, scoutSystem, source),
+          ? reviewer.callOpenRouterScout(
+              model,
+              options.systemPrompt ?? scoutSystem,
+              source,
+              ...(scoutCallOptions ? [scoutCallOptions] : []),
+            )
+          : reviewer.callOpenCodeScout(
+              model,
+              options.systemPrompt ?? scoutSystem,
+              source,
+              ...(scoutCallOptions ? [scoutCallOptions] : []),
+            ),
       ),
     );
     batch.forEach((scout, index) => {
@@ -1322,14 +1346,16 @@ export async function runScouts(
       }
     }
   }
-  await recordModelReliability(
-    env,
-    options.observationId ??
-      `${params.deliveryId}:${[...providers]
-        .sort((a, b) => a.localeCompare(b))
-        .join(",")}`,
-    metrics,
-  );
+  if (!options.isolated) {
+    await recordModelReliability(
+      env,
+      options.observationId ??
+        `${params.deliveryId}:${[...providers]
+          .sort((a, b) => a.localeCompare(b))
+          .join(",")}`,
+      metrics,
+    );
+  }
   return {
     models,
     candidates,
@@ -1454,12 +1480,12 @@ export async function mergeFindings(
   }
   const settings = modelSettings(env, params, "not-used-for-model-calls");
   const reviewer = new Reviewer(settings);
-  const circuitSkip = (
-    await plannedCircuitSkips(env, [{
-      model: settings.merger,
-      provider: "openrouter",
-    }])
-  )[0];
+  const circuitSkip = options.isolated
+    ? undefined
+    : (await plannedCircuitSkips(env, [{
+        model: settings.merger,
+        provider: "openrouter",
+      }]))[0];
   if (circuitSkip) {
     const findingResolutions = (prepared.replayFindings ?? []).map(
       ({ findingId }) => ({
@@ -1510,14 +1536,17 @@ ${prepared.threads ?? ""}
   const started = Date.now();
   let merged: ModelResult | undefined;
   try {
-    merged = await reviewer.callMerger(
+    const mergerArguments = [
       settings.merger,
-      statefulMergerSystem,
+      options.systemPrompt ?? statefulMergerSystem,
       prompt,
       "merged_code_review",
       statefulMergerSchema,
-      MERGER_MAX_TOKENS,
-    );
+      options.maxTokens ?? MERGER_MAX_TOKENS,
+    ] as const;
+    merged = options.timeoutMs === undefined
+      ? await reviewer.callMerger(...mergerArguments)
+      : await reviewer.callMerger(...mergerArguments, options.timeoutMs);
     const contributingScoutModels = Object.entries(scouts.candidates)
       .filter(([, findings]) => findings.length > 0)
       .map(([model]) => model);
@@ -1528,19 +1557,21 @@ ${prepared.threads ?? ""}
     );
   } catch (error) {
     const costUsd = merged?.cost ?? 0;
-    await recordModelReliability(
-      env,
-      options.observationId ?? `${params.deliveryId}:merger`,
-      [{
-        model: settings.merger,
-        provider: "openrouter",
-        role: "merger",
-        ok: false,
-        latencyMs: Date.now() - started,
-        costUsd,
-        error: errorMessage(error),
-      }],
-    );
+    if (!options.isolated) {
+      await recordModelReliability(
+        env,
+        options.observationId ?? `${params.deliveryId}:merger`,
+        [{
+          model: settings.merger,
+          provider: "openrouter",
+          role: "merger",
+          ok: false,
+          latencyMs: Date.now() - started,
+          costUsd,
+          error: errorMessage(error),
+        }],
+      );
+    }
     if (costUsd > 0) {
       throw new MergerOutputError(errorMessage(error), costUsd);
     }
@@ -1555,11 +1586,13 @@ ${prepared.threads ?? ""}
     costUsd: merged.cost,
     usage: merged.usage,
   };
-  await recordModelReliability(
-    env,
-    options.observationId ?? `${params.deliveryId}:merger`,
-    [metric],
-  );
+  if (!options.isolated) {
+    await recordModelReliability(
+      env,
+      options.observationId ?? `${params.deliveryId}:merger`,
+      [metric],
+    );
+  }
   return {
     result: merged.payload,
     cost: merged.cost,

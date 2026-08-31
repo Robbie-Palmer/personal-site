@@ -338,6 +338,24 @@ cap.
 Replay outputs are versioned records; the CLI never rewrites the historical
 objects it reads.
 
+The corpus replay runner in `src/replay-runner.ts` executes one frozen
+`ai-review-replay-input` entry through the production scout, merger, validation,
+and finding-identification boundaries. Its adapter has no publication method,
+and isolated model calls neither read nor update the per-PR Durable Object.
+Call `runControlledReplay` with a corpus store, a production adapter, and one
+declared experiment: scout models, merger model, prompt version, or coverage
+policy. The store writes results below
+`replays/v1/<corpus-id>/<configuration-id>/repetition-<n>.json`, separate from
+production review records.
+
+Every request must declare model-count, token, cost, provider, privacy,
+timeout, and repetition limits. The default is a dry-run plan, which validates
+the frozen input and reports the full production-to-experiment difference
+without calling a model. Execution requires `dryRun: false`. Repeating the same
+corpus and configuration returns the stored result; set a new repetition index
+to run it again. The result retains raw candidates, merged findings, failures,
+usage, latency, cost, applied configuration, and corpus provenance.
+
 ## Deploy
 
 Sync the environment after changing Doppler:
