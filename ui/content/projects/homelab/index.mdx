@@ -440,9 +440,8 @@ A headless batch-CV box, configured declaratively with
 `homelab/hosts/asus-desktop` in this repo, defined by a flake locked to the
 pinned nixpkgs channel and deployed with `nixos-rebuild`.
 
-* **Old, unsupported 1050 GPU.** The box turned out to have a GTX 1050,
-  Pascal-era (`sm_61`), not the 1060 the ADR first assumed. Same problem
-  either way: CUDA 13 and the newer driver branches dropped Pascal, so the
+* **Old, unsupported 1050 GPU.** The GTX 1050 is Pascal-era (`sm_61`) with
+  2GB of VRAM. CUDA 13 and the newer driver branches dropped Pascal, so the
   flake pins nixos-25.11, the 6.12 LTS kernel, and the 580 driver branch
   (580.142, closed kernel modules, since the open modules need Turing or
   newer).
@@ -453,7 +452,7 @@ pinned nixpkgs channel and deployed with `nixos-rebuild`.
   `/data` (916G free), holding local copies of datasets for the ML pipelines
   (`ml-pipelines/recipe-parsing/`) and any CV work.
 * **Reachable over the tailnet.** The desktop has no ethernet run to the
-  router, so its uplink is an Android phone over USB tethering. That link
+  router, so its uplink is an Honor Magic5 Pro over USB tethering. That link
   drops when the box sleeps and can't carry a WoL magic packet, so
   wake-on-LAN and sleep-on-idle wait on a pair of powerline ethernet
   adapters. The NixOS config already carries the WoL link policy for that
