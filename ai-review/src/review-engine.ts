@@ -1241,23 +1241,16 @@ export async function runScouts(
   for (let offset = 0; offset < runnableScouts.length; offset += SCOUT_CONCURRENCY) {
     const batch = runnableScouts.slice(offset, offset + SCOUT_CONCURRENCY);
     const started = batch.map(() => Date.now());
-    const outcomes = await Promise.allSettled(
-      batch.map(({ model, provider }) =>
-        provider === "openrouter"
-          ? reviewer.callOpenRouterScout(
-              model,
-              options.systemPrompt ?? scoutSystem,
-              source,
-              ...(scoutCallOptions ? [scoutCallOptions] : []),
-            )
-          : reviewer.callOpenCodeScout(
-              model,
-              options.systemPrompt ?? scoutSystem,
-              source,
-              ...(scoutCallOptions ? [scoutCallOptions] : []),
-            ),
-      ),
-    );
+    const callScout = ({ model, provider }: Scout) => {
+      const args = [model, options.systemPrompt ?? scoutSystem, source] as const;
+      if (provider === "openrouter") {
+        if (scoutCallOptions) return reviewer.callOpenRouterScout(...args, scoutCallOptions);
+        return reviewer.callOpenRouterScout(...args);
+      }
+      if (scoutCallOptions) return reviewer.callOpenCodeScout(...args, scoutCallOptions);
+      return reviewer.callOpenCodeScout(...args);
+    };
+    const outcomes = await Promise.allSettled(batch.map(callScout));
     batch.forEach((scout, index) => {
       const outcome = outcomes[index];
       if (outcome) {

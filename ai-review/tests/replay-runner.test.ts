@@ -44,8 +44,10 @@ const snapshot: ReplayInputSnapshot = {
     affectedOpenFindings: [],
   },
   decision: {
+    changeProfile: undefined,
     paths: ["src/app.ts"],
     omittedPaths: [],
+    reviewedHunks: undefined,
     coverage: {
       mode: "full",
       reason: "initial review",

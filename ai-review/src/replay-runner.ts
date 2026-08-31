@@ -62,11 +62,11 @@ export interface ReplayInputSnapshot {
     affectedOpenFindings: PreparedReview["replayFindings"];
   };
   decision: {
-    changeProfile?: PreparedReview["changeProfile"];
-    coverage?: PreparedReview["coverage"];
+    changeProfile: PreparedReview["changeProfile"];
+    coverage: PreparedReview["coverage"];
     paths: string[];
     omittedPaths: string[];
-    reviewedHunks?: PreparedReview["hunks"];
+    reviewedHunks: PreparedReview["hunks"];
   };
   prompt: {
     version: string;
@@ -205,6 +205,47 @@ function replayValue(experiment: ReplayExperiment): unknown {
   return experiment.policy;
 }
 
+function validateScoutExperiment(
+  experiment: Extract<ReplayExperiment, { kind: "scout-model" }>,
+  limits: ReplayLimits,
+): void {
+  if (experiment.models.length === 0 || experiment.models.length > limits.maxModels) {
+    throw new Error(`scout model count must be between 1 and ${limits.maxModels}`);
+  }
+  for (const { model, provider } of experiment.models) {
+    if (!model.trim()) throw new Error("scout model IDs must not be empty");
+    if (!limits.allowedProviders.includes(provider)) {
+      throw new Error(`provider ${provider} is not allowed`);
+    }
+  }
+}
+
+function validateExperimentValue(experiment: ReplayExperiment, limits: ReplayLimits): void {
+  if (experiment.kind === "scout-model") validateScoutExperiment(experiment, limits);
+  if (
+    experiment.kind === "prompt-version" &&
+    (!experiment.prompt.version.trim() ||
+      !experiment.prompt.scoutSystem.trim() ||
+      !experiment.prompt.mergerSystem.trim())
+  ) {
+    throw new Error("prompt experiment requires a version and both system prompts");
+  }
+  if (
+    experiment.kind === "coverage-policy" &&
+    (!experiment.policy.version.trim() ||
+      !["recorded", "full"].includes(experiment.policy.mode))
+  ) {
+    throw new Error("coverage experiment requires a version and supported mode");
+  }
+}
+
+function recordedProviders(snapshot: ReplayInputSnapshot): Provider[] {
+  const providers: Provider[] = [];
+  if (snapshot.modelRequest.openRouterScouts.length > 0) providers.push("openrouter");
+  if (snapshot.modelRequest.openCodeScouts.length > 0) providers.push("opencode");
+  return providers;
+}
+
 function validateExperiment(
   snapshot: ReplayInputSnapshot,
   experiment: ReplayExperiment,
@@ -223,32 +264,7 @@ function validateExperiment(
   if (unexpected.length > 0) {
     throw new Error(`replay must declare exactly one experimental variable; unexpected: ${unexpected.join(", ")}`);
   }
-  if (experiment.kind === "scout-model") {
-    if (experiment.models.length === 0 || experiment.models.length > limits.maxModels) {
-      throw new Error(`scout model count must be between 1 and ${limits.maxModels}`);
-    }
-    for (const { model, provider } of experiment.models) {
-      if (!model.trim()) throw new Error("scout model IDs must not be empty");
-      if (!limits.allowedProviders.includes(provider)) {
-        throw new Error(`provider ${provider} is not allowed`);
-      }
-    }
-  }
-  if (
-    experiment.kind === "prompt-version" &&
-    (!experiment.prompt.version.trim() ||
-      !experiment.prompt.scoutSystem.trim() ||
-      !experiment.prompt.mergerSystem.trim())
-  ) {
-    throw new Error("prompt experiment requires a version and both system prompts");
-  }
-  if (
-    experiment.kind === "coverage-policy" &&
-    (!experiment.policy.version.trim() ||
-      !["recorded", "full"].includes(experiment.policy.mode))
-  ) {
-    throw new Error("coverage experiment requires a version and supported mode");
-  }
+  validateExperimentValue(experiment, limits);
   const configuredModelCount = experiment.kind === "scout-model"
     ? experiment.models.length
     : snapshot.modelRequest.openRouterScouts.length + snapshot.modelRequest.openCodeScouts.length;
@@ -259,11 +275,7 @@ function validateExperiment(
     throw new Error("openrouter must be allowed for the merger boundary");
   }
   if (experiment.kind !== "scout-model") {
-    const recordedProviders: Provider[] = [
-      ...(snapshot.modelRequest.openRouterScouts.length > 0 ? ["openrouter" as const] : []),
-      ...(snapshot.modelRequest.openCodeScouts.length > 0 ? ["opencode" as const] : []),
-    ];
-    const unauthorized = recordedProviders.find(
+    const unauthorized = recordedProviders(snapshot).find(
       (provider) => !limits.allowedProviders.includes(provider),
     );
     if (unauthorized) throw new Error(`recorded provider ${unauthorized} is not allowed`);
@@ -285,6 +297,17 @@ function validateExperiment(
     production: productionValue(snapshot, experiment),
     replay: replayValue(experiment),
   }];
+}
+
+function replayProviders(snapshot: ReplayInputSnapshot, experiment: ReplayExperiment): Provider[] {
+  if (experiment.kind !== "scout-model") return recordedProviders(snapshot);
+  return [...new Set(experiment.models.map(({ provider }) => provider))];
+}
+
+function replayStatus(scouts: ScoutRun, costUsd: number, maxCostUsd: number): string {
+  if (Object.keys(scouts.candidates).length === 0) return "failed";
+  if (costUsd > maxCostUsd) return "budget-exceeded";
+  return "completed";
 }
 
 async function sha256(value: string): Promise<string> {
@@ -413,12 +436,7 @@ export async function executeControlledReplay(
   }
   const snapshot = request.snapshot as ReplayInputSnapshot;
   const prepared = await preparedReview(snapshot, request.experiment);
-  const providers = request.experiment.kind === "scout-model"
-    ? [...new Set(request.experiment.models.map(({ provider }) => provider))]
-    : [
-        ...(snapshot.modelRequest.openRouterScouts.length > 0 ? ["openrouter" as const] : []),
-        ...(snapshot.modelRequest.openCodeScouts.length > 0 ? ["opencode" as const] : []),
-      ];
+  const providers = replayProviders(snapshot, request.experiment);
   const started = Date.now();
   let scouts: ScoutRun;
   let merged: MergedRun;
@@ -509,11 +527,7 @@ export async function executeControlledReplay(
   const result = {
     ...plan,
     recordType: "ai-review-replay-result",
-    status: Object.keys(scouts.candidates).length === 0
-      ? "failed"
-      : costUsd > request.limits.maxCostUsd
-        ? "budget-exceeded"
-        : "completed",
+    status: replayStatus(scouts, costUsd, request.limits.maxCostUsd),
     paidInferenceAllowed: true,
     productionRunId: snapshot.productionRunId,
     corpusProvenance: snapshot.provenance,
