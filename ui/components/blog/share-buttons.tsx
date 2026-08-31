@@ -1,10 +1,11 @@
 "use client";
 
-import { Linkedin } from "lucide-react";
+import { Check, Link2, Linkedin } from "lucide-react";
 import Link from "next/link";
 import posthog from "posthog-js";
-import type { ReactNode } from "react";
+import { type ReactNode, useState } from "react";
 import { siX, siYcombinator } from "simple-icons";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
   Tooltip,
@@ -54,10 +55,32 @@ export function ShareButtons({
   title,
   url,
 }: Readonly<ShareButtonsProps>) {
+  const [copied, setCopied] = useState(false);
+
+  async function copyLink() {
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      toast.success("Link copied");
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      toast.error("Could not copy link");
+    }
+  }
+
   return (
     <TooltipProvider>
       <div className="flex items-center gap-1 text-muted-foreground">
-        <span className="text-sm mr-1">Share</span>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="text-muted-foreground hover:text-foreground"
+          onClick={copyLink}
+          aria-label="Copy link"
+        >
+          {copied ? <Check className="size-4" /> : <Link2 className="size-4" />}
+          {copied ? "Copied" : "Share"}
+        </Button>
         {SHARE_TARGETS.map(({ platform, label, icon }) => (
           <Tooltip key={platform}>
             <TooltipTrigger asChild>

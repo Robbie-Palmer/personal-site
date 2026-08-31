@@ -7,6 +7,10 @@ vi.mock("posthog-js", () => ({
   default: { capture: vi.fn() },
 }));
 
+vi.mock("sonner", () => ({
+  toast: { success: vi.fn(), error: vi.fn() },
+}));
+
 const post = {
   slug: "just-right-engineering",
   title: "Just Right Engineering",
@@ -79,5 +83,18 @@ describe("ShareButtons", () => {
       slug: post.slug,
       url: post.url,
     });
+  });
+
+  it("copies the post url to the clipboard when copy link is clicked", () => {
+    Object.defineProperty(navigator, "clipboard", {
+      value: { writeText: vi.fn().mockResolvedValue(undefined) },
+      configurable: true,
+    });
+    const writeText = vi.mocked(navigator.clipboard.writeText);
+    renderShareButtons();
+
+    fireEvent.click(screen.getByLabelText("Copy link"));
+
+    expect(writeText).toHaveBeenCalledWith(post.url);
   });
 });
