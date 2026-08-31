@@ -34,7 +34,7 @@ function prepared(mode: ReviewCoverageMode): PreparedReview {
     diffFingerprint: "diff-hash",
     configFingerprint: "config-hash",
     fullDiff: "diff --git a/src/app.ts b/src/app.ts\n+AWS_SECRET_ACCESS_KEY=super-secret-value",
-    diff: "+token=super-secret-value",
+    diff: "+Authorization: Basic dXNlcjpwYXNzd29yZA==",
     context: "Authorization: Bearer abcdefghijklmnopqrstuvwxyz",
     guidelines: "Review carefully.",
     threads: "Prior discussion.",
@@ -115,6 +115,7 @@ describe("replay input corpus", () => {
       expect(snapshot.input.affectedOpenFindings).toHaveLength(mode === "incremental" ? 1 : 0);
       expect(JSON.stringify(snapshot)).not.toContain("super-secret-value");
       expect(JSON.stringify(snapshot)).not.toContain("abcdefghijklmnopqrstuvwxyz");
+      expect(JSON.stringify(snapshot)).not.toContain("dXNlcjpwYXNzd29yZA");
       expect(JSON.stringify(snapshot)).not.toContain("postgres://user:password");
       expect(snapshot.provenance.liveCredentialsIncluded).toBe(false);
       const manifest = JSON.parse(String(put.mock.calls[1]?.[1]));

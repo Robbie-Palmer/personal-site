@@ -19,7 +19,7 @@ export function assertReplaySchemaCompatible(value: unknown): asserts value is {
 
 const SECRET_PATTERNS: Array<[string, RegExp]> = [
   ["private-key", /-----BEGIN [^-]*PRIVATE KEY-----[\s\S]*?-----END [^-]*PRIVATE KEY-----/g],
-  ["authorization", /\b(?:authorization:\s*bearer|bearer)\s+[^\s"']+/gi],
+  ["authorization", /\b(?:authorization:\s*)?(?:basic|bearer)\s+[^\s"']+/gi],
   ["github-token", /\b(?:gh[opsu]_\w{20,}|github_pat_\w{20,})\b/g],
   ["connection-uri", /\b(?:postgres(?:ql)?|mysql|mongodb(?:\+srv)?|redis):\/\/[^\s"']+/gi],
   [
