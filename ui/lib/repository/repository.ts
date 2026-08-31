@@ -18,12 +18,12 @@ import {
   type BlogRelations,
   type BlogSlug,
 } from "../domain/blog/blogPost";
-import { type PitchDeck, PitchDeckSchema } from "../domain/project/pitchDeck";
 import {
   type Initiative,
   InitiativeSchema,
   type InitiativeSlug,
 } from "../domain/initiative/initiative";
+import { type PitchDeck, PitchDeckSchema } from "../domain/project/pitchDeck";
 import {
   type Project,
   type ProjectRelations,

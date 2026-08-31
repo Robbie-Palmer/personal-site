@@ -56,7 +56,7 @@ run = "pnpm test:watch"
 
 [tasks.lint]
 description = "Lint and format check with Biome"
-depends = ["//ui:typegen"]
+depends = ["//ui:install"]
 run = "pnpm lint"
 
 [tasks.format]
@@ -66,7 +66,7 @@ run = "pnpm format"
 
 [tasks."format:check"]
 description = "Check formatting without making changes"
-depends = ["//ui:typegen"]
+depends = ["//ui:install"]
 run = "pnpm format:check"
 
 [tasks.typegen]
