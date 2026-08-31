@@ -1,7 +1,5 @@
 "use client";
 
-import "reveal.js/reveal.css";
-import "./pitch-deck.css";
 import { PitchDeckFrame } from "./pitch-deck-frame";
 
 export function ProjectPitchDeck({

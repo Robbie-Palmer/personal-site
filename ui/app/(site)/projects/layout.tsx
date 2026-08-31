@@ -1,3 +1,5 @@
+import "reveal.js/reveal.css";
+import "@/components/projects/pitch-deck/pitch-deck.css";
 import { siteConfig } from "@/lib/config/site-config";
 
 export default function ProjectsLayout({

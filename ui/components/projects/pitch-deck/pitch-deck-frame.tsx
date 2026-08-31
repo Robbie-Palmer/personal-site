@@ -51,6 +51,7 @@ export function PitchDeckFrame({
   const [position, setPosition] = useState(initialPosition);
   const [reducedMotion, setReducedMotion] = useState(false);
   const [scrollView, setScrollView] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   useEffect(() => {
     const query = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -60,16 +61,8 @@ export function PitchDeckFrame({
     return () => query.removeEventListener("change", update);
   }, []);
 
-  useEffect(() => {
-    const restoreFocus = () => {
-      if (!document.fullscreenElement) fullscreenButtonRef.current?.focus();
-    };
-    document.addEventListener("fullscreenchange", restoreFocus);
-    return () => document.removeEventListener("fullscreenchange", restoreFocus);
-  }, []);
-
-  const updatePosition = useCallback(() => {
-    const deck = deckRef.current;
+  const updatePosition = useCallback((readyDeck?: RevealApi) => {
+    const deck = readyDeck ?? deckRef.current;
     if (!deck) return;
     setPosition({
       current: deck.getSlidePastCount() + 1,
@@ -78,6 +71,34 @@ export function PitchDeckFrame({
       atEnd: deck.isLastSlide(),
     });
   }, []);
+  const handleReady = useCallback(
+    (deck: RevealApi) => updatePosition(deck),
+    [updatePosition],
+  );
+  const handlePositionEvent = useCallback(
+    () => updatePosition(),
+    [updatePosition],
+  );
+
+  useEffect(() => {
+    let layoutFrame = 0;
+    const syncFullscreen = () => {
+      const active = document.fullscreenElement === shellRef.current;
+      setIsFullscreen(active);
+      if (!active) fullscreenButtonRef.current?.focus();
+
+      cancelAnimationFrame(layoutFrame);
+      layoutFrame = requestAnimationFrame(() => {
+        deckRef.current?.layout();
+        updatePosition();
+      });
+    };
+    document.addEventListener("fullscreenchange", syncFullscreen);
+    return () => {
+      cancelAnimationFrame(layoutFrame);
+      document.removeEventListener("fullscreenchange", syncFullscreen);
+    };
+  }, [updatePosition]);
 
   const config = useMemo<RevealConfig>(
     () => ({
@@ -110,8 +131,16 @@ export function PitchDeckFrame({
     notes?.open?.();
   };
 
-  const enterFullscreen = async () => {
-    await shellRef.current?.requestFullscreen();
+  const toggleFullscreen = async () => {
+    try {
+      if (document.fullscreenElement === shellRef.current) {
+        await document.exitFullscreen();
+      } else {
+        await shellRef.current?.requestFullscreen();
+      }
+    } catch {
+      fullscreenButtonRef.current?.focus();
+    }
   };
 
   const hasPresenterTools = mode === "focused" || showPresenterTools;
@@ -163,11 +192,11 @@ export function PitchDeckFrame({
             <button
               ref={fullscreenButtonRef}
               type="button"
-              onClick={enterFullscreen}
-              title="Enter fullscreen"
+              onClick={() => void toggleFullscreen()}
+              title={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
             >
               <Expand aria-hidden="true" />
-              <span>Fullscreen</span>
+              <span>{isFullscreen ? "Exit fullscreen" : "Fullscreen"}</span>
             </button>
           </div>
         </div>
@@ -179,9 +208,9 @@ export function PitchDeckFrame({
           config={config}
           plugins={plugins}
           className="project-pitch-reveal"
-          onReady={updatePosition}
-          onSlideChange={updatePosition}
-          onSync={updatePosition}
+          onReady={handleReady}
+          onSlideChange={handlePositionEvent}
+          onSync={handlePositionEvent}
         >
           {children}
         </Deck>

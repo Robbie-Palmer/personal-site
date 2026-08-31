@@ -15,6 +15,7 @@ const { deckApi, deckState } = vi.hoisted(() => ({
     getTotalSlides: vi.fn(() => 3),
     isFirstSlide: vi.fn(() => true),
     isLastSlide: vi.fn(() => false),
+    layout: vi.fn(),
     next: vi.fn(),
     prev: vi.fn(),
     toggleOverview: vi.fn(),
@@ -29,12 +30,12 @@ vi.mock("@revealjs/react", async () => {
       const { children, deckRef, onReady } = props as {
         children: React.ReactNode;
         deckRef: React.MutableRefObject<unknown>;
-        onReady?: () => void;
+        onReady?: (deck: typeof deckApi) => void;
       };
       deckState.props = props;
       React.useEffect(() => {
+        onReady?.(deckApi);
         deckRef.current = deckApi;
-        onReady?.();
       }, [deckRef, onReady]);
       return React.createElement("div", { "data-testid": "deck" }, children);
     },
@@ -43,6 +44,7 @@ vi.mock("@revealjs/react", async () => {
 
 describe("PitchDeckFrame", () => {
   const requestFullscreen = vi.fn(() => Promise.resolve());
+  const exitFullscreen = vi.fn(() => Promise.resolve());
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -55,11 +57,21 @@ describe("PitchDeckFrame", () => {
       configurable: true,
       value: requestFullscreen,
     });
+    Object.defineProperty(document, "exitFullscreen", {
+      configurable: true,
+      value: exitFullscreen,
+    });
+    Object.defineProperty(document, "fullscreenElement", {
+      configurable: true,
+      value: null,
+    });
   });
 
   afterEach(() => {
     delete (HTMLElement.prototype as { requestFullscreen?: unknown })
       .requestFullscreen;
+    delete (document as { exitFullscreen?: unknown }).exitFullscreen;
+    delete (document as { fullscreenElement?: unknown }).fullscreenElement;
   });
 
   it("navigates an embedded project deck and exposes its reading routes", async () => {
@@ -134,6 +146,18 @@ describe("PitchDeckFrame", () => {
     expect(openNotes).toHaveBeenCalledOnce();
     fireEvent.click(screen.getByRole("button", { name: "Fullscreen" }));
     expect(requestFullscreen).toHaveBeenCalledOnce();
+
+    const deckShell = screen.getByRole("region", {
+      name: "reveal.js integration demo presentation",
+    });
+    Object.defineProperty(document, "fullscreenElement", {
+      configurable: true,
+      value: deckShell,
+    });
+    fireEvent(document, new Event("fullscreenchange"));
+    await waitFor(() => expect(deckApi.layout).toHaveBeenCalledOnce());
+    fireEvent.click(screen.getByRole("button", { name: "Exit fullscreen" }));
+    expect(exitFullscreen).toHaveBeenCalledOnce();
     expect(screen.queryByRole("link", { name: "Transcript" })).toBeNull();
   });
 

@@ -18,6 +18,7 @@ function findSystemChrome(): string | undefined {
     "/usr/bin/google-chrome",
     "/usr/bin/google-chrome-stable",
     "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+    "/Applications/Brave Browser.app/Contents/MacOS/Brave Browser",
   ];
 
   return candidates.find(
@@ -167,6 +168,34 @@ describe("Visualization browser rendering", () => {
         notes: 2,
         slides: 6,
       });
+      await page.waitForFunction(
+        () =>
+          document
+            .querySelector(".pitch-deck__position")
+            ?.textContent?.trim() === "Slide 1 of 6",
+      );
+
+      await page.click('button[title="Enter fullscreen"]');
+      await page.waitForFunction(
+        () => document.fullscreenElement?.classList.contains("pitch-deck"),
+        { timeout: 10_000 },
+      );
+      const fullscreenLayout = await page.$eval(
+        ".pitch-deck:fullscreen",
+        (deck) => {
+          const stage = deck.querySelector<HTMLElement>(".pitch-deck__stage");
+          return {
+            deckHeight: deck.getBoundingClientRect().height,
+            display: getComputedStyle(deck).display,
+            stageHeight: stage?.getBoundingClientRect().height ?? 0,
+          };
+        },
+      );
+      expect(fullscreenLayout.display).toBe("flex");
+      expect(fullscreenLayout.deckHeight).toBeGreaterThan(500);
+      expect(fullscreenLayout.stageHeight).toBeGreaterThan(300);
+      await page.click('button[title="Exit fullscreen"]');
+      await page.waitForFunction(() => document.fullscreenElement === null);
 
       await page.click('button[aria-label="Next slide"]');
       await page.waitForFunction(
@@ -187,6 +216,19 @@ describe("Visualization browser rendering", () => {
       );
       expect(diagramSize.width).toBeGreaterThan(100);
       expect(diagramSize.height).toBeGreaterThan(30);
+      const nodeLabels = await page.$$eval(
+        ".pitch-deck section.present .mermaid-diagram .nodeLabel p",
+        (labels) =>
+          labels.map((label) => ({
+            fontSize: getComputedStyle(label).fontSize,
+            text: label.textContent,
+          })),
+      );
+      expect(nodeLabels.length).toBeGreaterThan(0);
+      expect(nodeLabels.every((label) => label.fontSize === "16px")).toBe(true);
+      expect(nodeLabels.map((label) => label.text).join(" ")).toContain(
+        "MDX source",
+      );
 
       await page.click('button[aria-label="Next slide"]');
       await page.click('button[aria-label="Next slide"]');
@@ -223,6 +265,45 @@ describe("Visualization browser rendering", () => {
           ?.textContent,
       }));
       expect(liveControl).toEqual({ count: "3", selected: "Sensitive" });
+      expect(pageErrors).toEqual([]);
+    } finally {
+      await page.close();
+    }
+  }, 30_000);
+
+  it("loads the embedded project deck fully styled and counted", async () => {
+    const page = await browser.newPage();
+    const pageErrors: string[] = [];
+    page.on("pageerror", (error) => pageErrors.push(String(error)));
+
+    try {
+      await page.goto(`${BASE_URL}/projects/agentic-code-review`, {
+        waitUntil: "domcontentloaded",
+      });
+      await page.waitForSelector(".pitch-deck .reveal.ready", {
+        timeout: 20_000,
+      });
+      await page.waitForFunction(
+        () =>
+          document
+            .querySelector(".pitch-deck__position")
+            ?.textContent?.trim() === "Slide 1 of 8",
+      );
+
+      const deck = await page.$eval(".pitch-deck", (element) => {
+        const slide = element.querySelector<HTMLElement>(".pitch-slide");
+        return {
+          background: getComputedStyle(element).backgroundColor,
+          paddingTop: slide ? getComputedStyle(slide).paddingTop : "",
+          slides: element.querySelectorAll(".slides > section").length,
+        };
+      });
+
+      expect(deck).toEqual({
+        background: "rgb(9, 10, 9)",
+        paddingTop: "72px",
+        slides: 8,
+      });
       expect(pageErrors).toEqual([]);
     } finally {
       await page.close();
