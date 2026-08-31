@@ -363,6 +363,53 @@ describe("applyImportAccountHistory", () => {
     ]);
   });
 
+  it("keeps independently classified capital histories on the same date", () => {
+    const personal = applyImportAccountHistory(baseData(), {
+      accountId: "stocks-isa",
+      balances: [],
+      capitalFlows: [{ date: "2024-06-01", value: 400 }],
+      capitalFlowKind: "personalSaving",
+      replaceCapitalFlows: true,
+    });
+    const combined = applyImportAccountHistory(personal, {
+      accountId: "stocks-isa",
+      balances: [],
+      capitalFlows: [{ date: "2024-06-01", value: 200 }],
+      capitalFlowKind: "external",
+      replaceCapitalFlows: true,
+    });
+
+    expect(combined.capitalFlows).toEqual([
+      {
+        accountId: "stocks-isa",
+        date: "2024-06-01",
+        amount: 400,
+        kind: "personalSaving",
+      },
+      {
+        accountId: "stocks-isa",
+        date: "2024-06-01",
+        amount: 200,
+        kind: "external",
+      },
+    ]);
+
+    expect(
+      applyDeleteCapitalFlow(combined, {
+        accountId: "stocks-isa",
+        date: "2024-06-01",
+        kind: "external",
+      }).capitalFlows,
+    ).toEqual([
+      {
+        accountId: "stocks-isa",
+        date: "2024-06-01",
+        amount: 400,
+        kind: "personalSaving",
+      },
+    ]);
+  });
+
   it("deletes a capital-flow observation", () => {
     const imported = applyImportAccountHistory(baseData(), {
       accountId: "stocks-isa",

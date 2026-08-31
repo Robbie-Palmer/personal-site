@@ -1,6 +1,14 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  afterAll,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
 import { AccountHistoryImportDrawer } from "@/components/assettracker/account-history-import-drawer";
 import { useAssetTracker } from "@/components/assettracker/asset-tracker-provider";
 import type { AccountDetailView } from "@/lib/domain/assettracker";
@@ -28,6 +36,29 @@ const account: AccountDetailView = {
   gainLoss: null,
 };
 
+beforeAll(() => {
+  for (const method of [
+    "setPointerCapture",
+    "releasePointerCapture",
+    "hasPointerCapture",
+  ]) {
+    Object.defineProperty(HTMLElement.prototype, method, {
+      configurable: true,
+      value: vi.fn(),
+    });
+  }
+});
+
+afterAll(() => {
+  for (const method of [
+    "setPointerCapture",
+    "releasePointerCapture",
+    "hasPointerCapture",
+  ]) {
+    Reflect.deleteProperty(HTMLElement.prototype, method);
+  }
+});
+
 describe("AccountHistoryImportDrawer", () => {
   const importAccountHistory = vi.fn().mockResolvedValue(undefined);
 
@@ -43,19 +74,17 @@ describe("AccountHistoryImportDrawer", () => {
     render(<AccountHistoryImportDrawer account={account} />);
 
     await user.click(screen.getByRole("button", { name: "Paste history" }));
-    fireEvent.change(screen.getByLabelText("Balance / market value"), {
+    fireEvent.change(screen.getByLabelText("Market value history"), {
       target: { value: "date,value\n2024-01-31,10000" },
     });
-    fireEvent.change(screen.getByLabelText("Total contributed to date"), {
+    fireEvent.change(screen.getByLabelText("Contributed capital history"), {
       target: {
         value: "date,value\n2024-01-31,8000\n2024-02-29,8500\n2024-03-31,8300",
       },
     });
 
     expect(screen.getByText(/1 balance row ready/)).toBeInTheDocument();
-    expect(
-      screen.getByText(/3 contribution total rows ready/),
-    ).toBeInTheDocument();
+    expect(screen.getByText(/3 total rows ready/)).toBeInTheDocument();
     expect(
       screen.getByText(/Creates 3 deposit\/withdrawal records/),
     ).toBeVisible();
@@ -70,6 +99,7 @@ describe("AccountHistoryImportDrawer", () => {
           { date: "2024-02-29", value: 500 },
           { date: "2024-03-31", value: -200 },
         ],
+        capitalFlowKind: "personalSaving",
         replaceCapitalFlows: true,
       }),
     );
@@ -84,7 +114,7 @@ describe("AccountHistoryImportDrawer", () => {
       screen.getByRole("combobox", { name: "Contribution history format" }),
       { target: { value: "changes" } },
     );
-    fireEvent.change(screen.getByLabelText("Deposits / withdrawals"), {
+    fireEvent.change(screen.getByLabelText("Contributed capital history"), {
       target: { value: "2024-01-31,500\n2024-02-29,-200" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Import 2 rows" }));
@@ -97,6 +127,7 @@ describe("AccountHistoryImportDrawer", () => {
           { date: "2024-01-31", value: 500 },
           { date: "2024-02-29", value: -200 },
         ],
+        capitalFlowKind: "personalSaving",
         replaceCapitalFlows: false,
       }),
     );
@@ -107,7 +138,7 @@ describe("AccountHistoryImportDrawer", () => {
     render(<AccountHistoryImportDrawer account={account} />);
 
     await user.click(screen.getByRole("button", { name: "Paste history" }));
-    fireEvent.change(screen.getByLabelText("Balance / market value"), {
+    fireEvent.change(screen.getByLabelText("Market value history"), {
       target: { value: "not-a-date,100" },
     });
 
@@ -124,7 +155,7 @@ describe("AccountHistoryImportDrawer", () => {
 
     await user.click(screen.getByRole("button", { name: "Paste history" }));
     const textarea = screen.getByLabelText(
-      "Balance / market value",
+      "Market value history",
     ) as HTMLTextAreaElement;
     fireEvent.change(textarea, {
       target: {
@@ -175,7 +206,7 @@ describe("AccountHistoryImportDrawer", () => {
     render(<AccountHistoryImportDrawer account={account} />);
 
     await user.click(screen.getByRole("button", { name: "Paste history" }));
-    const textarea = screen.getByLabelText("Balance / market value");
+    const textarea = screen.getByLabelText("Market value history");
     const rows = Array.from(
       { length: 214 },
       (_, index) => `${2000 + index}-1-1\t${index + 1}`,
@@ -195,5 +226,51 @@ describe("AccountHistoryImportDrawer", () => {
     expect(
       document.querySelector('[data-slot="history-import-actions"]'),
     ).toContainElement(screen.getByRole("button", { name: "Import 214 rows" }));
+  });
+
+  it("selects an account when opened from the dashboard", async () => {
+    const user = userEvent.setup();
+    const property: AccountDetailView = {
+      ...account,
+      id: "home",
+      name: "Home",
+      provider: "Property",
+      assetType: "property",
+    };
+    mockUseAssetTracker.mockReturnValue({
+      accountDetails: [account, property],
+      importAccountHistory,
+    } as unknown as ReturnType<typeof useAssetTracker>);
+
+    render(<AccountHistoryImportDrawer />);
+
+    await user.click(screen.getByRole("button", { name: "Import history" }));
+    await user.selectOptions(screen.getByLabelText("Account"), "home");
+    await user.selectOptions(
+      screen.getByLabelText("How this capital was funded"),
+      "debtPrincipal",
+    );
+    expect(
+      screen.getByText(
+        /counts in current spending, but not long-term FI spending/,
+      ),
+    ).toBeVisible();
+    fireEvent.change(screen.getByLabelText("Market value history"), {
+      target: { value: "2024-01-31,350000" },
+    });
+    fireEvent.change(screen.getByLabelText("Contributed capital history"), {
+      target: { value: "2024-01-31,70000" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Import 2 rows" }));
+
+    await waitFor(() =>
+      expect(importAccountHistory).toHaveBeenCalledWith({
+        accountId: "home",
+        balances: [{ date: "2024-01-31", value: 350000 }],
+        capitalFlows: [{ date: "2024-01-31", value: 70000 }],
+        capitalFlowKind: "debtPrincipal",
+        replaceCapitalFlows: true,
+      }),
+    );
   });
 });

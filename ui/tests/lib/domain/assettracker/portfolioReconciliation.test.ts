@@ -5,6 +5,7 @@ import {
   getNetWorthTimeSeries,
   getPortfolioFinancialIndependence,
   reconcilePortfolio,
+  representativeAnnualCurrentExpenditure,
   representativeAnnualExpenditure,
   representativeAnnualSavings,
 } from "@/lib/domain/assettracker";
@@ -138,6 +139,43 @@ describe("reconcilePortfolio", () => {
     );
   });
 
+  it("separates debt principal and external capital from personal saving", () => {
+    const data = portfolioData();
+    data.capitalFlows.push(
+      {
+        accountId: "portfolio",
+        date: "2024-02-15",
+        amount: 1_000,
+        kind: "debtPrincipal",
+      },
+      {
+        accountId: "portfolio",
+        date: "2024-02-15",
+        amount: 750,
+        kind: "external",
+      },
+    );
+
+    const period = reconcilePortfolio(buildRepository(data))[0];
+
+    expect(period).toMatchObject({
+      netCapitalFlow: 6_750,
+      personalCapitalFlow: 6_000,
+      debtPrincipalFlow: 1_000,
+      externalCapitalFlow: 750,
+      expenditure: 4_000,
+      currentExpenditure: 5_000,
+      valuationGain: 1_250,
+    });
+    expect(
+      (period?.openingNetWorth ?? 0) +
+        (period?.income ?? 0) -
+        (period?.expenditure ?? 0) +
+        (period?.externalCapitalFlow ?? 0) +
+        (period?.valuationGain ?? 0),
+    ).toBe(period?.closingNetWorth);
+  });
+
   it("skips periods whose income boundaries do not match balance observations", () => {
     const data = portfolioData();
     data.snapshots = [
@@ -153,6 +191,9 @@ describe("reconcilePortfolio", () => {
     const expected = (5_000 * (365.2425 / 29) + 6_000 * (365.2425 / 31)) / 2;
 
     expect(representativeAnnualExpenditure(periods)).toBeCloseTo(expected);
+    expect(representativeAnnualCurrentExpenditure(periods)).toBeCloseTo(
+      expected,
+    );
   });
 
   it("derives savings rate, cash runway, and a portfolio FI date", () => {

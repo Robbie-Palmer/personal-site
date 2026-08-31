@@ -6,7 +6,7 @@ import { DEFAULT_WITHDRAWAL_RATE } from "./assetTrackerData";
 import { getNetWorthTimeSeries } from "./assetTrackerQueries";
 import type { AssetTrackerRepository } from "./assetTrackerRepository";
 import type { NetWorthDataPoint } from "./assetTrackerViews";
-import type { CapitalFlow } from "./capitalFlow";
+import { type CapitalFlow, capitalFlowKind } from "./capitalFlow";
 
 const DAYS_PER_YEAR = 365.2425;
 export const FI_PROJECTION_MAX_YEARS = 100;
@@ -19,19 +19,29 @@ export type PortfolioReconciliationPeriod = {
   income: number;
   /** Deposits less withdrawals across every account during the period. */
   netCapitalFlow: number;
+  /** Capital retained from the income being reconciled, including debt principal. */
+  personalCapitalFlow: number;
+  /** The part of personal capital that paid down debt principal. */
+  debtPrincipalFlow: number;
+  /** Employer contributions, gifts, and other capital outside entered income. */
+  externalCapitalFlow: number;
   /** Whether retained income came from recorded flows or a balance-change fallback. */
   retainedIncomeSource: "recorded-flows" | "balance-change";
   /** Closing net worth − opening net worth − net capital flow. */
   valuationGain: number;
   /** Income not retained on the complete balance sheet. */
   expenditure: number;
+  /** Expenditure plus debt principal paid during the period. */
+  currentExpenditure: number;
   days: number;
   annualizedExpenditure: number;
+  annualizedCurrentExpenditure: number;
 };
 
 export type PortfolioFinancialIndependence = {
   periods: PortfolioReconciliationPeriod[];
   representativeAnnualExpenditure: number | null;
+  representativeAnnualCurrentExpenditure: number | null;
   representativeAnnualSavings: number | null;
   /** Income retained divided by income across all reconciled periods. */
   savingsRate: number | null;
@@ -102,21 +112,42 @@ function reconcileRetainedIncome(
   balanceChange: number,
 ): Pick<
   PortfolioReconciliationPeriod,
-  "netCapitalFlow" | "retainedIncomeSource" | "valuationGain"
+  | "netCapitalFlow"
+  | "retainedIncomeSource"
+  | "valuationGain"
+  | "personalCapitalFlow"
+  | "debtPrincipalFlow"
+  | "externalCapitalFlow"
 > {
   if (periodFlows.length === 0) {
     return {
       netCapitalFlow: balanceChange,
+      personalCapitalFlow: balanceChange,
+      debtPrincipalFlow: 0,
+      externalCapitalFlow: 0,
       retainedIncomeSource: "balance-change",
       valuationGain: 0,
     };
   }
-  const netCapitalFlow = periodFlows.reduce(
-    (sum, flow) => sum + flow.amount,
-    0,
-  );
+  let netCapitalFlow = 0;
+  let personalCapitalFlow = 0;
+  let debtPrincipalFlow = 0;
+  let externalCapitalFlow = 0;
+  for (const flow of periodFlows) {
+    netCapitalFlow += flow.amount;
+    const kind = capitalFlowKind(flow);
+    if (kind === "external") {
+      externalCapitalFlow += flow.amount;
+    } else {
+      personalCapitalFlow += flow.amount;
+      if (kind === "debtPrincipal") debtPrincipalFlow += flow.amount;
+    }
+  }
   return {
     netCapitalFlow,
+    personalCapitalFlow,
+    debtPrincipalFlow,
+    externalCapitalFlow,
     retainedIncomeSource: "recorded-flows",
     valuationGain: balanceChange - netCapitalFlow,
   };
@@ -125,16 +156,20 @@ function reconcileRetainedIncome(
 /**
  * Reconciles each imported income period against the complete balance sheet:
  *
- * opening net worth + income − expenditure + valuation gain = closing net worth
+ * opening net worth + income − long-term expenditure + external capital
+ * + valuation gain = closing net worth
  *
- * Signed capital flows across all accounts cancel internal transfers. When
- * present, their net is the part of income retained (or prior wealth spent),
- * which makes expenditure `income − net capital flow`. When none are recorded
- * for a period, the total balance-sheet change is used as retained income and
- * valuation gain is assumed to be zero. This fallback matches a balances-only
- * spreadsheet while keeping the assumption visible to the UI. The first income
- * row uses the latest earlier balance-sheet observation as its opening boundary;
- * subsequent rows use the previous income date.
+ * Signed capital flows across all accounts cancel internal transfers. Personal
+ * saving and debt principal are retained income. External capital, such as an
+ * employer pension contribution, increases the portfolio without reducing
+ * spending derived from the user's entered income. Current expenditure adds
+ * debt principal back to long-term expenditure because it is a cash commitment
+ * that ends when the debt is repaid.
+ *
+ * When no flows are recorded for a period, the total balance-sheet change is
+ * used as retained income and valuation gain is assumed to be zero. The first
+ * income row uses the latest earlier balance-sheet observation as its opening
+ * boundary; subsequent rows use the previous income date.
  */
 export function reconcilePortfolio(
   repository: AssetTrackerRepository,
@@ -165,7 +200,8 @@ export function reconcilePortfolio(
     );
     const balanceChange = closing.total - opening.total;
     const retainedIncome = reconcileRetainedIncome(periodFlows, balanceChange);
-    const expenditure = record.amount - retainedIncome.netCapitalFlow;
+    const expenditure = record.amount - retainedIncome.personalCapitalFlow;
+    const currentExpenditure = expenditure + retainedIncome.debtPrincipalFlow;
 
     periods.push({
       startDate,
@@ -175,8 +211,10 @@ export function reconcilePortfolio(
       income: record.amount,
       ...retainedIncome,
       expenditure,
+      currentExpenditure,
       days,
       annualizedExpenditure: (expenditure * DAYS_PER_YEAR) / days,
+      annualizedCurrentExpenditure: (currentExpenditure * DAYS_PER_YEAR) / days,
     });
   }
   return periods;
@@ -193,7 +231,18 @@ export function representativeAnnualExpenditure(
   );
 }
 
-/** Median annualised retained income resists one unusually lumpy period. */
+/** Current spending includes debt principal that will end at payoff. */
+export function representativeAnnualCurrentExpenditure(
+  periods: readonly PortfolioReconciliationPeriod[],
+): number | null {
+  return median(
+    periods
+      .map((period) => period.annualizedCurrentExpenditure)
+      .filter((value) => Number.isFinite(value) && value >= 0),
+  );
+}
+
+/** Median annualised total capital added resists one unusually lumpy period. */
 export function representativeAnnualSavings(
   periods: readonly PortfolioReconciliationPeriod[],
 ): number | null {
@@ -300,10 +349,12 @@ export function getPortfolioFinancialIndependence(
 ): PortfolioFinancialIndependence {
   const periods = reconcilePortfolio(repository);
   const annualExpenditure = representativeAnnualExpenditure(periods);
+  const annualCurrentExpenditure =
+    representativeAnnualCurrentExpenditure(periods);
   const annualSavings = representativeAnnualSavings(periods);
   const totalIncome = periods.reduce((sum, period) => sum + period.income, 0);
   const totalSavings = periods.reduce(
-    (sum, period) => sum + period.income - period.expenditure,
+    (sum, period) => sum + period.personalCapitalFlow,
     0,
   );
   const savingsRate = totalIncome > 0 ? totalSavings / totalIncome : null;
@@ -326,8 +377,8 @@ export function getPortfolioFinancialIndependence(
     0,
   );
   const emergencyFundMonths =
-    annualExpenditure != null && annualExpenditure > 0
-      ? (emergencyFund * 12) / annualExpenditure
+    annualCurrentExpenditure != null && annualCurrentExpenditure > 0
+      ? (emergencyFund * 12) / annualCurrentExpenditure
       : null;
   const startDate = todayIsoDate();
   const expectedRealReturn = expectedPortfolioRealReturn(
@@ -352,6 +403,7 @@ export function getPortfolioFinancialIndependence(
   return {
     periods,
     representativeAnnualExpenditure: annualExpenditure,
+    representativeAnnualCurrentExpenditure: annualCurrentExpenditure,
     representativeAnnualSavings: annualSavings,
     savingsRate,
     emergencyFund,

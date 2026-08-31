@@ -10,7 +10,7 @@ import {
   type ExternalFlow,
 } from "./assetTrackerAnalytics";
 import type { BalanceSnapshot } from "./balanceSnapshot";
-import type { CapitalFlow } from "./capitalFlow";
+import type { CapitalFlow, CapitalFlowKind } from "./capitalFlow";
 import type { Transfer } from "./transfer";
 
 function compareIsoDates(a: string, b: string): number {
@@ -76,7 +76,7 @@ export type AccountDetailView = AccountSummaryView & {
   expectedReturnChanges?: ExpectedReturnChange[];
   linkedAccountId?: string;
   snapshots: BalanceSnapshotView[];
-  capitalFlows: { date: string; amount: number }[];
+  capitalFlows: { date: string; amount: number; kind?: CapitalFlowKind }[];
   /** Deposits minus withdrawals recorded across the account history */
   netContributed: number | null;
   /** Current market value minus net contributed capital */
@@ -242,9 +242,10 @@ export function toAccountDetailView(
         balance: s.balance,
       }))
       .reverse(),
-    capitalFlows: accountCapitalFlows.map(({ date, amount }) => ({
+    capitalFlows: accountCapitalFlows.map(({ date, amount, kind }) => ({
       date,
       amount,
+      kind,
     })),
     netContributed,
     gainLoss:

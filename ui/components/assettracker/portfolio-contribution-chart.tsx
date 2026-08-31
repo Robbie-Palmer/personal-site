@@ -43,7 +43,7 @@ export function PortfolioContributionChart({
   return (
     <Card className="min-w-0">
       <CardHeader>
-        <CardTitle>Contributed Capital Over Time</CardTitle>
+        <CardTitle>Contributed capital over time</CardTitle>
         <CardDescription>
           Cumulative deposits minus withdrawals across all accounts, tracked
           independently from market value. Internal transfers cancel when both

@@ -9,6 +9,7 @@ import {
 } from "@/lib/domain/assettracker";
 import { AccountBalanceChart } from "./account-balance-chart";
 import { AccountDetailSheet } from "./account-detail-sheet";
+import { AccountHistoryImportDrawer } from "./account-history-import-drawer";
 import { AccountsTable } from "./accounts-table";
 import { AddAccountDrawer } from "./add-account-drawer";
 import { AssetAllocationChart } from "./asset-allocation-chart";
@@ -51,6 +52,7 @@ export function AssetTrackerDashboard() {
           </p>
         </div>
         <div className="flex shrink-0 flex-wrap gap-2">
+          <AccountHistoryImportDrawer />
           <LogBalanceDrawer />
           <RecordTransferDrawer />
           <AddAccountDrawer />
@@ -59,9 +61,12 @@ export function AssetTrackerDashboard() {
       <DataControls />
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         <div className="border rounded-lg p-6">
-          <p className="text-sm text-muted-foreground">Total Net Worth</p>
+          <p className="text-sm text-muted-foreground">Market net worth</p>
           <p className="text-3xl font-bold mt-1">
             {formatTotalBalances(accounts)}
+          </p>
+          <p className="text-xs text-muted-foreground mt-1">
+            Latest valuations less liabilities
           </p>
         </div>
         <div className="border rounded-lg p-6">
@@ -79,7 +84,7 @@ export function AssetTrackerDashboard() {
           )}
         </div>
         <div className="border rounded-lg p-6">
-          <p className="text-sm text-muted-foreground">Contributed Capital</p>
+          <p className="text-sm text-muted-foreground">Contributed capital</p>
           <p className="text-3xl font-bold mt-1">
             {contributedCapital == null
               ? "—"

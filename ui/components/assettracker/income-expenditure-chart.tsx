@@ -27,18 +27,24 @@ import {
 
 const INCOME_COLOR = "hsl(220, 70%, 50%)";
 const EXPENDITURE_COLOR = "hsl(30, 80%, 55%)";
+const CURRENT_EXPENDITURE_COLOR = "hsl(0, 65%, 55%)";
 const DIFFERENCE_COLOR = "hsl(160, 60%, 40%)";
 
 const CHART_CONFIG = {
   income: { label: "Income", color: INCOME_COLOR },
-  expenditure: { label: "Expenditure", color: EXPENDITURE_COLOR },
-  difference: { label: "Income minus expenditure", color: DIFFERENCE_COLOR },
+  expenditure: { label: "Long-term FI spending", color: EXPENDITURE_COLOR },
+  currentExpenditure: {
+    label: "Current spending",
+    color: CURRENT_EXPENDITURE_COLOR,
+  },
+  difference: { label: "Income retained", color: DIFFERENCE_COLOR },
 } satisfies ChartConfig;
 
 type IncomeExpenditurePoint = {
   date: string;
   income: number;
   expenditure?: number;
+  currentExpenditure?: number;
   difference?: number;
 };
 
@@ -47,15 +53,17 @@ export function buildIncomeExpenditureSeries(
   periods: readonly PortfolioReconciliationPeriod[],
 ): IncomeExpenditurePoint[] {
   const expenditureByDate = new Map(
-    periods.map((period) => [period.endDate, period.expenditure]),
+    periods.map((period) => [period.endDate, period]),
   );
   return incomeHistory
     .map((record) => {
-      const expenditure = expenditureByDate.get(record.date);
+      const period = expenditureByDate.get(record.date);
+      const expenditure = period?.expenditure;
       return {
         date: record.date,
         income: record.amount,
         expenditure,
+        currentExpenditure: period?.currentExpenditure,
         difference:
           expenditure == null ? undefined : record.amount - expenditure,
       };
@@ -75,16 +83,21 @@ export function IncomeExpenditureChart({
   if (data.length === 0) return null;
 
   const hasExpenditure = data.some((point) => point.expenditure != null);
+  const hasDebtPrincipal = data.some(
+    (point) =>
+      point.currentExpenditure != null &&
+      point.currentExpenditure !== point.expenditure,
+  );
 
   return (
     <div className="min-w-0 space-y-2">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
-          <h3 className="text-sm font-medium">Income and expenditure</h3>
+          <h3 className="text-sm font-medium">Income and spending</h3>
           <p className="text-xs text-muted-foreground">
             {view === "comparison"
-              ? "Period totals from imported income and reconciled account history."
-              : "Income minus expenditure. Values above zero were retained; values below zero were funded from existing wealth."}
+              ? "Long-term FI spending excludes debt principal. Current spending includes it."
+              : "Income retained as personal saving or debt principal. External capital is excluded."}
             {!hasExpenditure &&
               " Expenditure will appear when matching balance-sheet periods are available."}
           </p>
@@ -106,7 +119,7 @@ export function IncomeExpenditureChart({
             disabled={!hasExpenditure}
             onClick={() => setView("difference")}
           >
-            Difference
+            Retained
           </Button>
         </fieldset>
       </div>
@@ -116,8 +129,8 @@ export function IncomeExpenditureChart({
         role="img"
         aria-label={
           view === "comparison"
-            ? "Income and expenditure by period"
-            : "Income minus expenditure by period"
+            ? "Income and spending by period"
+            : "Income retained by period"
         }
       >
         <ResponsiveContainer width="100%" height={280}>
@@ -157,8 +170,19 @@ export function IncomeExpenditureChart({
                   <Line
                     type="monotone"
                     dataKey="expenditure"
-                    name="Expenditure"
+                    name="Long-term FI spending"
                     stroke={EXPENDITURE_COLOR}
+                    strokeWidth={2.5}
+                    dot
+                    connectNulls={false}
+                  />
+                )}
+                {hasDebtPrincipal && (
+                  <Line
+                    type="monotone"
+                    dataKey="currentExpenditure"
+                    name="Current spending"
+                    stroke={CURRENT_EXPENDITURE_COLOR}
                     strokeWidth={2.5}
                     dot
                     connectNulls={false}
@@ -169,7 +193,7 @@ export function IncomeExpenditureChart({
               <Line
                 type="monotone"
                 dataKey="difference"
-                name="Income minus expenditure"
+                name="Income retained"
                 stroke={DIFFERENCE_COLOR}
                 strokeWidth={2.5}
                 dot
@@ -197,7 +221,17 @@ export function IncomeExpenditureChart({
                   className="size-2 rounded-full"
                   style={{ backgroundColor: EXPENDITURE_COLOR }}
                 />
-                <span>Expenditure</span>
+                <span>Long-term FI spending</span>
+              </span>
+            )}
+            {hasDebtPrincipal && (
+              <span className="flex items-center gap-1.5">
+                <span
+                  aria-hidden="true"
+                  className="size-2 rounded-full"
+                  style={{ backgroundColor: CURRENT_EXPENDITURE_COLOR }}
+                />
+                <span>Current spending</span>
               </span>
             )}
           </>
@@ -208,18 +242,19 @@ export function IncomeExpenditureChart({
               className="size-2 rounded-full"
               style={{ backgroundColor: DIFFERENCE_COLOR }}
             />
-            <span>Income minus expenditure</span>
+            <span>Income retained</span>
           </span>
         )}
       </div>
       <table className="sr-only">
-        <caption>Income and expenditure by period</caption>
+        <caption>Income and spending by period</caption>
         <thead>
           <tr>
             <th>Date</th>
             <th>Income</th>
-            <th>Expenditure</th>
-            <th>Difference</th>
+            <th>Long-term FI spending</th>
+            <th>Current spending</th>
+            <th>Income retained</th>
           </tr>
         </thead>
         <tbody>
@@ -231,6 +266,11 @@ export function IncomeExpenditureChart({
                 {point.expenditure == null
                   ? "Awaiting reconciliation"
                   : formatCurrency(point.expenditure)}
+              </td>
+              <td>
+                {point.currentExpenditure == null
+                  ? "Awaiting reconciliation"
+                  : formatCurrency(point.currentExpenditure)}
               </td>
               <td>
                 {point.difference == null
