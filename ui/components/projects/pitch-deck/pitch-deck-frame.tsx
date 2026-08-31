@@ -13,8 +13,6 @@ import {
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { RevealApi, RevealConfig, RevealPlugin } from "reveal.js";
-import "reveal.js/reveal.css";
-import "./pitch-deck.css";
 
 interface PitchDeckFrameProps {
   children: React.ReactNode;

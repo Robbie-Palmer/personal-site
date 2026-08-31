@@ -1,5 +1,7 @@
 "use client";
 
+import "reveal.js/reveal.css";
+import "./pitch-deck.css";
 import RevealNotes from "reveal.js/plugin/notes";
 import { PitchDeckFrame } from "./pitch-deck-frame";
 
