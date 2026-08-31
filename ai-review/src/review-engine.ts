@@ -45,6 +45,7 @@ import {
   renderFallbackFindings,
   type FindingPublication,
 } from "./finding-lifecycle";
+import { persistReplayInput } from "./replay-input";
 
 type JsonObject = Record<string, unknown>;
 
@@ -85,10 +86,12 @@ export interface PullRequestMetadata {
 
 export interface PreparedReview {
   skipReason?: string;
+  baseSha?: string;
   headSha?: string;
   diffFingerprint?: string;
   configFingerprint?: string;
   diff?: string;
+  fullDiff?: string;
   paths: string[];
   omitted: string[];
   hunks?: ReviewHunk[];
@@ -100,6 +103,7 @@ export interface PreparedReview {
   guidelines?: string;
   threads?: string;
   replayFindings?: OpenFindingBaseline[];
+  priorOpenFindings?: OpenFindingBaseline[];
 }
 
 export type ReviewCoverageMode = "full" | "incremental" | "skipped";
@@ -959,11 +963,13 @@ export async function prepareReview(
     guardrails: guardrailPolicy(env),
   });
   return {
+    baseSha: pr.base?.sha,
     headSha,
     diffFingerprint: await sha256(rawDiff),
     configFingerprint: await sha256(config),
     ...(coverage.mode === "skipped" ? { skipReason: coverage.reason } : {}),
     diff: selectedDiff,
+    fullDiff: rawDiff,
     paths: selectedPaths,
     omitted,
     hunks: selectedHunks,
@@ -991,6 +997,7 @@ export async function prepareReview(
     replayFindings: baseline.openFindings.filter((finding) =>
       coverage.affectedFindingIds.includes(finding.findingId),
     ),
+    priorOpenFindings: baseline.openFindings,
     threads: selectedDiff.trim()
       ? [
           affectedFindingContext(baseline, coverage),
@@ -1845,6 +1852,35 @@ export async function recordReviewTerminal(options: {
     }),
     { httpMetadata: { contentType: "application/json" } },
   );
+  if (prepared?.baseSha && prepared.fullDiff !== undefined) {
+    await persistReplayInput({
+      env,
+      params,
+      instanceId,
+      status,
+      prepared,
+      timestamp,
+      prompt: {
+        version: env.AI_REVIEW_PROMPT_VERSION,
+        scoutSystem,
+        scoutSchema,
+        mergerSystem: statefulMergerSystem,
+        mergerSchema: statefulMergerSchema,
+      },
+      modelSettings: {
+        openRouterScouts: csv(env.AI_REVIEW_MODELS, DEFAULT_OPENROUTER_SCOUTS),
+        openCodeScouts: csv(env.AI_REVIEW_OPENCODE_MODELS, []),
+        merger: env.AI_REVIEW_MERGER_MODEL?.trim() || DEFAULT_MERGER,
+        requireZeroDataRetention: ["1", "true", "yes", "on"].includes(
+          env.AI_REVIEW_ZDR?.trim().toLowerCase() ?? "",
+        ),
+        scoutMaxTokens: 8_000,
+        mergerMaxTokens: MERGER_MAX_TOKENS,
+        openRouterScoutMaxPrices: OPENROUTER_SCOUT_MAX_PRICES,
+      },
+      policy: guardrailPolicy(env),
+    });
+  }
 }
 
 export async function completeReview(

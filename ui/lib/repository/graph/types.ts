@@ -1,15 +1,23 @@
 import type { ADRRef } from "@/lib/domain/adr/adr";
 import type { BlogSlug } from "@/lib/domain/blog/blogPost";
+import type { InitiativeSlug } from "@/lib/domain/initiative/initiative";
 import type { ProjectSlug } from "@/lib/domain/project/project";
 import type { RoleSlug } from "@/lib/domain/role/jobRole";
 import type { TechnologySlug } from "@/lib/domain/technology/technology";
 
 // Recipe types live in the separate RecipeRepository - see @/lib/domain/recipe/recipeGraph
 
-export type NodeType = "project" | "adr" | "blog" | "role" | "technology";
+export type NodeType =
+  | "project"
+  | "initiative"
+  | "adr"
+  | "blog"
+  | "role"
+  | "technology";
 
 export type NodeId =
   | `project:${string}`
+  | `initiative:${string}`
   | `adr:${string}`
   | `blog:${string}`
   | `role:${string}`
@@ -21,6 +29,7 @@ export type EdgeType =
   | "SUPERSEDES"
   | "INHERITS_FROM"
   | "HAS_TAG"
+  | "CONTRIBUTES_TO_INITIATIVE"
   | "CREATED_AT_ROLE"
   | "WRITTEN_AT_ROLE";
 
@@ -31,6 +40,7 @@ export interface ContentGraph {
     supersedes: Map<ADRRef, ADRRef>;
     inheritsFrom: Map<ADRRef, ADRRef>;
     hasTag: Map<NodeId, Set<string>>;
+    contributesToInitiative: Map<ProjectSlug, Set<InitiativeSlug>>;
     createdAtRole: Map<ProjectSlug, RoleSlug>;
     writtenAtRole: Map<BlogSlug, RoleSlug>;
   };
@@ -41,6 +51,7 @@ export interface ContentGraph {
     supersededBy: Map<ADRRef, ADRRef>;
     inheritedBy: Map<ADRRef, Set<ADRRef>>;
     tagUsedBy: Map<string, Set<NodeId>>;
+    initiativeProjects: Map<InitiativeSlug, Set<ProjectSlug>>;
     roleProjects: Map<RoleSlug, Set<ProjectSlug>>;
     roleBlogs: Map<RoleSlug, Set<BlogSlug>>;
   };

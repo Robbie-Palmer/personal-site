@@ -43,6 +43,7 @@ export interface PullRequest {
   author_association?: string;
   labels?: Array<{ name?: string }>;
   user: { login: string };
+  base?: { sha: string };
   head: { sha: string; ref?: string; repo?: { full_name?: string } };
 }
 

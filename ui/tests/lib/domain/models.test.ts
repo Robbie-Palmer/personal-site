@@ -3,6 +3,7 @@ import {
   ADRSchema,
   ADRStatusSchema,
   BlogPostSchema,
+  InitiativeSchema,
   JobRoleSchema,
   ProjectSchema,
   ProjectStatusSchema,
@@ -323,6 +324,7 @@ describe("Domain Model Schemas", () => {
         expect(result.data.relations).toEqual({
           technologies: [],
           adrs: [],
+          initiatives: [],
         });
       }
     });
@@ -344,8 +346,33 @@ describe("Domain Model Schemas", () => {
         expect(result.data.relations).toEqual({
           technologies: [],
           adrs: [],
+          initiatives: [],
         });
       }
+    });
+  });
+
+  describe("InitiativeSchema", () => {
+    it("validates an initiative", () => {
+      const result = InitiativeSchema.safeParse({
+        slug: "personalized-medicine",
+        title: "Personalized Medicine",
+        description: "Making patient-specific treatment decisions accessible",
+        content: "# Goal",
+      });
+
+      expect(result.success).toBe(true);
+    });
+
+    it("rejects an initiative without a description", () => {
+      const result = InitiativeSchema.safeParse({
+        slug: "personalized-medicine",
+        title: "Personalized Medicine",
+        description: "",
+        content: "# Goal",
+      });
+
+      expect(result.success).toBe(false);
     });
   });
 

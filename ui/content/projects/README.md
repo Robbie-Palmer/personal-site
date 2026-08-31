@@ -39,6 +39,8 @@ tech_stack:
 repo_url: "https://github.com/..." # Optional
 demo_url: "https://demo..." # Optional
 role: "terminal-industries" # Optional - link to job role slug
+initiatives: # Optional - projects may contribute to more than one initiative
+  - "personalized-medicine"
 ---
 
 # Overview
@@ -91,6 +93,12 @@ slug of the job role (normalized company name). For example:
 
 When specified, the role will be displayed as a badge on the project card and detail page, linking to the
 specific job role on the experience page.
+
+### Initiatives field
+
+The `initiatives` field links a project to one or more larger bodies of work. Define each initiative as an MDX file in
+`content/initiatives/`, then reference its filename without the extension. Initiative links do not depend on roles, so
+one initiative can connect projects from different employers or personal work.
 
 ### Inheriting ADRs
 

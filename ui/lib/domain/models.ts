@@ -12,6 +12,7 @@ export const BlogSlugSchema = z.string().min(1);
 export const ADRSlugSchema = z.string().min(1);
 export const ADRRefSchema = CanonicalADRRefSchema;
 export const ProjectSlugSchema = z.string().min(1);
+export const InitiativeSlugSchema = z.string().min(1);
 export const RoleSlugSchema = z.string().min(1);
 
 export type TechnologySlug = z.infer<typeof TechnologySlugSchema>;
@@ -19,6 +20,7 @@ export type BlogSlug = z.infer<typeof BlogSlugSchema>;
 export type ADRSlug = z.infer<typeof ADRSlugSchema>;
 export type ADRRef = z.infer<typeof ADRRefSchema>;
 export type ProjectSlug = z.infer<typeof ProjectSlugSchema>;
+export type InitiativeSlug = z.infer<typeof InitiativeSlugSchema>;
 export type RoleSlug = z.infer<typeof RoleSlugSchema>;
 
 export const TechnologySchema = z.object({
@@ -72,6 +74,9 @@ export const BlogPostSchema = z.object({
 
 export type BlogPost = z.infer<typeof BlogPostSchema>;
 
+export type { Initiative } from "./initiative/initiative";
+export { InitiativeSchema } from "./initiative/initiative";
+
 export { ADRStatusSchema };
 export type ADRStatus = z.infer<typeof ADRStatusSchema>;
 
@@ -104,10 +109,12 @@ export const ProjectSchema = z.object({
     .object({
       technologies: z.array(TechnologySlugSchema).default([]),
       adrs: z.array(ADRRefSchema).default([]),
+      initiatives: z.array(InitiativeSlugSchema).default([]),
     })
     .default({
       technologies: [],
       adrs: [],
+      initiatives: [],
     }),
 });
 
