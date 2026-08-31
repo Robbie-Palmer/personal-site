@@ -53,6 +53,7 @@ import * as fs from "node:fs";
 import {
   loadADRs,
   loadBlogPosts,
+  loadInitiatives,
   loadJobRoles,
   loadProjects,
   loadTechnologies,
@@ -144,6 +145,7 @@ description: "A test project"
 date: "2025-01-01"
 status: "live"
 tech_stack: ["React", "TypeScript"]
+initiatives: ["Connected Work"]
 ---
 
 # Project content`;
@@ -163,6 +165,9 @@ tech_stack: ["React", "TypeScript"]
       expect(result.relations.get("test-project")?.technologies).toEqual([
         "react",
         "typescript",
+      ]);
+      expect(result.relations.get("test-project")?.initiatives).toEqual([
+        "connected-work",
       ]);
     });
 
@@ -231,6 +236,29 @@ Content`;
       vi.mocked(fs.readFileSync).mockReturnValue(mockProjectContent);
 
       expect(() => loadProjects()).toThrow("deprecated 'inherits_adrs'");
+    });
+  });
+
+  describe("loadInitiatives", () => {
+    it("loads initiative content", () => {
+      const mockInitiativeContent = `---
+title: "Personalized Medicine"
+description: "Making patient-specific treatment decisions accessible"
+---
+
+# Goal`;
+
+      vi.mocked(fs.readdirSync).mockReturnValue([
+        "personalized-medicine.mdx",
+      ] as unknown as ReaddirResult);
+      vi.mocked(fs.readFileSync).mockReturnValue(mockInitiativeContent);
+
+      const result = loadInitiatives();
+
+      expect(result.entities.get("personalized-medicine")).toMatchObject({
+        title: "Personalized Medicine",
+        content: "\n# Goal",
+      });
     });
   });
 
@@ -602,6 +630,7 @@ Content`;
             {
               technologies: ["react"],
               adrs: [],
+              initiatives: [],
               tags: [],
             },
           ],
@@ -609,6 +638,7 @@ Content`;
 
         const errors = validateReferentialIntegrity({
           technologies,
+          initiatives: new Map(),
           adrs: new Map(),
           projects,
           blogRelations: new Map(),
@@ -642,6 +672,7 @@ Content`;
             {
               technologies: ["react"], // react doesn't exist
               adrs: [],
+              initiatives: [],
               tags: [],
             },
           ],
@@ -649,6 +680,7 @@ Content`;
 
         const errors = validateReferentialIntegrity({
           technologies,
+          initiatives: new Map(),
           adrs: new Map(),
           projects,
           blogRelations: new Map(),
@@ -684,6 +716,7 @@ Content`;
             {
               technologies: [],
               adrs: ["001-missing"], // ADR doesn't exist
+              initiatives: [],
               tags: [],
             },
           ],
@@ -691,6 +724,7 @@ Content`;
 
         const errors = validateReferentialIntegrity({
           technologies,
+          initiatives: new Map(),
           adrs: new Map(),
           projects,
           blogRelations: new Map(),
@@ -702,6 +736,52 @@ Content`;
         expect(errors.length).toBeGreaterThan(0);
         expect(errors[0]?.type).toBe("missing_reference");
         expect(errors[0]?.field).toBe("adrs");
+      });
+
+      it("should detect missing initiative reference", () => {
+        const projects = new Map([
+          [
+            "test-project",
+            {
+              slug: "test-project",
+              title: "Test",
+              description: "Desc",
+              date: "2025-01-01",
+              status: "live" as const,
+              content: "Content",
+            },
+          ],
+        ]);
+        const projectRelations = new Map([
+          [
+            "test-project",
+            {
+              technologies: [],
+              adrs: [],
+              initiatives: ["missing-initiative"],
+              tags: [],
+            },
+          ],
+        ]);
+
+        const errors = validateReferentialIntegrity({
+          technologies: new Map(),
+          initiatives: new Map(),
+          adrs: new Map(),
+          projects,
+          blogRelations: new Map(),
+          projectRelations,
+          adrRelations: new Map(),
+          roleRelations: new Map(),
+        });
+
+        expect(errors).toContainEqual(
+          expect.objectContaining({
+            type: "missing_reference",
+            field: "initiatives",
+            value: "missing-initiative",
+          }),
+        );
       });
 
       it("should detect duplicate ADR slugs in project context", () => {
@@ -765,6 +845,7 @@ Content`;
             {
               technologies: [],
               adrs: ["recipe-site:001-react", "personal-site:001-react"],
+              initiatives: [],
               tags: [],
             },
           ],
@@ -772,6 +853,7 @@ Content`;
 
         const errors = validateReferentialIntegrity({
           technologies,
+          initiatives: new Map(),
           adrs,
           projects,
           blogRelations: new Map(),
@@ -821,6 +903,7 @@ Content`;
 
         const errors = validateReferentialIntegrity({
           technologies,
+          initiatives: new Map(),
           adrs,
           projects,
           blogRelations: new Map(),
