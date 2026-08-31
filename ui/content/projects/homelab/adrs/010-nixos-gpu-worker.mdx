@@ -37,7 +37,9 @@ declared in this repository, with the GPU stack deliberately pinned:
   kernel modules; the open modules need Turing or newer), the last with
   Pascal support, on `nixos-25.11`, locked there on purpose.
 * **NVIDIA container toolkit + Docker**, so models run via
-  `nvidia/cuda:12.x` images only (`--gpus all`). CUDA 13 dropped Pascal, so
+  `nvidia/cuda:12.x` images only (`--device nvidia.com/gpu=all`, the CDI
+  interface; the legacy `--gpus all` path needs a deprecated daemon setting
+  and is not enabled). CUDA 13 dropped Pascal, so
   the CUDA 12 image family is the ceiling.
 * **Tailscale** enabled, with the `tailscale0` interface trusted in the
   firewall and SSH for access from the Mac mini / laptop.
