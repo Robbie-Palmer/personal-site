@@ -4,9 +4,11 @@ import {
   createEmptyRelationData,
   getContentUsingTechnology,
   getContentUsingTechnologyByType,
+  getInitiativesForProject,
   getNodeSlug,
   getNodeType,
   getProjectForADR,
+  getProjectsForInitiative,
   getSupersededADR,
   getSupersedingADR,
   getTechnologiesForADR,
@@ -162,6 +164,31 @@ describe("buildContentGraph", () => {
       true,
     );
   });
+
+  it("builds project-initiative edges in both directions", () => {
+    const relations = createEmptyRelationData();
+    relations.projectInitiatives.set("pathology-viewer", [
+      "personalized-medicine",
+    ]);
+
+    const graph = buildContentGraph({
+      technologySlugs: [],
+      projectSlugs: ["pathology-viewer"],
+      initiativeSlugs: ["personalized-medicine"],
+      relations,
+    });
+
+    expect(
+      graph.edges.contributesToInitiative
+        .get("pathology-viewer")
+        ?.has("personalized-medicine"),
+    ).toBe(true);
+    expect(
+      graph.reverse.initiativeProjects
+        .get("personalized-medicine")
+        ?.has("pathology-viewer"),
+    ).toBe(true);
+  });
 });
 
 describe("graph queries", () => {
@@ -171,10 +198,12 @@ describe("graph queries", () => {
   relations.adrProject.set("001", "site");
   relations.blogTechnologies.set("post", ["react"]);
   relations.roleTechnologies.set("eng", ["typescript", "react"]);
+  relations.projectInitiatives.set("site", ["connected-work"]);
 
   const graph = buildContentGraph({
     technologySlugs: ["typescript", "react"],
     projectSlugs: ["site"],
+    initiativeSlugs: ["connected-work"],
     relations,
   });
 
@@ -220,6 +249,15 @@ describe("graph queries", () => {
 
   it("getProjectForADR returns correct project", () => {
     expect(getProjectForADR(graph, "001")).toBe("site");
+  });
+
+  it("queries project-initiative relationships", () => {
+    expect(getInitiativesForProject(graph, "site")).toEqual(
+      new Set(["connected-work"]),
+    );
+    expect(getProjectsForInitiative(graph, "connected-work")).toEqual(
+      new Set(["site"]),
+    );
   });
 
   it("supersedes queries work correctly", () => {
