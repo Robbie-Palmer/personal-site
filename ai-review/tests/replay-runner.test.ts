@@ -146,6 +146,7 @@ function fixture(options: { scouts?: ScoutRun; scoutError?: Error } = {}) {
       corpusId === "corpus-434" ? JSON.stringify(snapshot) : null),
   };
   const adapter: ReplayBoundaryAdapter = {
+    estimateScoutCostUsd: vi.fn(() => 0.1),
     runScouts: vi.fn(async () => {
       if (options.scoutError) throw options.scoutError;
       return options.scouts ?? scoutRun();
@@ -369,6 +370,20 @@ describe("controlled replay runner", () => {
     expect(adapter.mergeFindings).not.toHaveBeenCalled();
   });
 
+  it("reserves scout and unknown merger costs before any paid inference", async () => {
+    const { adapter, store } = fixture();
+    vi.mocked(adapter.estimateScoutCostUsd).mockReturnValue(0.1);
+    vi.mocked(adapter.estimateMergerCostUsd).mockReturnValue(1);
+    const result = await executeControlledReplay({ ...request, dryRun: false }, adapter, store);
+    expect(result).toMatchObject({
+      status: "budget-denied",
+      paidInferenceAllowed: false,
+      scoutCostCeilingUsd: 0.1,
+      mergerCostCeilingUsd: 1,
+    });
+    expect(adapter.runScouts).not.toHaveBeenCalled();
+  });
+
   it("atomically claims a replay key before model execution", async () => {
     const { adapter, store } = fixture();
     vi.mocked(store.claim).mockResolvedValue(false);
@@ -397,11 +412,31 @@ describe("controlled replay runner", () => {
     }
     await expect(planControlledReplay({
       ...request,
+      experiment: { kind: "merger-model", model: "experiment/merger" },
       snapshot: {
         ...snapshot,
         modelRequest: { ...snapshot.modelRequest, requireZeroDataRetention: false },
       },
     })).rejects.toThrow(/zero data retention/);
+    await expect(planControlledReplay({
+      ...request,
+      experiment: {
+        kind: "coverage-policy",
+        policy: { version: "coverage-v2", mode: "unsupported" },
+      } as never,
+    })).rejects.toThrow(/supported mode/);
+    await expect(planControlledReplay({
+      ...request,
+      experiment: { kind: "merger-model", model: "experiment/merger" },
+      snapshot: {
+        ...snapshot,
+        modelRequest: {
+          ...snapshot.modelRequest,
+          openRouterScouts: [],
+          openCodeScouts: ["recorded/opencode"],
+        },
+      },
+    })).rejects.toThrow(/recorded provider opencode/);
   });
 
   it("reports missing and malformed corpus entries", async () => {

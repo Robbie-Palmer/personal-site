@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import { createHash } from "node:crypto";
 import path from "node:path";
 import { parseArgs } from "node:util";
 import type { Env, ReviewWorkflowParams } from "../src/env";
@@ -76,8 +77,13 @@ async function main(): Promise<void> {
     models: [{ model, provider }],
   };
   const store: ReplayCorpusStore = {
-    loadSnapshot: async (requestedCorpusId) =>
-      requestedCorpusId === corpusId ? fs.readFileSync(snapshotFile, "utf8") : null,
+    loadSnapshot: async (requestedCorpusId) => {
+      if (requestedCorpusId !== corpusId) return null;
+      const content = fs.readFileSync(snapshotFile, "utf8");
+      const digest = createHash("sha256").update(content).digest("hex");
+      if (digest !== corpusId) throw new Error("snapshot content does not match --corpus-id");
+      return content;
+    },
     get: async (key) => {
       const file = path.join(outputRoot, key);
       return fs.existsSync(file) ? fs.readFileSync(file, "utf8") : null;

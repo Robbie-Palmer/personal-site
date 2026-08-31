@@ -1,4 +1,7 @@
-import type { Scout } from "../../.github/scripts/ai-review/ai-review";
+import {
+  OPENROUTER_SCOUT_MAX_PRICES,
+  type Scout,
+} from "../../.github/scripts/ai-review/ai-review";
 import type { Env, ReviewWorkflowParams } from "./env";
 import {
   identifyReviewArtifacts,
@@ -99,6 +102,10 @@ export interface ReplayCorpusStore extends ReplayStore {
 }
 
 export interface ReplayBoundaryAdapter {
+  estimateScoutCostUsd(
+    prepared: PreparedReview,
+    experiment: ReplayExperiment,
+  ): Promise<number | undefined> | number | undefined;
   runScouts(
     prepared: PreparedReview,
     providers: Provider[],
@@ -237,7 +244,8 @@ function validateExperiment(
   }
   if (
     experiment.kind === "coverage-policy" &&
-    !experiment.policy.version.trim()
+    (!experiment.policy.version.trim() ||
+      !["recorded", "full"].includes(experiment.policy.mode))
   ) {
     throw new Error("coverage experiment requires a version and supported mode");
   }
@@ -249,6 +257,16 @@ function validateExperiment(
   }
   if (!limits.allowedProviders.includes("openrouter")) {
     throw new Error("openrouter must be allowed for the merger boundary");
+  }
+  if (experiment.kind !== "scout-model") {
+    const recordedProviders: Provider[] = [
+      ...(snapshot.modelRequest.openRouterScouts.length > 0 ? ["openrouter" as const] : []),
+      ...(snapshot.modelRequest.openCodeScouts.length > 0 ? ["opencode" as const] : []),
+    ];
+    const unauthorized = recordedProviders.find(
+      (provider) => !limits.allowedProviders.includes(provider),
+    );
+    if (unauthorized) throw new Error(`recorded provider ${unauthorized} is not allowed`);
   }
   if (snapshot.modelRequest.scoutMaxTokens > limits.maxScoutTokens) {
     throw new Error("recorded scout token limit exceeds replay limit");
@@ -397,12 +415,49 @@ export async function executeControlledReplay(
   const prepared = await preparedReview(snapshot, request.experiment);
   const providers = request.experiment.kind === "scout-model"
     ? [...new Set(request.experiment.models.map(({ provider }) => provider))]
-    : request.limits.allowedProviders;
+    : [
+        ...(snapshot.modelRequest.openRouterScouts.length > 0 ? ["openrouter" as const] : []),
+        ...(snapshot.modelRequest.openCodeScouts.length > 0 ? ["opencode" as const] : []),
+      ];
   const started = Date.now();
   let scouts: ScoutRun;
   let merged: MergedRun;
   let artifacts: IdentifiedReviewArtifacts;
   try {
+    const scoutCostCeilingUsd = await adapter.estimateScoutCostUsd(
+      prepared,
+      request.experiment,
+    );
+    const mergerReservationUsd = await adapter.estimateMergerCostUsd(
+      prepared,
+      {
+        models: [],
+        candidates: {},
+        candidateCounts: {},
+        invalidCounts: {},
+        outOfScopeCounts: {},
+        failed: [],
+        costs: {},
+        metrics: [],
+      },
+      request.experiment,
+    );
+    if (
+      scoutCostCeilingUsd === undefined ||
+      scoutCostCeilingUsd + mergerReservationUsd >= request.limits.maxCostUsd
+    ) {
+      const denied = {
+        ...plan,
+        recordType: "ai-review-replay-result",
+        status: "budget-denied",
+        paidInferenceAllowed: false,
+        corpusProvenance: snapshot.provenance,
+        scoutCostCeilingUsd,
+        mergerCostCeilingUsd: mergerReservationUsd,
+      };
+      await store.put(plan.resultKey, stableJson(denied));
+      return denied;
+    }
     scouts = await withTimeout(
       adapter.runScouts(prepared, providers, request.experiment),
       request.limits.timeoutMs,
@@ -515,6 +570,7 @@ export function createProductionReplayAdapter(options: {
 }): ReplayBoundaryAdapter {
   const replayEnv = (experiment: ReplayExperiment): Env => {
     const env = { ...options.env };
+    if (options.limits.requireZeroDataRetention) env.AI_REVIEW_ZDR = "true";
     if (experiment.kind === "scout-model") {
       env.AI_REVIEW_MODELS = experiment.models
         .filter(({ provider }) => provider === "openrouter")
@@ -531,6 +587,25 @@ export function createProductionReplayAdapter(options: {
     return env;
   };
   return {
+    estimateScoutCostUsd: (prepared, experiment) => {
+      const env = replayEnv(experiment);
+      const settings = experiment.kind === "scout-model"
+        ? experiment.models
+        : [
+            ...(env.AI_REVIEW_MODELS ?? "").split(",").filter(Boolean).map((model) => ({ model, provider: "openrouter" as const })),
+            ...(env.AI_REVIEW_OPENCODE_MODELS ?? "").split(",").filter(Boolean).map((model) => ({ model, provider: "opencode" as const })),
+          ];
+      const promptTokenCeiling = new TextEncoder().encode(JSON.stringify(prepared)).length + 50_000;
+      return settings.reduce<number | undefined>((total, { model, provider }) => {
+        if (total === undefined || provider !== "openrouter") return undefined;
+        const prices = OPENROUTER_SCOUT_MAX_PRICES[model];
+        if (!prices) return undefined;
+        return total + (
+          promptTokenCeiling * prices.prompt +
+          Math.min(options.limits.maxScoutTokens, 8_000) * prices.completion
+        ) / 1_000_000;
+      }, 0);
+    },
     estimateMergerCostUsd: (prepared, scouts, experiment) => {
       const env = replayEnv(experiment);
       const systemPrompt = experiment.kind === "prompt-version"
