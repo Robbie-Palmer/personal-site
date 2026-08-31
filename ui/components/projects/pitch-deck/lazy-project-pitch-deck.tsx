@@ -8,12 +8,9 @@ const ProjectPitchDeck = dynamic(
   {
     ssr: false,
     loading: () => (
-      <div
-        className="flex aspect-video items-center justify-center rounded-2xl border bg-muted text-sm text-muted-foreground"
-        role="status"
-      >
+      <output className="flex aspect-video items-center justify-center rounded-2xl border bg-muted text-sm text-muted-foreground">
         Loading presentation...
-      </div>
+      </output>
     ),
   },
 );

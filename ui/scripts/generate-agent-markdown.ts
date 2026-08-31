@@ -120,9 +120,12 @@ function buildProjectsIndexPage(
 }
 
 function buildProjectPage(project: ProjectWithADRs): GeneratedPage {
+  const pitchDeckUrl = markdownUrl(
+    routePath("projects", project.slug, "deck"),
+  );
   const pitchSection = project.pitch
     ? [
-        `Read the shorter [project pitch deck](${markdownUrl(`/projects/${project.slug}/deck`)}).`,
+        `Read the shorter [project pitch deck](${pitchDeckUrl}).`,
         "",
       ]
     : [];
@@ -160,6 +163,7 @@ function buildProjectPage(project: ProjectWithADRs): GeneratedPage {
 function buildPitchDeckPage(project: ProjectWithADRs): GeneratedPage | null {
   if (!project.pitch) return null;
   const transcript = pitchDeckToAgentMarkdown(project.pitch.content, convert);
+  const projectUrl = markdownUrl(routePath("projects", project.slug));
   return {
     htmlPath: `/projects/${project.slug}/deck`,
     filePath: `projects/${project.slug}/deck.md`,
@@ -167,7 +171,7 @@ function buildPitchDeckPage(project: ProjectWithADRs): GeneratedPage | null {
     description: project.pitch.description,
     content: transcript,
     facts: [
-      ["Project", `${project.title} (${markdownUrl(`/projects/${project.slug}`)})`],
+      ["Project", `${project.title} (${projectUrl})`],
       ["Slides", String(transcript.match(/^## Slide /gm)?.length ?? 0)],
     ],
   };
