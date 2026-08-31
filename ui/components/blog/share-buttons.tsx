@@ -3,7 +3,7 @@
 import { Check, Link2, Linkedin } from "lucide-react";
 import Link from "next/link";
 import posthog from "posthog-js";
-import { type ReactNode, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import { siX, siYcombinator } from "simple-icons";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -56,14 +56,23 @@ export function ShareButtons({
   url,
 }: Readonly<ShareButtonsProps>) {
   const [copied, setCopied] = useState(false);
+  const copiedTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (copiedTimeout.current) clearTimeout(copiedTimeout.current);
+    };
+  }, []);
 
   async function copyLink() {
     try {
       await navigator.clipboard.writeText(url);
       setCopied(true);
+      if (copiedTimeout.current) clearTimeout(copiedTimeout.current);
+      copiedTimeout.current = setTimeout(() => setCopied(false), 2000);
       toast.success("Link copied");
-      setTimeout(() => setCopied(false), 2000);
     } catch {
+      setCopied(false);
       toast.error("Could not copy link");
     }
   }
@@ -72,6 +81,7 @@ export function ShareButtons({
     <TooltipProvider>
       <div className="flex items-center gap-1 text-muted-foreground">
         <Button
+          type="button"
           variant="ghost"
           size="sm"
           className="text-muted-foreground hover:text-foreground"
