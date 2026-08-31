@@ -6,6 +6,8 @@ import { Markdown } from "@/components/markdown";
 import { Mermaid } from "@/components/mermaid";
 import { ADRList } from "@/components/projects/adr-list";
 import { DesignEmbed } from "@/components/projects/design-embed";
+import { EmbeddedPitchDeckContent } from "@/components/projects/pitch-deck/embedded-pitch-deck-content";
+import { LazyProjectPitchDeck } from "@/components/projects/pitch-deck/lazy-project-pitch-deck";
 import { ProjectRoleBadge } from "@/components/projects/project-role-badge";
 import { ProjectStatusBadge } from "@/components/projects/project-status-badge";
 import { ProjectTabs } from "@/components/projects/project-tabs";
@@ -145,11 +147,21 @@ export default async function ProjectPage({ params }: Readonly<PageProps>) {
         <Separator className="my-8" />
 
         {/* Content Tabs */}
-        {project.adrs.length > 0 ? (
+        {project.pitch || project.adrs.length > 0 ? (
           <Suspense fallback={<ProjectTabsSkeleton />}>
             <ProjectTabs
               projectSlug={project.slug}
               adrCount={project.adrs.length}
+              pitch={
+                project.pitch ? (
+                  <LazyProjectPitchDeck
+                    projectSlug={project.slug}
+                    title={project.pitch.title}
+                  >
+                    <EmbeddedPitchDeckContent source={project.pitch.content} />
+                  </LazyProjectPitchDeck>
+                ) : undefined
+              }
               overview={
                 <Markdown
                   source={project.content}

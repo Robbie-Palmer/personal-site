@@ -33,6 +33,7 @@ import {
   renderPage,
 } from "@/lib/content/agent-markdown";
 import { loadDomainRepository } from "@/lib/domain";
+import { pitchDeckToAgentMarkdown } from "@/lib/domain/project/pitchDeck";
 import {
   getAllTechnologySlugs,
   getRelatedContentForTechnology,
@@ -119,6 +120,12 @@ function buildProjectsIndexPage(
 }
 
 function buildProjectPage(project: ProjectWithADRs): GeneratedPage {
+  const pitchSection = project.pitch
+    ? [
+        `Read the shorter [project pitch deck](${markdownUrl(`/projects/${project.slug}/deck`)}).`,
+        "",
+      ]
+    : [];
   const adrSection =
     project.adrs.length > 0
       ? [
@@ -141,8 +148,28 @@ function buildProjectPage(project: ProjectWithADRs): GeneratedPage {
     filePath: `projects/${project.slug}.md`,
     title: project.title,
     description: project.description,
-    content: [convert(project.content).trim(), ...adrSection].join("\n"),
+    content: [
+      ...pitchSection,
+      convert(project.content).trim(),
+      ...adrSection,
+    ].join("\n"),
     facts: projectFacts(project),
+  };
+}
+
+function buildPitchDeckPage(project: ProjectWithADRs): GeneratedPage | null {
+  if (!project.pitch) return null;
+  const transcript = pitchDeckToAgentMarkdown(project.pitch.content, convert);
+  return {
+    htmlPath: `/projects/${project.slug}/deck`,
+    filePath: `projects/${project.slug}/deck.md`,
+    title: project.pitch.title,
+    description: project.pitch.description,
+    content: transcript,
+    facts: [
+      ["Project", `${project.title} (${markdownUrl(`/projects/${project.slug}`)})`],
+      ["Slides", String(transcript.match(/^## Slide /gm)?.length ?? 0)],
+    ],
   };
 }
 
@@ -430,6 +457,13 @@ function buildLlmsTxt(
       (project) =>
         `- [${project.title}](${markdownUrl(routePath("projects", project.slug))}): ${project.description}`,
     ),
+    ...projects.flatMap((project) =>
+      project.pitch
+        ? [
+            `- [${project.pitch.title}](${markdownUrl(routePath("projects", project.slug, "deck"))}): ${project.pitch.description}`,
+          ]
+        : [],
+    ),
     "",
     "## Architecture Decision Records",
     "",
@@ -562,12 +596,16 @@ function main(): void {
   // Recipes are database-backed and served dynamically by the Pages Function.
   const recipes: RecipeCardView[] = [];
   const technologyPages = buildTechnologyPages(projects);
+  const pitchDeckPages = projects
+    .map(buildPitchDeckPage)
+    .filter((page): page is GeneratedPage => page !== null);
 
   const pages: GeneratedPage[] = [
     buildHomePage(),
     buildExperiencePage(),
     buildProjectsIndexPage(projects, philosophy),
     ...projects.map(buildProjectPage),
+    ...pitchDeckPages,
     ...projects.flatMap(buildAdrPages),
     buildBlogIndexPage(posts),
     ...buildBlogPostPages(posts),

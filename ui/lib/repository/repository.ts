@@ -18,6 +18,7 @@ import {
   type BlogRelations,
   type BlogSlug,
 } from "../domain/blog/blogPost";
+import { type PitchDeck, PitchDeckSchema } from "../domain/project/pitchDeck";
 import {
   type Project,
   type ProjectRelations,
@@ -334,6 +335,27 @@ export function loadProjects(): ProjectLoadResult {
     const fileContent = fs.readFileSync(projectPath, "utf-8");
     const { data, content } = parseFrontmatter(fileContent);
 
+    let pitch: PitchDeck | undefined;
+    const pitchPath = path.join(PROJECTS_DIR, projectSlug, "pitch.mdx");
+    if (fs.existsSync(pitchPath)) {
+      const pitchFileContent = fs.readFileSync(pitchPath, "utf-8");
+      const { data: pitchData, content: pitchContent } =
+        parseFrontmatter(pitchFileContent);
+      const pitchResult = PitchDeckSchema.safeParse({
+        title: pitchData.title,
+        description: pitchData.description,
+        content: pitchContent,
+      });
+      if (!pitchResult.success) {
+        console.error(
+          `Failed to validate pitch deck ${projectSlug}:`,
+          pitchResult.error,
+        );
+        throw new Error(`Pitch deck ${projectSlug} failed validation`);
+      }
+      pitch = pitchResult.data;
+    }
+
     const adrRefs: ADRRef[] = [];
     const adrsDir = path.join(PROJECTS_DIR, projectSlug, "adrs");
     if (fs.existsSync(adrsDir)) {
@@ -366,6 +388,7 @@ export function loadProjects(): ProjectLoadResult {
       repoUrl: data.repo_url,
       demoUrl: data.demo_url,
       productUrl: data.product_url,
+      pitch,
       content,
     };
 

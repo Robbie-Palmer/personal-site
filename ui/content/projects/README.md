@@ -8,6 +8,7 @@ Each project is a subdirectory named after its slug (e.g., `personal-site`). Ins
 
 1. `index.mdx`: The main project content and metadata (in frontmatter).
 2. `adrs/`: A directory containing Architecture Decision Records (ADRs) as `.mdx` files.
+3. `pitch.mdx`: An optional pitch deck shown before the overview.
 
 Example:
 
@@ -15,6 +16,7 @@ Example:
 content/projects/
 └── personal-site/
     ├── index.mdx
+    ├── pitch.mdx
     └── adrs/
         ├── 001-monorepo.mdx
         └── 002-rendering-strategy.mdx
@@ -43,6 +45,40 @@ role: "terminal-industries" # Optional - link to job role slug
 
 Write your project overview here using MDX...
 ```
+
+## Pitch decks
+
+Add `pitch.mdx` when a project benefits from a shorter opening explanation. The file becomes the default project
+tab and also creates `/projects/{slug}/deck` and `/projects/{slug}/deck.md`.
+
+```mdx
+---
+title: "Project pitch"
+description: "A short description for the deck route"
+---
+
+# Opening slide
+
+One clear idea per slide.
+
+---
+
+## Next slide
+
+<PitchColumns>
+  <PitchColumn>Left column</PitchColumn>
+  <PitchColumn>Right column</PitchColumn>
+</PitchColumns>
+
+<PitchStep index={0}>First animated reveal</PitchStep>
+<PitchStep index={1}>Second animated reveal</PitchStep>
+
+<PitchNotes>Speaker notes stay out of Markdown, but remain public in the HTML.</PitchNotes>
+```
+
+Root thematic breaks split slides. `PitchStep` creates a Reveal fragment, and an optional `index` fixes its order.
+Decks may also use `Mermaid`, fenced code blocks with Shiki highlighting, and project-specific components registered
+in the pitch component map. Keep speaker notes free of secrets.
 
 ### Role Field
 

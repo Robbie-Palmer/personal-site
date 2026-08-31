@@ -21,6 +21,10 @@ vi.mock("next/dynamic", () => ({
   },
 }));
 
+vi.mock("@/components/technology/revealjs-demo", () => ({
+  RevealJsDemo: () => <div data-testid="loaded-reveal-demo" />,
+}));
+
 describe("lazy visualization wrappers", () => {
   it("defers every chart and provides client-only loading states", async () => {
     const wealthCharts = await import(
@@ -29,8 +33,11 @@ describe("lazy visualization wrappers", () => {
     const { LazyRechartsDemoChart } = await import(
       "@/components/technology/lazy-recharts-demo-chart"
     );
+    const { LazyRevealJsDemo } = await import(
+      "@/components/technology/lazy-revealjs-demo"
+    );
 
-    expect(dynamicCalls).toHaveLength(5);
+    expect(dynamicCalls).toHaveLength(6);
     expect(dynamicCalls.every(({ options }) => options.ssr === false)).toBe(
       true,
     );
@@ -53,14 +60,16 @@ describe("lazy visualization wrappers", () => {
         <wealthCharts.LisaComparisonChart />
         <wealthCharts.PensionReturnsChart />
         <LazyRechartsDemoChart />
+        <LazyRevealJsDemo>Deck content</LazyRevealJsDemo>
         {loadingComponents.map((LoadingComponent, index) =>
           createElement(LoadingComponent, { key: index }),
         )}
       </>,
     );
 
-    expect(screen.getAllByTestId("dynamic-component")).toHaveLength(5);
+    expect(screen.getAllByTestId("dynamic-component")).toHaveLength(6);
     expect(screen.getAllByText("Loading chart...")).toHaveLength(4);
     expect(screen.getByText("Loading charts...")).toBeInTheDocument();
+    expect(screen.getByText("Loading presentation...")).toBeInTheDocument();
   });
 });

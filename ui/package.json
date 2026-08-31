@@ -25,6 +25,7 @@
     "lighthouse": "LIGHTHOUSE_DEVICE=both node scripts/lighthouse.mjs"
   },
   "dependencies": {
+    "@revealjs/react": "0.2.1",
     "@cooklang/cooklang": "^0.18.0",
     "@cosmos.gl/graph": "^3.4.1",
     "@radix-ui/react-dialog": "^1.1.15",
@@ -64,6 +65,7 @@
     "react-responsive": "^10.0.1",
     "reading-time": "^1.5.0",
     "recharts": "^3.3.0",
+    "reveal.js": "6.0.1",
     "recipe-domain": "workspace:*",
     "rehype-autolink-headings": "^7.1.0",
     "rehype-pretty-code": "^0.14.1",

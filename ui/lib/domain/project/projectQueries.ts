@@ -189,6 +189,7 @@ export function getProjectWithADRs(
     repoUrl: project.repoUrl,
     demoUrl: project.demoUrl,
     productUrl: project.productUrl,
+    pitch: project.pitch,
     content: project.content,
     technologies: mergedTechnologies,
     adrSlugs: adrSlugs.map((adrRef) => parseADRRef(adrRef).adrSlug),

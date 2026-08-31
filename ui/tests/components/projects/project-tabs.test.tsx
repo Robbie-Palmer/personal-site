@@ -36,6 +36,24 @@ describe("ProjectTabs", () => {
     });
   });
 
+  it("shows a pitch deck first when the project has one", () => {
+    render(
+      <ProjectTabs
+        projectSlug="agentic-code-review"
+        pitch={<div>Pitch content</div>}
+        adrCount={1}
+        overview={<div>Overview content</div>}
+        adrs={<div>ADR content</div>}
+      />,
+    );
+
+    expect(screen.getByRole("tab", { name: "Pitch deck" })).toHaveAttribute(
+      "data-state",
+      "active",
+    );
+    expect(screen.getByText("Pitch content")).toBeVisible();
+  });
+
   it("uses the canonical projects URL when selecting the philosophy tab", async () => {
     const user = userEvent.setup();
     render(

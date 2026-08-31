@@ -183,8 +183,8 @@ tech_stack: ["TypeScript"]
 ---
 Content`;
 
-      vi.mocked(fs.existsSync).mockImplementation(() => {
-        return true;
+      vi.mocked(fs.existsSync).mockImplementation((filePath) => {
+        return !filePath.toString().endsWith("pitch.mdx");
       });
 
       vi.mocked(fs.readdirSync).mockImplementation(((path: string) => {
