@@ -101,12 +101,11 @@ declared in this repository, with the GPU stack deliberately pinned:
 * **2GB of VRAM**: batch sizes and model sizes are capped. Jobs must fit in
   memory or be split; the narrow-job framing matters more than it would on a
   bigger card.
-* **Pinned Docker carries a known CVE**: nixos-25.11 ships Docker 28.5.2,
-  affected by CVE-2026-42306 (a `docker cp` race fixed upstream in 29.5.1).
-  Accepted for now: the box is tailnet-only, the Docker API is not exposed,
-  and it runs only self-launched images, so no untrusted container can reach
-  the race. Revisit when the channel ships a patched build, then drop the
-  `permittedInsecurePackages` entry.
+* **Docker runs past the channel default**: the nixos-25.11 default Docker
+  (28.5.2) is unmaintained upstream and vulnerable to CVE-2026-42306, a
+  `docker cp` race fixed in 29.5.1. The config selects the same channel's
+  maintained `docker_29` (29.6.0) explicitly, which clears the CVE without
+  touching the nixpkgs pin.
 * **Docker-container-only GPU**: bare-metal CUDA 13 code won't run; must
   always run inside CUDA 12 images.
 * **Wake-on-LAN discipline**: WOL only works if the BIOS, interface, and

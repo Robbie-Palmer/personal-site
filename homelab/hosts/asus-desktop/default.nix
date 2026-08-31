@@ -10,10 +10,7 @@
 
   networking.hostName = "asus-desktop";
 
-  nixpkgs.config = {
-    allowUnfree = true;
-    permittedInsecurePackages = [ "docker-28.5.2" ];
-  };
+  nixpkgs.config.allowUnfree = true;
 
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;
@@ -31,7 +28,10 @@
 
   hardware.nvidia-container-toolkit.enable = true;
 
-  virtualisation.docker.enable = true;
+  virtualisation.docker = {
+    enable = true;
+    package = pkgs.docker_29;
+  };
 
   services.openssh.enable = true;
   services.tailscale.enable = true;
