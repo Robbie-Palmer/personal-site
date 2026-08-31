@@ -239,6 +239,19 @@ describe("controlled replay runner", () => {
     expect(adapter.identifyFindings).not.toHaveBeenCalled();
   });
 
+  it("marks a replay failed when every scout returns no coverage", async () => {
+    const { adapter, store } = fixture({
+      scouts: scoutRun({
+        candidates: {},
+        failed: ["experiment/scout"],
+        candidateCounts: {},
+        costs: {},
+      }),
+    });
+    const result = await executeControlledReplay({ ...request, dryRun: false }, adapter, store);
+    expect(result).toMatchObject({ status: "failed", failures: ["experiment/scout"] });
+  });
+
   it("denies the merger when scouts exhaust the declared budget", async () => {
     const { adapter, store } = fixture({
       scouts: scoutRun({ costs: { "experiment/scout": 0.5 } }),

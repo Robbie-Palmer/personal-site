@@ -454,7 +454,11 @@ export async function executeControlledReplay(
   const result = {
     ...plan,
     recordType: "ai-review-replay-result",
-    status: costUsd > request.limits.maxCostUsd ? "budget-exceeded" : "completed",
+    status: Object.keys(scouts.candidates).length === 0
+      ? "failed"
+      : costUsd > request.limits.maxCostUsd
+        ? "budget-exceeded"
+        : "completed",
     paidInferenceAllowed: true,
     productionRunId: snapshot.productionRunId,
     corpusProvenance: snapshot.provenance,

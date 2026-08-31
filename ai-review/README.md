@@ -356,6 +356,34 @@ corpus and configuration returns the stored result; set a new repetition index
 to run it again. The result retains raw candidates, merged findings, failures,
 usage, latency, cost, applied configuration, and corpus provenance.
 
+Run one locally cached production snapshot with the corpus CLI. Omit `--execute`
+for the dry plan, then load production provider credentials only for the explicit
+execution:
+
+```bash
+mise //ai-review:corpus:replay -- \
+  --snapshot <input-v1.json> \
+  --corpus-id <snapshot-sha256> \
+  --output ~/.cache/ai-review/corpus-replays \
+  --provider openrouter \
+  --model <experimental-model> \
+  --max-cost-usd 0.25
+
+doppler run --project ai-review --config prd -- \
+  mise //ai-review:corpus:replay -- \
+  --snapshot <input-v1.json> \
+  --corpus-id <snapshot-sha256> \
+  --output ~/.cache/ai-review/corpus-replays \
+  --provider openrouter \
+  --model <experimental-model> \
+  --max-cost-usd 0.25 \
+  --execute
+```
+
+The local store claims the result key atomically and writes the same
+`replays/v1` namespace used by the runner. The command prints the plan or result
+as one JSON object. It never calls a GitHub publication API.
+
 ## Deploy
 
 Sync the environment after changing Doppler:
