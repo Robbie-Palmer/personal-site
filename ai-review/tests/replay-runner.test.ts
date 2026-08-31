@@ -7,6 +7,7 @@ import type {
 } from "../src/review-engine";
 import {
   executeControlledReplay,
+  loadReplaySnapshot,
   runControlledReplay,
   planControlledReplay,
   type ReplayBoundaryAdapter,
@@ -270,5 +271,102 @@ describe("controlled replay runner", () => {
     expect(repeated.configurationId).toBe(first.configurationId);
     expect(repeated.resultKey).not.toBe(first.resultKey);
     expect(repeated.resultKey).toContain("repetition-1.json");
+  });
+
+  it.each([
+    ["merger-model", { kind: "merger-model", model: "experiment/merger" }],
+    ["prompt-version", {
+      kind: "prompt-version",
+      prompt: { version: "prompt-v2", scoutSystem: "Scout v2.", mergerSystem: "Merge v2." },
+    }],
+    ["coverage-policy", {
+      kind: "coverage-policy",
+      policy: { version: "coverage-v2", mode: "full" },
+    }],
+  ] as const)("plans the %s experiment against its production value", async (_kind, experiment) => {
+    const plan = await planControlledReplay({ ...request, experiment });
+    expect(plan.differences).toEqual([expect.objectContaining({
+      variable: experiment.kind,
+      replay: experiment.kind === "merger-model"
+        ? experiment.model
+        : experiment.kind === "prompt-version"
+          ? experiment.prompt
+          : experiment.policy,
+    })]);
+  });
+
+  it("uses the frozen full diff for a full-coverage experiment", async () => {
+    const fullSnapshot = {
+      ...snapshot,
+      input: {
+        ...snapshot.input,
+        fullDiff: "diff --git a/src/one.ts b/src/one.ts\n+one\n" +
+          "diff --git a/src/two.ts b/src/two.ts\n+two",
+      },
+    };
+    const { adapter, store } = fixture();
+    await executeControlledReplay({
+      ...request,
+      snapshot: fullSnapshot,
+      dryRun: false,
+      experiment: {
+        kind: "coverage-policy",
+        policy: { version: "coverage-v2", mode: "full" },
+      },
+    }, adapter, store);
+
+    expect(adapter.runScouts).toHaveBeenCalledWith(
+      expect.objectContaining({
+        diff: fullSnapshot.input.fullDiff,
+        paths: ["src/one.ts", "src/two.ts"],
+        coverage: expect.objectContaining({ mode: "full", paths: ["src/one.ts", "src/two.ts"] }),
+      }),
+      limits.allowedProviders,
+      expect.objectContaining({ kind: "coverage-policy" }),
+    );
+  });
+
+  it("records a completed merge that crosses the total cost limit", async () => {
+    const { adapter, store } = fixture({ scouts: scoutRun({ costs: { "experiment/scout": 0.8 } }) });
+    const result = await executeControlledReplay({
+      ...request,
+      dryRun: false,
+      limits: { ...limits, maxCostUsd: 0.84 },
+    }, adapter, store);
+    expect(result).toMatchObject({ status: "budget-exceeded", costUsd: 0.85 });
+  });
+
+  it("validates replay limits, providers, privacy, and experiment contents", async () => {
+    const cases: Array<[Partial<ReplayLimits>, typeof request.experiment, RegExp]> = [
+      [{ maxModels: 0 }, request.experiment, /maxModels/],
+      [{ maxCostUsd: 0 }, request.experiment, /maxCostUsd/],
+      [{ allowedProviders: [] }, request.experiment, /allowedProviders/],
+      [{ allowedProviders: ["opencode"] }, request.experiment, /openrouter/],
+      [{ maxScoutTokens: 1 }, request.experiment, /scout token/],
+      [{ maxMergerTokens: 1 }, request.experiment, /merger token/],
+      [{}, { kind: "scout-model", models: [] }, /model count/],
+      [{}, { kind: "scout-model", models: [{ model: " ", provider: "openrouter" }] }, /model IDs/],
+    ];
+    for (const [limitChanges, experiment, message] of cases) {
+      await expect(planControlledReplay({
+        ...request,
+        limits: { ...limits, ...limitChanges },
+        experiment,
+      })).rejects.toThrow(message);
+    }
+    await expect(planControlledReplay({
+      ...request,
+      snapshot: {
+        ...snapshot,
+        modelRequest: { ...snapshot.modelRequest, requireZeroDataRetention: false },
+      },
+    })).rejects.toThrow(/zero data retention/);
+  });
+
+  it("reports missing and malformed corpus entries", async () => {
+    const { store } = fixture();
+    await expect(loadReplaySnapshot("missing", store)).rejects.toThrow("not found");
+    vi.mocked(store.loadSnapshot).mockResolvedValueOnce("not-json");
+    await expect(loadReplaySnapshot("broken", store)).rejects.toThrow("not valid JSON");
   });
 });
