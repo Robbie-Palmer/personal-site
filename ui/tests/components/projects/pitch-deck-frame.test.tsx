@@ -180,6 +180,10 @@ describe("PitchDeckFrame", () => {
       "href",
       "/projects/agentic-code-review/deck?print-pdf",
     );
+    expect(screen.getByRole("link", { name: "Print PDF" })).toHaveAttribute(
+      "target",
+      "_blank",
+    );
     expect(deckState.props?.config).toMatchObject({
       embedded: false,
       hash: true,

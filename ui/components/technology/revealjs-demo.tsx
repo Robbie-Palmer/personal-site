@@ -1,9 +1,6 @@
 "use client";
 
-import RevealNotes from "reveal.js/plugin/notes";
 import { PitchDeckFrame } from "@/components/projects/pitch-deck/pitch-deck-frame";
-
-const notesPlugins = [RevealNotes()];
 
 export function RevealJsDemo({
   children,
@@ -12,8 +9,9 @@ export function RevealJsDemo({
     <PitchDeckFrame
       title="reveal.js integration demo"
       mode="embedded"
-      plugins={notesPlugins}
       showPresenterTools
+      showSpeakerView={false}
+      presentationHref="/technologies/revealdotjs/deck"
     >
       {children}
     </PitchDeckFrame>

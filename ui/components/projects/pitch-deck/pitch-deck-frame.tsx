@@ -15,12 +15,17 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { RevealApi, RevealConfig, RevealPlugin } from "reveal.js";
 
 interface PitchDeckFrameProps {
+  backHref?: string;
+  backLabel?: string;
   children: React.ReactNode;
+  presentationHref?: string;
+  printHref?: string;
   projectSlug?: string;
   title: string;
   mode: "embedded" | "focused";
   plugins?: RevealPlugin[];
   showPresenterTools?: boolean;
+  showSpeakerView?: boolean;
 }
 
 type Position = {
@@ -38,12 +43,17 @@ const initialPosition: Position = {
 };
 
 export function PitchDeckFrame({
+  backHref,
+  backLabel,
   children,
+  presentationHref,
+  printHref,
   projectSlug,
   title,
   mode,
   plugins = [],
   showPresenterTools = false,
+  showSpeakerView = true,
 }: Readonly<PitchDeckFrameProps>) {
   const deckRef = useRef<RevealApi | null>(null);
   const shellRef = useRef<HTMLElement>(null);
@@ -52,6 +62,17 @@ export function PitchDeckFrame({
   const [reducedMotion, setReducedMotion] = useState(false);
   const [scrollView, setScrollView] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
+
+  const resolvedBackHref =
+    backHref ?? (projectSlug ? `/projects/${projectSlug}` : undefined);
+  const resolvedBackLabel =
+    backLabel ?? (projectSlug ? "Back to project" : "Back");
+  const resolvedPresentationHref =
+    presentationHref ??
+    (projectSlug ? `/projects/${projectSlug}/deck` : undefined);
+  const resolvedPrintHref =
+    printHref ??
+    (projectSlug ? `/projects/${projectSlug}/deck?print-pdf` : undefined);
 
   useEffect(() => {
     const query = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -72,8 +93,34 @@ export function PitchDeckFrame({
     });
   }, []);
   const handleReady = useCallback(
-    (deck: RevealApi) => updatePosition(deck),
-    [updatePosition],
+    (deck: RevealApi) => {
+      updatePosition(deck);
+
+      if (
+        mode === "focused" &&
+        new URLSearchParams(window.location.search).has("print-pdf")
+      ) {
+        let opened = false;
+        let layoutChecks = 0;
+        const openPrintDialog = () => {
+          if (opened) return;
+          opened = true;
+          requestAnimationFrame(() => window.print());
+        };
+        const waitForPrintLayout = () => {
+          if (document.querySelector(".pdf-page")) {
+            openPrintDialog();
+          } else if (layoutChecks < 300) {
+            layoutChecks += 1;
+            requestAnimationFrame(waitForPrintLayout);
+          }
+        };
+
+        deck.on("pdf-ready", openPrintDialog);
+        waitForPrintLayout();
+      }
+    },
+    [mode, updatePosition],
   );
   const handlePositionEvent = useCallback(
     () => updatePosition(),
@@ -115,6 +162,7 @@ export function PitchDeckFrame({
       backgroundTransition: reducedMotion ? "none" : "fade",
       controls: false,
       progress: false,
+      pdfSeparateFragments: false,
       slideNumber: false,
       view: scrollView ? "scroll" : null,
       scrollActivationWidth: 700,
@@ -153,17 +201,20 @@ export function PitchDeckFrame({
     >
       {hasPresenterTools && (
         <div className="pitch-deck__topbar">
-          {mode === "focused" && projectSlug && (
-            <Link
-              href={`/projects/${projectSlug}`}
-              className="pitch-deck__back"
-            >
+          {mode === "focused" && resolvedBackHref && (
+            <Link href={resolvedBackHref} className="pitch-deck__back">
               <ArrowLeft aria-hidden="true" />
-              Back to project
+              {resolvedBackLabel}
             </Link>
           )}
           <span className="pitch-deck__title">{title}</span>
           <div className="pitch-deck__tools">
+            {mode === "embedded" && resolvedPresentationHref && (
+              <Link href={resolvedPresentationHref}>
+                <Presentation aria-hidden="true" />
+                <span>Present</span>
+              </Link>
+            )}
             <button
               type="button"
               onClick={() => deckRef.current?.toggleOverview()}
@@ -181,14 +232,16 @@ export function PitchDeckFrame({
               <Columns3 aria-hidden="true" />
               <span>{scrollView ? "Slides" : "Scroll"}</span>
             </button>
-            <button
-              type="button"
-              onClick={openSpeakerView}
-              title="Speaker view"
-            >
-              <Presentation aria-hidden="true" />
-              <span>Speaker</span>
-            </button>
+            {showSpeakerView && (
+              <button
+                type="button"
+                onClick={openSpeakerView}
+                title="Speaker view"
+              >
+                <Presentation aria-hidden="true" />
+                <span>Speaker</span>
+              </button>
+            )}
             <button
               ref={fullscreenButtonRef}
               type="button"
@@ -243,23 +296,27 @@ export function PitchDeckFrame({
           </span>
         </div>
 
-        {projectSlug && (
+        {(projectSlug || resolvedPrintHref) && (
           <div className="pitch-deck__links">
-            <a href={`/projects/${projectSlug}/deck.md`}>
-              <FileText aria-hidden="true" />
-              Transcript
-            </a>
+            {projectSlug && (
+              <a href={`/projects/${projectSlug}/deck.md`}>
+                <FileText aria-hidden="true" />
+                Transcript
+              </a>
+            )}
             {mode === "embedded" ? (
-              <Link href={`/projects/${projectSlug}/deck`}>
-                <Expand aria-hidden="true" />
-                Open deck
-              </Link>
-            ) : (
-              <a href={`/projects/${projectSlug}/deck?print-pdf`}>
+              resolvedPresentationHref && (
+                <Link href={resolvedPresentationHref}>
+                  <Expand aria-hidden="true" />
+                  Open deck
+                </Link>
+              )
+            ) : resolvedPrintHref ? (
+              <a href={resolvedPrintHref} target="_blank" rel="noreferrer">
                 <FileText aria-hidden="true" />
                 Print PDF
               </a>
-            )}
+            ) : null}
           </div>
         )}
       </div>

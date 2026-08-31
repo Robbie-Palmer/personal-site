@@ -168,6 +168,24 @@ describe("Visualization browser rendering", () => {
         notes: 2,
         slides: 6,
       });
+      const initialAppearance = await page.$eval(
+        ".pitch-deck .reveal",
+        (deck) => ({
+          background: getComputedStyle(deck).backgroundColor,
+          headingColor: getComputedStyle(
+            deck.querySelector("section.present h1") as HTMLElement,
+          ).color,
+        }),
+      );
+      expect(initialAppearance).toEqual({
+        background: "rgb(9, 10, 9)",
+        headingColor: "rgb(247, 245, 239)",
+      });
+      expect(
+        await page.$eval('a[href="/technologies/revealdotjs/deck"]', (link) =>
+          link.textContent?.trim(),
+        ),
+      ).toBe("Present");
       await page.waitForFunction(
         () =>
           document
@@ -292,16 +310,25 @@ describe("Visualization browser rendering", () => {
 
       const deck = await page.$eval(".pitch-deck", (element) => {
         const slide = element.querySelector<HTMLElement>(".pitch-slide");
+        const reveal = element.querySelector<HTMLElement>(".reveal");
+        const heading =
+          element.querySelector<HTMLElement>("section.present h1");
         return {
           background: getComputedStyle(element).backgroundColor,
+          headingColor: heading ? getComputedStyle(heading).color : "",
           paddingTop: slide ? getComputedStyle(slide).paddingTop : "",
+          revealBackground: reveal
+            ? getComputedStyle(reveal).backgroundColor
+            : "",
           slides: element.querySelectorAll(".slides > section").length,
         };
       });
 
       expect(deck).toEqual({
         background: "rgb(9, 10, 9)",
+        headingColor: "rgb(247, 245, 239)",
         paddingTop: "72px",
+        revealBackground: "rgb(9, 10, 9)",
         slides: 8,
       });
       expect(pageErrors).toEqual([]);
@@ -309,6 +336,92 @@ describe("Visualization browser rendering", () => {
       await page.close();
     }
   }, 30_000);
+
+  it("opens working speaker previews and prepares the focused deck for PDF", async () => {
+    const page = await browser.newPage();
+
+    try {
+      await page.goto(`${BASE_URL}/projects/agentic-code-review/deck`, {
+        waitUntil: "domcontentloaded",
+      });
+      await page.waitForSelector(".pitch-deck .reveal.ready", {
+        timeout: 20_000,
+      });
+
+      const speakerTarget = browser.waitForTarget(
+        (target) => target.opener() === page.target(),
+        { timeout: 10_000 },
+      );
+      await page.click('button[title="Speaker view"]');
+      const speakerPage = await (await speakerTarget).page();
+      expect(speakerPage).not.toBeNull();
+      await speakerPage?.waitForSelector("#current-slide iframe", {
+        timeout: 10_000,
+      });
+      await speakerPage?.waitForFunction(
+        () => {
+          const frame = document.querySelector<HTMLIFrameElement>(
+            "#current-slide iframe",
+          );
+          return frame?.contentDocument?.querySelector(
+            ".pitch-deck .reveal.ready section.present h1",
+          )?.textContent;
+        },
+        { timeout: 20_000 },
+      );
+      const speakerHeading = await speakerPage?.$eval(
+        "#current-slide iframe",
+        (frame) =>
+          (frame as HTMLIFrameElement).contentDocument?.querySelector(
+            ".pitch-deck section.present h1",
+          )?.textContent,
+      );
+      expect(speakerHeading).toContain("Code arrives faster");
+      await speakerPage?.close();
+    } finally {
+      await page.close();
+    }
+
+    const printPage = await browser.newPage();
+    try {
+      await printPage.evaluateOnNewDocument(() => {
+        Object.defineProperty(window, "print", {
+          configurable: true,
+          value: () => {
+            document.documentElement.dataset.printDialogOpened = "true";
+          },
+        });
+      });
+      await printPage.goto(
+        `${BASE_URL}/projects/agentic-code-review/deck?print-pdf`,
+        { waitUntil: "domcontentloaded" },
+      );
+      await printPage.waitForFunction(
+        () =>
+          document.documentElement.classList.contains("reveal-print") &&
+          document.querySelectorAll(".pdf-page").length === 8 &&
+          document.documentElement.dataset.printDialogOpened === "true",
+        { timeout: 20_000 },
+      );
+
+      const printLayout = await printPage.evaluate(() => ({
+        controls: getComputedStyle(
+          document.querySelector(".pitch-deck__controls") as HTMLElement,
+        ).display,
+        pages: document.querySelectorAll(".pdf-page").length,
+        topbar: getComputedStyle(
+          document.querySelector(".pitch-deck__topbar") as HTMLElement,
+        ).display,
+      }));
+      expect(printLayout).toEqual({
+        controls: "none",
+        pages: 8,
+        topbar: "none",
+      });
+    } finally {
+      await printPage.close();
+    }
+  }, 60_000);
 
   it.each([
     ["the technology demo", "/technologies/recharts", 3],

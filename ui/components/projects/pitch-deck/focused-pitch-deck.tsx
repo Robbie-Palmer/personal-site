@@ -22,6 +22,7 @@ export function FocusedPitchDeck({
       title={title}
       mode="focused"
       plugins={notesPlugins}
+      backLabel="Back to project"
     >
       {children}
     </PitchDeckFrame>

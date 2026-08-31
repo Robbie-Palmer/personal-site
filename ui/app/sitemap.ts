@@ -91,5 +91,10 @@ export default function sitemap(): MetadataRoute.Sitemap {
     ...pitchDeckPages,
     ...adrPages,
     ...technologyPages,
+    {
+      url: `${siteConfig.url}/technologies/revealdotjs/deck`,
+      lastModified: new Date().toISOString(),
+      priority: 0.5,
+    },
   ];
 }
