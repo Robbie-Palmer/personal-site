@@ -1,6 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 import type { Env, ReviewWorkflowParams } from "../src/env";
-import type { PreparedReview, ReviewCoverageMode } from "../src/review-engine";
+import {
+  recordReviewTerminal,
+  type PreparedReview,
+  type ReviewCoverageMode,
+} from "../src/review-engine";
 import {
   assertReplaySchemaCompatible,
   persistReplayInput,
@@ -22,13 +26,14 @@ function prepared(mode: ReviewCoverageMode): PreparedReview {
     file: "src/app.ts",
     title: "Prior finding",
     hunkIds: ["h_prior"],
+    evidence: "DATABASE_URL=postgres://user:password@example.test/db",
   };
   return {
     baseSha: "a".repeat(40),
     headSha: "b".repeat(40),
     diffFingerprint: "diff-hash",
     configFingerprint: "config-hash",
-    fullDiff: "diff --git a/src/app.ts b/src/app.ts\n+token=super-secret-value",
+    fullDiff: "diff --git a/src/app.ts b/src/app.ts\n+AWS_SECRET_ACCESS_KEY=super-secret-value",
     diff: "+token=super-secret-value",
     context: "Authorization: Bearer abcdefghijklmnopqrstuvwxyz",
     guidelines: "Review carefully.",
@@ -110,6 +115,7 @@ describe("replay input corpus", () => {
       expect(snapshot.input.affectedOpenFindings).toHaveLength(mode === "incremental" ? 1 : 0);
       expect(JSON.stringify(snapshot)).not.toContain("super-secret-value");
       expect(JSON.stringify(snapshot)).not.toContain("abcdefghijklmnopqrstuvwxyz");
+      expect(JSON.stringify(snapshot)).not.toContain("postgres://user:password");
       expect(snapshot.provenance.liveCredentialsIncluded).toBe(false);
       const manifest = JSON.parse(String(put.mock.calls[1]?.[1]));
       expect(manifest.snapshot.sha256).toMatch(/^[a-f0-9]{64}$/);
@@ -134,6 +140,31 @@ describe("replay input corpus", () => {
     await persistReplayInput(input);
     expect(put.mock.calls[0]?.slice(0, 2)).toEqual(put.mock.calls[2]?.slice(0, 2));
     expect(put.mock.calls[1]?.slice(0, 2)).toEqual(put.mock.calls[3]?.slice(0, 2));
+  });
+
+  it("writes the production record before the snapshot and manifest commit marker", async () => {
+    const put = vi
+      .fn()
+      .mockResolvedValueOnce(undefined)
+      .mockRejectedValueOnce(new Error("snapshot write failed"));
+    const env = {
+      ...fixture().env,
+      REVIEW_DATA: { put },
+      AI_REVIEW_PROMPT_VERSION: "prompt-v1",
+    } as unknown as Env;
+
+    await expect(recordReviewTerminal({
+      env,
+      params,
+      instanceId: "run-interrupted",
+      status: "published",
+      prepared: prepared("full"),
+      timestamp: new Date("2026-08-31T12:00:00Z"),
+    })).rejects.toThrow("snapshot write failed");
+
+    expect(String(put.mock.calls[0]?.[0])).toMatch(/\/published\.json$/);
+    expect(String(put.mock.calls[1]?.[0])).toMatch(/\/input-v1\.json$/);
+    expect(put).toHaveBeenCalledTimes(2);
   });
 
   it("rejects unsupported schema versions", () => {

@@ -20,8 +20,12 @@ export function assertReplaySchemaCompatible(value: unknown): asserts value is {
 const SECRET_PATTERNS: Array<[string, RegExp]> = [
   ["private-key", /-----BEGIN [^-]*PRIVATE KEY-----[\s\S]*?-----END [^-]*PRIVATE KEY-----/g],
   ["authorization", /\b(?:authorization:\s*bearer|bearer)\s+[^\s"']+/gi],
-  ["github-token", /\b(?:gh[opsu]_[A-Za-z0-9_]{20,}|github_pat_[A-Za-z0-9_]{20,})\b/g],
-  ["assigned-secret", /\b(?:api[_-]?key|token|password|secret)\s*[:=]\s*["']?[^\s,"']{8,}/gi],
+  ["github-token", /\b(?:gh[opsu]_\w{20,}|github_pat_\w{20,})\b/g],
+  ["connection-uri", /\b(?:postgres(?:ql)?|mysql|mongodb(?:\+srv)?|redis):\/\/[^\s"']+/gi],
+  [
+    "assigned-secret",
+    /\b(?:database_url|(?:[a-z0-9_]*(?:api[_-]?key|secret|token|password|passwd|private[_-]?key)[a-z0-9_]*))\s*[:=]\s*(?:"[^"\n]+"|'[^'\n]+'|[^\s,;]+)/gi,
+  ],
 ];
 
 function redact(value: string, counts: Record<string, number>): string {
@@ -32,6 +36,20 @@ function redact(value: string, counts: Record<string, number>): string {
     }),
     value,
   );
+}
+
+function redactValue(value: unknown, counts: Record<string, number>): unknown {
+  if (typeof value === "string") return redact(value, counts);
+  if (Array.isArray(value)) return value.map((item) => redactValue(item, counts));
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>).map(([key, item]) => [
+        key,
+        redactValue(item, counts),
+      ]),
+    );
+  }
+  return value;
 }
 
 export function stableJson(value: unknown): string {
@@ -88,12 +106,11 @@ export async function persistReplayInput(options: {
     throw new Error("Cannot persist replay input without immutable Git refs and full diff");
   }
   const redactions: Record<string, number> = {};
-  const clean = (value: string | undefined) => redact(value ?? "", redactions);
   const root = ["v2", params.repository, `pr-${params.pullRequestNumber}`, prepared.headSha, options.instanceId, "replay"].join("/");
   const snapshotKey = `${root}/input-v${REPLAY_INPUT_SCHEMA_VERSION}.json`;
   const manifestKey = `${root}/manifest-v${REPLAY_MANIFEST_SCHEMA_VERSION}.json`;
   const productionRecordKey = ["v2", params.repository, `pr-${params.pullRequestNumber}`, prepared.headSha, options.instanceId, `${options.status}.json`].join("/");
-  const snapshot = {
+  const rawSnapshot = {
     schemaVersion: REPLAY_INPUT_SCHEMA_VERSION,
     recordType: "ai-review-replay-input",
     repository: params.repository,
@@ -101,11 +118,11 @@ export async function persistReplayInput(options: {
     productionRunId: options.instanceId,
     git: { baseSha: prepared.baseSha, headSha: prepared.headSha },
     input: {
-      fullDiff: clean(prepared.fullDiff),
-      reviewedDiff: clean(prepared.diff),
-      boundedFileContext: clean(prepared.context),
-      repositoryGuidelines: clean(prepared.guidelines),
-      reviewThreads: clean(prepared.threads),
+      fullDiff: prepared.fullDiff,
+      reviewedDiff: prepared.diff ?? "",
+      boundedFileContext: prepared.context ?? "",
+      repositoryGuidelines: prepared.guidelines ?? "",
+      reviewThreads: prepared.threads ?? "",
       priorOpenFindings: prepared.priorOpenFindings ?? [],
       affectedOpenFindings: prepared.replayFindings ?? [],
     },
@@ -127,10 +144,13 @@ export async function persistReplayInput(options: {
       configFingerprint: prepared.configFingerprint,
       trigger: { deliveryId: params.deliveryId, eventName: params.eventName, action: params.action, force: params.force },
       capturedAt: options.timestamp.toISOString(),
-      redactions,
-      liveCredentialsIncluded: false,
     },
   };
+  const snapshot = redactValue(rawSnapshot, redactions) as typeof rawSnapshot;
+  Object.assign(snapshot.provenance, {
+    redactions,
+    liveCredentialsIncluded: false,
+  });
   const snapshotJson = stableJson(snapshot);
   const snapshotSha256 = await sha256(snapshotJson);
   const retentionDays = finite(env.AI_REVIEW_DATA_RETENTION_DAYS, 365);

@@ -1786,36 +1786,6 @@ export async function recordReviewTerminal(options: {
     merged && typeof merged.result.summary === "string"
       ? merged.result.summary
       : undefined;
-  const replay =
-    prepared?.baseSha && prepared.fullDiff !== undefined
-      ? await persistReplayInput({
-          env,
-          params,
-          instanceId,
-          status,
-          prepared,
-          timestamp,
-          prompt: {
-            version: env.AI_REVIEW_PROMPT_VERSION,
-            scoutSystem,
-            scoutSchema,
-            mergerSystem: statefulMergerSystem,
-            mergerSchema: statefulMergerSchema,
-          },
-          modelSettings: {
-            openRouterScouts: csv(env.AI_REVIEW_MODELS, DEFAULT_OPENROUTER_SCOUTS),
-            openCodeScouts: csv(env.AI_REVIEW_OPENCODE_MODELS, []),
-            merger: env.AI_REVIEW_MERGER_MODEL?.trim() || DEFAULT_MERGER,
-            requireZeroDataRetention: ["1", "true", "yes", "on"].includes(
-              env.AI_REVIEW_ZDR?.trim().toLowerCase() ?? "",
-            ),
-            scoutMaxTokens: 8_000,
-            mergerMaxTokens: MERGER_MAX_TOKENS,
-            openRouterScoutMaxPrices: OPENROUTER_SCOUT_MAX_PRICES,
-          },
-          policy: guardrailPolicy(env),
-        })
-      : undefined;
   await env.REVIEW_DATA.put(
     key,
     JSON.stringify({
@@ -1879,10 +1849,38 @@ export async function recordReviewTerminal(options: {
         triggeredAt: timestamp.toISOString(),
         recordedAt: new Date().toISOString(),
       },
-      replay,
     }),
     { httpMetadata: { contentType: "application/json" } },
   );
+  if (prepared?.baseSha && prepared.fullDiff !== undefined) {
+    await persistReplayInput({
+      env,
+      params,
+      instanceId,
+      status,
+      prepared,
+      timestamp,
+      prompt: {
+        version: env.AI_REVIEW_PROMPT_VERSION,
+        scoutSystem,
+        scoutSchema,
+        mergerSystem: statefulMergerSystem,
+        mergerSchema: statefulMergerSchema,
+      },
+      modelSettings: {
+        openRouterScouts: csv(env.AI_REVIEW_MODELS, DEFAULT_OPENROUTER_SCOUTS),
+        openCodeScouts: csv(env.AI_REVIEW_OPENCODE_MODELS, []),
+        merger: env.AI_REVIEW_MERGER_MODEL?.trim() || DEFAULT_MERGER,
+        requireZeroDataRetention: ["1", "true", "yes", "on"].includes(
+          env.AI_REVIEW_ZDR?.trim().toLowerCase() ?? "",
+        ),
+        scoutMaxTokens: 8_000,
+        mergerMaxTokens: MERGER_MAX_TOKENS,
+        openRouterScoutMaxPrices: OPENROUTER_SCOUT_MAX_PRICES,
+      },
+      policy: guardrailPolicy(env),
+    });
+  }
 }
 
 export async function completeReview(
