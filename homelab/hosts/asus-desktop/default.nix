@@ -10,6 +10,11 @@
 
   networking.hostName = "asus-desktop";
 
+  nixpkgs.config = {
+    allowUnfree = true;
+    permittedInsecurePackages = [ "docker-28.5.2" ];
+  };
+
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;
   boot.kernelPackages = pkgs.linuxPackages_6_12;
