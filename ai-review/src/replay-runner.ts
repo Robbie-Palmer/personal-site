@@ -2,6 +2,8 @@ import type { Scout } from "../../.github/scripts/ai-review/ai-review";
 import type { Env, ReviewWorkflowParams } from "./env";
 import {
   identifyReviewArtifacts,
+  identifyDiffHunks,
+  estimateMergeCostCeilingUsd,
   mergeFindings,
   runScouts,
   type IdentifiedReviewArtifacts,
@@ -88,6 +90,7 @@ export interface ReplayInputSnapshot {
 
 export interface ReplayStore {
   get(key: string): Promise<string | null>;
+  claim(key: string): Promise<boolean>;
   put(key: string, value: string): Promise<void>;
 }
 
@@ -101,6 +104,11 @@ export interface ReplayBoundaryAdapter {
     providers: Provider[],
     experiment: ReplayExperiment,
   ): Promise<ScoutRun>;
+  estimateMergerCostUsd(
+    prepared: PreparedReview,
+    scouts: ScoutRun,
+    experiment: ReplayExperiment,
+  ): Promise<number> | number;
   mergeFindings(
     prepared: PreparedReview,
     scouts: ScoutRun,
@@ -268,10 +276,10 @@ async function sha256(value: string): Promise<string> {
     .join("");
 }
 
-function preparedReview(
+async function preparedReview(
   snapshot: ReplayInputSnapshot,
   experiment: ReplayExperiment,
-): PreparedReview {
+): Promise<PreparedReview> {
   const prepared: PreparedReview = {
     baseSha: snapshot.git.baseSha,
     headSha: snapshot.git.headSha,
@@ -300,6 +308,8 @@ function preparedReview(
       ),
     ];
     if (prepared.paths.length === 0) prepared.paths = snapshot.decision.paths;
+    prepared.hunks = await identifyDiffHunks(snapshot.input.fullDiff);
+    prepared.allHunks = prepared.hunks;
     if (prepared.coverage) {
       prepared.coverage = {
         ...prepared.coverage,
@@ -373,8 +383,18 @@ export async function executeControlledReplay(
   if (request.dryRun !== false) return plan as unknown as JsonObject;
   const existing = await store.get(plan.resultKey);
   if (existing) return JSON.parse(existing) as JsonObject;
+  if (!await store.claim(plan.resultKey)) {
+    const claimedResult = await store.get(plan.resultKey);
+    return claimedResult
+      ? JSON.parse(claimedResult) as JsonObject
+      : {
+          ...plan,
+          recordType: "ai-review-replay-result",
+          status: "in-progress",
+        };
+  }
   const snapshot = request.snapshot as ReplayInputSnapshot;
-  const prepared = preparedReview(snapshot, request.experiment);
+  const prepared = await preparedReview(snapshot, request.experiment);
   const providers = request.experiment.kind === "scout-model"
     ? [...new Set(request.experiment.models.map(({ provider }) => provider))]
     : request.limits.allowedProviders;
@@ -390,7 +410,12 @@ export async function executeControlledReplay(
     const scoutCostUsd = round6(
       Object.values(scouts.costs).reduce((sum, cost) => sum + cost, 0),
     );
-    if (scoutCostUsd >= request.limits.maxCostUsd) {
+    const mergerCostCeilingUsd = round6(await adapter.estimateMergerCostUsd(
+      prepared,
+      scouts,
+      request.experiment,
+    ));
+    if (scoutCostUsd + mergerCostCeilingUsd > request.limits.maxCostUsd) {
       const denied = {
         ...plan,
         recordType: "ai-review-replay-result",
@@ -399,6 +424,7 @@ export async function executeControlledReplay(
         corpusProvenance: snapshot.provenance,
         scouts,
         costUsd: scoutCostUsd,
+        mergerCostCeilingUsd,
       };
       await store.put(plan.resultKey, stableJson(denied));
       return denied;
@@ -501,6 +527,18 @@ export function createProductionReplayAdapter(options: {
     return env;
   };
   return {
+    estimateMergerCostUsd: (prepared, scouts, experiment) => {
+      const env = replayEnv(experiment);
+      const systemPrompt = experiment.kind === "prompt-version"
+        ? experiment.prompt.mergerSystem
+        : undefined;
+      return estimateMergeCostCeilingUsd(env, options.params, prepared, scouts, {
+        isolated: true,
+        systemPrompt,
+        maxTokens: Math.min(options.limits.maxMergerTokens, 6_000),
+        timeoutMs: options.limits.timeoutMs,
+      }) ?? options.limits.maxCostUsd;
+    },
     runScouts: (prepared, providers, experiment) => {
       const systemPrompt = experiment.kind === "prompt-version"
         ? experiment.prompt.scoutSystem

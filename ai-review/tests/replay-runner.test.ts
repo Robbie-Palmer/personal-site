@@ -139,6 +139,7 @@ function fixture(options: { scouts?: ScoutRun; scoutError?: Error } = {}) {
   const records = new Map<string, string>();
   const store: ReplayCorpusStore = {
     get: vi.fn(async (key) => records.get(key) ?? null),
+    claim: vi.fn(async () => true),
     put: vi.fn(async (key, value) => { records.set(key, value); }),
     loadSnapshot: vi.fn(async (corpusId) =>
       corpusId === "corpus-434" ? JSON.stringify(snapshot) : null),
@@ -148,6 +149,7 @@ function fixture(options: { scouts?: ScoutRun; scoutError?: Error } = {}) {
       if (options.scoutError) throw options.scoutError;
       return options.scouts ?? scoutRun();
     }),
+    estimateMergerCostUsd: vi.fn(() => 0.05),
     mergeFindings: vi.fn(async () => merged),
     identifyFindings: vi.fn(async () => artifacts),
   };
@@ -300,8 +302,8 @@ describe("controlled replay runner", () => {
       ...snapshot,
       input: {
         ...snapshot.input,
-        fullDiff: "diff --git a/src/one.ts b/src/one.ts\n+one\n" +
-          "diff --git a/src/two.ts b/src/two.ts\n+two",
+        fullDiff: "diff --git a/src/one.ts b/src/one.ts\n@@ -0,0 +1 @@\n+one\n" +
+          "diff --git a/src/two.ts b/src/two.ts\n@@ -0,0 +1 @@\n+two",
       },
     };
     const { adapter, store } = fixture();
@@ -319,6 +321,10 @@ describe("controlled replay runner", () => {
       expect.objectContaining({
         diff: fullSnapshot.input.fullDiff,
         paths: ["src/one.ts", "src/two.ts"],
+        hunks: [
+          expect.objectContaining({ file: "src/one.ts" }),
+          expect.objectContaining({ file: "src/two.ts" }),
+        ],
         coverage: expect.objectContaining({ mode: "full", paths: ["src/one.ts", "src/two.ts"] }),
       }),
       limits.allowedProviders,
@@ -328,12 +334,33 @@ describe("controlled replay runner", () => {
 
   it("records a completed merge that crosses the total cost limit", async () => {
     const { adapter, store } = fixture({ scouts: scoutRun({ costs: { "experiment/scout": 0.8 } }) });
+    vi.mocked(adapter.estimateMergerCostUsd).mockReturnValue(0);
     const result = await executeControlledReplay({
       ...request,
       dryRun: false,
       limits: { ...limits, maxCostUsd: 0.84 },
     }, adapter, store);
     expect(result).toMatchObject({ status: "budget-exceeded", costUsd: 0.85 });
+  });
+
+  it("reserves the merger cost ceiling before starting paid inference", async () => {
+    const { adapter, store } = fixture({ scouts: scoutRun({ costs: { "experiment/scout": 0.8 } }) });
+    vi.mocked(adapter.estimateMergerCostUsd).mockReturnValue(0.25);
+    const result = await executeControlledReplay({ ...request, dryRun: false }, adapter, store);
+    expect(result).toMatchObject({
+      status: "budget-denied",
+      costUsd: 0.8,
+      mergerCostCeilingUsd: 0.25,
+    });
+    expect(adapter.mergeFindings).not.toHaveBeenCalled();
+  });
+
+  it("atomically claims a replay key before model execution", async () => {
+    const { adapter, store } = fixture();
+    vi.mocked(store.claim).mockResolvedValue(false);
+    const result = await executeControlledReplay({ ...request, dryRun: false }, adapter, store);
+    expect(result).toMatchObject({ status: "in-progress" });
+    expect(adapter.runScouts).not.toHaveBeenCalled();
   });
 
   it("validates replay limits, providers, privacy, and experiment contents", async () => {

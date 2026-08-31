@@ -5,6 +5,7 @@ import {
   MAX_OPENCODE_SCOUTS,
   MAX_OPENROUTER_SCOUTS,
   MERGER_MAX_TOKENS,
+  OPENROUTER_MERGER_MAX_PRICES,
   OPENROUTER_SCOUT_MAX_PRICES,
   Reviewer,
   SCOUT_CONCURRENCY,
@@ -1451,6 +1452,46 @@ function normalizeMergedPayload(
   }
 }
 
+function mergerPrompt(prepared: PreparedReview, scouts: ScoutRun): string {
+  return `<DATA kind=scout-candidates>
+${JSON.stringify(scouts.candidates)}
+</DATA>
+<DATA kind=durable-open-findings-for-controlled-replay>
+${JSON.stringify(prepared.replayFindings ?? [])}
+</DATA>
+<DATA kind=current-reviewed-diff>
+${prepared.diff ?? ""}
+</DATA>
+<DATA kind=current-file-context>
+${prepared.context ?? ""}
+</DATA>
+<DATA kind=github-review-threads>
+${prepared.threads ?? ""}
+</DATA>`;
+}
+
+export function estimateMergeCostCeilingUsd(
+  env: Env,
+  params: ReviewWorkflowParams,
+  prepared: PreparedReview,
+  scouts: ScoutRun,
+  options: MergeRunOptions = {},
+): number | undefined {
+  const settings = modelSettings(env, params, "not-used-for-model-calls");
+  const prices = OPENROUTER_MERGER_MAX_PRICES[settings.merger];
+  if (!prices) return undefined;
+  const requestText = [
+    options.systemPrompt ?? statefulMergerSystem,
+    JSON.stringify(statefulMergerSchema),
+    mergerPrompt(prepared, scouts),
+  ].join("\n");
+  const promptTokenCeiling = new TextEncoder().encode(requestText).length;
+  return (
+    promptTokenCeiling * prices.prompt +
+    (options.maxTokens ?? MERGER_MAX_TOKENS) * prices.completion
+  ) / 1_000_000;
+}
+
 export async function mergeFindings(
   env: Env,
   params: ReviewWorkflowParams,
@@ -1518,21 +1559,7 @@ export async function mergeFindings(
       },
     };
   }
-  const prompt = `<DATA kind=scout-candidates>
-${JSON.stringify(scouts.candidates)}
-</DATA>
-<DATA kind=durable-open-findings-for-controlled-replay>
-${JSON.stringify(prepared.replayFindings ?? [])}
-</DATA>
-<DATA kind=current-reviewed-diff>
-${prepared.diff ?? ""}
-</DATA>
-<DATA kind=current-file-context>
-${prepared.context ?? ""}
-</DATA>
-<DATA kind=github-review-threads>
-${prepared.threads ?? ""}
-</DATA>`;
+  const prompt = mergerPrompt(prepared, scouts);
   const started = Date.now();
   let merged: ModelResult | undefined;
   try {
