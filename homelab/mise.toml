@@ -106,6 +106,14 @@ description = "Rebuild the Basic Memory index from Markdown files"
 run = "PATH=\"$HOME/.local/bin:$PATH\" bm reset"
 
 # ---------------------------------------------------------------------------
+# asus-desktop (NixOS GPU worker, deployed from the Mac mini)
+# ---------------------------------------------------------------------------
+
+[tasks.asus-deploy]
+description = "Deploy the pinned flake to asus-desktop over the tailnet"
+run = "bash hosts/asus-desktop/scripts/deploy.sh"
+
+# ---------------------------------------------------------------------------
 # Media automation (Prowlarr + Sonarr + Radarr + qBittorrent)
 # ---------------------------------------------------------------------------
 

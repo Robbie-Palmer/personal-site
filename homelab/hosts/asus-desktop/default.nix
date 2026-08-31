@@ -44,6 +44,8 @@
     linkConfig.WakeOnLan = "magic";
   };
 
+  security.sudo.wheelNeedsPassword = false;
+
   time.timeZone = "Europe/London";
 
   users.users.robbie = {
