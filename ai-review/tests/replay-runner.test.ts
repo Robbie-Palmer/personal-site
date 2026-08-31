@@ -7,6 +7,7 @@ import type {
 } from "../src/review-engine";
 import {
   executeControlledReplay,
+  createProductionReplayAdapter,
   loadReplaySnapshot,
   runControlledReplay,
   planControlledReplay,
@@ -395,5 +396,66 @@ describe("controlled replay runner", () => {
     await expect(loadReplaySnapshot("missing", store)).rejects.toThrow("not found");
     vi.mocked(store.loadSnapshot).mockResolvedValueOnce("not-json");
     await expect(loadReplaySnapshot("broken", store)).rejects.toThrow("not valid JSON");
+  });
+
+  it("estimates a conservative production merger cost before inference", async () => {
+    const adapter = createProductionReplayAdapter({
+      env: {
+        AI_REVIEW_MERGER_MODEL: "google/gemini-3.7-flash",
+        AI_REVIEW_MODELS: "production/scout",
+        OPENROUTER_API_KEY: "unused",
+      } as never,
+      params: {
+        deliveryId: "replay",
+        eventName: "replay",
+        action: "run",
+        repository: snapshot.repository,
+        pullRequestNumber: snapshot.pullRequestNumber,
+        force: false,
+      },
+      limits,
+    });
+    const ceiling = await adapter.estimateMergerCostUsd(
+      {
+        baseSha: snapshot.git.baseSha,
+        headSha: snapshot.git.headSha,
+        diff: snapshot.input.reviewedDiff,
+        context: snapshot.input.boundedFileContext,
+        threads: "",
+        paths: snapshot.decision.paths,
+        omitted: [],
+      },
+      scoutRun(),
+      {
+        kind: "prompt-version",
+        prompt: { version: "v2", scoutSystem: "Scout v2.", mergerSystem: "Merge v2." },
+      },
+    );
+    expect(ceiling).toBeGreaterThan(0.02);
+    expect(ceiling).toBeLessThan(limits.maxCostUsd);
+  });
+
+  it("denies unknown merger pricing conservatively", async () => {
+    const adapter = createProductionReplayAdapter({
+      env: {
+        AI_REVIEW_MERGER_MODEL: "unknown/merger",
+        AI_REVIEW_MODELS: "production/scout",
+        OPENROUTER_API_KEY: "unused",
+      } as never,
+      params: {
+        deliveryId: "replay",
+        eventName: "replay",
+        action: "run",
+        repository: snapshot.repository,
+        pullRequestNumber: snapshot.pullRequestNumber,
+        force: false,
+      },
+      limits,
+    });
+    expect(await adapter.estimateMergerCostUsd(
+      { paths: [], omitted: [] },
+      scoutRun(),
+      { kind: "merger-model", model: "unknown/merger" },
+    )).toBe(limits.maxCostUsd);
   });
 });
