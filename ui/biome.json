@@ -19,7 +19,8 @@
       "*.tsx",
       "*.js",
       "*.jsx",
-      "*.json"
+      "*.json",
+      "!!.next"
     ]
   },
   "formatter": {
