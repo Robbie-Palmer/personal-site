@@ -22,20 +22,26 @@ const SECRET_PATTERNS: Array<[string, RegExp]> = [
   ["authorization", /\b(?:authorization:\s*)?(?:basic|bearer)\s+[^\s"']+/gi],
   ["github-token", /\b(?:gh[opsu]_\w{20,}|github_pat_\w{20,})\b/g],
   ["connection-uri", /\b(?:postgres(?:ql)?|mysql|mongodb(?:\+srv)?|redis):\/\/[^\s"']+/gi],
-  [
-    "assigned-secret",
-    /\b(?:database_url|(?:[a-z0-9_]*(?:api[_-]?key|secret|token|password|passwd|private[_-]?key)[a-z0-9_]*))\s*[:=]\s*(?:"[^"\n]+"|'[^'\n]+'|[^\s,;]+)/gi,
-  ],
 ];
+const ASSIGNMENT_PATTERN = /\b[\w-]+\s*[:=]\s*(?:"[^"\n]*"|'[^'\n]*'|[^\s,;]+)/g;
+const SECRET_NAME_PATTERN = /(?:secret|token|password|passwd|api[_-]?key|private[_-]?key)/i;
 
 function redact(value: string, counts: Record<string, number>): string {
-  return SECRET_PATTERNS.reduce(
+  const patternsRedacted = SECRET_PATTERNS.reduce(
     (current, [kind, pattern]) => current.replace(pattern, () => {
       counts[kind] = (counts[kind] ?? 0) + 1;
       return `[REDACTED:${kind}]`;
     }),
     value,
   );
+  return patternsRedacted.replace(ASSIGNMENT_PATTERN, (assignment) => {
+    const name = assignment.split(/[:=]/, 1)[0]?.trim() ?? "";
+    if (name.toLowerCase() !== "database_url" && !SECRET_NAME_PATTERN.test(name)) {
+      return assignment;
+    }
+    counts["assigned-secret"] = (counts["assigned-secret"] ?? 0) + 1;
+    return "[REDACTED:assigned-secret]";
+  });
 }
 
 function redactValue(value: unknown, counts: Record<string, number>): unknown {
