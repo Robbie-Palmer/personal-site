@@ -1165,6 +1165,54 @@ function validateScoutPayload(
   };
 }
 
+async function prepareScoutRoster(
+  env: Env,
+  reviewer: Reviewer,
+  settings: Settings,
+  providers: Set<Scout["provider"]>,
+  isolated: boolean,
+) {
+  const availability = providers.has("opencode")
+    ? await reviewer.openCodeScoutModels()
+    : { models: [], unavailable: [] };
+  const duplicateModels = duplicateScoutModels(
+    settings.openRouterScouts,
+    [...availability.models, ...availability.unavailable],
+  );
+  if (duplicateModels.length > 0) {
+    throw new Error(
+      `Scout model IDs must be unique across providers: ${duplicateModels.join(", ")}`,
+    );
+  }
+  const configuredScouts: Scout[] = [];
+  if (providers.has("openrouter")) {
+    configuredScouts.push(...settings.openRouterScouts.map(
+      (model): Scout => ({ model, provider: "openrouter" }),
+    ));
+  }
+  if (providers.has("opencode")) {
+    configuredScouts.push(...availability.models.map(
+      (model): Scout => ({ model, provider: "opencode" }),
+    ));
+  }
+  const unavailableScouts: Scout[] = availability.unavailable.map((model) => ({
+    model,
+    provider: "opencode",
+  }));
+  const circuitSkipped = isolated
+    ? []
+    : await plannedCircuitSkips(env, [...configuredScouts, ...unavailableScouts]);
+  const skippedScouts = new Set(circuitSkipped.map(scoutIdentity));
+  return {
+    availability,
+    circuitSkipped,
+    configuredScouts,
+    runnableScouts: configuredScouts.filter(
+      (scout) => !skippedScouts.has(scoutIdentity(scout)),
+    ),
+  };
+}
+
 export async function runScouts(
   env: Env,
   params: ReviewWorkflowParams,
@@ -1179,47 +1227,16 @@ export async function runScouts(
   const providers = new Set(
     options.providers ?? (["openrouter", "opencode"] as const),
   );
-  const availability = providers.has("opencode")
-    ? await reviewer.openCodeScoutModels()
-    : { models: [], unavailable: [] };
-  const duplicateModels = duplicateScoutModels(
-    settings.openRouterScouts,
-    [...availability.models, ...availability.unavailable],
-  );
-  if (duplicateModels.length > 0) {
-    throw new Error(
-      `Scout model IDs must be unique across providers: ${duplicateModels.join(", ")}`,
+  const { availability, circuitSkipped, configuredScouts, runnableScouts } =
+    await prepareScoutRoster(
+      env,
+      reviewer,
+      settings,
+      providers,
+      options.isolated === true,
     );
-  }
-  const configuredScouts: Scout[] = [
-    ...(providers.has("openrouter")
-      ? settings.openRouterScouts.map(
-          (model): Scout => ({ model, provider: "openrouter" }),
-        )
-      : []),
-    ...(providers.has("opencode")
-      ? availability.models.map(
-          (model): Scout => ({ model, provider: "opencode" }),
-        )
-      : []),
-  ];
-  const unavailableScouts: Scout[] = availability.unavailable.map((model) => ({
-    model,
-    provider: "opencode",
-  }));
-  const circuitSkipped = options.isolated
-    ? []
-    : await plannedCircuitSkips(env, [
-        ...configuredScouts,
-        ...unavailableScouts,
-      ]);
-  const skippedScouts = new Set(
-    circuitSkipped.map(scoutIdentity),
-  );
+  const skippedScouts = new Set(circuitSkipped.map(scoutIdentity));
   const isSkipped = (scout: Scout) => skippedScouts.has(scoutIdentity(scout));
-  const runnableScouts = configuredScouts.filter(
-    (scout) => !isSkipped(scout),
-  );
   const models = [
     ...configuredScouts.map(({ model }) => model),
     ...availability.unavailable,
