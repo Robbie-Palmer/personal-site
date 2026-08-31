@@ -26,6 +26,7 @@ import {
 import {
   type Project,
   type ProjectRelations,
+  ProjectRelationsSchema,
   ProjectSchema,
   type ProjectSlug,
 } from "../domain/project/project";
@@ -432,10 +433,22 @@ export function loadProjects(): ProjectLoadResult {
       content,
     };
 
+    const initiativesValidation =
+      ProjectRelationsSchema.shape.initiatives.safeParse(
+        data.initiatives || [],
+      );
+    if (!initiativesValidation.success) {
+      console.error(
+        `Failed to validate project ${projectSlug}:`,
+        initiativesValidation.error,
+      );
+      throw new Error(`Project ${projectSlug} failed validation`);
+    }
+
     const projectRelations: ProjectRelations = {
       technologies,
       adrs: adrRefs,
-      initiatives: (data.initiatives || []).map((initiative: string) =>
+      initiatives: initiativesValidation.data.map((initiative) =>
         normalizeSlug(initiative),
       ),
       role: data.role ? normalizeSlug(data.role) : undefined,

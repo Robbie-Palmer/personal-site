@@ -238,6 +238,33 @@ Content`;
 
       expect(() => loadProjects()).toThrow("deprecated 'inherits_adrs'");
     });
+
+    it.each([
+      ["a scalar", 'initiatives: "Connected Work"'],
+      [
+        "an array containing a non-string",
+        'initiatives: ["Connected Work", 42]',
+      ],
+    ])("rejects initiatives set to %s", (_case, initiatives) => {
+      const mockProjectContent = `---
+title: "Test Project"
+description: "A test project"
+date: "2025-01-01"
+status: "live"
+${initiatives}
+---
+Content`;
+
+      vi.mocked(fs.readdirSync).mockImplementation(((path: string) => {
+        if (path.endsWith("projects")) return [mockDirent("test-project")];
+        return [];
+      }) as unknown as typeof fs.readdirSync);
+      vi.mocked(fs.readFileSync).mockReturnValue(mockProjectContent);
+
+      expect(() => loadProjects()).toThrow(
+        "Project test-project failed validation",
+      );
+    });
   });
 
   describe("loadInitiatives", () => {
