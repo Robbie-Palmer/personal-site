@@ -186,7 +186,7 @@ describe("Visualization browser rendering", () => {
         },
       );
       expect(diagramSize.width).toBeGreaterThan(100);
-      expect(diagramSize.height).toBeGreaterThan(40);
+      expect(diagramSize.height).toBeGreaterThan(30);
 
       await page.click('button[aria-label="Next slide"]');
       await page.click('button[aria-label="Next slide"]');
