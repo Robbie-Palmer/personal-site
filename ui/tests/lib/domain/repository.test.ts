@@ -58,6 +58,7 @@ import {
   loadProjects,
   loadTechnologies,
   validateBlogPost,
+  validateInitiative,
   validateReferentialIntegrity,
   validateTechnology,
 } from "@/lib/repository";
@@ -240,6 +241,12 @@ Content`;
   });
 
   describe("loadInitiatives", () => {
+    it("returns an empty map when the initiatives directory does not exist", () => {
+      vi.mocked(fs.existsSync).mockReturnValue(false);
+
+      expect(loadInitiatives().entities.size).toBe(0);
+    });
+
     it("loads initiative content", () => {
       const mockInitiativeContent = `---
 title: "Personalized Medicine"
@@ -259,6 +266,36 @@ description: "Making patient-specific treatment decisions accessible"
         title: "Personalized Medicine",
         content: "\n# Goal",
       });
+    });
+
+    it("rejects invalid initiative content", () => {
+      const consoleError = vi
+        .spyOn(console, "error")
+        .mockImplementation(() => undefined);
+      vi.mocked(fs.readdirSync).mockReturnValue([
+        "invalid-initiative.mdx",
+      ] as unknown as ReaddirResult);
+      vi.mocked(fs.readFileSync).mockReturnValue(`---
+title: "Invalid Initiative"
+---
+
+# Goal`);
+
+      expect(() => loadInitiatives()).toThrow(
+        "Initiative invalid-initiative failed validation",
+      );
+      expect(consoleError).toHaveBeenCalledOnce();
+    });
+
+    it("returns schema errors for an invalid initiative", () => {
+      const result = validateInitiative({
+        slug: "invalid-initiative",
+        title: "Invalid Initiative",
+        description: "",
+        content: "# Goal",
+      });
+
+      expect(result.success).toBe(false);
     });
   });
 

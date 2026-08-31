@@ -1,8 +1,7 @@
 import { z } from "zod";
-import type { InitiativeSlug } from "../slugs";
 import { InitiativeSlugSchema } from "../slugs";
 
-export type { InitiativeSlug };
+export type { InitiativeSlug } from "../slugs";
 
 export const InitiativeSchema = z.object({
   slug: InitiativeSlugSchema,
