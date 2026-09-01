@@ -10,6 +10,41 @@ All services are reachable only over the home LAN and the
 [Tailscale](/projects/homelab/adrs/000-tailscale) tailnet. The router
 forwards no ports, so nothing is ever public.
 
+## asus-desktop, the NixOS GPU worker
+
+The Asus desktop (ADR 010) runs NixOS, declared in [`flake.nix`](flake.nix)
+and [`hosts/asus-desktop/`](hosts/asus-desktop/). Nothing on the box is
+hand-edited; every change goes through this repo. It is reachable over the
+tailnet as `asus-desktop`.
+
+### Deploying a change
+
+1. Edit the config under `hosts/asus-desktop/` and commit.
+2. Push the commit (the deploy target resolves it from GitHub).
+3. From the Mac mini: `mise run //homelab:asus-deploy`
+
+The script deploys the exact checked-out commit. Rollback options: revert
+the commit and re-deploy, pick the previous generation in the boot menu, or
+run `sudo nixos-rebuild --rollback` over SSH.
+
+### Using the GPU
+
+CUDA runs in Docker containers only, from the CUDA 12 image family (CUDA 13
+dropped Pascal):
+
+```bash
+docker run --rm --device nvidia.com/gpu=all nvidia/cuda:12.4.1-base-ubuntu22.04 nvidia-smi
+```
+
+The GTX 1050 has 2GB of VRAM, so batch sizes and model sizes are capped.
+
+### Caveats
+
+- The uplink is an Honor Magic5 Pro over USB tethering. Keep the phone
+  charged with tethering enabled, or the box drops off the tailnet.
+- Wake-on-LAN waits on powerline ethernet adapters, so the box must stay
+  awake. Suspending it strands it: the tether link dies with it.
+
 ## Jellyfin on the Mac mini
 
 Jellyfin (ADR 011) runs on the hub. A launchd agent keeps it running across
