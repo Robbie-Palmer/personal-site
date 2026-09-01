@@ -12,6 +12,7 @@ export const metadata: Metadata = {
   title: "Project page explorations",
   description:
     "Four ways to navigate initiatives, projects, decisions, and technologies.",
+  robots: { index: false, follow: false },
 };
 
 const prototypeInitiatives = [

@@ -20,6 +20,10 @@ import {
   getAllExperience,
 } from "@/lib/api/experience";
 import {
+  getAllInitiatives,
+  type InitiativeWithProjects,
+} from "@/lib/api/initiatives";
+import {
   getAllProjects,
   getBuildingPhilosophy,
   getProjectADR,
@@ -93,9 +97,18 @@ function projectFacts(project: ProjectWithADRs): [string, string][] {
 
 function buildProjectsIndexPage(
   projects: ProjectWithADRs[],
+  initiatives: InitiativeWithProjects[],
   philosophyMdx: string,
 ): GeneratedPage {
   const sections = [
+    "## Initiatives",
+    "",
+    ...initiatives.flatMap((initiative) => [
+      `### [${initiative.title}](${markdownUrl(routePath("initiatives", initiative.slug))})`,
+      "",
+      `${initiative.description} ${initiative.projects.length} projects contribute to this initiative.`,
+      "",
+    ]),
     "## Projects",
     "",
     ...projects.flatMap((project) => {
@@ -122,7 +135,59 @@ function buildProjectsIndexPage(
   };
 }
 
-function buildProjectPage(project: ProjectWithADRs): GeneratedPage {
+function getInitiativesForProject(
+  projectSlug: string,
+  initiatives: InitiativeWithProjects[],
+): InitiativeWithProjects[] {
+  return initiatives.filter((initiative) =>
+    initiative.projects.some((project) => project.slug === projectSlug),
+  );
+}
+
+function buildInitiativePages(
+  initiatives: InitiativeWithProjects[],
+): GeneratedPage[] {
+  return initiatives.map((initiative) => ({
+    htmlPath: `/initiatives/${initiative.slug}`,
+    filePath: `initiatives/${initiative.slug}.md`,
+    title: initiative.title,
+    description: initiative.description,
+    facts: [["Projects", String(initiative.projects.length)]],
+    content: [
+      convert(initiative.content).trim(),
+      "",
+      "## Projects advancing this goal",
+      "",
+      ...initiative.projects.map((project) => {
+        const contribution = project.contribution ?? project.description;
+        return `- [${project.title}](${markdownUrl(routePath("projects", project.slug))}): ${contribution}`;
+      }),
+    ].join("\n"),
+  }));
+}
+
+function buildProjectPage(
+  project: ProjectWithADRs,
+  initiatives: InitiativeWithProjects[],
+): GeneratedPage {
+  const relatedInitiatives = getInitiativesForProject(
+    project.slug,
+    initiatives,
+  );
+  const initiativeSection =
+    relatedInitiatives.length > 0
+      ? [
+          "",
+          "## Initiatives",
+          "",
+          ...relatedInitiatives.map((initiative) => {
+            const contribution =
+              initiative.projectContributions[project.slug] ??
+              initiative.description;
+            return `- [${initiative.title}](${markdownUrl(routePath("initiatives", initiative.slug))}): ${contribution}`;
+          }),
+        ]
+      : [];
   const pitchDeckUrl = markdownUrl(
     routePath("projects", project.slug, "deck"),
   );
@@ -157,6 +222,7 @@ function buildProjectPage(project: ProjectWithADRs): GeneratedPage {
     content: [
       ...pitchSection,
       convert(project.content).trim(),
+      ...initiativeSection,
       ...adrSection,
     ].join("\n"),
     facts: projectFacts(project),
@@ -180,7 +246,14 @@ function buildPitchDeckPage(project: ProjectWithADRs): GeneratedPage | null {
   };
 }
 
-function buildAdrPages(project: ProjectWithADRs): GeneratedPage[] {
+function buildAdrPages(
+  project: ProjectWithADRs,
+  initiatives: InitiativeWithProjects[],
+): GeneratedPage[] {
+  const relatedInitiatives = getInitiativesForProject(
+    project.slug,
+    initiatives,
+  );
   return project.adrs.map((adrCard) => {
     const adr = getProjectADR(project.slug, adrCard.slug);
     const facts: [string, string][] = [
@@ -189,6 +262,17 @@ function buildAdrPages(project: ProjectWithADRs): GeneratedPage[] {
       ["Date", adr.date],
     ];
     if (adr.supersedes) facts.push(["Supersedes", adr.supersedes]);
+    if (relatedInitiatives.length > 0) {
+      facts.push([
+        "Initiatives",
+        relatedInitiatives
+          .map(
+            (initiative) =>
+              `${initiative.title} (${markdownUrl(routePath("initiatives", initiative.slug))})`,
+          )
+          .join(", "),
+      ]);
+    }
     if (adr.isInherited) {
       facts.push([
         "Inherited from project",
@@ -441,6 +525,7 @@ function buildHomePage(): GeneratedPage {
 
 function buildLlmsTxt(
   projects: ProjectWithADRs[],
+  initiatives: InitiativeWithProjects[],
   posts: ReturnType<typeof getAllPosts>,
   recipes: RecipeCardView[],
   technologyPages: GeneratedPage[],
@@ -457,6 +542,13 @@ function buildLlmsTxt(
     `- [About](${markdownUrl("/")}): site overview and contact links`,
     `- [Experience](${markdownUrl("/experience")}): career history, roles, responsibilities, and technologies`,
     `- [Projects](${markdownUrl("/projects")}): all projects plus the building philosophy that guides them`,
+    "",
+    "## Initiatives",
+    "",
+    ...initiatives.map(
+      (initiative) =>
+        `- [${initiative.title}](${markdownUrl(routePath("initiatives", initiative.slug))}): ${initiative.description}`,
+    ),
     "",
     "## Projects",
     "",
@@ -544,6 +636,7 @@ function buildRoutesJson(): string {
         "/sitemap.xml",
         "/",
         "/experience",
+        "/initiatives/*",
         "/projects",
         "/projects/*",
         "/blog",
@@ -598,6 +691,7 @@ function main(): void {
   }
 
   const projects = getAllProjects();
+  const initiatives = getAllInitiatives();
   const posts = getAllPosts();
   const philosophy = getBuildingPhilosophy();
   // Recipes are database-backed and served dynamically by the Pages Function.
@@ -610,10 +704,11 @@ function main(): void {
   const pages: GeneratedPage[] = [
     buildHomePage(),
     buildExperiencePage(),
-    buildProjectsIndexPage(projects, philosophy),
-    ...projects.map(buildProjectPage),
+    buildProjectsIndexPage(projects, initiatives, philosophy),
+    ...buildInitiativePages(initiatives),
+    ...projects.map((project) => buildProjectPage(project, initiatives)),
     ...pitchDeckPages,
-    ...projects.flatMap(buildAdrPages),
+    ...projects.flatMap((project) => buildAdrPages(project, initiatives)),
     buildBlogIndexPage(posts),
     ...buildBlogPostPages(posts),
     buildRecipesIndexPage(recipes),
@@ -635,7 +730,10 @@ function main(): void {
     );
   }
 
-  writeFile("llms.txt", buildLlmsTxt(projects, posts, recipes, technologyPages));
+  writeFile(
+    "llms.txt",
+    buildLlmsTxt(projects, initiatives, posts, recipes, technologyPages),
+  );
 
   // The llms.txt index is deliberately not prepended: its navigation links
   // are redundant when every page is inline

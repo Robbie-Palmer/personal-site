@@ -362,6 +362,9 @@ describe("Domain Model Schemas", () => {
       });
 
       expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.projectContributions).toEqual({});
+      }
     });
 
     it("rejects an initiative without a description", () => {

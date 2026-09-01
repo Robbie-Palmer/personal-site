@@ -12,6 +12,7 @@ import { MermaidDemo } from "@/components/technology/mermaid-demo";
 import { ShikiDemo } from "@/components/technology/shiki-demo";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { getInitiativesForProject } from "@/lib/api/initiatives";
 import {
   type ADRDetailView,
   getAllProjects,
@@ -99,6 +100,8 @@ export default async function ADRPage({ params }: Readonly<PageProps>) {
   const displayIndex = formatADRIndex(currentIndex >= 0 ? currentIndex : 0);
   const displayTitle = normalizeADRTitle(adr.title);
   const supersedesRef = adr.supersedes ? parseADRRef(adr.supersedes) : null;
+  const initiatives = getInitiativesForProject(project.slug);
+  const soleInitiative = initiatives.length === 1 ? initiatives[0] : undefined;
 
   const adrContent = (() => {
     if (!adr.isInherited) {
@@ -135,6 +138,17 @@ export default async function ADRPage({ params }: Readonly<PageProps>) {
               Projects
             </Link>
             <span>/</span>
+            {soleInitiative && (
+              <>
+                <Link
+                  href={`/initiatives/${soleInitiative.slug}`}
+                  className="hover:underline underline-offset-4"
+                >
+                  {soleInitiative.title}
+                </Link>
+                <span>/</span>
+              </>
+            )}
             <Link
               href={`/projects/${slug}?tab=adrs`}
               className="hover:underline underline-offset-4"
