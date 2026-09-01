@@ -27,6 +27,7 @@ export async function generateMetadata({ params }: PageProps) {
       description: initiative.description,
     };
   } catch (_error) {
+    // The page below turns unknown initiative slugs into a 404 response.
     return { title: "Initiative Not Found" };
   }
 }
