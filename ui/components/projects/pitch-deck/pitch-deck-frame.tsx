@@ -255,6 +255,32 @@ export function PitchDeckFrame({
   };
 
   const hasPresenterTools = mode === "focused" || showPresenterTools;
+  let deckActionLink: React.ReactNode = null;
+  if (mode === "embedded" && resolvedPresentationHref) {
+    deckActionLink = (
+      <Link
+        href={resolvedPresentationHref}
+        aria-label="Open deck"
+        title="Open deck"
+      >
+        <Expand aria-hidden="true" />
+        <span>Open deck</span>
+      </Link>
+    );
+  } else if (mode === "focused" && resolvedPrintHref) {
+    deckActionLink = (
+      <a
+        href={resolvedPrintHref}
+        target="_blank"
+        rel="noreferrer"
+        aria-label="Print PDF"
+        title="Print PDF"
+      >
+        <FileText aria-hidden="true" />
+        <span>Print PDF</span>
+      </a>
+    );
+  }
 
   return (
     <section
@@ -374,29 +400,7 @@ export function PitchDeckFrame({
                 <span>Transcript</span>
               </a>
             )}
-            {mode === "embedded" ? (
-              resolvedPresentationHref && (
-                <Link
-                  href={resolvedPresentationHref}
-                  aria-label="Open deck"
-                  title="Open deck"
-                >
-                  <Expand aria-hidden="true" />
-                  <span>Open deck</span>
-                </Link>
-              )
-            ) : resolvedPrintHref ? (
-              <a
-                href={resolvedPrintHref}
-                target="_blank"
-                rel="noreferrer"
-                aria-label="Print PDF"
-                title="Print PDF"
-              >
-                <FileText aria-hidden="true" />
-                <span>Print PDF</span>
-              </a>
-            ) : null}
+            {deckActionLink}
           </div>
         )}
       </div>
