@@ -97,6 +97,10 @@ run = "bash analytics/test-report.sh"
 description = "Plan or execute an opt-in, budget-capped controlled replay from a frozen manifest"
 run = "pnpm exec tsx analytics/replay.ts"
 
+[tasks."corpus:replay"]
+description = "Plan or execute the production-isolated runner against one frozen corpus snapshot"
+run = "pnpm exec tsx analytics/corpus-replay.ts"
+
 [tasks."scorecard:replay:test"]
 description = "Test controlled replay opt-in gating and budget enforcement"
 run = "bash analytics/test-replay.sh"

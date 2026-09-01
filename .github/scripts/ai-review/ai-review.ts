@@ -819,12 +819,17 @@ export class Reviewer {
     };
   }
 
-  async callOpenCodeScout(model: string, system: string, user: string): Promise<ModelResult> {
+  async callOpenCodeScout(
+    model: string,
+    system: string,
+    user: string,
+    options: { maxTokens?: number; timeoutMs?: number } = {},
+  ): Promise<ModelResult> {
     const response = await this.openCode.request<JsonObject>("POST", "/chat/completions", {
       body: {
         model,
         temperature: 0,
-        max_tokens: SCOUT_MAX_TOKENS,
+        max_tokens: options.maxTokens ?? SCOUT_MAX_TOKENS,
         messages: [
           {
             role: "system",
@@ -833,7 +838,7 @@ export class Reviewer {
           { role: "user", content: user },
         ],
       },
-      timeoutMs: SCOUT_TIMEOUT_BY_MODEL[model] ?? SCOUT_TIMEOUT_MS,
+      timeoutMs: options.timeoutMs ?? SCOUT_TIMEOUT_BY_MODEL[model] ?? SCOUT_TIMEOUT_MS,
     });
     const choices = response.choices;
     if (!Array.isArray(choices) || !isObject(choices[0])) throw new Error(`Invalid response from ${model}`);
@@ -846,7 +851,12 @@ export class Reviewer {
     };
   }
 
-  async callOpenRouterScout(model: string, system: string, user: string): Promise<ModelResult> {
+  async callOpenRouterScout(
+    model: string,
+    system: string,
+    user: string,
+    options: { maxTokens?: number; timeoutMs?: number } = {},
+  ): Promise<ModelResult> {
     const provider: JsonObject = {
       allow_fallbacks: true,
       require_parameters: true,
@@ -861,7 +871,7 @@ export class Reviewer {
       body: {
         model,
         temperature: 0,
-        max_tokens: SCOUT_MAX_TOKENS,
+        max_tokens: options.maxTokens ?? SCOUT_MAX_TOKENS,
         provider,
         ...(reasoning ? { reasoning } : {}),
         response_format: {
@@ -873,6 +883,7 @@ export class Reviewer {
           { role: "user", content: user },
         ],
       },
+      timeoutMs: options.timeoutMs,
     });
     const choices = response.choices;
     if (!Array.isArray(choices) || !isObject(choices[0])) throw new Error(`Invalid response from ${model}`);
@@ -891,6 +902,7 @@ export class Reviewer {
     schemaName: string,
     schema: JsonObject,
     maxTokens: number,
+    timeoutMs?: number,
   ): Promise<ModelResult> {
     const provider: JsonObject = {
       allow_fallbacks: true,
@@ -911,6 +923,7 @@ export class Reviewer {
           { role: "user", content: user },
         ],
       },
+      timeoutMs,
     });
     const choices = response.choices;
     if (!Array.isArray(choices) || !isObject(choices[0])) throw new Error(`Invalid response from ${model}`);

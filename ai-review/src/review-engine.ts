@@ -5,6 +5,7 @@ import {
   MAX_OPENCODE_SCOUTS,
   MAX_OPENROUTER_SCOUTS,
   MERGER_MAX_TOKENS,
+  OPENROUTER_MERGER_MAX_PRICES,
   OPENROUTER_SCOUT_MAX_PRICES,
   Reviewer,
   SCOUT_CONCURRENCY,
@@ -177,13 +178,21 @@ export interface ScoutRun {
   circuitSkipped?: CircuitSkippedModel[];
 }
 
-interface ScoutRunOptions {
+export interface ScoutRunOptions {
   providers?: Array<Scout["provider"]>;
   observationId?: string;
+  isolated?: boolean;
+  systemPrompt?: string;
+  maxTokens?: number;
+  timeoutMs?: number;
 }
 
-interface MergeRunOptions {
+export interface MergeRunOptions {
   observationId?: string;
+  isolated?: boolean;
+  systemPrompt?: string;
+  maxTokens?: number;
+  timeoutMs?: number;
 }
 
 export interface MergedRun {
@@ -1156,6 +1165,54 @@ function validateScoutPayload(
   };
 }
 
+async function prepareScoutRoster(
+  env: Env,
+  reviewer: Reviewer,
+  settings: Settings,
+  providers: Set<Scout["provider"]>,
+  isolated: boolean,
+) {
+  const availability = providers.has("opencode")
+    ? await reviewer.openCodeScoutModels()
+    : { models: [], unavailable: [] };
+  const duplicateModels = duplicateScoutModels(
+    settings.openRouterScouts,
+    [...availability.models, ...availability.unavailable],
+  );
+  if (duplicateModels.length > 0) {
+    throw new Error(
+      `Scout model IDs must be unique across providers: ${duplicateModels.join(", ")}`,
+    );
+  }
+  const configuredScouts: Scout[] = [];
+  if (providers.has("openrouter")) {
+    configuredScouts.push(...settings.openRouterScouts.map(
+      (model): Scout => ({ model, provider: "openrouter" }),
+    ));
+  }
+  if (providers.has("opencode")) {
+    configuredScouts.push(...availability.models.map(
+      (model): Scout => ({ model, provider: "opencode" }),
+    ));
+  }
+  const unavailableScouts: Scout[] = availability.unavailable.map((model) => ({
+    model,
+    provider: "opencode",
+  }));
+  const circuitSkipped = isolated
+    ? []
+    : await plannedCircuitSkips(env, [...configuredScouts, ...unavailableScouts]);
+  const skippedScouts = new Set(circuitSkipped.map(scoutIdentity));
+  return {
+    availability,
+    circuitSkipped,
+    configuredScouts,
+    runnableScouts: configuredScouts.filter(
+      (scout) => !skippedScouts.has(scoutIdentity(scout)),
+    ),
+  };
+}
+
 export async function runScouts(
   env: Env,
   params: ReviewWorkflowParams,
@@ -1170,45 +1227,16 @@ export async function runScouts(
   const providers = new Set(
     options.providers ?? (["openrouter", "opencode"] as const),
   );
-  const availability = providers.has("opencode")
-    ? await reviewer.openCodeScoutModels()
-    : { models: [], unavailable: [] };
-  const duplicateModels = duplicateScoutModels(
-    settings.openRouterScouts,
-    [...availability.models, ...availability.unavailable],
-  );
-  if (duplicateModels.length > 0) {
-    throw new Error(
-      `Scout model IDs must be unique across providers: ${duplicateModels.join(", ")}`,
+  const { availability, circuitSkipped, configuredScouts, runnableScouts } =
+    await prepareScoutRoster(
+      env,
+      reviewer,
+      settings,
+      providers,
+      options.isolated === true,
     );
-  }
-  const configuredScouts: Scout[] = [
-    ...(providers.has("openrouter")
-      ? settings.openRouterScouts.map(
-          (model): Scout => ({ model, provider: "openrouter" }),
-        )
-      : []),
-    ...(providers.has("opencode")
-      ? availability.models.map(
-          (model): Scout => ({ model, provider: "opencode" }),
-        )
-      : []),
-  ];
-  const unavailableScouts: Scout[] = availability.unavailable.map((model) => ({
-    model,
-    provider: "opencode",
-  }));
-  const circuitSkipped = await plannedCircuitSkips(env, [
-    ...configuredScouts,
-    ...unavailableScouts,
-  ]);
-  const skippedScouts = new Set(
-    circuitSkipped.map(scoutIdentity),
-  );
+  const skippedScouts = new Set(circuitSkipped.map(scoutIdentity));
   const isSkipped = (scout: Scout) => skippedScouts.has(scoutIdentity(scout));
-  const runnableScouts = configuredScouts.filter(
-    (scout) => !isSkipped(scout),
-  );
   const models = [
     ...configuredScouts.map(({ model }) => model),
     ...availability.unavailable,
@@ -1218,6 +1246,10 @@ export async function runScouts(
     prepared.context ?? "",
     prepared.guidelines ?? "",
   );
+  const scoutCallOptions =
+    options.maxTokens !== undefined || options.timeoutMs !== undefined
+      ? { maxTokens: options.maxTokens, timeoutMs: options.timeoutMs }
+      : undefined;
   const settled: Array<{
     scout: Scout;
     latencyMs: number;
@@ -1226,13 +1258,16 @@ export async function runScouts(
   for (let offset = 0; offset < runnableScouts.length; offset += SCOUT_CONCURRENCY) {
     const batch = runnableScouts.slice(offset, offset + SCOUT_CONCURRENCY);
     const started = batch.map(() => Date.now());
-    const outcomes = await Promise.allSettled(
-      batch.map(({ model, provider }) =>
-        provider === "openrouter"
-          ? reviewer.callOpenRouterScout(model, scoutSystem, source)
-          : reviewer.callOpenCodeScout(model, scoutSystem, source),
-      ),
-    );
+    const callScout = ({ model, provider }: Scout) => {
+      const args = [model, options.systemPrompt ?? scoutSystem, source] as const;
+      if (provider === "openrouter") {
+        if (scoutCallOptions) return reviewer.callOpenRouterScout(...args, scoutCallOptions);
+        return reviewer.callOpenRouterScout(...args);
+      }
+      if (scoutCallOptions) return reviewer.callOpenCodeScout(...args, scoutCallOptions);
+      return reviewer.callOpenCodeScout(...args);
+    };
+    const outcomes = await Promise.allSettled(batch.map(callScout));
     batch.forEach((scout, index) => {
       const outcome = outcomes[index];
       if (outcome) {
@@ -1322,14 +1357,16 @@ export async function runScouts(
       }
     }
   }
-  await recordModelReliability(
-    env,
-    options.observationId ??
-      `${params.deliveryId}:${[...providers]
-        .sort((a, b) => a.localeCompare(b))
-        .join(",")}`,
-    metrics,
-  );
+  if (!options.isolated) {
+    await recordModelReliability(
+      env,
+      options.observationId ??
+        `${params.deliveryId}:${[...providers]
+          .sort((a, b) => a.localeCompare(b))
+          .join(",")}`,
+      metrics,
+    );
+  }
   return {
     models,
     candidates,
@@ -1425,6 +1462,46 @@ function normalizeMergedPayload(
   }
 }
 
+function mergerPrompt(prepared: PreparedReview, scouts: ScoutRun): string {
+  return `<DATA kind=scout-candidates>
+${JSON.stringify(scouts.candidates)}
+</DATA>
+<DATA kind=durable-open-findings-for-controlled-replay>
+${JSON.stringify(prepared.replayFindings ?? [])}
+</DATA>
+<DATA kind=current-reviewed-diff>
+${prepared.diff ?? ""}
+</DATA>
+<DATA kind=current-file-context>
+${prepared.context ?? ""}
+</DATA>
+<DATA kind=github-review-threads>
+${prepared.threads ?? ""}
+</DATA>`;
+}
+
+export function estimateMergeCostCeilingUsd(
+  env: Env,
+  params: ReviewWorkflowParams,
+  prepared: PreparedReview,
+  scouts: ScoutRun,
+  options: MergeRunOptions = {},
+): number | undefined {
+  const settings = modelSettings(env, params, "not-used-for-model-calls");
+  const prices = OPENROUTER_MERGER_MAX_PRICES[settings.merger];
+  if (!prices) return undefined;
+  const requestText = [
+    options.systemPrompt ?? statefulMergerSystem,
+    JSON.stringify(statefulMergerSchema),
+    mergerPrompt(prepared, scouts),
+  ].join("\n");
+  const promptTokenCeiling = new TextEncoder().encode(requestText).length;
+  return (
+    promptTokenCeiling * prices.prompt +
+    (options.maxTokens ?? MERGER_MAX_TOKENS) * prices.completion
+  ) / 1_000_000;
+}
+
 export async function mergeFindings(
   env: Env,
   params: ReviewWorkflowParams,
@@ -1454,12 +1531,12 @@ export async function mergeFindings(
   }
   const settings = modelSettings(env, params, "not-used-for-model-calls");
   const reviewer = new Reviewer(settings);
-  const circuitSkip = (
-    await plannedCircuitSkips(env, [{
-      model: settings.merger,
-      provider: "openrouter",
-    }])
-  )[0];
+  const circuitSkip = options.isolated
+    ? undefined
+    : (await plannedCircuitSkips(env, [{
+        model: settings.merger,
+        provider: "openrouter",
+      }]))[0];
   if (circuitSkip) {
     const findingResolutions = (prepared.replayFindings ?? []).map(
       ({ findingId }) => ({
@@ -1492,32 +1569,21 @@ export async function mergeFindings(
       },
     };
   }
-  const prompt = `<DATA kind=scout-candidates>
-${JSON.stringify(scouts.candidates)}
-</DATA>
-<DATA kind=durable-open-findings-for-controlled-replay>
-${JSON.stringify(prepared.replayFindings ?? [])}
-</DATA>
-<DATA kind=current-reviewed-diff>
-${prepared.diff ?? ""}
-</DATA>
-<DATA kind=current-file-context>
-${prepared.context ?? ""}
-</DATA>
-<DATA kind=github-review-threads>
-${prepared.threads ?? ""}
-</DATA>`;
+  const prompt = mergerPrompt(prepared, scouts);
   const started = Date.now();
   let merged: ModelResult | undefined;
   try {
-    merged = await reviewer.callMerger(
+    const mergerArguments = [
       settings.merger,
-      statefulMergerSystem,
+      options.systemPrompt ?? statefulMergerSystem,
       prompt,
       "merged_code_review",
       statefulMergerSchema,
-      MERGER_MAX_TOKENS,
-    );
+      options.maxTokens ?? MERGER_MAX_TOKENS,
+    ] as const;
+    merged = options.timeoutMs === undefined
+      ? await reviewer.callMerger(...mergerArguments)
+      : await reviewer.callMerger(...mergerArguments, options.timeoutMs);
     const contributingScoutModels = Object.entries(scouts.candidates)
       .filter(([, findings]) => findings.length > 0)
       .map(([model]) => model);
@@ -1528,19 +1594,21 @@ ${prepared.threads ?? ""}
     );
   } catch (error) {
     const costUsd = merged?.cost ?? 0;
-    await recordModelReliability(
-      env,
-      options.observationId ?? `${params.deliveryId}:merger`,
-      [{
-        model: settings.merger,
-        provider: "openrouter",
-        role: "merger",
-        ok: false,
-        latencyMs: Date.now() - started,
-        costUsd,
-        error: errorMessage(error),
-      }],
-    );
+    if (!options.isolated) {
+      await recordModelReliability(
+        env,
+        options.observationId ?? `${params.deliveryId}:merger`,
+        [{
+          model: settings.merger,
+          provider: "openrouter",
+          role: "merger",
+          ok: false,
+          latencyMs: Date.now() - started,
+          costUsd,
+          error: errorMessage(error),
+        }],
+      );
+    }
     if (costUsd > 0) {
       throw new MergerOutputError(errorMessage(error), costUsd);
     }
@@ -1555,11 +1623,13 @@ ${prepared.threads ?? ""}
     costUsd: merged.cost,
     usage: merged.usage,
   };
-  await recordModelReliability(
-    env,
-    options.observationId ?? `${params.deliveryId}:merger`,
-    [metric],
-  );
+  if (!options.isolated) {
+    await recordModelReliability(
+      env,
+      options.observationId ?? `${params.deliveryId}:merger`,
+      [metric],
+    );
+  }
   return {
     result: merged.payload,
     cost: merged.cost,
