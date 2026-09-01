@@ -10,15 +10,19 @@ import { PitchDeckFrame } from "@/components/projects/pitch-deck/pitch-deck-fram
 
 const { deckApi, deckState } = vi.hoisted(() => ({
   deckApi: {
+    configure: vi.fn(),
     getPlugin: vi.fn(),
     getSlidePastCount: vi.fn(() => 0),
     getTotalSlides: vi.fn(() => 3),
     isFirstSlide: vi.fn(() => true),
     isLastSlide: vi.fn(() => false),
+    isOverview: vi.fn(() => false),
+    isScrollView: vi.fn(() => false),
     layout: vi.fn(),
     next: vi.fn(),
     prev: vi.fn(),
     toggleOverview: vi.fn(),
+    toggleScrollView: vi.fn(),
   },
   deckState: { props: undefined as Record<string, unknown> | undefined },
 }));
@@ -53,6 +57,8 @@ describe("PitchDeckFrame", () => {
     deckApi.getTotalSlides.mockReturnValue(3);
     deckApi.isFirstSlide.mockReturnValue(true);
     deckApi.isLastSlide.mockReturnValue(false);
+    deckApi.isOverview.mockReturnValue(false);
+    deckApi.isScrollView.mockReturnValue(false);
     Object.defineProperty(HTMLElement.prototype, "requestFullscreen", {
       configurable: true,
       value: requestFullscreen,
@@ -138,7 +144,10 @@ describe("PitchDeckFrame", () => {
     const scrollButton = screen.getByRole("button", {
       name: "Scroll",
     });
+    deckApi.isScrollView.mockReturnValueOnce(false).mockReturnValue(true);
     fireEvent.click(scrollButton);
+    expect(deckApi.configure).toHaveBeenCalledWith({ view: "scroll" });
+    expect(deckApi.toggleScrollView).toHaveBeenCalledOnce();
     expect(scrollButton).toHaveAttribute("aria-pressed", "true");
     expect(deckState.props?.config).toMatchObject({ view: "scroll" });
 
@@ -185,7 +194,7 @@ describe("PitchDeckFrame", () => {
       "_blank",
     );
     expect(deckState.props?.config).toMatchObject({
-      embedded: false,
+      embedded: true,
       hash: true,
       hashOneBasedIndex: true,
       history: true,

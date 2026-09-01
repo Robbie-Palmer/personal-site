@@ -35,6 +35,11 @@ type Position = {
   atEnd: boolean;
 };
 
+type RevealApiWithScrollView = RevealApi & {
+  isScrollView: () => boolean;
+  toggleScrollView: (override?: boolean) => void;
+};
+
 const initialPosition: Position = {
   current: 1,
   total: 1,
@@ -60,7 +65,9 @@ export function PitchDeckFrame({
   const fullscreenButtonRef = useRef<HTMLButtonElement>(null);
   const [position, setPosition] = useState(initialPosition);
   const [reducedMotion, setReducedMotion] = useState(false);
+  const [narrowLayout, setNarrowLayout] = useState(false);
   const [scrollView, setScrollView] = useState(false);
+  const [overview, setOverview] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
 
   const resolvedBackHref =
@@ -82,6 +89,14 @@ export function PitchDeckFrame({
     return () => query.removeEventListener("change", update);
   }, []);
 
+  useEffect(() => {
+    const query = window.matchMedia("(max-width: 700px)");
+    const update = () => setNarrowLayout(query.matches);
+    update();
+    query.addEventListener("change", update);
+    return () => query.removeEventListener("change", update);
+  }, []);
+
   const updatePosition = useCallback((readyDeck?: RevealApi) => {
     const deck = readyDeck ?? deckRef.current;
     if (!deck) return;
@@ -96,10 +111,19 @@ export function PitchDeckFrame({
     (deck: RevealApi) => {
       updatePosition(deck);
 
-      if (
-        mode === "focused" &&
-        new URLSearchParams(window.location.search).has("print-pdf")
-      ) {
+      const search = new URLSearchParams(window.location.search);
+      const shouldStartInScrollView =
+        window.matchMedia("(max-width: 700px)").matches &&
+        !search.has("print-pdf");
+
+      if (shouldStartInScrollView) {
+        const deckWithScrollView = deck as RevealApiWithScrollView;
+        deckWithScrollView.configure({ view: "scroll" });
+        deckWithScrollView.toggleScrollView(true);
+        setScrollView(deckWithScrollView.isScrollView());
+      }
+
+      if (mode === "focused" && search.has("print-pdf")) {
         let opened = false;
         let layoutChecks = 0;
         const openPrintDialog = () => {
@@ -149,10 +173,10 @@ export function PitchDeckFrame({
 
   const config = useMemo<RevealConfig>(
     () => ({
-      width: 1280,
-      height: 720,
+      height: narrowLayout ? 960 : 720,
+      width: narrowLayout ? 720 : 1280,
       margin: 0.055,
-      embedded: mode === "embedded",
+      embedded: true,
       keyboardCondition: mode === "embedded" ? "focused" : null,
       hash: mode === "focused",
       hashOneBasedIndex: mode === "focused",
@@ -165,12 +189,51 @@ export function PitchDeckFrame({
       pdfSeparateFragments: false,
       slideNumber: false,
       view: scrollView ? "scroll" : null,
-      scrollActivationWidth: 700,
+      scrollActivationWidth: 0,
       scrollLayout: "compact",
       scrollSnap: "proximity",
     }),
-    [mode, reducedMotion, scrollView],
+    [mode, narrowLayout, reducedMotion, scrollView],
   );
+
+  const toggleOverview = () => {
+    const deck = deckRef.current as RevealApiWithScrollView | null;
+    if (!deck) return;
+
+    if (deck.isScrollView()) {
+      deck.toggleScrollView(false);
+      setScrollView(false);
+    }
+    deck.toggleOverview();
+    setOverview(deck.isOverview());
+  };
+
+  const toggleScrollView = () => {
+    const deck = deckRef.current as RevealApiWithScrollView | null;
+    if (!deck) return;
+
+    if (deck.isOverview()) {
+      deck.toggleOverview(false);
+      setOverview(false);
+    }
+    const activating = !deck.isScrollView();
+    if (activating) deck.configure({ view: "scroll" });
+    deck.toggleScrollView(activating);
+    if (!activating) deck.configure({ view: null });
+    setScrollView(deck.isScrollView());
+    updatePosition(deck);
+  };
+
+  const handleOverviewShown = () => {
+    const slides = deckRef.current
+      ?.getSlidesElement()
+      ?.querySelectorAll(":scope > section");
+    slides?.forEach((slide) => {
+      slide.removeAttribute("hidden");
+      slide.removeAttribute("aria-hidden");
+    });
+    setOverview(true);
+  };
 
   const openSpeakerView = () => {
     const notes = deckRef.current?.getPlugin("notes") as
@@ -217,7 +280,8 @@ export function PitchDeckFrame({
             )}
             <button
               type="button"
-              onClick={() => deckRef.current?.toggleOverview()}
+              onClick={toggleOverview}
+              aria-pressed={overview}
               title="Slide overview"
             >
               <LayoutGrid aria-hidden="true" />
@@ -225,7 +289,7 @@ export function PitchDeckFrame({
             </button>
             <button
               type="button"
-              onClick={() => setScrollView((current) => !current)}
+              onClick={toggleScrollView}
               aria-pressed={scrollView}
               title="Toggle scroll view"
             >
@@ -264,6 +328,8 @@ export function PitchDeckFrame({
           onReady={handleReady}
           onSlideChange={handlePositionEvent}
           onSync={handlePositionEvent}
+          onOverviewShown={handleOverviewShown}
+          onOverviewHidden={() => setOverview(false)}
         >
           {children}
         </Deck>
@@ -299,22 +365,36 @@ export function PitchDeckFrame({
         {(projectSlug || resolvedPrintHref) && (
           <div className="pitch-deck__links">
             {projectSlug && (
-              <a href={`/projects/${projectSlug}/deck.md`}>
+              <a
+                href={`/projects/${projectSlug}/deck.md`}
+                aria-label="Transcript"
+                title="Read transcript"
+              >
                 <FileText aria-hidden="true" />
-                Transcript
+                <span>Transcript</span>
               </a>
             )}
             {mode === "embedded" ? (
               resolvedPresentationHref && (
-                <Link href={resolvedPresentationHref}>
+                <Link
+                  href={resolvedPresentationHref}
+                  aria-label="Open deck"
+                  title="Open deck"
+                >
                   <Expand aria-hidden="true" />
-                  Open deck
+                  <span>Open deck</span>
                 </Link>
               )
             ) : resolvedPrintHref ? (
-              <a href={resolvedPrintHref} target="_blank" rel="noreferrer">
+              <a
+                href={resolvedPrintHref}
+                target="_blank"
+                rel="noreferrer"
+                aria-label="Print PDF"
+                title="Print PDF"
+              >
                 <FileText aria-hidden="true" />
-                Print PDF
+                <span>Print PDF</span>
               </a>
             ) : null}
           </div>

@@ -331,6 +331,85 @@ describe("Visualization browser rendering", () => {
         revealBackground: "rgb(9, 10, 9)",
         slides: 8,
       });
+
+      expect(pageErrors).toEqual([]);
+    } finally {
+      await page.close();
+    }
+  }, 30_000);
+
+  it("uses a readable portrait deck and compact controls on phones", async () => {
+    const page = await browser.newPage();
+    const pageErrors: string[] = [];
+    page.on("pageerror", (error) => pageErrors.push(String(error)));
+
+    try {
+      await page.setViewport({ width: 390, height: 844 });
+      await page.goto(`${BASE_URL}/projects/agentic-code-review/deck`, {
+        waitUntil: "domcontentloaded",
+      });
+      await page.waitForSelector(".pitch-deck .reveal.ready.reveal-scroll", {
+        timeout: 20_000,
+      });
+      await page.waitForFunction(
+        () =>
+          document.querySelectorAll(".pitch-deck .scroll-page").length === 8 &&
+          document
+            .querySelector('button[title="Toggle scroll view"]')
+            ?.textContent?.trim() === "Slides",
+      );
+
+      const mobileLayout = await page.evaluate(() => {
+        const deck = document.querySelector<HTMLElement>(".pitch-deck");
+        const reveal = document.querySelector<HTMLElement>(
+          ".pitch-deck .reveal",
+        );
+        const topbar = document.querySelector<HTMLElement>(
+          ".pitch-deck__topbar",
+        );
+        const controls = document.querySelector<HTMLElement>(
+          ".pitch-deck__controls",
+        );
+        const stage = document.querySelector<HTMLElement>(".pitch-deck__stage");
+        const toolButtons = Array.from(
+          document.querySelectorAll<HTMLElement>(
+            ".pitch-deck__tools button, .pitch-deck__tools a",
+          ),
+        );
+
+        return {
+          controlsHeight: controls?.getBoundingClientRect().height ?? 0,
+          deckHeight: deck?.getBoundingClientRect().height ?? 0,
+          deckWidth: deck?.getBoundingClientRect().width ?? 0,
+          documentWidth: document.documentElement.scrollWidth,
+          slideHeight: reveal
+            ? getComputedStyle(reveal).getPropertyValue("--slide-height")
+            : "",
+          slideWidth: reveal
+            ? getComputedStyle(reveal).getPropertyValue("--slide-width")
+            : "",
+          stageHeight: stage?.getBoundingClientRect().height ?? 0,
+          toolSizes: toolButtons.map((button) => {
+            const bounds = button.getBoundingClientRect();
+            return { height: bounds.height, width: bounds.width };
+          }),
+          topbarHeight: topbar?.getBoundingClientRect().height ?? 0,
+        };
+      });
+
+      expect(mobileLayout.slideWidth).toBe("720px");
+      expect(mobileLayout.slideHeight).toBe("960px");
+      expect(mobileLayout.deckWidth).toBeLessThanOrEqual(390);
+      expect(mobileLayout.deckHeight).toBeLessThanOrEqual(844);
+      expect(mobileLayout.documentWidth).toBeLessThanOrEqual(390);
+      expect(mobileLayout.stageHeight).toBeGreaterThan(600);
+      expect(mobileLayout.topbarHeight).toBeLessThanOrEqual(60);
+      expect(mobileLayout.controlsHeight).toBeLessThanOrEqual(60);
+      expect(
+        mobileLayout.toolSizes.every(
+          (size) => size.width >= 40 && size.height >= 40,
+        ),
+      ).toBe(true);
       expect(pageErrors).toEqual([]);
     } finally {
       await page.close();
@@ -347,6 +426,48 @@ describe("Visualization browser rendering", () => {
       await page.waitForSelector(".pitch-deck .reveal.ready", {
         timeout: 20_000,
       });
+
+      await page.click('button[title="Slide overview"]');
+      await page.waitForFunction(
+        () =>
+          document.querySelector(".pitch-deck .reveal.overview") &&
+          Array.from(
+            document.querySelectorAll<HTMLElement>(
+              ".pitch-deck .slides > section",
+            ),
+          ).every(
+            (slide) =>
+              !slide.hidden && getComputedStyle(slide).display === "block",
+          ),
+      );
+
+      await page.click('button[title="Toggle scroll view"]');
+      await page.waitForFunction(
+        () =>
+          document.querySelector(".pitch-deck .reveal-scroll") &&
+          document.querySelectorAll(".pitch-deck .scroll-page").length === 8 &&
+          document
+            .querySelector('button[title="Toggle scroll view"]')
+            ?.textContent?.trim() === "Slides",
+      );
+      const scrollView = await page.$eval(
+        ".pitch-deck .reveal-scroll",
+        (viewport) => ({
+          clientHeight: viewport.clientHeight,
+          pages: viewport.querySelectorAll(".scroll-page").length,
+          scrollHeight: viewport.scrollHeight,
+        }),
+      );
+      expect(scrollView.pages).toBe(8);
+      expect(scrollView.scrollHeight).toBeGreaterThan(scrollView.clientHeight);
+
+      await page.click('button[title="Toggle scroll view"]');
+      await page.waitForFunction(
+        () =>
+          !document.querySelector(".pitch-deck .reveal-scroll") &&
+          document.querySelectorAll(".pitch-deck .slides > section").length ===
+            8,
+      );
 
       const speakerTarget = browser.waitForTarget(
         (target) => target.opener() === page.target(),
