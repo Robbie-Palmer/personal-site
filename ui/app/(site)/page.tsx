@@ -1,6 +1,7 @@
 import { BlogCollectionTabs } from "@/components/blog/blog-collection-tabs";
 import { HomeExperienceCard } from "@/components/experience/home-experience-card";
 import { HomeCTAButtons } from "@/components/home-cta-buttons";
+import { HomeKnowledgeGraph } from "@/components/home-knowledge-graph";
 import { ADRCarousel } from "@/components/projects/adr-carousel";
 import { LightRays } from "@/components/ui/light-rays";
 import { TechOrbit } from "@/components/ui/tech-icon-orbit";
@@ -167,6 +168,8 @@ export default function Home() {
           </div>
         </div>
       </section>
+
+      <HomeKnowledgeGraph />
     </div>
   );
 }
