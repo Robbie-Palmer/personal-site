@@ -82,6 +82,11 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: 0.7,
     },
     {
+      url: `${siteConfig.url}/projects/prototypes`,
+      lastModified: new Date().toISOString(),
+      priority: 0.5,
+    },
+    {
       url: `${siteConfig.url}/recipes`,
       lastModified: new Date().toISOString(),
       priority: 0.4,
