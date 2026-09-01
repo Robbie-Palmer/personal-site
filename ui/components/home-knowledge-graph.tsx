@@ -14,7 +14,7 @@ export function HomeKnowledgeGraph() {
 
   return (
     <section
-      className="relative isolate py-16 sm:py-20 lg:py-24"
+      className="relative isolate pb-16 sm:pb-20 lg:pb-24"
       aria-labelledby="knowledge-graph-heading"
     >
       <div
