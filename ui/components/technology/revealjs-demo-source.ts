@@ -55,7 +55,7 @@ Choose a review depth. The count and explanation update inside the slide.
   <PitchColumn>
     ### Publish
 
-    Embedded decks, focused routes, print output, and plain-text transcripts.
+    Embedded decks, focused routes, mobile reading mode, and plain-text transcripts.
   </PitchColumn>
 </PitchColumns>
 

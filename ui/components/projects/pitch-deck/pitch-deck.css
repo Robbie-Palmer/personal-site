@@ -20,11 +20,27 @@ body.reveal-viewport:has(.pitch-deck) {
   position: relative;
   aspect-ratio: 16 / 9;
   min-height: 0;
+  overflow: hidden;
   background:
     linear-gradient(rgba(245, 158, 11, 0.035) 1px, transparent 1px),
     linear-gradient(90deg, rgba(245, 158, 11, 0.035) 1px, transparent 1px),
     #090a09;
   background-size: 48px 48px;
+}
+
+.pitch-deck__live {
+  width: 100%;
+  height: 100%;
+}
+
+.pitch-deck__stage--scroll,
+.pitch-deck__stage--overview {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.pitch-deck__stage--scroll {
+  scroll-snap-type: y proximity;
 }
 
 .pitch-deck .reveal {
@@ -39,11 +55,6 @@ body.reveal-viewport:has(.pitch-deck) {
 
 .pitch-deck .reveal .slides {
   text-align: left;
-}
-
-/* reveal.js 6 leaves non-current horizontal slides at display:none in overview. */
-.pitch-deck .reveal.overview .slides > section {
-  display: block;
 }
 
 .pitch-deck .reveal .pitch-slide {
@@ -364,8 +375,207 @@ body.reveal-viewport:has(.pitch-deck) {
   line-height: 1.2;
 }
 
+.pitch-deck .reveal.pitch-deck__static {
+  position: relative;
+  width: 100%;
+  height: auto;
+  min-height: 100%;
+  overflow: visible;
+}
+
+.pitch-deck .reveal.pitch-deck__static > .slides {
+  position: static;
+  inset: auto;
+  width: auto;
+  height: auto;
+  transform: none;
+  text-align: left;
+}
+
+.pitch-deck .reveal.pitch-deck__static > .slides > section {
+  position: relative;
+  inset: auto;
+  display: block;
+  width: 100%;
+  height: auto;
+  margin: 0;
+  overflow: hidden;
+  opacity: 1;
+  transform: none;
+  visibility: visible;
+}
+
+.pitch-deck .reveal.pitch-deck__static .fragment {
+  opacity: 1;
+  transform: none;
+  visibility: visible;
+}
+
+.pitch-deck .reveal.pitch-deck__static .notes {
+  display: none;
+}
+
+.pitch-deck .reveal.pitch-deck__static--scroll > .slides {
+  display: grid;
+  max-width: 1040px;
+  gap: 18px;
+  margin: 0 auto;
+  padding: 18px;
+}
+
+.pitch-deck .reveal.pitch-deck__static--scroll > .slides > section {
+  aspect-ratio: 16 / 9;
+  border: 1px solid var(--pitch-line);
+  border-radius: 12px;
+  background: #090a09;
+  scroll-snap-align: start;
+}
+
+.pitch-deck .reveal.pitch-deck__static--overview {
+  min-height: 100%;
+}
+
+.pitch-deck .reveal.pitch-deck__static--overview > .slides,
+.pitch-deck__overview-targets {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+  padding: 18px;
+}
+
+.pitch-deck .reveal.pitch-deck__static--overview > .slides > section,
+.pitch-deck .pitch-deck__overview-targets button {
+  aspect-ratio: 16 / 9;
+}
+
+.pitch-deck .reveal.pitch-deck__static--overview > .slides > section {
+  padding: 18px 20px;
+  border: 1px solid var(--pitch-line);
+  border-radius: 8px;
+  background: #090a09;
+  pointer-events: none;
+}
+
+.pitch-deck__overview-targets {
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  align-content: start;
+}
+
+.pitch-deck .pitch-deck__overview-targets button {
+  padding: 0;
+  border: 2px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.pitch-deck .pitch-deck__overview-targets button:hover {
+  border-color: var(--pitch-accent);
+  background: rgba(245, 158, 11, 0.08);
+}
+
+.pitch-deck .pitch-deck__overview-targets button:focus-visible {
+  border-color: var(--pitch-accent);
+  outline: 2px solid var(--pitch-accent);
+  outline-offset: 2px;
+}
+
+.pitch-deck .reveal.pitch-deck__static--overview h1,
+.pitch-deck .reveal.pitch-deck__static--overview h2 {
+  font-size: 21px;
+  letter-spacing: -0.03em;
+}
+
+.pitch-deck .reveal.pitch-deck__static--overview h3 {
+  font-size: 15px;
+}
+
+.pitch-deck .reveal.pitch-deck__static--overview p,
+.pitch-deck .reveal.pitch-deck__static--overview li,
+.pitch-deck .reveal.pitch-deck__static--overview pre,
+.pitch-deck .reveal.pitch-deck__static--overview .pitch-column p,
+.pitch-deck .reveal.pitch-deck__static--overview .pitch-column li {
+  font-size: 10px;
+  line-height: 1.25;
+}
+
+.pitch-deck .reveal.pitch-deck__static--overview .pitch-slide__content {
+  justify-content: center;
+}
+
+.pitch-deck .reveal.pitch-deck__static--overview .pitch-columns,
+.pitch-deck .reveal.pitch-deck__static--overview .review-depth-demo {
+  gap: 8px;
+}
+
+.pitch-deck .reveal.pitch-deck__static--overview .pitch-column,
+.pitch-deck .reveal.pitch-deck__static--overview .review-depth-demo {
+  padding: 8px;
+}
+
+.pitch-deck .reveal.pitch-deck__static--overview h1 + p,
+.pitch-deck .reveal.pitch-deck__static--overview h2 + p,
+.pitch-deck .reveal.pitch-deck__static--overview h2 + ul,
+.pitch-deck .reveal.pitch-deck__static--overview h2 + ol,
+.pitch-deck .reveal.pitch-deck__static--overview h2 + .pitch-columns,
+.pitch-deck .reveal.pitch-deck__static--overview h2 + .review-depth-demo,
+.pitch-deck .reveal.pitch-deck__static--overview h2 + pre {
+  margin-top: 10px;
+}
+
 @media (max-width: 700px) {
   .pitch-deck__stage {
+    aspect-ratio: 3 / 4;
+  }
+
+  .pitch-deck .reveal.pitch-deck__static--scroll > .slides {
+    gap: 10px;
+    padding: 10px;
+  }
+
+  .pitch-deck .reveal.pitch-deck__static--scroll > .slides > section {
+    aspect-ratio: 3 / 4;
+    padding: 30px 28px;
+  }
+
+  .pitch-deck .reveal.pitch-deck__static--scroll h1 {
+    font-size: 34px;
+  }
+
+  .pitch-deck .reveal.pitch-deck__static--scroll h2 {
+    font-size: 28px;
+  }
+
+  .pitch-deck .reveal.pitch-deck__static--scroll h3,
+  .pitch-deck .reveal.pitch-deck__static--scroll .pitch-column h3,
+  .pitch-deck .reveal.pitch-deck__static--scroll .pitch-column h2 {
+    font-size: 20px;
+  }
+
+  .pitch-deck .reveal.pitch-deck__static--scroll p,
+  .pitch-deck .reveal.pitch-deck__static--scroll li,
+  .pitch-deck .reveal.pitch-deck__static--scroll .pitch-column p,
+  .pitch-deck .reveal.pitch-deck__static--scroll .pitch-column li,
+  .pitch-deck .reveal.pitch-deck__static--scroll .review-depth-demo--preview p {
+    font-size: 16px;
+  }
+
+  .pitch-deck .reveal.pitch-deck__static--scroll pre {
+    padding: 14px 16px;
+    font-size: 12px;
+  }
+
+  .pitch-deck .reveal.pitch-deck__static--overview > .slides,
+  .pitch-deck__overview-targets {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    padding: 10px;
+  }
+
+  .pitch-deck .reveal.pitch-deck__static--overview > .slides > section,
+  .pitch-deck .pitch-deck__overview-targets button {
     aspect-ratio: 3 / 4;
   }
 
@@ -497,26 +707,4 @@ body.reveal-viewport:has(.pitch-deck) {
   .pitch-deck .pitch-deck__topbar * {
     transition: none;
   }
-}
-
-@media print {
-  .pitch-deck .pitch-deck__controls,
-  .pitch-deck .pitch-deck__topbar {
-    display: none;
-  }
-}
-
-html.reveal-print .pitch-deck {
-  height: auto;
-  overflow: visible;
-  background: #090a09;
-}
-
-html.reveal-print .pitch-deck__stage {
-  overflow: visible;
-}
-
-html.reveal-print .pitch-deck__controls,
-html.reveal-print .pitch-deck__topbar {
-  display: none;
 }

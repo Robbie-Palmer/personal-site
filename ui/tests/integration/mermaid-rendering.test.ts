@@ -348,12 +348,14 @@ describe("Visualization browser rendering", () => {
       await page.goto(`${BASE_URL}/projects/agentic-code-review/deck`, {
         waitUntil: "domcontentloaded",
       });
-      await page.waitForSelector(".pitch-deck .reveal.ready.reveal-scroll", {
+      await page.waitForSelector(".pitch-deck__static--scroll", {
         timeout: 20_000,
       });
       await page.waitForFunction(
         () =>
-          document.querySelectorAll(".pitch-deck .scroll-page").length === 8 &&
+          document.querySelectorAll(
+            ".pitch-deck__static--scroll > .slides > section",
+          ).length === 8 &&
           document
             .querySelector('button[title="Toggle scroll view"]')
             ?.textContent?.trim() === "Slides",
@@ -389,6 +391,15 @@ describe("Visualization browser rendering", () => {
             ? getComputedStyle(reveal).getPropertyValue("--slide-width")
             : "",
           stageHeight: stage?.getBoundingClientRect().height ?? 0,
+          scrollSlides: Array.from(
+            document.querySelectorAll<HTMLElement>(
+              ".pitch-deck__static--scroll > .slides > section",
+            ),
+          ).map((slide) => ({
+            display: getComputedStyle(slide).display,
+            height: slide.getBoundingClientRect().height,
+            text: slide.textContent?.trim() ?? "",
+          })),
           toolSizes: toolButtons.map((button) => {
             const bounds = button.getBoundingClientRect();
             return { height: bounds.height, width: bounds.width };
@@ -403,6 +414,15 @@ describe("Visualization browser rendering", () => {
       expect(mobileLayout.deckHeight).toBeLessThanOrEqual(844);
       expect(mobileLayout.documentWidth).toBeLessThanOrEqual(390);
       expect(mobileLayout.stageHeight).toBeGreaterThan(600);
+      expect(mobileLayout.scrollSlides).toHaveLength(8);
+      expect(
+        mobileLayout.scrollSlides.every(
+          (slide) =>
+            slide.display === "block" &&
+            slide.height > 400 &&
+            slide.text.length > 20,
+        ),
+      ).toBe(true);
       expect(mobileLayout.topbarHeight).toBeLessThanOrEqual(60);
       expect(mobileLayout.controlsHeight).toBeLessThanOrEqual(60);
       expect(
@@ -416,7 +436,7 @@ describe("Visualization browser rendering", () => {
     }
   }, 30_000);
 
-  it("opens working speaker previews and prepares the focused deck for PDF", async () => {
+  it("keeps overview and scroll content stable and opens speaker previews", async () => {
     const page = await browser.newPage();
 
     try {
@@ -430,44 +450,89 @@ describe("Visualization browser rendering", () => {
       await page.click('button[title="Slide overview"]');
       await page.waitForFunction(
         () =>
-          document.querySelector(".pitch-deck .reveal.overview") &&
+          document.querySelector(".pitch-deck__static--overview") &&
           Array.from(
             document.querySelectorAll<HTMLElement>(
-              ".pitch-deck .slides > section",
+              ".pitch-deck__static--overview > .slides > section",
             ),
           ).every(
             (slide) =>
-              !slide.hidden && getComputedStyle(slide).display === "block",
+              getComputedStyle(slide).display === "block" &&
+              slide.textContent?.trim(),
+          ),
+      );
+
+      await page.click('button[aria-label="Open slide 2"]');
+      await page.waitForFunction(() =>
+        document
+          .querySelector(".pitch-deck__live section.present h2")
+          ?.textContent?.includes("bottleneck"),
+      );
+
+      await page.click('button[title="Slide overview"]');
+      await page.waitForFunction(
+        () =>
+          document.querySelectorAll(
+            ".pitch-deck__static--overview > .slides > section",
+          ).length === 8 &&
+          Array.from(
+            document.querySelectorAll<HTMLElement>(
+              ".pitch-deck__static--overview > .slides > section",
+            ),
+          ).every(
+            (slide) =>
+              getComputedStyle(slide).display === "block" &&
+              slide.textContent?.trim(),
           ),
       );
 
       await page.click('button[title="Toggle scroll view"]');
       await page.waitForFunction(
         () =>
-          document.querySelector(".pitch-deck .reveal-scroll") &&
-          document.querySelectorAll(".pitch-deck .scroll-page").length === 8 &&
+          document.querySelector(".pitch-deck__static--scroll") &&
+          document.querySelectorAll(
+            ".pitch-deck__static--scroll > .slides > section",
+          ).length === 8 &&
           document
             .querySelector('button[title="Toggle scroll view"]')
             ?.textContent?.trim() === "Slides",
       );
       const scrollView = await page.$eval(
-        ".pitch-deck .reveal-scroll",
-        (viewport) => ({
-          clientHeight: viewport.clientHeight,
-          pages: viewport.querySelectorAll(".scroll-page").length,
-          scrollHeight: viewport.scrollHeight,
+        ".pitch-deck__stage--scroll",
+        (stage) => ({
+          clientHeight: stage.clientHeight,
+          pages: stage.querySelectorAll(
+            ".pitch-deck__static--scroll > .slides > section",
+          ).length,
+          scrollHeight: stage.scrollHeight,
+          visibleSlides: Array.from(
+            stage.querySelectorAll<HTMLElement>(
+              ".pitch-deck__static--scroll > .slides > section",
+            ),
+          ).filter(
+            (slide) =>
+              getComputedStyle(slide).display === "block" &&
+              slide.getBoundingClientRect().height > 0 &&
+              Boolean(slide.textContent?.trim()),
+          ).length,
         }),
       );
       expect(scrollView.pages).toBe(8);
+      expect(scrollView.visibleSlides).toBe(8);
       expect(scrollView.scrollHeight).toBeGreaterThan(scrollView.clientHeight);
 
       await page.click('button[title="Toggle scroll view"]');
       await page.waitForFunction(
         () =>
-          !document.querySelector(".pitch-deck .reveal-scroll") &&
-          document.querySelectorAll(".pitch-deck .slides > section").length ===
-            8,
+          !document.querySelector(".pitch-deck__static") &&
+          !document
+            .querySelector(".pitch-deck__live")
+            ?.hasAttribute("hidden") &&
+          document.querySelectorAll(".pitch-deck__live .slides > section")
+            .length === 8,
       );
+
+      expect(await page.$('a[aria-label="Print PDF"]')).toBeNull();
 
       const speakerTarget = browser.waitForTarget(
         (target) => target.opener() === page.target(),
@@ -485,7 +550,7 @@ describe("Visualization browser rendering", () => {
             "#current-slide iframe",
           );
           return frame?.contentDocument?.querySelector(
-            ".pitch-deck .reveal.ready section.present h1",
+            ".pitch-deck .reveal.ready section.present h1, .pitch-deck .reveal.ready section.present h2",
           )?.textContent;
         },
         { timeout: 20_000 },
@@ -494,53 +559,13 @@ describe("Visualization browser rendering", () => {
         "#current-slide iframe",
         (frame) =>
           (frame as HTMLIFrameElement).contentDocument?.querySelector(
-            ".pitch-deck section.present h1",
+            ".pitch-deck section.present h1, .pitch-deck section.present h2",
           )?.textContent,
       );
-      expect(speakerHeading).toContain("Code arrives faster");
+      expect(speakerHeading).toContain("bottleneck");
       await speakerPage?.close();
     } finally {
       await page.close();
-    }
-
-    const printPage = await browser.newPage();
-    try {
-      await printPage.evaluateOnNewDocument(() => {
-        Object.defineProperty(window, "print", {
-          configurable: true,
-          value: () => {
-            document.documentElement.dataset.printDialogOpened = "true";
-          },
-        });
-      });
-      await printPage.goto(
-        `${BASE_URL}/projects/agentic-code-review/deck?print-pdf`,
-        { waitUntil: "domcontentloaded" },
-      );
-      await printPage.waitForFunction(
-        () =>
-          document.documentElement.classList.contains("reveal-print") &&
-          document.querySelectorAll(".pdf-page").length === 8 &&
-          document.documentElement.dataset.printDialogOpened === "true",
-        { timeout: 20_000 },
-      );
-
-      const printLayout = await printPage.evaluate(() => ({
-        controls: getComputedStyle(
-          document.querySelector(".pitch-deck__controls") as HTMLElement,
-        ).display,
-        pages: document.querySelectorAll(".pdf-page").length,
-        topbar: getComputedStyle(
-          document.querySelector(".pitch-deck__topbar") as HTMLElement,
-        ).display,
-      }));
-      expect(printLayout).toEqual({
-        controls: "none",
-        pages: 8,
-        topbar: "none",
-      });
-    } finally {
-      await printPage.close();
     }
   }, 60_000);
 

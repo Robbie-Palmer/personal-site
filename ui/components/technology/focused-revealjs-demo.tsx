@@ -17,7 +17,6 @@ export function FocusedRevealJsDemo({
       plugins={notesPlugins}
       backHref="/technologies/revealdotjs"
       backLabel="Back to technology"
-      printHref="/technologies/revealdotjs/deck?print-pdf"
     >
       {children}
     </PitchDeckFrame>

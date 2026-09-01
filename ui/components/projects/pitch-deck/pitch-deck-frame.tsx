@@ -19,7 +19,6 @@ interface PitchDeckFrameProps {
   backLabel?: string;
   children: React.ReactNode;
   presentationHref?: string;
-  printHref?: string;
   projectSlug?: string;
   title: string;
   mode: "embedded" | "focused";
@@ -35,10 +34,7 @@ type Position = {
   atEnd: boolean;
 };
 
-type RevealApiWithScrollView = RevealApi & {
-  isScrollView: () => boolean;
-  toggleScrollView: (override?: boolean) => void;
-};
+type DeckView = "slides" | "overview" | "scroll";
 
 const initialPosition: Position = {
   current: 1,
@@ -52,7 +48,6 @@ export function PitchDeckFrame({
   backLabel,
   children,
   presentationHref,
-  printHref,
   projectSlug,
   title,
   mode,
@@ -62,13 +57,20 @@ export function PitchDeckFrame({
 }: Readonly<PitchDeckFrameProps>) {
   const deckRef = useRef<RevealApi | null>(null);
   const shellRef = useRef<HTMLElement>(null);
+  const stageRef = useRef<HTMLDivElement>(null);
+  const staticViewRef = useRef<HTMLDivElement>(null);
   const fullscreenButtonRef = useRef<HTMLButtonElement>(null);
+  const pendingSlideRef = useRef<number | null>(null);
+  const currentPositionRef = useRef(1);
   const [position, setPosition] = useState(initialPosition);
   const [reducedMotion, setReducedMotion] = useState(false);
   const [narrowLayout, setNarrowLayout] = useState(false);
-  const [scrollView, setScrollView] = useState(false);
-  const [overview, setOverview] = useState(false);
+  const [view, setView] = useState<DeckView>("slides");
   const [isFullscreen, setIsFullscreen] = useState(false);
+
+  useEffect(() => {
+    currentPositionRef.current = position.current;
+  }, [position.current]);
 
   const resolvedBackHref =
     backHref ?? (projectSlug ? `/projects/${projectSlug}` : undefined);
@@ -77,9 +79,6 @@ export function PitchDeckFrame({
   const resolvedPresentationHref =
     presentationHref ??
     (projectSlug ? `/projects/${projectSlug}/deck` : undefined);
-  const resolvedPrintHref =
-    printHref ??
-    (projectSlug ? `/projects/${projectSlug}/deck?print-pdf` : undefined);
 
   useEffect(() => {
     const query = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -109,42 +108,17 @@ export function PitchDeckFrame({
   }, []);
   const handleReady = useCallback(
     (deck: RevealApi) => {
+      deckRef.current = deck;
       updatePosition(deck);
 
-      const search = new URLSearchParams(window.location.search);
       const shouldStartInScrollView =
-        window.matchMedia("(max-width: 700px)").matches &&
-        !search.has("print-pdf");
+        window.matchMedia("(max-width: 700px)").matches;
 
       if (shouldStartInScrollView) {
-        const deckWithScrollView = deck as RevealApiWithScrollView;
-        deckWithScrollView.configure({ view: "scroll" });
-        deckWithScrollView.toggleScrollView(true);
-        setScrollView(deckWithScrollView.isScrollView());
-      }
-
-      if (mode === "focused" && search.has("print-pdf")) {
-        let opened = false;
-        let layoutChecks = 0;
-        const openPrintDialog = () => {
-          if (opened) return;
-          opened = true;
-          requestAnimationFrame(() => window.print());
-        };
-        const waitForPrintLayout = () => {
-          if (document.querySelector(".pdf-page")) {
-            openPrintDialog();
-          } else if (layoutChecks < 300) {
-            layoutChecks += 1;
-            requestAnimationFrame(waitForPrintLayout);
-          }
-        };
-
-        deck.on("pdf-ready", openPrintDialog);
-        waitForPrintLayout();
+        setView("scroll");
       }
     },
-    [mode, updatePosition],
+    [updatePosition],
   );
   const handlePositionEvent = useCallback(
     () => updatePosition(),
@@ -186,53 +160,117 @@ export function PitchDeckFrame({
       backgroundTransition: reducedMotion ? "none" : "fade",
       controls: false,
       progress: false,
-      pdfSeparateFragments: false,
       slideNumber: false,
-      view: scrollView ? "scroll" : null,
+      overview: false,
+      view: null,
       scrollActivationWidth: 0,
-      scrollLayout: "compact",
-      scrollSnap: "proximity",
     }),
-    [mode, narrowLayout, reducedMotion, scrollView],
+    [mode, narrowLayout, reducedMotion],
   );
 
   const toggleOverview = () => {
-    const deck = deckRef.current as RevealApiWithScrollView | null;
-    if (!deck) return;
-
-    if (deck.isScrollView()) {
-      deck.toggleScrollView(false);
-      setScrollView(false);
-    }
-    deck.toggleOverview();
-    setOverview(deck.isOverview());
+    setView((current) => (current === "overview" ? "slides" : "overview"));
   };
 
   const toggleScrollView = () => {
-    const deck = deckRef.current as RevealApiWithScrollView | null;
-    if (!deck) return;
-
-    if (deck.isOverview()) {
-      deck.toggleOverview(false);
-      setOverview(false);
-    }
-    const activating = !deck.isScrollView();
-    if (activating) deck.configure({ view: "scroll" });
-    deck.toggleScrollView(activating);
-    if (!activating) deck.configure({ view: null });
-    setScrollView(deck.isScrollView());
-    updatePosition(deck);
+    setView((current) => (current === "scroll" ? "slides" : "scroll"));
   };
 
-  const handleOverviewShown = () => {
-    const slides = deckRef.current
-      ?.getSlidesElement()
-      ?.querySelectorAll(":scope > section");
-    slides?.forEach((slide) => {
-      slide.removeAttribute("hidden");
-      slide.removeAttribute("aria-hidden");
+  const openSlide = (index: number) => {
+    pendingSlideRef.current = index;
+    deckRef.current?.slide(index);
+    setPosition((current) => ({
+      current: index + 1,
+      total: current.total,
+      atStart: index === 0,
+      atEnd: index === current.total - 1,
+    }));
+    setView("slides");
+  };
+
+  const getStaticSlides = useCallback(
+    () =>
+      Array.from(
+        staticViewRef.current?.querySelectorAll<HTMLElement>(
+          ":scope > .slides > section",
+        ) ?? [],
+      ),
+    [],
+  );
+
+  const scrollToStaticSlide = useCallback(
+    (index: number, behavior: ScrollBehavior) => {
+      const slide = getStaticSlides()[index];
+      const stage = stageRef.current;
+      if (!slide || !stage) return;
+      if (typeof stage.scrollTo === "function") {
+        stage.scrollTo({ top: slide.offsetTop, behavior });
+      } else {
+        stage.scrollTop = slide.offsetTop;
+      }
+    },
+    [getStaticSlides],
+  );
+
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => {
+      if (view === "slides") {
+        const deck = deckRef.current;
+        if (!deck) return;
+        const pendingSlide = pendingSlideRef.current;
+        if (pendingSlide !== null) {
+          pendingSlideRef.current = null;
+          deck.slide(pendingSlide);
+        }
+        deck.layout();
+        updatePosition(deck);
+      } else if (view === "scroll") {
+        scrollToStaticSlide(currentPositionRef.current - 1, "instant");
+      }
     });
-    setOverview(true);
+    return () => cancelAnimationFrame(frame);
+  }, [scrollToStaticSlide, updatePosition, view]);
+
+  const navigate = (direction: -1 | 1) => {
+    if (view === "slides") {
+      direction === -1 ? deckRef.current?.prev() : deckRef.current?.next();
+      return;
+    }
+
+    const target = Math.max(
+      0,
+      Math.min(position.current - 1 + direction, position.total - 1),
+    );
+    if (view === "overview") {
+      openSlide(target);
+      return;
+    }
+    scrollToStaticSlide(target, reducedMotion ? "instant" : "smooth");
+    setPosition((current) => ({
+      current: target + 1,
+      total: current.total,
+      atStart: target === 0,
+      atEnd: target === current.total - 1,
+    }));
+  };
+
+  const handleStaticScroll = () => {
+    if (view !== "scroll" || !stageRef.current) return;
+    const stageTop = stageRef.current.getBoundingClientRect().top;
+    const slides = getStaticSlides();
+    const closest = slides.reduce(
+      (best, slide, index) => {
+        const distance = Math.abs(slide.getBoundingClientRect().top - stageTop);
+        return distance < best.distance ? { distance, index } : best;
+      },
+      { distance: Number.POSITIVE_INFINITY, index: 0 },
+    );
+    setPosition((current) => ({
+      current: closest.index + 1,
+      total: current.total,
+      atStart: closest.index === 0,
+      atEnd: closest.index === current.total - 1,
+    }));
   };
 
   const openSpeakerView = () => {
@@ -255,32 +293,6 @@ export function PitchDeckFrame({
   };
 
   const hasPresenterTools = mode === "focused" || showPresenterTools;
-  let deckActionLink: React.ReactNode = null;
-  if (mode === "embedded" && resolvedPresentationHref) {
-    deckActionLink = (
-      <Link
-        href={resolvedPresentationHref}
-        aria-label="Open deck"
-        title="Open deck"
-      >
-        <Expand aria-hidden="true" />
-        <span>Open deck</span>
-      </Link>
-    );
-  } else if (mode === "focused" && resolvedPrintHref) {
-    deckActionLink = (
-      <a
-        href={resolvedPrintHref}
-        target="_blank"
-        rel="noreferrer"
-        aria-label="Print PDF"
-        title="Print PDF"
-      >
-        <FileText aria-hidden="true" />
-        <span>Print PDF</span>
-      </a>
-    );
-  }
 
   return (
     <section
@@ -307,7 +319,7 @@ export function PitchDeckFrame({
             <button
               type="button"
               onClick={toggleOverview}
-              aria-pressed={overview}
+              aria-pressed={view === "overview"}
               title="Slide overview"
             >
               <LayoutGrid aria-hidden="true" />
@@ -316,11 +328,11 @@ export function PitchDeckFrame({
             <button
               type="button"
               onClick={toggleScrollView}
-              aria-pressed={scrollView}
+              aria-pressed={view === "scroll"}
               title="Toggle scroll view"
             >
               <Columns3 aria-hidden="true" />
-              <span>{scrollView ? "Slides" : "Scroll"}</span>
+              <span>{view === "scroll" ? "Slides" : "Scroll"}</span>
             </button>
             {showSpeakerView && (
               <button
@@ -345,27 +357,54 @@ export function PitchDeckFrame({
         </div>
       )}
 
-      <div className="pitch-deck__stage">
-        <Deck
-          deckRef={deckRef}
-          config={config}
-          plugins={plugins}
-          className="project-pitch-reveal"
-          onReady={handleReady}
-          onSlideChange={handlePositionEvent}
-          onSync={handlePositionEvent}
-          onOverviewShown={handleOverviewShown}
-          onOverviewHidden={() => setOverview(false)}
-        >
-          {children}
-        </Deck>
+      <div
+        ref={stageRef}
+        className={`pitch-deck__stage pitch-deck__stage--${view}`}
+        onScroll={handleStaticScroll}
+      >
+        <div className="pitch-deck__live" hidden={view !== "slides"}>
+          <Deck
+            deckRef={deckRef}
+            config={config}
+            plugins={plugins}
+            className="project-pitch-reveal"
+            onReady={handleReady}
+            onSlideChange={handlePositionEvent}
+            onSync={handlePositionEvent}
+          >
+            {children}
+          </Deck>
+        </div>
+        {view !== "slides" && (
+          <section
+            ref={staticViewRef}
+            className={`reveal pitch-deck__static pitch-deck__static--${view}`}
+            aria-label={
+              view === "overview" ? "Slide overview" : "Scrollable slides"
+            }
+          >
+            <div className="slides">{children}</div>
+            {view === "overview" && (
+              <div className="pitch-deck__overview-targets">
+                {Array.from({ length: position.total }, (_, index) => (
+                  <button
+                    key={`slide-${index + 1}`}
+                    type="button"
+                    aria-label={`Open slide ${index + 1}`}
+                    onClick={() => openSlide(index)}
+                  />
+                ))}
+              </div>
+            )}
+          </section>
+        )}
       </div>
 
       <div className="pitch-deck__controls">
         <div className="pitch-deck__navigation">
           <button
             type="button"
-            onClick={() => deckRef.current?.prev()}
+            onClick={() => navigate(-1)}
             disabled={position.atStart}
             aria-label="Previous slide"
           >
@@ -373,7 +412,7 @@ export function PitchDeckFrame({
           </button>
           <button
             type="button"
-            onClick={() => deckRef.current?.next()}
+            onClick={() => navigate(1)}
             disabled={position.atEnd}
             aria-label="Next slide"
           >
@@ -388,7 +427,7 @@ export function PitchDeckFrame({
           </span>
         </div>
 
-        {(projectSlug || resolvedPrintHref) && (
+        {(projectSlug || (mode === "embedded" && resolvedPresentationHref)) && (
           <div className="pitch-deck__links">
             {projectSlug && (
               <a
@@ -400,7 +439,16 @@ export function PitchDeckFrame({
                 <span>Transcript</span>
               </a>
             )}
-            {deckActionLink}
+            {mode === "embedded" && resolvedPresentationHref && (
+              <Link
+                href={resolvedPresentationHref}
+                aria-label="Open deck"
+                title="Open deck"
+              >
+                <Expand aria-hidden="true" />
+                <span>Open deck</span>
+              </Link>
+            )}
           </div>
         )}
       </div>

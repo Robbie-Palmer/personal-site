@@ -21,6 +21,7 @@ const { deckApi, deckState } = vi.hoisted(() => ({
     layout: vi.fn(),
     next: vi.fn(),
     prev: vi.fn(),
+    slide: vi.fn(),
     toggleOverview: vi.fn(),
     toggleScrollView: vi.fn(),
   },
@@ -139,17 +140,31 @@ describe("PitchDeckFrame", () => {
 
     await waitFor(() => expect(deckState.props).toBeDefined());
     fireEvent.click(screen.getByRole("button", { name: "Overview" }));
-    expect(deckApi.toggleOverview).toHaveBeenCalledOnce();
+    expect(screen.getByRole("button", { name: "Overview" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    expect(
+      document.querySelector(".pitch-deck__static--overview"),
+    ).not.toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Open slide 2" }));
+    expect(deckApi.slide).toHaveBeenCalledWith(1);
+
+    fireEvent.click(screen.getByRole("button", { name: "Overview" }));
 
     const scrollButton = screen.getByRole("button", {
       name: "Scroll",
     });
-    deckApi.isScrollView.mockReturnValueOnce(false).mockReturnValue(true);
     fireEvent.click(scrollButton);
-    expect(deckApi.configure).toHaveBeenCalledWith({ view: "scroll" });
-    expect(deckApi.toggleScrollView).toHaveBeenCalledOnce();
     expect(scrollButton).toHaveAttribute("aria-pressed", "true");
-    expect(deckState.props?.config).toMatchObject({ view: "scroll" });
+    expect(
+      document.querySelector(".pitch-deck__static--scroll"),
+    ).not.toBeNull();
+    expect(deckState.props?.config).toMatchObject({
+      overview: false,
+      scrollActivationWidth: 0,
+      view: null,
+    });
 
     fireEvent.click(screen.getByRole("button", { name: "Speaker" }));
     expect(openNotes).toHaveBeenCalledOnce();
@@ -170,7 +185,7 @@ describe("PitchDeckFrame", () => {
     expect(screen.queryByRole("link", { name: "Transcript" })).toBeNull();
   });
 
-  it("adds focused project navigation, print, and hash history", async () => {
+  it("adds focused project navigation and hash history", async () => {
     render(
       <PitchDeckFrame
         projectSlug="agentic-code-review"
@@ -185,14 +200,7 @@ describe("PitchDeckFrame", () => {
     expect(
       screen.getByRole("link", { name: "Back to project" }),
     ).toHaveAttribute("href", "/projects/agentic-code-review");
-    expect(screen.getByRole("link", { name: "Print PDF" })).toHaveAttribute(
-      "href",
-      "/projects/agentic-code-review/deck?print-pdf",
-    );
-    expect(screen.getByRole("link", { name: "Print PDF" })).toHaveAttribute(
-      "target",
-      "_blank",
-    );
+    expect(screen.queryByRole("link", { name: "Print PDF" })).toBeNull();
     expect(deckState.props?.config).toMatchObject({
       embedded: true,
       hash: true,
