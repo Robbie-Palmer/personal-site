@@ -47,9 +47,9 @@ const loadDomainRepository = vi.hoisted(() => vi.fn(() => repository));
 
 vi.mock("@/lib/api/graph-data", () => ({ extractGraphData }));
 vi.mock("@/lib/domain", () => ({ loadDomainRepository }));
-vi.mock("@/components/technology/lazy-knowledge-graph", () => ({
-  LazyKnowledgeGraph: ({ data }: { data: GraphData }) => (
-    <div data-testid="knowledge-graph">{data.nodes[0]?.name}</div>
+vi.mock("@/components/deferred-knowledge-graph", () => ({
+  DeferredKnowledgeGraph: () => (
+    <div data-testid="knowledge-graph">Deferred graph</div>
   ),
 }));
 
@@ -69,7 +69,7 @@ describe("HomeKnowledgeGraph", () => {
       screen.getByText("content types").nextElementSibling,
     ).toHaveTextContent("3");
     expect(screen.getByTestId("knowledge-graph")).toHaveTextContent(
-      "Personal site",
+      "Deferred graph",
     );
     expect(loadDomainRepository).toHaveBeenCalledOnce();
     expect(extractGraphData).toHaveBeenCalledWith(repository);

@@ -1,4 +1,4 @@
-import { LazyKnowledgeGraph } from "@/components/technology/lazy-knowledge-graph";
+import { DeferredKnowledgeGraph } from "@/components/deferred-knowledge-graph";
 import { extractGraphData } from "@/lib/api/graph-data";
 import { loadDomainRepository } from "@/lib/domain";
 
@@ -63,7 +63,7 @@ export function HomeKnowledgeGraph() {
           className="absolute -inset-3 -z-10 rounded-[1.25rem] border border-primary/5 bg-card/30 sm:-inset-5"
           aria-hidden="true"
         />
-        <LazyKnowledgeGraph data={data} />
+        <DeferredKnowledgeGraph />
       </div>
     </section>
   );
