@@ -1127,6 +1127,14 @@ export const technologies: TechnologyContent[] = [
     type: "tool",
   },
   {
+    name: "K3s",
+    added: "2026-09-01",
+    description:
+      "Lightweight Kubernetes distribution for running container workloads across Linux nodes",
+    website: "https://k3s.io",
+    type: "platform",
+  },
+  {
     name: "Recyclarr",
     added: "2026-08-23",
     description:

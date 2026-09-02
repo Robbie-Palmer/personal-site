@@ -137,6 +137,7 @@ export async function persistReplayInput(options: {
       coverage: prepared.coverage,
       paths: prepared.paths,
       omittedPaths: prepared.omitted,
+      reviewedHunks: prepared.hunks,
     },
     prompt: options.prompt,
     policy: options.policy,
