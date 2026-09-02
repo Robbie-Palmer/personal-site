@@ -35,19 +35,30 @@ export function TechOrbit({
   const [isVisible, setIsVisible] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Track container width for responsive scaling
+  // Track container width for responsive scaling. The width drives the orbit
+  // height, radii and icon sizes inside this same container, so write the state
+  // on the next frame instead of during the callback - resizing the observed
+  // subtree mid-delivery makes browsers report a ResizeObserver loop. Rounding
+  // keeps sub-pixel jitter from re-rendering for no visible gain.
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
 
+    let frame = 0;
     const observer = new ResizeObserver((entries) => {
       const entry = entries[0];
-      if (entry) {
-        setContainerWidth(entry.contentRect.width);
-      }
+      if (!entry) return;
+      const width = Math.round(entry.contentRect.width);
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        setContainerWidth((current) => (current === width ? current : width));
+      });
     });
     observer.observe(container);
-    return () => observer.disconnect();
+    return () => {
+      cancelAnimationFrame(frame);
+      observer.disconnect();
+    };
   }, []);
 
   // Pause animations when not visible (with margin to start early)
