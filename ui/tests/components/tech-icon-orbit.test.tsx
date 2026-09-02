@@ -9,7 +9,10 @@ vi.mock("@/lib/api/tech-icons", () => ({
 const technologies = [{ name: "TypeScript" }, { name: "Python" }];
 
 let resize: ResizeObserverCallback;
-let frames: FrameRequestCallback[];
+// Keyed by frame id so cancelAnimationFrame actually drops the callback, which
+// is the only way a test can tell a cancelled frame from a queued one.
+let frames: Map<number, FrameRequestCallback>;
+let lastFrameId: number;
 const disconnect = vi.fn();
 
 function measure(width: number) {
@@ -22,8 +25,8 @@ function measure(width: number) {
 }
 
 function runFrames() {
-  const pending = frames;
-  frames = [];
+  const pending = [...frames.values()];
+  frames.clear();
   act(() => {
     for (const frame of pending) frame(performance.now());
   });
@@ -36,7 +39,8 @@ function orbitHeight(container: HTMLElement) {
 
 describe("TechOrbit", () => {
   beforeEach(() => {
-    frames = [];
+    frames = new Map();
+    lastFrameId = 0;
     disconnect.mockClear();
     vi.stubGlobal(
       "ResizeObserver",
@@ -59,10 +63,14 @@ describe("TechOrbit", () => {
         disconnect() {}
       },
     );
-    vi.stubGlobal("requestAnimationFrame", (frame: FrameRequestCallback) =>
-      frames.push(frame),
-    );
-    vi.stubGlobal("cancelAnimationFrame", () => {});
+    vi.stubGlobal("requestAnimationFrame", (frame: FrameRequestCallback) => {
+      lastFrameId += 1;
+      frames.set(lastFrameId, frame);
+      return lastFrameId;
+    });
+    vi.stubGlobal("cancelAnimationFrame", (id: number) => {
+      frames.delete(id);
+    });
   });
 
   afterEach(() => {
@@ -78,7 +86,23 @@ describe("TechOrbit", () => {
     // Writing state inside the callback is what makes browsers report
     // "ResizeObserver loop completed with undelivered notifications".
     expect(orbitHeight(container)).toBe(initialHeight);
-    expect(frames).toHaveLength(1);
+    expect(frames.size).toBe(1);
+
+    runFrames();
+
+    expect(orbitHeight(container)).not.toBe(initialHeight);
+  });
+
+  it("supersedes a pending frame so a burst settles once on the newest width", () => {
+    const { container } = render(<TechOrbit technologies={technologies} />);
+    const initialHeight = orbitHeight(container);
+
+    // 400 scales identically to the 600 default, so only the narrower 160 moves
+    // the height - the settled value shows which width the surviving frame kept.
+    measure(400);
+    measure(160);
+
+    expect(frames.size).toBe(1);
 
     runFrames();
 
@@ -98,11 +122,16 @@ describe("TechOrbit", () => {
     expect(orbitHeight(container)).toBe(settledHeight);
   });
 
-  it("stops observing when unmounted", () => {
+  it("stops observing and drops the pending frame when unmounted", () => {
     const { unmount } = render(<TechOrbit technologies={technologies} />);
+
+    measure(160);
+    expect(frames.size).toBe(1);
 
     unmount();
 
     expect(disconnect).toHaveBeenCalled();
+    // A frame left queued here would write state for a component that is gone.
+    expect(frames.size).toBe(0);
   });
 });
