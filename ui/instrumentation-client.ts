@@ -1,6 +1,26 @@
-import posthog from "posthog-js";
+import posthog, { type CaptureResult } from "posthog-js";
 
 const posthogKey = process.env.NEXT_PUBLIC_POSTHOG_KEY;
+
+// Browsers raise these as window ErrorEvents when a ResizeObserver callback
+// changes the layout it just measured. The browser recovers on the next frame,
+// so they are noise that would otherwise sit in error tracking next to real
+// faults with no stack to act on.
+const BROWSER_NOISE_MESSAGES = [
+  "ResizeObserver loop completed with undelivered notifications",
+  "ResizeObserver loop limit exceeded",
+];
+
+function isBrowserNoise(event: CaptureResult): boolean {
+  if (event.event !== "$exception") return false;
+  const exceptions: unknown = event.properties?.$exception_list;
+  if (!Array.isArray(exceptions)) return false;
+  return exceptions.some(({ value }: { value?: unknown }) =>
+    BROWSER_NOISE_MESSAGES.some(
+      (message) => typeof value === "string" && value.startsWith(message),
+    ),
+  );
+}
 
 function setIdentityHeader(
   headers: Headers,
@@ -22,6 +42,7 @@ if (posthogKey) {
     defaults: "2025-11-30",
     // Enables capturing unhandled exceptions via Error Tracking
     capture_exceptions: true,
+    before_send: (event) => (event && isBrowserNoise(event) ? null : event),
     // Turn on debug in development mode
     debug: process.env.NODE_ENV === "development",
   });

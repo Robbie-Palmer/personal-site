@@ -8,6 +8,13 @@ const posthog = vi.hoisted(() => ({
 
 vi.mock("posthog-js", () => ({ default: posthog }));
 
+function exception(message: string) {
+  return {
+    event: "$exception",
+    properties: { $exception_list: [{ type: "Error", value: message }] },
+  };
+}
+
 describe("PostHog browser instrumentation", () => {
   let originalFetch: typeof window.fetch;
 
@@ -50,6 +57,7 @@ describe("PostHog browser instrumentation", () => {
       ui_host: "https://eu.posthog.com",
       defaults: "2025-11-30",
       capture_exceptions: true,
+      before_send: expect.any(Function),
       debug: true,
     });
 
@@ -90,6 +98,42 @@ describe("PostHog browser instrumentation", () => {
     expect(apiHeaders.get("x-existing")).toBe("value");
     expect(apiHeaders.has("x-posthog-distinct-id")).toBe(false);
     expect(apiHeaders.has("x-posthog-session-id")).toBe(false);
+  });
+
+  it("drops ResizeObserver loop noise before it reaches error tracking", async () => {
+    vi.stubEnv("NEXT_PUBLIC_POSTHOG_KEY", "phc_test");
+
+    await import("../instrumentation-client");
+    const beforeSend = posthog.init.mock.calls[0]?.[1]?.before_send;
+
+    expect(
+      beforeSend(
+        exception(
+          "ResizeObserver loop completed with undelivered notifications.",
+        ),
+      ),
+    ).toBeNull();
+    expect(
+      beforeSend(exception("ResizeObserver loop limit exceeded")),
+    ).toBeNull();
+  });
+
+  it("keeps real exceptions and every other event", async () => {
+    vi.stubEnv("NEXT_PUBLIC_POSTHOG_KEY", "phc_test");
+
+    await import("../instrumentation-client");
+    const beforeSend = posthog.init.mock.calls[0]?.[1]?.before_send;
+
+    const chunkError = exception("Loading chunk 42 failed.");
+    expect(beforeSend(chunkError)).toBe(chunkError);
+
+    const pageview = { event: "$pageview", properties: {} };
+    expect(beforeSend(pageview)).toBe(pageview);
+
+    const exceptionWithoutList = { event: "$exception", properties: {} };
+    expect(beforeSend(exceptionWithoutList)).toBe(exceptionWithoutList);
+
+    expect(beforeSend(null)).toBeNull();
   });
 
   it("keeps API requests working when an identity lookup fails", async () => {
