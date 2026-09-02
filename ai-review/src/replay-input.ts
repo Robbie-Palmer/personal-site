@@ -1,5 +1,6 @@
 import type { Env, ReviewWorkflowParams } from "./env";
 import type { PreparedReview, ReviewRecordStatus } from "./review-engine";
+import { ReplayInputSnapshotSchema } from "ai-review-domain/records";
 
 export const REPLAY_INPUT_SCHEMA_VERSION = 1;
 export const REPLAY_MANIFEST_SCHEMA_VERSION = 1;
@@ -8,13 +9,15 @@ export function assertReplaySchemaCompatible(value: unknown): asserts value is {
   schemaVersion: typeof REPLAY_INPUT_SCHEMA_VERSION;
   recordType: "ai-review-replay-input";
 } {
-  const record = value as { schemaVersion?: unknown; recordType?: unknown };
-  if (
-    record?.schemaVersion !== REPLAY_INPUT_SCHEMA_VERSION ||
-    record.recordType !== "ai-review-replay-input"
-  ) {
+  const record = value as { schemaVersion?: unknown };
+  if (record?.schemaVersion !== REPLAY_INPUT_SCHEMA_VERSION) {
     throw new Error(`Unsupported replay input schema version: ${String(record?.schemaVersion)}`);
   }
+  const result = ReplayInputSnapshotSchema.safeParse(value);
+  if (result.success) return;
+  throw new Error(
+    `Invalid replay input schema: ${result.error.issues[0]?.message ?? "invalid record"}`,
+  );
 }
 
 const SECRET_PATTERNS: Array<[string, RegExp]> = [
@@ -153,11 +156,12 @@ export async function persistReplayInput(options: {
       capturedAt: options.timestamp.toISOString(),
     },
   };
-  const snapshot = redactValue(rawSnapshot, redactions) as typeof rawSnapshot;
-  Object.assign(snapshot.provenance, {
+  const redactedSnapshot = redactValue(rawSnapshot, redactions) as typeof rawSnapshot;
+  Object.assign(redactedSnapshot.provenance, {
     redactions,
     liveCredentialsIncluded: false,
   });
+  const snapshot = ReplayInputSnapshotSchema.parse(redactedSnapshot);
   const snapshotJson = stableJson(snapshot);
   const snapshotSha256 = await sha256(snapshotJson);
   const retentionDays = finite(env.AI_REVIEW_DATA_RETENTION_DAYS, 365);

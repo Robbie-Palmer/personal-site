@@ -1,0 +1,44 @@
+[tasks.extract]
+description = "Extract a redacted, traceable Pull Request corpus from the cached AI review export"
+run = "pnpm exec tsx src/extract-corpus.ts --input \"${AI_REVIEW_EVALUATION_EXPORT:-$HOME/.cache/ai-review/r2-export}\" --output data/corpus --params params.yaml"
+
+[tasks."stage:extract"]
+description = "Run the DVC dataset extraction stage"
+run = "pnpm exec tsx src/extract-corpus.ts --output data/corpus --params params.yaml"
+
+[tasks."stage:freeze"]
+description = "Run the DVC cohort freeze stage"
+run = "pnpm exec tsx src/freeze-cohort.ts --dataset data/corpus/manifest.json --output outputs/frozen --params params.yaml"
+
+[tasks."stage:replay"]
+description = "Run the DVC controlled replay stage"
+run = "pnpm exec tsx src/run-replays.ts --cohort outputs/frozen/cohort.json --experiment outputs/frozen/experiment.json --corpus data/corpus --output outputs/replays --params params.yaml --ai-review-root ../../ai-review"
+
+[tasks."stage:match"]
+description = "Run the DVC finding matching stage"
+run = "pnpm exec tsx src/match-replays.ts --cohort outputs/frozen/cohort.json --matching outputs/frozen/matching.json --replays outputs/replays --output outputs/matched"
+
+[tasks."stage:evaluate"]
+description = "Run the DVC DuckDB evaluation stage"
+run = "bash scripts/evaluate.sh"
+
+[tasks.repro]
+description = "Reproduce the AI reviewer corpus, replay plans or runs, and DuckDB evaluation"
+run = "bash ../scripts/doppler-pipeline-env uv tool run --from 'dvc[s3]==3.67.1' dvc repro"
+
+[tasks.pull]
+description = "Pull the versioned AI reviewer evaluation corpus and outputs from R2"
+run = "bash ../scripts/doppler-pipeline-env uv tool run --from 'dvc[s3]==3.67.1' dvc pull"
+
+[tasks.push]
+description = "Push the AI reviewer evaluation DVC cache to its R2 prefix"
+run = "bash ../scripts/doppler-pipeline-env uv tool run --from 'dvc[s3]==3.67.1' dvc push"
+
+[tasks.dvc]
+description = "Run a DVC command in the AI reviewer evaluation project"
+run = "bash ../scripts/doppler-pipeline-env uv tool run --from 'dvc[s3]==3.67.1' dvc"
+
+[tasks.check]
+description = "Check the AI reviewer evaluation pipeline and deterministic fixtures"
+depends = ["//:install", "//packages/ai-review-domain:check"]
+run = "pnpm exec tsc --noEmit && pnpm exec tsx --test tests/*.test.ts"

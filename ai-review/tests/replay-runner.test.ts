@@ -80,6 +80,7 @@ const snapshot: ReplayInputSnapshot = {
     diffFingerprint: "diff-hash",
     configFingerprint: "config-hash",
     capturedAt: "2026-08-31T12:00:00Z",
+    liveCredentialsIncluded: false,
   },
 };
 
@@ -324,7 +325,7 @@ describe("controlled replay runner", () => {
       },
     };
     const { adapter, store } = fixture();
-    await executeControlledReplay({
+    const result = await executeControlledReplay({
       ...request,
       snapshot: fullSnapshot,
       dryRun: false,
@@ -347,6 +348,15 @@ describe("controlled replay runner", () => {
       limits.allowedProviders,
       expect.objectContaining({ kind: "coverage-policy" }),
     );
+    expect(result).toMatchObject({
+      coverage: {
+        mode: "full",
+        totalHunks: 2,
+        reviewedHunkIds: expect.arrayContaining([expect.any(String), expect.any(String)]),
+        unchangedHunkIds: [],
+        skippedHunkIds: [],
+      },
+    });
   });
 
   it("records a completed merge that crosses the total cost limit", async () => {
@@ -402,8 +412,8 @@ describe("controlled replay runner", () => {
       [{ allowedProviders: ["opencode"] }, request.experiment, /openrouter/],
       [{ maxScoutTokens: 1 }, request.experiment, /scout token/],
       [{ maxMergerTokens: 1 }, request.experiment, /merger token/],
-      [{}, { kind: "scout-model", models: [] }, /model count/],
-      [{}, { kind: "scout-model", models: [{ model: " ", provider: "openrouter" }] }, /model IDs/],
+      [{}, { kind: "scout-model", models: [] }, /models/],
+      [{}, { kind: "scout-model", models: [{ model: " ", provider: "openrouter" }] }, /model/],
     ];
     for (const [limitChanges, experiment, message] of cases) {
       await expect(planControlledReplay({
@@ -426,7 +436,7 @@ describe("controlled replay runner", () => {
         kind: "coverage-policy",
         policy: { version: "coverage-v2", mode: "unsupported" },
       } as never,
-    })).rejects.toThrow(/supported mode/);
+    })).rejects.toThrow(/mode/);
     await expect(planControlledReplay({
       ...request,
       experiment: { kind: "merger-model", model: "experiment/merger" },

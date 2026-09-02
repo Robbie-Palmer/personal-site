@@ -1,0 +1,104 @@
+stages:
+  extract_dataset:
+    cmd: mise run //ml-pipelines/ai-review-evaluation:stage:extract
+    params:
+      - source
+      - cohort.changeSizeThresholds
+    deps:
+      - ../../packages/ai-review-domain/src/records.ts
+      - ../../packages/ai-review-domain/src/replay.ts
+      - src/extract-corpus.ts
+      - src/artifact-files.ts
+      - src/cli-arguments.ts
+      - src/corpus-strata.ts
+      - src/schemas.ts
+    outs:
+      - data/corpus
+
+  freeze_cohort:
+    cmd: mise run //ml-pipelines/ai-review-evaluation:stage:freeze
+    params:
+      - cohort
+      - experiment
+      - limits
+      - matching
+      - decision
+    deps:
+      - ../../packages/ai-review-domain/src/records.ts
+      - ../../packages/ai-review-domain/src/replay.ts
+      - data/corpus
+      - src/freeze-cohort.ts
+      - src/artifact-files.ts
+      - src/cli-arguments.ts
+      - src/schemas.ts
+    outs:
+      - outputs/frozen/cohort.json
+      - outputs/frozen/decision.json
+      - outputs/frozen/experiment.json
+      - outputs/frozen/matching.json
+      - outputs/frozen/predeclaration.json
+
+  replay:
+    cmd: mise run //ml-pipelines/ai-review-evaluation:stage:replay
+    params:
+      - replay
+    deps:
+      - ../../ai-review/analytics/corpus-replay.ts
+      - ../../ai-review/src/env.ts
+      - ../../ai-review/src/finding-lifecycle.ts
+      - ../../ai-review/src/github-app.ts
+      - ../../ai-review/src/guardrails.ts
+      - ../../ai-review/src/replay-input.ts
+      - ../../ai-review/src/replay-runner.ts
+      - ../../ai-review/src/review-engine.ts
+      - ../../.github/scripts/ai-review/ai-review.ts
+      - ../../packages/ai-review-domain/src/records.ts
+      - ../../packages/ai-review-domain/src/replay.ts
+      - outputs/frozen/cohort.json
+      - outputs/frozen/experiment.json
+      - data/corpus
+      - src/artifact-files.ts
+      - src/cli-arguments.ts
+      - src/run-replays.ts
+      - src/schemas.ts
+    outs:
+      - outputs/replays
+
+  match:
+    cmd: mise run //ml-pipelines/ai-review-evaluation:stage:match
+    deps:
+      - ../../packages/ai-review-domain/src/records.ts
+      - ../../packages/ai-review-domain/src/replay.ts
+      - outputs/frozen/cohort.json
+      - outputs/frozen/matching.json
+      - outputs/replays
+      - src/artifact-files.ts
+      - src/cli-arguments.ts
+      - src/corpus-strata.ts
+      - src/match-replays.ts
+      - src/schemas.ts
+    outs:
+      - outputs/matched
+
+  evaluate:
+    cmd: mise run //ml-pipelines/ai-review-evaluation:stage:evaluate
+    deps:
+      - ../../packages/ai-review-domain/src/records.ts
+      - ../../packages/ai-review-domain/src/replay.ts
+      - analytics/scorecard.sql
+      - outputs/frozen/cohort.json
+      - outputs/frozen/decision.json
+      - outputs/matched
+      - scripts/evaluate.sh
+      - src/build-scorecard.ts
+      - src/artifact-files.ts
+      - src/cli-arguments.ts
+      - src/schemas.ts
+    outs:
+      - outputs/evaluation/decision.json
+      - outputs/evaluation/decision.md
+      - outputs/evaluation/replay-scorecard.parquet
+      - outputs/evaluation/scorecard-manifest.json
+      - outputs/evaluation/summary.json
+    metrics:
+      - outputs/evaluation/metrics.json

@@ -172,6 +172,12 @@ importers:
       '@octokit/auth-app':
         specifier: ^8.2.0
         version: 8.3.0
+      ai-review-domain:
+        specifier: workspace:*
+        version: link:../packages/ai-review-domain
+      zod:
+        specifier: ^4.2.1
+        version: 4.5.4
     devDependencies:
       '@cloudflare/vitest-pool-workers':
         specifier: ^0.22.0
@@ -194,6 +200,25 @@ importers:
       wrangler:
         specifier: ^4
         version: 4.127.1(@cloudflare/workers-types@5.20260830.1)(@types/node@24.13.3)
+
+  ml-pipelines/ai-review-evaluation:
+    dependencies:
+      ai-review-domain:
+        specifier: workspace:*
+        version: link:../../packages/ai-review-domain
+      zod:
+        specifier: ^4.2.1
+        version: 4.5.4
+    devDependencies:
+      '@types/node':
+        specifier: ^24
+        version: 24.13.3
+      tsx:
+        specifier: ^4.21.0
+        version: 4.23.13
+      typescript:
+        specifier: ^5
+        version: 5.9.3
 
   ml-pipelines/recipe-dataset:
     dependencies:
@@ -248,7 +273,7 @@ importers:
         version: 19.2.8(react@19.2.8)
       recharts:
         specifier: ^3.3.0
-        version: 3.10.1(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react-is@16.13.1)(react@19.2.8)(redux@5.0.1)
+        version: 3.10.1(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react-is@17.0.2)(react@19.2.8)(redux@5.0.1)
       recipe-domain:
         specifier: workspace:*
         version: link:../../../../packages/recipe-domain
@@ -280,6 +305,16 @@ importers:
       vite-plugin-wasm:
         specifier: ^3.6.0
         version: 3.6.0(vite@8.2.2(@types/node@24.13.3)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.13)(yaml@2.9.0))
+
+  packages/ai-review-domain:
+    dependencies:
+      zod:
+        specifier: ^4.2.1
+        version: 4.5.4
+    devDependencies:
+      typescript:
+        specifier: ^5
+        version: 5.9.3
 
   packages/observability:
     dependencies:
@@ -508,7 +543,7 @@ importers:
         version: 1.5.0
       recharts:
         specifier: ^3.3.0
-        version: 3.10.1(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react-is@16.13.1)(react@19.2.8)(redux@5.0.1)
+        version: 3.10.1(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react-is@17.0.2)(react@19.2.8)(redux@5.0.1)
       recipe-domain:
         specifier: workspace:*
         version: link:../packages/recipe-domain
@@ -13466,7 +13501,7 @@ snapshots:
 
   reading-time@1.5.0: {}
 
-  recharts@3.10.1(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react-is@16.13.1)(react@19.2.8)(redux@5.0.1):
+  recharts@3.10.1(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react-is@17.0.2)(react@19.2.8)(redux@5.0.1):
     dependencies:
       '@reduxjs/toolkit': 2.12.0(react-redux@9.3.0(@types/react@19.2.18)(react@19.2.8)(redux@5.0.1))(react@19.2.8)
       clsx: 2.1.1
@@ -13476,7 +13511,7 @@ snapshots:
       immer: 11.1.18
       react: 19.2.8
       react-dom: 19.2.8(react@19.2.8)
-      react-is: 16.13.1
+      react-is: 17.0.2
       react-redux: 9.3.0(@types/react@19.2.18)(react@19.2.8)(redux@5.0.1)
       reselect: 5.2.0
       tiny-invariant: 1.3.3

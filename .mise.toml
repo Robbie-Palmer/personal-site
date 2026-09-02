@@ -7,9 +7,11 @@ config_roots = [
     "infra-bootstrap",
     "backups",
     "ml-pipelines",
+    "ml-pipelines/ai-review-evaluation",
     "ml-pipelines/recipe-dataset",
     "ml-pipelines/recipe-parsing",
     "ml-pipelines/wsi-analysis",
+    "packages/ai-review-domain",
     "packages/recipe-db",
     "packages/observability",
     "packages/recipe-parsing",
@@ -42,7 +44,7 @@ MISE_EXPERIMENTAL = "1"
 # Root-level tasks for repo-wide tooling
 [tasks.lint]
 description = "Lint all files across the entire repo"
-depends = ["//:lint:markdown", "//:lint:mdx", "//:lint:yaml", "//:lint:typos", "//:lint:knip", "//:lint:actions", "//:lint:api", "//:lint:prose", "//ai-review:check", "//ui:lint", "//infra:lint", "//infra:lint:tflint", "//infra-bootstrap:lint", "//infra-bootstrap:lint:tflint"]
+depends = ["//:lint:markdown", "//:lint:mdx", "//:lint:yaml", "//:lint:typos", "//:lint:knip", "//:lint:actions", "//:lint:api", "//:lint:prose", "//packages/ai-review-domain:check", "//ai-review:check", "//ui:lint", "//infra:lint", "//infra:lint:tflint", "//infra-bootstrap:lint", "//infra-bootstrap:lint:tflint"]
 
 [tasks."lint:api"]
 description = "Generate-check and lint the recipe API OpenAPI contract"

@@ -1,4 +1,10 @@
 import type { FindingOutcome } from "./env";
+import {
+  FindingOutcomeRecordSchema,
+  type FindingOutcomeRecord,
+} from "ai-review-domain/records";
+
+export type { FindingOutcomeRecord } from "ai-review-domain/records";
 
 export const DEFAULT_FINDING_OUTCOME_EVALUATOR_VERSION =
   "deterministic-outcomes-v1";
@@ -48,25 +54,6 @@ export type FindingInteractionRow = {
   payload_json: string;
 };
 
-export type FindingOutcomeRecord = {
-  schemaVersion: 2;
-  recordType: "finding-outcome";
-  outcomeVersion: number;
-  repository: string;
-  pullRequestNumber: number;
-  findingId: string;
-  outcome: FindingOutcome;
-  outcomeKind: FindingOutcomeKind;
-  basis: FindingOutcomeBasis;
-  confidence: number;
-  evaluatorVersion: string;
-  manualOverride: FindingOutcomeManualOverride | null;
-  sourceId: string;
-  evidence: Record<string, unknown>;
-  occurredAt: string;
-  recordedAt: string;
-};
-
 export function buildFindingOutcomeRecord(options: {
   repository: string;
   pullRequestNumber: number;
@@ -82,7 +69,7 @@ export function buildFindingOutcomeRecord(options: {
   recordedAt: string;
   evidence: Record<string, unknown>;
 }): FindingOutcomeRecord {
-  return {
+  return FindingOutcomeRecordSchema.parse({
     schemaVersion: 2,
     recordType: "finding-outcome",
     outcomeVersion: options.outcomeVersion,
@@ -99,7 +86,7 @@ export function buildFindingOutcomeRecord(options: {
     evidence: options.evidence,
     occurredAt: options.occurredAt,
     recordedAt: options.recordedAt,
-  };
+  });
 }
 
 export function findingOutcomeKind(

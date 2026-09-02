@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - "ai-review/**"
+      - "packages/ai-review-domain/**"
       - ".github/scripts/ai-review/**"
       - ".github/workflows/ai-review-cd.yml"
       - ".mise.toml"

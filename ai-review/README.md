@@ -348,6 +348,11 @@ policy. The store writes results below
 `replays/v1/<corpus-id>/<configuration-id>/repetition-<n>.json`, separate from
 production review records.
 
+The production service and evaluation pipeline import their shared Zod schemas
+and inferred TypeScript types from `packages/ai-review-domain`. This keeps replay
+inputs, finding outcomes, coverage, change profiles, model metrics, provider
+names, and experiment contracts identical on both sides of the boundary.
+
 Every request must declare model-count, token, cost, provider, privacy,
 timeout, and repetition limits. The default is a dry-run plan, which validates
 the frozen input and reports the full production-to-experiment difference
@@ -379,6 +384,14 @@ doppler run --project ai-review --config prd -- \
   --max-cost-usd 0.25 \
   --execute
 ```
+
+Evaluation pipelines can pass any supported single-variable experiment as a
+JSON file with `--experiment`: scout models, merger model, prompt version, or
+coverage policy. `--max-models`, `--max-scout-tokens`, `--max-merger-tokens`,
+`--max-repetitions`, `--allowed-providers`, and
+`--require-zero-data-retention` keep the whole repeated experiment on one fixed
+limit set. The older `--model` and `--provider` form remains available for a
+single scout-model replay.
 
 The local store claims the result key atomically and writes the same
 `replays/v1` namespace used by the runner. The command prints the plan or result
