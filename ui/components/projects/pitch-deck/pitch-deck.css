@@ -36,9 +36,6 @@ body.reveal-viewport:has(.pitch-deck) {
 .pitch-deck__stage--scroll {
   overflow-y: auto;
   overscroll-behavior: contain;
-}
-
-.pitch-deck__stage--scroll {
   scroll-snap-type: y proximity;
 }
 
