@@ -124,6 +124,37 @@ describe("PitchDeckFrame", () => {
     expect(deckApi.prev).toHaveBeenCalledOnce();
   });
 
+  it("keeps narrow layouts in the swipeable slide view", async () => {
+    const matchMedia = vi.spyOn(window, "matchMedia").mockImplementation(
+      (query): MediaQueryList => ({
+        matches: query === "(max-width: 700px)",
+        media: query,
+        onchange: null,
+        addListener: () => {},
+        removeListener: () => {},
+        addEventListener: () => {},
+        removeEventListener: () => {},
+        dispatchEvent: () => false,
+      }),
+    );
+
+    render(
+      <PitchDeckFrame title="Mobile pitch" mode="focused">
+        <section>Swipeable slide</section>
+      </PitchDeckFrame>,
+    );
+
+    await waitFor(() =>
+      expect(screen.queryByRole("button", { name: "Scroll" })).toBeNull(),
+    );
+    expect(document.querySelector(".pitch-deck__static")).toBeNull();
+    expect(document.querySelector(".pitch-deck__live")).not.toHaveAttribute(
+      "hidden",
+    );
+
+    matchMedia.mockRestore();
+  });
+
   it("runs presenter tools without requiring project-specific links", async () => {
     const openNotes = vi.fn();
     deckApi.getPlugin.mockReturnValue({ open: openNotes });
@@ -138,7 +169,11 @@ describe("PitchDeckFrame", () => {
       </PitchDeckFrame>,
     );
 
-    await waitFor(() => expect(deckState.props).toBeDefined());
+    await waitFor(() =>
+      expect(deckState.props?.config).toMatchObject({
+        url: expect.stringContaining("fragments=false"),
+      }),
+    );
     fireEvent.click(screen.getByRole("button", { name: "Overview" }));
     expect(screen.getByRole("button", { name: "Overview" })).toHaveAttribute(
       "aria-pressed",

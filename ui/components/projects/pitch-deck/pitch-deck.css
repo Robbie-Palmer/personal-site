@@ -33,14 +33,19 @@ body.reveal-viewport:has(.pitch-deck) {
   height: 100%;
 }
 
-.pitch-deck__stage--scroll,
-.pitch-deck__stage--overview {
+.pitch-deck__stage--scroll {
   overflow-y: auto;
   overscroll-behavior: contain;
 }
 
 .pitch-deck__stage--scroll {
   scroll-snap-type: y proximity;
+}
+
+.pitch-deck__stage--overview {
+  overflow: auto;
+  overscroll-behavior: contain;
+  touch-action: pan-x pan-y;
 }
 
 .pitch-deck .reveal {
@@ -94,6 +99,10 @@ body.reveal-viewport:has(.pitch-deck) {
   font-weight: 720;
   line-height: 1.04;
   letter-spacing: -0.04em;
+}
+
+.pitch-deck .reveal .pitch-slide__long-title {
+  font-size: 48px;
 }
 
 .pitch-deck .reveal h3 {
@@ -433,6 +442,7 @@ body.reveal-viewport:has(.pitch-deck) {
 
 .pitch-deck .reveal.pitch-deck__static--overview {
   min-height: 100%;
+  touch-action: pan-x pan-y;
 }
 
 .pitch-deck .reveal.pitch-deck__static--overview > .slides,
@@ -469,6 +479,7 @@ body.reveal-viewport:has(.pitch-deck) {
   border-radius: 8px;
   background: transparent;
   cursor: pointer;
+  touch-action: pan-x pan-y;
 }
 
 .pitch-deck .pitch-deck__overview-targets button:hover {
@@ -530,46 +541,14 @@ body.reveal-viewport:has(.pitch-deck) {
     aspect-ratio: 3 / 4;
   }
 
-  .pitch-deck .reveal.pitch-deck__static--scroll > .slides {
-    gap: 10px;
-    padding: 10px;
-  }
-
-  .pitch-deck .reveal.pitch-deck__static--scroll > .slides > section {
-    aspect-ratio: 3 / 4;
-    padding: 30px 28px;
-  }
-
-  .pitch-deck .reveal.pitch-deck__static--scroll h1 {
-    font-size: 34px;
-  }
-
-  .pitch-deck .reveal.pitch-deck__static--scroll h2 {
-    font-size: 28px;
-  }
-
-  .pitch-deck .reveal.pitch-deck__static--scroll h3,
-  .pitch-deck .reveal.pitch-deck__static--scroll .pitch-column h3,
-  .pitch-deck .reveal.pitch-deck__static--scroll .pitch-column h2 {
-    font-size: 20px;
-  }
-
-  .pitch-deck .reveal.pitch-deck__static--scroll p,
-  .pitch-deck .reveal.pitch-deck__static--scroll li,
-  .pitch-deck .reveal.pitch-deck__static--scroll .pitch-column p,
-  .pitch-deck .reveal.pitch-deck__static--scroll .pitch-column li,
-  .pitch-deck .reveal.pitch-deck__static--scroll .review-depth-demo--preview p {
-    font-size: 16px;
-  }
-
-  .pitch-deck .reveal.pitch-deck__static--scroll pre {
-    padding: 14px 16px;
-    font-size: 12px;
-  }
-
   .pitch-deck .reveal.pitch-deck__static--overview > .slides,
   .pitch-deck__overview-targets {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: max-content;
+    min-width: 100%;
+    grid-template-columns: none;
+    grid-template-rows: repeat(2, auto);
+    grid-auto-columns: min(58vw, 240px);
+    grid-auto-flow: column;
     gap: 8px;
     padding: 10px;
   }
@@ -577,6 +556,28 @@ body.reveal-viewport:has(.pitch-deck) {
   .pitch-deck .reveal.pitch-deck__static--overview > .slides > section,
   .pitch-deck .pitch-deck__overview-targets button {
     aspect-ratio: 3 / 4;
+    scroll-snap-align: start;
+  }
+
+  .pitch-deck__overview-targets {
+    right: auto;
+    bottom: auto;
+  }
+
+  .pitch-deck__stage--overview {
+    overflow-x: auto;
+    overflow-y: hidden;
+    scroll-snap-type: x proximity;
+    touch-action: pan-x;
+  }
+
+  .pitch-deck .reveal.pitch-deck__static--overview,
+  .pitch-deck .pitch-deck__overview-targets button {
+    touch-action: pan-x;
+  }
+
+  .pitch-deck__scroll-toggle {
+    display: none;
   }
 
   .pitch-deck--focused .pitch-deck__stage {
@@ -647,6 +648,11 @@ body.reveal-viewport:has(.pitch-deck) {
 
   .pitch-deck .reveal h2 {
     font-size: 42px;
+  }
+
+  .pitch-deck .reveal .pitch-slide__long-title {
+    font-size: 36px;
+    line-height: 1.08;
   }
 
   .pitch-deck .reveal h3 {

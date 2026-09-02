@@ -36,6 +36,10 @@ type Position = {
 
 type DeckView = "slides" | "overview" | "scroll";
 
+type SpeakerRevealConfig = RevealConfig & {
+  url?: string;
+};
+
 const initialPosition: Position = {
   current: 1,
   total: 1,
@@ -65,6 +69,7 @@ export function PitchDeckFrame({
   const [position, setPosition] = useState(initialPosition);
   const [reducedMotion, setReducedMotion] = useState(false);
   const [narrowLayout, setNarrowLayout] = useState(false);
+  const [speakerPreviewUrl, setSpeakerPreviewUrl] = useState<string>();
   const [view, setView] = useState<DeckView>("slides");
   const [isFullscreen, setIsFullscreen] = useState(false);
 
@@ -90,10 +95,23 @@ export function PitchDeckFrame({
 
   useEffect(() => {
     const query = window.matchMedia("(max-width: 700px)");
-    const update = () => setNarrowLayout(query.matches);
+    const update = () => {
+      setNarrowLayout(query.matches);
+      if (query.matches) {
+        setView((current) => (current === "scroll" ? "slides" : current));
+      }
+    };
     update();
     query.addEventListener("change", update);
     return () => query.removeEventListener("change", update);
+  }, []);
+
+  useEffect(() => {
+    // The notes plugin calls next() in its upcoming iframe. Fragments would
+    // leave that iframe on the current slide instead of showing the next one.
+    const url = new URL(window.location.href);
+    url.searchParams.set("fragments", "false");
+    setSpeakerPreviewUrl(`${url.pathname}${url.search}`);
   }, []);
 
   const updatePosition = useCallback((readyDeck?: RevealApi) => {
@@ -110,13 +128,6 @@ export function PitchDeckFrame({
     (deck: RevealApi) => {
       deckRef.current = deck;
       updatePosition(deck);
-
-      const shouldStartInScrollView =
-        window.matchMedia("(max-width: 700px)").matches;
-
-      if (shouldStartInScrollView) {
-        setView("scroll");
-      }
     },
     [updatePosition],
   );
@@ -145,7 +156,7 @@ export function PitchDeckFrame({
     };
   }, [updatePosition]);
 
-  const config = useMemo<RevealConfig>(
+  const config = useMemo<SpeakerRevealConfig>(
     () => ({
       height: narrowLayout ? 960 : 720,
       width: narrowLayout ? 720 : 1280,
@@ -164,8 +175,9 @@ export function PitchDeckFrame({
       overview: false,
       view: null,
       scrollActivationWidth: 0,
+      ...(speakerPreviewUrl ? { url: speakerPreviewUrl } : {}),
     }),
-    [mode, narrowLayout, reducedMotion],
+    [mode, narrowLayout, reducedMotion, speakerPreviewUrl],
   );
 
   const toggleOverview = () => {
@@ -325,15 +337,18 @@ export function PitchDeckFrame({
               <LayoutGrid aria-hidden="true" />
               <span>Overview</span>
             </button>
-            <button
-              type="button"
-              onClick={toggleScrollView}
-              aria-pressed={view === "scroll"}
-              title="Toggle scroll view"
-            >
-              <Columns3 aria-hidden="true" />
-              <span>{view === "scroll" ? "Slides" : "Scroll"}</span>
-            </button>
+            {!narrowLayout && (
+              <button
+                type="button"
+                className="pitch-deck__scroll-toggle"
+                onClick={toggleScrollView}
+                aria-pressed={view === "scroll"}
+                title="Toggle scroll view"
+              >
+                <Columns3 aria-hidden="true" />
+                <span>{view === "scroll" ? "Slides" : "Scroll"}</span>
+              </button>
+            )}
             {showSpeakerView && (
               <button
                 type="button"

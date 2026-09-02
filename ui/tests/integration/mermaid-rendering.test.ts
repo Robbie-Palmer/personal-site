@@ -338,7 +338,7 @@ describe("Visualization browser rendering", () => {
     }
   }, 30_000);
 
-  it("uses a readable portrait deck and compact controls on phones", async () => {
+  it("uses swipeable slides and a pannable overview on phones", async () => {
     const page = await browser.newPage();
     const pageErrors: string[] = [];
     page.on("pageerror", (error) => pageErrors.push(String(error)));
@@ -348,17 +348,16 @@ describe("Visualization browser rendering", () => {
       await page.goto(`${BASE_URL}/projects/agentic-code-review/deck`, {
         waitUntil: "domcontentloaded",
       });
-      await page.waitForSelector(".pitch-deck__static--scroll", {
+      await page.waitForSelector(".pitch-deck .reveal.ready", {
         timeout: 20_000,
       });
       await page.waitForFunction(
         () =>
-          document.querySelectorAll(
-            ".pitch-deck__static--scroll > .slides > section",
-          ).length === 8 &&
           document
-            .querySelector('button[title="Toggle scroll view"]')
-            ?.textContent?.trim() === "Slides",
+            .querySelector(".pitch-deck__position")
+            ?.textContent?.trim() === "Slide 1 of 8" &&
+          !document.querySelector(".pitch-deck__static") &&
+          !document.querySelector('button[title="Toggle scroll view"]'),
       );
 
       const mobileLayout = await page.evaluate(() => {
@@ -391,15 +390,11 @@ describe("Visualization browser rendering", () => {
             ? getComputedStyle(reveal).getPropertyValue("--slide-width")
             : "",
           stageHeight: stage?.getBoundingClientRect().height ?? 0,
-          scrollSlides: Array.from(
-            document.querySelectorAll<HTMLElement>(
-              ".pitch-deck__static--scroll > .slides > section",
-            ),
-          ).map((slide) => ({
-            display: getComputedStyle(slide).display,
-            height: slide.getBoundingClientRect().height,
-            text: slide.textContent?.trim() ?? "",
-          })),
+          liveDeckHidden:
+            document
+              .querySelector(".pitch-deck__live")
+              ?.hasAttribute("hidden") ?? true,
+          staticViews: document.querySelectorAll(".pitch-deck__static").length,
           toolSizes: toolButtons.map((button) => {
             const bounds = button.getBoundingClientRect();
             return { height: bounds.height, width: bounds.width };
@@ -414,15 +409,8 @@ describe("Visualization browser rendering", () => {
       expect(mobileLayout.deckHeight).toBeLessThanOrEqual(844);
       expect(mobileLayout.documentWidth).toBeLessThanOrEqual(390);
       expect(mobileLayout.stageHeight).toBeGreaterThan(600);
-      expect(mobileLayout.scrollSlides).toHaveLength(8);
-      expect(
-        mobileLayout.scrollSlides.every(
-          (slide) =>
-            slide.display === "block" &&
-            slide.height > 400 &&
-            slide.text.length > 20,
-        ),
-      ).toBe(true);
+      expect(mobileLayout.liveDeckHidden).toBe(false);
+      expect(mobileLayout.staticViews).toBe(0);
       expect(mobileLayout.topbarHeight).toBeLessThanOrEqual(60);
       expect(mobileLayout.controlsHeight).toBeLessThanOrEqual(60);
       expect(
@@ -430,6 +418,85 @@ describe("Visualization browser rendering", () => {
           (size) => size.width >= 40 && size.height >= 40,
         ),
       ).toBe(true);
+
+      const client = await page.createCDPSession();
+      await client.send("Input.dispatchTouchEvent", {
+        type: "touchStart",
+        touchPoints: [{ x: 320, y: 420 }],
+      });
+      await client.send("Input.dispatchTouchEvent", {
+        type: "touchMove",
+        touchPoints: [{ x: 70, y: 420 }],
+      });
+      await client.send("Input.dispatchTouchEvent", {
+        type: "touchEnd",
+        touchPoints: [],
+      });
+      await page.waitForFunction(
+        () =>
+          document
+            .querySelector(".pitch-deck__position")
+            ?.textContent?.trim() === "Slide 2 of 8",
+      );
+
+      await page.click('button[title="Slide overview"]');
+      await page.waitForFunction(() => {
+        const stage = document.querySelector<HTMLElement>(
+          ".pitch-deck__stage--overview",
+        );
+        return Boolean(stage && stage.scrollWidth > stage.clientWidth);
+      });
+      await client.send("Input.dispatchTouchEvent", {
+        type: "touchStart",
+        touchPoints: [{ x: 330, y: 420 }],
+      });
+      await client.send("Input.dispatchTouchEvent", {
+        type: "touchMove",
+        touchPoints: [{ x: 50, y: 420 }],
+      });
+      await client.send("Input.dispatchTouchEvent", {
+        type: "touchEnd",
+        touchPoints: [],
+      });
+      await page.waitForFunction(
+        () =>
+          (document.querySelector<HTMLElement>(".pitch-deck__stage--overview")
+            ?.scrollLeft ?? 0) > 0,
+      );
+
+      await page.evaluate(() =>
+        document
+          .querySelector<HTMLButtonElement>('button[aria-label="Open slide 4"]')
+          ?.click(),
+      );
+      await page.waitForFunction(() =>
+        document
+          .querySelector(".pitch-deck section.present h2")
+          ?.textContent?.includes("Own the review loop"),
+      );
+      const longTitle = await page.$eval(
+        ".pitch-deck section.present .pitch-slide__long-title",
+        (heading) => {
+          const titleBounds = heading.getBoundingClientRect();
+          const slideBounds = heading
+            .closest<HTMLElement>(".pitch-slide")
+            ?.getBoundingClientRect();
+          return {
+            bottom: titleBounds.bottom,
+            left: titleBounds.left,
+            right: titleBounds.right,
+            slideBottom: slideBounds?.bottom ?? 0,
+            slideLeft: slideBounds?.left ?? 0,
+            slideRight: slideBounds?.right ?? 0,
+            slideTop: slideBounds?.top ?? 0,
+            top: titleBounds.top,
+          };
+        },
+      );
+      expect(longTitle.top).toBeGreaterThanOrEqual(longTitle.slideTop);
+      expect(longTitle.bottom).toBeLessThanOrEqual(longTitle.slideBottom);
+      expect(longTitle.left).toBeGreaterThanOrEqual(longTitle.slideLeft);
+      expect(longTitle.right).toBeLessThanOrEqual(longTitle.slideRight);
       expect(pageErrors).toEqual([]);
     } finally {
       await page.close();
@@ -563,6 +630,34 @@ describe("Visualization browser rendering", () => {
           )?.textContent,
       );
       expect(speakerHeading).toContain("bottleneck");
+
+      const upcomingHeading = await speakerPage?.$eval(
+        "#upcoming-slide iframe",
+        (frame) =>
+          (frame as HTMLIFrameElement).contentDocument?.querySelector(
+            ".pitch-deck section.present h1, .pitch-deck section.present h2",
+          )?.textContent,
+      );
+      expect(upcomingHeading).toContain("Managed reviewers");
+
+      await page.click('button[aria-label="Next slide"]');
+      await page.waitForFunction(() =>
+        document
+          .querySelector(".pitch-deck__live section.present h2")
+          ?.textContent?.includes("Managed reviewers"),
+      );
+      await speakerPage?.waitForFunction(
+        () =>
+          document
+            .querySelector<HTMLIFrameElement>("#current-slide iframe")
+            ?.contentDocument?.querySelector(".pitch-deck section.present h2")
+            ?.textContent?.includes("Managed reviewers") &&
+          document
+            .querySelector<HTMLIFrameElement>("#upcoming-slide iframe")
+            ?.contentDocument?.querySelector(".pitch-deck section.present h2")
+            ?.textContent?.includes("Own the review loop"),
+        { timeout: 10_000 },
+      );
       await speakerPage?.close();
     } finally {
       await page.close();
