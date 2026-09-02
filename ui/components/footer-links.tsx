@@ -50,7 +50,7 @@ export function FooterLinks({
         >
           <Linkedin className="h-6 w-6" />
         </Link>
-        <Link
+        <a
           href="/feed.xml"
           target="_blank"
           rel="noopener noreferrer"
@@ -64,7 +64,7 @@ export function FooterLinks({
           }
         >
           <Rss className="h-6 w-6" />
-        </Link>
+        </a>
       </div>
 
       <Link

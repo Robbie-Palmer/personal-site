@@ -1,6 +1,5 @@
 import { Rss } from "lucide-react";
 import type { Metadata } from "next";
-import Link from "next/link";
 import { Suspense } from "react";
 import { Markdown } from "@/components/markdown";
 import { ProjectList } from "@/components/projects/project-list";
@@ -31,14 +30,14 @@ export default async function ProjectsPage() {
           </p>
         </div>
         <Button asChild variant="outline" size="sm" className="shrink-0">
-          <Link
+          <a
             href="/projects/feed.xml"
             target="_blank"
             rel="noopener noreferrer"
           >
             <Rss className="h-4 w-4" />
             Subscribe
-          </Link>
+          </a>
         </Button>
       </div>
 
