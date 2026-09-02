@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import type { Mock } from "vitest";
 import { describe, expect, it, vi } from "vitest";
 import InitiativePage, {
@@ -65,6 +65,11 @@ describe("initiative page", () => {
     expect(
       screen.getByRole("heading", { name: "Personalized Medicine", level: 1 }),
     ).toBeInTheDocument();
+    const breadcrumb = screen.getByRole("navigation", { name: "Breadcrumb" });
+    expect(within(breadcrumb).getAllByRole("link")).toHaveLength(1);
+    expect(
+      within(breadcrumb).getByRole("link", { name: "Projects" }),
+    ).toHaveAttribute("href", "/projects");
     expect(
       screen.getByText("Made model outputs inspectable."),
     ).toBeInTheDocument();

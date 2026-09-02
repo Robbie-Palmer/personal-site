@@ -1,5 +1,13 @@
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Target } from "lucide-react";
 import Link from "next/link";
+import { Badge } from "@/components/ui/badge";
+import {
+  Card,
+  CardContent,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import type { InitiativeWithProjects } from "@/lib/api/initiatives";
 
 interface InitiativeOverviewProps {
@@ -23,55 +31,71 @@ export function InitiativeOverview({
         </p>
       </div>
 
-      <div className="mt-6 divide-y border-y">
+      <div className="mt-6 grid gap-5 md:grid-cols-2">
         {initiatives.map((initiative) => (
-          <article
+          <Card
             key={initiative.slug}
-            className="grid gap-5 py-6 md:grid-cols-[minmax(0,1fr)_minmax(16rem,0.7fr)] md:gap-10"
+            className="group h-full gap-5 overflow-hidden transition-all hover:border-primary/50 hover:shadow-lg"
           >
-            <div>
-              <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                Initiative
-              </p>
-              <h3 className="mt-2 text-xl font-semibold">
-                <Link
-                  href={`/initiatives/${initiative.slug}`}
-                  className="underline-offset-4 hover:underline"
-                >
-                  {initiative.title}
-                </Link>
-              </h3>
-              <p className="mt-2 max-w-2xl leading-7 text-muted-foreground">
+            <CardHeader className="gap-4">
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                  <Target className="h-5 w-5" />
+                </div>
+                <Badge variant="outline">
+                  {initiative.projects.length}{" "}
+                  {initiative.projects.length === 1 ? "project" : "projects"}
+                </Badge>
+              </div>
+              <CardTitle className="text-xl transition-colors group-hover:text-primary">
+                <h3>
+                  <Link
+                    href={`/initiatives/${initiative.slug}`}
+                    className="underline-offset-4 hover:underline"
+                  >
+                    {initiative.title}
+                  </Link>
+                </h3>
+              </CardTitle>
+            </CardHeader>
+
+            <CardContent className="flex-1">
+              <p className="leading-7 text-muted-foreground">
                 {initiative.description}
               </p>
+            </CardContent>
+
+            <CardFooter className="flex-col items-start gap-5 border-t">
+              {initiative.projects.length > 0 && (
+                <div>
+                  <p className="mb-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                    Contributing projects
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {initiative.projects.slice(0, 4).map((project) => (
+                      <Badge key={project.slug} variant="secondary" asChild>
+                        <Link href={`/projects/${project.slug}`}>
+                          {project.title}
+                        </Link>
+                      </Badge>
+                    ))}
+                    {initiative.projects.length > 4 && (
+                      <Badge variant="secondary">
+                        +{initiative.projects.length - 4}
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+              )}
               <Link
                 href={`/initiatives/${initiative.slug}`}
-                className="mt-4 inline-flex items-center gap-2 text-sm font-medium underline-offset-4 hover:underline"
+                className="inline-flex items-center gap-2 text-sm font-medium underline-offset-4 hover:underline"
               >
                 Read about the initiative
                 <ArrowRight className="h-4 w-4" />
               </Link>
-            </div>
-
-            <div>
-              <p className="text-sm font-medium">
-                {initiative.projects.length}{" "}
-                {initiative.projects.length === 1 ? "project" : "projects"}
-              </p>
-              <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
-                {initiative.projects.map((project) => (
-                  <li key={project.slug}>
-                    <Link
-                      href={`/projects/${project.slug}`}
-                      className="underline-offset-4 hover:text-foreground hover:underline"
-                    >
-                      {project.title}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </article>
+            </CardFooter>
+          </Card>
         ))}
       </div>
     </section>
