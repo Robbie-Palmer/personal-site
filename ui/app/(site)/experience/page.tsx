@@ -1,6 +1,5 @@
 import { Briefcase, Layers, Rss } from "lucide-react";
 import type { Metadata } from "next";
-import Link from "next/link";
 import { ExperienceCard } from "@/components/experience/experience-card";
 import { SearchableTechnologyGrid } from "@/components/experience/searchable-technology-grid";
 import { Button } from "@/components/ui/button";
@@ -68,14 +67,14 @@ export default function ExperiencePage() {
           </p>
         </div>
         <Button asChild variant="outline" size="sm" className="shrink-0">
-          <Link
+          <a
             href="/experience/feed.xml"
             target="_blank"
             rel="noopener noreferrer"
           >
             <Rss className="h-4 w-4" />
             Subscribe
-          </Link>
+          </a>
         </Button>
       </div>
 
@@ -117,14 +116,14 @@ export default function ExperiencePage() {
             Technologies
           </h2>
           <Button asChild variant="outline" size="sm" className="shrink-0">
-            <Link
+            <a
               href="/technologies/feed.xml"
               target="_blank"
               rel="noopener noreferrer"
             >
               <Rss className="h-4 w-4" />
               Subscribe
-            </Link>
+            </a>
           </Button>
         </div>
         <SearchableTechnologyGrid technologies={rankedTechnologies} />

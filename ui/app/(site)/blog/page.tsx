@@ -1,6 +1,5 @@
 import { Rss } from "lucide-react";
 import type { Metadata } from "next";
-import Link from "next/link";
 import { Suspense } from "react";
 import { preload } from "react-dom";
 import { BlogList } from "@/components/blog/blog-list";
@@ -66,10 +65,10 @@ export default function BlogPage() {
           </p>
         </div>
         <Button asChild variant="outline" size="sm" className="shrink-0">
-          <Link href="/blog/feed.xml" target="_blank" rel="noopener noreferrer">
+          <a href="/blog/feed.xml" target="_blank" rel="noopener noreferrer">
             <Rss className="h-4 w-4" />
             Subscribe
-          </Link>
+          </a>
         </Button>
       </div>
 
