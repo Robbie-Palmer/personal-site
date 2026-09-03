@@ -36,7 +36,17 @@ function prepared(mode: ReviewCoverageMode): PreparedReview {
     fullDiff: "diff --git a/src/app.ts b/src/app.ts\n+AWS_SECRET_ACCESS_KEY=super-secret-value",
     diff: "+Authorization: Basic dXNlcjpwYXNzd29yZA==",
     context: "Authorization: Bearer abcdefghijklmnopqrstuvwxyz",
-    guidelines: "Review carefully.",
+    guidelines: `Review carefully.
+password: |
+  yaml-literal-secret
+api_key: |-
+  yaml-literal-strip-secret
+token: >
+  yaml-folded-secret
+session: >-
+  yaml-folded-strip-secret
+safe_note: |
+  public-block-content`,
     threads: String.raw`{"password":"quoted-secret-one-with-\"escaped-secret-tail",'api_key':'quoted-secret-two-with-\'single-secret-tail',"multiline_password":"first line
 multiline-double-secret",'multiline_api_key':'first line
 multiline-single-secret',"ａｐｉＫｅｙ":"compatibility-secret","pаssword":"homoglyph-secret"}`,
@@ -149,6 +159,11 @@ describe("replay input corpus", () => {
       expect(JSON.stringify(snapshot)).not.toContain("multiline-single-secret");
       expect(JSON.stringify(snapshot)).not.toContain("compatibility-secret");
       expect(JSON.stringify(snapshot)).not.toContain("homoglyph-secret");
+      expect(JSON.stringify(snapshot)).not.toContain("yaml-literal-secret");
+      expect(JSON.stringify(snapshot)).not.toContain("yaml-literal-strip-secret");
+      expect(JSON.stringify(snapshot)).not.toContain("yaml-folded-secret");
+      expect(JSON.stringify(snapshot)).not.toContain("yaml-folded-strip-secret");
+      expect(JSON.stringify(snapshot)).toContain("public-block-content");
       expect(JSON.stringify(snapshot)).not.toContain("structured-secret-three");
       expect(JSON.stringify(snapshot)).not.toContain("acronym-sensitive-value");
       expect(JSON.stringify(snapshot)).not.toContain("encryption-sensitive-value");

@@ -26,13 +26,18 @@ const SECRET_PATTERNS: Array<[string, RegExp]> = [
   ["github-token", /\b(?:gh[opsu]_\w{20,}|github_pat_\w{20,})\b/g],
   ["connection-uri", /\b(?:postgres(?:ql)?|mysql|mongodb(?:\+srv)?|redis):\/\/[^\s"']+/gi],
 ];
-const ASSIGNMENT_NAME = String.raw`([\p{L}\p{N}_-]+)`;
+const ASSIGNMENT_IDENTIFIER = String.raw`[\p{L}\p{N}_-]+`;
+const ASSIGNMENT_NAME = `(${ASSIGNMENT_IDENTIFIER})`;
 const ASSIGNMENT_VALUE = String.raw`(?:"(?:\\[\s\S]|[^"\\])*"|'(?:\\[\s\S]|[^'\\])*'|[^\s,;]+)`;
 const ASSIGNMENT_PATTERNS = [
   new RegExp(String.raw`"${ASSIGNMENT_NAME}"\s*[:=]\s*${ASSIGNMENT_VALUE}`, "gu"),
   new RegExp(String.raw`'${ASSIGNMENT_NAME}'\s*[:=]\s*${ASSIGNMENT_VALUE}`, "gu"),
   new RegExp(String.raw`(?<![\p{L}\p{N}_-])${ASSIGNMENT_NAME}\s*[:=]\s*${ASSIGNMENT_VALUE}`, "gu"),
 ];
+const YAML_BLOCK_HEADER = new RegExp(
+  String.raw`^((?:-[ \t]+)?)(?:"(${ASSIGNMENT_IDENTIFIER})"|'(${ASSIGNMENT_IDENTIFIER})'|(${ASSIGNMENT_IDENTIFIER}))[ \t]*:[ \t]*[|>](?:[+-]|[1-9][+-]?|[+-][1-9])?[ \t]*(?:#[^\r\n]*)?$`,
+  "u",
+);
 function isSecretName(name: string): boolean {
   const normalized = name
     .normalize("NFKC")
@@ -54,6 +59,37 @@ function assignedSecret(counts: Record<string, number>): string {
   return "[REDACTED:assigned-secret]";
 }
 
+function yamlLine(value: string): { body: string; indent: number; prefix: string } {
+  const leading = value.match(/^[ \t]*/)?.[0] ?? "";
+  let bodyOffset = leading.length;
+  if (bodyOffset === 0 && (value.startsWith("+") || value.startsWith("-"))) bodyOffset = 1;
+  const afterMarker = value.slice(bodyOffset).match(/^[ \t]*/)?.[0] ?? "";
+  bodyOffset += afterMarker.length;
+  return {
+    body: value.slice(bodyOffset),
+    indent: leading.length + afterMarker.length,
+    prefix: value.slice(0, bodyOffset),
+  };
+}
+
+function redactYamlBlockAssignments(value: string, counts: Record<string, number>): string {
+  const parts = value.split(/(\r\n|\n|\r)/);
+  for (let index = 0; index < parts.length; index += 2) {
+    const line = yamlLine(parts[index] ?? "");
+    const match = line.body.match(YAML_BLOCK_HEADER);
+    const name = match?.[2] ?? match?.[3] ?? match?.[4];
+    if (!match || !name || !isSecretName(name)) continue;
+    parts[index] = `${line.prefix}${match[1] ?? ""}${assignedSecret(counts)}`;
+    for (let bodyIndex = index + 2; bodyIndex < parts.length; bodyIndex += 2) {
+      const blockLine = yamlLine(parts[bodyIndex] ?? "");
+      if (blockLine.body.trim().length > 0 && blockLine.indent <= line.indent) break;
+      if (blockLine.body.trim().length > 0) parts[bodyIndex] = blockLine.prefix;
+      index = bodyIndex;
+    }
+  }
+  return parts.join("");
+}
+
 function redact(value: string, counts: Record<string, number>): string {
   const patternsRedacted = SECRET_PATTERNS.reduce(
     (current, [kind, pattern]) => current.replace(pattern, () => {
@@ -62,10 +98,11 @@ function redact(value: string, counts: Record<string, number>): string {
     }),
     value,
   );
+  const blockScalarsRedacted = redactYamlBlockAssignments(patternsRedacted, counts);
   return ASSIGNMENT_PATTERNS.reduce(
     (current, pattern) => current.replace(pattern, (assignment, name: string) =>
       isSecretName(name) ? assignedSecret(counts) : assignment),
-    patternsRedacted,
+    blockScalarsRedacted,
   );
 }
 
