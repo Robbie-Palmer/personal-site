@@ -150,6 +150,29 @@ describe("ShoppingList value analytics", () => {
     expect(mocks.captureRecipeValue).not.toHaveBeenCalled();
   });
 
+  it("counts kitchen-stocked lines toward a completed shop's total", async () => {
+    __resetShoppingListForTests();
+    addRecipe("veg-and-chicken");
+    pantryState.stock = { "chicken-breast": "fridge" };
+    const user = userEvent.setup();
+    render(<ShoppingList recipes={twoAisleRecipes} />);
+
+    // Only garlic is left to buy; chicken is already in the kitchen. Ticking
+    // garlic completes the shop, and the total spans the whole list — the
+    // pantry partition never narrows it.
+    await user.click(screen.getByRole("button", { name: /garlic/i }));
+
+    await waitFor(() =>
+      expect(mocks.captureRecipeValue).toHaveBeenCalledWith(
+        "shopping_trip_completed",
+        {
+          item_count: 2,
+          recipe_count: 1,
+        },
+      ),
+    );
+  });
+
   it("records one value event when the final item is unchecked and rechecked", async () => {
     const user = userEvent.setup();
     render(<ShoppingList recipes={recipes} />);
@@ -285,6 +308,22 @@ describe("ShoppingList pantry state", () => {
     expect(
       screen.getByRole("heading", { name: /already have/i }),
     ).toBeInTheDocument();
+  });
+
+  it("keeps the refresh notice below the buy list so it cannot reflow the rows", () => {
+    pantryState.error = new Error("refresh failed");
+
+    render(<ShoppingList recipes={recipes} />);
+
+    const garlicRow = screen.getByRole("button", { name: /garlic/i });
+    const notice = screen.getByRole("alert");
+    expect(notice).toHaveTextContent("using the last pantry data that loaded");
+    // The notice follows the interactive rows in the document, so a pantry
+    // refresh flapping it on and off never shifts a row under the shopper.
+    expect(
+      garlicRow.compareDocumentPosition(notice) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
   });
 
   it("explains why an optimistic pantry removal was restored", () => {

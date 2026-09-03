@@ -130,6 +130,12 @@ export function ShoppingListBoundary({
   const installedIdRef = useRef<string | undefined>(undefined);
   const savedSnapshot = useRef<string | undefined>(undefined);
   const savedRevision = useRef<string | undefined>(undefined);
+  // Revisions of the current list this client has already moved past, by saving
+  // over them or rebasing onto a newer one. A late refetch that resolves with
+  // one carries pre-save data; installing it would clobber a local tick and roll
+  // savedRevision back to a stale value that later saves conflict on. Cleared
+  // when a different list is installed, since revisions are per-list.
+  const supersededRevisions = useRef<Set<string>>(new Set());
   const [saveFailed, setSaveFailed] = useState(false);
 
   useEffect(() => {
@@ -160,6 +166,16 @@ export function ShoppingListBoundary({
       current.data.revision === savedRevision.current
     ) {
       return;
+    }
+
+    if (current.data.id === installedId) {
+      // Drop a late refetch that carries a revision we already saved past.
+      if (supersededRevisions.current.has(current.data.revision)) return;
+      if (savedRevision.current) {
+        supersededRevisions.current.add(savedRevision.current);
+      }
+    } else {
+      supersededRevisions.current.clear();
     }
 
     const local = shoppingListContents();
@@ -224,11 +240,13 @@ export function ShoppingListBoundary({
             if (installedIdRef.current !== listId || !savedRevision.current) {
               return;
             }
+            const baseRevision = savedRevision.current;
             const updated = await saveCurrentShoppingList(
               listId,
-              savedRevision.current,
+              baseRevision,
               snapshot,
             );
+            supersededRevisions.current.add(baseRevision);
             savedSnapshot.current = serialized;
             savedRevision.current = updated.revision;
             queryClient.setQueryData<StoredShoppingList>(
