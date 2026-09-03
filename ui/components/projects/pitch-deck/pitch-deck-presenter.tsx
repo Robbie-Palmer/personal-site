@@ -13,10 +13,8 @@ type PresenterState = {
 
 function slideFromHash(): number {
   if (typeof window === "undefined") return 0;
-  const oneBasedSlide = Number.parseInt(
-    window.location.hash.match(/^#\/(\d+)/)?.[1] ?? "1",
-    10,
-  );
+  const slideMatch = /^#\/(\d+)/.exec(window.location.hash);
+  const oneBasedSlide = Number.parseInt(slideMatch?.[1] ?? "1", 10);
   return Math.max(0, oneBasedSlide - 1);
 }
 
