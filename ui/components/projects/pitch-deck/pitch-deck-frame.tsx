@@ -62,7 +62,7 @@ export function PitchDeckFrame({
   const deckRef = useRef<RevealApi | null>(null);
   const shellRef = useRef<HTMLElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
-  const staticViewRef = useRef<HTMLDivElement>(null);
+  const staticViewRef = useRef<HTMLElement>(null);
   const fullscreenButtonRef = useRef<HTMLButtonElement>(null);
   const pendingSlideRef = useRef<number | null>(null);
   const currentPositionRef = useRef(1);

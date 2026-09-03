@@ -650,21 +650,43 @@ describe("Visualization browser rendering", () => {
       );
       expect(upcomingHeading).toContain("Managed reviewers");
 
+      await speakerPage?.waitForFunction(
+        () =>
+          ["#current-slide iframe", "#upcoming-slide iframe"].every(
+            (selector) => {
+              const frameDocument =
+                document.querySelector<HTMLIFrameElement>(
+                  selector,
+                )?.contentDocument;
+              return Boolean(
+                frameDocument?.querySelector(".pitch-deck .reveal.ready"),
+              );
+            },
+          ),
+        { timeout: 20_000 },
+      );
       const speakerPreviewChrome = await speakerPage?.evaluate(() =>
         ["#current-slide iframe", "#upcoming-slide iframe"].map((selector) => {
-          const document =
-            window.document.querySelector<HTMLIFrameElement>(
+          const frameDocument =
+            document.querySelector<HTMLIFrameElement>(
               selector,
             )?.contentDocument;
           return {
-            controls: Boolean(document?.querySelector(".pitch-deck__controls")),
-            topbar: Boolean(document?.querySelector(".pitch-deck__topbar")),
+            ready: Boolean(
+              frameDocument?.querySelector(".pitch-deck .reveal.ready"),
+            ),
+            controls: Boolean(
+              frameDocument?.querySelector(".pitch-deck__controls"),
+            ),
+            topbar: Boolean(
+              frameDocument?.querySelector(".pitch-deck__topbar"),
+            ),
           };
         }),
       );
       expect(speakerPreviewChrome).toEqual([
-        { controls: false, topbar: false },
-        { controls: false, topbar: false },
+        { ready: true, controls: false, topbar: false },
+        { ready: true, controls: false, topbar: false },
       ]);
 
       await page.click('button[aria-label="Next slide"]');
