@@ -42,3 +42,4 @@ ente_export_log_path: "{{ ansible_facts.env.HOME }}/Library/Logs/ente-export.log
 ente_export_success_marker: >-
   {{ ansible_facts.env.HOME }}/Library/Application Support/homelab/ente-export/last-success
 ente_export_max_age_hours: 48
+ente_export_max_runtime_seconds: 1800

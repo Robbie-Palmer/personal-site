@@ -44,9 +44,9 @@ does not start an export. The daily job retains its 03:00 schedule.
 The role uses the live system inspected on 2026-09-03. The CLI credentials stay
 in `~/.ente/ente-cli.db`, mode `0600`, and never enter Ansible output. The
 wrapper verifies the 10 TB volume by UUID before calling `ente export`. It uses
-an atomic process lock and writes non-secret success and failure timestamps.
-The health job sends mount, freshness, and last-run gauges to Netdata once per
-minute.
+an atomic process lock, caps each run at 30 minutes, and writes non-secret
+success and failure timestamps. The health job sends mount, freshness, and
+last-run gauges to Netdata once per minute.
 
 The verification playbook reads marker metadata only. Normal and verbose
 Ansible output does not print the launchd job, mount table, or marker path.

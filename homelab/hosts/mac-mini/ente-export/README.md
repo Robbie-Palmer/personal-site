@@ -24,9 +24,10 @@ therefore recorded a successful run even though the export failed.
 
 The `ente_export` Ansible role replaces that wrapper. It checks the destination
 volume UUID, serializes runs with `shlock`, treats either a nonzero exit or
-error text as failure, and updates timestamp markers. A second launchd job
-sends the mount, freshness, and last-run state to Netdata every minute. The
-Netdata rules use the existing `sysadmin` notification route.
+error text as failure, limits each run to 30 minutes, and updates timestamp
+markers. A second launchd job sends the mount, freshness, and last-run state to
+Netdata every minute. The Netdata rules use the existing `sysadmin`
+notification route.
 
 Preview the change before applying it:
 

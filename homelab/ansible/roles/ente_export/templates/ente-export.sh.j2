@@ -12,6 +12,7 @@ STATE_DIR="{{ ansible_facts.env.HOME }}/Library/Application Support/homelab/ente
 LOCK_FILE="${STATE_DIR}/run.lock"
 SUCCESS_MARKER="${STATE_DIR}/last-success"
 FAILURE_MARKER="${STATE_DIR}/last-failure"
+MAX_RUNTIME_SECONDS="{{ ente_export_max_runtime_seconds }}"
 RUN_OUTPUT=""
 
 timestamp() {
@@ -56,9 +57,14 @@ RUN_OUTPUT="$(/usr/bin/mktemp "${STATE_DIR}/run.XXXXXX")"
 echo "[$(timestamp)] starting Ente export"
 
 set +e
-"$ENTE_BIN" export 2>&1 | /usr/bin/tee "$RUN_OUTPUT"
+/usr/bin/perl -e 'alarm shift; exec @ARGV' "$MAX_RUNTIME_SECONDS" "$ENTE_BIN" export \
+  2>&1 | /usr/bin/tee "$RUN_OUTPUT"
 export_status="${PIPESTATUS[0]}"
 set -e
+
+if [[ "$export_status" -eq 142 ]]; then
+  fail "Ente CLI exceeded the ${MAX_RUNTIME_SECONDS}-second runtime limit"
+fi
 
 if [[ "$export_status" -ne 0 ]]; then
   fail "Ente CLI exited with status $export_status"
