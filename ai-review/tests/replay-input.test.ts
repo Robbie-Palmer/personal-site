@@ -37,7 +37,7 @@ function prepared(mode: ReviewCoverageMode): PreparedReview {
     diff: "+Authorization: Basic dXNlcjpwYXNzd29yZA==",
     context: "Authorization: Bearer abcdefghijklmnopqrstuvwxyz",
     guidelines: "Review carefully.",
-    threads: '{"password":"quoted-secret-one","apiKey": "quoted-secret-two"}',
+    threads: String.raw`{"password":"quoted-secret-one-with-\"escaped-secret-tail",'api_key':'quoted-secret-two-with-\'single-secret-tail',"ａｐｉＫｅｙ":"compatibility-secret"}`,
     paths: ["src/app.ts"],
     omitted: [],
     priorOpenFindings: [finding],
@@ -131,6 +131,9 @@ describe("replay input corpus", () => {
       expect(JSON.stringify(snapshot)).not.toContain("postgres://user:password");
       expect(JSON.stringify(snapshot)).not.toContain("quoted-secret-one");
       expect(JSON.stringify(snapshot)).not.toContain("quoted-secret-two");
+      expect(JSON.stringify(snapshot)).not.toContain("escaped-secret-tail");
+      expect(JSON.stringify(snapshot)).not.toContain("single-secret-tail");
+      expect(JSON.stringify(snapshot)).not.toContain("compatibility-secret");
       expect(JSON.stringify(snapshot)).not.toContain("structured-secret-three");
       expect(JSON.stringify(snapshot)).not.toContain("acronym-sensitive-value");
       expect(JSON.stringify(snapshot)).not.toContain("encryption-sensitive-value");

@@ -27,12 +27,13 @@ const SECRET_PATTERNS: Array<[string, RegExp]> = [
   ["connection-uri", /\b(?:postgres(?:ql)?|mysql|mongodb(?:\+srv)?|redis):\/\/[^\s"']+/gi],
 ];
 const ASSIGNMENT_PATTERNS = [
-  /"([\w-]+)"\s*[:=]\s*(?:"[^"\n]*"|'[^'\n]*'|[^\s,;]+)/g,
-  /'([\w-]+)'\s*[:=]\s*(?:"[^"\n]*"|'[^'\n]*'|[^\s,;]+)/g,
-  /\b([\w-]+)\s*[:=]\s*(?:"[^"\n]*"|'[^'\n]*'|[^\s,;]+)/g,
+  /"([\p{L}\p{N}_-]+)"\s*[:=]\s*(?:"(?:\\.|[^"\\\n])*"|'(?:\\.|[^'\\\n])*'|[^\s,;]+)/gu,
+  /'([\p{L}\p{N}_-]+)'\s*[:=]\s*(?:"(?:\\.|[^"\\\n])*"|'(?:\\.|[^'\\\n])*'|[^\s,;]+)/gu,
+  /\b([\p{L}\p{N}_-]+)\s*[:=]\s*(?:"(?:\\.|[^"\\\n])*"|'(?:\\.|[^'\\\n])*'|[^\s,;]+)/gu,
 ];
 function isSecretName(name: string): boolean {
   const normalized = name
+    .normalize("NFKC")
     .replace(/([A-Z])(?=[A-Z][a-z])/g, "$1_")
     .replace(/([a-z0-9])([A-Z])/g, "$1_$2")
     .toLowerCase();
