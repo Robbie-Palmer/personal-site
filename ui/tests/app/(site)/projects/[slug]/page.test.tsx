@@ -1,13 +1,19 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import type { Mock } from "vitest";
 import { describe, expect, it, vi } from "vitest";
 import ProjectPage from "@/app/(site)/projects/[slug]/page";
+import type { InitiativeWithProjects } from "@/lib/api/initiatives";
+import { getInitiativesForProject } from "@/lib/api/initiatives";
 import type { ProjectWithADRs } from "@/lib/api/projects";
 import { getProject } from "@/lib/api/projects";
 
 vi.mock("@/lib/api/projects", () => ({
   getAllProjectSlugs: () => ["homelab"],
   getProject: vi.fn(),
+}));
+
+vi.mock("@/lib/api/initiatives", () => ({
+  getInitiativesForProject: vi.fn(() => []),
 }));
 
 vi.mock("@/components/projects/project-tabs", () => ({
@@ -118,5 +124,32 @@ describe("project page", () => {
     expect(screen.getByTestId("registered-components")).toHaveTextContent(
       "DesignEmbed,Mermaid",
     );
+  });
+
+  it("shows initiatives as relationships outside the breadcrumb", async () => {
+    (getProject as Mock).mockReturnValue(fixture);
+    (getInitiativesForProject as Mock).mockReturnValue([
+      {
+        slug: "personalized-medicine",
+        title: "Personalized Medicine",
+        description: "A longer-running goal",
+        content: "",
+        projectContributions: {
+          homelab: "This project advances the goal.",
+        },
+        projects: [fixture],
+      },
+    ] satisfies InitiativeWithProjects[]);
+
+    render(await ProjectPage({ params: Promise.resolve({ slug: "homelab" }) }));
+
+    const breadcrumb = screen.getByRole("navigation", { name: "Breadcrumb" });
+    expect(within(breadcrumb).queryByText("Personalized Medicine")).toBeNull();
+    expect(
+      screen.getByRole("link", { name: "Personalized Medicine" }),
+    ).toHaveAttribute("href", "/initiatives/personalized-medicine");
+    expect(
+      screen.getByText("This project advances the goal."),
+    ).toBeInTheDocument();
   });
 });

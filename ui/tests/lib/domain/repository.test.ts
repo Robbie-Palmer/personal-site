@@ -278,6 +278,8 @@ Content`;
       const mockInitiativeContent = `---
 title: "Personalized Medicine"
 description: "Making patient-specific treatment decisions accessible"
+project_contributions:
+  pathology-viewer: "Made model output inspectable."
 ---
 
 # Goal`;
@@ -291,6 +293,9 @@ description: "Making patient-specific treatment decisions accessible"
 
       expect(result.entities.get("personalized-medicine")).toMatchObject({
         title: "Personalized Medicine",
+        projectContributions: {
+          "pathology-viewer": "Made model output inspectable.",
+        },
         content: "\n# Goal",
       });
     });

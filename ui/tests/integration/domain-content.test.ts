@@ -54,6 +54,9 @@ describe("Domain Content Validation (Integration)", () => {
       expect(getInitiativesForProject(repo.graph, projectSlug)).toContain(
         initiativeSlug,
       );
+      expect(
+        repo.initiatives.get(initiativeSlug)?.projectContributions[projectSlug],
+      ).toBeTruthy();
     }
   });
 

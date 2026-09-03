@@ -1,5 +1,6 @@
 import type { MetadataRoute } from "next";
 import { getAllPosts } from "@/lib/api/blog";
+import { getAllInitiatives } from "@/lib/api/initiatives";
 import { getAllProjects } from "@/lib/api/projects";
 import { siteConfig } from "@/lib/config/site-config";
 import { getAllTechnologySlugs, loadDomainRepository } from "@/lib/domain";
@@ -8,6 +9,7 @@ export const dynamic = "force-static";
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const posts = getAllPosts();
+  const initiatives = getAllInitiatives();
   const projects = getAllProjects();
   const repository = loadDomainRepository();
   const technologySlugs = getAllTechnologySlugs(repository);
@@ -35,6 +37,22 @@ export default function sitemap(): MetadataRoute.Sitemap {
         ]
       : [],
   );
+
+  const initiativePages = initiatives.map((initiative) => {
+    const lastModified = initiative.projects.reduce<string | undefined>(
+      (latest, project) => {
+        const projectDate = project.updated || project.date;
+        return !latest || projectDate > latest ? projectDate : latest;
+      },
+      undefined,
+    );
+
+    return {
+      url: `${siteConfig.url}/initiatives/${initiative.slug}`,
+      ...(lastModified ? { lastModified } : {}),
+      priority: 0.8,
+    };
+  });
 
   const adrPages = projects.flatMap((project) =>
     project.adrs.map((adr) => ({
@@ -87,6 +105,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: 0.4,
     },
     ...blogPosts,
+    ...initiativePages,
     ...projectPages,
     ...pitchDeckPages,
     ...adrPages,

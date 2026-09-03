@@ -99,7 +99,6 @@ export default async function ADRPage({ params }: Readonly<PageProps>) {
   const displayIndex = formatADRIndex(currentIndex >= 0 ? currentIndex : 0);
   const displayTitle = normalizeADRTitle(adr.title);
   const supersedesRef = adr.supersedes ? parseADRRef(adr.supersedes) : null;
-
   const adrContent = (() => {
     if (!adr.isInherited) {
       return <Markdown source={adr.content} components={adrComponents} />;
@@ -127,7 +126,10 @@ export default async function ADRPage({ params }: Readonly<PageProps>) {
       <div className="space-y-6">
         {/* Header */}
         <div className="space-y-4">
-          <div className="flex items-center gap-2 text-sm text-muted-foreground flex-wrap">
+          <nav
+            aria-label="Breadcrumb"
+            className="flex items-center gap-2 text-sm text-muted-foreground flex-wrap"
+          >
             <Link
               href="/projects"
               className="hover:underline underline-offset-4"
@@ -143,7 +145,7 @@ export default async function ADRPage({ params }: Readonly<PageProps>) {
             </Link>
             <span>/</span>
             <span>Architecture Decisions</span>
-          </div>
+          </nav>
 
           <h1 className="text-3xl md:text-4xl font-bold">
             ADR {displayIndex}: {displayTitle}

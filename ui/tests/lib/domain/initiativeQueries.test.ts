@@ -13,6 +13,7 @@ function makeRepository(): DomainRepository {
     slug: "personalized-medicine",
     title: "Personalized Medicine",
     description: "Patient-specific treatment decisions",
+    projectContributions: {},
     content: "# Goal",
   };
   const project = {

@@ -341,6 +341,7 @@ export function loadInitiatives(): InitiativeLoadResult {
       slug,
       title: data.title,
       description: data.description,
+      projectContributions: data.project_contributions ?? {},
       content,
     };
 
@@ -456,10 +457,16 @@ export function loadProjects(): ProjectLoadResult {
       content,
     };
 
+    const rawInitiatives = data.initiatives || [];
+    const normalizedInitiatives = Array.isArray(rawInitiatives)
+      ? rawInitiatives.map((initiative) =>
+          typeof initiative === "string"
+            ? normalizeSlug(initiative)
+            : initiative,
+        )
+      : rawInitiatives;
     const initiativesValidation =
-      ProjectRelationsSchema.shape.initiatives.safeParse(
-        data.initiatives || [],
-      );
+      ProjectRelationsSchema.shape.initiatives.safeParse(normalizedInitiatives);
     if (!initiativesValidation.success) {
       console.error(
         `Failed to validate project ${projectSlug}:`,
@@ -471,9 +478,7 @@ export function loadProjects(): ProjectLoadResult {
     const projectRelations: ProjectRelations = {
       technologies,
       adrs: adrRefs,
-      initiatives: initiativesValidation.data.map((initiative) =>
-        normalizeSlug(initiative),
-      ),
+      initiatives: initiativesValidation.data,
       role: data.role ? normalizeSlug(data.role) : undefined,
       tags: data.tags || [],
     };
@@ -850,6 +855,34 @@ export function validateReferentialIntegrity(
         value: relations.role,
         message: `Role '${relations.role}' referenced by project '${projectSlug}' does not exist`,
       });
+    }
+  });
+
+  input.initiatives.forEach((initiative, initiativeSlug) => {
+    for (const projectSlug of Object.keys(initiative.projectContributions)) {
+      if (!input.projects.has(projectSlug)) {
+        errors.push({
+          type: "missing_reference",
+          entity: `Initiative[${initiativeSlug}]`,
+          field: "projectContributions",
+          value: projectSlug,
+          message: `Project '${projectSlug}' described by initiative '${initiativeSlug}' does not exist`,
+        });
+        continue;
+      }
+      if (
+        !input.projectRelations
+          .get(projectSlug)
+          ?.initiatives.includes(initiativeSlug)
+      ) {
+        errors.push({
+          type: "invalid_reference",
+          entity: `Initiative[${initiativeSlug}]`,
+          field: "projectContributions",
+          value: projectSlug,
+          message: `Project '${projectSlug}' has contribution prose for initiative '${initiativeSlug}' but does not reference that initiative`,
+        });
+      }
     }
   });
 

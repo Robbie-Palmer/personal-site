@@ -362,6 +362,9 @@ describe("Domain Model Schemas", () => {
       });
 
       expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.projectContributions).toEqual({});
+      }
     });
 
     it("rejects an initiative without a description", () => {
@@ -374,6 +377,20 @@ describe("Domain Model Schemas", () => {
 
       expect(result.success).toBe(false);
     });
+
+    it.each(["Personalized-Medicine", "personalized medicine", "../medicine"])(
+      "rejects an unsafe initiative slug: %s",
+      (slug) => {
+        const result = InitiativeSchema.safeParse({
+          slug,
+          title: "Personalized Medicine",
+          description: "Making patient-specific treatment decisions accessible",
+          content: "# Goal",
+        });
+
+        expect(result.success).toBe(false);
+      },
+    );
   });
 
   describe("JobRoleSchema", () => {

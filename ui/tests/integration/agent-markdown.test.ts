@@ -65,6 +65,20 @@ describe("agent markdown generation", () => {
     }
   });
 
+  it("generates a markdown twin for every initiative page", () => {
+    const htmlPages = fs
+      .readdirSync(path.join(OUT_DIR, "initiatives"))
+      .filter((file) => file.endsWith(".html"));
+    expect(htmlPages.length).toBeGreaterThan(0);
+    for (const htmlPage of htmlPages) {
+      const mdPage = htmlPage.replace(/\.html$/, ".md");
+      expect(
+        fs.existsSync(path.join(OUT_DIR, "initiatives", mdPage)),
+        `initiatives/${mdPage}`,
+      ).toBe(true);
+    }
+  });
+
   it("generates a markdown twin for every technology page", () => {
     const htmlPages = fs
       .readdirSync(path.join(OUT_DIR, "technologies"))
@@ -131,6 +145,7 @@ describe("agent markdown generation", () => {
     expect(routes.include).toContain("/llms-full.txt");
     expect(routes.include).toContain("/sitemap.xml");
     expect(routes.include).toContain("/projects/*");
+    expect(routes.include).toContain("/initiatives/*");
     expect(routes.exclude).toContain("/_next/*");
     expect(routes.include.length + routes.exclude.length).toBeLessThanOrEqual(
       100,

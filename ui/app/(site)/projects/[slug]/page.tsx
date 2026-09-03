@@ -8,6 +8,10 @@ import { ADRList } from "@/components/projects/adr-list";
 import { DesignEmbed } from "@/components/projects/design-embed";
 import { EmbeddedPitchDeckContent } from "@/components/projects/pitch-deck/embedded-pitch-deck-content";
 import { LazyProjectPitchDeck } from "@/components/projects/pitch-deck/lazy-project-pitch-deck";
+import {
+  InitiativeProjectNavigation,
+  ProjectInitiativeContext,
+} from "@/components/projects/project-initiative-context";
 import { ProjectRoleBadge } from "@/components/projects/project-role-badge";
 import { ProjectStatusBadge } from "@/components/projects/project-status-badge";
 import { ProjectTabs } from "@/components/projects/project-tabs";
@@ -15,6 +19,7 @@ import { ProjectTabsSkeleton } from "@/components/projects/project-tabs-skeleton
 import { ProjectTechStack } from "@/components/projects/project-tech-stack";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import { getInitiativesForProject } from "@/lib/api/initiatives";
 import {
   getAllProjectSlugs,
   getProject,
@@ -57,15 +62,20 @@ export default async function ProjectPage({ params }: Readonly<PageProps>) {
     notFound();
   }
 
+  const initiatives = getInitiativesForProject(project.slug);
+
   return (
     <div className="container mx-auto px-4 py-8 max-w-5xl">
-      <div className="flex items-center gap-2 text-sm text-muted-foreground flex-wrap mb-8">
+      <nav
+        aria-label="Breadcrumb"
+        className="flex items-center gap-2 text-sm text-muted-foreground flex-wrap mb-8"
+      >
         <Link href="/projects" className="hover:underline underline-offset-4">
           Projects
         </Link>
         <span>/</span>
         <span>{project.title}</span>
-      </div>
+      </nav>
 
       <div className="space-y-6">
         {/* Header */}
@@ -90,6 +100,10 @@ export default async function ProjectPage({ params }: Readonly<PageProps>) {
             <p className="text-xl text-muted-foreground max-w-3xl leading-relaxed">
               {project.description}
             </p>
+            <ProjectInitiativeContext
+              initiatives={initiatives}
+              projectSlug={project.slug}
+            />
             <div className="flex flex-wrap gap-2 pt-2">
               <ProjectTechStack
                 techStack={project.technologies.map((t) => ({
@@ -189,6 +203,11 @@ export default async function ProjectPage({ params }: Readonly<PageProps>) {
         ) : (
           <Markdown source={project.content} components={projectComponents} />
         )}
+
+        <InitiativeProjectNavigation
+          initiatives={initiatives}
+          projectSlug={project.slug}
+        />
       </div>
     </div>
   );
