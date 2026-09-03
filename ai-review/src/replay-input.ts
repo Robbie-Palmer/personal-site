@@ -60,10 +60,10 @@ function assignedSecret(counts: Record<string, number>): string {
 }
 
 function yamlLine(value: string): { body: string; indent: number; prefix: string } {
-  const leading = value.match(/^[ \t]*/)?.[0] ?? "";
+  const leading = /^[ \t]*/.exec(value)?.[0] ?? "";
   let bodyOffset = leading.length;
   if (bodyOffset === 0 && (value.startsWith("+") || value.startsWith("-"))) bodyOffset = 1;
-  const afterMarker = value.slice(bodyOffset).match(/^[ \t]*/)?.[0] ?? "";
+  const afterMarker = /^[ \t]*/.exec(value.slice(bodyOffset))?.[0] ?? "";
   bodyOffset += afterMarker.length;
   return {
     body: value.slice(bodyOffset),
@@ -76,7 +76,7 @@ function redactYamlBlockAssignments(value: string, counts: Record<string, number
   const parts = value.split(/(\r\n|\n|\r)/);
   for (let index = 0; index < parts.length; index += 2) {
     const line = yamlLine(parts[index] ?? "");
-    const match = line.body.match(YAML_BLOCK_HEADER);
+    const match = YAML_BLOCK_HEADER.exec(line.body);
     const name = match?.[2] ?? match?.[3] ?? match?.[4];
     if (!match || !name || !isSecretName(name)) continue;
     parts[index] = `${line.prefix}${match[1] ?? ""}${assignedSecret(counts)}`;
@@ -84,7 +84,6 @@ function redactYamlBlockAssignments(value: string, counts: Record<string, number
       const blockLine = yamlLine(parts[bodyIndex] ?? "");
       if (blockLine.body.trim().length > 0 && blockLine.indent <= line.indent) break;
       if (blockLine.body.trim().length > 0) parts[bodyIndex] = blockLine.prefix;
-      index = bodyIndex;
     }
   }
   return parts.join("");
