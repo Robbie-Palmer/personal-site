@@ -881,6 +881,16 @@ describe("PullRequestCoordinator", () => {
       expect.stringContaining('"validatedByFullReviewRunId":"current-full-review"'),
       { httpMetadata: { contentType: "application/json" } },
     );
+    const outcomeInsert = sqlExec.mock.calls.find(([query]) =>
+      String(query).includes("INSERT OR IGNORE INTO review_finding_outcomes")
+    );
+    expect(JSON.parse(String(outcomeInsert?.[9]))).toMatchObject({
+      evidence: {
+        controlledReplay: {
+          validatedByFullReviewRunId: "current-full-review",
+        },
+      },
+    });
   });
 
   it("rejects a fixed replay contradicted by the current full review", async () => {
