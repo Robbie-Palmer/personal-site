@@ -1,5 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
+import { EmbeddedPitchDeckContent } from "@/components/projects/pitch-deck/embedded-pitch-deck-content";
 import {
   PitchColumn,
   PitchColumns,
@@ -53,6 +54,21 @@ vi.mock("@/components/mermaid", () => ({
   Mermaid: () => <div>Mermaid</div>,
 }));
 
+vi.mock("@/lib/api/tech-icons", () => ({
+  TechIcon: () => <div>TechIcon</div>,
+}));
+
+const expectedComponentNames = [
+  "Mermaid",
+  "PitchColumn",
+  "PitchColumns",
+  "PitchNotes",
+  "PitchSlide",
+  "PitchStep",
+  "ReviewDepthDemo",
+  "TechIcon",
+];
+
 describe("pitch MDX components", () => {
   it("maps slides, notes, columns, and ordered fragments to Reveal markup", () => {
     const { container } = render(
@@ -94,15 +110,18 @@ describe("pitch MDX components", () => {
     expect(markdownState.props?.source).toBe("# Opening");
     expect(
       Object.keys(markdownState.props?.components as object).sort(),
-    ).toEqual([
-      "Mermaid",
-      "PitchColumn",
-      "PitchColumns",
-      "PitchNotes",
-      "PitchSlide",
-      "PitchStep",
-      "ReviewDepthDemo",
-    ]);
+    ).toEqual(expectedComponentNames);
+    expect(markdownState.props?.remarkPlugins).toHaveLength(1);
+  });
+
+  it("registers the full component set in embedded pitch decks", () => {
+    render(<EmbeddedPitchDeckContent source="# Opening" />);
+
+    expect(screen.getByTestId("markdown-content")).toBeInTheDocument();
+    expect(markdownState.props?.source).toBe("# Opening");
+    expect(
+      Object.keys(markdownState.props?.components as object).sort(),
+    ).toEqual(expectedComponentNames);
     expect(markdownState.props?.remarkPlugins).toHaveLength(1);
   });
 });

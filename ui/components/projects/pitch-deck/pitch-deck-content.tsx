@@ -1,5 +1,6 @@
 import { MarkdownContent } from "@/components/markdown";
 import { Mermaid } from "@/components/mermaid";
+import { TechIcon } from "@/lib/api/tech-icons";
 import { remarkPitchSlides } from "@/lib/domain/project/pitchDeck";
 import {
   PitchColumn,
@@ -18,6 +19,7 @@ const pitchComponents = {
   PitchSlide,
   PitchStep,
   ReviewDepthDemo,
+  TechIcon,
 };
 
 export function PitchDeckContent({ source }: Readonly<{ source: string }>) {

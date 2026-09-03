@@ -1,0 +1,325 @@
+---
+title: "Home Lab pitch"
+description: "A persistent, multi-provider agent workspace that also runs useful household services"
+---
+
+# My phone reaches the same development machine as my laptop
+
+t3-code runs on an always-on Mac mini behind Tailscale.
+
+<PitchNotes>
+  The Mac mini does the development work. The phone drives it. Repositories, tools, credentials, worktrees, browsers,
+  and telemetry stay on the Mac mini.
+
+  \[Sources]
+
+  * [t3-code ADR](/projects/homelab/adrs/006-t3-code)
+  * [Tailscale ADR](/projects/homelab/adrs/000-tailscale)
+    \[/Sources]
+</PitchNotes>
+
+***
+
+## Four coding harnesses, one persistent workspace
+
+<div className="pitch-harness-map">
+  <div className="pitch-harness-map__hub">
+    <TechIcon name="t3-code" iconSlug="t3code" className="pitch-harness-map__logo" />
+
+    <strong>t3-code</strong>
+    <span>threads, worktrees and GitHub</span>
+  </div>
+
+  <div className="pitch-harness-map__stem" />
+
+  <div className="pitch-harness-map__harnesses">
+    <div role="img" aria-label="Claude Code">
+      <TechIcon name="Claude Code" iconSlug="claudecode" className="pitch-harness-map__icon" />
+
+      <span>Claude Code</span>
+    </div>
+
+    <div role="img" aria-label="Codex">
+      <TechIcon name="Codex" iconSlug="codex" className="pitch-harness-map__icon" />
+
+      <span>Codex</span>
+    </div>
+
+    <div role="img" aria-label="Grok Build">
+      <span className="pitch-harness-map__monogram" aria-hidden="true">G</span>
+      <span>Grok Build</span>
+    </div>
+
+    <div role="img" aria-label="OpenCode">
+      <TechIcon name="OpenCode" iconSlug="opencode" className="pitch-harness-map__icon" />
+
+      <span>OpenCode</span>
+    </div>
+  </div>
+</div>
+
+<p className="pitch-slide__statement">Models come from subscriptions. Repos, tools and sessions stay on the Mac mini.</p>
+
+<PitchNotes>
+  The comparison comes from my own use. Claude Code on the web and Codex cloud both support remote, persistent work.
+  Their cloud sessions run in configured provider environments.
+
+  I wanted one place to move between Claude Code, Codex, Grok Build, and OpenCode without preparing the repository
+  again. t3-code replaced the provider-specific remote interfaces in my daily workflow.
+
+  \[Sources]
+
+  * [Use Claude Code on the web](https://code.claude.com/docs/en/claude-code-on-the-web)
+  * [Codex cloud](https://learn.chatgpt.com/docs/cloud)
+  * [t3-code ADR](/projects/homelab/adrs/006-t3-code)
+  * [t3-code production logo](https://github.com/pingdotgg/t3code/blob/d5825e1d2fb1703ced2bbe2661f6a4937dd530bf/assets/prod/logo.svg)
+    \[/Sources]
+</PitchNotes>
+
+***
+
+## The sidebar shows where every thread stands
+
+<div className="pitch-thread-queue">
+  <div>
+    <span className="pitch-thread-queue__status pitch-thread-queue__status--running" />
+
+    <strong>personal-site</strong>
+    <span>Codex · running</span>
+  </div>
+
+  <div>
+    <span className="pitch-thread-queue__status pitch-thread-queue__status--attention" />
+
+    <strong>home lab</strong>
+    <span>Claude Code · needs input</span>
+  </div>
+
+  <div>
+    <span className="pitch-thread-queue__status" />
+
+    <strong>recipe parser</strong>
+    <span>OpenCode · ready to settle</span>
+  </div>
+</div>
+
+<p className="pitch-slide__statement">Review diff → commit → push → open PR without leaving the thread.</p>
+
+<PitchNotes>
+  Codespaces remains useful when a disposable hosted machine is the goal. Claude and Codex cloud remain useful for
+  background work that should not consume the Mac mini. Claude Remote Control gets closest to the local-machine part
+  of this setup. t3-code puts thread state and GitHub actions in the same view. Harness switching adds to that.
+
+  \[Sources]
+
+  * [GitHub Codespaces documentation](https://docs.github.com/en/codespaces)
+  * [Use Claude Code on the web](https://code.claude.com/docs/en/claude-code-on-the-web)
+  * [Claude Code Remote Control](https://code.claude.com/docs/en/remote-control)
+  * [Codex cloud](https://learn.chatgpt.com/docs/cloud)
+  * [t3-code ADR](/projects/homelab/adrs/006-t3-code)
+    \[/Sources]
+</PitchNotes>
+
+***
+
+## The phone is a control surface. The Mac mini does the work.
+
+<Mermaid
+  chart={`flowchart LR
+A[Phone or laptop<br/>via Tailscale] --> B[t3-code<br/>Mac mini]
+B --> C[Four coding harnesses<br/>Claude Code · Codex<br/>Grok Build · OpenCode]
+C --> D[Models and threads]
+B --- G[Repos and worktrees]
+B --- H[GitHub auth and tools]
+B --- I[Browser and telemetry]`}
+/>
+
+Every thread shares the host's repos, tools, GitHub auth, browser, and telemetry.
+
+<PitchNotes>
+  Tailscale provides private network access. t3-code starts the agent backends and serves the shared interface. The
+  agents work against the Mac mini rather than a newly provisioned cloud environment.
+
+  \[Sources]
+
+  * [t3-code ADR](/projects/homelab/adrs/006-t3-code)
+  * [Home Lab deployment topology](/projects/homelab?tab=overview#deployment)
+    \[/Sources]
+</PitchNotes>
+
+***
+
+<h2 className="pitch-slide__long-title">A finished change includes proof from the running system</h2>
+
+<div className="pitch-proof-receipt">
+  <div className="pitch-proof-receipt__header">
+    <span>agent worktree</span>
+    <strong>evidence bundle</strong>
+  </div>
+
+  <div><span>WORKTREE</span><strong>Real repo, isolated branch</strong><b>✓</b></div>
+  <div><span>COMMAND</span><strong>Checked-in mise task</strong><b>✓</b></div>
+  <div><span>TARGET</span><strong>Restarted service or protected preview</strong><b>✓</b></div>
+  <div><span>PROOF</span><strong>Browser result, health response and logs</strong><b>✓</b></div>
+</div>
+
+<p className="pitch-slide__statement">The pull request carries the evidence. Real Android and iOS can join the bundle later.</p>
+
+<PitchNotes>
+  A typecheck is useful, but it does not prove that launchd restarted a service, a VPN gate held, or a page works on an
+  old mobile browser. The proposed phone lab would give agents three real devices and repeatable screenshot tasks.
+
+  \[Sources]
+
+  * [Home Lab deployment](/projects/homelab?tab=overview#deployment)
+  * [Phone device lab ADR](/projects/homelab/adrs/015-phone-device-lab)
+  * [Netdata ADR](/projects/homelab/adrs/009-netdata)
+    \[/Sources]
+</PitchNotes>
+
+***
+
+## Every layer becomes part of the next build
+
+<div className="pitch-capability-stack">
+  <div className="pitch-capability-stack__proposed"><span>Next</span><strong>Phone lab</strong><p>Preview checks on real Android and iOS</p></div>
+  <div><span>Evidence</span><strong>Browser + telemetry</strong><p>Visible results from running services</p></div>
+  <div><span>Repeat</span><strong>mise + worktrees</strong><p>Shared commands and isolated changes</p></div>
+  <div><span>Work</span><strong>t3-code</strong><p>Persistent threads, repos and credentials</p></div>
+  <div><span>Reach</span><strong>Tailscale</strong><p>Private access from phone or laptop</p></div>
+</div>
+
+<p className="pitch-slide__statement">The next project starts four working layers ahead.</p>
+
+<PitchNotes>
+  This is what cumulative value delivery means in this project. Each change solves its immediate problem and leaves a
+  specific piece of infrastructure behind for later work.
+
+  \[Sources]
+
+  * [Home Lab overview](/projects/homelab?tab=overview)
+  * [t3-code ADR](/projects/homelab/adrs/006-t3-code)
+  * [Phone device lab ADR](/projects/homelab/adrs/015-phone-device-lab)
+    \[/Sources]
+</PitchNotes>
+
+***
+
+## Old hardware gets jobs that suit the hardware
+
+<div className="pitch-ledger">
+  <div><strong>Mac mini</strong><span>Agent sessions, services and the 10TB disk</span></div>
+  <div><strong>Raspberry Pi</strong><span>Fallback DNS and a USB print server</span></div>
+  <div><strong>NixOS desktop</strong><span>GTX 1050 worker and 1TB DVC cache</span></div>
+  <div><strong>Retired phones</strong><span>Proposed browser targets and cellular watchdog</span></div>
+</div>
+
+<PitchStep>
+  A NAS is easier. Reusing the Mac and printer avoids two purchases.
+</PitchStep>
+
+<PitchNotes>
+  Placement follows physical constraints. Disks stay with the Mac mini, the printer stays with the Pi, the GPU job
+  stays with the machine that has a GPU, and phones provide the mobile browsers and cellular radios that server
+  hardware lacks.
+
+  \[Sources]
+
+  * [Home Lab nodes](/projects/homelab?tab=overview#nodes)
+  * [NixOS GPU worker ADR](/projects/homelab/adrs/010-nixos-gpu-worker)
+  * [CUPS ADR](/projects/homelab/adrs/012-cups)
+  * [Phone device lab ADR](/projects/homelab/adrs/015-phone-device-lab)
+    \[/Sources]
+</PitchNotes>
+
+***
+
+## Cloud services stay where they earn their keep
+
+<div className="pitch-value-ledger">
+  <div><span>Keep</span><strong>Ente</strong><p>Encrypted cloud sync, plus plain-file backup in the lab</p></div>
+  <div><span>Keep</span><strong>AI subscriptions</strong><p>Models stay; t3-code replaces their remote interfaces</p></div>
+  <div><span>Keep</span><strong>Trakt</strong><p>Discovery and history, with Jellyfin for owned media</p></div>
+  <div><span>Avoid</span><strong>New printer or NAS</strong><p>CUPS revives the printer; ordinary disks avoid appliance lock-in</p></div>
+</div>
+
+<p className="pitch-slide__statement">A better owned library may make some streaming subscriptions unnecessary.</p>
+
+<PitchNotes>
+  The streaming claim is deliberately tentative. Netflix, Disney Plus, Amazon Prime, and Apple TV remain subscribed
+  today. The current gain is a quicker route from Trakt discovery to Jellyfin playback for content already owned. A
+  Synology NAS would package storage, backup, sync, clients, and administration more neatly. The current lab accepts
+  more assembly work because the Mac mini and disk already cover the immediate jobs.
+
+  \[Sources]
+
+  * [Ente export documentation](https://ente.com/help/photos/features/backup-and-sync/export)
+  * [Ente photo backup ADR](/projects/homelab/adrs/007-ente-photo-backup)
+  * [Jellyfin ADR](/projects/homelab/adrs/011-jellyfin)
+  * [CUPS ADR](/projects/homelab/adrs/012-cups)
+  * [Synology Drive](https://www.synology.com/en-uk/dsm/feature/drive)
+    \[/Sources]
+</PitchNotes>
+
+***
+
+## The Mac mini concentrates three failure modes
+
+<div className="pitch-risk-map">
+  <div className="pitch-risk-map__hub">
+    <span>one host</span>
+    <strong>Mac mini</strong>
+    <p>agents · credentials · photos</p>
+  </div>
+
+  <div className="pitch-risk-map__risk pitch-risk-map__risk--outage">
+    <span>Outage</span>
+    <strong>Remote coding stops</strong>
+  </div>
+
+  <div className="pitch-risk-map__risk pitch-risk-map__risk--permissions">
+    <span>Permissions</span>
+    <strong>Agents share a host with personal data</strong>
+  </div>
+
+  <div className="pitch-risk-map__risk pitch-risk-map__risk--backup">
+    <span>Backup</span>
+    <strong>The second copy stays in the same house</strong>
+  </div>
+</div>
+
+<p className="pitch-slide__statement">Accept outage · isolate agent storage · add an off-site copy</p>
+
+<PitchNotes>
+  I accept that remote coding stops when the Mac mini fails. Agent access to the photo disk still needs a hard
+  boundary, and the 10TB backup does not cover theft or fire. I have not tracked maintenance time or measured cash
+  savings. I still own the host, the permissions, and the consequences of a bad change.
+
+  \[Sources]
+
+  * [Home Lab risks](/projects/homelab?tab=overview#risks)
+  * [Home Lab future direction](/projects/homelab?tab=overview#future-direction)
+    \[/Sources]
+</PitchNotes>
+
+***
+
+# Reuse the pattern on hardware you already own
+
+Use hardware you already own. Add private remote access, one agent interface, repeatable commands, and checks against
+the running system.
+
+<PitchStep>
+  Fork the repo. Keep the decisions that solve a problem you actually have. Delete the rest.
+</PitchStep>
+
+<PitchNotes>
+  I do not expect this to become a product. The useful output is a worked example that another engineer can inspect,
+  challenge, and adapt.
+
+  \[Sources]
+
+  * [Home Lab repository](https://github.com/Robbie-Palmer/personal-site/tree/main/homelab)
+  * [Home Lab overview](/projects/homelab?tab=overview)
+    \[/Sources]
+</PitchNotes>
