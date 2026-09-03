@@ -12,6 +12,7 @@ from the repository root:
 mise run //homelab:ansible-inventory
 mise run //homelab:ansible-syntax
 mise run //homelab:ansible-lint
+mise run //homelab:ansible-test
 mise run //homelab:ansible-facts
 mise run //homelab:ansible-discover-pi
 mise run //homelab:ansible-verify

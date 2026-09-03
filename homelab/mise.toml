@@ -29,6 +29,11 @@ description = "Lint the Ansible playbooks and roles"
 dir = "ansible"
 run = "ansible-lint playbooks roles"
 
+[tasks.ansible-test]
+description = "Test standalone Ansible helper scripts"
+dir = "ansible"
+run = "python3 -m unittest discover -s scripts -p 'test_*.py'"
+
 [tasks.ansible-facts]
 description = "Gather host facts and report missing fleet prerequisites"
 dir = "ansible"

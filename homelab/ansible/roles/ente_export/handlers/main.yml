@@ -1,16 +1,29 @@
 ---
-- name: Unload existing Ente launchd jobs
+- name: Inspect loaded Ente launchd jobs
+  ansible.builtin.command:
+    argv:
+      - launchctl
+      - print
+      - "gui/{{ ansible_facts.user_uid }}/{{ item }}"
+  loop:
+    - "{{ ente_export_launchd_label }}"
+    - "{{ ente_export_health_launchd_label }}"
+  changed_when: false
+  failed_when: false
+  register: ente_export_loaded_jobs
+  listen: Reload Ente launchd jobs
+
+- name: Unload loaded Ente launchd jobs
   ansible.builtin.command:
     argv:
       - launchctl
       - bootout
-      - "gui/{{ ansible_facts.user_uid }}"
-      - "{{ ansible_facts.env.HOME }}/Library/LaunchAgents/{{ item }}.plist"
-  loop:
-    - "{{ ente_export_launchd_label }}"
-    - "{{ ente_export_health_launchd_label }}"
+      - "gui/{{ ansible_facts.user_uid }}/{{ item.item }}"
+  loop: "{{ ente_export_loaded_jobs.results }}"
+  loop_control:
+    label: "{{ item.item }}"
+  when: item.rc == 0
   changed_when: true
-  failed_when: false
   listen: Reload Ente launchd jobs
 
 - name: Load Ente launchd jobs
