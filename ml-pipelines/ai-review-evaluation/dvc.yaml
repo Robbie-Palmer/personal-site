@@ -1,11 +1,11 @@
 stages:
   extract_dataset:
-    cmd: mise run //ml-pipelines/ai-review-evaluation:stage:extract
+    cmd: bash scripts/extract.sh
     params:
       - source
-      - cohort.changeSizeThresholds
+      - cohort.changeSizeBands
     deps:
-      - mise.toml
+      - package.json
       - ../../packages/ai-review-domain/src/records.ts
       - ../../packages/ai-review-domain/src/replay.ts
       - src/extract-corpus.ts
@@ -13,11 +13,12 @@ stages:
       - src/cli-arguments.ts
       - src/corpus-strata.ts
       - src/schemas.ts
+      - scripts/extract.sh
     outs:
       - data/corpus
 
   freeze_cohort:
-    cmd: mise run //ml-pipelines/ai-review-evaluation:stage:freeze
+    cmd: bash scripts/freeze.sh
     params:
       - cohort
       - experiment
@@ -25,7 +26,6 @@ stages:
       - matching
       - decision
     deps:
-      - mise.toml
       - ../../packages/ai-review-domain/src/records.ts
       - ../../packages/ai-review-domain/src/replay.ts
       - data/corpus
@@ -33,6 +33,7 @@ stages:
       - src/artifact-files.ts
       - src/cli-arguments.ts
       - src/schemas.ts
+      - scripts/freeze.sh
     outs:
       - outputs/frozen/cohort.json
       - outputs/frozen/decision.json
@@ -41,11 +42,10 @@ stages:
       - outputs/frozen/predeclaration.json
 
   replay:
-    cmd: mise run //ml-pipelines/ai-review-evaluation:stage:replay
+    cmd: bash scripts/replay.sh
     params:
       - replay
     deps:
-      - mise.toml
       - ../../ai-review/analytics/corpus-replay.ts
       - ../../ai-review/src/env.ts
       - ../../ai-review/src/finding-lifecycle.ts
@@ -64,13 +64,13 @@ stages:
       - src/cli-arguments.ts
       - src/run-replays.ts
       - src/schemas.ts
+      - scripts/replay.sh
     outs:
       - outputs/replays
 
   match:
-    cmd: mise run //ml-pipelines/ai-review-evaluation:stage:match
+    cmd: bash scripts/match.sh
     deps:
-      - mise.toml
       - ../../packages/ai-review-domain/src/records.ts
       - ../../packages/ai-review-domain/src/replay.ts
       - outputs/frozen/cohort.json
@@ -81,13 +81,13 @@ stages:
       - src/corpus-strata.ts
       - src/match-replays.ts
       - src/schemas.ts
+      - scripts/match.sh
     outs:
       - outputs/matched
 
   evaluate:
-    cmd: mise run //ml-pipelines/ai-review-evaluation:stage:evaluate
+    cmd: bash scripts/evaluate.sh
     deps:
-      - mise.toml
       - ../../packages/ai-review-domain/src/records.ts
       - ../../packages/ai-review-domain/src/replay.ts
       - analytics/scorecard.sql

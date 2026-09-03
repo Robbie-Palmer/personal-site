@@ -40,6 +40,14 @@ function prepared(mode: ReviewCoverageMode): PreparedReview {
     threads: String.raw`{"password":"quoted-secret-one-with-\"escaped-secret-tail",'api_key':'quoted-secret-two-with-\'single-secret-tail',"multiline_password":"first line
 multiline-double-secret",'multiline_api_key':'first line
 multiline-single-secret',"ａｐｉＫｅｙ":"compatibility-secret","pаssword":"homoglyph-secret"}`,
+    pullRequest: {
+      author: "octocat",
+      authorAssociation: "MEMBER",
+      title: "Improve the widget",
+      labels: ["feature"],
+      headRef: "feature/widget",
+      reviewers: ["hubot"],
+    },
     paths: ["src/app.ts"],
     omitted: [],
     priorOpenFindings: [finding],
@@ -120,6 +128,7 @@ describe("replay input corpus", () => {
         git: { baseSha: string; headSha: string };
         decision: { coverage: { mode: string } };
         input: { priorOpenFindings: unknown[]; affectedOpenFindings: unknown[] };
+        pullRequest: { author: string; reviewers: string[] };
         policy: { credentials: { algorithm: string } };
         provenance: { liveCredentialsIncluded: boolean };
       };
@@ -127,6 +136,7 @@ describe("replay input corpus", () => {
       expect(snapshot.decision.coverage.mode).toBe(mode);
       expect(snapshot.input.priorOpenFindings).toHaveLength(1);
       expect(snapshot.input.affectedOpenFindings).toHaveLength(mode === "incremental" ? 1 : 0);
+      expect(snapshot.pullRequest).toMatchObject({ author: "octocat", reviewers: ["hubot"] });
       expect(JSON.stringify(snapshot)).not.toContain("super-secret-value");
       expect(JSON.stringify(snapshot)).not.toContain("abcdefghijklmnopqrstuvwxyz");
       expect(JSON.stringify(snapshot)).not.toContain("dXNlcjpwYXNzd29yZA");

@@ -92,6 +92,11 @@ export interface ReviewState {
   models?: Record<string, ModelStats>;
 }
 
+export interface PullRequestReviewContext {
+  threads: string;
+  reviewers: string[];
+}
+
 export const MARKER = "<!-- ai-code-review -->";
 const COST_PATTERN = /<!-- ai-review-cost:(\{[^\n]*\}) -->/;
 const BOT_LOGINS = new Set(["github-actions[bot]"]);
@@ -964,12 +969,13 @@ export class Reviewer {
     return { state: { runs: 0, total_usd: 0 } };
   }
 
-  async reviewThreadContext(paths?: string[]): Promise<string> {
+  async pullRequestReviewContext(paths?: string[]): Promise<PullRequestReviewContext> {
     const relevantPaths = paths ? new Set(paths) : undefined;
     const [owner, repository] = this.settings.repository.split("/", 2);
     const query = `query($owner:String!, $repository:String!, $number:Int!) {
       repository(owner:$owner, name:$repository) {
         pullRequest(number:$number) {
+          reviews(first:100) { nodes { author { login } } }
           reviewThreads(first:100) {
             nodes { isResolved isOutdated comments(first:20) { nodes { path line body author { login } } } }
           }
@@ -983,9 +989,23 @@ export class Reviewer {
       throw new Error(`GitHub GraphQL errors: ${JSON.stringify(payload.errors).slice(0, 1_000)}`);
     }
     const data = payload.data;
-    if (!isObject(data) || !isObject(data.repository) || !isObject(data.repository.pullRequest)) return "";
-    const threadConnection = data.repository.pullRequest.reviewThreads;
-    if (!isObject(threadConnection) || !Array.isArray(threadConnection.nodes)) return "";
+    if (!isObject(data) || !isObject(data.repository) || !isObject(data.repository.pullRequest)) {
+      return { threads: "", reviewers: [] };
+    }
+    const pullRequest = data.repository.pullRequest;
+    const reviewConnection = pullRequest.reviews;
+    const reviewNodes = isObject(reviewConnection) && Array.isArray(reviewConnection.nodes)
+      ? reviewConnection.nodes
+      : [];
+    const reviewers = [...new Set(reviewNodes.filter(isObject).flatMap((review) => {
+      const author = review.author;
+      if (!isObject(author) || typeof author.login !== "string" || author.login.length === 0) return [];
+      return [author.login];
+    }))].sort((left, right) => left.localeCompare(right));
+    const threadConnection = pullRequest.reviewThreads;
+    if (!isObject(threadConnection) || !Array.isArray(threadConnection.nodes)) {
+      return { threads: "", reviewers };
+    }
     const blocks: string[] = [];
     let used = 0;
     for (const value of threadConnection.nodes) {
@@ -1009,7 +1029,11 @@ export class Reviewer {
       blocks.push(block);
       used += block.length;
     }
-    return blocks.join("\n\n");
+    return { threads: blocks.join("\n\n"), reviewers };
+  }
+
+  async reviewThreadContext(paths?: string[]): Promise<string> {
+    return (await this.pullRequestReviewContext(paths)).threads;
   }
 
   async writeComment(id: number | undefined, body: string): Promise<number | undefined> {

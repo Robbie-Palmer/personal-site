@@ -63,6 +63,18 @@ export type ReviewCoverage = z.infer<typeof ReviewCoverageSchema>;
 
 export const PartialReviewCoverageSchema = ReviewCoverageSchema.partial().loose();
 
+export const PullRequestMetadataSchema = z.object({
+  author: z.string().min(1),
+  authorAssociation: z.string().optional(),
+  title: z.string().optional(),
+  labels: z.array(z.string()),
+  headRef: z.string().optional(),
+  taskType: z.enum(["bug", "dependency", "documentation", "feature"]).optional(),
+  originatingAgent: z.enum(["claude", "codex", "opencode"]).optional(),
+  reviewers: z.array(z.string().min(1)).optional(),
+}).strict();
+export type PullRequestMetadata = z.infer<typeof PullRequestMetadataSchema>;
+
 export const OpenFindingBaselineSchema = z.looseObject({
   findingId: z.string(),
   file: z.string(),
@@ -81,6 +93,7 @@ export const ReplayInputSnapshotSchema = z.looseObject({
   repository: z.string().min(1),
   pullRequestNumber: z.number().int().positive(),
   productionRunId: z.string().min(1),
+  pullRequest: PullRequestMetadataSchema.optional(),
   git: z.looseObject({ baseSha: z.string().min(1), headSha: z.string().min(1) }),
   input: z.looseObject({
     fullDiff: z.string(),
@@ -130,6 +143,7 @@ export const ReviewTerminalRecordSchema = z.looseObject({
   pullRequestNumber: z.number().int().positive(),
   status: z.enum(["published", "skipped", "denied", "failed"]),
   workflow: z.looseObject({ instanceId: z.string().min(1) }),
+  pullRequest: PullRequestMetadataSchema.optional(),
   change: ChangeProfileSchema.partial().optional(),
   coverage: PartialReviewCoverageSchema.optional(),
   findings: z.looseObject({ published: z.array(ReviewFindingSchema).optional() }).optional(),

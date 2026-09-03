@@ -1,20 +1,24 @@
 schema: '2.0'
 stages:
   extract_dataset:
-    cmd: mise run //ml-pipelines/ai-review-evaluation:stage:extract
+    cmd: bash scripts/extract.sh
     deps:
     - path: ../../packages/ai-review-domain/src/records.ts
       hash: md5
-      md5: d1d13ab163cd58a0632c87f8af9de27f
-      size: 6719
+      md5: 9033ed9be43625106c309523ff8b86bb
+      size: 7344
     - path: ../../packages/ai-review-domain/src/replay.ts
       hash: md5
-      md5: 43193e0633e3b0aebcd11087dfd05faf
-      size: 1920
-    - path: mise.toml
+      md5: ac58e08c0b042b0efdf3558355c2abf6
+      size: 2000
+    - path: package.json
       hash: md5
-      md5: 39a9037591ae7106ee60c6b284ad5a99
-      size: 2410
+      md5: c50b1cf0edd39afe87694ad020548af8
+      size: 481
+    - path: scripts/extract.sh
+      hash: md5
+      md5: f9bf4c6b02aa7317199ee15e866844d9
+      size: 117
     - path: src/artifact-files.ts
       hash: md5
       md5: 51a1370a9167f68d9d4724b57c4ae615
@@ -25,52 +29,57 @@ stages:
       size: 852
     - path: src/corpus-strata.ts
       hash: md5
-      md5: 4e1b86b7bc779c7587cd904b5953d26a
-      size: 1916
+      md5: d1807e19a7659c8a0a5870001b7d6234
+      size: 3010
     - path: src/extract-corpus.ts
       hash: md5
-      md5: b9d248b6147f99f511a73ddfeeaa0ab9
-      size: 8932
+      md5: 30b469fa11ec977b0d07debb5c5c6ff2
+      size: 8992
     - path: src/schemas.ts
       hash: md5
-      md5: 3f8f63319748dbe127157cb6d031f677
-      size: 11421
+      md5: ff35f5207b06cd2fda30818c2a7f25f8
+      size: 11797
     params:
       params.yaml:
-        cohort.changeSizeThresholds:
-          medium: 200
-          substantial: 1000
-          large: 2000
-          oversized: 5000
+        cohort.changeSizeBands:
+          small:
+            maxExclusive: 200
+          medium:
+            maxExclusive: 1000
+          substantial:
+            maxExclusive: 2000
+          large:
+            maxExclusive: 5000
+          oversized: {}
         source:
           repository: Robbie-Palmer/personal-site
           exportPath: ~/.cache/ai-review/r2-export
     outs:
     - path: data/corpus
       hash: md5
-      md5: 8a8255ec373ec00497a5159b4c4388e2.dir
-      size: 1119242
-      nfiles: 8
+      md5: 08a238b25b90a137855d3f6203681306.dir
+      size: 26254559
+      nfiles: 73
   freeze_cohort:
-    cmd: mise run //ml-pipelines/ai-review-evaluation:stage:freeze
+    cmd: bash scripts/freeze.sh
     deps:
     - path: ../../packages/ai-review-domain/src/records.ts
       hash: md5
-      md5: d1d13ab163cd58a0632c87f8af9de27f
-      size: 6719
+      md5: 9033ed9be43625106c309523ff8b86bb
+      size: 7344
     - path: ../../packages/ai-review-domain/src/replay.ts
       hash: md5
-      md5: 43193e0633e3b0aebcd11087dfd05faf
-      size: 1920
+      md5: ac58e08c0b042b0efdf3558355c2abf6
+      size: 2000
     - path: data/corpus
       hash: md5
-      md5: 8a8255ec373ec00497a5159b4c4388e2.dir
-      size: 1119242
-      nfiles: 8
-    - path: mise.toml
+      md5: 08a238b25b90a137855d3f6203681306.dir
+      size: 26254559
+      nfiles: 73
+    - path: scripts/freeze.sh
       hash: md5
-      md5: 39a9037591ae7106ee60c6b284ad5a99
-      size: 2410
+      md5: 504c6c0a41063447f968e2ca240a43c5
+      size: 155
     - path: src/artifact-files.ts
       hash: md5
       md5: 51a1370a9167f68d9d4724b57c4ae615
@@ -81,22 +90,26 @@ stages:
       size: 852
     - path: src/freeze-cohort.ts
       hash: md5
-      md5: 46859ccd406269a8217a3ab975b5e0f3
-      size: 10973
+      md5: 4ecdcaa6b446d5d69d4ee283a92a3085
+      size: 6032
     - path: src/schemas.ts
       hash: md5
-      md5: 3f8f63319748dbe127157cb6d031f677
-      size: 11421
+      md5: ff35f5207b06cd2fda30818c2a7f25f8
+      size: 11797
     params:
       params.yaml:
         cohort:
           frozenAt: '2026-09-02T00:00:00Z'
-          maxPullRequests: 12
-          changeSizeThresholds:
-            medium: 200
-            substantial: 1000
-            large: 2000
-            oversized: 5000
+          changeSizeBands:
+            small:
+              maxExclusive: 200
+            medium:
+              maxExclusive: 1000
+            substantial:
+              maxExclusive: 2000
+            large:
+              maxExclusive: 5000
+            oversized: {}
           pullRequestNumbers: []
         decision:
           primaryMetrics:
@@ -147,21 +160,21 @@ stages:
     outs:
     - path: outputs/frozen/cohort.json
       hash: md5
-      md5: cbc6de14d4b2f37612843ec2e225e25d
-      size: 21388
+      md5: 55d1ad7dd0c1a9a2722b1d797bcc80b4
+      size: 564771
     - path: outputs/frozen/decision.json
       hash: md5
-      md5: c8aa64dedf6b4bbbdb9f7573f41a480a
+      md5: 8467343cda167212141236b7083ef2d7
       size: 586
     - path: outputs/frozen/experiment.json
       hash: md5
-      md5: e32b5c5b22df776f313074fd9f3e2d05
+      md5: 655f008b8dcf7fdb63dabc63beeef06f
       size: 766
     - path: outputs/frozen/matching.json
       hash: md5
-      md5: 88970d7d965a00a899e69ff7561d4cce
+      md5: 63a5203112a3bf7fc06b11067ca4eb96
       size: 332
     - path: outputs/frozen/predeclaration.json
       hash: md5
-      md5: c98af1787fb12eadac0eb33432152ce1
+      md5: e8abf45ecc11026354572a49e5b29c51
       size: 590

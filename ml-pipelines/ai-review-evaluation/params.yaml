@@ -5,12 +5,12 @@
   },
   "cohort": {
     "frozenAt": "2026-09-02T00:00:00Z",
-    "maxPullRequests": 12,
-    "changeSizeThresholds": {
-      "medium": 200,
-      "substantial": 1000,
-      "large": 2000,
-      "oversized": 5000
+    "changeSizeBands": {
+      "small": {"maxExclusive": 200},
+      "medium": {"maxExclusive": 1000},
+      "substantial": {"maxExclusive": 2000},
+      "large": {"maxExclusive": 5000},
+      "oversized": {}
     },
     "pullRequestNumbers": []
   },

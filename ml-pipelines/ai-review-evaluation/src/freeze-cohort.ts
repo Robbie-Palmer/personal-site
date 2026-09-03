@@ -15,103 +15,9 @@ import {
   type FrozenMatching,
 } from "./schemas";
 
-const STRATIFICATION_DIMENSIONS = [
-  "risk-signal",
-  "change-size",
-  "language",
-  "repository-area",
-  "outcome-availability",
-] as const;
-const STRATIFICATION_TIE_TOLERANCE = 1e-12;
-const CHANGE_SIZE_ORDER = ["small", "medium", "substantial", "large", "oversized"] as const;
-
-type StratificationDimension = typeof STRATIFICATION_DIMENSIONS[number];
-type Marginals = Record<StratificationDimension, Map<string, number>>;
-
 interface PullRequestGroup {
   pullRequestNumber: number;
   entries: DatasetEntry[];
-}
-
-function featureValues(group: PullRequestGroup, dimension: StratificationDimension): string[] {
-  const entries = group.entries;
-  switch (dimension) {
-    case "risk-signal": {
-      const values = [...new Set(entries.flatMap((entry) => entry.strata.riskSignals))]
-        .sort((left, right) => left.localeCompare(right));
-      return values.length > 0 ? values : ["standard"];
-    }
-    case "change-size": return [...new Set(entries.map((entry) => entry.strata.changeSize))]
-      .sort((left, right) => CHANGE_SIZE_ORDER.indexOf(left) - CHANGE_SIZE_ORDER.indexOf(right));
-    case "language": {
-      const values = [...new Set(entries.flatMap((entry) => entry.strata.languages))]
-        .sort((left, right) => left.localeCompare(right));
-      return values.length > 0 ? values : ["unknown"];
-    }
-    case "repository-area": {
-      const values = [...new Set(entries.flatMap((entry) => entry.strata.repositoryAreas))]
-        .sort((left, right) => left.localeCompare(right));
-      return values.length > 0 ? values : ["unknown"];
-    }
-    case "outcome-availability": return [...new Set(entries.map((entry) => entry.strata.outcomeAvailability))]
-      .sort((left, right) => left.localeCompare(right));
-  }
-}
-
-function emptyMarginals(): Marginals {
-  return Object.fromEntries(STRATIFICATION_DIMENSIONS.map((dimension) => [dimension, new Map()])) as Marginals;
-}
-
-function addToMarginals(marginals: Marginals, group: PullRequestGroup): void {
-  for (const dimension of STRATIFICATION_DIMENSIONS) {
-    const values = featureValues(group, dimension);
-    const weight = 1 / values.length;
-    for (const value of values) {
-      const counts = marginals[dimension];
-      counts.set(value, (counts.get(value) ?? 0) + weight);
-    }
-  }
-}
-
-function targetMarginals(groups: PullRequestGroup[]): Marginals {
-  const target = emptyMarginals();
-  for (const group of groups) addToMarginals(target, group);
-  for (const dimension of STRATIFICATION_DIMENSIONS) {
-    for (const [value, total] of target[dimension]) {
-      target[dimension].set(value, total / groups.length);
-    }
-  }
-  return target;
-}
-
-function marginalError(
-  selected: Marginals,
-  candidate: PullRequestGroup,
-  selectedCount: number,
-  target: Marginals,
-): number {
-  let error = 0;
-  for (const dimension of STRATIFICATION_DIMENSIONS) {
-    const candidateValues = featureValues(candidate, dimension);
-    const candidateWeight = 1 / candidateValues.length;
-    const categories = target[dimension];
-    let dimensionError = 0;
-    for (const [value, targetShare] of categories) {
-      const contribution = candidateValues.includes(value) ? candidateWeight : 0;
-      const projectedShare = ((selected[dimension].get(value) ?? 0) + contribution) / (selectedCount + 1);
-      dimensionError += (projectedShare - targetShare) ** 2;
-    }
-    error += dimensionError / categories.size;
-  }
-  return error;
-}
-
-function noveltyScore(selected: Marginals, candidate: PullRequestGroup): number {
-  return STRATIFICATION_DIMENSIONS.reduce((score, dimension) => {
-    const values = featureValues(candidate, dimension);
-    const unseenShare = values.filter((value) => !selected[dimension].has(value)).length / values.length;
-    return score + unseenShare;
-  }, 0);
 }
 
 function groupByPullRequest(entries: DatasetEntry[]): PullRequestGroup[] {
@@ -128,28 +34,6 @@ function groupByPullRequest(entries: DatasetEntry[]): PullRequestGroup[] {
       entries: groupEntries.toSorted((left, right) => left.capturedAt.localeCompare(right.capturedAt)
         || left.corpusId.localeCompare(right.corpusId)),
     }));
-}
-
-export function stratifiedPullRequestSelection(entries: DatasetEntry[], maximum: number): DatasetEntry[] {
-  const candidates = groupByPullRequest(entries);
-  const target = targetMarginals(candidates);
-  const selectedMarginals = emptyMarginals();
-  const selected: PullRequestGroup[] = [];
-  const remaining = new Set(candidates);
-  while (selected.length < maximum && remaining.size > 0) {
-    const next = [...remaining].sort((left, right) => {
-      const errorDifference = marginalError(selectedMarginals, left, selected.length, target)
-        - marginalError(selectedMarginals, right, selected.length, target);
-      if (Math.abs(errorDifference) > STRATIFICATION_TIE_TOLERANCE) return errorDifference;
-      const noveltyDifference = noveltyScore(selectedMarginals, right) - noveltyScore(selectedMarginals, left);
-      return noveltyDifference || left.pullRequestNumber - right.pullRequestNumber;
-    })[0];
-    if (!next) break;
-    selected.push(next);
-    addToMarginals(selectedMarginals, next);
-    remaining.delete(next);
-  }
-  return selected.flatMap((group) => group.entries);
 }
 
 interface Predeclaration {
@@ -195,7 +79,7 @@ export function freezeCohort({
       return group.entries;
     });
   } else {
-    entries = stratifiedPullRequestSelection(dataset.entries, params.cohort.maxPullRequests);
+    entries = groups.flatMap((group) => group.entries);
   }
   if (entries.length === 0) throw new Error("the fixed cohort is empty");
   const selectedPullRequestCount = new Set(entries.map((entry) => entry.pullRequestNumber)).size;
@@ -208,13 +92,11 @@ export function freezeCohort({
     repository: dataset.repository,
     sourceSummary: dataset.sourceSummary,
     selection: {
-      method: explicitPullRequests.length > 0 ? "explicit-pull-requests" : "deterministic-balanced-pr-stratification",
+      method: explicitPullRequests.length > 0 ? "explicit-pull-requests" : "all-available-pull-requests",
       unit: "pull-request",
       snapshotPolicy: "all-captured-snapshots",
-      dimensions: STRATIFICATION_DIMENSIONS,
       availablePullRequests,
-      requestedMaximumPullRequests: params.cohort.maxPullRequests,
-      changeSizeThresholds: params.cohort.changeSizeThresholds,
+      changeSizeBands: params.cohort.changeSizeBands,
       selectedPullRequestCount,
       selectedSnapshotCount: entries.length,
     },

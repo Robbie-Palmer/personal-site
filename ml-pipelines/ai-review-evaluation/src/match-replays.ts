@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { readJson, writeJson } from "./artifact-files";
 import { parseArgs } from "./cli-arguments";
-import { outcomeClass } from "./corpus-strata";
+import { outcomeClass, type OutcomeLabel } from "./corpus-strata";
 import {
   EvaluationReplayIndexSchema,
   EvaluationReplaySchema,
@@ -16,7 +16,6 @@ import {
   type ReplayOutput,
 } from "./schemas";
 
-type OutcomeLabel = ReturnType<typeof outcomeClass>;
 type MatchingMethod = MatchingPolicy["methods"][number];
 
 export interface FindingMatch {
@@ -193,23 +192,26 @@ interface OutcomeCounts {
 }
 
 function countOutcomes(matches: FindingMatch[]): OutcomeCounts {
-  const counts: OutcomeCounts = {
+  const labelCounts: Record<OutcomeLabel, number> = {
     accepted: 0,
     rejected: 0,
     censored: 0,
-    noResponse: 0,
+    "no-response": 0,
     missing: 0,
-    manual: 0,
   };
+  let manual = 0;
   for (const match of matches) {
-    if (match.status === "manual-adjudication-required") counts.manual += 1;
-    else if (match.label === "accepted") counts.accepted += 1;
-    else if (match.label === "rejected") counts.rejected += 1;
-    else if (match.label === "censored") counts.censored += 1;
-    else if (match.label === "no-response") counts.noResponse += 1;
-    else counts.missing += 1;
+    if (match.status === "manual-adjudication-required") manual += 1;
+    else labelCounts[match.label ?? "missing"] += 1;
   }
-  return counts;
+  return {
+    accepted: labelCounts.accepted,
+    rejected: labelCounts.rejected,
+    censored: labelCounts.censored,
+    noResponse: labelCounts["no-response"],
+    missing: labelCounts.missing,
+    manual,
+  };
 }
 
 function runObservation(wrapper: EvaluationReplay, entry: DatasetEntry, matches: FindingMatch[]): ReplayObservation {

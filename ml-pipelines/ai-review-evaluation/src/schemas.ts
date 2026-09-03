@@ -7,6 +7,7 @@ import {
   FindingOutcomeRecordSchema,
   ModelMetricSchema,
   PartialReviewCoverageSchema,
+  PullRequestMetadataSchema,
   ReplayInputSnapshotSchema,
   ReviewFindingSchema,
   ReviewTerminalRecordSchema,
@@ -57,11 +58,21 @@ export const DecisionPolicySchema = z.object({
   maximumProviderFailureRate: z.number().nonnegative(),
 }).strict();
 
-export const ChangeSizeThresholdsSchema = z.object({
-  medium: z.number().int().positive(),
-  substantial: z.number().int().positive(),
-  large: z.number().int().positive(),
-  oversized: z.number().int().positive(),
+export const BOUNDED_CHANGE_SIZE_NAMES = ["small", "medium", "substantial", "large"] as const;
+export const CHANGE_SIZE_NAMES = [...BOUNDED_CHANGE_SIZE_NAMES, "oversized"] as const;
+export const ChangeSizeSchema = z.enum(CHANGE_SIZE_NAMES);
+export type ChangeSize = z.infer<typeof ChangeSizeSchema>;
+
+const BoundedChangeSizeBandSchema = z.object({
+  maxExclusive: z.number().int().positive(),
+}).strict();
+
+export const ChangeSizeBandsSchema = z.object({
+  small: BoundedChangeSizeBandSchema,
+  medium: BoundedChangeSizeBandSchema,
+  substantial: BoundedChangeSizeBandSchema,
+  large: BoundedChangeSizeBandSchema,
+  oversized: z.object({}).strict(),
 }).strict();
 
 const PipelineParamsBaseSchema = z.object({
@@ -71,8 +82,7 @@ const PipelineParamsBaseSchema = z.object({
   }).strict(),
   cohort: z.object({
     frozenAt: z.iso.datetime(),
-    maxPullRequests: z.number().int().positive(),
-    changeSizeThresholds: ChangeSizeThresholdsSchema,
+    changeSizeBands: ChangeSizeBandsSchema,
     pullRequestNumbers: z.array(z.number().int().positive())
       .refine((numbers) => new Set(numbers).size === numbers.length, "pull request numbers must be unique"),
   }).strict(),
@@ -90,15 +100,15 @@ const PipelineParamsBaseSchema = z.object({
 
 type PipelineParamsInput = z.infer<typeof PipelineParamsBaseSchema>;
 
-function validateChangeSizeThresholds(params: PipelineParamsInput, context: z.RefinementCtx): void {
-  const thresholds = params.cohort.changeSizeThresholds;
-  if (!(thresholds.medium < thresholds.substantial
-    && thresholds.substantial < thresholds.large
-    && thresholds.large < thresholds.oversized)) {
+function validateChangeSizeBands(params: PipelineParamsInput, context: z.RefinementCtx): void {
+  const bounds = BOUNDED_CHANGE_SIZE_NAMES.map(
+    (name) => params.cohort.changeSizeBands[name].maxExclusive,
+  );
+  if (!bounds.every((bound, index) => index === 0 || bound > (bounds[index - 1] ?? 0))) {
     context.addIssue({
       code: "custom",
-      path: ["cohort", "changeSizeThresholds"],
-      message: "thresholds must increase from medium through oversized",
+      path: ["cohort", "changeSizeBands"],
+      message: "maxExclusive values must increase from small through large",
     });
   }
 }
@@ -139,7 +149,7 @@ function validateProviders(params: PipelineParamsInput, context: z.RefinementCtx
 }
 
 export const PipelineParamsSchema = PipelineParamsBaseSchema.superRefine((params, context) => {
-  validateChangeSizeThresholds(params, context);
+  validateChangeSizeBands(params, context);
   validateExperiment(params, context);
   validateProviders(params, context);
 });
@@ -175,11 +185,12 @@ export const DatasetManifestSchema = z.looseObject({
     pullRequestNumber: z.number().int().positive(),
     capturedAt: z.iso.datetime(),
     changedLines: z.number().int().nonnegative(),
+    pullRequest: PullRequestMetadataSchema.optional(),
     coverage: PartialReviewCoverageSchema.nullable().optional(),
     strata: z.looseObject({
       risk: z.string(),
       riskSignals: z.array(z.string()),
-      changeSize: z.enum(["small", "medium", "substantial", "large", "oversized"]),
+      changeSize: ChangeSizeSchema,
       languages: z.array(z.string()),
       repositoryAreas: z.array(z.string()),
       outcomeAvailability: z.string(),
@@ -196,7 +207,7 @@ export const FrozenCohortSchema = z.looseObject({
   repository: z.string().min(1),
   sourceSummary: DatasetManifestSchema.shape.sourceSummary,
   selection: z.looseObject({
-    method: z.enum(["explicit-pull-requests", "deterministic-balanced-pr-stratification"]),
+    method: z.enum(["explicit-pull-requests", "all-available-pull-requests"]),
     unit: z.literal("pull-request"),
     availablePullRequests: z.number().int().nonnegative(),
     selectedPullRequestCount: z.number().int().nonnegative(),

@@ -11,9 +11,8 @@ The pipeline has five stages:
    records and latest finding outcomes. It copies only the replayable snapshots
    into `data/corpus`, records SHA-256 provenance for every source object, and
    reports terminal-record PRs separately from PRs that have replay snapshots.
-2. `freeze_cohort` groups snapshots by Pull Request and balances the cohort's
-   PR-level marginal distributions across every risk signal, change-size band,
-   language, repository area, and outcome-availability class. Every snapshot
+2. `freeze_cohort` groups snapshots by Pull Request and includes every available
+   PR unless `cohort.pullRequestNumbers` names an explicit cohort. Every snapshot
    for a selected PR remains in the cohort. The stage writes PR and snapshot
    counts, baseline, candidate, repetitions, limits, matching rules, metrics,
    sample size, and thresholds before replay results exist.
@@ -34,12 +33,14 @@ mise run //ai-review:scorecard:pull
 Review `params.yaml` before running the pipeline. Fix the model or prompt pair,
 repetitions, budgets, matching rules, sample size, and decision thresholds.
 For an explicitly curated cohort, put PR numbers in
-`cohort.pullRequestNumbers`. An empty list uses deterministic stratified
-selection. The pipeline includes every captured snapshot for each selected PR.
+`cohort.pullRequestNumbers`. An empty list uses every replayable PR. The pipeline
+includes every captured snapshot for each selected PR. The experiment-wide cost
+limit guards execution as the corpus grows. Freeze validation and holdout splits
+later, once the corpus supports them.
 
-Additions plus deletions determine change size. Configure each lower bound in
-`cohort.changeSizeThresholds`. The committed bands cover small changes below
-200 lines, medium changes from 200 through 999, substantial changes from 1,000
+Additions plus deletions determine change size. Configure each band's exclusive
+upper bound in `cohort.changeSizeBands`. The committed bands cover small changes
+below 200 lines, medium changes from 200 through 999, substantial changes from 1,000
 through 1,999, large changes from 2,000 through 4,999, and oversized changes
 from 5,000. The frozen cohort records these thresholds.
 
@@ -57,6 +58,12 @@ mise run //ml-pipelines/ai-review-evaluation:repro
 The source export lives outside the DVC project. Run `dvc repro --force
 extract_dataset` after refreshing it. DVC versions the extracted corpus. Its
 manifest keeps the source object keys and hashes needed to audit the extraction.
+Each stage has a dedicated command script, so editing one stage's mise wrapper
+does not invalidate unrelated cached stages.
+
+Corpus entries preserve the PR author and the unique GitHub users who submitted
+reviews. Older snapshots may omit reviewer metadata. Each trusted finding
+disposition records its actor separately on the historical outcome.
 
 ## Plan without inference
 
@@ -101,6 +108,9 @@ weight as a PR with one. Raw finding, token, and cost totals remain available
 for operational accounting. The committed decision policy also uses completed
 PRs as its minimum-sample unit. Cost comparisons use the PR-weighted mean cost
 per replay rather than the raw experiment total.
+
+Language strata come from the typed `linguist-languages` package, which mirrors
+GitHub Linguist's language metadata and has no runtime dependencies.
 
 The production reviewer and this pipeline share Zod schemas and inferred
 TypeScript types through `packages/ai-review-domain`. Both boundaries validate

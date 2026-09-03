@@ -4,19 +4,19 @@ run = "pnpm exec tsx src/extract-corpus.ts --input \"${AI_REVIEW_EVALUATION_EXPO
 
 [tasks."stage:extract"]
 description = "Run the DVC dataset extraction stage"
-run = "pnpm exec tsx src/extract-corpus.ts --output data/corpus --params params.yaml"
+run = "bash scripts/extract.sh"
 
 [tasks."stage:freeze"]
 description = "Run the DVC cohort freeze stage"
-run = "pnpm exec tsx src/freeze-cohort.ts --dataset data/corpus/manifest.json --output outputs/frozen --params params.yaml"
+run = "bash scripts/freeze.sh"
 
 [tasks."stage:replay"]
 description = "Run the DVC controlled replay stage"
-run = "pnpm exec tsx src/run-replays.ts --cohort outputs/frozen/cohort.json --experiment outputs/frozen/experiment.json --corpus data/corpus --output outputs/replays --params params.yaml --ai-review-root ../../ai-review"
+run = "bash scripts/replay.sh"
 
 [tasks."stage:match"]
 description = "Run the DVC finding matching stage"
-run = "pnpm exec tsx src/match-replays.ts --cohort outputs/frozen/cohort.json --matching outputs/frozen/matching.json --replays outputs/replays --output outputs/matched"
+run = "bash scripts/match.sh"
 
 [tasks."stage:evaluate"]
 description = "Run the DVC DuckDB evaluation stage"

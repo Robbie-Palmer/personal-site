@@ -8,6 +8,7 @@
   },
   "dependencies": {
     "ai-review-domain": "workspace:*",
+    "linguist-languages": "9.5.0",
     "zod": "^4.2.1"
   },
   "devDependencies": {

@@ -146,6 +146,7 @@ export async function persistReplayInput(options: {
     repository: params.repository,
     pullRequestNumber: params.pullRequestNumber,
     productionRunId: options.instanceId,
+    pullRequest: prepared.pullRequest,
     git: { baseSha: prepared.baseSha, headSha: prepared.headSha },
     input: {
       fullDiff: prepared.fullDiff,

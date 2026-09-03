@@ -43,6 +43,7 @@ import type {
   ChangeProfile,
   ModelMetric,
   OpenFindingBaseline,
+  PullRequestMetadata,
   ReviewCoverage,
   ReviewCoverageMode,
   ReviewHunk,
@@ -59,6 +60,7 @@ export type {
   ChangeProfile,
   ModelMetric,
   OpenFindingBaseline,
+  PullRequestMetadata,
   ReviewCoverage,
   ReviewCoverageMode,
   ReviewHunk,
@@ -67,16 +69,6 @@ export type {
 type JsonObject = Record<string, unknown>;
 
 export const STATEFUL_REVIEW_MARKER = "<!-- stateful-ai-code-review -->";
-
-export interface PullRequestMetadata {
-  author: string;
-  authorAssociation?: string;
-  title?: string;
-  labels: string[];
-  headRef?: string;
-  taskType?: "bug" | "dependency" | "documentation" | "feature";
-  originatingAgent?: "claude" | "codex" | "opencode";
-}
 
 export interface PreparedReview {
   skipReason?: string;
@@ -924,6 +916,13 @@ export async function prepareReview(
     statefulMergerSchema,
     guardrails: guardrailPolicy(env),
   });
+  const context = selectedDiff.trim()
+    ? await reviewer.fileContext(selectedPaths, headSha)
+    : "";
+  const guidelines = selectedDiff.trim() ? await reviewer.headGuidelines(headSha) : "";
+  const reviewContext = selectedDiff.trim()
+    ? await reviewer.pullRequestReviewContext(selectedPaths)
+    : { threads: "", reviewers: [] };
   return {
     baseSha: pr.base?.sha,
     headSha,
@@ -951,11 +950,10 @@ export async function prepareReview(
       headRef: pr.head.ref,
       taskType: taskType(labels),
       originatingAgent: originatingAgent(pr.title, pr.head.ref),
+      reviewers: reviewContext.reviewers,
     },
-    context: selectedDiff.trim()
-      ? await reviewer.fileContext(selectedPaths, headSha)
-      : "",
-    guidelines: selectedDiff.trim() ? await reviewer.headGuidelines(headSha) : "",
+    context,
+    guidelines,
     replayFindings: baseline.openFindings.filter((finding) =>
       coverage.affectedFindingIds.includes(finding.findingId),
     ),
@@ -963,7 +961,7 @@ export async function prepareReview(
     threads: selectedDiff.trim()
       ? [
           affectedFindingContext(baseline, coverage),
-          await reviewer.reviewThreadContext(selectedPaths),
+          reviewContext.threads,
         ]
           .filter(Boolean)
           .join("\n\n")

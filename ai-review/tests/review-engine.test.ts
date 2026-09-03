@@ -345,7 +345,7 @@ describe("stateful review engine", () => {
     });
     vi.spyOn(Reviewer.prototype, "fileContext").mockResolvedValue("");
     vi.spyOn(Reviewer.prototype, "headGuidelines").mockResolvedValue("");
-    vi.spyOn(Reviewer.prototype, "reviewThreadContext").mockResolvedValue("");
+    vi.spyOn(Reviewer.prototype, "pullRequestReviewContext").mockResolvedValue({ threads: "", reviewers: [] });
 
     const automatic = await prepareReview(environment(), params);
     expect(automatic.coverage).toMatchObject({
@@ -394,7 +394,7 @@ describe("stateful review engine", () => {
     });
     vi.spyOn(Reviewer.prototype, "fileContext").mockResolvedValue("");
     vi.spyOn(Reviewer.prototype, "headGuidelines").mockResolvedValue("");
-    vi.spyOn(Reviewer.prototype, "reviewThreadContext").mockResolvedValue("");
+    vi.spyOn(Reviewer.prototype, "pullRequestReviewContext").mockResolvedValue({ threads: "", reviewers: [] });
 
     const prepared = await prepareReview(environment(), params);
 
@@ -457,7 +457,18 @@ describe("stateful review engine", () => {
         .mockResolvedValueOnce(
           json({
             data: {
-              repository: { pullRequest: { reviewThreads: { nodes: [] } } },
+              repository: {
+                pullRequest: {
+                  reviews: {
+                    nodes: [
+                      { author: { login: "reviewer-b" } },
+                      { author: { login: "reviewer-a" } },
+                      { author: { login: "reviewer-b" } },
+                    ],
+                  },
+                  reviewThreads: { nodes: [] },
+                },
+              },
             },
           }),
         ),
@@ -491,6 +502,7 @@ describe("stateful review engine", () => {
     expect(prepared.diff).not.toContain("+reviewed first");
     expect(prepared.hunks).toEqual([newHunk]);
     expect(prepared.allHunks).toEqual([reviewedHunk, newHunk]);
+    expect(prepared.pullRequest?.reviewers).toEqual(["reviewer-a", "reviewer-b"]);
   });
 
   it("rejects invalid model configuration before making model calls", async () => {

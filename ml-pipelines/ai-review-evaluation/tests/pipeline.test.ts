@@ -6,9 +6,9 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { z } from "zod";
 import { buildScorecard } from "../src/build-scorecard";
-import { changeSizeBand } from "../src/corpus-strata";
+import { changeSizeBand, languagesForPaths } from "../src/corpus-strata";
 import { extractCorpus } from "../src/extract-corpus";
-import { freezeCohort, stratifiedPullRequestSelection } from "../src/freeze-cohort";
+import { freezeCohort } from "../src/freeze-cohort";
 import { buildObservations, matchFinding } from "../src/match-replays";
 import {
   resolveReplayCacheRoot,
@@ -49,8 +49,13 @@ function fixtureParams(overrides: Partial<PipelineParams> = {}): PipelineParams 
     source: { repository: "acme/widgets", exportPath: "unused" },
     cohort: {
       frozenAt: "2026-09-02T00:00:00Z",
-      maxPullRequests: 1,
-      changeSizeThresholds: { medium: 200, substantial: 1000, large: 2000, oversized: 5000 },
+      changeSizeBands: {
+        small: { maxExclusive: 200 },
+        medium: { maxExclusive: 1000 },
+        substantial: { maxExclusive: 2000 },
+        large: { maxExclusive: 5000 },
+        oversized: {},
+      },
       pullRequestNumbers: [],
     },
     experiment: {
@@ -149,6 +154,14 @@ function writeSource(root: string): void {
     pullRequestNumber: 7,
     headSha: snapshot.git.headSha,
     promptVersion: "prompt-v1",
+    pullRequest: {
+      author: "octocat",
+      authorAssociation: "MEMBER",
+      title: "Improve the widget",
+      labels: ["feature"],
+      headRef: "feature/widget",
+      reviewers: ["hubot"],
+    },
     change: { additions: 20, deletions: 10, riskSignals: ["auth"], repositoryAreas: ["api"] },
     coverage: { totalHunks: 1, reviewedHunkIds: ["h1"] },
     findings: {
@@ -274,9 +287,17 @@ test("extracts, freezes, matches, and scores a versioned replay corpus", () => {
   assert.equal(dataset.sourceSummary.replayablePullRequests, 1);
   assert.equal(dataset.entries[0]?.strata.outcomeAvailability, "partial");
   assert.equal(dataset.entries[0]?.strata.languages[0], "typescript");
+  assert.deepEqual(dataset.entries[0]?.pullRequest, {
+    author: "octocat",
+    authorAssociation: "MEMBER",
+    title: "Improve the widget",
+    labels: ["feature"],
+    headRef: "feature/widget",
+    reviewers: ["hubot"],
+  });
   const frozenResult = freezeCohort({ datasetFile: path.join(corpus, "manifest.json"), output: frozen, paramsFile });
   const { cohort, experiment } = frozenResult;
-  assert.equal(cohort.selection.method, "deterministic-balanced-pr-stratification");
+  assert.equal(cohort.selection.method, "all-available-pull-requests");
   assert.equal(cohort.selection.unit, "pull-request");
   assert.equal(cohort.selection.selectedPullRequestCount, 1);
   assert.equal(cohort.selection.selectedSnapshotCount, 1);
@@ -405,7 +426,7 @@ test("execute mode is the default and needs no second opt-in", () => {
       },
     },
     selection: {
-      method: "deterministic-balanced-pr-stratification",
+      method: "all-available-pull-requests",
       unit: "pull-request",
       availablePullRequests: 0,
       selectedPullRequestCount: 0,
@@ -455,20 +476,30 @@ test("execute mode is the default and needs no second opt-in", () => {
   assert.equal(result.mode, "execute");
 });
 
-test("change-size thresholds reflect agent-era pull requests", () => {
-  const thresholds = fixtureParams().cohort.changeSizeThresholds;
-  assert.equal(changeSizeBand(199, thresholds), "small");
-  assert.equal(changeSizeBand(200, thresholds), "medium");
-  assert.equal(changeSizeBand(999, thresholds), "medium");
-  assert.equal(changeSizeBand(1000, thresholds), "substantial");
-  assert.equal(changeSizeBand(1999, thresholds), "substantial");
-  assert.equal(changeSizeBand(2000, thresholds), "large");
-  assert.equal(changeSizeBand(4999, thresholds), "large");
-  assert.equal(changeSizeBand(5000, thresholds), "oversized");
+test("change-size bands keep names and upper bounds together", () => {
+  const bands = fixtureParams().cohort.changeSizeBands;
+  assert.equal(changeSizeBand(199, bands), "small");
+  assert.equal(changeSizeBand(200, bands), "medium");
+  assert.equal(changeSizeBand(999, bands), "medium");
+  assert.equal(changeSizeBand(1000, bands), "substantial");
+  assert.equal(changeSizeBand(1999, bands), "substantial");
+  assert.equal(changeSizeBand(2000, bands), "large");
+  assert.equal(changeSizeBand(4999, bands), "large");
+  assert.equal(changeSizeBand(5000, bands), "oversized");
 });
 
-test("stratification selects pull requests, retains their snapshots, and balances marginal features", () => {
-  const base = {
+test("language strata use Linguist extensions and special filenames", () => {
+  assert.deepEqual(
+    languagesForPaths(["src/app.ts", "infra/main.tf", "Dockerfile", "docs/guide.mdx"]),
+    ["dockerfile", "hcl", "mdx", "typescript"],
+  );
+});
+
+test("an empty explicit selection freezes every available pull request", () => {
+  const temporary = fs.mkdtempSync(path.join(os.tmpdir(), "ai-review-all-pull-requests-"));
+  const paramsFile = path.join(temporary, "params.json");
+  const datasetFile = path.join(temporary, "manifest.json");
+  const baseEntry = {
     corpusId: "a".repeat(64),
     snapshotPath: "entries/a.json",
     pullRequestNumber: 7,
@@ -477,40 +508,48 @@ test("stratification selects pull requests, retains their snapshots, and balance
     strata: {
       risk: "standard",
       riskSignals: [],
-      changeSize: "medium" as const,
+      changeSize: "medium",
       languages: ["typescript"],
       repositoryAreas: ["api"],
       outcomeAvailability: "complete",
     },
     historicalFindings: [],
   };
-  const selected = stratifiedPullRequestSelection([
-    base,
-    { ...base, corpusId: "b".repeat(64), capturedAt: "2026-09-02T00:00:00Z" },
-    { ...base, corpusId: "c".repeat(64), pullRequestNumber: 8, capturedAt: "2026-09-01T00:00:00Z" },
-    {
-      ...base,
-      corpusId: "d".repeat(64),
-      pullRequestNumber: 9,
-      capturedAt: "2026-09-01T00:00:00Z",
-      changedLines: 2500,
-      strata: {
-        risk: "elevated",
-        riskSignals: ["authentication"],
-        changeSize: "large",
-        languages: ["python", "terraform"],
-        repositoryAreas: ["infra"],
-        outcomeAvailability: "missing",
+  writeJson(paramsFile, fixtureParams());
+  writeJson(datasetFile, {
+    schemaVersion: 1,
+    recordType: "ai-review-evaluation-dataset",
+    datasetId: "dataset",
+    repository: "acme/widgets",
+    sourceSummary: {
+      terminalRecords: 3,
+      terminalWorkflowRuns: 3,
+      terminalPullRequests: 3,
+      replaySnapshots: 4,
+      replayablePullRequests: 3,
+      replaySnapshotCapturedAt: {
+        earliest: "2026-09-01T00:00:00Z",
+        latest: "2026-09-02T00:00:00Z",
       },
     },
-  ], 2);
-  assert.equal(selected.length, 3);
-  assert.equal(new Set(selected.map((entry) => entry.pullRequestNumber)).size, 2);
-  assert.deepEqual(
-    selected.filter((entry) => entry.pullRequestNumber === 7).map((entry) => entry.corpusId),
-    ["a".repeat(64), "b".repeat(64)],
-  );
-  assert.ok(selected.some((entry) => entry.pullRequestNumber === 9));
+    entries: [
+      baseEntry,
+      { ...baseEntry, corpusId: "b".repeat(64), capturedAt: "2026-09-02T00:00:00Z" },
+      { ...baseEntry, corpusId: "c".repeat(64), pullRequestNumber: 8 },
+      { ...baseEntry, corpusId: "d".repeat(64), pullRequestNumber: 9 },
+    ],
+  });
+
+  const { cohort } = freezeCohort({
+    datasetFile,
+    output: path.join(temporary, "frozen"),
+    paramsFile,
+  });
+
+  assert.equal(cohort.selection.method, "all-available-pull-requests");
+  assert.equal(cohort.selection.selectedPullRequestCount, 3);
+  assert.equal(cohort.selection.selectedSnapshotCount, 4);
+  assert.deepEqual([...new Set(cohort.entries.map((entry) => entry.pullRequestNumber))], [7, 8, 9]);
 });
 
 test("runtime configuration rejects providers outside the typed schema", () => {
