@@ -1,0 +1,97 @@
+---
+- name: Confirm the Ente role is running on the expected platform
+  ansible.builtin.assert:
+    that:
+      - ansible_facts.system == "Darwin"
+      - ansible_facts.architecture == "arm64"
+    fail_msg: The pinned Ente CLI build supports the Apple Silicon Mac mini only.
+
+- name: Inspect installed Ente CLI
+  ansible.builtin.stat:
+    path: /opt/homebrew/bin/ente
+    checksum_algorithm: sha256
+  register: ente_export_cli_binary
+
+- name: Create the Ente download cache
+  ansible.builtin.file:
+    path: "{{ ansible_facts.env.HOME }}/Library/Caches/homelab"
+    state: directory
+    mode: "0700"
+  when: ente_export_cli_binary.stat.checksum | default('') != ente_cli_binary_sha256
+
+- name: Download the pinned Ente CLI archive
+  ansible.builtin.get_url:
+    url: "{{ ente_cli_archive_url }}"
+    dest: >-
+      {{ ansible_facts.env.HOME }}/Library/Caches/homelab/
+      ente-cli-v{{ ente_cli_version }}-darwin-arm64.tar.gz
+    checksum: "sha256:{{ ente_cli_archive_sha256 }}"
+    mode: "0600"
+  when: ente_export_cli_binary.stat.checksum | default('') != ente_cli_binary_sha256
+
+- name: Install the pinned Ente CLI
+  ansible.builtin.unarchive:
+    src: >-
+      {{ ansible_facts.env.HOME }}/Library/Caches/homelab/
+      ente-cli-v{{ ente_cli_version }}-darwin-arm64.tar.gz
+    dest: /opt/homebrew/bin
+    remote_src: true
+    include:
+      - ente
+    mode: "0700"
+  when: ente_export_cli_binary.stat.checksum | default('') != ente_cli_binary_sha256
+
+- name: Restrict access to the Ente CLI
+  ansible.builtin.file:
+    path: /opt/homebrew/bin/ente
+    state: file
+    mode: "0700"
+
+- name: Create Ente export directories
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: directory
+    mode: "{{ item.mode }}"
+  loop:
+    - path: "{{ ansible_facts.env.HOME }}/.local/bin"
+      mode: "0755"
+    - path: "{{ ansible_facts.env.HOME }}/Library/Logs"
+      mode: "0700"
+    - path: "{{ ansible_facts.env.HOME }}/Library/Application Support/homelab/ente-export"
+      mode: "0700"
+  loop_control:
+    label: "{{ item.path }}"
+
+- name: Install the Ente export wrapper
+  ansible.builtin.template:
+    src: ente-export.sh.j2
+    dest: "{{ ansible_facts.env.HOME }}/.local/bin/ente-export.sh"
+    mode: "0700"
+    validate: /bin/bash -n %s
+  notify: Reload Ente launchd jobs
+
+- name: Install the Ente health reporter
+  ansible.builtin.template:
+    src: ente-export-health.sh.j2
+    dest: "{{ ansible_facts.env.HOME }}/.local/bin/ente-export-health.sh"
+    mode: "0700"
+    validate: /bin/bash -n %s
+  notify: Reload Ente launchd jobs
+
+- name: Install Ente launchd definitions
+  ansible.builtin.template:
+    src: "{{ item }}.plist.j2"
+    dest: "{{ ansible_facts.env.HOME }}/Library/LaunchAgents/{{ item }}.plist"
+    mode: "0600"
+    validate: /usr/bin/plutil -lint %s
+  loop:
+    - "{{ ente_export_launchd_label }}"
+    - "{{ ente_export_health_launchd_label }}"
+  notify: Reload Ente launchd jobs
+
+- name: Install the Ente Netdata alarms
+  ansible.builtin.copy:
+    src: ente_export.conf
+    dest: /opt/homebrew/etc/netdata/health.d/ente_export.conf
+    mode: "0600"
+  notify: Reload Netdata health alarms

@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+MOUNT_PATH="{{ ente_export_mount_path }}"
+EXPECTED_VOLUME_UUID="{{ ente_export_mount_uuid }}"
+SUCCESS_MARKER="{{ ente_export_success_marker }}"
+FAILURE_MARKER="{{ ansible_facts.env.HOME }}/Library/Application Support/homelab/ente-export/last-failure"
+MAX_AGE_SECONDS="$(({{ ente_export_max_age_hours }} * 3600))"
+
+gauge() {
+  printf 'ente_%s:%s|g\n' "$1" "$2" | /usr/bin/nc -u -w 1 127.0.0.1 8125
+}
+
+mounted=0
+volume_uuid="$(
+  /usr/sbin/diskutil info -plist "$MOUNT_PATH" 2>/dev/null \
+    | /usr/bin/plutil -extract VolumeUUID raw - 2>/dev/null \
+    || true
+)"
+if [[ "$volume_uuid" == "$EXPECTED_VOLUME_UUID" ]]; then
+  mounted=1
+fi
+
+fresh=0
+if [[ -f "$SUCCESS_MARKER" ]]; then
+  success_age="$(( $(/bin/date +%s) - $(/usr/bin/stat -f %m "$SUCCESS_MARKER") ))"
+  if (( success_age <= MAX_AGE_SECONDS )); then
+    fresh=1
+  fi
+fi
+
+last_run_ok=0
+if [[ -f "$SUCCESS_MARKER" ]] \
+  && { [[ ! -f "$FAILURE_MARKER" ]] || [[ "$SUCCESS_MARKER" -nt "$FAILURE_MARKER" ]]; }; then
+  last_run_ok=1
+fi
+
+gauge export_destination_mounted "$mounted"
+gauge export_fresh "$fresh"
+gauge export_last_run_ok "$last_run_ok"

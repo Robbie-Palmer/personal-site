@@ -5,3 +5,8 @@ hosts/mac-mini/media-automation/.env
 # Runtime state that exists only on the hub (Jellyfin config, metadata, cache)
 hosts/mac-mini/jellyfin/data/
 hosts/mac-mini/media-automation/data/
+
+# Ansible runtime state and optional local overrides
+ansible/.facts/
+ansible/inventory/host_vars/
+ansible/inventory/group_vars/*/local.yml

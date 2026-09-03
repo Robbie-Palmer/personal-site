@@ -1,0 +1,2 @@
+linux_required_commands:
+  - systemctl
