@@ -279,10 +279,11 @@ plan.
 A Kubernetes Secret is an API object, not an encrypted source of truth. Do not
 commit plain credentials or generated Secret manifests.
 
-The pilot may create Secrets from the current gitignored local files through a
-mise command that does not print their values. Choose repository-backed secret
-encryption in a separate decision before adding unattended GitOps. The choice
-must explain key recovery from a new operator machine.
+[ADR 024](/projects/homelab/adrs/024-doppler-secrets) makes Doppler the source
+of truth. The pilot may create its first Secret through a local mise command
+that does not print values. Before unattended workloads need rotation, install
+the Doppler Kubernetes Operator with a read-only service token scoped to the
+homelab config. Do not put a personal Doppler CLI token in the cluster.
 
 ## Pilot plan
 

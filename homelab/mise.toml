@@ -59,6 +59,10 @@ description = "Apply permanent Mac host configuration one host at a time"
 dir = "ansible"
 run = "ansible-playbook playbooks/configure-mac.yml --diff"
 
+[tasks.doppler-check]
+description = "Verify access to the homelab production secret config without printing values"
+run = "doppler secrets --project homelab --config prd --only-names >/dev/null"
+
 [tasks.bootstrap]
 description = "Install dependencies and deploy the Jellyfin stack"
 run = "bash hosts/mac-mini/jellyfin/scripts/bootstrap.sh"
@@ -168,8 +172,8 @@ run = "PATH=\"$HOME/.local/bin:$PATH\" bm reset"
 # ---------------------------------------------------------------------------
 
 [tasks.asus-deploy]
-description = "Deploy the pinned flake to asus-desktop over the tailnet"
-run = "bash hosts/asus-desktop/scripts/deploy.sh"
+description = "Deploy and verify the current pushed NixOS revision with Ansible"
+run = "ansible/scripts/deploy_asus.sh"
 
 # ---------------------------------------------------------------------------
 # Media automation (Prowlarr + Sonarr + Radarr + qBittorrent)
