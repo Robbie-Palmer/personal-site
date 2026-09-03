@@ -640,6 +640,23 @@ describe("Visualization browser rendering", () => {
       );
       expect(upcomingHeading).toContain("Managed reviewers");
 
+      const speakerPreviewChrome = await speakerPage?.evaluate(() =>
+        ["#current-slide iframe", "#upcoming-slide iframe"].map((selector) => {
+          const document =
+            window.document.querySelector<HTMLIFrameElement>(
+              selector,
+            )?.contentDocument;
+          return {
+            controls: Boolean(document?.querySelector(".pitch-deck__controls")),
+            topbar: Boolean(document?.querySelector(".pitch-deck__topbar")),
+          };
+        }),
+      );
+      expect(speakerPreviewChrome).toEqual([
+        { controls: false, topbar: false },
+        { controls: false, topbar: false },
+      ]);
+
       await page.click('button[aria-label="Next slide"]');
       await page.waitForFunction(() =>
         document

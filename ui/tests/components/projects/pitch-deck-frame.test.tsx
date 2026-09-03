@@ -75,6 +75,7 @@ describe("PitchDeckFrame", () => {
   });
 
   afterEach(() => {
+    window.history.replaceState({}, "", "/");
     delete (HTMLElement.prototype as { requestFullscreen?: unknown })
       .requestFullscreen;
     delete (document as { exitFullscreen?: unknown }).exitFullscreen;
@@ -218,6 +219,23 @@ describe("PitchDeckFrame", () => {
     fireEvent.click(screen.getByRole("button", { name: "Exit fullscreen" }));
     expect(exitFullscreen).toHaveBeenCalledOnce();
     expect(screen.queryByRole("link", { name: "Transcript" })).toBeNull();
+  });
+
+  it("hides deck chrome inside speaker preview frames", async () => {
+    window.history.replaceState({}, "", "/projects/demo/deck?receiver");
+
+    render(
+      <PitchDeckFrame projectSlug="demo" title="Speaker preview" mode="focused">
+        <section>Preview slide</section>
+      </PitchDeckFrame>,
+    );
+
+    await waitFor(() =>
+      expect(document.querySelector(".pitch-deck__topbar")).toBeNull(),
+    );
+    expect(document.querySelector(".pitch-deck__controls")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Speaker" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Fullscreen" })).toBeNull();
   });
 
   it("adds focused project navigation and hash history", async () => {

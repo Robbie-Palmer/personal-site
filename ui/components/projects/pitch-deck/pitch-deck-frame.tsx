@@ -69,6 +69,7 @@ export function PitchDeckFrame({
   const [position, setPosition] = useState(initialPosition);
   const [reducedMotion, setReducedMotion] = useState(false);
   const [narrowLayout, setNarrowLayout] = useState(false);
+  const [isSpeakerPreview, setIsSpeakerPreview] = useState(false);
   const [speakerPreviewUrl, setSpeakerPreviewUrl] = useState<string>();
   const [view, setView] = useState<DeckView>("slides");
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -107,6 +108,10 @@ export function PitchDeckFrame({
   }, []);
 
   useEffect(() => {
+    setIsSpeakerPreview(
+      new URLSearchParams(window.location.search).has("receiver"),
+    );
+
     // The notes plugin calls next() in its upcoming iframe. Fragments would
     // leave that iframe on the current slide instead of showing the next one.
     const url = new URL(window.location.href);
@@ -304,7 +309,8 @@ export function PitchDeckFrame({
     }
   };
 
-  const hasPresenterTools = mode === "focused" || showPresenterTools;
+  const hasPresenterTools =
+    !isSpeakerPreview && (mode === "focused" || showPresenterTools);
 
   return (
     <section
@@ -415,58 +421,61 @@ export function PitchDeckFrame({
         )}
       </div>
 
-      <div className="pitch-deck__controls">
-        <div className="pitch-deck__navigation">
-          <button
-            type="button"
-            onClick={() => navigate(-1)}
-            disabled={position.atStart}
-            aria-label="Previous slide"
-          >
-            <ArrowLeft aria-hidden="true" />
-          </button>
-          <button
-            type="button"
-            onClick={() => navigate(1)}
-            disabled={position.atEnd}
-            aria-label="Next slide"
-          >
-            <ArrowRight aria-hidden="true" />
-          </button>
-          <span
-            className="pitch-deck__position"
-            aria-live="polite"
-            aria-atomic="true"
-          >
-            Slide {position.current} of {position.total}
-          </span>
-        </div>
-
-        {(projectSlug || (mode === "embedded" && resolvedPresentationHref)) && (
-          <div className="pitch-deck__links">
-            {projectSlug && (
-              <a
-                href={`/projects/${projectSlug}/deck.md`}
-                aria-label="Transcript"
-                title="Read transcript"
-              >
-                <FileText aria-hidden="true" />
-                <span>Transcript</span>
-              </a>
-            )}
-            {mode === "embedded" && resolvedPresentationHref && (
-              <Link
-                href={resolvedPresentationHref}
-                aria-label="Open deck"
-                title="Open deck"
-              >
-                <Expand aria-hidden="true" />
-                <span>Open deck</span>
-              </Link>
-            )}
+      {!isSpeakerPreview && (
+        <div className="pitch-deck__controls">
+          <div className="pitch-deck__navigation">
+            <button
+              type="button"
+              onClick={() => navigate(-1)}
+              disabled={position.atStart}
+              aria-label="Previous slide"
+            >
+              <ArrowLeft aria-hidden="true" />
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate(1)}
+              disabled={position.atEnd}
+              aria-label="Next slide"
+            >
+              <ArrowRight aria-hidden="true" />
+            </button>
+            <span
+              className="pitch-deck__position"
+              aria-live="polite"
+              aria-atomic="true"
+            >
+              Slide {position.current} of {position.total}
+            </span>
           </div>
-        )}
-      </div>
+
+          {(projectSlug ||
+            (mode === "embedded" && resolvedPresentationHref)) && (
+            <div className="pitch-deck__links">
+              {projectSlug && (
+                <a
+                  href={`/projects/${projectSlug}/deck.md`}
+                  aria-label="Transcript"
+                  title="Read transcript"
+                >
+                  <FileText aria-hidden="true" />
+                  <span>Transcript</span>
+                </a>
+              )}
+              {mode === "embedded" && resolvedPresentationHref && (
+                <Link
+                  href={resolvedPresentationHref}
+                  aria-label="Open deck"
+                  title="Open deck"
+                >
+                  <Expand aria-hidden="true" />
+                  <span>Open deck</span>
+                </Link>
+              )}
+            </div>
+          )}
+        </div>
+      )}
     </section>
   );
 }
