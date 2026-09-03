@@ -102,6 +102,7 @@ describe("pitch MDX components", () => {
       "PitchSlide",
       "PitchStep",
       "ReviewDepthDemo",
+      "TechIcon",
     ]);
     expect(markdownState.props?.remarkPlugins).toHaveLength(1);
   });
