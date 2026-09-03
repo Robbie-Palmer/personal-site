@@ -216,6 +216,23 @@ function executeReplay({
   });
 }
 
+export function validatedReplayCostUsd(
+  replay: ReplayOutput,
+  execute: boolean,
+  replayIdentity: string,
+): number {
+  if (replay.costUsd === undefined) {
+    if (execute) {
+      throw new Error(`executed replay did not report a cost for ${replayIdentity}`);
+    }
+    return 0;
+  }
+  if (!Number.isFinite(replay.costUsd) || replay.costUsd < 0) {
+    throw new Error(`replay returned an invalid cost for ${replayIdentity}`);
+  }
+  return replay.costUsd;
+}
+
 export function runReplays({ cohortFile, experimentFile, corpusRoot, output, paramsFile, aiReviewRoot, cacheRoot }: RunReplaysOptions): EvaluationReplayIndex {
   const cohort = FrozenCohortSchema.parse(readJson(cohortFile));
   const frozenExperiment = FrozenExperimentSchema.parse(readJson(experimentFile));
@@ -268,10 +285,11 @@ export function runReplays({ cohortFile, experimentFile, corpusRoot, output, par
       storeRoot,
       experimentFile,
     });
-    const replayCostUsd = replay.costUsd ?? 0;
-    if (!Number.isFinite(replayCostUsd) || replayCostUsd < 0) {
-      throw new Error(`replay returned an invalid cost for ${variant.id}/${entry.corpusId}/${repetition}`);
-    }
+    const replayCostUsd = validatedReplayCostUsd(
+      replay,
+      execute,
+      `${variant.id}/${entry.corpusId}/${repetition}`,
+    );
     spentUsd += replayCostUsd;
     if (spentUsd > frozenExperiment.limits.maxTotalCostUsd) {
       throw new Error(`replay results exceeded the fixed total budget of $${frozenExperiment.limits.maxTotalCostUsd}`);

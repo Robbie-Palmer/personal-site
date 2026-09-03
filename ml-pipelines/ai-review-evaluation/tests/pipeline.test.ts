@@ -10,7 +10,11 @@ import { changeSizeBand } from "../src/corpus-strata";
 import { extractCorpus } from "../src/extract-corpus";
 import { freezeCohort, stratifiedPullRequestSelection } from "../src/freeze-cohort";
 import { buildObservations, matchFinding } from "../src/match-replays";
-import { resolveReplayCacheRoot, runReplays } from "../src/run-replays";
+import {
+  resolveReplayCacheRoot,
+  runReplays,
+  validatedReplayCostUsd,
+} from "../src/run-replays";
 import { stableJson, writeJson } from "../src/artifact-files";
 import {
   PipelineParamsSchema,
@@ -529,6 +533,19 @@ test("replay outputs reject unsafe cost values", () => {
   for (const costUsd of [-0.01, Number.NaN, Number.POSITIVE_INFINITY]) {
     assert.equal(ReplayOutputSchema.safeParse({ ...base, costUsd }).success, false);
   }
+});
+
+test("executed replays require a reported cost", () => {
+  const replay = ReplayOutputSchema.parse({
+    schemaVersion: 1,
+    recordType: "ai-review-replay-result",
+    status: "provider-failed",
+  });
+  assert.throws(
+    () => validatedReplayCostUsd(replay, true, "candidate/corpus/0"),
+    /executed replay did not report a cost for candidate\/corpus\/0/,
+  );
+  assert.equal(validatedReplayCostUsd(replay, false, "candidate/corpus/0"), 0);
 });
 
 test("matching and decision changes preserve the frozen inference identity", () => {

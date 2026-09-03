@@ -1536,27 +1536,46 @@ export class PullRequestCoordinator extends DurableObject<Env> {
       const currentHeadFullReview =
         event.disposition === "confirmed-fixed" && event.headSha
           ? this.ctx.storage.sql
-              .exec<{ run_id: string }>(
-                `SELECT run_id FROM review_runs
+              .exec<{
+                run_id: string;
+                head_sha: string;
+                finding_resolutions_json: string | null;
+              }>(
+                `SELECT run_id, head_sha, finding_resolutions_json
+                 FROM review_runs
                  WHERE status = 'completed' AND head_sha = ? AND force_run = 1
                  ORDER BY completed_at DESC, run_id DESC LIMIT 1`,
                 event.headSha,
               )
               .toArray()[0]
           : undefined;
+      const currentHeadResolution = currentHeadFullReview
+        ? storedFindingResolution(
+            currentHeadFullReview.finding_resolutions_json,
+            findingId,
+          )
+        : undefined;
+      const confirmationReplay = currentHeadResolution && currentHeadFullReview
+        ? {
+            runId: currentHeadFullReview.run_id,
+            headSha: currentHeadFullReview.head_sha,
+            verdict: currentHeadResolution.verdict,
+            evidence: currentHeadResolution.evidence,
+          }
+        : controlledReplay;
       const fixedReplayIsCurrent =
-        controlledReplay?.headSha === event.headSha ||
-        currentHeadFullReview !== undefined;
+        confirmationReplay?.headSha === event.headSha ||
+        (currentHeadFullReview !== undefined && currentHeadResolution === undefined);
       if (
         event.disposition === "confirmed-fixed" &&
-        (controlledReplay?.verdict !== "fixed" ||
+        (confirmationReplay?.verdict !== "fixed" ||
           !event.headSha ||
           !fixedReplayIsCurrent)
       ) {
         return {
           unconfirmedFix: true,
           reason:
-            controlledReplay?.verdict === "fixed" && event.headSha
+            confirmationReplay?.verdict === "fixed" && event.headSha
               ? "stale-fixed-replay"
               : "no-fixed-replay",
         };
@@ -1582,12 +1601,12 @@ export class PullRequestCoordinator extends DurableObject<Env> {
         reactions: event.reactions,
         disposition: event.disposition,
         reason: event.reason,
-        controlledReplay: controlledReplay && currentHeadFullReview
+        controlledReplay: confirmationReplay && currentHeadFullReview
           ? {
-              ...controlledReplay,
+              ...confirmationReplay,
               validatedByFullReviewRunId: currentHeadFullReview.run_id,
             }
-          : controlledReplay,
+          : confirmationReplay,
         occurredAt,
         recordedAt,
       };
