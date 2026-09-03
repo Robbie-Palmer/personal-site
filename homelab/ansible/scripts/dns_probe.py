@@ -11,6 +11,7 @@ import sys
 
 DNS_HEADER_SIZE = 12
 DNS_SERVER = "127.0.0.1"
+DNS_ATTEMPTS = 2
 RESPONSE_FLAG = 0x8000
 TRUNCATED_FLAG = 0x0200
 
@@ -147,8 +148,8 @@ def validate_response(response: bytes, query_id: int, expected_name: bytes) -> i
     return answers
 
 
-def probe(name: str, timeout: float) -> int:
-    """Return the answer count from a successful DNS response."""
+def query_once(name: str, timeout: float) -> int:
+    """Send one DNS query and return its validated answer count."""
     query_id = secrets.randbits(16)
     encoded_name = encode_name(name)
     query = struct.pack("!HHHHHH", query_id, 0x0100, 1, 0, 0, 0)
@@ -161,6 +162,17 @@ def probe(name: str, timeout: float) -> int:
         response = dns_socket.recv(4096)
 
     return validate_response(response, query_id, normalize_name(name))
+
+
+def probe(name: str, timeout: float) -> int:
+    """Return the answer count, retrying once after packet loss."""
+    for attempt in range(DNS_ATTEMPTS):
+        try:
+            return query_once(name, timeout)
+        except TimeoutError:
+            if attempt == DNS_ATTEMPTS - 1:
+                raise
+    raise AssertionError("DNS probe exhausted its attempts")
 
 
 def parse_args() -> argparse.Namespace:

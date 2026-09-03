@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import struct
 import unittest
+from unittest.mock import patch
 
-from dns_probe import encode_name, normalize_name, validate_response
+from dns_probe import encode_name, normalize_name, probe, validate_response
 
 
 class DnsProbeTests(unittest.TestCase):
@@ -51,6 +52,11 @@ class DnsProbeTests(unittest.TestCase):
 
         with self.assertRaisesRegex(ValueError, "exceeds 255"):
             encode_name(name)
+
+    @patch("dns_probe.query_once", side_effect=[TimeoutError, 2])
+    def test_retries_once_after_a_timeout(self, query_once) -> None:
+        self.assertEqual(probe("example.com", 0.1), 2)
+        self.assertEqual(query_once.call_count, 2)
 
 
 if __name__ == "__main__":

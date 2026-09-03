@@ -13,6 +13,19 @@
   register: ente_export_loaded_jobs
   listen: Reload Ente launchd jobs
 
+- name: Refuse to reload an active Ente export
+  ansible.builtin.assert:
+    that:
+      - "'state = running' not in (item.stdout | default(''))"
+    fail_msg: Refusing to reload launchd while the Ente export is running.
+  loop: "{{ ente_export_loaded_jobs.results }}"
+  loop_control:
+    label: "{{ item.item }}"
+  when:
+    - item.item == ente_export_launchd_label
+    - item.rc | default(1) == 0
+  listen: Reload Ente launchd jobs
+
 - name: Unload loaded Ente launchd jobs
   ansible.builtin.command:
     argv:
@@ -22,7 +35,7 @@
   loop: "{{ ente_export_loaded_jobs.results }}"
   loop_control:
     label: "{{ item.item }}"
-  when: item.rc == 0
+  when: item.rc | default(1) == 0
   changed_when: true
   listen: Reload Ente launchd jobs
 
@@ -45,5 +58,5 @@
       - launchctl
       - kickstart
       - -k
-      - "gui/{{ ansible_facts.user_uid }}/homebrew.mxcl.netdata"
+      - "gui/{{ ansible_facts.user_uid }}/{{ netdata_launchd_label }}"
   changed_when: true
