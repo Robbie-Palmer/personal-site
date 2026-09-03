@@ -196,6 +196,8 @@ const customIcons = new Set([
   "t3code",
 ]);
 
+const fullColorCustomIcons = new Set(["t3code"]);
+
 // Map technology names to their slugs for edge cases
 const techSlugOverrides: Record<string, string> = {
   "c++": "cplusplus",
@@ -271,12 +273,16 @@ export function TechIcon({
   if (!iconData) return null;
 
   if (iconData.type === "custom") {
+    const colorFilter = fullColorCustomIcons.has(iconData.slug)
+      ? ""
+      : "brightness-0 dark:invert";
+
     return (
       // biome-ignore lint/performance/noImgElement: SSG site uses Cloudflare Images CDN, not Next.js Image
       <img
         src={`/tech-icons/${iconData.slug}.svg`}
         alt={name}
-        className={`${className} block object-contain brightness-0 dark:invert`}
+        className={`${className} block object-contain ${colorFilter}`.trim()}
       />
     );
   }
