@@ -399,8 +399,9 @@ describe("controlled replay runner", () => {
   it("atomically claims a replay key before model execution", async () => {
     const { adapter, store } = fixture();
     vi.mocked(store.claim).mockResolvedValue(false);
-    const result = await executeControlledReplay({ ...request, dryRun: false }, adapter, store);
-    expect(result).toMatchObject({ status: "in-progress" });
+    await expect(executeControlledReplay({ ...request, dryRun: false }, adapter, store))
+      .rejects.toThrow("replay is already in progress");
+    expect(store.claim).toHaveBeenCalledWith(expect.any(String), 63_000);
     expect(adapter.runScouts).not.toHaveBeenCalled();
   });
 

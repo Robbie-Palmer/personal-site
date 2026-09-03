@@ -17,6 +17,7 @@ import {
   type ReplayExperiment,
   type ReplayProvider,
 } from "ai-review-domain/replay";
+import { exclusiveClaim } from "./replay-claim";
 
 function option<T>(schema: ZodType<T>, value: unknown, name: string): T {
   const result = schema.safeParse(value);
@@ -45,17 +46,6 @@ function loadExperiment(file: string): ReplayExperiment {
 function providerList(value: string | undefined): ReplayProvider[] {
   const providers = (value ?? "").split(",").map((item) => item.trim()).filter(Boolean);
   return option(ReplayProviderListSchema, providers, "--allowed-providers");
-}
-
-function exclusiveClaim(file: string): boolean {
-  fs.mkdirSync(path.dirname(file), { recursive: true });
-  try {
-    fs.closeSync(fs.openSync(file, "wx"));
-    return true;
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === "EEXIST") return false;
-    throw error;
-  }
 }
 
 async function main(): Promise<void> {
@@ -118,7 +108,10 @@ async function main(): Promise<void> {
       const file = path.join(outputRoot, key);
       return fs.existsSync(file) ? fs.readFileSync(file, "utf8") : null;
     },
-    claim: async (key) => exclusiveClaim(path.join(outputRoot, `${key}.claim`)),
+    claim: async (key, staleAfterMs) => exclusiveClaim(
+      path.join(outputRoot, `${key}.claim`),
+      staleAfterMs,
+    ),
     put: async (key, value) => {
       const file = path.join(outputRoot, key);
       fs.mkdirSync(path.dirname(file), { recursive: true });

@@ -28,12 +28,13 @@ import {
 } from "ai-review-domain/records";
 
 type JsonObject = Record<string, unknown>;
+const REPLAY_CLAIM_GRACE_MS = 60_000;
 export type { ReplayExperiment, ReplayLimits } from "ai-review-domain/replay";
 export type { ReplayInputSnapshot } from "ai-review-domain/records";
 
 export interface ReplayStore {
   get(key: string): Promise<string | null>;
-  claim(key: string): Promise<boolean>;
+  claim(key: string, staleAfterMs: number): Promise<boolean>;
   put(key: string, value: string): Promise<void>;
 }
 
@@ -303,6 +304,10 @@ function round6(value: number): number {
   return Math.round(value * 1_000_000) / 1_000_000;
 }
 
+function replayClaimMaxAgeMs(timeoutMs: number): number {
+  return timeoutMs * 3 + REPLAY_CLAIM_GRACE_MS;
+}
+
 async function withTimeout<T>(operation: Promise<T>, timeoutMs: number): Promise<T> {
   let timeout: ReturnType<typeof setTimeout> | undefined;
   try {
@@ -360,15 +365,10 @@ export async function executeControlledReplay(
   if (request.dryRun !== false) return plan as unknown as JsonObject;
   const existing = await store.get(plan.resultKey);
   if (existing) return JSON.parse(existing) as JsonObject;
-  if (!await store.claim(plan.resultKey)) {
+  if (!await store.claim(plan.resultKey, replayClaimMaxAgeMs(request.limits.timeoutMs))) {
     const claimedResult = await store.get(plan.resultKey);
-    return claimedResult
-      ? JSON.parse(claimedResult) as JsonObject
-      : {
-          ...plan,
-          recordType: "ai-review-replay-result",
-          status: "in-progress",
-        };
+    if (claimedResult) return JSON.parse(claimedResult) as JsonObject;
+    throw new Error("replay is already in progress; retry after the active claim expires");
   }
   const snapshot = ReplayInputSnapshotSchema.parse(request.snapshot);
   const prepared = await preparedReview(snapshot, request.experiment);

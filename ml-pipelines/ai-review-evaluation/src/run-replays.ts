@@ -19,6 +19,7 @@ import type { ReplayExperiment, ReplayProvider } from "ai-review-domain/replay";
 
 const RUNNER_FILES = [
   "analytics/corpus-replay.ts",
+  "analytics/replay-claim.ts",
   "src/env.ts",
   "src/finding-lifecycle.ts",
   "src/github-app.ts",

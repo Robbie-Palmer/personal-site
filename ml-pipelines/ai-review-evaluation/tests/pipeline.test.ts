@@ -407,6 +407,7 @@ test("execute mode is the default and needs no second opt-in", () => {
   const fakeAiReviewRoot = path.join(fakeRepositoryRoot, "ai-review");
   for (const relative of [
     "analytics/corpus-replay.ts",
+    "analytics/replay-claim.ts",
     "src/env.ts",
     "src/finding-lifecycle.ts",
     "src/github-app.ts",
