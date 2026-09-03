@@ -7,6 +7,7 @@ export function ProjectTabsSkeleton() {
       {/* Tab list - matches ProjectsPageTabs styling */}
       <div className="inline-flex h-auto p-1 bg-muted rounded-md gap-1">
         <Skeleton className="h-8 w-37.5 rounded-sm" />
+        <Skeleton className="h-8 w-37.5 rounded-sm" />
         <Skeleton className="h-8 w-50 rounded-sm" />
       </div>
 

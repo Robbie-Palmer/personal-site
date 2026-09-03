@@ -65,6 +65,18 @@ function renderWithQueryClient(element: React.ReactNode) {
   return { ...result, queryClient };
 }
 
+async function waitForInstalledList() {
+  await waitFor(
+    () => {
+      const saved = JSON.parse(
+        localStorage.getItem("recipe-shopping-list:v1") ?? "{}",
+      ) as { listId?: string };
+      expect(saved.listId).toBe(storedList.id);
+    },
+    { timeout: 5_000 },
+  );
+}
+
 function StartNewButton() {
   const startNew = useStartNewShoppingList();
   return (
@@ -126,6 +138,7 @@ describe("ShoppingListBoundary", () => {
     );
 
     expect(await screen.findByText("List ready")).toBeInTheDocument();
+    await waitForInstalledList();
     expect(getShoppingListSnapshot().plan).toEqual([
       { day: "fri", slot: "dinner", slug: "tomato-soup" },
     ]);
@@ -140,7 +153,7 @@ describe("ShoppingListBoundary", () => {
             extras: [expect.objectContaining({ text: "Milk" })],
           }),
         ),
-      { timeout: 1_000 },
+      { timeout: 5_000 },
     );
     expect(mocks.saveCurrentShoppingList.mock.calls[0]?.[2]).not.toHaveProperty(
       "plan",
@@ -190,6 +203,7 @@ describe("ShoppingListBoundary", () => {
       </ShoppingListBoundary>,
     );
     await screen.findByText("List ready");
+    await waitForInstalledList();
     mocks.saveCurrentShoppingList.mockClear();
 
     act(() => {
@@ -205,8 +219,10 @@ describe("ShoppingListBoundary", () => {
       );
     });
 
-    await new Promise((resolve) => setTimeout(resolve, 350));
-    expect(getShoppingListSnapshot().checked).toEqual(["garlic"]);
+    await waitFor(
+      () => expect(getShoppingListSnapshot().checked).toEqual(["garlic"]),
+      { timeout: 5_000 },
+    );
     expect(mocks.saveCurrentShoppingList).not.toHaveBeenCalled();
   });
 

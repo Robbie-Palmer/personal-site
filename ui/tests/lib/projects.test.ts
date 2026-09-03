@@ -32,6 +32,17 @@ describe("Projects functions", () => {
   });
 
   describe("getProject", () => {
+    it("loads an optional project pitch deck", () => {
+      const project = getProject("agentic-code-review");
+
+      expect(project.pitch).toMatchObject({
+        title: "Agentic Code Review pitch",
+      });
+      expect(project.pitch?.content).toContain("<PitchNotes>");
+      expect(project.pitch?.content).not.toContain("integration test");
+      expect(project.pitch?.content).not.toContain("<ReviewDepthDemo />");
+    });
+
     it("should return project with all required fields", () => {
       const slugs = getAllProjectSlugs();
       expect(slugs.length).toBeGreaterThan(0);

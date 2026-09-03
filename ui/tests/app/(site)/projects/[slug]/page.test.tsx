@@ -48,6 +48,16 @@ vi.mock("@/components/mermaid", () => ({
   Mermaid: () => <div>mermaid</div>,
 }));
 
+vi.mock("@/components/projects/pitch-deck/embedded-pitch-deck-content", () => ({
+  EmbeddedPitchDeckContent: () => <div>pitch-content</div>,
+}));
+
+vi.mock("@/components/projects/pitch-deck/lazy-project-pitch-deck", () => ({
+  LazyProjectPitchDeck: ({ children }: { children: React.ReactNode }) => (
+    <div>{children}</div>
+  ),
+}));
+
 vi.mock("@/components/projects/adr-list", () => ({
   ADRList: () => <div>adr-list</div>,
 }));

@@ -13,8 +13,8 @@ Add an optional, project-local pitch deck to project pages. Authors will write e
 If the published package gets in the way, vendor and cut down the relevant source.
 
 The project page will embed the deck as a first-class tab. A separate deck route will support focused viewing,
-deep links, speaker notes, fullscreen presentation, scroll view, and browser PDF export. The same source will
-also produce a plain-Markdown transcript.
+deep links, speaker notes, fullscreen presentation, and scroll view. The same source will also produce a
+plain-Markdown transcript.
 
 Take [Slidev](https://github.com/slidevjs/slidev) as the product reference for Markdown-first authoring, layouts,
 framework components, presenter tools, and static hosting. Implement that experience inside the existing React and
@@ -83,9 +83,7 @@ reveal.js already implements the version-one browser behavior:
 * touch and keyboard navigation;
 * URL hashes and direct slide links;
 * fragments and code line stepping;
-* overview, fullscreen, and speaker views;
-* a mobile-oriented scroll view;
-* browser PDF export; and
+* fullscreen and speaker views;
 * a plugin API if a later deck needs math or another specialist feature.
 
 The [official React integration](https://revealjs.com/react/) provides tested lifecycle handling and typed `Deck`,
@@ -112,7 +110,20 @@ The embedded deck will use at least this configuration:
 ```
 
 The [reveal.js configuration reference](https://revealjs.com/config/) explicitly supports embedded mode,
-focus-scoped keyboard shortcuts, touch navigation, URL state, media autoplay control, and PDF settings.
+focus-scoped keyboard shortcuts, touch navigation, URL state, and media autoplay control.
+
+### Keep overview and scroll views under React ownership
+
+Use reveal.js for the live slide presentation, navigation, fragments, hashes, fullscreen, and speaker notes. Render
+the overview and linear scroll modes as local React views from the same slide children. Disable reveal.js's native
+overview and automatic scroll activation.
+
+This boundary is necessary because reveal.js 6's scroll controller reparents each slide into generated page nodes,
+stores the presentation as HTML, and restores it with `innerHTML`. The React wrapper still treats the original slide
+tree as React-owned. A later React render can therefore reconcile against a DOM structure that reveal.js has moved.
+The reveal.js visibility update also reapplies `hidden` to non-current slides after navigation, which conflicts with
+an overview that must keep every slide visible. Keeping the two multi-slide views in React avoids both ownership
+conflicts while retaining reveal.js where it is strongest.
 
 Do not use the reveal.js Markdown plugin. The site will continue to compile MDX with its existing remark and
 rehype pipeline, then map the generated slide groups to the React integration. The existing pipeline will continue
@@ -216,22 +227,21 @@ The focused route will be:
 
 That route will render the same source and theme without the normal project chrome. It will enable reveal.js hash
 navigation so a slide can be shared directly. It will also load the notes plugin and expose scroll, overview,
-fullscreen, and speaker views. The project-page embed will keep hash navigation off so slide state cannot collide
-with heading anchors in the overview.
+fullscreen, and speaker views on wide screens. The project-page embed will keep hash navigation off so slide state
+cannot collide with heading anchors in the overview.
 
 An iframe is not needed for the chosen engine. Direct rendering gives the deck the same origin, component registry,
 font loading, theme variables, analytics boundary, and accessible document as the rest of the project page.
 
-### Treat mobile reading and presenting as different layouts
+### Keep mobile in slide mode
 
-On wide screens, the embedded deck will use a 16:9 stage. On narrow screens, it will use reveal.js scroll view or
-offer the transcript directly rather than shrinking a desktop slide until its text becomes unreadable. Animations
-and fragments continue to work in scroll view, which lists slides in reading order. It can activate
-automatically at a configured mobile width. See the
-[scroll-view documentation](https://revealjs.com/scroll-view/).
+On wide screens, the embedded deck will use a 16:9 stage and may offer the React-owned linear scroll view. On narrow
+screens, use a 3:4 stage with reveal.js's horizontal touch navigation. Do not expose or automatically activate the
+scroll view on mobile. This keeps the project-page embed, focused route, and the narrow receiver iframes used by
+speaker view on the same presentation state.
 
-The dedicated route may keep conventional slide navigation in landscape fullscreen. The embed should favor
-self-guided reading.
+The overview becomes a two-row horizontal track on narrow screens so touch users can pan through its thumbnails.
+The transcript remains the linear reading alternative.
 
 ### Make the transcript part of the feature
 
@@ -270,12 +280,12 @@ The [W3C carousel guidance](https://www.w3.org/WAI/tutorials/carousels/) require
 over movement, communicated slide changes, and comprehensible focus management. Automated checks do not prove
 these behaviors, so the spike and later deck changes need keyboard and screen-reader smoke tests.
 
-### Export PDF from the focused route
+### Keep version one on the web
 
-Version one will support the web deck and PDF. The focused route will use reveal.js's print stylesheet and the
-`?print-pdf` mode documented in its [PDF export guide](https://revealjs.com/pdf-export/). A mise task may later run
-Chromium to produce a reproducible PDF artifact, but generated PDFs will not be committed until there is a clear
-download or archival need.
+Version one will support the web deck and its plain-text transcript. It will not expose reveal.js's print mode or
+a PDF action. Browser printing adds another layout lifecycle to an already interactive route without a current
+download or archival need. If that need appears later, a build task should create and verify a reproducible PDF
+rather than handing raw browser print behavior to readers.
 
 PPTX export is not a version-one requirement. Slidev and Marp can generate PPTX, but a rasterized or partially
 editable PowerPoint is not the source of truth for these project pages. If editable office files become a real
@@ -391,7 +401,8 @@ For the spike:
 3. Put the project-facing names `ProjectPitchDeck`, `PitchSlide`, `PitchStep`, and `PitchNotes` in a thin local
    component layer. This layer contains site-specific props and styling; it does not copy library internals.
 4. Write the MDX slide-grouping plugin and Tailwind theme locally.
-5. Test static export, React 19 lifecycle, bundle loading, keyboard focus, speaker notes, scroll view, and PDF.
+5. Test static export, React 19 lifecycle, bundle loading, keyboard focus, speaker notes, wide-screen scroll view,
+   and mobile touch navigation.
 
 If those tests pass, keep the dependencies. Do not vendor code without a concrete integration problem.
 
@@ -416,16 +427,16 @@ This ADR can move to Accepted after one recipe-site pitch deck proves the follow
 3. React 19 development mode mounts, unmounts, and remounts the deck without duplicate listeners or broken controls.
 4. A slide can contain prose, an internal link, a responsive image, a Mermaid diagram, a Shiki code block, and one
    existing interactive React component.
-5. Wide-screen slide view and narrow-screen scroll view remain readable without clipped content.
+5. Wide-screen slide view and narrow-screen swipe view remain readable without clipped content.
 6. Keyboard navigation is active only while the embed is focused; controls have accessible names; reduced-motion
    mode removes transitions; and a screen-reader smoke test announces position without trapping focus.
-7. The focused route supports a direct slide URL, fullscreen, speaker notes, overview mode, and Chrome PDF output.
+7. The focused route supports a direct slide URL, fullscreen, speaker notes, and overview mode.
 8. `/projects/recipe-site/deck.md` contains the complete public transcript, omits speaker notes, and is indexed in
    `/llms.txt` and `/llms-full.txt`.
 9. Projects without `pitch.mdx` render exactly as they do now.
 10. Unit tests cover deck discovery, frontmatter validation, slide grouping, transcript conversion, and tabs. A
     slide-grouping fixture covers ordinary project MDX plus `---` inside fenced code and JSX. A browser test covers
-    navigation, focus-scoped keys, the focused route, and the mobile reading mode.
+    navigation, focus-scoped keys, the focused route, mobile swiping, and touch panning in the overview.
 11. The production bundle report records the compressed JS and CSS delta and confirms that non-deck pages do not
     load reveal.js.
 12. Tests cover the React integration lifecycle. Any vendored source retains the relevant upstream tests and has an
@@ -448,7 +459,7 @@ owning a modest amount of TypeScript.
 * reveal.js covers presentation behavior that would otherwise take much more local code and browser testing.
 * A thin local component layer keeps the project's authoring API independent of the chosen React integration.
 * Vendoring remains available if either published package creates avoidable integration problems.
-* Focused, embedded, scroll, presenter, and PDF views come from one source.
+* Focused, embedded, scroll, and presenter views come from one source.
 * The transcript keeps the content searchable, accessible in linear form, and useful to agents.
 
 ### Negative
@@ -459,7 +470,6 @@ owning a modest amount of TypeScript.
 * Slide layouts introduce another visual system that needs design review and responsive testing.
 * `pitch.mdx` and the long project overview can drift or repeat claims. Deck slides should link to the detailed
   section and state dates for market facts rather than copying large passages.
-* PDF output depends on browser print behavior unless a later CI task pins Chromium and the export command.
 * The audience view hides presenter notes, but the notes remain public data.
 
 ### Follow-up work after acceptance

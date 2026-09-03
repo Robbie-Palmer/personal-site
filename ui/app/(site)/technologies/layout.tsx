@@ -1,3 +1,5 @@
+import "reveal.js/reveal.css";
+import "@/components/projects/pitch-deck/pitch-deck.css";
 import { TechMobileNav } from "@/components/technology/tech-mobile-nav";
 import { TechStickySidebar } from "@/components/technology/tech-sticky-sidebar";
 import { siteConfig } from "@/lib/config/site-config";

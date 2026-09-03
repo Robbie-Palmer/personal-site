@@ -24,6 +24,18 @@ export default function sitemap(): MetadataRoute.Sitemap {
     priority: 0.8,
   }));
 
+  const pitchDeckPages = projects.flatMap((project) =>
+    project.pitch
+      ? [
+          {
+            url: `${siteConfig.url}/projects/${project.slug}/deck`,
+            lastModified: project.updated || project.date,
+            priority: 0.7,
+          },
+        ]
+      : [],
+  );
+
   const adrPages = projects.flatMap((project) =>
     project.adrs.map((adr) => ({
       url: `${siteConfig.url}/projects/${project.slug}/adrs/${adr.slug}`,
@@ -76,7 +88,13 @@ export default function sitemap(): MetadataRoute.Sitemap {
     },
     ...blogPosts,
     ...projectPages,
+    ...pitchDeckPages,
     ...adrPages,
     ...technologyPages,
+    {
+      url: `${siteConfig.url}/technologies/revealdotjs/deck`,
+      lastModified: new Date().toISOString(),
+      priority: 0.5,
+    },
   ];
 }

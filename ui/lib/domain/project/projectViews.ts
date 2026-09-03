@@ -1,6 +1,7 @@
 import type { ADRCardView } from "../adr/adrViews";
 import type { RoleListItemView } from "../role/roleViews";
 import type { TechnologyBadgeView } from "../technology/technologyViews";
+import type { PitchDeck } from "./pitchDeck";
 import type { Project, ProjectStatus } from "./project";
 
 export type ProjectCardView = {
@@ -29,6 +30,7 @@ export type ProjectDetailView = {
   repoUrl?: string;
   demoUrl?: string;
   productUrl?: string;
+  pitch?: PitchDeck;
   content: string;
   technologies: TechnologyBadgeView[];
   adrSlugs: string[];
@@ -52,6 +54,7 @@ export type ProjectWithADRsView = {
   repoUrl?: string;
   demoUrl?: string;
   productUrl?: string;
+  pitch?: PitchDeck;
   content: string;
   technologies: TechnologyBadgeView[];
   adrSlugs: string[];
@@ -101,6 +104,7 @@ export function toProjectDetailView(
     repoUrl: project.repoUrl,
     demoUrl: project.demoUrl,
     productUrl: project.productUrl,
+    pitch: project.pitch,
     content: project.content,
     technologies,
     adrSlugs,
