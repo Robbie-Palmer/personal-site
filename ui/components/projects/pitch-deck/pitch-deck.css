@@ -332,7 +332,7 @@ body.reveal-viewport:has(.pitch-deck) {
 .pitch-proof-receipt__header > span,
 .pitch-proof-receipt > div:not(.pitch-proof-receipt__header) > span {
   color: var(--pitch-muted);
-  font-family: var(--font-geist-mono), monospace;
+  font-family: var(--font-geist-mono, monospace);
   font-size: 15px;
   letter-spacing: 0.1em;
   text-transform: uppercase;
