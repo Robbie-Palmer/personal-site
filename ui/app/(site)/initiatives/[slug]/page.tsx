@@ -5,11 +5,7 @@ import { ProjectStatusBadge } from "@/components/projects/project-status-badge";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import {
-  getAllInitiativeSlugs,
-  getInitiative,
-  type InitiativeWithProjects,
-} from "@/lib/api/initiatives";
+import { getAllInitiativeSlugs, getInitiative } from "@/lib/api/initiatives";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -50,38 +46,19 @@ export function generateStaticParams() {
 
 export async function generateMetadata({ params }: PageProps) {
   const { slug } = await params;
-  try {
-    const initiative = getInitiative(slug);
-    return {
-      title: `${initiative.title} - Initiative`,
-      description: initiative.description,
-    };
-  } catch (error) {
-    if (
-      error instanceof Error &&
-      error.message.startsWith("Initiative not found:")
-    ) {
-      return { title: "Initiative Not Found" };
-    }
-    throw error;
-  }
+  const initiative = getInitiative(slug);
+  if (!initiative) return { title: "Initiative Not Found" };
+
+  return {
+    title: `${initiative.title} - Initiative`,
+    description: initiative.description,
+  };
 }
 
 export default async function InitiativePage({ params }: Readonly<PageProps>) {
   const { slug } = await params;
-  let initiative: InitiativeWithProjects;
-
-  try {
-    initiative = getInitiative(slug);
-  } catch (error) {
-    if (
-      error instanceof Error &&
-      error.message.startsWith("Initiative not found:")
-    ) {
-      notFound();
-    }
-    throw error;
-  }
+  const initiative = getInitiative(slug);
+  if (!initiative) notFound();
 
   const firstProject = initiative.projects[0];
   const lastProject = initiative.projects.at(-1);
@@ -126,7 +103,7 @@ export default async function InitiativePage({ params }: Readonly<PageProps>) {
       <div className="max-w-4xl border-y">
         {sections.map((section, index) => (
           <section
-            key={section.title}
+            key={`${index}-${section.title}`}
             className={`grid gap-3 py-7 md:grid-cols-[9rem_minmax(0,1fr)] md:gap-8 ${
               index > 0 ? "border-t" : ""
             }`}

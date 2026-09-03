@@ -42,11 +42,9 @@ export function getAllInitiatives(): InitiativeWithProjects[] {
     .sort((a, b) => a.title.localeCompare(b.title));
 }
 
-export function getInitiative(slug: string): InitiativeWithProjects {
+export function getInitiative(slug: string): InitiativeWithProjects | null {
   const initiative = getInitiativeEntity(repository, slug);
-  if (!initiative) {
-    throw new Error(`Initiative not found: ${slug}`);
-  }
+  if (!initiative) return null;
   return withProjects(initiative);
 }
 

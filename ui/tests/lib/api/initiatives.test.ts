@@ -11,6 +11,7 @@ describe("initiatives API", () => {
     expect(getAllInitiativeSlugs()).toContain("personalized-medicine");
 
     const initiative = getInitiative("personalized-medicine");
+    if (!initiative) throw new Error("Expected initiative to exist");
     expect(initiative.projects.map((project) => project.slug)).toEqual([
       "ai-assisted-macrodissection",
       "genomic-prediction",
@@ -33,9 +34,7 @@ describe("initiatives API", () => {
     expect(getInitiativesForProject("homelab")).toEqual([]);
   });
 
-  it("rejects an unknown initiative", () => {
-    expect(() => getInitiative("missing")).toThrow(
-      "Initiative not found: missing",
-    );
+  it("returns null for an unknown initiative", () => {
+    expect(getInitiative("missing")).toBeNull();
   });
 });

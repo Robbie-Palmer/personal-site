@@ -131,9 +131,7 @@ describe("initiative page", () => {
   });
 
   it("renders the not-found boundary for an unknown initiative", async () => {
-    (getInitiative as Mock).mockImplementation(() => {
-      throw new Error("Initiative not found: missing");
-    });
+    (getInitiative as Mock).mockReturnValue(null);
 
     await expect(
       InitiativePage({ params: Promise.resolve({ slug: "missing" }) }),
@@ -151,9 +149,7 @@ describe("initiative page", () => {
   });
 
   it("uses not-found metadata for an unknown initiative", async () => {
-    (getInitiative as Mock).mockImplementation(() => {
-      throw new Error("Initiative not found: missing");
-    });
+    (getInitiative as Mock).mockReturnValue(null);
 
     await expect(
       generateMetadata({ params: Promise.resolve({ slug: "missing" }) }),

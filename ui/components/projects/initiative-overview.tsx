@@ -73,7 +73,10 @@ export function InitiativeOverview({
                         key={project.slug}
                         className="relative grid grid-cols-[12px_2.75rem_minmax(0,1fr)] items-baseline gap-2 text-sm"
                       >
-                        <span className="relative z-10 h-3 w-3 rounded-full border-2 border-primary bg-card" />
+                        <span
+                          aria-hidden="true"
+                          className="relative z-10 h-3 w-3 rounded-full border-2 border-primary bg-card"
+                        />
                         <span className="font-mono text-xs tabular-nums text-muted-foreground">
                           {project.date.slice(0, 4)}
                         </span>
@@ -87,7 +90,10 @@ export function InitiativeOverview({
                     ))}
                     {initiative.projects.length > 4 && (
                       <li className="relative grid grid-cols-[12px_2.75rem_minmax(0,1fr)] items-center gap-2 text-sm text-muted-foreground">
-                        <span className="relative z-10 h-3 w-3 rounded-full border-2 border-muted-foreground/50 bg-card" />
+                        <span
+                          aria-hidden="true"
+                          className="relative z-10 h-3 w-3 rounded-full border-2 border-muted-foreground/50 bg-card"
+                        />
                         <span />
                         <span>
                           +{initiative.projects.length - 4} more{" "}
