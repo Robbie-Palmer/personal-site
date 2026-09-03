@@ -2,6 +2,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { AccountsTable } from "@/components/assettracker/accounts-table";
 import { AssetAllocationHistoryChart } from "@/components/assettracker/asset-allocation-history-chart";
 import { useAssetTracker } from "@/components/assettracker/asset-tracker-provider";
 import { FlowSankeyChart } from "@/components/assettracker/flow-sankey-chart";
@@ -52,6 +53,8 @@ const EMPTY_FI: PortfolioFinancialIndependence = {
   representativeAnnualCurrentExpenditure: null,
   representativeAnnualSavings: null,
   savingsRate: null,
+  takeHomeSavingsRate: null,
+  currentCompensation: null,
   emergencyFund: 0,
   emergencyFundMonths: null,
   target: null,
@@ -283,6 +286,13 @@ describe("PortfolioGoal", () => {
         representativeAnnualExpenditure: 24_000,
         representativeAnnualSavings: 12_000,
         savingsRate: 0.333,
+        takeHomeSavingsRate: 0.25,
+        currentCompensation: {
+          annualTakeHomeIncome: 32_000,
+          annualTakeHomeSavings: 8_000,
+          annualEmployeePensionContribution: 3_000,
+          annualEmployerPensionContribution: 1_000,
+        },
         emergencyFund: 9_000,
         emergencyFundMonths: 4.5,
         target: 600_000,
@@ -300,6 +310,9 @@ describe("PortfolioGoal", () => {
     render(<PortfolioGoal />);
 
     expect(screen.getByText("33.3%")).toBeVisible();
+    expect(screen.getByText("All-in savings rate")).toBeVisible();
+    expect(screen.getByText(/25.0% from take-home pay/)).toBeVisible();
+    expect(screen.getByText(/£3,000 employee pension/)).toBeVisible();
     expect(screen.getByText("£9,000")).toBeVisible();
     expect(screen.getByText("4.5 months without income")).toBeVisible();
     expect(screen.getByText("12.0 years")).toBeVisible();
@@ -440,6 +453,65 @@ describe("UpcomingFlows", () => {
   });
 });
 
+describe("AccountsTable", () => {
+  it("hides closed accounts until requested", async () => {
+    const user = userEvent.setup();
+    render(
+      <AccountsTable
+        accounts={[
+          {
+            id: "current",
+            name: "Current account",
+            provider: "Bank",
+            currency: "GBP",
+            assetType: "cash",
+            expectedAnnualReturn: 0.01,
+            isOpen: true,
+            latestBalance: 2_000,
+            latestSnapshotDate: "2026-01-01",
+            cagr: null,
+            createdAt: "2024-01-01",
+            snapshots: [{ date: "2026-01-01", balance: 2_000 }],
+            capitalFlows: [],
+            netContributed: null,
+            gainLoss: null,
+          },
+          {
+            id: "old-fund",
+            name: "Old fund",
+            provider: "Broker",
+            currency: "GBP",
+            assetType: "stocks",
+            expectedAnnualReturn: 0.05,
+            isOpen: false,
+            latestBalance: 0,
+            latestSnapshotDate: "2025-01-01",
+            cagr: null,
+            createdAt: "2023-01-01",
+            closedAt: "2025-01-01",
+            snapshots: [{ date: "2025-01-01", balance: 0 }],
+            capitalFlows: [],
+            netContributed: null,
+            gainLoss: null,
+          },
+        ]}
+      />,
+    );
+
+    expect(screen.getByText("Current account")).toBeVisible();
+    expect(screen.queryByText("Old fund")).toBeNull();
+
+    await user.click(
+      screen.getByRole("button", { name: "Show closed accounts (1)" }),
+    );
+
+    expect(screen.getByText("Old fund")).toBeVisible();
+    expect(
+      screen.getByRole("button", { name: "Hide closed accounts" }),
+    ).toHaveAttribute("aria-expanded", "true");
+  });
+});
+
 describe("FlowSankeyChart", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -507,6 +579,118 @@ describe("FlowSankeyChart", () => {
 });
 
 describe("buildFlowSankeyData", () => {
+  it("splits gross salary into take-home pay, pension, and tax", () => {
+    const data = buildFlowSankeyData(
+      [
+        {
+          id: "current",
+          name: "Instant access",
+          provider: "Bank",
+          currency: "GBP",
+          assetType: "cash",
+          expectedAnnualReturn: 0,
+          isOpen: true,
+          latestBalance: 1_000,
+          latestSnapshotDate: "2026-07-03",
+          cagr: null,
+        },
+        {
+          id: "pension",
+          name: "Pension",
+          provider: "Provider",
+          currency: "GBP",
+          assetType: "stocks",
+          expectedAnnualReturn: 0,
+          isOpen: true,
+          latestBalance: 10_000,
+          latestSnapshotDate: "2026-07-03",
+          cagr: null,
+        },
+      ],
+      [
+        {
+          id: "salary",
+          name: "Take-home salary",
+          toAccountId: "current",
+          amount: 4_100,
+          grossAmount: 6_400,
+          compensationKind: "takeHomeIncome",
+          frequency: "monthly",
+          startDate: "2026-07-01",
+        },
+        {
+          id: "employee-pension",
+          name: "Employee pension",
+          toAccountId: "pension",
+          amount: 900,
+          compensationKind: "employeePension",
+          frequency: "monthly",
+          startDate: "2026-07-01",
+        },
+        {
+          id: "employer-pension",
+          name: "Employer pension",
+          toAccountId: "pension",
+          amount: 350,
+          compensationKind: "employerPension",
+          frequency: "monthly",
+          startDate: "2026-07-01",
+        },
+      ],
+      {},
+    );
+
+    expect(data.nodes.map((node) => node.name)).toEqual([
+      "External income",
+      "Gross pay",
+      "Instant access",
+      "Pension",
+      "Tax and deductions",
+    ]);
+    expect(data.links).toEqual([
+      {
+        source: 0,
+        target: 1,
+        value: 6_400,
+        label: "Gross salary",
+        sourceName: "External income",
+        targetName: "Gross pay",
+      },
+      {
+        source: 1,
+        target: 2,
+        value: 4_100,
+        label: "Take-home salary",
+        sourceName: "Gross pay",
+        targetName: "Instant access",
+      },
+      {
+        source: 1,
+        target: 3,
+        value: 900,
+        label: "Employee pension",
+        sourceName: "Gross pay",
+        targetName: "Pension",
+      },
+      {
+        source: 0,
+        target: 3,
+        value: 350,
+        label: "Employer pension",
+        sourceName: "External income",
+        targetName: "Pension",
+      },
+      {
+        source: 1,
+        target: 4,
+        value: 1_400,
+        label: "Tax and deductions",
+        sourceName: "Gross pay",
+        targetName: "Tax and deductions",
+      },
+    ]);
+  });
+
   it("converts regular flows into monthly Sankey links", () => {
     const data = buildFlowSankeyData(
       [

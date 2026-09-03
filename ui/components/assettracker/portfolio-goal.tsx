@@ -44,8 +44,18 @@ function getYearsToFiLabel(
   return "—";
 }
 
-function getAnnualSavingsDescription(annualSavings: number | null): string {
+function getAnnualSavingsDescription(
+  annualSavings: number | null,
+  currentCompensation: {
+    annualTakeHomeSavings: number;
+    annualEmployeePensionContribution: number;
+    annualEmployerPensionContribution: number;
+  } | null,
+): string {
   if (annualSavings == null) return "Personal capital ÷ entered income";
+  if (currentCompensation != null) {
+    return `${formatCurrency(Math.round(annualSavings))}/yr saved: ${formatCurrency(Math.round(currentCompensation.annualTakeHomeSavings))} from take-home pay, ${formatCurrency(Math.round(currentCompensation.annualEmployeePensionContribution))} employee pension, and ${formatCurrency(Math.round(currentCompensation.annualEmployerPensionContribution))} employer pension`;
+  }
   return `${formatCurrency(Math.round(annualSavings))}/yr median total capital added`;
 }
 
@@ -97,6 +107,8 @@ export function PortfolioGoal() {
     representativeAnnualCurrentExpenditure,
     representativeAnnualSavings,
     savingsRate,
+    takeHomeSavingsRate,
+    currentCompensation,
     emergencyFund,
     emergencyFundMonths,
     target,
@@ -160,7 +172,8 @@ export function PortfolioGoal() {
               {optionalCurrency(representativeAnnualExpenditure)}
             </p>
             <p className="mt-1 text-xs text-muted-foreground">
-              Long-term FI spending, excluding debt principal
+              Median of the latest 12 periods, annualised. Excludes debt
+              principal.
             </p>
             {representativeAnnualCurrentExpenditure != null &&
               representativeAnnualCurrentExpenditure !==
@@ -212,17 +225,25 @@ export function PortfolioGoal() {
             <p className="mt-1 text-xl font-semibold">{percentage(progress)}</p>
             <p className="mt-1 text-xs text-muted-foreground">
               {formatCurrency(currentNetWorth)} total net worth, including all
-              home equity
+              pension assets and home equity
             </p>
           </div>
           <div className="rounded-md border p-3">
-            <p className="text-xs text-muted-foreground">Savings rate</p>
+            <p className="text-xs text-muted-foreground">
+              {currentCompensation == null
+                ? "Savings rate"
+                : "All-in savings rate"}
+            </p>
             <p className="mt-1 text-xl font-semibold">
               {percentage(savingsRate, 1)}
             </p>
             <p className="mt-1 text-xs text-muted-foreground">
-              From entered income.{" "}
-              {getAnnualSavingsDescription(representativeAnnualSavings)}
+              {takeHomeSavingsRate != null &&
+                `${percentage(takeHomeSavingsRate, 1)} from take-home pay. `}
+              {getAnnualSavingsDescription(
+                representativeAnnualSavings,
+                currentCompensation,
+              )}
             </p>
           </div>
           <div className="rounded-md border p-3">

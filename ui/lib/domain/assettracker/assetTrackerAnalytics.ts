@@ -130,6 +130,16 @@ export type AccountHistoryPoint = {
   contributed?: number;
 };
 
+export type BalanceEstimatePoint = {
+  date: string;
+  /** Confirmed balance on this exact date, when one was recorded. */
+  actual?: number;
+  /** Best balance for totals: confirmed on valuation dates, estimated otherwise. */
+  estimated: number;
+  /** Estimate immediately before a confirmed balance resets the projection. */
+  expected: number;
+};
+
 /**
  * Compounds `principal` from `fromDate` to `toDate`, splitting the span at any
  * scheduled rate-change boundaries so a change mid-interval is applied from
@@ -153,6 +163,68 @@ function compoundAcrossSchedule(
     cursor = boundary;
   }
   return value;
+}
+
+/**
+ * Estimates balances between confirmed valuations. Each confirmed balance
+ * resets the estimate. Between them, dated capital flows are applied and the
+ * running balance compounds at the expected return.
+ *
+ * `sampleDates` lets portfolio charts request estimates on their shared date
+ * grid without turning those estimates into stored market valuations.
+ */
+export function buildBalanceEstimateSeries(
+  schedule: ReturnSchedule,
+  snapshots: BalanceSnapshotView[],
+  flows: ExternalFlow[] = [],
+  sampleDates: string[] = [],
+): BalanceEstimatePoint[] {
+  const snapshotByDate = new Map(
+    snapshots.map((snapshot) => [snapshot.date, snapshot.balance]),
+  );
+  const flowsByDate = new Map<string, number>();
+  for (const flow of flows) {
+    flowsByDate.set(flow.date, (flowsByDate.get(flow.date) ?? 0) + flow.amount);
+  }
+  const dates = Array.from(
+    new Set([...snapshotByDate.keys(), ...flowsByDate.keys(), ...sampleDates]),
+  ).sort((a, b) => a.localeCompare(b));
+
+  const points: BalanceEstimatePoint[] = [];
+  let estimate: number | null = null;
+  let previousDate: string | null = null;
+
+  for (const date of dates) {
+    const actual = snapshotByDate.get(date);
+    const hadEstimate = estimate != null;
+    if (estimate != null && previousDate != null) {
+      estimate = compoundAcrossSchedule(schedule, estimate, previousDate, date);
+    }
+
+    const flowAmount = flowsByDate.get(date) ?? 0;
+    if (estimate == null && flowAmount !== 0) estimate = 0;
+    if (estimate != null && (actual == null || hadEstimate)) {
+      estimate += flowAmount;
+    }
+
+    // The first confirmed valuation is the anchor. Later valuations retain
+    // the pre-reset expectation so the chart can show the estimation error.
+    const expected =
+      actual != null && !hadEstimate ? actual : (estimate ?? actual);
+    if (expected != null) {
+      points.push({
+        date,
+        ...(actual == null ? {} : { actual }),
+        estimated: Math.round((actual ?? expected) * 100) / 100,
+        expected: Math.round(expected * 100) / 100,
+      });
+    }
+
+    if (actual != null) estimate = actual;
+    if (estimate != null) previousDate = date;
+  }
+
+  return points;
 }
 
 /**
@@ -213,17 +285,17 @@ export function buildAccountHistorySeries(
   schedule: ReturnSchedule,
   snapshots: BalanceSnapshotView[],
   flows: ExternalFlow[] = [],
+  sampleDates: string[] = [],
 ): AccountHistoryPoint[] {
-  const performanceByDate = new Map(
-    buildExpectedTrajectory(schedule, snapshots, flows).map((point) => [
-      point.date,
-      point,
-    ]),
+  const estimateByDate = new Map(
+    buildBalanceEstimateSeries(schedule, snapshots, flows, sampleDates).map(
+      (point) => [point.date, point],
+    ),
   );
   const sortedFlows = [...flows].sort((a, b) => a.date.localeCompare(b.date));
   const dates = Array.from(
     new Set([
-      ...performanceByDate.keys(),
+      ...estimateByDate.keys(),
       ...sortedFlows.map((flow) => flow.date),
     ]),
   ).sort((a, b) => a.localeCompare(b));
@@ -239,12 +311,13 @@ export function buildAccountHistorySeries(
       hasContributionHistory = true;
       flow = sortedFlows[flowIndex];
     }
-    const performance = performanceByDate.get(date);
+    const estimate = estimateByDate.get(date);
     return {
       date,
-      ...(performance == null
+      ...(estimate?.actual == null ? {} : { actual: estimate.actual }),
+      ...(snapshots.length === 0 || estimate == null
         ? {}
-        : { actual: performance.actual, expected: performance.expected }),
+        : { expected: estimate.expected }),
       ...(hasContributionHistory
         ? { contributed: Math.round(contributed * 100) / 100 }
         : {}),

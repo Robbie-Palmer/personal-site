@@ -155,6 +155,81 @@ describe("getNetWorthTimeSeries", () => {
     expect(point?.Mortgage).toBeUndefined();
     expect(point?.total).toBe(88000); // 90,000 equity − 2,000 card
   });
+
+  it("omits contribution-only accounts instead of inventing zero valuations", () => {
+    const data = homeData();
+    data.accounts.push({
+      id: "unvalued-isa",
+      name: "Unvalued ISA",
+      provider: "Broker",
+      currency: "GBP",
+      assetType: "stocks",
+      expectedAnnualReturn: 0.07,
+      createdAt: "2024-01-01",
+    });
+    data.capitalFlows = [
+      {
+        accountId: "unvalued-isa",
+        date: "2024-01-01",
+        amount: 4_000,
+      },
+    ];
+
+    const point = getNetWorthTimeSeries(buildRepository(data)).at(-1);
+
+    expect(point?.["Unvalued ISA"]).toBeUndefined();
+    expect(point?.total).toBe(88_000);
+  });
+
+  it("adds a separate estimate for investments awaiting a market valuation", () => {
+    const data = homeData();
+    data.accounts.push({
+      id: "growth-fund",
+      name: "Growth fund",
+      provider: "Broker",
+      currency: "GBP",
+      assetType: "stocks",
+      expectedAnnualReturn: 0,
+      createdAt: "2024-01-01",
+    });
+    data.snapshots.push(
+      { accountId: "growth-fund", date: "2024-01-01", balance: 0 },
+      { accountId: "home", date: "2025-01-01", balance: 300_000 },
+    );
+    data.capitalFlows = [
+      { accountId: "growth-fund", date: "2025-01-01", amount: 5_000 },
+    ];
+
+    const point = getNetWorthTimeSeries(buildRepository(data)).at(-1);
+
+    expect(point?.["Growth fund"]).toBeUndefined();
+    expect(point?.total).toBe(88_000);
+    expect(point?.estimatedTotal).toBe(93_000);
+  });
+
+  it("omits accounts whose only recorded balance is a closing zero", () => {
+    const data = homeData();
+    data.accounts.push({
+      id: "repaid-loan",
+      name: "Repaid loan",
+      provider: "Private",
+      currency: "GBP",
+      assetType: "bonds",
+      expectedAnnualReturn: 0,
+      createdAt: "2023-01-01",
+      closedAt: "2024-01-01",
+    });
+    data.snapshots.push({
+      accountId: "repaid-loan",
+      date: "2024-01-01",
+      balance: 0,
+    });
+
+    const point = getNetWorthTimeSeries(buildRepository(data)).at(-1);
+
+    expect(point?.["Repaid loan"]).toBeUndefined();
+    expect(point?.total).toBe(88_000);
+  });
 });
 
 describe("getPortfolioContributionTimeSeries", () => {

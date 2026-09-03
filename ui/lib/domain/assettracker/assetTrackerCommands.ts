@@ -16,6 +16,7 @@ import {
   capitalFlowKind,
 } from "./capitalFlow";
 import {
+  CompensationKindSchema,
   FlowFrequencySchema,
   flowOccurrenceDates,
   MinimumPaymentFormulaSchema,
@@ -179,7 +180,12 @@ export const AddRecurringFlowInputSchema = z
     fromAccountId: AccountIdSchema.optional(),
     toAccountId: AccountIdSchema.optional(),
     amount: z.number().positive("Amount must be positive").optional(),
+    grossAmount: z
+      .number()
+      .positive("Gross amount must be positive")
+      .optional(),
     formula: MinimumPaymentFormulaSchema.optional(),
+    compensationKind: CompensationKindSchema.optional(),
     frequency: FlowFrequencySchema,
     startDate: IsoDateSchema.optional(),
     endDate: IsoDateSchema.optional(),
@@ -195,7 +201,30 @@ export const AddRecurringFlowInputSchema = z
   })
   .refine((f) => f.formula == null || f.frequency === "monthly", {
     message: "Formula payments must use a monthly frequency",
-  });
+  })
+  .refine(
+    (f) =>
+      f.compensationKind == null ||
+      (f.fromAccountId == null &&
+        f.toAccountId != null &&
+        f.amount != null &&
+        f.formula == null),
+    {
+      message:
+        "Compensation must be a fixed amount entering an account from outside the portfolio",
+    },
+  )
+  .refine(
+    (f) =>
+      f.grossAmount == null ||
+      (f.compensationKind === "takeHomeIncome" &&
+        f.amount != null &&
+        f.grossAmount >= f.amount),
+    {
+      message:
+        "Gross amount is only valid for take-home income and cannot be less than take-home pay",
+    },
+  );
 export type AddRecurringFlowInput = z.infer<typeof AddRecurringFlowInputSchema>;
 
 export const DeleteRecurringFlowInputSchema = z.object({
@@ -689,7 +718,9 @@ export function applyAddRecurringFlow(
     fromAccountId: parsed.fromAccountId,
     toAccountId: parsed.toAccountId,
     amount: parsed.amount,
+    grossAmount: parsed.grossAmount,
     formula: parsed.formula,
+    compensationKind: parsed.compensationKind,
     frequency: parsed.frequency,
     startDate,
     endDate: parsed.endDate,

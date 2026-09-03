@@ -82,6 +82,7 @@ export function getNetWorthTimeSeries(
   return toNetWorthTimeSeries(
     Array.from(repository.accounts.values()),
     repository.snapshots,
+    repository.capitalFlows,
   );
 }
 

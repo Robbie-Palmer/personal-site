@@ -9,6 +9,8 @@ const EXTERNAL_SPENDING_NODE = "__external_spending";
 const EXPECTED_RETURNS_NODE = "__expected_returns";
 const EXPECTED_LOSSES_NODE = "__expected_losses";
 const INTEREST_CHARGED_NODE = "__interest_charged";
+const GROSS_PAY_NODE = "__gross_pay";
+const TAX_NODE = "__tax";
 const MIN_SYNTHETIC_FLOW = 1;
 
 type FlowSankeyAccount = AccountSummaryView & {
@@ -61,6 +63,10 @@ function nodeName(id: string, account?: FlowSankeyAccount): string {
       return "Expected losses";
     case INTEREST_CHARGED_NODE:
       return "Interest charged";
+    case GROSS_PAY_NODE:
+      return "Gross pay";
+    case TAX_NODE:
+      return "Tax and deductions";
     default:
       return account?.name ?? id;
   }
@@ -76,7 +82,10 @@ function nodeColor(id: string, index: number): string {
     case EXPECTED_LOSSES_NODE:
       return "hsl(20, 75%, 55%)";
     case INTEREST_CHARGED_NODE:
+    case TAX_NODE:
       return "hsl(350, 65%, 55%)";
+    case GROSS_PAY_NODE:
+      return "hsl(205, 65%, 48%)";
     default:
       return accountColor(index);
   }
@@ -103,12 +112,76 @@ function addRecurringFlowLinks(
   liabilityBalances: Record<string, number>,
   builder: FlowSankeyBuilder,
 ) {
+  const grossPayFlows = flows.filter(
+    (flow) =>
+      flow.compensationKind === "takeHomeIncome" && flow.grossAmount != null,
+  );
+  const grossPay = grossPayFlows.reduce(
+    (total, flow) =>
+      total +
+      (flow.amount == null || flow.grossAmount == null
+        ? 0
+        : monthlyAmount(flow) * (flow.grossAmount / flow.amount)),
+    0,
+  );
+  const employeePensionFlows = flows.filter(
+    (flow) => flow.compensationKind === "employeePension",
+  );
+
+  if (grossPay > 0) {
+    builder.addLink(
+      EXTERNAL_INCOME_NODE,
+      GROSS_PAY_NODE,
+      grossPay,
+      "Gross salary",
+    );
+  }
+
   for (const flow of flows) {
+    if (
+      grossPay > 0 &&
+      flow.compensationKind === "takeHomeIncome" &&
+      flow.grossAmount != null
+    ) {
+      builder.addLink(
+        GROSS_PAY_NODE,
+        flow.toAccountId ?? EXTERNAL_SPENDING_NODE,
+        recurringFlowValue(flow, liabilityBalances),
+        flow.name,
+      );
+      continue;
+    }
+    if (grossPay > 0 && flow.compensationKind === "employeePension") {
+      builder.addLink(
+        GROSS_PAY_NODE,
+        flow.toAccountId ?? EXTERNAL_SPENDING_NODE,
+        recurringFlowValue(flow, liabilityBalances),
+        flow.name,
+      );
+      continue;
+    }
     builder.addLink(
       flow.fromAccountId ?? EXTERNAL_INCOME_NODE,
       flow.toAccountId ?? EXTERNAL_SPENDING_NODE,
       recurringFlowValue(flow, liabilityBalances),
       flow.name,
+    );
+  }
+
+  if (grossPay > 0) {
+    const takeHomePay = grossPayFlows.reduce(
+      (total, flow) => total + recurringFlowValue(flow, liabilityBalances),
+      0,
+    );
+    const employeePension = employeePensionFlows.reduce(
+      (total, flow) => total + recurringFlowValue(flow, liabilityBalances),
+      0,
+    );
+    builder.addLink(
+      GROSS_PAY_NODE,
+      TAX_NODE,
+      grossPay - takeHomePay - employeePension,
+      "Tax and deductions",
     );
   }
 }

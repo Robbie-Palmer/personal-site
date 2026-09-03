@@ -27,12 +27,12 @@ import {
 import { useAssetTracker } from "./asset-tracker-provider";
 
 const ASSET_COPY = {
-  title: "Market value and contributed capital",
+  title: "Market value, estimate, and contributed capital",
   description:
-    "Market value uses logged valuations. Contributed capital is cumulative deposits minus withdrawals.",
+    "Market value uses logged valuations. The dashed estimate applies dated contributions and expected return between valuations.",
   config: {
     actual: { label: "Market value", color: "hsl(220, 70%, 50%)" },
-    expected: { label: "Expected", color: "hsl(220, 10%, 60%)" },
+    expected: { label: "Estimated value", color: "hsl(220, 10%, 60%)" },
     contributed: {
       label: "Contributed capital",
       color: "hsl(150, 55%, 42%)",
@@ -48,9 +48,9 @@ const CONTRIBUTION_COPY = {
 };
 
 const MARKET_VALUE_COPY = {
-  title: "Market value history",
+  title: "Market value and estimate",
   description:
-    "Logged valuations, with expected growth adjusted for deposits and withdrawals.",
+    "Logged valuations with a dashed estimate between them. Each valuation resets the estimate.",
   config: ASSET_COPY.config,
 };
 
@@ -79,7 +79,7 @@ type HistoryView = "both" | "market" | "capital";
 export function AccountTrajectoryChart({
   account,
 }: Readonly<AccountTrajectoryChartProps>) {
-  const { transfers } = useAssetTracker();
+  const { transfers, netWorthData = [] } = useAssetTracker();
   const [view, setView] = useState<HistoryView>("both");
   const externalFlows = selectAccountExternalFlows(
     account.id,
@@ -90,6 +90,7 @@ export function AccountTrajectoryChart({
     account,
     account.snapshots,
     externalFlows,
+    netWorthData.map((point) => point.date),
   );
   if (trajectory.length < 2) return null;
 

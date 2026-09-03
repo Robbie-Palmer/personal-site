@@ -6,6 +6,7 @@ import {
   isLiability,
 } from "./account";
 import {
+  buildBalanceEstimateSeries,
   computeMoneyWeightedReturn,
   type ExternalFlow,
 } from "./assetTrackerAnalytics";
@@ -86,7 +87,9 @@ export type AccountDetailView = AccountSummaryView & {
 export type NetWorthDataPoint = {
   date: string;
   total: number;
-  [accountName: string]: string | number;
+  /** Net worth with unvalued investments replaced by expected balances. */
+  estimatedTotal?: number;
+  [accountName: string]: string | number | undefined;
 };
 
 export type EquitySummary = {
@@ -258,9 +261,15 @@ export function toAccountDetailView(
 export function toNetWorthTimeSeries(
   accounts: Account[],
   snapshots: BalanceSnapshot[],
+  capitalFlows: CapitalFlow[] = [],
 ): NetWorthDataPoint[] {
   const dateSet = new Set(snapshots.map((s) => s.date));
   const sortedDates = Array.from(dateSet).sort(compareIsoDates);
+  const accountsWithMarketValue = new Set(
+    snapshots
+      .filter((snapshot) => snapshot.balance !== 0)
+      .map((snapshot) => snapshot.accountId),
+  );
 
   const sortedSnapshots = [...snapshots].sort((a, b) =>
     compareIsoDates(a.date, b.date),
@@ -274,6 +283,34 @@ export function toNetWorthTimeSeries(
   // rather than appearing as its own negative series
   const { absorbedIds, mortgagesByProperty } = buildLinkage(accounts);
 
+  const estimatedInvestmentTypes = new Set<AssetType>([
+    "stocks",
+    "bonds",
+    "reits",
+    "crypto",
+  ]);
+  const estimatesByAccount = new Map(
+    accounts
+      .filter(
+        (account) =>
+          estimatedInvestmentTypes.has(account.assetType) &&
+          !absorbedIds.has(account.id),
+      )
+      .map((account) => [
+        account.id,
+        new Map(
+          buildBalanceEstimateSeries(
+            account,
+            snapshots.filter((snapshot) => snapshot.accountId === account.id),
+            capitalFlows
+              .filter((flow) => flow.accountId === account.id)
+              .map(({ date, amount }) => ({ date, amount })),
+            sortedDates,
+          ).map((point) => [point.date, point]),
+        ),
+      ]),
+  );
+
   return sortedDates.map((date) => {
     // Advance pointer through snapshots up to current date
     let snapshot = sortedSnapshots[snapshotIndex];
@@ -286,12 +323,41 @@ export function toNetWorthTimeSeries(
     const point: NetWorthDataPoint = { date, total: 0 };
     for (const account of accounts) {
       if (absorbedIds.has(account.id)) continue;
+      const mortgageIds = mortgagesByProperty.get(account.id) ?? [];
+      const hasMarketHistory =
+        accountsWithMarketValue.has(account.id) ||
+        mortgageIds.some((mortgageId) =>
+          accountsWithMarketValue.has(mortgageId),
+        );
+      const hasRecordedBalance =
+        latestByAccount.has(account.id) ||
+        mortgageIds.some((mortgageId) => latestByAccount.has(mortgageId));
+      // A contribution history is not a market valuation. Leave accounts out
+      // of the market-value series until either they or a linked mortgage have
+      // a recorded balance, rather than drawing a fabricated zero line.
+      if (!hasMarketHistory || !hasRecordedBalance) continue;
       let balance = latestByAccount.get(account.id) ?? 0;
-      for (const mortgageId of mortgagesByProperty.get(account.id) ?? []) {
+      for (const mortgageId of mortgageIds) {
         balance += latestByAccount.get(mortgageId) ?? 0;
       }
       point[account.name] = balance;
       point.total += balance;
+    }
+
+    let estimatedTotal = point.total;
+    let usesEstimate = false;
+    for (const account of accounts) {
+      if (account.closedAt != null && date > account.closedAt) continue;
+      const estimate = estimatesByAccount.get(account.id)?.get(date);
+      if (estimate == null || estimate.actual != null) continue;
+      const recordedBalance = accountsWithMarketValue.has(account.id)
+        ? (latestByAccount.get(account.id) ?? 0)
+        : 0;
+      estimatedTotal += estimate.estimated - recordedBalance;
+      usesEstimate = true;
+    }
+    if (usesEstimate) {
+      point.estimatedTotal = Math.round(estimatedTotal * 100) / 100;
     }
     return point;
   });

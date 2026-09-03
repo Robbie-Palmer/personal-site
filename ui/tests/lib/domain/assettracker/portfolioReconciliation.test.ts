@@ -186,13 +186,42 @@ describe("reconcilePortfolio", () => {
     expect(reconcilePortfolio(buildRepository(data))).toEqual([]);
   });
 
-  it("uses the median annualised expenditure as the representative amount", () => {
+  it("uses median annualised expenditure from the latest periods", () => {
     const periods = reconcilePortfolio(buildRepository(portfolioData()));
     const expected = (5_000 * (365.2425 / 29) + 6_000 * (365.2425 / 31)) / 2;
 
     expect(representativeAnnualExpenditure(periods)).toBeCloseTo(expected);
     expect(representativeAnnualCurrentExpenditure(periods)).toBeCloseTo(
       expected,
+    );
+  });
+
+  it("uses only the latest 12 periods and smooths a recent outlier", () => {
+    const periods = Array.from({ length: 13 }, (_, index) => {
+      const year = 2024 + Math.floor(index / 12);
+      const month = String((index % 12) + 1).padStart(2, "0");
+      return {
+        startDate: `${year}-${month}-01`,
+        endDate: `${year}-${month}-28`,
+        openingNetWorth: 0,
+        closingNetWorth: 0,
+        income: 0,
+        netCapitalFlow: 0,
+        personalCapitalFlow: 0,
+        debtPrincipalFlow: 0,
+        externalCapitalFlow: 0,
+        retainedIncomeSource: "recorded-flows" as const,
+        valuationGain: 0,
+        expenditure: index === 0 || index === 12 ? 100_000 : 1_000,
+        currentExpenditure: index === 0 || index === 12 ? 100_000 : 1_000,
+        days: 30,
+        annualizedExpenditure: 0,
+        annualizedCurrentExpenditure: 0,
+      };
+    });
+
+    expect(representativeAnnualExpenditure(periods)).toBeCloseTo(
+      (12_000 * 365.2425) / 360,
     );
   });
 
@@ -230,6 +259,60 @@ describe("reconcilePortfolio", () => {
     expect(result.projection.at(-1)?.projected).toBeGreaterThanOrEqual(
       result.target ?? Number.POSITIVE_INFINITY,
     );
+  });
+
+  it("uses active take-home and pension compensation for current savings", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-01-01T12:00:00Z"));
+    const data = portfolioData();
+    data.recurringFlows = [
+      {
+        id: "salary",
+        name: "Salary",
+        toAccountId: "portfolio",
+        amount: 2_800,
+        compensationKind: "takeHomeIncome",
+        frequency: "monthly",
+        startDate: "2025-01-01",
+      },
+      {
+        id: "employee-pension",
+        name: "Employee pension",
+        toAccountId: "portfolio",
+        amount: 700,
+        compensationKind: "employeePension",
+        frequency: "monthly",
+        startDate: "2025-01-01",
+      },
+      {
+        id: "employer-pension",
+        name: "Employer pension",
+        toAccountId: "portfolio",
+        amount: 350,
+        compensationKind: "employerPension",
+        frequency: "monthly",
+        startDate: "2025-01-01",
+      },
+    ];
+
+    const result = getPortfolioFinancialIndependence(buildRepository(data));
+    const annualExpenditure = result.representativeAnnualExpenditure ?? 0;
+    const expectedTakeHomeSavings = 33_600 - annualExpenditure;
+    const expectedAnnualSavings = expectedTakeHomeSavings + 12_600;
+
+    expect(result.currentCompensation).toEqual({
+      annualTakeHomeIncome: 33_600,
+      annualTakeHomeSavings: expectedTakeHomeSavings,
+      annualEmployeePensionContribution: 8_400,
+      annualEmployerPensionContribution: 4_200,
+    });
+    expect(result.representativeAnnualSavings).toBeCloseTo(
+      expectedAnnualSavings,
+    );
+    expect(result.takeHomeSavingsRate).toBeCloseTo(
+      expectedTakeHomeSavings / 33_600,
+    );
+    expect(result.savingsRate).toBeCloseTo(expectedAnnualSavings / 46_200);
   });
 
   it("includes complete home equity in net worth and FI progress", () => {

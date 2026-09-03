@@ -61,7 +61,7 @@ describe("AccountTrajectoryChart", () => {
     const { container } = render(<AccountTrajectoryChart account={account} />);
 
     expect(
-      screen.getByText("Market value and contributed capital"),
+      screen.getByText("Market value, estimate, and contributed capital"),
     ).toBeVisible();
     expect(container.querySelector('[data-series="actual"]')).toBeVisible();
     expect(
@@ -77,7 +77,7 @@ describe("AccountTrajectoryChart", () => {
     ).toBeVisible();
 
     await user.click(screen.getByRole("button", { name: "Market value" }));
-    expect(screen.getByText("Market value history")).toBeVisible();
+    expect(screen.getByText("Market value and estimate")).toBeVisible();
     expect(container.querySelector('[data-series="actual"]')).toBeVisible();
     expect(container.querySelector('[data-series="expected"]')).toBeVisible();
     expect(container.querySelector('[data-series="contributed"]')).toBeNull();

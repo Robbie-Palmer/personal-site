@@ -1,6 +1,8 @@
 "use client";
 
+import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   type AccountDetailView,
   ASSET_TYPE_LABELS,
@@ -40,49 +42,70 @@ export function AccountsTable({
   accounts,
   onSelectAccount,
 }: Readonly<AccountsTableProps>) {
-  const assets = accounts.filter((a) => !isLiability(a.assetType));
-  const liabilities = accounts.filter((a) => isLiability(a.assetType));
+  const [showClosed, setShowClosed] = useState(false);
+  const openAccounts = accounts.filter((account) => account.isOpen);
+  const closedAccounts = accounts.filter((account) => !account.isOpen);
+  const visibleAccounts = showClosed ? accounts : openAccounts;
+  const assets = visibleAccounts.filter((a) => !isLiability(a.assetType));
+  const liabilities = visibleAccounts.filter((a) => isLiability(a.assetType));
 
   return (
-    <div className="border rounded-lg overflow-hidden">
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b bg-muted/50">
-              <th className="text-left p-3 font-medium">Account</th>
-              <th className="text-left p-3 font-medium">Provider</th>
-              <th className="text-left p-3 font-medium">Type</th>
-              <th className="text-left p-3 font-medium">Trend</th>
-              <th className="text-right p-3 font-medium">Balance</th>
-              <th className="text-right p-3 font-medium">CAGR</th>
-              <th className="text-right p-3 font-medium">Expected Return</th>
-              <th className="text-left p-3 font-medium">Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            <AccountsSection
-              label="Assets"
-              accounts={assets}
-              onSelectAccount={onSelectAccount}
-            />
-            <AccountsSection
-              label="Liabilities"
-              accounts={liabilities}
-              onSelectAccount={onSelectAccount}
-            />
-          </tbody>
-          <tfoot>
-            <tr className="bg-muted/50">
-              <td colSpan={4} className="p-3 font-semibold">
-                Net worth
-              </td>
-              <td className="p-3 text-right font-mono font-semibold">
-                {formatTotalBalances(accounts)}
-              </td>
-              <td colSpan={3} />
-            </tr>
-          </tfoot>
-        </table>
+    <div className="space-y-2">
+      {closedAccounts.length > 0 && (
+        <div className="flex items-center justify-end">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            aria-expanded={showClosed}
+            onClick={() => setShowClosed((shown) => !shown)}
+          >
+            {showClosed
+              ? "Hide closed accounts"
+              : `Show closed accounts (${closedAccounts.length})`}
+          </Button>
+        </div>
+      )}
+      <div className="overflow-hidden rounded-lg border">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b bg-muted/50">
+                <th className="text-left p-3 font-medium">Account</th>
+                <th className="text-left p-3 font-medium">Provider</th>
+                <th className="text-left p-3 font-medium">Type</th>
+                <th className="text-left p-3 font-medium">Trend</th>
+                <th className="text-right p-3 font-medium">Balance</th>
+                <th className="text-right p-3 font-medium">CAGR</th>
+                <th className="text-right p-3 font-medium">Expected Return</th>
+                <th className="text-left p-3 font-medium">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              <AccountsSection
+                label="Assets"
+                accounts={assets}
+                onSelectAccount={onSelectAccount}
+              />
+              <AccountsSection
+                label="Liabilities"
+                accounts={liabilities}
+                onSelectAccount={onSelectAccount}
+              />
+            </tbody>
+            <tfoot>
+              <tr className="bg-muted/50">
+                <td colSpan={4} className="p-3 font-semibold">
+                  Net worth
+                </td>
+                <td className="p-3 text-right font-mono font-semibold">
+                  {formatTotalBalances(openAccounts)}
+                </td>
+                <td colSpan={3} />
+              </tr>
+            </tfoot>
+          </table>
+        </div>
       </div>
     </div>
   );

@@ -11,6 +11,18 @@ export const FlowFrequencySchema = z.enum([
 export type FlowFrequency = z.infer<typeof FlowFrequencySchema>;
 
 /**
+ * Marks externally sourced recurring compensation so current savings and FI
+ * projections can include pension contributions without treating them as
+ * spendable take-home income.
+ */
+export const CompensationKindSchema = z.enum([
+  "takeHomeIncome",
+  "employeePension",
+  "employerPension",
+]);
+export type CompensationKind = z.infer<typeof CompensationKindSchema>;
+
+/**
  * A computed payment instead of a fixed amount. Credit card minimum
  * payments are the canonical case: a percentage of the outstanding balance
  * with a floor (e.g. greater of 2.5% or £25), never more than clears it.
@@ -37,8 +49,14 @@ export const RecurringFlowSchema = z
     fromAccountId: AccountIdSchema.optional(),
     toAccountId: AccountIdSchema.optional(),
     amount: z.number().positive("Amount must be positive").optional(),
+    /** Gross pay before this take-home amount and salary sacrifice are deducted. */
+    grossAmount: z
+      .number()
+      .positive("Gross amount must be positive")
+      .optional(),
     /** Computed against the balance of the liability the flow pays down */
     formula: MinimumPaymentFormulaSchema.optional(),
+    compensationKind: CompensationKindSchema.optional(),
     frequency: FlowFrequencySchema,
     startDate: z.iso.date(),
     endDate: z.iso.date().optional(),
@@ -56,7 +74,30 @@ export const RecurringFlowSchema = z
   // must agree to avoid silently skewed projections
   .refine((f) => f.formula == null || f.frequency === "monthly", {
     message: "Formula payments must use a monthly frequency",
-  });
+  })
+  .refine(
+    (f) =>
+      f.compensationKind == null ||
+      (f.fromAccountId == null &&
+        f.toAccountId != null &&
+        f.amount != null &&
+        f.formula == null),
+    {
+      message:
+        "Compensation must be a fixed amount entering an account from outside the portfolio",
+    },
+  )
+  .refine(
+    (f) =>
+      f.grossAmount == null ||
+      (f.compensationKind === "takeHomeIncome" &&
+        f.amount != null &&
+        f.grossAmount >= f.amount),
+    {
+      message:
+        "Gross amount is only valid for take-home income and cannot be less than take-home pay",
+    },
+  );
 
 export type RecurringFlow = z.infer<typeof RecurringFlowSchema>;
 
