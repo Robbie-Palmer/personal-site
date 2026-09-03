@@ -113,6 +113,7 @@ describe("PitchDeckFrame", () => {
       embedded: true,
       hash: false,
       keyboardCondition: "focused",
+      url: `${window.location.origin}${window.location.pathname}?fragments=false`,
     });
 
     deckApi.getSlidePastCount.mockReturnValue(1);
@@ -172,7 +173,7 @@ describe("PitchDeckFrame", () => {
 
     await waitFor(() =>
       expect(deckState.props?.config).toMatchObject({
-        url: "/?fragments=false",
+        url: `${window.location.origin}${window.location.pathname}?fragments=false`,
       }),
     );
     fireEvent.click(screen.getByRole("button", { name: "Overview" }));

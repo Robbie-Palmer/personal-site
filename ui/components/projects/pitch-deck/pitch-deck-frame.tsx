@@ -78,8 +78,9 @@ export function PitchDeckFrame({
   // leave that iframe on the current slide instead of showing the next one.
   const speakerPreviewUrl = useMemo(() => {
     if (typeof window === "undefined") return undefined;
-    const search = new URLSearchParams({ fragments: "false" });
-    return `${window.location.pathname}?${search}`;
+    const url = new URL(window.location.pathname, window.location.origin);
+    url.searchParams.set("fragments", "false");
+    return url.toString();
   }, []);
 
   useEffect(() => {

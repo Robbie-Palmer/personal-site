@@ -53,12 +53,14 @@ describe("Visualization browser rendering", () => {
       "pnpm",
       [
         "exec",
-        "serve",
+        "wrangler",
+        "pages",
+        "dev",
         "out",
-        "--listen",
-        `tcp://127.0.0.1:${SERVER_PORT}`,
-        "--no-clipboard",
-        "--no-port-switching",
+        "--port",
+        String(SERVER_PORT),
+        "--ip",
+        "127.0.0.1",
       ],
       {
         cwd: UI_ROOT,
@@ -650,6 +652,12 @@ describe("Visualization browser rendering", () => {
       );
       expect(upcomingHeading).toContain("Managed reviewers");
 
+      const speakerNotes = await speakerPage?.$eval(
+        ".speaker-controls-notes .value",
+        (notes) => notes.textContent?.trim(),
+      );
+      expect(speakerNotes).toContain("parallel agent throughput");
+
       await speakerPage?.waitForFunction(
         () =>
           ["#current-slide iframe", "#upcoming-slide iframe"].every(
@@ -689,6 +697,19 @@ describe("Visualization browser rendering", () => {
         { ready: true, controls: false, topbar: false },
       ]);
 
+      const speakerPreviewUrls = await speakerPage?.$$eval(
+        "#current-slide iframe, #upcoming-slide iframe",
+        (frames) => frames.map((frame) => (frame as HTMLIFrameElement).src),
+      );
+      expect(speakerPreviewUrls).toHaveLength(2);
+      for (const previewUrl of speakerPreviewUrls ?? []) {
+        const url = new URL(previewUrl);
+        expect(url.origin).toBe(BASE_URL);
+        expect(url.pathname).toBe("/projects/agentic-code-review/deck");
+        expect(url.searchParams.get("fragments")).toBe("false");
+        expect(url.searchParams.has("receiver")).toBe(true);
+      }
+
       await page.click('button[aria-label="Next slide"]');
       await page.waitForFunction(() =>
         document
@@ -707,6 +728,11 @@ describe("Visualization browser rendering", () => {
             ?.textContent?.includes("Own the review loop"),
         { timeout: 10_000 },
       );
+      const updatedSpeakerNotes = await speakerPage?.$eval(
+        ".speaker-controls-notes .value",
+        (notes) => notes.textContent?.trim(),
+      );
+      expect(updatedSpeakerNotes).toContain("control of the review loop");
       await speakerPage?.close();
     } finally {
       await page.close();
