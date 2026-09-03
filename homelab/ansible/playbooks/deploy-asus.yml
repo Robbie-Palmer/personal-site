@@ -92,6 +92,10 @@
           - pull
           - "{{ asus_cuda_test_image }}"
       changed_when: true
+      delay: 5
+      register: asus_cuda_test_image_pull
+      retries: 3
+      until: asus_cuda_test_image_pull.rc == 0
       when: asus_cuda_test_image_present.rc != 0
 
     - name: Verify CUDA 12 inside Docker
