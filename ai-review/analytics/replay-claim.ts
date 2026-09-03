@@ -26,15 +26,23 @@ function claimModifiedAt(file: string): number | null {
   }
 }
 
-function removeStaleClaim(file: string, staleFile: string): boolean {
+function removeStaleClaim(file: string, staleAfterMs: number, now: number): boolean {
+  const recoveryLock = `${file}.recovery`;
   try {
-    fs.renameSync(file, staleFile);
+    fs.mkdirSync(recoveryLock);
   } catch (error) {
-    if (errorCode(error) === "ENOENT") return false;
+    if (errorCode(error) === "EEXIST") return false;
     throw error;
   }
-  fs.rmSync(staleFile, { force: true });
-  return true;
+  try {
+    const modifiedAt = claimModifiedAt(file);
+    if (modifiedAt === null) return true;
+    if (now - modifiedAt <= staleAfterMs) return false;
+    fs.rmSync(file, { force: true });
+    return true;
+  } finally {
+    fs.rmdirSync(recoveryLock);
+  }
 }
 
 export function exclusiveClaim(file: string, staleAfterMs: number, now = Date.now()): boolean {
@@ -44,12 +52,7 @@ export function exclusiveClaim(file: string, staleAfterMs: number, now = Date.no
   fs.mkdirSync(path.dirname(file), { recursive: true });
   for (let attempt = 0; attempt < CLAIM_RECOVERY_ATTEMPTS; attempt += 1) {
     if (createClaimFile(file)) return true;
-    const modifiedAt = claimModifiedAt(file);
-    if (modifiedAt === null) continue;
-    if (now - modifiedAt <= staleAfterMs) return false;
-
-    const staleFile = `${file}.stale-${process.pid}-${attempt}`;
-    removeStaleClaim(file, staleFile);
+    if (!removeStaleClaim(file, staleAfterMs, now)) return false;
   }
   return false;
 }

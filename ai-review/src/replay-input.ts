@@ -39,6 +39,9 @@ function isSecretName(name: string): boolean {
     .replace(/([A-Z])(?=[A-Z][a-z])/g, "$1_")
     .replace(/([a-z0-9])([A-Z])/g, "$1_$2")
     .toLowerCase();
+  // Prefer false-positive redaction over letting confusable Unicode key names
+  // disguise a credential label that the ASCII rules below would recognize.
+  if (/\P{ASCII}/u.test(normalized)) return true;
   return (
     normalized === "database_url" ||
     /(?:^|[_-])(?:secret|token|password|passwd|credential|cookie|bearer|session)(?:$|[_-])/.test(normalized) ||
