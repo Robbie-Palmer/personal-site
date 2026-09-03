@@ -93,6 +93,8 @@ import {
   verifiedEmailsForUser,
 } from "./user-emails";
 
+export type SonarJasminProfilingMarker = never;
+
 export type Bindings = {
   HYPERDRIVE?: Hyperdrive;
   DATABASE_URL?: string;
