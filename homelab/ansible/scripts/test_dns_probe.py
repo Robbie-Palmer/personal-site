@@ -33,6 +33,19 @@ class DnsProbeTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "different question"):
             validate_response(response, query_id, b"example.com")
 
+    def test_accepts_a_cname_followed_by_its_a_answer(self) -> None:
+        query_id = 1234
+        question = encode_name("example.com") + struct.pack("!HH", 1, 1)
+        canonical_name = encode_name("alias.example.com")
+        cname = b"\xc0\x0c" + struct.pack("!HHIH", 5, 1, 60, len(canonical_name))
+        cname += canonical_name
+        address = canonical_name + struct.pack("!HHIH", 1, 1, 60, 4)
+        address += b"\xc0\x00\x02\x01"
+        response = struct.pack("!HHHHHH", query_id, 0x8180, 1, 2, 0, 0)
+        response += question + cname + address
+
+        self.assertEqual(validate_response(response, query_id, b"example.com"), 2)
+
     def test_rejects_an_overlong_name(self) -> None:
         name = ".".join(["a" * 63] * 4)
 

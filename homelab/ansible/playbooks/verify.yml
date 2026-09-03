@@ -28,7 +28,6 @@
       ansible.builtin.script:
         cmd: >-
           {{ playbook_dir }}/../scripts/dns_probe.py
-          --server 127.0.0.1
           --name {{ dns_probe_name }}
         executable: python3
       check_mode: false
