@@ -89,6 +89,11 @@ const configuration = {
     credentials: {
       password: "structured-secret-three",
       algorithm: "bcrypt",
+      myAPIKey: "acronym-sensitive-value",
+      encryptionKey: "encryption-sensitive-value",
+      session: "session-sensitive-value",
+      cookie: "cookie-sensitive-value",
+      bearer: "bearer-sensitive-value",
     },
   },
 };
@@ -127,6 +132,11 @@ describe("replay input corpus", () => {
       expect(JSON.stringify(snapshot)).not.toContain("quoted-secret-one");
       expect(JSON.stringify(snapshot)).not.toContain("quoted-secret-two");
       expect(JSON.stringify(snapshot)).not.toContain("structured-secret-three");
+      expect(JSON.stringify(snapshot)).not.toContain("acronym-sensitive-value");
+      expect(JSON.stringify(snapshot)).not.toContain("encryption-sensitive-value");
+      expect(JSON.stringify(snapshot)).not.toContain("session-sensitive-value");
+      expect(JSON.stringify(snapshot)).not.toContain("cookie-sensitive-value");
+      expect(JSON.stringify(snapshot)).not.toContain("bearer-sensitive-value");
       expect(snapshot.policy.credentials.algorithm).toBe("bcrypt");
       expect(snapshot.provenance.liveCredentialsIncluded).toBe(false);
       const manifest = JSON.parse(String(put.mock.calls[1]?.[1]));

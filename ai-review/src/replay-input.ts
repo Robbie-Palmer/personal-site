@@ -33,12 +33,13 @@ const ASSIGNMENT_PATTERNS = [
 ];
 function isSecretName(name: string): boolean {
   const normalized = name
+    .replace(/([A-Z]+)([A-Z][a-z])/g, "$1_$2")
     .replace(/([a-z0-9])([A-Z])/g, "$1_$2")
     .toLowerCase();
   return (
     normalized === "database_url" ||
-    /(?:^|[_-])(?:secret|token|password|passwd)(?:$|[_-])/.test(normalized) ||
-    /(?:^|[_-])(?:api|private)_key(?:$|[_-])/.test(normalized)
+    /(?:^|[_-])(?:secret|token|password|passwd|credential|cookie|bearer|session)(?:$|[_-])/.test(normalized) ||
+    /(?:^|[_-])(?:api|private|encryption|signing)_key(?:$|[_-])/.test(normalized)
   );
 }
 
