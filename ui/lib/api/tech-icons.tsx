@@ -193,6 +193,7 @@ const customIcons = new Set([
   "mise",
   "doppler",
   "ksqldb",
+  "t3code",
 ]);
 
 // Map technology names to their slugs for edge cases

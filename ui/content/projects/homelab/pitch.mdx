@@ -20,50 +20,90 @@ t3-code runs on an always-on Mac mini behind Tailscale.
 
 ***
 
-<h2 className="pitch-slide__long-title">Claude and Codex proved the phone workflow. t3-code removed the provider split.</h2>
+## Four coding harnesses, one persistent workspace
 
-I used Claude Code on the web from November and Codex cloud from April. Both made agent work from a phone normal.
+<div className="pitch-harness-map">
+  <div className="pitch-harness-map__hub">
+    <TechIcon name="t3-code" iconSlug="t3code" className="pitch-harness-map__logo" />
 
-Changing provider also changed the interface, session model, limits, and development environment. I wanted one
-place to move between the Claude Code, Codex, Grok Build, and OpenCode harnesses without preparing the repo again.
+    <strong>t3-code</strong>
+    <span>threads, worktrees and GitHub</span>
+  </div>
 
-<PitchStep>
-  t3-code replaced the provider-specific remote interfaces. The harnesses and model subscriptions still do the work.
-</PitchStep>
+  <div className="pitch-harness-map__stem" />
+
+  <div className="pitch-harness-map__harnesses">
+    <div>
+      <TechIcon name="Claude Code" iconSlug="claudecode" className="pitch-harness-map__icon" />
+
+      <span>Claude Code</span>
+    </div>
+
+    <div>
+      <TechIcon name="Codex" iconSlug="codex" className="pitch-harness-map__icon" />
+
+      <span>Codex</span>
+    </div>
+
+    <div>
+      <span className="pitch-harness-map__monogram" aria-hidden="true">G</span>
+      <span>Grok Build</span>
+    </div>
+
+    <div>
+      <TechIcon name="OpenCode" iconSlug="opencode" className="pitch-harness-map__icon" />
+
+      <span>OpenCode</span>
+    </div>
+  </div>
+</div>
+
+<p className="pitch-slide__statement">Models come from subscriptions. Repos, tools and sessions stay on the Mac mini.</p>
 
 <PitchNotes>
   The comparison comes from my own use. Claude Code on the web and Codex cloud both support remote, persistent work.
   Their cloud sessions run in configured provider environments.
+
+  I wanted one place to move between Claude Code, Codex, Grok Build, and OpenCode without preparing the repository
+  again. t3-code replaced the provider-specific remote interfaces in my daily workflow.
 
   \[Sources]
 
   * [Use Claude Code on the web](https://code.claude.com/docs/en/claude-code-on-the-web)
   * [Codex cloud](https://learn.chatgpt.com/docs/cloud)
   * [t3-code ADR](/projects/homelab/adrs/006-t3-code)
+  * [t3-code production logo](https://github.com/pingdotgg/t3code/blob/d5825e1d2fb1703ced2bbe2661f6a4937dd530bf/assets/prod/logo.svg)
     \[/Sources]
 </PitchNotes>
 
 ***
 
-<h2 className="pitch-slide__long-title">t3-code manages threads better, even before I change harness</h2>
+## The sidebar shows where every thread stands
 
-<PitchColumns>
-  <PitchColumn>
-    ### Provider views
+<div className="pitch-thread-queue">
+  <div>
+    <span className="pitch-thread-queue__status pitch-thread-queue__status--running" />
 
-    * **Codespaces** gives me a hosted development machine with no home host.
-    * **Claude and Codex cloud** keep work in their own task views.
-    * **Claude Remote Control** exposes local Claude sessions, tools, and worktrees.
-  </PitchColumn>
+    <strong>personal-site</strong>
+    <span>Codex · running</span>
+  </div>
 
-  <PitchColumn>
-    ### t3-code
+  <div>
+    <span className="pitch-thread-queue__status pitch-thread-queue__status--attention" />
 
-    * The sidebar shows running threads, work waiting for input, and old sessions to settle.
-    * Diff, commit, push, and PR actions stay with the thread.
-    * Four harnesses, each with many models and threads, share the same view. It still helps when I use only one.
-  </PitchColumn>
-</PitchColumns>
+    <strong>home lab</strong>
+    <span>Claude Code · needs input</span>
+  </div>
+
+  <div>
+    <span className="pitch-thread-queue__status" />
+
+    <strong>recipe parser</strong>
+    <span>OpenCode · ready to settle</span>
+  </div>
+</div>
+
+<p className="pitch-slide__statement">Review diff → commit → push → open PR without leaving the thread.</p>
 
 <PitchNotes>
   Codespaces remains useful when a disposable hosted machine is the goal. Claude and Codex cloud remain useful for
@@ -86,8 +126,8 @@ place to move between the Claude Code, Codex, Grok Build, and OpenCode harnesses
 
 <Mermaid
   chart={`flowchart LR
-A[Phone or laptop] -->|Tailscale| B[t3-code<br/>Mac mini]
-B -->|harnesses| C[Claude Code · Codex<br/>Grok Build · OpenCode]
+A[Phone or laptop<br/>via Tailscale] --> B[t3-code<br/>Mac mini]
+B --> C[Four coding harnesses<br/>Claude Code · Codex<br/>Grok Build · OpenCode]
 C --> D[Models and threads]
 B --- G[Repos and worktrees]
 B --- H[GitHub auth and tools]
@@ -111,27 +151,31 @@ Every thread shares the host's repos, tools, GitHub auth, browser, and telemetry
 
 ## The feedback loop ends at the running service
 
-<PitchColumns>
-  <PitchColumn>
-    ### An agent can use
+<div className="pitch-feedback-loop">
+  <div>
+    <span>1</span>
+    <strong>Change</strong>
+    <p>Real repo in an isolated worktree</p>
+  </div>
 
-    * the real repository and toolchain
-    * isolated Git worktrees
-    * authenticated GitHub commands
-    * the browser used for debugging
-    * live logs and telemetry
-  </PitchColumn>
+  <span className="pitch-feedback-loop__arrow" aria-hidden="true">→</span>
 
-  <PitchColumn>
-    ### It can check
+  <div>
+    <span>2</span>
+    <strong>Run</strong>
+    <p>Host tools, browser and telemetry</p>
+  </div>
 
-    * the protected preview
-    * a restart or reboot
-    * a real health endpoint
-    * the diff and pull request
-    * physical Android and iOS later
-  </PitchColumn>
-</PitchColumns>
+  <span className="pitch-feedback-loop__arrow" aria-hidden="true">→</span>
+
+  <div>
+    <span>3</span>
+    <strong>Prove</strong>
+    <p>Preview, restart, health check and PR</p>
+  </div>
+</div>
+
+<p className="pitch-slide__statement">Physical Android and iOS devices can join the same loop later.</p>
 
 <PitchNotes>
   A typecheck is useful, but it does not prove that launchd restarted a service, a VPN gate held, or a page works on an
@@ -174,17 +218,12 @@ Every thread shares the host's repos, tools, GitHub auth, browser, and telemetry
 
 ## Old hardware gets jobs that suit the hardware
 
-<PitchColumns>
-  <PitchColumn>
-    * The **Mac mini** runs agent sessions and services, and holds the 10TB disk.
-    * The **Raspberry Pi** runs a second DNS server and connects to the printer over USB.
-  </PitchColumn>
-
-  <PitchColumn>
-    * The **NixOS desktop** turns a GTX 1050 and 1TB disk into a GPU worker and DVC cache.
-    * Three **retired phones** could become browser targets and a cellular watchdog.
-  </PitchColumn>
-</PitchColumns>
+<div className="pitch-ledger">
+  <div><strong>Mac mini</strong><span>Agent sessions, services and the 10TB disk</span></div>
+  <div><strong>Raspberry Pi</strong><span>Fallback DNS and a USB print server</span></div>
+  <div><strong>NixOS desktop</strong><span>GTX 1050 worker and 1TB DVC cache</span></div>
+  <div><strong>Retired phones</strong><span>Proposed browser targets and cellular watchdog</span></div>
+</div>
 
 <PitchStep>
   A NAS is easier. Reusing the Mac and printer avoids two purchases.
@@ -205,26 +244,16 @@ Every thread shares the host's repos, tools, GitHub auth, browser, and telemetry
 
 ***
 
-<h2 className="pitch-slide__long-title">Ente syncs photos. The lab owns the files and development workspace.</h2>
+## Cloud services stay where they earn their keep
 
-<PitchColumns>
-  <PitchColumn>
-    ### Complements
+<div className="pitch-value-ledger">
+  <div><span>Keep</span><strong>Ente</strong><p>Encrypted cloud sync, plus plain-file backup in the lab</p></div>
+  <div><span>Keep</span><strong>AI subscriptions</strong><p>Models stay; t3-code replaces their remote interfaces</p></div>
+  <div><span>Keep</span><strong>Trakt</strong><p>Discovery and history, with Jellyfin for owned media</p></div>
+  <div><span>Avoid</span><strong>New printer or NAS</strong><p>CUPS revives the printer; ordinary disks avoid appliance lock-in</p></div>
+</div>
 
-    * Ente remains the encrypted cloud photo service. An incremental export adds plain files on the 10TB disk.
-    * Trakt remains the discovery and history layer. Jellyfin gives the owned library one place to play.
-    * AI subscriptions still provide the models. t3-code provides the shared workspace.
-  </PitchColumn>
-
-  <PitchColumn>
-    ### Replaces or postpones
-
-    * t3-code replaces Claude and Codex remote interfaces in my daily workflow.
-    * CUPS and Gutenprint postpone replacing a working 2011 Canon printer.
-    * Ordinary disks and files avoid a NAS purchase and appliance lock-in.
-    * A larger local library may make some streaming subscriptions unnecessary.
-  </PitchColumn>
-</PitchColumns>
+<p className="pitch-slide__statement">A better owned library may make some streaming subscriptions unnecessary.</p>
 
 <PitchNotes>
   The streaming claim is deliberately tentative. Netflix, Disney Plus, Amazon Prime, and Apple TV remain subscribed
@@ -246,23 +275,13 @@ Every thread shares the host's repos, tools, GitHub auth, browser, and telemetry
 
 <h2 className="pitch-slide__long-title">This is a personal setup, and the awkward parts are real</h2>
 
-<PitchColumns>
-  <PitchColumn>
-    ### Failure modes
+<div className="pitch-boundary-list">
+  <div><strong>Mac mini outage</strong><span>Remote agent work stops.</span></div>
+  <div><strong>Shared host</strong><span>Agent credentials and personal data need a hard permission boundary.</span></div>
+  <div><strong>Same-house backup</strong><span>The 10TB copy does not cover theft or fire.</span></div>
+</div>
 
-    * If the Mac mini is down, remote agent work stops.
-    * Agent credentials and personal data share a host. Agents must not reach the photo disk.
-    * The 10TB copy is in the same house. It does not cover theft or fire.
-  </PitchColumn>
-
-  <PitchColumn>
-    ### Claims I cannot make yet
-
-    * The phone lab remains proposed.
-    * The media library cannot justify cancelling subscriptions yet.
-    * I have not measured a cash saving. Agent-assisted maintenance has stayed roughly flat.
-  </PitchColumn>
-</PitchColumns>
+<p className="pitch-slide__statement">Still unproven: the phone lab, cancelled streaming subscriptions and measured cash savings.</p>
 
 <PitchNotes>
   I have not tracked maintenance time. Agents write configuration, run the same mise tasks I run, and repair routine

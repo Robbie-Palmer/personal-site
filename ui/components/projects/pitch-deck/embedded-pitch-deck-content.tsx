@@ -1,5 +1,6 @@
 import { MarkdownContent, type MarkdownProps } from "@/components/markdown";
 import { Mermaid } from "@/components/mermaid";
+import { TechIcon } from "@/lib/api/tech-icons";
 import { remarkPitchSlides } from "@/lib/domain/project/pitchDeck";
 
 function EmbeddedPitchSlide({
@@ -67,6 +68,7 @@ const embeddedPitchComponents = {
   PitchSlide: EmbeddedPitchSlide,
   PitchStep: EmbeddedPitchStep,
   ReviewDepthDemo: ReviewDepthPreview,
+  TechIcon,
 };
 
 export function EmbeddedPitchDeckContent({
