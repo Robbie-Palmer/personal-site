@@ -140,6 +140,16 @@ describe("initiative page", () => {
     ).rejects.toThrow();
   });
 
+  it("does not disguise unexpected page failures as missing content", async () => {
+    (getInitiative as Mock).mockImplementation(() => {
+      throw new Error("Repository unavailable");
+    });
+
+    await expect(
+      InitiativePage({ params: Promise.resolve({ slug: "known" }) }),
+    ).rejects.toThrow("Repository unavailable");
+  });
+
   it("uses not-found metadata for an unknown initiative", async () => {
     (getInitiative as Mock).mockImplementation(() => {
       throw new Error("Initiative not found: missing");

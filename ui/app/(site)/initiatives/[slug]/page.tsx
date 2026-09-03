@@ -73,8 +73,14 @@ export default async function InitiativePage({ params }: Readonly<PageProps>) {
 
   try {
     initiative = getInitiative(slug);
-  } catch (_error) {
-    notFound();
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      error.message.startsWith("Initiative not found:")
+    ) {
+      notFound();
+    }
+    throw error;
   }
 
   const firstProject = initiative.projects[0];
