@@ -72,6 +72,28 @@
         fail_msg: NixOS did not report the requested configuration revision.
       when: not ansible_check_mode
 
+    - name: Inspect the CUDA 12 verification image
+      ansible.builtin.command:
+        argv:
+          - docker
+          - image
+          - inspect
+          - "{{ asus_cuda_test_image }}"
+      check_mode: false
+      changed_when: false
+      failed_when: false
+      register: asus_cuda_test_image_present
+
+    - name: Pull the CUDA 12 verification image when absent
+      ansible.builtin.command:
+        argv:
+          - docker
+          - image
+          - pull
+          - "{{ asus_cuda_test_image }}"
+      changed_when: true
+      when: asus_cuda_test_image_present.rc != 0
+
     - name: Verify CUDA 12 inside Docker
       ansible.builtin.command:
         argv:
@@ -86,3 +108,5 @@
           - nvidia-smi
       check_mode: false
       changed_when: false
+      when:
+        - not ansible_check_mode or asus_cuda_test_image_present.rc == 0

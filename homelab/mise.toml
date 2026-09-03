@@ -173,6 +173,7 @@ run = "PATH=\"$HOME/.local/bin:$PATH\" bm reset"
 
 [tasks.asus-deploy]
 description = "Deploy and verify the current pushed NixOS revision with Ansible"
+dir = "."
 run = "ansible/scripts/deploy_asus.sh"
 
 # ---------------------------------------------------------------------------

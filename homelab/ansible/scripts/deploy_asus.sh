@@ -22,7 +22,8 @@ if [[ -n "$(git -C "$repo_root" status --porcelain --untracked-files=no)" ]]; th
 fi
 
 git -C "$repo_root" fetch origin --quiet
-if ! git -C "$repo_root" branch -r --contains "$revision" | /usr/bin/grep -q .; then
+origin_branches="$(git -C "$repo_root" branch -r --list 'origin/*' --contains "$revision")"
+if [[ -z "$origin_branches" ]]; then
   echo "Push revision $revision before deploying NixOS." >&2
   exit 1
 fi
@@ -32,4 +33,3 @@ export HOMELAB_GIT_REVISION="$revision"
 
 cd "$repo_root/homelab/ansible"
 exec ansible-playbook playbooks/deploy-asus.yml "$@"
-
