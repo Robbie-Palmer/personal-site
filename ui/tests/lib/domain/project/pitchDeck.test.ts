@@ -3,6 +3,7 @@ import { remark } from "remark";
 import remarkMdx from "remark-mdx";
 import { describe, expect, it } from "vitest";
 import {
+  countPitchSlides,
   pitchDeckToAgentMarkdown,
   remarkPitchSlides,
 } from "@/lib/domain/project/pitchDeck";
@@ -41,6 +42,8 @@ describe("pitch deck content", () => {
 
 ## Two
 
+## Slide details
+
 <PitchColumns><PitchColumn>Readable child</PitchColumn></PitchColumns>`;
 
     const result = pitchDeckToAgentMarkdown(source);
@@ -50,5 +53,6 @@ describe("pitch deck content", () => {
     expect(result).toContain("Readable child");
     expect(result).not.toContain("private-note-sentinel");
     expect(result).not.toContain("PitchNotes");
+    expect(countPitchSlides(source)).toBe(2);
   });
 });

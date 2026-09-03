@@ -588,6 +588,13 @@ describe("Visualization browser rendering", () => {
       expect(scrollView.visibleSlides).toBe(8);
       expect(scrollView.scrollHeight).toBeGreaterThan(scrollView.clientHeight);
 
+      await page.click('button[aria-label="Next slide"]');
+      await page.waitForFunction(
+        () =>
+          document
+            .querySelector(".pitch-deck__position")
+            ?.textContent?.trim() === "Slide 3 of 8",
+      );
       await page.click('button[title="Toggle scroll view"]');
       await page.waitForFunction(
         () =>
@@ -596,7 +603,10 @@ describe("Visualization browser rendering", () => {
             .querySelector(".pitch-deck__live")
             ?.hasAttribute("hidden") &&
           document.querySelectorAll(".pitch-deck__live .slides > section")
-            .length === 8,
+            .length === 8 &&
+          document
+            .querySelector(".pitch-deck__live section.present h2")
+            ?.textContent?.includes("Managed reviewers"),
       );
 
       expect(await page.$('a[aria-label="Print PDF"]')).toBeNull();

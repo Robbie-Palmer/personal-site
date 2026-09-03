@@ -33,7 +33,10 @@ import {
   renderPage,
 } from "@/lib/content/agent-markdown";
 import { loadDomainRepository } from "@/lib/domain";
-import { pitchDeckToAgentMarkdown } from "@/lib/domain/project/pitchDeck";
+import {
+  countPitchSlides,
+  pitchDeckToAgentMarkdown,
+} from "@/lib/domain/project/pitchDeck";
 import {
   getAllTechnologySlugs,
   getRelatedContentForTechnology,
@@ -172,7 +175,7 @@ function buildPitchDeckPage(project: ProjectWithADRs): GeneratedPage | null {
     content: transcript,
     facts: [
       ["Project", `${project.title} (${projectUrl})`],
-      ["Slides", String(transcript.match(/^## Slide /gm)?.length ?? 0)],
+      ["Slides", String(countPitchSlides(project.pitch.content))],
     ],
   };
 }

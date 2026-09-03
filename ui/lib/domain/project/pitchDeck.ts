@@ -75,6 +75,12 @@ function splitPitchSlides(children: RootContent[]): RootContent[][] {
   return slides.filter((slide) => slide.length > 0);
 }
 
+export function countPitchSlides(content: string): number {
+  const processor = remark().use(remarkMdx).use(remarkGfm);
+  const tree = processor.parse(content) as Root;
+  return splitPitchSlides(tree.children).length;
+}
+
 export function pitchDeckToAgentMarkdown(
   content: string,
   convert: (mdx: string) => string = mdxToAgentMarkdown,

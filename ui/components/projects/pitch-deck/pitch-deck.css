@@ -4,6 +4,7 @@
   --pitch-panel: #11110f;
   --pitch-line: rgba(247, 245, 239, 0.15);
   --pitch-accent: #f59e0b;
+
   overflow: hidden;
   border: 1px solid var(--pitch-line);
   border-radius: 1rem;

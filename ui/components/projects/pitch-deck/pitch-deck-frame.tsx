@@ -66,13 +66,21 @@ export function PitchDeckFrame({
   const fullscreenButtonRef = useRef<HTMLButtonElement>(null);
   const pendingSlideRef = useRef<number | null>(null);
   const currentPositionRef = useRef(1);
+  const scrollTargetRef = useRef<number | null>(null);
   const [position, setPosition] = useState(initialPosition);
   const [reducedMotion, setReducedMotion] = useState(false);
   const [narrowLayout, setNarrowLayout] = useState(false);
   const [isSpeakerPreview, setIsSpeakerPreview] = useState(false);
-  const [speakerPreviewUrl, setSpeakerPreviewUrl] = useState<string>();
   const [view, setView] = useState<DeckView>("slides");
   const [isFullscreen, setIsFullscreen] = useState(false);
+
+  // The notes plugin calls next() in its upcoming iframe. Fragments would
+  // leave that iframe on the current slide instead of showing the next one.
+  const speakerPreviewUrl = useMemo(() => {
+    if (typeof window === "undefined") return undefined;
+    const search = new URLSearchParams({ fragments: "false" });
+    return `${window.location.pathname}?${search}`;
+  }, []);
 
   useEffect(() => {
     currentPositionRef.current = position.current;
@@ -111,12 +119,6 @@ export function PitchDeckFrame({
     setIsSpeakerPreview(
       new URLSearchParams(window.location.search).has("receiver"),
     );
-
-    // The notes plugin calls next() in its upcoming iframe. Fragments would
-    // leave that iframe on the current slide instead of showing the next one.
-    const url = new URL(window.location.href);
-    url.searchParams.set("fragments", "false");
-    setSpeakerPreviewUrl(`${url.pathname}${url.search}`);
   }, []);
 
   const updatePosition = useCallback((readyDeck?: RevealApi) => {
@@ -190,7 +192,15 @@ export function PitchDeckFrame({
   };
 
   const toggleScrollView = () => {
-    setView((current) => (current === "scroll" ? "slides" : "scroll"));
+    if (view === "scroll") {
+      pendingSlideRef.current =
+        scrollTargetRef.current ?? currentPositionRef.current - 1;
+      scrollTargetRef.current = null;
+      setView("slides");
+      return;
+    }
+    scrollTargetRef.current = currentPositionRef.current - 1;
+    setView("scroll");
   };
 
   const openSlide = (index: number) => {
@@ -242,7 +252,10 @@ export function PitchDeckFrame({
         deck.layout();
         updatePosition(deck);
       } else if (view === "scroll") {
-        scrollToStaticSlide(currentPositionRef.current - 1, "instant");
+        scrollToStaticSlide(
+          scrollTargetRef.current ?? currentPositionRef.current - 1,
+          "instant",
+        );
       }
     });
     return () => cancelAnimationFrame(frame);
@@ -262,7 +275,9 @@ export function PitchDeckFrame({
       openSlide(target);
       return;
     }
+    scrollTargetRef.current = target;
     scrollToStaticSlide(target, reducedMotion ? "instant" : "smooth");
+    currentPositionRef.current = target + 1;
     setPosition((current) => ({
       current: target + 1,
       total: current.total,
@@ -282,6 +297,10 @@ export function PitchDeckFrame({
       },
       { distance: Number.POSITIVE_INFINITY, index: 0 },
     );
+    const scrollTarget = scrollTargetRef.current;
+    if (scrollTarget !== null && closest.index !== scrollTarget) return;
+    scrollTargetRef.current = null;
+    currentPositionRef.current = closest.index + 1;
     setPosition((current) => ({
       current: closest.index + 1,
       total: current.total,

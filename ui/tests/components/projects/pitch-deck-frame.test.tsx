@@ -172,7 +172,7 @@ describe("PitchDeckFrame", () => {
 
     await waitFor(() =>
       expect(deckState.props?.config).toMatchObject({
-        url: expect.stringContaining("fragments=false"),
+        url: "/?fragments=false",
       }),
     );
     fireEvent.click(screen.getByRole("button", { name: "Overview" }));
@@ -201,6 +201,11 @@ describe("PitchDeckFrame", () => {
       scrollActivationWidth: 0,
       view: null,
     });
+
+    deckApi.slide.mockClear();
+    fireEvent.click(screen.getByRole("button", { name: "Next slide" }));
+    fireEvent.click(scrollButton);
+    await waitFor(() => expect(deckApi.slide).toHaveBeenCalledWith(2));
 
     fireEvent.click(screen.getByRole("button", { name: "Speaker" }));
     expect(openNotes).toHaveBeenCalledOnce();
