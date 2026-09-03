@@ -57,6 +57,7 @@ jobs:
             ui/coverage/lcov.info
             packages/observability/coverage/lcov.info
             packages/recipe-parsing/coverage/lcov.info
+            ml-pipelines/ai-review-evaluation/coverage/lcov.info
             ml-pipelines/recipe-parsing/coverage/lcov.info
             ml-pipelines/wsi-analysis/coverage.xml
             workers/recipe-api/coverage/lcov.info

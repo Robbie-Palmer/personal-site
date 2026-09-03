@@ -1,6 +1,6 @@
 import {
+  MERGER_MAX_TOKENS,
   OPENROUTER_SCOUT_MAX_PRICES,
-  type Scout,
 } from "../../.github/scripts/ai-review/ai-review";
 import type { Env, ReviewWorkflowParams } from "./env";
 import {
@@ -18,82 +18,27 @@ import {
   assertReplaySchemaCompatible,
   stableJson,
 } from "./replay-input";
+import {
+  MAX_REPLAY_TIMEOUT_MS,
+  ReplayExperimentSchema,
+  ReplayLimitsSchema,
+  type ReplayExperiment,
+  type ReplayLimits,
+  type ReplayProvider as Provider,
+} from "ai-review-domain/replay";
+import {
+  ReplayInputSnapshotSchema,
+  type ReplayInputSnapshot,
+} from "ai-review-domain/records";
 
 type JsonObject = Record<string, unknown>;
-type Provider = Scout["provider"];
-
-export type ReplayExperiment =
-  | { kind: "scout-model"; models: Array<{ model: string; provider: Provider }> }
-  | { kind: "merger-model"; model: string }
-  | {
-      kind: "prompt-version";
-      prompt: { version: string; scoutSystem: string; mergerSystem: string };
-    }
-  | {
-      kind: "coverage-policy";
-      policy: { version: string; mode: "recorded" | "full" };
-    };
-
-export interface ReplayLimits {
-  maxModels: number;
-  maxScoutTokens: number;
-  maxMergerTokens: number;
-  maxCostUsd: number;
-  allowedProviders: Provider[];
-  requireZeroDataRetention: boolean;
-  timeoutMs: number;
-  maxRepetitions: number;
-}
-
-export interface ReplayInputSnapshot {
-  schemaVersion: 1;
-  recordType: "ai-review-replay-input";
-  repository: string;
-  pullRequestNumber: number;
-  productionRunId: string;
-  git: { baseSha: string; headSha: string };
-  input: {
-    fullDiff: string;
-    reviewedDiff: string;
-    boundedFileContext: string;
-    repositoryGuidelines: string;
-    reviewThreads: string;
-    priorOpenFindings: PreparedReview["priorOpenFindings"];
-    affectedOpenFindings: PreparedReview["replayFindings"];
-  };
-  decision: {
-    changeProfile: PreparedReview["changeProfile"];
-    coverage: PreparedReview["coverage"];
-    paths: string[];
-    omittedPaths: string[];
-    reviewedHunks: PreparedReview["hunks"];
-  };
-  prompt: {
-    version: string;
-    scoutSystem: string;
-    scoutSchema: unknown;
-    mergerSystem: string;
-    mergerSchema: unknown;
-  };
-  policy: JsonObject;
-  modelRequest: {
-    openRouterScouts: string[];
-    openCodeScouts: string[];
-    merger: string;
-    requireZeroDataRetention: boolean;
-    scoutMaxTokens: number;
-    mergerMaxTokens: number;
-  };
-  provenance: {
-    diffFingerprint?: string;
-    configFingerprint?: string;
-    capturedAt: string;
-  };
-}
+const REPLAY_CLAIM_GRACE_MS = 60_000;
+export type { ReplayExperiment, ReplayLimits } from "ai-review-domain/replay";
+export type { ReplayInputSnapshot } from "ai-review-domain/records";
 
 export interface ReplayStore {
   get(key: string): Promise<string | null>;
-  claim(key: string): Promise<boolean>;
+  claim(key: string, staleAfterMs: number): Promise<boolean>;
   put(key: string, value: string): Promise<void>;
 }
 
@@ -155,24 +100,13 @@ export interface ReplayPlan {
   paidInferenceAllowed: false;
 }
 
-function positiveInteger(value: number, name: string): void {
-  if (!Number.isInteger(value) || value <= 0) {
-    throw new Error(`${name} must be a positive integer`);
-  }
+function validateLimits(limits: ReplayLimits): void {
+  const result = ReplayLimitsSchema.safeParse(limits);
+  if (!result.success) throw new Error(`invalid replay limits: ${zodMessage(result.error)}`);
 }
 
-function validateLimits(limits: ReplayLimits): void {
-  positiveInteger(limits.maxModels, "maxModels");
-  positiveInteger(limits.maxScoutTokens, "maxScoutTokens");
-  positiveInteger(limits.maxMergerTokens, "maxMergerTokens");
-  positiveInteger(limits.timeoutMs, "timeoutMs");
-  positiveInteger(limits.maxRepetitions, "maxRepetitions");
-  if (!Number.isFinite(limits.maxCostUsd) || limits.maxCostUsd <= 0) {
-    throw new Error("maxCostUsd must be a positive number");
-  }
-  if (limits.allowedProviders.length === 0) {
-    throw new Error("allowedProviders must not be empty");
-  }
+function zodMessage(error: { issues: Array<{ path: PropertyKey[]; message: string }> }): string {
+  return error.issues.map((issue) => `${issue.path.join(".") || "value"}: ${issue.message}`).join("; ");
 }
 
 function productionValue(
@@ -209,11 +143,10 @@ function validateScoutExperiment(
   experiment: Extract<ReplayExperiment, { kind: "scout-model" }>,
   limits: ReplayLimits,
 ): void {
-  if (experiment.models.length === 0 || experiment.models.length > limits.maxModels) {
+  if (experiment.models.length > limits.maxModels) {
     throw new Error(`scout model count must be between 1 and ${limits.maxModels}`);
   }
-  for (const { model, provider } of experiment.models) {
-    if (!model.trim()) throw new Error("scout model IDs must not be empty");
+  for (const { provider } of experiment.models) {
     if (!limits.allowedProviders.includes(provider)) {
       throw new Error(`provider ${provider} is not allowed`);
     }
@@ -221,22 +154,9 @@ function validateScoutExperiment(
 }
 
 function validateExperimentValue(experiment: ReplayExperiment, limits: ReplayLimits): void {
+  const result = ReplayExperimentSchema.safeParse(experiment);
+  if (!result.success) throw new Error(`invalid replay experiment: ${zodMessage(result.error)}`);
   if (experiment.kind === "scout-model") validateScoutExperiment(experiment, limits);
-  if (
-    experiment.kind === "prompt-version" &&
-    (!experiment.prompt.version.trim() ||
-      !experiment.prompt.scoutSystem.trim() ||
-      !experiment.prompt.mergerSystem.trim())
-  ) {
-    throw new Error("prompt experiment requires a version and both system prompts");
-  }
-  if (
-    experiment.kind === "coverage-policy" &&
-    (!experiment.policy.version.trim() ||
-      !["recorded", "full"].includes(experiment.policy.mode))
-  ) {
-    throw new Error("coverage experiment requires a version and supported mode");
-  }
 }
 
 function recordedProviders(snapshot: ReplayInputSnapshot): Provider[] {
@@ -356,7 +276,12 @@ async function preparedReview(
         ...prepared.coverage,
         reason: `experimental coverage policy ${experiment.policy.version}`,
         mode: "full",
+        totalHunks: prepared.hunks.length,
+        reviewedHunkIds: prepared.hunks.map(({ hunkId }) => hunkId),
+        unchangedHunkIds: [],
+        skippedHunkIds: [],
         paths: prepared.paths,
+        skippedPaths: [],
       };
     }
   }
@@ -365,6 +290,10 @@ async function preparedReview(
 
 function round6(value: number): number {
   return Math.round(value * 1_000_000) / 1_000_000;
+}
+
+function replayClaimMaxAgeMs(timeoutMs: number): number {
+  return Math.min(timeoutMs, MAX_REPLAY_TIMEOUT_MS) * 3 + REPLAY_CLAIM_GRACE_MS;
 }
 
 async function withTimeout<T>(operation: Promise<T>, timeoutMs: number): Promise<T> {
@@ -383,7 +312,7 @@ async function withTimeout<T>(operation: Promise<T>, timeoutMs: number): Promise
 
 export async function planControlledReplay(request: ReplayRequest): Promise<ReplayPlan> {
   assertReplaySchemaCompatible(request.snapshot);
-  const snapshot = request.snapshot as ReplayInputSnapshot;
+  const snapshot = ReplayInputSnapshotSchema.parse(request.snapshot);
   validateLimits(request.limits);
   const repetition = request.repetition ?? 0;
   if (!Number.isInteger(repetition) || repetition < 0 || repetition >= request.limits.maxRepetitions) {
@@ -424,17 +353,12 @@ export async function executeControlledReplay(
   if (request.dryRun !== false) return plan as unknown as JsonObject;
   const existing = await store.get(plan.resultKey);
   if (existing) return JSON.parse(existing) as JsonObject;
-  if (!await store.claim(plan.resultKey)) {
+  if (!await store.claim(plan.resultKey, replayClaimMaxAgeMs(request.limits.timeoutMs))) {
     const claimedResult = await store.get(plan.resultKey);
-    return claimedResult
-      ? JSON.parse(claimedResult) as JsonObject
-      : {
-          ...plan,
-          recordType: "ai-review-replay-result",
-          status: "in-progress",
-        };
+    if (claimedResult) return JSON.parse(claimedResult) as JsonObject;
+    throw new Error("replay is already in progress; retry after the active claim expires");
   }
-  const snapshot = request.snapshot as ReplayInputSnapshot;
+  const snapshot = ReplayInputSnapshotSchema.parse(request.snapshot);
   const prepared = await preparedReview(snapshot, request.experiment);
   const providers = replayProviders(snapshot, request.experiment);
   const started = Date.now();
@@ -470,6 +394,7 @@ export async function executeControlledReplay(
         status: "budget-denied",
         paidInferenceAllowed: false,
         corpusProvenance: snapshot.provenance,
+        coverage: prepared.coverage,
         scoutCostCeilingUsd,
         mergerCostCeilingUsd: mergerReservationUsd,
       };
@@ -495,6 +420,7 @@ export async function executeControlledReplay(
         status: "budget-denied",
         paidInferenceAllowed: true,
         corpusProvenance: snapshot.provenance,
+        coverage: prepared.coverage,
         scouts,
         costUsd: scoutCostUsd,
         mergerCostCeilingUsd,
@@ -514,6 +440,7 @@ export async function executeControlledReplay(
       status: "failed",
       paidInferenceAllowed: true,
       corpusProvenance: snapshot.provenance,
+      coverage: prepared.coverage,
       latencyMs: Date.now() - started,
       error: error instanceof Error ? error.message : String(error),
     };
@@ -531,6 +458,7 @@ export async function executeControlledReplay(
     paidInferenceAllowed: true,
     productionRunId: snapshot.productionRunId,
     corpusProvenance: snapshot.provenance,
+    coverage: prepared.coverage,
     configuration: { experiment: request.experiment, limits: request.limits },
     candidates: artifacts.candidates,
     mergedFindings: artifacts.publishedFindings,
@@ -565,7 +493,7 @@ export async function loadReplaySnapshot(
     throw new Error(`replay corpus entry is not valid JSON: ${corpusId}`);
   }
   assertReplaySchemaCompatible(snapshot);
-  return snapshot as ReplayInputSnapshot;
+  return ReplayInputSnapshotSchema.parse(snapshot);
 }
 
 export async function runControlledReplay(
@@ -628,7 +556,7 @@ export function createProductionReplayAdapter(options: {
       return estimateMergeCostCeilingUsd(env, options.params, prepared, scouts, {
         isolated: true,
         systemPrompt,
-        maxTokens: Math.min(options.limits.maxMergerTokens, 6_000),
+        maxTokens: Math.min(options.limits.maxMergerTokens, MERGER_MAX_TOKENS),
         timeoutMs: options.limits.timeoutMs,
       }) ?? options.limits.maxCostUsd;
     },
@@ -651,7 +579,7 @@ export function createProductionReplayAdapter(options: {
       return mergeFindings(replayEnv(experiment), options.params, prepared, scouts, {
         isolated: true,
         systemPrompt,
-        maxTokens: Math.min(options.limits.maxMergerTokens, 6_000),
+        maxTokens: Math.min(options.limits.maxMergerTokens, MERGER_MAX_TOKENS),
         timeoutMs: options.limits.timeoutMs,
       });
     },

@@ -7,6 +7,7 @@ import {
   duplicateScoutModels,
   ignored,
   isCreditExhaustion,
+  MERGER_MAX_TOKENS,
   markdownText,
   parseModelPayload,
   renderComment,
@@ -193,9 +194,11 @@ test("default OpenRouter merger enforces its price ceiling and records top-level
   context.mock.method(globalThis, "fetch", async (_input, init) => {
     const body = JSON.parse(String(init?.body)) as {
       model?: string;
+      max_tokens?: number;
       provider?: { max_price?: { prompt?: number; completion?: number } };
     };
     assert.equal(body.model, DEFAULT_MERGER);
+    assert.equal(body.max_tokens, MERGER_MAX_TOKENS);
     assert.deepEqual(body.provider?.max_price, { prompt: 0.75, completion: 3.75 });
     return Response.json({
       choices: [{ finish_reason: "stop", message: { content: '{"summary":"","findings":[]}' } }],
@@ -221,7 +224,7 @@ test("default OpenRouter merger enforces its price ceiling and records top-level
     "user",
     "merged_findings",
     { type: "object" },
-    6_000,
+    MERGER_MAX_TOKENS,
   );
   assert.equal(result.cost, 0.42);
 });

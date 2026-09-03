@@ -2,35 +2,50 @@ import fs from "node:fs";
 import { createHash } from "node:crypto";
 import path from "node:path";
 import { parseArgs } from "node:util";
+import { z, type ZodType } from "zod";
 import type { Env, ReviewWorkflowParams } from "../src/env";
 import {
   createProductionReplayAdapter,
   runControlledReplay,
   type ReplayCorpusStore,
-  type ReplayExperiment,
-  type ReplayLimits,
 } from "../src/replay-runner";
+import {
+  ReplayExperimentSchema,
+  ReplayLimitsSchema,
+  ReplayProviderListSchema,
+  ReplayProviderSchema,
+  type ReplayExperiment,
+  type ReplayProvider,
+} from "ai-review-domain/replay";
+import { exclusiveClaim } from "./replay-claim";
 
-function required(value: string | undefined, name: string): string {
-  if (!value?.trim()) throw new Error(`${name} is required`);
-  return value;
+function option<T>(schema: ZodType<T>, value: unknown, name: string): T {
+  const result = schema.safeParse(value);
+  if (!result.success) throw new Error(`${name}: ${z.prettifyError(result.error)}`);
+  return result.data;
 }
 
-function positiveNumber(value: string | undefined, name: string): number {
-  const parsed = Number(value);
-  if (!Number.isFinite(parsed) || parsed <= 0) throw new Error(`${name} must be positive`);
-  return parsed;
-}
+const RequiredStringSchema = z.string().trim().min(1);
+const PositiveNumberSchema = z.coerce.number().positive();
+const PositiveIntegerSchema = z.coerce.number().int().positive();
+const NonNegativeIntegerSchema = z.coerce.number().int().nonnegative();
 
-function exclusiveClaim(file: string): boolean {
-  fs.mkdirSync(path.dirname(file), { recursive: true });
+function loadExperiment(file: string): ReplayExperiment {
+  let parsed: unknown;
   try {
-    fs.closeSync(fs.openSync(file, "wx"));
-    return true;
+    parsed = JSON.parse(fs.readFileSync(path.resolve(file), "utf8"));
   } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === "EEXIST") return false;
-    throw error;
+    throw new Error(`cannot read --experiment JSON: ${error instanceof Error ? error.message : String(error)}`);
   }
+  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+    throw new Error("--experiment must contain one replay experiment object");
+  }
+  return option(ReplayExperimentSchema, parsed, "--experiment");
+}
+
+function providerList(value: string | undefined): ReplayProvider[] {
+  const providers = (value ?? "").split(",").map((item) => item.trim()).filter(Boolean);
+  return option(ReplayProviderListSchema, providers, "--allowed-providers");
 }
 
 async function main(): Promise<void> {
@@ -41,41 +56,46 @@ async function main(): Promise<void> {
       output: { type: "string" },
       model: { type: "string" },
       provider: { type: "string", default: "openrouter" },
+      experiment: { type: "string" },
+      "allowed-providers": { type: "string", default: "openrouter" },
+      "max-models": { type: "string", default: "1" },
       "max-cost-usd": { type: "string", default: "0.25" },
+      "max-scout-tokens": { type: "string", default: "8000" },
+      "max-merger-tokens": { type: "string", default: "6000" },
+      "max-repetitions": { type: "string" },
       "timeout-ms": { type: "string", default: "120000" },
       repetition: { type: "string", default: "0" },
+      "require-zero-data-retention": { type: "boolean", default: false },
       execute: { type: "boolean", default: false },
     },
   });
-  const snapshotFile = path.resolve(required(values.snapshot, "--snapshot"));
-  const corpusId = required(values["corpus-id"], "--corpus-id");
-  if (!/^[a-f0-9]{64}$/.test(corpusId)) {
-    throw new Error("--corpus-id must be the snapshot SHA-256");
+  const snapshotFile = path.resolve(option(RequiredStringSchema, values.snapshot, "--snapshot"));
+  const corpusId = option(z.string().regex(/^[a-f0-9]{64}$/, "must be the snapshot SHA-256"), values["corpus-id"], "--corpus-id");
+  const outputRoot = path.resolve(option(RequiredStringSchema, values.output, "--output"));
+  const provider = option(ReplayProviderSchema, values.provider, "--provider");
+  const repetition = option(NonNegativeIntegerSchema, values.repetition, "--repetition");
+  const maxRepetitions = values["max-repetitions"] === undefined
+    ? repetition + 1
+    : option(PositiveIntegerSchema, values["max-repetitions"], "--max-repetitions");
+  if (repetition >= maxRepetitions) {
+    throw new Error("--repetition must be less than --max-repetitions");
   }
-  const outputRoot = path.resolve(required(values.output, "--output"));
-  const model = required(values.model, "--model");
-  const provider = values.provider;
-  if (provider !== "openrouter" && provider !== "opencode") {
-    throw new Error("--provider must be openrouter or opencode");
-  }
-  const repetition = Number(values.repetition);
-  if (!Number.isInteger(repetition) || repetition < 0) {
-    throw new Error("--repetition must be a non-negative integer");
-  }
-  const limits: ReplayLimits = {
-    maxModels: 1,
-    maxScoutTokens: 8_000,
-    maxMergerTokens: 6_000,
-    maxCostUsd: positiveNumber(values["max-cost-usd"], "--max-cost-usd"),
-    allowedProviders: provider === "openrouter" ? ["openrouter"] : ["openrouter", "opencode"],
-    requireZeroDataRetention: false,
-    timeoutMs: positiveNumber(values["timeout-ms"], "--timeout-ms"),
-    maxRepetitions: repetition + 1,
-  };
-  const experiment: ReplayExperiment = {
-    kind: "scout-model",
-    models: [{ model, provider }],
-  };
+  const experiment: ReplayExperiment = values.experiment
+    ? loadExperiment(values.experiment)
+    : {
+        kind: "scout-model",
+        models: [{ model: option(RequiredStringSchema, values.model, "--model"), provider }],
+      };
+  const limits = option(ReplayLimitsSchema, {
+    maxModels: option(PositiveIntegerSchema, values["max-models"], "--max-models"),
+    maxScoutTokens: option(PositiveIntegerSchema, values["max-scout-tokens"], "--max-scout-tokens"),
+    maxMergerTokens: option(PositiveIntegerSchema, values["max-merger-tokens"], "--max-merger-tokens"),
+    maxCostUsd: option(PositiveNumberSchema, values["max-cost-usd"], "--max-cost-usd"),
+    allowedProviders: providerList(values["allowed-providers"]),
+    requireZeroDataRetention: values["require-zero-data-retention"],
+    timeoutMs: option(PositiveIntegerSchema, values["timeout-ms"], "--timeout-ms"),
+    maxRepetitions,
+  }, "replay limits");
   const store: ReplayCorpusStore = {
     loadSnapshot: async (requestedCorpusId) => {
       if (requestedCorpusId !== corpusId) return null;
@@ -88,7 +108,10 @@ async function main(): Promise<void> {
       const file = path.join(outputRoot, key);
       return fs.existsSync(file) ? fs.readFileSync(file, "utf8") : null;
     },
-    claim: async (key) => exclusiveClaim(path.join(outputRoot, `${key}.claim`)),
+    claim: async (key, staleAfterMs) => exclusiveClaim(
+      path.join(outputRoot, `${key}.claim`),
+      staleAfterMs,
+    ),
     put: async (key, value) => {
       const file = path.join(outputRoot, key);
       fs.mkdirSync(path.dirname(file), { recursive: true });

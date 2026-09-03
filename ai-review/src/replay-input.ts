@@ -1,5 +1,6 @@
 import type { Env, ReviewWorkflowParams } from "./env";
 import type { PreparedReview, ReviewRecordStatus } from "./review-engine";
+import { ReplayInputSnapshotSchema } from "ai-review-domain/records";
 
 export const REPLAY_INPUT_SCHEMA_VERSION = 1;
 export const REPLAY_MANIFEST_SCHEMA_VERSION = 1;
@@ -8,13 +9,15 @@ export function assertReplaySchemaCompatible(value: unknown): asserts value is {
   schemaVersion: typeof REPLAY_INPUT_SCHEMA_VERSION;
   recordType: "ai-review-replay-input";
 } {
-  const record = value as { schemaVersion?: unknown; recordType?: unknown };
-  if (
-    record?.schemaVersion !== REPLAY_INPUT_SCHEMA_VERSION ||
-    record.recordType !== "ai-review-replay-input"
-  ) {
+  const record = value as { schemaVersion?: unknown };
+  if (record?.schemaVersion !== REPLAY_INPUT_SCHEMA_VERSION) {
     throw new Error(`Unsupported replay input schema version: ${String(record?.schemaVersion)}`);
   }
+  const result = ReplayInputSnapshotSchema.safeParse(value);
+  if (result.success) return;
+  throw new Error(
+    `Invalid replay input schema: ${result.error.issues[0]?.message ?? "invalid record"}`,
+  );
 }
 
 const SECRET_PATTERNS: Array<[string, RegExp]> = [
@@ -23,8 +26,68 @@ const SECRET_PATTERNS: Array<[string, RegExp]> = [
   ["github-token", /\b(?:gh[opsu]_\w{20,}|github_pat_\w{20,})\b/g],
   ["connection-uri", /\b(?:postgres(?:ql)?|mysql|mongodb(?:\+srv)?|redis):\/\/[^\s"']+/gi],
 ];
-const ASSIGNMENT_PATTERN = /\b[\w-]+\s*[:=]\s*(?:"[^"\n]*"|'[^'\n]*'|[^\s,;]+)/g;
-const SECRET_NAME_PATTERN = /(?:secret|token|password|passwd|api[_-]?key|private[_-]?key)/i;
+const ASSIGNMENT_IDENTIFIER = String.raw`[\p{L}\p{N}_-]+`;
+const ASSIGNMENT_NAME = `(${ASSIGNMENT_IDENTIFIER})`;
+const ASSIGNMENT_VALUE = String.raw`(?:"(?:\\[\s\S]|[^"\\])*"|'(?:\\[\s\S]|[^'\\])*'|[^\s,;]+)`;
+const ASSIGNMENT_PATTERNS = [
+  new RegExp(String.raw`"${ASSIGNMENT_NAME}"\s*[:=]\s*${ASSIGNMENT_VALUE}`, "gu"),
+  new RegExp(String.raw`'${ASSIGNMENT_NAME}'\s*[:=]\s*${ASSIGNMENT_VALUE}`, "gu"),
+  new RegExp(String.raw`(?<![\p{L}\p{N}_-])${ASSIGNMENT_NAME}\s*[:=]\s*${ASSIGNMENT_VALUE}`, "gu"),
+];
+const YAML_BLOCK_HEADER = new RegExp(
+  String.raw`^((?:-[ \t]+)?)(?:"(${ASSIGNMENT_IDENTIFIER})"|'(${ASSIGNMENT_IDENTIFIER})'|(${ASSIGNMENT_IDENTIFIER}))[ \t]*:[ \t]*[|>](?:[+-]|[1-9][+-]?|[+-][1-9])?[ \t]*(?:#[^\r\n]*)?$`,
+  "u",
+);
+function isSecretName(name: string): boolean {
+  const normalized = name
+    .normalize("NFKC")
+    .replace(/([A-Z])(?=[A-Z][a-z])/g, "$1_")
+    .replace(/([a-z0-9])([A-Z])/g, "$1_$2")
+    .toLowerCase();
+  // Prefer false-positive redaction over letting confusable Unicode key names
+  // disguise a credential label that the ASCII rules below would recognize.
+  if (/\P{ASCII}/u.test(normalized)) return true;
+  return (
+    normalized === "database_url" ||
+    /(?:^|[_-])(?:secret|token|password|passwd|credential|cookie|bearer|session)(?:$|[_-])/.test(normalized) ||
+    /(?:^|[_-])(?:api|private|encryption|signing)_key(?:$|[_-])/.test(normalized)
+  );
+}
+
+function assignedSecret(counts: Record<string, number>): string {
+  counts["assigned-secret"] = (counts["assigned-secret"] ?? 0) + 1;
+  return "[REDACTED:assigned-secret]";
+}
+
+function yamlLine(value: string): { body: string; indent: number; prefix: string } {
+  const leading = /^[ \t]*/.exec(value)?.[0] ?? "";
+  let bodyOffset = leading.length;
+  if (bodyOffset === 0 && (value.startsWith("+") || value.startsWith("-"))) bodyOffset = 1;
+  const afterMarker = /^[ \t]*/.exec(value.slice(bodyOffset))?.[0] ?? "";
+  bodyOffset += afterMarker.length;
+  return {
+    body: value.slice(bodyOffset),
+    indent: leading.length + afterMarker.length,
+    prefix: value.slice(0, bodyOffset),
+  };
+}
+
+function redactYamlBlockAssignments(value: string, counts: Record<string, number>): string {
+  const parts = value.split(/(\r\n|\n|\r)/);
+  for (let index = 0; index < parts.length; index += 2) {
+    const line = yamlLine(parts[index] ?? "");
+    const match = YAML_BLOCK_HEADER.exec(line.body);
+    const name = match?.[2] ?? match?.[3] ?? match?.[4];
+    if (!match || !name || !isSecretName(name)) continue;
+    parts[index] = `${line.prefix}${match[1] ?? ""}${assignedSecret(counts)}`;
+    for (let bodyIndex = index + 2; bodyIndex < parts.length; bodyIndex += 2) {
+      const blockLine = yamlLine(parts[bodyIndex] ?? "");
+      if (blockLine.body.trim().length > 0 && blockLine.indent <= line.indent) break;
+      if (blockLine.body.trim().length > 0) parts[bodyIndex] = blockLine.prefix;
+    }
+  }
+  return parts.join("");
+}
 
 function redact(value: string, counts: Record<string, number>): string {
   const patternsRedacted = SECRET_PATTERNS.reduce(
@@ -34,14 +97,12 @@ function redact(value: string, counts: Record<string, number>): string {
     }),
     value,
   );
-  return patternsRedacted.replace(ASSIGNMENT_PATTERN, (assignment) => {
-    const name = assignment.split(/[:=]/, 1)[0]?.trim() ?? "";
-    if (name.toLowerCase() !== "database_url" && !SECRET_NAME_PATTERN.test(name)) {
-      return assignment;
-    }
-    counts["assigned-secret"] = (counts["assigned-secret"] ?? 0) + 1;
-    return "[REDACTED:assigned-secret]";
-  });
+  const blockScalarsRedacted = redactYamlBlockAssignments(patternsRedacted, counts);
+  return ASSIGNMENT_PATTERNS.reduce(
+    (current, pattern) => current.replace(pattern, (assignment, name: string) =>
+      isSecretName(name) ? assignedSecret(counts) : assignment),
+    blockScalarsRedacted,
+  );
 }
 
 function redactValue(value: unknown, counts: Record<string, number>): unknown {
@@ -49,10 +110,9 @@ function redactValue(value: unknown, counts: Record<string, number>): unknown {
   if (Array.isArray(value)) return value.map((item) => redactValue(item, counts));
   if (value && typeof value === "object") {
     return Object.fromEntries(
-      Object.entries(value as Record<string, unknown>).map(([key, item]) => [
-        key,
-        redactValue(item, counts),
-      ]),
+      Object.entries(value as Record<string, unknown>).map(([key, item]) =>
+        [key, isSecretName(key) ? assignedSecret(counts) : redactValue(item, counts)],
+      ),
     );
   }
   return value;
@@ -122,6 +182,7 @@ export async function persistReplayInput(options: {
     repository: params.repository,
     pullRequestNumber: params.pullRequestNumber,
     productionRunId: options.instanceId,
+    pullRequest: prepared.pullRequest,
     git: { baseSha: prepared.baseSha, headSha: prepared.headSha },
     input: {
       fullDiff: prepared.fullDiff,
@@ -153,11 +214,12 @@ export async function persistReplayInput(options: {
       capturedAt: options.timestamp.toISOString(),
     },
   };
-  const snapshot = redactValue(rawSnapshot, redactions) as typeof rawSnapshot;
-  Object.assign(snapshot.provenance, {
+  const redactedSnapshot = redactValue(rawSnapshot, redactions) as typeof rawSnapshot;
+  Object.assign(redactedSnapshot.provenance, {
     redactions,
     liveCredentialsIncluded: false,
   });
+  const snapshot = ReplayInputSnapshotSchema.parse(redactedSnapshot);
   const snapshotJson = stableJson(snapshot);
   const snapshotSha256 = await sha256(snapshotJson);
   const retentionDays = finite(env.AI_REVIEW_DATA_RETENTION_DAYS, 365);

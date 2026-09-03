@@ -23,7 +23,6 @@ import {
   type Finding,
   type MergedFinding,
   type ModelResult,
-  type ModelUsage,
   type ReviewState,
   type Scout,
   type Settings,
@@ -40,6 +39,15 @@ import {
   type HiddenFinding,
   type PublicationPolicy,
 } from "./guardrails";
+import type {
+  ChangeProfile,
+  ModelMetric,
+  OpenFindingBaseline,
+  PullRequestMetadata,
+  ReviewCoverage,
+  ReviewCoverageMode,
+  ReviewHunk,
+} from "ai-review-domain/records";
 import { createInstallationToken } from "./github-app";
 import {
   publishFindingComments,
@@ -48,42 +56,19 @@ import {
 } from "./finding-lifecycle";
 import { persistReplayInput } from "./replay-input";
 
+export type {
+  ChangeProfile,
+  ModelMetric,
+  OpenFindingBaseline,
+  PullRequestMetadata,
+  ReviewCoverage,
+  ReviewCoverageMode,
+  ReviewHunk,
+} from "ai-review-domain/records";
+
 type JsonObject = Record<string, unknown>;
 
 export const STATEFUL_REVIEW_MARKER = "<!-- stateful-ai-code-review -->";
-
-export interface ReviewHunk {
-  hunkId: string;
-  fingerprint: string;
-  file: string;
-  oldStart: number;
-  oldLines: number;
-  newStart: number;
-  newLines: number;
-}
-
-export interface ChangeProfile {
-  diffCharacters: number;
-  additions: number;
-  deletions: number;
-  changedFiles: number;
-  reviewableFiles: number;
-  omittedFiles: number;
-  hunks: number;
-  languages: string[];
-  repositoryAreas: string[];
-  riskSignals: string[];
-}
-
-export interface PullRequestMetadata {
-  author: string;
-  authorAssociation?: string;
-  title?: string;
-  labels: string[];
-  headRef?: string;
-  taskType?: "bug" | "dependency" | "documentation" | "feature";
-  originatingAgent?: "claude" | "codex" | "opencode";
-}
 
 export interface PreparedReview {
   skipReason?: string;
@@ -107,19 +92,6 @@ export interface PreparedReview {
   priorOpenFindings?: OpenFindingBaseline[];
 }
 
-export type ReviewCoverageMode = "full" | "incremental" | "skipped";
-
-export interface OpenFindingBaseline {
-  findingId: string;
-  file: string;
-  title: string;
-  hunkIds: string[];
-  severity?: string;
-  line?: number | null;
-  evidence?: string;
-  recommendation?: string;
-}
-
 export interface FindingResolution {
   findingId: string;
   verdict: "fixed" | "still-present" | "uncertain";
@@ -130,33 +102,6 @@ export interface ReviewBaseline {
   headSha?: string;
   hunkIds: string[];
   openFindings: OpenFindingBaseline[];
-}
-
-export interface ReviewCoverage {
-  mode: ReviewCoverageMode;
-  reason: string;
-  baselineHeadSha?: string;
-  totalHunks: number;
-  reviewedHunkIds: string[];
-  unchangedHunkIds: string[];
-  skippedHunkIds: string[];
-  affectedFindingIds: string[];
-  paths: string[];
-  skippedPaths: string[];
-}
-
-export interface ModelMetric {
-  model: string;
-  provider: "opencode" | "openrouter";
-  role: "scout" | "merger";
-  ok: boolean;
-  latencyMs: number;
-  costUsd: number;
-  usage?: ModelUsage;
-  error?: string;
-  skipped?: boolean;
-  consecutiveFailures?: number;
-  cooldownUntil?: string;
 }
 
 export interface CircuitSkippedModel {
@@ -971,6 +916,13 @@ export async function prepareReview(
     statefulMergerSchema,
     guardrails: guardrailPolicy(env),
   });
+  const context = selectedDiff.trim()
+    ? await reviewer.fileContext(selectedPaths, headSha)
+    : "";
+  const guidelines = selectedDiff.trim() ? await reviewer.headGuidelines(headSha) : "";
+  const reviewContext = selectedDiff.trim()
+    ? await reviewer.pullRequestReviewContext(selectedPaths)
+    : { threads: "", reviewers: [] };
   return {
     baseSha: pr.base?.sha,
     headSha,
@@ -998,11 +950,10 @@ export async function prepareReview(
       headRef: pr.head.ref,
       taskType: taskType(labels),
       originatingAgent: originatingAgent(pr.title, pr.head.ref),
+      reviewers: reviewContext.reviewers,
     },
-    context: selectedDiff.trim()
-      ? await reviewer.fileContext(selectedPaths, headSha)
-      : "",
-    guidelines: selectedDiff.trim() ? await reviewer.headGuidelines(headSha) : "",
+    context,
+    guidelines,
     replayFindings: baseline.openFindings.filter((finding) =>
       coverage.affectedFindingIds.includes(finding.findingId),
     ),
@@ -1010,7 +961,7 @@ export async function prepareReview(
     threads: selectedDiff.trim()
       ? [
           affectedFindingContext(baseline, coverage),
-          await reviewer.reviewThreadContext(selectedPaths),
+          reviewContext.threads,
         ]
           .filter(Boolean)
           .join("\n\n")

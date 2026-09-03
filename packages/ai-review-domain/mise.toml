@@ -1,0 +1,8 @@
+[tasks.typecheck]
+description = "Typecheck the shared AI review domain package"
+depends = ["//:install"]
+run = "pnpm exec tsc --noEmit"
+
+[tasks.check]
+description = "Check the shared AI review domain package"
+depends = ["typecheck"]

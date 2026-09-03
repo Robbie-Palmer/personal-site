@@ -1,0 +1,63 @@
+{
+  "source": {
+    "repository": "Robbie-Palmer/personal-site",
+    "exportPath": "~/.cache/ai-review/r2-export"
+  },
+  "cohort": {
+    "frozenAt": "2026-09-02T00:00:00Z",
+    "changeSizeBands": {
+      "small": {"maxExclusive": 200},
+      "medium": {"maxExclusive": 1000},
+      "substantial": {"maxExclusive": 2000},
+      "large": {"maxExclusive": 5000},
+      "oversized": {}
+    },
+    "pullRequestNumbers": []
+  },
+  "experiment": {
+    "variable": "scout-model",
+    "baseline": {
+      "id": "kimi-k2.6",
+      "experiment": {
+        "kind": "scout-model",
+        "models": [{"model": "moonshotai/kimi-k2.6", "provider": "openrouter"}]
+      }
+    },
+    "candidate": {
+      "id": "deepseek-v4-pro",
+      "experiment": {
+        "kind": "scout-model",
+        "models": [{"model": "deepseek/deepseek-v4-pro", "provider": "openrouter"}]
+      }
+    },
+    "repetitions": 3
+  },
+  "limits": {
+    "maxModels": 1,
+    "allowedProviders": ["openrouter"],
+    "maxScoutTokens": 8000,
+    "maxMergerTokens": 6000,
+    "maxCostUsdPerReplay": 0.25,
+    "maxTotalCostUsd": 20,
+    "timeoutMs": 120000,
+    "requireZeroDataRetention": false
+  },
+  "matching": {
+    "methods": ["finding-id", "file-hunk", "file-line"],
+    "manualAdjudicationBelowConfidence": 0.9
+  },
+  "decision": {
+    "primaryMetrics": ["acceptedFindingsPerReplay", "noiseRate", "historicalCoverageRate"],
+    "sampleUnit": "pull-requests",
+    "minimumSampleSize": 30,
+    "minimumRelativeImprovement": 0.1,
+    "minimumAbsoluteImprovementWhenBaselineZero": 0.1,
+    "rejectRelativeDecline": 0.1,
+    "maximumNoiseRateIncrease": 0.02,
+    "maximumCoverageRateDrop": 0.02,
+    "maximumProviderFailureRate": 0.05
+  },
+  "replay": {
+    "mode": "execute"
+  }
+}

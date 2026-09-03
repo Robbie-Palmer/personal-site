@@ -6,6 +6,8 @@ Each project stores data under its own prefix (e.g. `s3://dvc/recipe-parsing`).
 
 Current projects:
 
+- `ai-review-evaluation`: versioned Pull Request replay corpora, controlled
+  reviewer experiments, and DuckDB decision scorecards.
 - `recipe-parsing`: image extraction, normalization, canonicalization, and
   evaluation.
 - `recipe-dataset`: acquisition and preparation of reusable recipe text
