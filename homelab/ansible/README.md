@@ -36,6 +36,8 @@ the node identity. Do not disable host-key checking to skip this step.
 The Pi discovery command prints its operating system, SD-card and boot mounts,
 relevant package versions, matching systemd units, and CUPS queues. It does not
 read service configuration files, which may contain credentials.
+The dated findings live in
+[`hosts/raspberry-pi/README.md`](../hosts/raspberry-pi/README.md).
 
 `ansible-check-mac` previews the permanent Mac host changes. The apply command
 installs the pinned Ente CLI, wrapper, launchd jobs, and Netdata alarms. It

@@ -39,6 +39,39 @@
         - /boot/firmware
       register: pi_mounts
 
+    - name: Inspect kernel command line
+      ansible.builtin.command:
+        argv:
+          - sed
+          - -n
+          - 1p
+          - /boot/firmware/cmdline.txt
+      check_mode: false
+      changed_when: false
+      register: pi_kernel_command_line
+
+    - name: Inspect active boot configuration
+      ansible.builtin.command:
+        argv:
+          - awk
+          - NF && $1 !~ /^#/
+          - /boot/firmware/config.txt
+      check_mode: false
+      changed_when: false
+      register: pi_boot_configuration
+
+    - name: Inspect active swap devices
+      ansible.builtin.command:
+        argv:
+          - /usr/sbin/swapon
+          - --show
+          - --noheadings
+          - --output
+          - NAME,TYPE,SIZE,USED,PRIO
+      check_mode: false
+      changed_when: false
+      register: pi_active_swap
+
     - name: Inspect CUPS queues
       ansible.builtin.command:
         argv:
@@ -73,6 +106,9 @@
               | list
             }}
           block_devices: "{{ pi_block_devices.stdout | from_json }}"
+          kernel_command_line: "{{ pi_kernel_command_line.stdout }}"
+          boot_configuration: "{{ pi_boot_configuration.stdout_lines }}"
+          active_swap: "{{ pi_active_swap.stdout_lines }}"
           boot_mounts: >-
             {{
               pi_mounts.results
