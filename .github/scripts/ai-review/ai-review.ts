@@ -215,7 +215,7 @@ const SCOUT_TIMEOUT_MS = 120_000;
 const SCOUT_TIMEOUT_BY_MODEL: Record<string, number> = {
   "nemotron-3-ultra-free": 180_000,
 };
-export const MERGER_MAX_TOKENS = 6_000;
+export const MERGER_MAX_TOKENS = 8_000;
 export const SCOUT_CONCURRENCY = 4;
 export const MAX_OPENROUTER_SCOUTS = 6;
 export const MAX_OPENCODE_SCOUTS = 6;

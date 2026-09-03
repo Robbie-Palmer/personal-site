@@ -1,4 +1,7 @@
-import { OPENROUTER_SCOUT_MAX_PRICES } from "../../.github/scripts/ai-review/ai-review";
+import {
+  MERGER_MAX_TOKENS,
+  OPENROUTER_SCOUT_MAX_PRICES,
+} from "../../.github/scripts/ai-review/ai-review";
 import type { Env, ReviewWorkflowParams } from "./env";
 import {
   identifyReviewArtifacts,
@@ -552,7 +555,7 @@ export function createProductionReplayAdapter(options: {
       return estimateMergeCostCeilingUsd(env, options.params, prepared, scouts, {
         isolated: true,
         systemPrompt,
-        maxTokens: Math.min(options.limits.maxMergerTokens, 6_000),
+        maxTokens: Math.min(options.limits.maxMergerTokens, MERGER_MAX_TOKENS),
         timeoutMs: options.limits.timeoutMs,
       }) ?? options.limits.maxCostUsd;
     },
@@ -575,7 +578,7 @@ export function createProductionReplayAdapter(options: {
       return mergeFindings(replayEnv(experiment), options.params, prepared, scouts, {
         isolated: true,
         systemPrompt,
-        maxTokens: Math.min(options.limits.maxMergerTokens, 6_000),
+        maxTokens: Math.min(options.limits.maxMergerTokens, MERGER_MAX_TOKENS),
         timeoutMs: options.limits.timeoutMs,
       });
     },
