@@ -19,7 +19,10 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { AddTimerPopover } from "@/components/recipes/add-timer-popover";
-import { useCookMode } from "@/contexts/cook-mode-context";
+import {
+  type CookModeActiveStep,
+  useCookMode,
+} from "@/contexts/cook-mode-context";
 import { useCookingTimers } from "@/hooks/use-cooking-timers";
 import {
   type CookingTimer,
@@ -156,11 +159,13 @@ function CollapsedTimerDock({
   primary,
   timerCount,
   onExpand,
+  activeStep,
 }: Readonly<{
   grip: React.ReactNode;
   primary: CookingTimer;
   timerCount: number;
   onExpand: () => void;
+  activeStep: CookModeActiveStep | null;
 }>) {
   const completed = primary.state === "completed";
   const tag = stepTag(primary);
@@ -226,6 +231,10 @@ function CollapsedTimerDock({
       </button>
       <AddTimerPopover
         align="end"
+        recipeSlug={activeStep?.recipeSlug}
+        recipeTitle={activeStep?.recipeTitle}
+        stepIndex={activeStep?.stepIndex}
+        stepText={activeStep?.stepText}
         trigger={
           <button
             type="button"
@@ -264,7 +273,7 @@ export function TimerDock() {
     moved: boolean;
   } | null>(null);
 
-  const { cookModeOpen } = useCookMode();
+  const { cookModeOpen, activeStep } = useCookMode();
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -430,6 +439,10 @@ export function TimerDock() {
   const addTimerControl = (
     <AddTimerPopover
       align="end"
+      recipeSlug={activeStep?.recipeSlug}
+      recipeTitle={activeStep?.recipeTitle}
+      stepIndex={activeStep?.stepIndex}
+      stepText={activeStep?.stepText}
       trigger={
         <button
           type="button"
@@ -532,6 +545,7 @@ export function TimerDock() {
             primary={primary}
             timerCount={sorted.length}
             onExpand={() => setExpanded(true)}
+            activeStep={activeStep}
           />
         )}
       </div>
