@@ -15,10 +15,9 @@
       ansible.builtin.debug:
         msg: "Tailscale: {{ 'OK' if tailscale_status.rc == 0 else 'FAILED' }}"
 
-    - name: Require healthy Tailscale
-      ansible.builtin.assert:
-        that: tailscale_status.rc == 0
-        fail_msg: Tailscale is not connected.
+    - name: Record Tailscale health
+      ansible.builtin.set_fact:
+        tailscale_healthy: "{{ tailscale_status.rc == 0 }}"
 
 - name: Verify both DNS resolvers
   hosts: dns_resolvers
@@ -28,13 +27,33 @@
     - name: Query the local resolver
       ansible.builtin.command:
         argv:
-          - dig
-          - +short
-          - +time=2
-          - +tries=1
-          - "@127.0.0.1"
+          - python3
+          - -c
+          - |
+            import socket
+            import struct
+            import sys
+
+            labels = sys.argv[1].rstrip(".").encode("idna").split(b".")
+            qname = b"".join(bytes((len(label),)) + label for label in labels) + b"\0"
+            query_id = 0xA022
+            query = struct.pack("!HHHHHH", query_id, 0x0100, 1, 0, 0, 0)
+            query += qname + struct.pack("!HH", 1, 1)
+
+            with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as dns_socket:
+                dns_socket.settimeout(2)
+                dns_socket.sendto(query, ("127.0.0.1", 53))
+                response, _ = dns_socket.recvfrom(4096)
+
+            if len(response) < 12:
+                raise SystemExit("short DNS response")
+
+            response_id, flags, _, answers, _, _ = struct.unpack("!HHHHHH", response[:12])
+            if response_id != query_id or not flags & 0x8000 or flags & 0xF or answers < 1:
+                raise SystemExit("DNS response did not contain an answer")
+
+            print(answers)
           - "{{ dns_probe_name }}"
-          - A
       check_mode: false
       changed_when: false
       failed_when: false
@@ -45,12 +64,9 @@
         msg: >-
           DNS resolver: {{ 'OK' if dns_query.rc == 0 and dns_query.stdout_lines | length > 0 else 'FAILED' }}
 
-    - name: Require a working DNS resolver
-      ansible.builtin.assert:
-        that:
-          - dns_query.rc == 0
-          - dns_query.stdout_lines | length > 0
-        fail_msg: The local DNS resolver did not answer the probe.
+    - name: Record DNS health
+      ansible.builtin.set_fact:
+        dns_healthy: "{{ dns_query.rc == 0 and dns_query.stdout_lines | length > 0 }}"
 
 - name: Verify Raspberry Pi host services
   hosts: raspberry-pi
@@ -83,12 +99,10 @@
           CUPS: "{{ 'OK' if cups_status.rc == 0 else 'FAILED' }}"
           Netdata: "{{ 'OK' if pi_netdata_status.status | default(0) == 200 else 'FAILED' }}"
 
-    - name: Require healthy Raspberry Pi services
-      ansible.builtin.assert:
-        that:
-          - cups_status.rc == 0
-          - pi_netdata_status.status | default(0) == 200
-        fail_msg: One or more Raspberry Pi host services failed verification.
+    - name: Record Raspberry Pi service health
+      ansible.builtin.set_fact:
+        pi_services_healthy: >-
+          {{ cups_status.rc == 0 and pi_netdata_status.status | default(0) == 200 }}
 
 - name: Verify Mac mini services
   hosts: mac-mini
@@ -130,10 +144,9 @@
         label: "{{ item.item.name }}"
       when: item.status | default(0) not in item.item.status_codes
 
-    - name: Require healthy Mac workload endpoints
-      ansible.builtin.assert:
-        that: mac_failed_http_checks | length == 0
-        fail_msg: "HTTP health checks failed: {{ mac_failed_http_checks | join(', ') }}"
+    - name: Record Mac workload health
+      ansible.builtin.set_fact:
+        mac_workloads_healthy: "{{ mac_failed_http_checks | length == 0 }}"
 
     - name: Check whether Ente verification is configured
       ansible.builtin.set_fact:
@@ -193,15 +206,17 @@
           OK
           {% endif %}
 
-    - name: Require a healthy Ente export
-      ansible.builtin.assert:
-        that:
-          - ente_verification_configured
-          - ente_launchd_status.rc == 0
-          - (' on ' ~ ente_export_mount_path ~ ' ') in mac_mounts.stdout
-          - ente_success_marker.stat.exists
-          - (ansible_facts.date_time.epoch | int - ente_success_marker.stat.mtime | int) <= ente_export_max_age_hours * 3600
-        fail_msg: The Ente export is not loaded, mounted, or fresh.
+    - name: Record Ente export health
+      ansible.builtin.set_fact:
+        ente_export_healthy: >-
+          {{
+            ente_verification_configured
+            and ente_launchd_status.rc == 0
+            and (' on ' ~ ente_export_mount_path ~ ' ') in mac_mounts.stdout
+            and ente_success_marker.stat.exists
+            and (ansible_facts.date_time.epoch | int - ente_success_marker.stat.mtime | int)
+              <= ente_export_max_age_hours * 3600
+          }}
 
 - name: Verify Asus GPU path
   hosts: asus-desktop
@@ -227,9 +242,24 @@
           Docker: "{{ 'OK' if asus_docker_status.rc == 0 else 'FAILED' }}"
           NVIDIA: "{{ 'OK' if asus_gpu_status.rc == 0 else 'FAILED' }}"
 
-    - name: Require a healthy Asus GPU path
+    - name: Record Asus GPU health
+      ansible.builtin.set_fact:
+        asus_gpu_healthy: "{{ asus_docker_status.rc == 0 and asus_gpu_status.rc == 0 }}"
+
+- name: Require healthy fleet services
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Require every fleet health check to pass
       ansible.builtin.assert:
         that:
-          - asus_docker_status.rc == 0
-          - asus_gpu_status.rc == 0
-        fail_msg: Docker or the NVIDIA driver failed verification.
+          - hostvars['mac-mini'].tailscale_healthy | default(false)
+          - hostvars['raspberry-pi'].tailscale_healthy | default(false)
+          - hostvars['asus-desktop'].tailscale_healthy | default(false)
+          - hostvars['mac-mini'].dns_healthy | default(false)
+          - hostvars['raspberry-pi'].dns_healthy | default(false)
+          - hostvars['raspberry-pi'].pi_services_healthy | default(false)
+          - hostvars['mac-mini'].mac_workloads_healthy | default(false)
+          - hostvars['mac-mini'].ente_export_healthy | default(false)
+          - hostvars['asus-desktop'].asus_gpu_healthy | default(false)
+        fail_msg: One or more fleet health checks reported FAILED above.

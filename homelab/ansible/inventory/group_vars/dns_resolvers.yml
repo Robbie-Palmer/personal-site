@@ -1,2 +1,2 @@
 dns_required_commands:
-  - dig
+  - python3
