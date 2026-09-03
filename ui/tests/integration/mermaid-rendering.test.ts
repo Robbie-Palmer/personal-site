@@ -620,13 +620,20 @@ describe("Visualization browser rendering", () => {
       await page.click('button[title="Speaker view"]');
       const speakerPage = await (await speakerTarget).page();
       expect(speakerPage).not.toBeNull();
-      await speakerPage?.waitForSelector("#current-slide iframe", {
-        timeout: 10_000,
-      });
+      expect(speakerPage?.url()).toContain(
+        "/projects/agentic-code-review/deck/presenter#/3",
+      );
+      expect(speakerPage?.url()).not.toBe("about:blank");
+      await speakerPage?.waitForSelector(
+        'iframe[data-presenter-frame="current"]',
+        {
+          timeout: 10_000,
+        },
+      );
       await speakerPage?.waitForFunction(
         () => {
           const frame = document.querySelector<HTMLIFrameElement>(
-            "#current-slide iframe",
+            'iframe[data-presenter-frame="current"]',
           );
           return frame?.contentDocument?.querySelector(
             ".pitch-deck .reveal.ready section.present h1, .pitch-deck .reveal.ready section.present h2",
@@ -635,46 +642,50 @@ describe("Visualization browser rendering", () => {
         { timeout: 20_000 },
       );
       const speakerHeading = await speakerPage?.$eval(
-        "#current-slide iframe",
+        'iframe[data-presenter-frame="current"]',
         (frame) =>
           (frame as HTMLIFrameElement).contentDocument?.querySelector(
             ".pitch-deck section.present h1, .pitch-deck section.present h2",
           )?.textContent,
       );
-      expect(speakerHeading).toContain("bottleneck");
+      expect(speakerHeading).toContain("Managed reviewers");
 
       const upcomingHeading = await speakerPage?.$eval(
-        "#upcoming-slide iframe",
+        'iframe[data-presenter-frame="upcoming"]',
         (frame) =>
           (frame as HTMLIFrameElement).contentDocument?.querySelector(
             ".pitch-deck section.present h1, .pitch-deck section.present h2",
           )?.textContent,
       );
-      expect(upcomingHeading).toContain("Managed reviewers");
+      expect(upcomingHeading).toContain("Own the review loop");
 
       const speakerNotes = await speakerPage?.$eval(
-        ".speaker-controls-notes .value",
+        ".pitch-presenter__notes-body",
         (notes) => notes.textContent?.trim(),
       );
-      expect(speakerNotes).toContain("parallel agent throughput");
+      expect(speakerNotes).toContain("control of the review loop");
 
       await speakerPage?.waitForFunction(
         () =>
-          ["#current-slide iframe", "#upcoming-slide iframe"].every(
-            (selector) => {
-              const frameDocument =
-                document.querySelector<HTMLIFrameElement>(
-                  selector,
-                )?.contentDocument;
-              return Boolean(
-                frameDocument?.querySelector(".pitch-deck .reveal.ready"),
-              );
-            },
-          ),
+          [
+            'iframe[data-presenter-frame="current"]',
+            'iframe[data-presenter-frame="upcoming"]',
+          ].every((selector) => {
+            const frameDocument =
+              document.querySelector<HTMLIFrameElement>(
+                selector,
+              )?.contentDocument;
+            return Boolean(
+              frameDocument?.querySelector(".pitch-deck .reveal.ready"),
+            );
+          }),
         { timeout: 20_000 },
       );
       const speakerPreviewChrome = await speakerPage?.evaluate(() =>
-        ["#current-slide iframe", "#upcoming-slide iframe"].map((selector) => {
+        [
+          'iframe[data-presenter-frame="current"]',
+          'iframe[data-presenter-frame="upcoming"]',
+        ].map((selector) => {
           const frameDocument =
             document.querySelector<HTMLIFrameElement>(
               selector,
@@ -698,7 +709,7 @@ describe("Visualization browser rendering", () => {
       ]);
 
       const speakerPreviewUrls = await speakerPage?.$$eval(
-        "#current-slide iframe, #upcoming-slide iframe",
+        "iframe[data-presenter-frame]",
         (frames) => frames.map((frame) => (frame as HTMLIFrameElement).src),
       );
       expect(speakerPreviewUrls).toHaveLength(2);
@@ -714,25 +725,54 @@ describe("Visualization browser rendering", () => {
       await page.waitForFunction(() =>
         document
           .querySelector(".pitch-deck__live section.present h2")
-          ?.textContent?.includes("Managed reviewers"),
+          ?.textContent?.includes("Own the review loop"),
       );
       await speakerPage?.waitForFunction(
         () =>
           document
-            .querySelector<HTMLIFrameElement>("#current-slide iframe")
+            .querySelector<HTMLIFrameElement>(
+              'iframe[data-presenter-frame="current"]',
+            )
             ?.contentDocument?.querySelector(".pitch-deck section.present h2")
-            ?.textContent?.includes("Managed reviewers") &&
+            ?.textContent?.includes("Own the review loop") &&
           document
-            .querySelector<HTMLIFrameElement>("#upcoming-slide iframe")
+            .querySelector<HTMLIFrameElement>(
+              'iframe[data-presenter-frame="upcoming"]',
+            )
             ?.contentDocument?.querySelector(".pitch-deck section.present h2")
-            ?.textContent?.includes("Own the review loop"),
+            ?.textContent?.includes("One pull request"),
         { timeout: 10_000 },
       );
       const updatedSpeakerNotes = await speakerPage?.$eval(
-        ".speaker-controls-notes .value",
+        ".pitch-presenter__notes-body",
         (notes) => notes.textContent?.trim(),
       );
-      expect(updatedSpeakerNotes).toContain("control of the review loop");
+      expect(updatedSpeakerNotes).toBe("No speaker notes for this slide.");
+
+      await speakerPage?.reload({ waitUntil: "domcontentloaded" });
+      expect(speakerPage?.url()).toContain(
+        "/projects/agentic-code-review/deck/presenter#/4",
+      );
+      expect(speakerPage?.url()).not.toBe("about:blank");
+      await speakerPage?.waitForFunction(
+        () =>
+          document
+            .querySelector<HTMLIFrameElement>(
+              'iframe[data-presenter-frame="current"]',
+            )
+            ?.contentDocument?.querySelector(".pitch-deck section.present h2")
+            ?.textContent?.includes("Own the review loop") &&
+          document
+            .querySelector<HTMLIFrameElement>(
+              'iframe[data-presenter-frame="upcoming"]',
+            )
+            ?.contentDocument?.querySelector(".pitch-deck section.present h2")
+            ?.textContent?.includes("One pull request") &&
+          document
+            .querySelector(".pitch-presenter__notes-body")
+            ?.textContent?.includes("No speaker notes for this slide"),
+        { timeout: 20_000 },
+      );
       await speakerPage?.close();
     } finally {
       await page.close();

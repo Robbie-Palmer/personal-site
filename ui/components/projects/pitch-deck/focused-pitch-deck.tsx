@@ -2,10 +2,7 @@
 
 import "reveal.js/reveal.css";
 import "./pitch-deck.css";
-import RevealNotes from "reveal.js/plugin/notes";
 import { PitchDeckFrame } from "./pitch-deck-frame";
-
-const notesPlugins = [RevealNotes()];
 
 export function FocusedPitchDeck({
   children,
@@ -21,7 +18,6 @@ export function FocusedPitchDeck({
       projectSlug={projectSlug}
       title={title}
       mode="focused"
-      plugins={notesPlugins}
       backLabel="Back to project"
     >
       {children}

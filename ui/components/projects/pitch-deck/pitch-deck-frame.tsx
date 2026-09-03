@@ -40,6 +40,8 @@ type SpeakerRevealConfig = RevealConfig & {
   url?: string;
 };
 
+const speakerMessageNamespace = "pitch-deck-presenter";
+
 const initialPosition: Position = {
   current: 1,
   total: 1,
@@ -64,6 +66,7 @@ export function PitchDeckFrame({
   const stageRef = useRef<HTMLDivElement>(null);
   const staticViewRef = useRef<HTMLElement>(null);
   const fullscreenButtonRef = useRef<HTMLButtonElement>(null);
+  const speakerWindowRef = useRef<Window | null>(null);
   const pendingSlideRef = useRef<number | null>(null);
   const currentPositionRef = useRef(1);
   const scrollTargetRef = useRef<number | null>(null);
@@ -94,6 +97,53 @@ export function PitchDeckFrame({
   const resolvedPresentationHref =
     presentationHref ??
     (projectSlug ? `/projects/${projectSlug}/deck` : undefined);
+
+  const sendSpeakerState = useCallback(
+    (target = speakerWindowRef.current) => {
+      if (!target || target.closed) return;
+      const notes = deckRef.current
+        ?.getCurrentSlide()
+        ?.querySelector<HTMLElement>("aside.notes")
+        ?.textContent?.trim();
+      target.postMessage(
+        {
+          namespace: speakerMessageNamespace,
+          type: "state",
+          current: position.current - 1,
+          total: position.total,
+          notes: notes ?? "",
+        },
+        window.location.origin,
+      );
+    },
+    [position.current, position.total],
+  );
+
+  useEffect(() => {
+    if (!resolvedPresentationHref) return;
+    const handleSpeakerMessage = (event: MessageEvent) => {
+      if (
+        event.origin !== window.location.origin ||
+        event.source !== speakerWindowRef.current ||
+        event.data?.namespace !== speakerMessageNamespace
+      ) {
+        return;
+      }
+      if (event.data.type === "connect") {
+        sendSpeakerState(event.source as Window);
+      } else if (event.data.type === "navigate") {
+        event.data.direction === "previous"
+          ? deckRef.current?.prev()
+          : deckRef.current?.next();
+      }
+    };
+    window.addEventListener("message", handleSpeakerMessage);
+    return () => window.removeEventListener("message", handleSpeakerMessage);
+  }, [resolvedPresentationHref, sendSpeakerState]);
+
+  useEffect(() => {
+    sendSpeakerState();
+  }, [sendSpeakerState]);
 
   useEffect(() => {
     const query = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -311,6 +361,19 @@ export function PitchDeckFrame({
   };
 
   const openSpeakerView = () => {
+    if (resolvedPresentationHref) {
+      if (speakerWindowRef.current && !speakerWindowRef.current.closed) {
+        speakerWindowRef.current.focus();
+        sendSpeakerState();
+        return;
+      }
+      speakerWindowRef.current = window.open(
+        `${resolvedPresentationHref}/presenter#/${position.current}`,
+        "pitch-deck-presenter",
+        "width=1100,height=700",
+      );
+      return;
+    }
     const notes = deckRef.current?.getPlugin("notes") as
       | { open?: () => void }
       | undefined;

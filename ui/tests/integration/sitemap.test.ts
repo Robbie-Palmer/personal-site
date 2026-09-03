@@ -69,6 +69,9 @@ describe("Sitemap Integration Test", () => {
       if (NOINDEX_APP_PAGES.has(fileNameWithoutExt)) {
         return;
       }
+      if (fileNameWithoutExt.endsWith("/deck/presenter")) {
+        return;
+      }
 
       relativePath = normalizedPath;
 
