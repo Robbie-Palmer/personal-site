@@ -26,10 +26,12 @@ const SECRET_PATTERNS: Array<[string, RegExp]> = [
   ["github-token", /\b(?:gh[opsu]_\w{20,}|github_pat_\w{20,})\b/g],
   ["connection-uri", /\b(?:postgres(?:ql)?|mysql|mongodb(?:\+srv)?|redis):\/\/[^\s"']+/gi],
 ];
+const ASSIGNMENT_NAME = String.raw`([\p{L}\p{N}_-]+)`;
+const ASSIGNMENT_VALUE = String.raw`(?:"(?:\\.|[^"\\\n])*"|'(?:\\.|[^'\\\n])*'|[^\s,;]+)`;
 const ASSIGNMENT_PATTERNS = [
-  /"([\p{L}\p{N}_-]+)"\s*[:=]\s*(?:"(?:\\.|[^"\\\n])*"|'(?:\\.|[^'\\\n])*'|[^\s,;]+)/gu,
-  /'([\p{L}\p{N}_-]+)'\s*[:=]\s*(?:"(?:\\.|[^"\\\n])*"|'(?:\\.|[^'\\\n])*'|[^\s,;]+)/gu,
-  /\b([\p{L}\p{N}_-]+)\s*[:=]\s*(?:"(?:\\.|[^"\\\n])*"|'(?:\\.|[^'\\\n])*'|[^\s,;]+)/gu,
+  new RegExp(String.raw`"${ASSIGNMENT_NAME}"\s*[:=]\s*${ASSIGNMENT_VALUE}`, "gu"),
+  new RegExp(String.raw`'${ASSIGNMENT_NAME}'\s*[:=]\s*${ASSIGNMENT_VALUE}`, "gu"),
+  new RegExp(String.raw`(?<![\p{L}\p{N}_-])${ASSIGNMENT_NAME}\s*[:=]\s*${ASSIGNMENT_VALUE}`, "gu"),
 ];
 function isSecretName(name: string): boolean {
   const normalized = name
