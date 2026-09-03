@@ -15,7 +15,9 @@ export type ADRRef = z.infer<typeof ADRRefSchema>;
 export const ProjectSlugSchema = z.string().min(1);
 export type ProjectSlug = z.infer<typeof ProjectSlugSchema>;
 
-export const InitiativeSlugSchema = z.string().min(1);
+export const InitiativeSlugSchema = z
+  .string()
+  .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/);
 export type InitiativeSlug = z.infer<typeof InitiativeSlugSchema>;
 
 export const RoleSlugSchema = z.string().min(1);

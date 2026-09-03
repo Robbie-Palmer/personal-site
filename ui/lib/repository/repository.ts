@@ -457,10 +457,16 @@ export function loadProjects(): ProjectLoadResult {
       content,
     };
 
+    const rawInitiatives = data.initiatives || [];
+    const normalizedInitiatives = Array.isArray(rawInitiatives)
+      ? rawInitiatives.map((initiative) =>
+          typeof initiative === "string"
+            ? normalizeSlug(initiative)
+            : initiative,
+        )
+      : rawInitiatives;
     const initiativesValidation =
-      ProjectRelationsSchema.shape.initiatives.safeParse(
-        data.initiatives || [],
-      );
+      ProjectRelationsSchema.shape.initiatives.safeParse(normalizedInitiatives);
     if (!initiativesValidation.success) {
       console.error(
         `Failed to validate project ${projectSlug}:`,
@@ -472,9 +478,7 @@ export function loadProjects(): ProjectLoadResult {
     const projectRelations: ProjectRelations = {
       technologies,
       adrs: adrRefs,
-      initiatives: initiativesValidation.data.map((initiative) =>
-        normalizeSlug(initiative),
-      ),
+      initiatives: initiativesValidation.data,
       role: data.role ? normalizeSlug(data.role) : undefined,
       tags: data.tags || [],
     };

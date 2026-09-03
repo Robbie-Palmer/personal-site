@@ -38,11 +38,21 @@ export default function sitemap(): MetadataRoute.Sitemap {
       : [],
   );
 
-  const initiativePages = initiatives.map((initiative) => ({
-    url: `${siteConfig.url}/initiatives/${initiative.slug}`,
-    lastModified: new Date().toISOString(),
-    priority: 0.8,
-  }));
+  const initiativePages = initiatives.map((initiative) => {
+    const lastModified = initiative.projects.reduce<string | undefined>(
+      (latest, project) => {
+        const projectDate = project.updated || project.date;
+        return !latest || projectDate > latest ? projectDate : latest;
+      },
+      undefined,
+    );
+
+    return {
+      url: `${siteConfig.url}/initiatives/${initiative.slug}`,
+      ...(lastModified ? { lastModified } : {}),
+      priority: 0.8,
+    };
+  });
 
   const adrPages = projects.flatMap((project) =>
     project.adrs.map((adr) => ({
