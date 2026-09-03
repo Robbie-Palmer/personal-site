@@ -73,7 +73,7 @@ export interface ReplayObservation {
 }
 
 function normalizedFile(value: unknown): string {
-  return String(value ?? "").replace(/^\.\//, "").toLowerCase();
+  return (typeof value === "string" ? value : "").replace(/^\.\//, "").toLowerCase();
 }
 
 function hunkIds(finding: Finding): Set<string> {
@@ -118,12 +118,13 @@ export function matchFinding(candidate: Finding, labels: HistoricalFinding[], ma
         status: "manual-adjudication-required",
         method,
         confidence,
-        historicalFindingIds: matches.map(({ finding }) => finding.findingId).sort(),
+        historicalFindingIds: matches.map(({ finding }) => finding.findingId)
+          .sort((left, right) => left.localeCompare(right)),
         label: null,
         evidence: {
           candidateFindingId: candidate.findingId ?? null,
           file: candidate.file ?? null,
-          hunkIds: [...hunkIds(candidate)].sort(),
+          hunkIds: [...hunkIds(candidate)].sort((left, right) => left.localeCompare(right)),
           line: candidate.line ?? null,
         },
       };
@@ -142,7 +143,7 @@ export function matchFinding(candidate: Finding, labels: HistoricalFinding[], ma
       evidence: {
         candidateFindingId: candidate.findingId ?? null,
         file: candidate.file ?? null,
-        hunkIds: [...hunkIds(candidate)].sort(),
+        hunkIds: [...hunkIds(candidate)].sort((left, right) => left.localeCompare(right)),
         line: candidate.line ?? null,
       },
     };
@@ -156,14 +157,14 @@ export function matchFinding(candidate: Finding, labels: HistoricalFinding[], ma
     evidence: {
       candidateFindingId: candidate.findingId ?? null,
       file: candidate.file ?? null,
-      hunkIds: [...hunkIds(candidate)].sort(),
+      hunkIds: [...hunkIds(candidate)].sort((left, right) => left.localeCompare(right)),
       line: candidate.line ?? null,
     },
   };
 }
 
 function replayFindings(replay: ReplayOutput): Finding[] {
-  if (!replay || replay.recordType !== "ai-review-replay-result") return [];
+  if (replay.recordType !== "ai-review-replay-result") return [];
   return Array.isArray(replay.mergedFindings) ? replay.mergedFindings : [];
 }
 
@@ -182,6 +183,35 @@ function coverageCounts(entry: DatasetEntry, matches: FindingMatch[]): { adjudic
   return { adjudicated: adjudicatedIds.size, matched: matchedIds.size };
 }
 
+interface OutcomeCounts {
+  accepted: number;
+  rejected: number;
+  censored: number;
+  noResponse: number;
+  missing: number;
+  manual: number;
+}
+
+function countOutcomes(matches: FindingMatch[]): OutcomeCounts {
+  const counts: OutcomeCounts = {
+    accepted: 0,
+    rejected: 0,
+    censored: 0,
+    noResponse: 0,
+    missing: 0,
+    manual: 0,
+  };
+  for (const match of matches) {
+    if (match.status === "manual-adjudication-required") counts.manual += 1;
+    else if (match.label === "accepted") counts.accepted += 1;
+    else if (match.label === "rejected") counts.rejected += 1;
+    else if (match.label === "censored") counts.censored += 1;
+    else if (match.label === "no-response") counts.noResponse += 1;
+    else counts.missing += 1;
+  }
+  return counts;
+}
+
 function runObservation(wrapper: EvaluationReplay, entry: DatasetEntry, matches: FindingMatch[]): ReplayObservation {
   const replay = wrapper.replay;
   const findings = replayFindings(replay);
@@ -196,15 +226,7 @@ function runObservation(wrapper: EvaluationReplay, entry: DatasetEntry, matches:
   const reviewedHunks = Array.isArray(replayCoverage?.reviewedHunkIds)
     ? replayCoverage.reviewedHunkIds.length
     : Number.NaN;
-  const counts = { accepted: 0, rejected: 0, censored: 0, noResponse: 0, missing: 0, manual: 0 };
-  for (const match of matches) {
-    if (match.status === "manual-adjudication-required") counts.manual += 1;
-    else if (match.label === "accepted") counts.accepted += 1;
-    else if (match.label === "rejected") counts.rejected += 1;
-    else if (match.label === "censored") counts.censored += 1;
-    else if (match.label === "no-response") counts.noResponse += 1;
-    else counts.missing += 1;
-  }
+  const counts = countOutcomes(matches);
   return {
     cohort_id: wrapper.cohortId,
     experiment_id: wrapper.experimentId,

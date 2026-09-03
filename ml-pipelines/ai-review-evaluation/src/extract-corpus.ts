@@ -116,7 +116,7 @@ export function extractCorpus({
   const entriesRoot = path.join(outputRoot, "entries");
   fs.mkdirSync(entriesRoot, { recursive: true });
 
-  for (const snapshotItem of snapshots.sort((left, right) => left.key.localeCompare(right.key))) {
+  for (const snapshotItem of snapshots.toSorted((left, right) => left.key.localeCompare(right.key))) {
     const snapshot = snapshotItem.record;
     const terminalKey = `${snapshot.repository}#${snapshot.pullRequestNumber}#${snapshot.productionRunId}`;
     const terminalItem = terminals.get(terminalKey);
@@ -135,7 +135,8 @@ export function extractCorpus({
     });
     const paths = snapshot.decision?.paths ?? [];
     const riskSignals = terminal.change?.riskSignals ?? [];
-    const repositoryAreas = [...new Set(terminal.change?.repositoryAreas ?? [])].sort();
+    const repositoryAreas = [...new Set(terminal.change?.repositoryAreas ?? [])]
+      .sort((left, right) => left.localeCompare(right));
     const languages = languagesForPaths(paths);
     const coverage = terminal.coverage ?? snapshot.decision?.coverage ?? null;
     const changedLines = (terminal.change?.additions ?? 0) + (terminal.change?.deletions ?? 0);
@@ -153,7 +154,7 @@ export function extractCorpus({
       promptVersion: snapshot.prompt?.version,
       strata: {
         risk: riskSignals.length > 0 ? "elevated" : "standard",
-        riskSignals: [...riskSignals].sort(),
+        riskSignals: [...riskSignals].sort((left, right) => left.localeCompare(right)),
         changeSize: changeSizeBand(changedLines, params.cohort.changeSizeThresholds),
         languages,
         repositoryAreas,
@@ -170,7 +171,8 @@ export function extractCorpus({
   if (entries.length === 0) throw new Error("replay snapshots did not join to production terminal records");
   entries.sort((left, right) => left.corpusId.localeCompare(right.corpusId));
   const terminalWorkflowRuns = [...terminals.values()].filter((item) => item.record.repository === repository);
-  const capturedAt = entries.map((entry) => entry.capturedAt).sort();
+  const capturedAt = entries.map((entry) => entry.capturedAt)
+    .sort((left, right) => left.localeCompare(right));
   const earliestCapturedAt = capturedAt[0];
   const latestCapturedAt = capturedAt.at(-1);
   if (!earliestCapturedAt || !latestCapturedAt) throw new Error("replay snapshot capture range is empty");

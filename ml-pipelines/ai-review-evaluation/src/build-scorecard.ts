@@ -12,7 +12,7 @@ import {
   type PrimaryMetric,
 } from "./schemas";
 
-const NullableNumberSchema = z.number().finite().nullable();
+const NullableNumberSchema = z.number().nullable();
 const ScoreSummarySchema = z.object({
   variant_id: z.string().min(1),
   variant_role: z.enum(["baseline", "candidate"]),
@@ -133,6 +133,77 @@ function ratioDelta(candidate: number | null, baseline: number | null): number |
   return (candidate - baseline) / Math.abs(baseline);
 }
 
+interface RecommendationResult {
+  recommendation: Recommendation;
+  reasons: string[];
+}
+
+function insufficientSampleReason(
+  minimum: number,
+  baselineSample: number,
+  candidateSample: number,
+): string | null {
+  if (baselineSample >= minimum && candidateSample >= minimum) return null;
+  return `minimum sample size is ${minimum}; baseline has ${baselineSample} and candidate has ${candidateSample}`;
+}
+
+function passesImprovementThreshold(
+  directionalImprovement: number | null,
+  directionalRelativeImprovement: number | null,
+  criteria: FrozenDecision["decision"],
+): boolean {
+  if (directionalRelativeImprovement !== null) {
+    return directionalRelativeImprovement >= criteria.minimumRelativeImprovement;
+  }
+  return directionalImprovement !== null
+    && directionalImprovement >= criteria.minimumAbsoluteImprovementWhenBaselineZero;
+}
+
+function thresholdRecommendation({
+  criteria,
+  directionalImprovement,
+  directionalRelativeImprovement,
+  noiseIncrease,
+  coverageDrop,
+  failuresTooHigh,
+}: {
+  criteria: FrozenDecision["decision"];
+  directionalImprovement: number | null;
+  directionalRelativeImprovement: number | null;
+  noiseIncrease: number | null;
+  coverageDrop: number | null;
+  failuresTooHigh: boolean;
+}): RecommendationResult {
+  if (failuresTooHigh) {
+    return { recommendation: "reject", reasons: ["candidate provider failure rate exceeds the fixed ceiling"] };
+  }
+  const improvementPasses = passesImprovementThreshold(
+    directionalImprovement,
+    directionalRelativeImprovement,
+    criteria,
+  );
+  const declineFails = directionalRelativeImprovement !== null
+    && directionalRelativeImprovement <= -criteria.rejectRelativeDecline;
+  const noisePasses = noiseIncrease !== null && noiseIncrease <= criteria.maximumNoiseRateIncrease;
+  const coveragePasses = coverageDrop !== null && coverageDrop <= criteria.maximumCoverageRateDrop;
+  if (improvementPasses && noisePasses && coveragePasses) {
+    return {
+      recommendation: "adopt",
+      reasons: ["candidate passes the fixed improvement, noise, and coverage thresholds"],
+    };
+  }
+  if (declineFails) {
+    return { recommendation: "reject", reasons: ["candidate crosses the fixed decline threshold"] };
+  }
+  if (noiseIncrease !== null && noiseIncrease > criteria.maximumNoiseRateIncrease) {
+    return { recommendation: "reject", reasons: ["candidate crosses the fixed noise threshold"] };
+  }
+  return {
+    recommendation: "gather-more-evidence",
+    reasons: ["candidate does not cross the fixed adopt or reject threshold"],
+  };
+}
+
 function decide(
   cohort: FrozenCohort,
   frozenDecision: FrozenDecision,
@@ -164,39 +235,34 @@ function decide(
     : baseline.historical_coverage_rate - candidate.historical_coverage_rate;
   const failuresTooHigh = candidate.provider_failure_rate !== null &&
     candidate.provider_failure_rate > criteria.maximumProviderFailureRate;
-  let recommendation: Recommendation = "gather-more-evidence";
-  const reasons: string[] = [];
-  if (baselineSample < criteria.minimumSampleSize || candidateSample < criteria.minimumSampleSize) {
-    reasons.push(`minimum sample size is ${criteria.minimumSampleSize}; baseline has ${baselineSample} and candidate has ${candidateSample}`);
+  const insufficientReason = insufficientSampleReason(
+    criteria.minimumSampleSize,
+    baselineSample,
+    candidateSample,
+  );
+  let result: RecommendationResult;
+  if (insufficientReason) {
+    result = { recommendation: "gather-more-evidence", reasons: [insufficientReason] };
   } else if (baselineValue === null || candidateValue === null) {
-    reasons.push(`primary metric ${primaryMetric} is unavailable`);
-  } else if (failuresTooHigh) {
-    recommendation = "reject";
-    reasons.push("candidate provider failure rate exceeds the fixed ceiling");
+    result = {
+      recommendation: "gather-more-evidence",
+      reasons: [`primary metric ${primaryMetric} is unavailable`],
+    };
   } else {
-    const improvementPasses = directionalRelativeImprovement === null
-      ? directionalImprovement !== null &&
-        directionalImprovement >= criteria.minimumAbsoluteImprovementWhenBaselineZero
-      : directionalRelativeImprovement >= criteria.minimumRelativeImprovement;
-    const declineFails = directionalRelativeImprovement !== null &&
-      directionalRelativeImprovement <= -criteria.rejectRelativeDecline;
-    const noisePasses = noiseIncrease !== null && noiseIncrease <= criteria.maximumNoiseRateIncrease;
-    const coveragePasses = coverageDrop !== null && coverageDrop <= criteria.maximumCoverageRateDrop;
-    if (improvementPasses && noisePasses && coveragePasses) {
-      recommendation = "adopt";
-      reasons.push("candidate passes the fixed improvement, noise, and coverage thresholds");
-    } else if (declineFails || (noiseIncrease !== null && noiseIncrease > criteria.maximumNoiseRateIncrease)) {
-      recommendation = "reject";
-      reasons.push(declineFails ? "candidate crosses the fixed decline threshold" : "candidate crosses the fixed noise threshold");
-    } else {
-      reasons.push("candidate does not cross the fixed adopt or reject threshold");
-    }
+    result = thresholdRecommendation({
+      criteria,
+      directionalImprovement,
+      directionalRelativeImprovement,
+      noiseIncrease,
+      coverageDrop,
+      failuresTooHigh,
+    });
   }
   const manualAdjudications = Number(baseline.manual_adjudications_required ?? 0) +
     Number(candidate.manual_adjudications_required ?? 0);
   if (manualAdjudications > 0) {
-    recommendation = "gather-more-evidence";
-    reasons.push(`${manualAdjudications} matches need manual adjudication`);
+    result.recommendation = "gather-more-evidence";
+    result.reasons.push(`${manualAdjudications} matches need manual adjudication`);
   }
   return {
     schemaVersion: 1,
@@ -204,7 +270,7 @@ function decide(
     cohortId: cohort.cohortId,
     decisionId: frozenDecision.decisionId,
     datasetId: cohort.datasetId,
-    recommendation,
+    recommendation: result.recommendation,
     productionConfigurationChanged: false,
     primaryMetric,
     baseline: { id: baseline.variant_id, value: baselineValue, sampleSize: baselineSample },
@@ -218,7 +284,7 @@ function decide(
       historicalCoverageRateDrop: coverageDrop,
     },
     thresholds: criteria,
-    reasons,
+    reasons: result.reasons,
   };
 }
 

@@ -64,7 +64,7 @@ export const ChangeSizeThresholdsSchema = z.object({
   oversized: z.number().int().positive(),
 }).strict();
 
-export const PipelineParamsSchema = z.object({
+const PipelineParamsBaseSchema = z.object({
   source: z.object({
     repository: z.string().trim().min(1),
     exportPath: z.string().trim().min(1),
@@ -86,7 +86,11 @@ export const PipelineParamsSchema = z.object({
   matching: MatchingPolicySchema,
   decision: DecisionPolicySchema,
   replay: z.object({ mode: z.enum(["execute", "plan"]) }).strict(),
-}).strict().superRefine((params, context) => {
+}).strict();
+
+type PipelineParamsInput = z.infer<typeof PipelineParamsBaseSchema>;
+
+function validateChangeSizeThresholds(params: PipelineParamsInput, context: z.RefinementCtx): void {
   const thresholds = params.cohort.changeSizeThresholds;
   if (!(thresholds.medium < thresholds.substantial
     && thresholds.substantial < thresholds.large
@@ -97,6 +101,9 @@ export const PipelineParamsSchema = z.object({
       message: "thresholds must increase from medium through oversized",
     });
   }
+}
+
+function validateExperiment(params: PipelineParamsInput, context: z.RefinementCtx): void {
   if (params.experiment.baseline.id === params.experiment.candidate.id) {
     context.addIssue({ code: "custom", path: ["experiment", "candidate", "id"], message: "variant IDs must be distinct" });
   }
@@ -116,9 +123,18 @@ export const PipelineParamsSchema = z.object({
       }
     }
   }
+}
+
+function validateProviders(params: PipelineParamsInput, context: z.RefinementCtx): void {
   if (!params.limits.allowedProviders.includes("openrouter")) {
     context.addIssue({ code: "custom", path: ["limits", "allowedProviders"], message: "must include openrouter for the merger" });
   }
+}
+
+export const PipelineParamsSchema = PipelineParamsBaseSchema.superRefine((params, context) => {
+  validateChangeSizeThresholds(params, context);
+  validateExperiment(params, context);
+  validateProviders(params, context);
 });
 
 export type PipelineParams = z.infer<typeof PipelineParamsSchema>;

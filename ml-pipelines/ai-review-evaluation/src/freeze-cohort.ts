@@ -23,6 +23,7 @@ const STRATIFICATION_DIMENSIONS = [
   "outcome-availability",
 ] as const;
 const STRATIFICATION_TIE_TOLERANCE = 1e-12;
+const CHANGE_SIZE_ORDER = ["small", "medium", "substantial", "large", "oversized"] as const;
 
 type StratificationDimension = typeof STRATIFICATION_DIMENSIONS[number];
 type Marginals = Record<StratificationDimension, Map<string, number>>;
@@ -36,19 +37,24 @@ function featureValues(group: PullRequestGroup, dimension: StratificationDimensi
   const entries = group.entries;
   switch (dimension) {
     case "risk-signal": {
-      const values = [...new Set(entries.flatMap((entry) => entry.strata.riskSignals))].sort();
+      const values = [...new Set(entries.flatMap((entry) => entry.strata.riskSignals))]
+        .sort((left, right) => left.localeCompare(right));
       return values.length > 0 ? values : ["standard"];
     }
-    case "change-size": return [...new Set(entries.map((entry) => entry.strata.changeSize))].sort();
+    case "change-size": return [...new Set(entries.map((entry) => entry.strata.changeSize))]
+      .sort((left, right) => CHANGE_SIZE_ORDER.indexOf(left) - CHANGE_SIZE_ORDER.indexOf(right));
     case "language": {
-      const values = [...new Set(entries.flatMap((entry) => entry.strata.languages))].sort();
+      const values = [...new Set(entries.flatMap((entry) => entry.strata.languages))]
+        .sort((left, right) => left.localeCompare(right));
       return values.length > 0 ? values : ["unknown"];
     }
     case "repository-area": {
-      const values = [...new Set(entries.flatMap((entry) => entry.strata.repositoryAreas))].sort();
+      const values = [...new Set(entries.flatMap((entry) => entry.strata.repositoryAreas))]
+        .sort((left, right) => left.localeCompare(right));
       return values.length > 0 ? values : ["unknown"];
     }
-    case "outcome-availability": return [...new Set(entries.map((entry) => entry.strata.outcomeAvailability))].sort();
+    case "outcome-availability": return [...new Set(entries.map((entry) => entry.strata.outcomeAvailability))]
+      .sort((left, right) => left.localeCompare(right));
   }
 }
 
@@ -119,7 +125,7 @@ function groupByPullRequest(entries: DatasetEntry[]): PullRequestGroup[] {
     .sort(([left], [right]) => left - right)
     .map(([pullRequestNumber, groupEntries]) => ({
       pullRequestNumber,
-      entries: groupEntries.sort((left, right) => left.capturedAt.localeCompare(right.capturedAt)
+      entries: groupEntries.toSorted((left, right) => left.capturedAt.localeCompare(right.capturedAt)
         || left.corpusId.localeCompare(right.corpusId)),
     }));
 }

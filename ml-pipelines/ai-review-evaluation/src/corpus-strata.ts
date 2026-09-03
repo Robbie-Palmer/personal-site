@@ -31,7 +31,7 @@ export function languagesForPaths(paths: string[] | undefined): string[] {
     const language = LANGUAGE_BY_EXTENSION.get(path.extname(file).toLowerCase());
     if (language) languages.add(language);
   }
-  return [...languages].sort();
+  return [...languages].sort((left, right) => left.localeCompare(right));
 }
 
 export function outcomeClass(outcome: unknown): "accepted" | "rejected" | "censored" | "no-response" | "missing" {

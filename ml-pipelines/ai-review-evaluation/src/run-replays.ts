@@ -10,10 +10,12 @@ import {
   FrozenExperimentSchema,
   PipelineParamsSchema,
   ReplayOutputSchema,
+  type DatasetEntry,
   type EvaluationReplayIndex,
+  type FrozenExperiment,
   type ReplayOutput,
 } from "./schemas";
-import type { ReplayProvider } from "ai-review-domain/replay";
+import type { ReplayExperiment, ReplayProvider } from "ai-review-domain/replay";
 
 const RUNNER_FILES = [
   "analytics/corpus-replay.ts",
@@ -111,6 +113,96 @@ interface RunReplaysOptions {
   cacheRoot?: string;
 }
 
+type FrozenVariant = FrozenExperiment["experiment"]["baseline"] & {
+  role: "baseline" | "candidate";
+};
+
+function variantMetadata(experiment: ReplayExperiment): { model: string; provider: string } {
+  switch (experiment.kind) {
+    case "scout-model":
+      return {
+        model: experiment.models.map(({ model }) => model).join(","),
+        provider: [...new Set(experiment.models.map(({ provider }) => provider))].join(","),
+      };
+    case "merger-model":
+      return { model: experiment.model, provider: "recorded" };
+    case "prompt-version":
+      return { model: experiment.prompt.version, provider: "recorded" };
+    case "coverage-policy":
+      return { model: experiment.policy.version, provider: "recorded" };
+  }
+}
+
+function validatedSnapshots(entries: DatasetEntry[], corpusRoot: string): Map<string, string> {
+  return new Map(entries.map((entry) => {
+    const snapshot = path.resolve(corpusRoot, entry.snapshotPath);
+    const content = fs.readFileSync(snapshot, "utf8");
+    if (entry.corpusId !== sha256(content)) {
+      throw new Error(`snapshot digest changed after cohort freeze: ${entry.corpusId}`);
+    }
+    return [entry.corpusId, snapshot];
+  }));
+}
+
+function skippedBudgetReplay(corpusId: string, repetition: number): ReplayOutput {
+  return {
+    schemaVersion: 1,
+    recordType: "ai-review-replay-result",
+    corpusId,
+    repetition,
+    status: "skipped-total-budget",
+    paidInferenceAllowed: false,
+    costUsd: 0,
+  };
+}
+
+function executeReplay({
+  entry,
+  variant,
+  repetition,
+  execute,
+  spentUsd,
+  frozenExperiment,
+  aiReviewRoot,
+  snapshot,
+  storeRoot,
+  experimentFile,
+}: {
+  entry: DatasetEntry;
+  variant: FrozenVariant;
+  repetition: number;
+  execute: boolean;
+  spentUsd: number;
+  frozenExperiment: FrozenExperiment;
+  aiReviewRoot: string;
+  snapshot: string;
+  storeRoot: string;
+  experimentFile: string;
+}): ReplayOutput {
+  const totalBudget = frozenExperiment.limits.maxTotalCostUsd;
+  if (execute && spentUsd >= totalBudget) {
+    return skippedBudgetReplay(entry.corpusId, repetition);
+  }
+  return runOne({
+    aiReviewRoot,
+    snapshot,
+    corpusId: entry.corpusId,
+    output: storeRoot,
+    experimentFile,
+    variantId: variant.id,
+    limits: {
+      ...frozenExperiment.limits,
+      maxCostUsdPerReplay: Math.min(
+        frozenExperiment.limits.maxCostUsdPerReplay,
+        totalBudget - spentUsd,
+      ),
+      maxRepetitions: frozenExperiment.experiment.repetitions,
+    },
+    repetition,
+    execute,
+  });
+}
+
 export function runReplays({ cohortFile, experimentFile, corpusRoot, output, paramsFile, aiReviewRoot, cacheRoot }: RunReplaysOptions): EvaluationReplayIndex {
   const cohort = FrozenCohortSchema.parse(readJson(cohortFile));
   const frozenExperiment = FrozenExperimentSchema.parse(readJson(experimentFile));
@@ -130,7 +222,7 @@ export function runReplays({ cohortFile, experimentFile, corpusRoot, output, par
   const variants = [
     { ...frozenExperiment.experiment.baseline, role: "baseline" as const },
     { ...frozenExperiment.experiment.candidate, role: "candidate" as const },
-  ];
+  ] satisfies FrozenVariant[];
   const experimentFiles = new Map<string, string>();
   for (const variant of variants) {
     const file = path.join(outputRoot, "_experiments", `${variant.id}.json`);
@@ -139,83 +231,56 @@ export function runReplays({ cohortFile, experimentFile, corpusRoot, output, par
   }
   const records: string[] = [];
   let spentUsd = 0;
+  const snapshots = validatedSnapshots(cohort.entries, corpusRoot);
+  const runs = cohort.entries.flatMap((entry) => variants.flatMap((variant) =>
+    Array.from({ length: frozenExperiment.experiment.repetitions }, (_, repetition) => ({
+      entry,
+      variant,
+      repetition,
+    }))));
 
-  for (const entry of cohort.entries) {
-    const snapshot = path.resolve(corpusRoot, entry.snapshotPath);
-    const content = fs.readFileSync(snapshot, "utf8");
-    if (entry.corpusId !== sha256(content)) {
-      throw new Error(`snapshot digest changed after cohort freeze: ${entry.corpusId}`);
+  for (const { entry, variant, repetition } of runs) {
+    const snapshot = snapshots.get(entry.corpusId);
+    const experimentFile = experimentFiles.get(variant.id);
+    if (!snapshot || !experimentFile) throw new Error(`missing frozen replay input for ${variant.id}/${entry.corpusId}`);
+    const replay = executeReplay({
+      entry,
+      variant,
+      repetition,
+      execute,
+      spentUsd,
+      frozenExperiment,
+      aiReviewRoot: resolvedAiReviewRoot,
+      snapshot,
+      storeRoot,
+      experimentFile,
+    });
+    spentUsd += Number(replay.costUsd ?? 0);
+    if (spentUsd > frozenExperiment.limits.maxTotalCostUsd) {
+      throw new Error(`replay results exceeded the fixed total budget of $${frozenExperiment.limits.maxTotalCostUsd}`);
     }
-    for (const variant of variants) {
-      for (let repetition = 0; repetition < frozenExperiment.experiment.repetitions; repetition += 1) {
-        let replay: ReplayOutput;
-        if (execute && spentUsd >= frozenExperiment.limits.maxTotalCostUsd) {
-          replay = {
-            schemaVersion: 1,
-            recordType: "ai-review-replay-result",
-            corpusId: entry.corpusId,
-            repetition,
-            status: "skipped-total-budget",
-            paidInferenceAllowed: false,
-            costUsd: 0,
-          };
-        } else {
-          const remainingBudgetUsd = frozenExperiment.limits.maxTotalCostUsd - spentUsd;
-          replay = runOne({
-            aiReviewRoot: resolvedAiReviewRoot,
-            snapshot,
-            corpusId: entry.corpusId,
-            output: storeRoot,
-            experimentFile: experimentFiles.get(variant.id)!,
-            variantId: variant.id,
-            limits: {
-              ...frozenExperiment.limits,
-              maxCostUsdPerReplay: Math.min(
-                frozenExperiment.limits.maxCostUsdPerReplay,
-                remainingBudgetUsd,
-              ),
-              maxRepetitions: frozenExperiment.experiment.repetitions,
-            },
-            repetition,
-            execute,
-          });
-          spentUsd += Number(replay.costUsd ?? 0);
-          if (spentUsd > frozenExperiment.limits.maxTotalCostUsd) {
-            throw new Error(`replay results exceeded the fixed total budget of $${frozenExperiment.limits.maxTotalCostUsd}`);
-          }
-        }
-        const wrapper = EvaluationReplaySchema.parse({
-          schemaVersion: 1,
-          recordType: "ai-review-evaluation-replay",
-          cohortId: cohort.cohortId,
-          experimentId: frozenExperiment.experimentId,
-          runnerDigest: codeDigest,
-          datasetId: cohort.datasetId,
-          variant: {
-            id: variant.id,
-            role: variant.role,
-            model: variant.experiment.kind === "scout-model"
-              ? variant.experiment.models.map(({ model }) => model).join(",")
-              : variant.experiment.kind === "merger-model"
-                ? variant.experiment.model
-                : variant.experiment.kind === "prompt-version"
-                  ? variant.experiment.prompt.version
-                  : variant.experiment.policy.version,
-            provider: variant.experiment.kind === "scout-model"
-              ? [...new Set(variant.experiment.models.map(({ provider }) => provider))].join(",")
-              : "recorded",
-            experiment: variant.experiment,
-          },
-          corpusId: entry.corpusId,
-          pullRequestNumber: entry.pullRequestNumber,
-          repetition,
-          replay,
-        });
-        const file = path.join(outputRoot, "records", variant.id, entry.corpusId, `repetition-${repetition}.json`);
-        writeJson(file, wrapper, true);
-        records.push(path.relative(outputRoot, file).split(path.sep).join("/"));
-      }
-    }
+    const metadata = variantMetadata(variant.experiment);
+    const wrapper = EvaluationReplaySchema.parse({
+      schemaVersion: 1,
+      recordType: "ai-review-evaluation-replay",
+      cohortId: cohort.cohortId,
+      experimentId: frozenExperiment.experimentId,
+      runnerDigest: codeDigest,
+      datasetId: cohort.datasetId,
+      variant: {
+        id: variant.id,
+        role: variant.role,
+        ...metadata,
+        experiment: variant.experiment,
+      },
+      corpusId: entry.corpusId,
+      pullRequestNumber: entry.pullRequestNumber,
+      repetition,
+      replay,
+    });
+    const file = path.join(outputRoot, "records", variant.id, entry.corpusId, `repetition-${repetition}.json`);
+    writeJson(file, wrapper, true);
+    records.push(path.relative(outputRoot, file).split(path.sep).join("/"));
   }
   const index = EvaluationReplayIndexSchema.parse({
     schemaVersion: 1,
