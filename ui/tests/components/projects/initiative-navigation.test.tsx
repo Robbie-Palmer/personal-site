@@ -17,9 +17,9 @@ function initiativeFixture(): InitiativeWithProjects {
       second: "Connected pathology and genomic evidence.",
     },
     projects: [
-      { slug: "first", title: "First project" },
-      { slug: "second", title: "Second project" },
-      { slug: "third", title: "Third project" },
+      { slug: "first", title: "First project", date: "2022-01-01" },
+      { slug: "second", title: "Second project", date: "2023-01-01" },
+      { slug: "third", title: "Third project", date: "2024-01-01" },
     ],
   } as unknown as InitiativeWithProjects;
 }
@@ -32,11 +32,12 @@ describe("initiative project navigation", () => {
       screen.getByRole("heading", { name: "Initiatives" }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("link", { name: "Read about the initiative" }),
+      screen.getByRole("link", { name: "View Personalized Medicine" }),
     ).toHaveAttribute("href", "/initiatives/personalized-medicine");
     expect(
       screen.getByRole("link", { name: "Second project" }),
     ).toHaveAttribute("href", "/projects/second");
+    expect(screen.queryByText("Read about the initiative")).toBeNull();
   });
 
   it("renders nothing when there are no initiatives", () => {

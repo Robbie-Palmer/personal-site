@@ -1,4 +1,3 @@
-import { ArrowRight, Target } from "lucide-react";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -35,28 +34,32 @@ export function InitiativeOverview({
         {initiatives.map((initiative) => (
           <Card
             key={initiative.slug}
-            className="group h-full gap-5 overflow-hidden transition-all hover:border-primary/50 hover:shadow-lg"
+            className="group relative h-full gap-5 overflow-hidden transition-all hover:border-primary/50 hover:shadow-lg"
           >
-            <CardHeader className="gap-4">
+            <Link
+              href={`/initiatives/${initiative.slug}`}
+              className="absolute inset-0 z-0"
+            >
+              <span className="sr-only">View {initiative.title}</span>
+            </Link>
+
+            <CardHeader className="gap-3">
               <div className="flex items-start justify-between gap-4">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                  <Target className="h-5 w-5" />
-                </div>
+                <CardTitle className="text-xl transition-colors group-hover:text-primary">
+                  <h3>
+                    <Link
+                      href={`/initiatives/${initiative.slug}`}
+                      className="relative z-10 underline-offset-4 hover:underline"
+                    >
+                      {initiative.title}
+                    </Link>
+                  </h3>
+                </CardTitle>
                 <Badge variant="outline">
                   {initiative.projects.length}{" "}
                   {initiative.projects.length === 1 ? "project" : "projects"}
                 </Badge>
               </div>
-              <CardTitle className="text-xl transition-colors group-hover:text-primary">
-                <h3>
-                  <Link
-                    href={`/initiatives/${initiative.slug}`}
-                    className="underline-offset-4 hover:underline"
-                  >
-                    {initiative.title}
-                  </Link>
-                </h3>
-              </CardTitle>
             </CardHeader>
 
             <CardContent className="flex-1">
@@ -65,36 +68,46 @@ export function InitiativeOverview({
               </p>
             </CardContent>
 
-            <CardFooter className="flex-col items-start gap-5 border-t">
-              {initiative.projects.length > 0 && (
-                <div>
-                  <p className="mb-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                    Contributing projects
+            {initiative.projects.length > 0 && (
+              <CardFooter className="flex-col items-stretch border-t">
+                <div className="w-full">
+                  <p className="mb-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                    Project timeline
                   </p>
-                  <div className="flex flex-wrap gap-2">
+                  <ol className="relative space-y-3 before:absolute before:bottom-2 before:left-[5px] before:top-2 before:w-px before:bg-border">
                     {initiative.projects.slice(0, 4).map((project) => (
-                      <Badge key={project.slug} variant="secondary" asChild>
-                        <Link href={`/projects/${project.slug}`}>
+                      <li
+                        key={project.slug}
+                        className="relative grid grid-cols-[12px_2.75rem_minmax(0,1fr)] items-baseline gap-2 text-sm"
+                      >
+                        <span className="relative z-10 h-3 w-3 rounded-full border-2 border-primary bg-card" />
+                        <span className="font-mono text-xs tabular-nums text-muted-foreground">
+                          {project.date.slice(0, 4)}
+                        </span>
+                        <Link
+                          href={`/projects/${project.slug}`}
+                          className="relative z-10 font-medium leading-5 underline-offset-4 hover:text-primary hover:underline"
+                        >
                           {project.title}
                         </Link>
-                      </Badge>
+                      </li>
                     ))}
                     {initiative.projects.length > 4 && (
-                      <Badge variant="secondary">
-                        +{initiative.projects.length - 4}
-                      </Badge>
+                      <li className="relative grid grid-cols-[12px_2.75rem_minmax(0,1fr)] items-center gap-2 text-sm text-muted-foreground">
+                        <span className="relative z-10 h-3 w-3 rounded-full border-2 border-muted-foreground/50 bg-card" />
+                        <span />
+                        <span>
+                          +{initiative.projects.length - 4} more{" "}
+                          {initiative.projects.length - 4 === 1
+                            ? "project"
+                            : "projects"}
+                        </span>
+                      </li>
                     )}
-                  </div>
+                  </ol>
                 </div>
-              )}
-              <Link
-                href={`/initiatives/${initiative.slug}`}
-                className="inline-flex items-center gap-2 text-sm font-medium underline-offset-4 hover:underline"
-              >
-                Read about the initiative
-                <ArrowRight className="h-4 w-4" />
-              </Link>
-            </CardFooter>
+              </CardFooter>
+            )}
           </Card>
         ))}
       </div>

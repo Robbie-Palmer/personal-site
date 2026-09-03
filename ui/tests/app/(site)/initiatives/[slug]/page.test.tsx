@@ -20,7 +20,8 @@ const fixture = {
   slug: "personalized-medicine",
   title: "Personalized Medicine",
   description: "Make patient-specific decisions more accessible.",
-  content: "## Goal",
+  content:
+    "## Goal\n\nMake care more personal.\n\n## Scope\n\nPathology and genomics.",
   projectContributions: {},
   projects: [
     {
@@ -74,8 +75,15 @@ describe("initiative page", () => {
       screen.getByText("Made model outputs inspectable."),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("link", { name: "Read the project" }),
+      screen.getByRole("heading", { name: "Goal", level: 2 }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Scope", level: 2 }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "View Pathology Viewer" }),
     ).toHaveAttribute("href", "/projects/pathology-viewer");
+    expect(screen.queryByText("Read the project")).toBeNull();
   });
 
   it("uses not-found metadata for an unknown initiative", async () => {

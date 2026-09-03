@@ -1,16 +1,9 @@
-import { ArrowRight, Target } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Markdown } from "@/components/markdown";
 import { ProjectStatusBadge } from "@/components/projects/project-status-badge";
 import { Badge } from "@/components/ui/badge";
-import {
-  Card,
-  CardContent,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import {
   getAllInitiativeSlugs,
@@ -20,6 +13,29 @@ import {
 
 interface PageProps {
   params: Promise<{ slug: string }>;
+}
+
+interface InitiativeSection {
+  title: string;
+  source: string;
+}
+
+function getInitiativeSections(content: string): InitiativeSection[] {
+  const matches = Array.from(content.matchAll(/^##\s+(.+)$/gm));
+
+  if (matches.length === 0) {
+    return [{ title: "About", source: content.trim() }];
+  }
+
+  return matches.map((match, index) => {
+    const bodyStart = (match.index ?? 0) + match[0].length;
+    const bodyEnd = matches[index + 1]?.index ?? content.length;
+
+    return {
+      title: match[1]?.trim() ?? "About",
+      source: content.slice(bodyStart, bodyEnd).trim(),
+    };
+  });
 }
 
 export function generateStaticParams() {
@@ -56,6 +72,7 @@ export default async function InitiativePage({ params }: Readonly<PageProps>) {
     firstProject && lastProject
       ? `${firstProject.date.slice(0, 4)} to ${lastProject.date.slice(0, 4)}`
       : null;
+  const sections = getInitiativeSections(initiative.content);
 
   return (
     <div className="container mx-auto max-w-5xl px-4 py-8 md:py-12">
@@ -71,8 +88,8 @@ export default async function InitiativePage({ params }: Readonly<PageProps>) {
       </nav>
 
       <header className="max-w-4xl">
-        <p className="flex items-center gap-2 text-sm font-medium uppercase tracking-wider text-muted-foreground">
-          <Target className="h-4 w-4" /> Initiative
+        <p className="text-sm font-medium uppercase tracking-wider text-muted-foreground">
+          Initiative
         </p>
         <h1 className="mt-3 text-4xl font-bold tracking-tight md:text-6xl">
           {initiative.title}
@@ -89,14 +106,24 @@ export default async function InitiativePage({ params }: Readonly<PageProps>) {
 
       <Separator className="my-10" />
 
-      <Card className="max-w-4xl bg-muted/20">
-        <CardContent>
-          <Markdown
-            source={initiative.content}
-            className="prose prose-zinc dark:prose-invert max-w-3xl"
-          />
-        </CardContent>
-      </Card>
+      <div className="max-w-4xl border-y">
+        {sections.map((section, index) => (
+          <section
+            key={section.title}
+            className={`grid gap-3 py-7 md:grid-cols-[9rem_minmax(0,1fr)] md:gap-8 ${
+              index > 0 ? "border-t" : ""
+            }`}
+          >
+            <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+              {section.title}
+            </h2>
+            <Markdown
+              source={section.source}
+              className="prose prose-zinc dark:prose-invert max-w-3xl prose-p:first:mt-0 prose-p:last:mb-0"
+            />
+          </section>
+        ))}
+      </div>
 
       <section aria-labelledby="initiative-projects" className="mt-14">
         <div className="max-w-3xl">
@@ -109,55 +136,73 @@ export default async function InitiativePage({ params }: Readonly<PageProps>) {
           </p>
         </div>
 
-        <ol className="mt-6 grid gap-5">
-          {initiative.projects.map((project, index) => (
-            <li key={project.slug}>
-              <Card className="gap-5 transition-all hover:border-primary/50 hover:shadow-md">
-                <CardHeader className="gap-4 sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:items-start">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-sm font-semibold tabular-nums text-primary">
-                    {String(index + 1).padStart(2, "0")}
-                  </div>
-                  <div className="space-y-2">
-                    <CardTitle className="text-xl">
-                      <h3>
-                        <Link
-                          href={`/projects/${project.slug}`}
-                          className="underline-offset-4 hover:underline"
-                        >
-                          {project.title}
-                        </Link>
-                      </h3>
-                    </CardTitle>
-                    <p className="max-w-3xl leading-7 text-muted-foreground">
-                      {project.contribution ?? project.description}
-                    </p>
-                  </div>
-                  <ProjectStatusBadge status={project.status} />
-                </CardHeader>
-                <CardFooter className="flex flex-wrap justify-between gap-4 border-t text-sm text-muted-foreground">
-                  <div className="flex flex-wrap gap-2">
-                    <Badge variant="outline">{project.date.slice(0, 4)}</Badge>
-                    {project.role && (
-                      <Badge variant="outline">{project.role.company}</Badge>
-                    )}
-                    {project.adrs.length > 0 && (
-                      <Badge variant="outline">
-                        {project.adrs.length}{" "}
-                        {project.adrs.length === 1 ? "decision" : "decisions"}
-                      </Badge>
-                    )}
-                  </div>
+        <div className="relative mt-8">
+          <div
+            aria-hidden="true"
+            className="absolute bottom-8 left-[11px] top-8 w-0.5 bg-gradient-to-b from-primary/50 via-primary/30 to-primary/10 md:left-[19px]"
+          />
+          <ol className="space-y-6">
+            {initiative.projects.map((project) => (
+              <li key={project.slug} className="relative pl-10 md:pl-14">
+                <span className="absolute left-[3px] top-8 z-10 flex h-5 w-5 items-center justify-center rounded-full border-2 border-primary bg-background md:left-[11px] md:h-6 md:w-6">
+                  <span className="h-1.5 w-1.5 rounded-full bg-primary md:h-2 md:w-2" />
+                </span>
+                <Card className="group relative gap-5 overflow-hidden transition-all hover:border-primary/50 hover:shadow-lg">
                   <Link
                     href={`/projects/${project.slug}`}
-                    className="inline-flex items-center gap-2 font-medium text-foreground underline-offset-4 hover:underline"
+                    className="absolute inset-0 z-0"
                   >
-                    Read the project <ArrowRight className="h-4 w-4" />
+                    <span className="sr-only">View {project.title}</span>
                   </Link>
-                </CardFooter>
-              </Card>
-            </li>
-          ))}
-        </ol>
+                  <CardHeader className="gap-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start">
+                    <div className="space-y-3">
+                      <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+                        <span className="font-mono tabular-nums">
+                          {project.date.slice(0, 4)}
+                        </span>
+                        {project.role && (
+                          <>
+                            <span aria-hidden="true">/</span>
+                            <span>{project.role.company}</span>
+                          </>
+                        )}
+                      </div>
+                      <CardTitle className="text-xl">
+                        <h3>
+                          <Link
+                            href={`/projects/${project.slug}`}
+                            className="relative z-10 underline-offset-4 group-hover:text-primary hover:underline"
+                          >
+                            {project.title}
+                          </Link>
+                        </h3>
+                      </CardTitle>
+                      <p className="max-w-3xl leading-7 text-muted-foreground">
+                        {project.contribution ?? project.description}
+                      </p>
+                    </div>
+                    <ProjectStatusBadge status={project.status} />
+                  </CardHeader>
+                  {(project.adrs.length > 0 || project.tags.length > 0) && (
+                    <CardFooter className="flex flex-wrap gap-2 border-t text-sm text-muted-foreground">
+                      {project.tags.slice(0, 3).map((tag) => (
+                        <Badge key={tag} variant="secondary">
+                          {tag}
+                        </Badge>
+                      ))}
+                      {project.adrs.length > 0 && (
+                        <Badge variant="outline">
+                          {project.adrs.length}{" "}
+                          {project.adrs.length === 1 ? "decision" : "decisions"}
+                        </Badge>
+                      )}
+                    </CardFooter>
+                  )}
+                </Card>
+              </li>
+            ))}
+          </ol>
+        </div>
       </section>
 
       <div className="mt-10">

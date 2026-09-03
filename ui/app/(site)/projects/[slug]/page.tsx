@@ -63,28 +63,19 @@ export default async function ProjectPage({ params }: Readonly<PageProps>) {
   }
 
   const initiatives = getInitiativesForProject(project.slug);
-  const soleInitiative = initiatives.length === 1 ? initiatives[0] : undefined;
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-5xl">
-      <div className="flex items-center gap-2 text-sm text-muted-foreground flex-wrap mb-8">
+      <nav
+        aria-label="Breadcrumb"
+        className="flex items-center gap-2 text-sm text-muted-foreground flex-wrap mb-8"
+      >
         <Link href="/projects" className="hover:underline underline-offset-4">
           Projects
         </Link>
         <span>/</span>
-        {soleInitiative && (
-          <>
-            <Link
-              href={`/initiatives/${soleInitiative.slug}`}
-              className="hover:underline underline-offset-4"
-            >
-              {soleInitiative.title}
-            </Link>
-            <span>/</span>
-          </>
-        )}
         <span>{project.title}</span>
-      </div>
+      </nav>
 
       <div className="space-y-6">
         {/* Header */}

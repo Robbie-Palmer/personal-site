@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import type { Mock } from "vitest";
 import { describe, expect, it, vi } from "vitest";
 import ProjectPage from "@/app/(site)/projects/[slug]/page";
@@ -126,7 +126,7 @@ describe("project page", () => {
     );
   });
 
-  it("places a sole initiative in the project hierarchy", async () => {
+  it("shows initiatives as relationships outside the breadcrumb", async () => {
     (getProject as Mock).mockReturnValue(fixture);
     (getInitiativesForProject as Mock).mockReturnValue([
       {
@@ -143,9 +143,11 @@ describe("project page", () => {
 
     render(await ProjectPage({ params: Promise.resolve({ slug: "homelab" }) }));
 
+    const breadcrumb = screen.getByRole("navigation", { name: "Breadcrumb" });
+    expect(within(breadcrumb).queryByText("Personalized Medicine")).toBeNull();
     expect(
-      screen.getAllByRole("link", { name: "Personalized Medicine" }),
-    ).toHaveLength(2);
+      screen.getByRole("link", { name: "Personalized Medicine" }),
+    ).toHaveAttribute("href", "/initiatives/personalized-medicine");
     expect(
       screen.getByText("This project advances the goal."),
     ).toBeInTheDocument();
