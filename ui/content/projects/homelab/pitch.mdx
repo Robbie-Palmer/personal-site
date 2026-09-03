@@ -1,0 +1,298 @@
+---
+title: "Home Lab pitch"
+description: "A persistent, multi-provider agent workspace that also runs useful household services"
+---
+
+# My phone reaches the same development machine as my laptop
+
+t3-code runs on an always-on Mac mini behind Tailscale.
+
+<PitchNotes>
+  The Mac mini does the development work. The phone drives it. Repositories, tools, credentials, worktrees, browsers,
+  and telemetry stay on the Mac mini.
+
+  \[Sources]
+
+  * [t3-code ADR](/projects/homelab/adrs/006-t3-code)
+  * [Tailscale ADR](/projects/homelab/adrs/000-tailscale)
+    \[/Sources]
+</PitchNotes>
+
+***
+
+<h2 className="pitch-slide__long-title">Claude and Codex proved the phone workflow. t3-code removed the provider split.</h2>
+
+I used Claude Code on the web from November and Codex cloud from April. Both made agent work from a phone normal.
+
+Changing provider also changed the interface, session model, limits, and development environment. I wanted one
+place to move between the Claude Code, Codex, Grok Build, and OpenCode harnesses without preparing the repo again.
+
+<PitchStep>
+  t3-code replaced the provider-specific remote interfaces. The harnesses and model subscriptions still do the work.
+</PitchStep>
+
+<PitchNotes>
+  The comparison comes from my own use. Claude Code on the web and Codex cloud both support remote, persistent work.
+  Their cloud sessions run in configured provider environments.
+
+  \[Sources]
+
+  * [Use Claude Code on the web](https://code.claude.com/docs/en/claude-code-on-the-web)
+  * [Codex cloud](https://learn.chatgpt.com/docs/cloud)
+  * [t3-code ADR](/projects/homelab/adrs/006-t3-code)
+    \[/Sources]
+</PitchNotes>
+
+***
+
+<h2 className="pitch-slide__long-title">t3-code manages threads better, even before I change harness</h2>
+
+<PitchColumns>
+  <PitchColumn>
+    ### Provider views
+
+    * **Codespaces** gives me a hosted development machine with no home host.
+    * **Claude and Codex cloud** keep work in their own task views.
+    * **Claude Remote Control** exposes local Claude sessions, tools, and worktrees.
+  </PitchColumn>
+
+  <PitchColumn>
+    ### t3-code
+
+    * The sidebar shows running threads, work waiting for input, and old sessions to settle.
+    * Diff, commit, push, and PR actions stay with the thread.
+    * Four harnesses, each with many models and threads, share the same view. It still helps when I use only one.
+  </PitchColumn>
+</PitchColumns>
+
+<PitchNotes>
+  Codespaces remains useful when a disposable hosted machine is the goal. Claude and Codex cloud remain useful for
+  background work that should not consume the Mac mini. Claude Remote Control gets closest to the local-machine part
+  of this setup. t3-code puts thread state and GitHub actions in the same view. Harness switching adds to that.
+
+  \[Sources]
+
+  * [GitHub Codespaces documentation](https://docs.github.com/en/codespaces)
+  * [Use Claude Code on the web](https://code.claude.com/docs/en/claude-code-on-the-web)
+  * [Claude Code Remote Control](https://code.claude.com/docs/en/remote-control)
+  * [Codex cloud](https://learn.chatgpt.com/docs/cloud)
+  * [t3-code ADR](/projects/homelab/adrs/006-t3-code)
+    \[/Sources]
+</PitchNotes>
+
+***
+
+## The phone is a control surface. The Mac mini does the work.
+
+<Mermaid
+  chart={`flowchart LR
+A[Phone or laptop] -->|Tailscale| B[t3-code<br/>Mac mini]
+B -->|harnesses| C[Claude Code · Codex<br/>Grok Build · OpenCode]
+C --> D[Models and threads]
+B --- G[Repos and worktrees]
+B --- H[GitHub auth and tools]
+B --- I[Browser and telemetry]`}
+/>
+
+Every thread shares the host's repos, tools, GitHub auth, browser, and telemetry.
+
+<PitchNotes>
+  Tailscale provides private network access. t3-code starts the agent backends and serves the shared interface. The
+  agents work against the Mac mini rather than a newly provisioned cloud environment.
+
+  \[Sources]
+
+  * [t3-code ADR](/projects/homelab/adrs/006-t3-code)
+  * [Home Lab deployment topology](/projects/homelab?tab=overview#deployment)
+    \[/Sources]
+</PitchNotes>
+
+***
+
+## The feedback loop ends at the running service
+
+<PitchColumns>
+  <PitchColumn>
+    ### An agent can use
+
+    * the real repository and toolchain
+    * isolated Git worktrees
+    * authenticated GitHub commands
+    * the browser used for debugging
+    * live logs and telemetry
+  </PitchColumn>
+
+  <PitchColumn>
+    ### It can check
+
+    * the protected preview
+    * a restart or reboot
+    * a real health endpoint
+    * the diff and pull request
+    * physical Android and iOS later
+  </PitchColumn>
+</PitchColumns>
+
+<PitchNotes>
+  A typecheck is useful, but it does not prove that launchd restarted a service, a VPN gate held, or a page works on an
+  old mobile browser. The proposed phone lab would give agents three real devices and repeatable screenshot tasks.
+
+  \[Sources]
+
+  * [Home Lab operating model](/projects/homelab?tab=overview#operations)
+  * [Phone device lab ADR](/projects/homelab/adrs/015-phone-device-lab)
+  * [Netdata ADR](/projects/homelab/adrs/009-netdata)
+    \[/Sources]
+</PitchNotes>
+
+***
+
+## Every solved problem leaves something the next one can reuse
+
+1. Tailscale made the Mac mini reachable without a public service.
+2. t3-code reused that host for four harnesses and their threads.
+3. mise tasks, worktrees, a browser, and telemetry made changes easier to test.
+4. The proposed phone lab can reuse the access, tasks, previews, and artifact collection.
+
+<PitchStep>
+  New work starts with access, commands, and feedback already working.
+</PitchStep>
+
+<PitchNotes>
+  This is what cumulative value delivery means in this project. Each change solves its immediate problem and leaves a
+  specific piece of infrastructure behind for later work.
+
+  \[Sources]
+
+  * [Home Lab overview](/projects/homelab?tab=overview)
+  * [t3-code ADR](/projects/homelab/adrs/006-t3-code)
+  * [Phone device lab ADR](/projects/homelab/adrs/015-phone-device-lab)
+    \[/Sources]
+</PitchNotes>
+
+***
+
+## Old hardware gets jobs that suit the hardware
+
+<PitchColumns>
+  <PitchColumn>
+    * The **Mac mini** runs agent sessions and services, and holds the 10TB disk.
+    * The **Raspberry Pi** runs a second DNS server and connects to the printer over USB.
+  </PitchColumn>
+
+  <PitchColumn>
+    * The **NixOS desktop** turns a GTX 1050 and 1TB disk into a GPU worker and DVC cache.
+    * Three **retired phones** could become browser targets and a cellular watchdog.
+  </PitchColumn>
+</PitchColumns>
+
+<PitchStep>
+  A NAS is easier. Reusing the Mac and printer avoids two purchases.
+</PitchStep>
+
+<PitchNotes>
+  Placement follows physical constraints. Disks stay with the Mac mini, the printer stays with the Pi, the GPU job
+  stays with the machine that has a GPU, and phones are used for the browsers and radios servers cannot represent.
+
+  \[Sources]
+
+  * [Home Lab nodes](/projects/homelab?tab=overview#nodes)
+  * [NixOS GPU worker ADR](/projects/homelab/adrs/010-nixos-gpu-worker)
+  * [CUPS ADR](/projects/homelab/adrs/012-cups)
+  * [Phone device lab ADR](/projects/homelab/adrs/015-phone-device-lab)
+    \[/Sources]
+</PitchNotes>
+
+***
+
+<h2 className="pitch-slide__long-title">Ente syncs photos. The lab owns the files and development workspace.</h2>
+
+<PitchColumns>
+  <PitchColumn>
+    ### Complements
+
+    * Ente remains the encrypted cloud photo service. An incremental export adds plain files on the 10TB disk.
+    * Trakt remains the discovery and history layer. Jellyfin gives the owned library one place to play.
+    * AI subscriptions still provide the models. t3-code provides the shared workspace.
+  </PitchColumn>
+
+  <PitchColumn>
+    ### Replaces or postpones
+
+    * t3-code replaces Claude and Codex remote interfaces in my daily workflow.
+    * CUPS and Gutenprint postpone replacing a working 2011 Canon printer.
+    * Ordinary disks and files avoid a NAS purchase and appliance lock-in.
+    * A larger local library may make some streaming subscriptions unnecessary.
+  </PitchColumn>
+</PitchColumns>
+
+<PitchNotes>
+  The streaming claim is deliberately tentative. Netflix, Disney Plus, Amazon Prime, and Apple TV remain subscribed
+  today. The current gain is a quicker route from Trakt discovery to Jellyfin playback for content already owned. A
+  Synology NAS would package storage, backup, sync, clients, and administration more neatly. The current lab accepts
+  more assembly work because the Mac mini and disk already cover the immediate jobs.
+
+  \[Sources]
+
+  * [Ente export documentation](https://ente.com/help/photos/features/backup-and-sync/export)
+  * [Ente photo backup ADR](/projects/homelab/adrs/007-ente-photo-backup)
+  * [Jellyfin ADR](/projects/homelab/adrs/011-jellyfin)
+  * [CUPS ADR](/projects/homelab/adrs/012-cups)
+  * [Synology Drive](https://www.synology.com/en-uk/dsm/feature/drive)
+    \[/Sources]
+</PitchNotes>
+
+***
+
+<h2 className="pitch-slide__long-title">This is a personal setup, and the awkward parts are real</h2>
+
+<PitchColumns>
+  <PitchColumn>
+    ### Failure modes
+
+    * If the Mac mini is down, remote agent work stops.
+    * Agent credentials and personal data share a host. Agents must not reach the photo disk.
+    * The 10TB copy is in the same house. It does not cover theft or fire.
+  </PitchColumn>
+
+  <PitchColumn>
+    ### Claims I cannot make yet
+
+    * The phone lab remains proposed.
+    * The media library cannot justify cancelling subscriptions yet.
+    * I have not measured a cash saving. Agent-assisted maintenance has stayed roughly flat.
+  </PitchColumn>
+</PitchColumns>
+
+<PitchNotes>
+  I have not tracked maintenance time. Agents write configuration, run the same mise tasks I run, and repair routine
+  failures. I still own the host, the permissions, and the consequences of a bad change.
+
+  \[Sources]
+
+  * [Home Lab risks](/projects/homelab?tab=overview#risks)
+  * [Home Lab future direction](/projects/homelab?tab=overview#future-direction)
+    \[/Sources]
+</PitchNotes>
+
+***
+
+# Reuse the pattern on hardware you already own
+
+Use hardware you already own. Add private remote access, one agent interface, repeatable commands, and checks against
+the running system.
+
+<PitchStep>
+  Fork the repo. Keep the decisions that solve a problem you actually have. Delete the rest.
+</PitchStep>
+
+<PitchNotes>
+  I do not expect this to become a product. The useful output is a worked example that another engineer can inspect,
+  challenge, and adapt.
+
+  \[Sources]
+
+  * [Home Lab repository](https://github.com/rjpalmerdev/personal-site/tree/main/homelab)
+  * [Home Lab overview](/projects/homelab?tab=overview)
+    \[/Sources]
+</PitchNotes>

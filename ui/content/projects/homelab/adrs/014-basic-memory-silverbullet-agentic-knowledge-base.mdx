@@ -21,7 +21,7 @@ creating the content. A new system must not reproduce that failure with a
 self-hosted graph.
 
 The main interface is different now. I already run Claude Code, Codex, Grok
-Build, and opencode through
+Build, and OpenCode through
 [t3-code](/projects/homelab/adrs/006-t3-code) on the Mac mini and can reach
 those agents from Android, macOS, and Ubuntu over
 [Tailscale](/projects/homelab/adrs/000-tailscale). I want to ask an agent to
@@ -333,7 +333,7 @@ to leave without a data migration.
   index, queries, and programmable libraries cover much of the human browsing
   need.
 * **Cons**: Direct file tools provide no consistent, graph-aware contract across
-  the four agents. Coupling the agent contract to editor extensions would also
+  the four harnesses. Coupling the agent contract to editor extensions would also
   make replacing the human client harder. Basic Memory more closely matches
   the part of Beads that is working: a dedicated CLI/MCP surface, JSON output,
   consistency checks, and a rebuildable index designed for agents.
