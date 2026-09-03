@@ -27,7 +27,7 @@ const SECRET_PATTERNS: Array<[string, RegExp]> = [
   ["connection-uri", /\b(?:postgres(?:ql)?|mysql|mongodb(?:\+srv)?|redis):\/\/[^\s"']+/gi],
 ];
 const ASSIGNMENT_NAME = String.raw`([\p{L}\p{N}_-]+)`;
-const ASSIGNMENT_VALUE = String.raw`(?:"(?:\\.|[^"\\\n])*"|'(?:\\.|[^'\\\n])*'|[^\s,;]+)`;
+const ASSIGNMENT_VALUE = String.raw`(?:"(?:\\[\s\S]|[^"\\])*"|'(?:\\[\s\S]|[^'\\])*'|[^\s,;]+)`;
 const ASSIGNMENT_PATTERNS = [
   new RegExp(String.raw`"${ASSIGNMENT_NAME}"\s*[:=]\s*${ASSIGNMENT_VALUE}`, "gu"),
   new RegExp(String.raw`'${ASSIGNMENT_NAME}'\s*[:=]\s*${ASSIGNMENT_VALUE}`, "gu"),

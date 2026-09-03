@@ -37,7 +37,9 @@ function prepared(mode: ReviewCoverageMode): PreparedReview {
     diff: "+Authorization: Basic dXNlcjpwYXNzd29yZA==",
     context: "Authorization: Bearer abcdefghijklmnopqrstuvwxyz",
     guidelines: "Review carefully.",
-    threads: String.raw`{"password":"quoted-secret-one-with-\"escaped-secret-tail",'api_key':'quoted-secret-two-with-\'single-secret-tail',"ａｐｉＫｅｙ":"compatibility-secret","pаssword":"homoglyph-secret"}`,
+    threads: String.raw`{"password":"quoted-secret-one-with-\"escaped-secret-tail",'api_key':'quoted-secret-two-with-\'single-secret-tail',"multiline_password":"first line
+multiline-double-secret",'multiline_api_key':'first line
+multiline-single-secret',"ａｐｉＫｅｙ":"compatibility-secret","pаssword":"homoglyph-secret"}`,
     paths: ["src/app.ts"],
     omitted: [],
     priorOpenFindings: [finding],
@@ -133,6 +135,8 @@ describe("replay input corpus", () => {
       expect(JSON.stringify(snapshot)).not.toContain("quoted-secret-two");
       expect(JSON.stringify(snapshot)).not.toContain("escaped-secret-tail");
       expect(JSON.stringify(snapshot)).not.toContain("single-secret-tail");
+      expect(JSON.stringify(snapshot)).not.toContain("multiline-double-secret");
+      expect(JSON.stringify(snapshot)).not.toContain("multiline-single-secret");
       expect(JSON.stringify(snapshot)).not.toContain("compatibility-secret");
       expect(JSON.stringify(snapshot)).not.toContain("homoglyph-secret");
       expect(JSON.stringify(snapshot)).not.toContain("structured-secret-three");
