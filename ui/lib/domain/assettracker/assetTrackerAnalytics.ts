@@ -165,6 +165,31 @@ function compoundAcrossSchedule(
   return value;
 }
 
+function projectBalanceEstimate(
+  schedule: ReturnSchedule,
+  estimate: number | null,
+  previousDate: string | null,
+  date: string,
+  flowAmount: number,
+  actual: number | undefined,
+): { expected: number | null; nextEstimate: number | null } {
+  const hadEstimate = estimate != null;
+  let projected = estimate;
+  if (projected != null && previousDate != null) {
+    projected = compoundAcrossSchedule(schedule, projected, previousDate, date);
+  }
+  if (projected == null && flowAmount !== 0) projected = 0;
+  if (projected != null && (actual == null || hadEstimate)) {
+    projected += flowAmount;
+  }
+
+  // The first confirmed valuation is the anchor. Later valuations retain
+  // the pre-reset expectation so the chart can show the estimation error.
+  const expected =
+    actual != null && !hadEstimate ? actual : (projected ?? actual);
+  return { expected: expected ?? null, nextEstimate: actual ?? projected };
+}
+
 /**
  * Estimates balances between confirmed valuations. Each confirmed balance
  * resets the estimate. Between them, dated capital flows are applied and the
@@ -196,21 +221,16 @@ export function buildBalanceEstimateSeries(
 
   for (const date of dates) {
     const actual = snapshotByDate.get(date);
-    const hadEstimate = estimate != null;
-    if (estimate != null && previousDate != null) {
-      estimate = compoundAcrossSchedule(schedule, estimate, previousDate, date);
-    }
-
     const flowAmount = flowsByDate.get(date) ?? 0;
-    if (estimate == null && flowAmount !== 0) estimate = 0;
-    if (estimate != null && (actual == null || hadEstimate)) {
-      estimate += flowAmount;
-    }
-
-    // The first confirmed valuation is the anchor. Later valuations retain
-    // the pre-reset expectation so the chart can show the estimation error.
-    const expected =
-      actual != null && !hadEstimate ? actual : (estimate ?? actual);
+    const projected = projectBalanceEstimate(
+      schedule,
+      estimate,
+      previousDate,
+      date,
+      flowAmount,
+      actual,
+    );
+    const expected = projected.expected;
     if (expected != null) {
       points.push({
         date,
@@ -220,7 +240,7 @@ export function buildBalanceEstimateSeries(
       });
     }
 
-    if (actual != null) estimate = actual;
+    estimate = projected.nextEstimate;
     if (estimate != null) previousDate = date;
   }
 

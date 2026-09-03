@@ -42,62 +42,85 @@ export type MinimumPaymentFormula = z.infer<typeof MinimumPaymentFormulaSchema>;
  * a standing order into savings, a loan repayment. Flows feed projections;
  * they never alter recorded balances — reality stays whatever the user logs.
  */
+export const RecurringFlowDefinitionShape = {
+  name: z.string().min(1, "Give the flow a name"),
+  fromAccountId: AccountIdSchema.optional(),
+  toAccountId: AccountIdSchema.optional(),
+  amount: z.number().positive("Amount must be positive").optional(),
+  /** Gross pay before this take-home amount and salary sacrifice are deducted. */
+  grossAmount: z.number().positive("Gross amount must be positive").optional(),
+  /** Computed against the balance of the liability the flow pays down */
+  formula: MinimumPaymentFormulaSchema.optional(),
+  compensationKind: CompensationKindSchema.optional(),
+  frequency: FlowFrequencySchema,
+  endDate: z.iso.date().optional(),
+};
+
+const RecurringFlowDefinitionSchema = z.object(RecurringFlowDefinitionShape);
+type RecurringFlowDefinition = z.infer<typeof RecurringFlowDefinitionSchema>;
+
+export function validateRecurringFlowDefinition(
+  flow: RecurringFlowDefinition,
+  context: z.RefinementCtx,
+) {
+  if (flow.fromAccountId == null && flow.toAccountId == null) {
+    context.addIssue({
+      code: "custom",
+      message: "A flow needs a source or a destination account",
+    });
+  }
+  if (flow.fromAccountId === flow.toAccountId) {
+    context.addIssue({
+      code: "custom",
+      message: "Source and destination must differ",
+    });
+  }
+  if ((flow.amount != null) === (flow.formula != null)) {
+    context.addIssue({
+      code: "custom",
+      message: "Provide either an amount or a formula, not both",
+    });
+  }
+  if (flow.formula != null && flow.frequency !== "monthly") {
+    context.addIssue({
+      code: "custom",
+      message: "Formula payments must use a monthly frequency",
+    });
+  }
+  const invalidCompensation =
+    flow.compensationKind != null &&
+    (flow.fromAccountId != null ||
+      flow.toAccountId == null ||
+      flow.amount == null ||
+      flow.formula != null);
+  if (invalidCompensation) {
+    context.addIssue({
+      code: "custom",
+      message:
+        "Compensation must be a fixed amount entering an account from outside the portfolio",
+    });
+  }
+  const invalidGrossAmount =
+    flow.grossAmount != null &&
+    (flow.compensationKind !== "takeHomeIncome" ||
+      flow.amount == null ||
+      flow.grossAmount < flow.amount);
+  if (invalidGrossAmount) {
+    context.addIssue({
+      code: "custom",
+      message:
+        "Gross amount is only valid for take-home income and cannot be less than take-home pay",
+    });
+  }
+}
+
 export const RecurringFlowSchema = z
   .object({
     id: z.string().min(1),
-    name: z.string().min(1, "Give the flow a name"),
-    fromAccountId: AccountIdSchema.optional(),
-    toAccountId: AccountIdSchema.optional(),
-    amount: z.number().positive("Amount must be positive").optional(),
-    /** Gross pay before this take-home amount and salary sacrifice are deducted. */
-    grossAmount: z
-      .number()
-      .positive("Gross amount must be positive")
-      .optional(),
-    /** Computed against the balance of the liability the flow pays down */
-    formula: MinimumPaymentFormulaSchema.optional(),
-    compensationKind: CompensationKindSchema.optional(),
-    frequency: FlowFrequencySchema,
+    ...RecurringFlowDefinitionShape,
     startDate: z.iso.date(),
-    endDate: z.iso.date().optional(),
   })
-  .refine((f) => f.fromAccountId != null || f.toAccountId != null, {
-    message: "A flow needs a source or a destination account",
-  })
-  .refine((f) => f.fromAccountId !== f.toAccountId, {
-    message: "Source and destination must differ",
-  })
-  .refine((f) => (f.amount != null) !== (f.formula != null), {
-    message: "Provide either an amount or a formula, not both",
-  })
-  // monthlyAmount() treats a formula as a monthly figure, so the frequency
-  // must agree to avoid silently skewed projections
-  .refine((f) => f.formula == null || f.frequency === "monthly", {
-    message: "Formula payments must use a monthly frequency",
-  })
-  .refine(
-    (f) =>
-      f.compensationKind == null ||
-      (f.fromAccountId == null &&
-        f.toAccountId != null &&
-        f.amount != null &&
-        f.formula == null),
-    {
-      message:
-        "Compensation must be a fixed amount entering an account from outside the portfolio",
-    },
-  )
-  .refine(
-    (f) =>
-      f.grossAmount == null ||
-      (f.compensationKind === "takeHomeIncome" &&
-        f.amount != null &&
-        f.grossAmount >= f.amount),
-    {
-      message:
-        "Gross amount is only valid for take-home income and cannot be less than take-home pay",
-    },
-  );
+  .superRefine(validateRecurringFlowDefinition);
 
 export type RecurringFlow = z.infer<typeof RecurringFlowSchema>;
 

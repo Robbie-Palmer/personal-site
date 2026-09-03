@@ -455,29 +455,21 @@ export function getPortfolioFinancialIndependence(
     annualExpenditure,
     startDate,
   );
-  const annualPensionContributions =
-    compensation == null
-      ? 0
-      : compensation.annualEmployeePensionContribution +
-        compensation.annualEmployerPensionContribution;
-  const annualSavings =
-    compensation == null
-      ? historicalAnnualSavings
-      : compensation.annualTakeHomeSavings + annualPensionContributions;
-  const totalCurrentCompensation =
-    compensation == null
-      ? 0
-      : compensation.annualTakeHomeIncome + annualPensionContributions;
-  const savingsRate =
-    compensation == null
-      ? historicalSavingsRate
-      : totalCurrentCompensation > 0 && annualSavings != null
-        ? annualSavings / totalCurrentCompensation
-        : null;
-  const takeHomeSavingsRate =
-    compensation == null
-      ? null
-      : compensation.annualTakeHomeSavings / compensation.annualTakeHomeIncome;
+  let annualSavings = historicalAnnualSavings;
+  let savingsRate = historicalSavingsRate;
+  let takeHomeSavingsRate: number | null = null;
+  if (compensation != null) {
+    const annualPensionContributions =
+      compensation.annualEmployeePensionContribution +
+      compensation.annualEmployerPensionContribution;
+    annualSavings =
+      compensation.annualTakeHomeSavings + annualPensionContributions;
+    const totalCurrentCompensation =
+      compensation.annualTakeHomeIncome + annualPensionContributions;
+    savingsRate = annualSavings / totalCurrentCompensation;
+    takeHomeSavingsRate =
+      compensation.annualTakeHomeSavings / compensation.annualTakeHomeIncome;
+  }
   const expectedRealReturn = expectedPortfolioRealReturn(
     repository,
     balances,

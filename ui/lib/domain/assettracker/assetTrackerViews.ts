@@ -6,6 +6,7 @@ import {
   isLiability,
 } from "./account";
 import {
+  type BalanceEstimatePoint,
   buildBalanceEstimateSeries,
   computeMoneyWeightedReturn,
   type ExternalFlow,
@@ -258,6 +259,94 @@ export function toAccountDetailView(
   };
 }
 
+function accountHasRecordedValue(
+  accountId: string,
+  mortgageIds: readonly string[],
+  recordedAccountIds: Readonly<{ has(value: string): boolean }>,
+): boolean {
+  return (
+    recordedAccountIds.has(accountId) ||
+    mortgageIds.some((mortgageId) => recordedAccountIds.has(mortgageId))
+  );
+}
+
+function recordedBalanceWithMortgages(
+  accountId: string,
+  mortgageIds: readonly string[],
+  latestByAccount: ReadonlyMap<string, number>,
+): number {
+  return mortgageIds.reduce(
+    (balance, mortgageId) => balance + (latestByAccount.get(mortgageId) ?? 0),
+    latestByAccount.get(accountId) ?? 0,
+  );
+}
+
+function recordedNetWorthPoint(
+  date: string,
+  accounts: readonly Account[],
+  absorbedIds: ReadonlySet<string>,
+  mortgagesByProperty: ReadonlyMap<string, string[]>,
+  accountsWithMarketValue: ReadonlySet<string>,
+  latestByAccount: ReadonlyMap<string, number>,
+): NetWorthDataPoint {
+  const point: NetWorthDataPoint = { date, total: 0 };
+  for (const account of accounts) {
+    if (absorbedIds.has(account.id)) continue;
+    const mortgageIds = mortgagesByProperty.get(account.id) ?? [];
+    const hasMarketHistory = accountHasRecordedValue(
+      account.id,
+      mortgageIds,
+      accountsWithMarketValue,
+    );
+    const hasRecordedBalance = accountHasRecordedValue(
+      account.id,
+      mortgageIds,
+      latestByAccount,
+    );
+    // A contribution history is not a market valuation. Leave accounts out
+    // until they or a linked mortgage have a recorded balance.
+    if (!hasMarketHistory || !hasRecordedBalance) continue;
+    const balance = recordedBalanceWithMortgages(
+      account.id,
+      mortgageIds,
+      latestByAccount,
+    );
+    point[account.name] = balance;
+    point.total += balance;
+  }
+  return point;
+}
+
+function withEstimatedNetWorth(
+  point: NetWorthDataPoint,
+  date: string,
+  accounts: readonly Account[],
+  accountsWithMarketValue: ReadonlySet<string>,
+  latestByAccount: ReadonlyMap<string, number>,
+  estimatesByAccount: ReadonlyMap<
+    string,
+    ReadonlyMap<string, BalanceEstimatePoint>
+  >,
+): NetWorthDataPoint {
+  let estimatedTotal = point.total;
+  let usesEstimate = false;
+  for (const account of accounts) {
+    if (account.closedAt != null && date > account.closedAt) continue;
+    const estimate = estimatesByAccount.get(account.id)?.get(date);
+    if (estimate == null || estimate.actual != null) continue;
+    const recordedBalance = accountsWithMarketValue.has(account.id)
+      ? (latestByAccount.get(account.id) ?? 0)
+      : 0;
+    estimatedTotal += estimate.estimated - recordedBalance;
+    usesEstimate = true;
+  }
+  if (!usesEstimate) return point;
+  return {
+    ...point,
+    estimatedTotal: Math.round(estimatedTotal * 100) / 100,
+  };
+}
+
 export function toNetWorthTimeSeries(
   accounts: Account[],
   snapshots: BalanceSnapshot[],
@@ -320,45 +409,21 @@ export function toNetWorthTimeSeries(
       snapshot = sortedSnapshots[snapshotIndex];
     }
 
-    const point: NetWorthDataPoint = { date, total: 0 };
-    for (const account of accounts) {
-      if (absorbedIds.has(account.id)) continue;
-      const mortgageIds = mortgagesByProperty.get(account.id) ?? [];
-      const hasMarketHistory =
-        accountsWithMarketValue.has(account.id) ||
-        mortgageIds.some((mortgageId) =>
-          accountsWithMarketValue.has(mortgageId),
-        );
-      const hasRecordedBalance =
-        latestByAccount.has(account.id) ||
-        mortgageIds.some((mortgageId) => latestByAccount.has(mortgageId));
-      // A contribution history is not a market valuation. Leave accounts out
-      // of the market-value series until either they or a linked mortgage have
-      // a recorded balance, rather than drawing a fabricated zero line.
-      if (!hasMarketHistory || !hasRecordedBalance) continue;
-      let balance = latestByAccount.get(account.id) ?? 0;
-      for (const mortgageId of mortgageIds) {
-        balance += latestByAccount.get(mortgageId) ?? 0;
-      }
-      point[account.name] = balance;
-      point.total += balance;
-    }
-
-    let estimatedTotal = point.total;
-    let usesEstimate = false;
-    for (const account of accounts) {
-      if (account.closedAt != null && date > account.closedAt) continue;
-      const estimate = estimatesByAccount.get(account.id)?.get(date);
-      if (estimate == null || estimate.actual != null) continue;
-      const recordedBalance = accountsWithMarketValue.has(account.id)
-        ? (latestByAccount.get(account.id) ?? 0)
-        : 0;
-      estimatedTotal += estimate.estimated - recordedBalance;
-      usesEstimate = true;
-    }
-    if (usesEstimate) {
-      point.estimatedTotal = Math.round(estimatedTotal * 100) / 100;
-    }
-    return point;
+    const point = recordedNetWorthPoint(
+      date,
+      accounts,
+      absorbedIds,
+      mortgagesByProperty,
+      accountsWithMarketValue,
+      latestByAccount,
+    );
+    return withEstimatedNetWorth(
+      point,
+      date,
+      accounts,
+      accountsWithMarketValue,
+      latestByAccount,
+      estimatesByAccount,
+    );
   });
 }

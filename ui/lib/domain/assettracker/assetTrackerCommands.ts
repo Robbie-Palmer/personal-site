@@ -16,11 +16,10 @@ import {
   capitalFlowKind,
 } from "./capitalFlow";
 import {
-  CompensationKindSchema,
-  FlowFrequencySchema,
   flowOccurrenceDates,
-  MinimumPaymentFormulaSchema,
   monthlyAmount,
+  RecurringFlowDefinitionShape,
+  validateRecurringFlowDefinition,
 } from "./recurringFlow";
 
 /**
@@ -176,55 +175,11 @@ export type RecordTransferInput = z.infer<typeof RecordTransferInputSchema>;
 
 export const AddRecurringFlowInputSchema = z
   .object({
-    name: z.string().trim().min(1, "Give the flow a name"),
-    fromAccountId: AccountIdSchema.optional(),
-    toAccountId: AccountIdSchema.optional(),
-    amount: z.number().positive("Amount must be positive").optional(),
-    grossAmount: z
-      .number()
-      .positive("Gross amount must be positive")
-      .optional(),
-    formula: MinimumPaymentFormulaSchema.optional(),
-    compensationKind: CompensationKindSchema.optional(),
-    frequency: FlowFrequencySchema,
+    ...RecurringFlowDefinitionShape,
+    name: RecurringFlowDefinitionShape.name.trim(),
     startDate: IsoDateSchema.optional(),
-    endDate: IsoDateSchema.optional(),
   })
-  .refine((f) => f.fromAccountId != null || f.toAccountId != null, {
-    message: "A flow needs a source or a destination account",
-  })
-  .refine((f) => f.fromAccountId !== f.toAccountId, {
-    message: "Source and destination must differ",
-  })
-  .refine((f) => (f.amount != null) !== (f.formula != null), {
-    message: "Provide either an amount or a formula, not both",
-  })
-  .refine((f) => f.formula == null || f.frequency === "monthly", {
-    message: "Formula payments must use a monthly frequency",
-  })
-  .refine(
-    (f) =>
-      f.compensationKind == null ||
-      (f.fromAccountId == null &&
-        f.toAccountId != null &&
-        f.amount != null &&
-        f.formula == null),
-    {
-      message:
-        "Compensation must be a fixed amount entering an account from outside the portfolio",
-    },
-  )
-  .refine(
-    (f) =>
-      f.grossAmount == null ||
-      (f.compensationKind === "takeHomeIncome" &&
-        f.amount != null &&
-        f.grossAmount >= f.amount),
-    {
-      message:
-        "Gross amount is only valid for take-home income and cannot be less than take-home pay",
-    },
-  );
+  .superRefine(validateRecurringFlowDefinition);
 export type AddRecurringFlowInput = z.infer<typeof AddRecurringFlowInputSchema>;
 
 export const DeleteRecurringFlowInputSchema = z.object({
