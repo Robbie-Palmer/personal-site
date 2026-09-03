@@ -413,6 +413,7 @@ describe("controlled replay runner", () => {
       [{ allowedProviders: ["opencode"] }, request.experiment, /openrouter/],
       [{ maxScoutTokens: 1 }, request.experiment, /scout token/],
       [{ maxMergerTokens: 1 }, request.experiment, /merger token/],
+      [{ timeoutMs: 2_147_483_648 }, request.experiment, /timeoutMs/],
       [{}, { kind: "scout-model", models: [] }, /models/],
       [{}, { kind: "scout-model", models: [{ model: " ", provider: "openrouter" }] }, /model/],
     ];
