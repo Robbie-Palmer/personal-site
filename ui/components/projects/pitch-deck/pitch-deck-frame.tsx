@@ -250,6 +250,8 @@ export function PitchDeckFrame({
       setView("slides");
       return;
     }
+    // Capture this before React commits the view change. The animation-frame
+    // effect must use the selected slide even if position state commits later.
     scrollTargetRef.current = currentPositionRef.current - 1;
     setView("scroll");
   };
