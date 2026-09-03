@@ -150,6 +150,26 @@ describe("ShoppingList value analytics", () => {
     expect(mocks.captureRecipeValue).not.toHaveBeenCalled();
   });
 
+  it("counts pantry items toward shopping-list completion", async () => {
+    __resetShoppingListForTests();
+    addRecipe("veg-and-chicken");
+    pantryState.stock = { "chicken-breast": "fridge" };
+    const user = userEvent.setup();
+    render(<ShoppingList recipes={twoAisleRecipes} />);
+
+    await user.click(screen.getByRole("button", { name: /garlic/i }));
+
+    await waitFor(() =>
+      expect(mocks.captureRecipeValue).toHaveBeenCalledWith(
+        "shopping_trip_completed",
+        {
+          item_count: 2,
+          recipe_count: 1,
+        },
+      ),
+    );
+  });
+
   it("records one value event when the final item is unchecked and rechecked", async () => {
     const user = userEvent.setup();
     render(<ShoppingList recipes={recipes} />);
@@ -285,6 +305,20 @@ describe("ShoppingList pantry state", () => {
     expect(
       screen.getByRole("heading", { name: /already have/i }),
     ).toBeInTheDocument();
+  });
+
+  it("keeps the refresh notice below the buy list so it cannot reflow the rows", () => {
+    pantryState.error = new Error("refresh failed");
+
+    render(<ShoppingList recipes={recipes} />);
+
+    const garlicRow = screen.getByRole("button", { name: /garlic/i });
+    const notice = screen.getByRole("alert");
+    expect(notice).toHaveTextContent("using the last pantry data that loaded");
+    expect(
+      garlicRow.compareDocumentPosition(notice) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
   });
 
   it("explains why an optimistic pantry removal was restored", () => {

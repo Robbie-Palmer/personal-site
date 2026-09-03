@@ -600,6 +600,70 @@ describe("ShoppingListBoundary", () => {
     ]);
   });
 
+  it("restores the saved cache after a stale refetch", async () => {
+    mocks.saveCurrentShoppingList.mockResolvedValue({
+      ...storedList,
+      revision: "1",
+      snapshot: { ...emptySnapshot, checked: ["garlic"] },
+    });
+    const { queryClient } = renderWithQueryClient(
+      <ShoppingListBoundary>
+        <p>List ready</p>
+      </ShoppingListBoundary>,
+    );
+    await screen.findByText("List ready");
+    await waitForInstalledList();
+
+    act(() => toggleChecked("garlic"));
+    await waitFor(() =>
+      expect(
+        queryClient.getQueryData<StoredShoppingList>([
+          "recipes",
+          "private",
+          "user-1",
+          "shopping-list",
+        ])?.revision,
+      ).toBe("1"),
+    );
+    mocks.saveCurrentShoppingList.mockClear();
+
+    act(() => {
+      queryClient.setQueryData(
+        ["recipes", "private", "user-1", "shopping-list"],
+        storedList,
+      );
+    });
+
+    await waitFor(() =>
+      expect(
+        queryClient.getQueryData<StoredShoppingList>([
+          "recipes",
+          "private",
+          "user-1",
+          "shopping-list",
+        ]),
+      ).toEqual(
+        expect.objectContaining({
+          revision: "1",
+          snapshot: expect.objectContaining({ checked: ["garlic"] }),
+        }),
+      ),
+    );
+
+    act(() => addExtra("Milk"));
+
+    await waitFor(() =>
+      expect(mocks.saveCurrentShoppingList).toHaveBeenCalledWith(
+        storedList.id,
+        "1",
+        expect.objectContaining({
+          checked: ["garlic"],
+          extras: [expect.objectContaining({ text: "Milk" })],
+        }),
+      ),
+    );
+  });
+
   it("shows a load error instead of an editable local list", async () => {
     mocks.getCurrentShoppingList.mockRejectedValue(new Error("offline"));
 
