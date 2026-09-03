@@ -107,19 +107,26 @@ function validateExperiment(params: PipelineParamsInput, context: z.RefinementCt
   if (params.experiment.baseline.id === params.experiment.candidate.id) {
     context.addIssue({ code: "custom", path: ["experiment", "candidate", "id"], message: "variant IDs must be distinct" });
   }
-  for (const role of ["baseline", "candidate"] as const) {
-    const experiment = params.experiment[role].experiment;
-    if (experiment.kind !== params.experiment.variable) {
-      context.addIssue({ code: "custom", path: ["experiment", role, "experiment", "kind"], message: "must match experiment.variable" });
+  validateVariant(params, "baseline", context);
+  validateVariant(params, "candidate", context);
+}
+
+function validateVariant(
+  params: PipelineParamsInput,
+  role: "baseline" | "candidate",
+  context: z.RefinementCtx,
+): void {
+  const experiment = params.experiment[role].experiment;
+  if (experiment.kind !== params.experiment.variable) {
+    context.addIssue({ code: "custom", path: ["experiment", role, "experiment", "kind"], message: "must match experiment.variable" });
+  }
+  if (experiment.kind === "scout-model") {
+    if (experiment.models.length > params.limits.maxModels) {
+      context.addIssue({ code: "custom", path: ["experiment", role, "experiment", "models"], message: "exceeds limits.maxModels" });
     }
-    if (experiment.kind === "scout-model") {
-      if (experiment.models.length > params.limits.maxModels) {
-        context.addIssue({ code: "custom", path: ["experiment", role, "experiment", "models"], message: "exceeds limits.maxModels" });
-      }
-      for (const model of experiment.models) {
-        if (!params.limits.allowedProviders.includes(model.provider)) {
-          context.addIssue({ code: "custom", path: ["experiment", role, "experiment", "models"], message: `${model.provider} is outside limits.allowedProviders` });
-        }
+    for (const model of experiment.models) {
+      if (!params.limits.allowedProviders.includes(model.provider)) {
+        context.addIssue({ code: "custom", path: ["experiment", role, "experiment", "models"], message: `${model.provider} is outside limits.allowedProviders` });
       }
     }
   }
