@@ -12,6 +12,7 @@ const { deckApi, deckState } = vi.hoisted(() => ({
   deckApi: {
     configure: vi.fn(),
     getPlugin: vi.fn(),
+    getCurrentSlide: vi.fn<() => HTMLElement | null>(() => null),
     getSlidePastCount: vi.fn(() => 0),
     getTotalSlides: vi.fn(() => 3),
     isFirstSlide: vi.fn(() => true),
@@ -75,6 +76,7 @@ describe("PitchDeckFrame", () => {
   });
 
   afterEach(() => {
+    vi.restoreAllMocks();
     window.history.replaceState({}, "", "/");
     delete (HTMLElement.prototype as { requestFullscreen?: unknown })
       .requestFullscreen;
@@ -266,5 +268,86 @@ describe("PitchDeckFrame", () => {
       hashOneBasedIndex: true,
       history: true,
     });
+  });
+
+  it("opens and synchronizes the project presenter route", async () => {
+    const slide = document.createElement("section");
+    slide.innerHTML = '<aside class="notes">Explain the review loop.</aside>';
+    deckApi.getCurrentSlide.mockReturnValue(slide);
+    const speakerWindow = {
+      closed: false,
+      focus: vi.fn(),
+      postMessage: vi.fn(),
+    } as unknown as Window;
+    const openWindow = vi.spyOn(window, "open").mockReturnValue(speakerWindow);
+
+    render(
+      <PitchDeckFrame
+        projectSlug="agentic-code-review"
+        title="Agentic Code Review pitch"
+        mode="focused"
+      >
+        <section>Focused slide</section>
+      </PitchDeckFrame>,
+    );
+
+    await waitFor(() => expect(deckState.props).toBeDefined());
+    fireEvent.click(screen.getByRole("button", { name: "Speaker" }));
+    expect(openWindow).toHaveBeenCalledWith(
+      "/projects/agentic-code-review/deck/presenter#/1",
+      "pitch-deck-presenter",
+      "width=1100,height=700",
+    );
+
+    act(() => {
+      window.dispatchEvent(
+        new MessageEvent("message", {
+          data: { namespace: "pitch-deck-presenter", type: "connect" },
+          origin: window.location.origin,
+          source: speakerWindow,
+        }),
+      );
+    });
+    expect(speakerWindow.postMessage).toHaveBeenLastCalledWith(
+      {
+        namespace: "pitch-deck-presenter",
+        type: "state",
+        current: 0,
+        total: 3,
+        notes: "Explain the review loop.",
+      },
+      window.location.origin,
+    );
+
+    act(() => {
+      window.dispatchEvent(
+        new MessageEvent("message", {
+          data: {
+            namespace: "pitch-deck-presenter",
+            type: "navigate",
+            direction: "previous",
+          },
+          origin: window.location.origin,
+          source: speakerWindow,
+        }),
+      );
+      window.dispatchEvent(
+        new MessageEvent("message", {
+          data: {
+            namespace: "pitch-deck-presenter",
+            type: "navigate",
+            direction: "next",
+          },
+          origin: window.location.origin,
+          source: speakerWindow,
+        }),
+      );
+    });
+    expect(deckApi.prev).toHaveBeenCalledOnce();
+    expect(deckApi.next).toHaveBeenCalledOnce();
+
+    fireEvent.click(screen.getByRole("button", { name: "Speaker" }));
+    expect(openWindow).toHaveBeenCalledOnce();
+    expect(speakerWindow.focus).toHaveBeenCalledOnce();
   });
 });

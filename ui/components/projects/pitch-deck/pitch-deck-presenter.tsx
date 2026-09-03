@@ -2,7 +2,6 @@
 
 import { ArrowLeft, ArrowRight } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import "./pitch-deck-presenter.css";
 
 const speakerMessageNamespace = "pitch-deck-presenter";
 
