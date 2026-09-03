@@ -211,12 +211,14 @@ with direct code evidence. Replay is evidence, not adjudication: the coordinator
 adds a `confirmed-fixed` outcome only after a trusted actor submits
 the top-level fallback `/ai-review confirm-fixed <finding-id> <reason>` for a
 recorded `fixed` replay when no finding thread is available.
-The replay head must match the authoritative current PR head fetched from
-GitHub when the trusted command is handled. The outcome links the trusted actor
-and reason to that replay's head, run, and
-evidence. PR content, stale replay, model omission, or a resolved GitHub thread
-cannot mint a confirmed label by itself. Confirmation suppresses replay only on
-that exact head; a later head makes the finding eligible for replay again.
+The coordinator fetches the authoritative current PR head from GitHub when it
+handles the trusted command. A completed forced full review can
+carry a fixed verdict forward when it produced no newer resolution for that
+finding, because the finding's file had no new semantic hunks. The outcome
+records that current-head validation run alongside the original replay. PR
+content, model omission, or a resolved GitHub thread cannot mint a confirmed
+label by itself. Confirmation suppresses replay only on that exact head; a
+later head makes the finding eligible for replay again.
 
 On `pull_request.closed`, the evaluator immediately joins each finding to the
 final reviewed head, later resolution evidence, replies, reaction snapshots,

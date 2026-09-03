@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-const MAX_TIMER_DELAY_MS = 2_147_483_647;
+export const MAX_REPLAY_TIMEOUT_MS = 2_147_483_647;
 
 export const ReplayProviderSchema = z.enum(["openrouter", "opencode"]);
 export type ReplayProvider = z.infer<typeof ReplayProviderSchema>;
@@ -54,7 +54,7 @@ export const ReplayLimitsSchema = z.object({
   maxCostUsd: z.number().positive(),
   allowedProviders: ReplayProviderListSchema,
   requireZeroDataRetention: z.boolean(),
-  timeoutMs: z.number().int().positive().max(MAX_TIMER_DELAY_MS),
+  timeoutMs: z.number().int().positive().max(MAX_REPLAY_TIMEOUT_MS),
   maxRepetitions: z.number().int().positive(),
 }).strict();
 export type ReplayLimits = z.infer<typeof ReplayLimitsSchema>;

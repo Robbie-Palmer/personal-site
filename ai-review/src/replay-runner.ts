@@ -19,6 +19,7 @@ import {
   stableJson,
 } from "./replay-input";
 import {
+  MAX_REPLAY_TIMEOUT_MS,
   ReplayExperimentSchema,
   ReplayLimitsSchema,
   type ReplayExperiment,
@@ -292,7 +293,7 @@ function round6(value: number): number {
 }
 
 function replayClaimMaxAgeMs(timeoutMs: number): number {
-  return timeoutMs * 3 + REPLAY_CLAIM_GRACE_MS;
+  return Math.min(timeoutMs, MAX_REPLAY_TIMEOUT_MS) * 3 + REPLAY_CLAIM_GRACE_MS;
 }
 
 async function withTimeout<T>(operation: Promise<T>, timeoutMs: number): Promise<T> {

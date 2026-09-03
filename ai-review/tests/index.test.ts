@@ -826,6 +826,59 @@ describe("PullRequestCoordinator", () => {
     expect(put).not.toHaveBeenCalled();
   });
 
+  it("carries a fixed replay across an unchanged finding after a current full review", async () => {
+    const { coordinator, put, sqlExec } = coordinatorFixture();
+    const replayHead = "1".repeat(40);
+    const currentHead = "2".repeat(40);
+    sqlExec.mockImplementation((query: string) => ({
+      rowsWritten: 1,
+      toArray: () => {
+        if (query.includes("SELECT finding_id FROM review_findings")) {
+          return [{ finding_id: identifiedFinding.findingId }];
+        }
+        if (query.includes("finding_resolutions_json IS NOT NULL")) {
+          return [{
+            run_id: "fixed-replay",
+            head_sha: replayHead,
+            finding_resolutions_json: JSON.stringify([{
+              findingId: identifiedFinding.findingId,
+              verdict: "fixed",
+              evidence: "The earlier replay demonstrated the fix.",
+            }]),
+          }];
+        }
+        if (query.includes("force_run = 1")) {
+          return [{ run_id: "current-full-review" }];
+        }
+        return [];
+      },
+    }));
+
+    const response = await coordinator.fetch(
+      new Request("https://coordinator.test/interactions", {
+        method: "POST",
+        body: JSON.stringify({
+          ...findingInteraction,
+          deliveryId: "feedback-carried-confirmation",
+          headSha: currentHead,
+          disposition: "confirmed-fixed",
+          reason: "Looks fixed",
+        }),
+      }),
+    );
+
+    await expect(response.json()).resolves.toMatchObject({
+      accepted: true,
+      duplicate: false,
+      findingId: identifiedFinding.findingId,
+    });
+    expect(put).toHaveBeenCalledWith(
+      expect.stringContaining("/evidence/feedback-carried-confirmation.json"),
+      expect.stringContaining('"validatedByFullReviewRunId":"current-full-review"'),
+      { httpMetadata: { contentType: "application/json" } },
+    );
+  });
+
   it("finalizes and flushes outstanding finding outcomes", async () => {
     const { coordinator, put, sqlExec } = coordinatorFixture();
     const removedFindingId = `f_${"d".repeat(24)}`;

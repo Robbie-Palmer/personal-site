@@ -1533,11 +1533,25 @@ export class PullRequestCoordinator extends DurableObject<Env> {
               })
               .find((resolution) => resolution !== undefined)
           : undefined;
+      const currentHeadFullReview =
+        event.disposition === "confirmed-fixed" && event.headSha
+          ? this.ctx.storage.sql
+              .exec<{ run_id: string }>(
+                `SELECT run_id FROM review_runs
+                 WHERE status = 'completed' AND head_sha = ? AND force_run = 1
+                 ORDER BY completed_at DESC, run_id DESC LIMIT 1`,
+                event.headSha,
+              )
+              .toArray()[0]
+          : undefined;
+      const fixedReplayIsCurrent =
+        controlledReplay?.headSha === event.headSha ||
+        currentHeadFullReview !== undefined;
       if (
         event.disposition === "confirmed-fixed" &&
         (controlledReplay?.verdict !== "fixed" ||
           !event.headSha ||
-          controlledReplay.headSha !== event.headSha)
+          !fixedReplayIsCurrent)
       ) {
         return {
           unconfirmedFix: true,
@@ -1568,7 +1582,12 @@ export class PullRequestCoordinator extends DurableObject<Env> {
         reactions: event.reactions,
         disposition: event.disposition,
         reason: event.reason,
-        controlledReplay,
+        controlledReplay: controlledReplay && currentHeadFullReview
+          ? {
+              ...controlledReplay,
+              validatedByFullReviewRunId: currentHeadFullReview.run_id,
+            }
+          : controlledReplay,
         occurredAt,
         recordedAt,
       };
