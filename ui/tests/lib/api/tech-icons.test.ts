@@ -19,4 +19,11 @@ describe("technology icons", () => {
     expect(markup).not.toContain("brightness-0");
     expect(markup).not.toContain("dark:invert");
   });
+
+  it("keeps monochrome filters on other custom icons", () => {
+    const markup = renderToStaticMarkup(TechIcon({ name: "Codex" }));
+
+    expect(markup).toContain("brightness-0");
+    expect(markup).toContain("dark:invert");
+  });
 });
