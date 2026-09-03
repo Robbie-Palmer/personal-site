@@ -246,8 +246,10 @@ body.reveal-viewport:has(.pitch-deck) {
 .pitch-harness-map__harnesses > div::before {
   position: absolute;
   top: -24px;
+  left: 50%;
   width: 2px;
   height: 24px;
+  transform: translateX(-50%);
   background: var(--pitch-accent);
   content: "";
 }
