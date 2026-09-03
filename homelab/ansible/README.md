@@ -15,6 +15,7 @@ mise run //homelab:ansible-lint
 mise run //homelab:ansible-test
 mise run //homelab:ansible-facts
 mise run //homelab:ansible-discover-pi
+mise run //homelab:asus-deploy
 mise run //homelab:ansible-verify
 mise run //homelab:ansible-check-mac
 mise run //homelab:ansible-configure-mac
@@ -39,6 +40,12 @@ relevant package versions, matching systemd units, and CUPS queues. It does not
 read service configuration files, which may contain credentials.
 The dated findings live in
 [`hosts/raspberry-pi/README.md`](../hosts/raspberry-pi/README.md).
+
+Run `asus-deploy` from a clean, pushed Git revision. It deploys that
+exact revision through `nixos-rebuild`, checks that NixOS reports the same
+configuration revision, and runs `nvidia-smi` inside the existing CUDA 12
+container image. A second run skips `nixos-rebuild` when the host already runs
+that revision.
 
 `ansible-check-mac` previews the permanent Mac host changes. The apply command
 installs the pinned Ente CLI, wrapper, launchd jobs, and Netdata alarms. It

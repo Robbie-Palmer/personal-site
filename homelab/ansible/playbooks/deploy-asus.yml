@@ -1,0 +1,116 @@
+---
+- name: Deploy the exact NixOS revision to the Asus worker
+  hosts: asus-desktop
+  gather_facts: false
+  serial: 1
+  vars:
+    homelab_git_repository: "{{ lookup('ansible.builtin.env', 'HOMELAB_GIT_REPOSITORY') }}"
+    homelab_git_revision: "{{ lookup('ansible.builtin.env', 'HOMELAB_GIT_REVISION') }}"
+    asus_cuda_test_image: nvidia/cuda:12.4.1-base-ubuntu22.04
+  tasks:
+    - name: Validate the requested GitHub revision
+      ansible.builtin.assert:
+        that:
+          - homelab_git_repository is match('^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$')
+          - homelab_git_revision is match('^[0-9a-f]{40}$')
+        fail_msg: Run this play through mise so it receives a pushed GitHub revision.
+
+    - name: Inspect the current NixOS generation
+      ansible.builtin.command:
+        argv:
+          - nixos-version
+          - --json
+      check_mode: false
+      changed_when: false
+      register: asus_nixos_version_before
+
+    - name: Record whether the requested revision is active
+      ansible.builtin.set_fact:
+        asus_requested_revision_active: >-
+          {{
+            ((asus_nixos_version_before.stdout | from_json).configurationRevision
+              | default('')) == homelab_git_revision
+          }}
+
+    - name: Report the pending NixOS revision in check mode
+      ansible.builtin.debug:
+        msg: "Would deploy NixOS revision {{ homelab_git_revision }}"
+      changed_when: true
+      when:
+        - ansible_check_mode
+        - not asus_requested_revision_active
+
+    - name: Deploy the requested NixOS revision
+      become: true
+      ansible.builtin.command:
+        argv:
+          - nixos-rebuild
+          - switch
+          - --flake
+          - "github:{{ homelab_git_repository }}/{{ homelab_git_revision }}?dir=homelab#asus-desktop"
+      changed_when: true
+      when:
+        - not ansible_check_mode
+        - not asus_requested_revision_active
+
+    - name: Inspect the deployed NixOS generation
+      ansible.builtin.command:
+        argv:
+          - nixos-version
+          - --json
+      check_mode: false
+      changed_when: false
+      register: asus_nixos_version_after
+      when: not ansible_check_mode
+
+    - name: Require the exact revision to be active
+      ansible.builtin.assert:
+        that:
+          - >-
+            ((asus_nixos_version_after.stdout | from_json).configurationRevision
+              | default('')) == homelab_git_revision
+        fail_msg: NixOS did not report the requested configuration revision.
+      when: not ansible_check_mode
+
+    - name: Inspect the CUDA 12 verification image
+      ansible.builtin.command:
+        argv:
+          - docker
+          - image
+          - inspect
+          - "{{ asus_cuda_test_image }}"
+      check_mode: false
+      changed_when: false
+      failed_when: false
+      register: asus_cuda_test_image_present
+
+    - name: Pull the CUDA 12 verification image when absent
+      ansible.builtin.command:
+        argv:
+          - docker
+          - image
+          - pull
+          - "{{ asus_cuda_test_image }}"
+      changed_when: true
+      delay: 5
+      register: asus_cuda_test_image_pull
+      retries: 3
+      until: asus_cuda_test_image_pull.rc == 0
+      when: asus_cuda_test_image_present.rc != 0
+
+    - name: Verify CUDA 12 inside Docker
+      ansible.builtin.command:
+        argv:
+          - docker
+          - run
+          - --rm
+          - --pull
+          - never
+          - --device
+          - nvidia.com/gpu=all
+          - "{{ asus_cuda_test_image }}"
+          - nvidia-smi
+      check_mode: false
+      changed_when: false
+      when:
+        - not ansible_check_mode or asus_cuda_test_image_present.rc == 0

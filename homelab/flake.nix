@@ -8,7 +8,13 @@
     {
       nixosConfigurations.asus-desktop = nixpkgs.lib.nixosSystem {
         system = "x86_64-linux";
-        modules = [ ./hosts/asus-desktop ];
+        modules = [
+          ./hosts/asus-desktop
+          {
+            system.configurationRevision =
+              if self ? rev then self.rev else self.dirtyRev or null;
+          }
+        ];
       };
     };
 }

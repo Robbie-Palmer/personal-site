@@ -22,6 +22,7 @@ mise run //homelab:ansible-syntax
 mise run //homelab:ansible-lint
 mise run //homelab:ansible-facts
 mise run //homelab:ansible-discover-pi
+mise run //homelab:asus-deploy
 mise run //homelab:ansible-verify
 mise run //homelab:ansible-check-mac
 ```
@@ -30,6 +31,11 @@ The last two commands connect to each live host in turn. They gather facts and
 report health without changing remote state. See
 [`ansible/README.md`](ansible/README.md) for first-connection setup and the
 reviewed apply command for the Mac host configuration.
+
+[ADR 024](/projects/homelab/adrs/024-doppler-secrets) assigns homelab secrets
+to the separate Doppler `homelab` project. Check access without printing values
+with `mise run //homelab:doppler-check`. Native session databases such as the
+Ente CLI database stay local. Do not upload them to Doppler.
 
 ## asus-desktop, the NixOS GPU worker
 
@@ -44,7 +50,8 @@ tailnet as `asus-desktop`.
 2. Push the commit (the deploy target resolves it from GitHub).
 3. From the Mac mini: `mise run //homelab:asus-deploy`
 
-The script deploys the exact checked-out commit. Rollback options: revert
+Ansible deploys the exact checked-out commit, verifies that NixOS reports the
+same revision, and runs the CUDA 12 container check. Rollback options: revert
 the commit and re-deploy, pick the previous generation in the boot menu, or
 run `sudo nixos-rebuild --rollback` over SSH.
 

@@ -197,10 +197,11 @@ both resolvers.
 Keep the current gitignored environment files during the bridge. Any task that
 handles a credential must suppress its output in normal and verbose runs.
 
-[Ansible Vault](https://docs.ansible.com/projects/ansible/latest/vault_guide/index.html)
-would encrypt values at rest but would not decide how a new control machine
-gets the decryption key. Choose the long-term secret system with the K3s
-deployment design. Do not let a temporary bridge choose it by accident.
+[ADR 024](/projects/homelab/adrs/024-doppler-secrets) chooses Doppler as the
+long-term secret source. Ansible may read explicitly named values injected by
+`doppler run`, but every consuming task must use `no_log: true`. Keep native
+session stores such as `~/.ente/ente-cli.db` local rather than uploading them
+as encoded blobs.
 
 ## Migration plan
 
