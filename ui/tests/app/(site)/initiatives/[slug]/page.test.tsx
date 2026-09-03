@@ -109,6 +109,24 @@ describe("initiative page", () => {
     ).toBeInTheDocument();
   });
 
+  it("supports a section heading without body copy", async () => {
+    (getInitiative as Mock).mockReturnValue({
+      ...fixture,
+      content: "## Goal",
+      projects: [],
+    });
+
+    render(
+      await InitiativePage({
+        params: Promise.resolve({ slug: "personalized-medicine" }),
+      }),
+    );
+
+    expect(
+      screen.getByRole("heading", { name: "Goal", level: 2 }),
+    ).toBeInTheDocument();
+  });
+
   it("renders the not-found boundary for an unknown initiative", async () => {
     (getInitiative as Mock).mockImplementation(() => {
       throw new Error("Initiative not found: missing");

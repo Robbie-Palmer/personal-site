@@ -21,21 +21,27 @@ interface InitiativeSection {
 }
 
 function getInitiativeSections(content: string): InitiativeSection[] {
-  const matches = Array.from(content.matchAll(/^##[ \t]+([^\r\n]+)$/gm));
+  const normalized = content.trim();
 
-  if (matches.length === 0) {
-    return [{ title: "About", source: content.trim() }];
+  if (!normalized.startsWith("## ")) {
+    return [{ title: "About", source: normalized }];
   }
 
-  return matches.map((match, index) => {
-    const bodyStart = (match.index ?? 0) + match[0].length;
-    const bodyEnd = matches[index + 1]?.index ?? content.length;
+  return normalized
+    .slice(3)
+    .split("\n## ")
+    .map((block) => {
+      const bodyStart = block.indexOf("\n");
 
-    return {
-      title: match[1]?.trim() ?? "About",
-      source: content.slice(bodyStart, bodyEnd).trim(),
-    };
-  });
+      if (bodyStart === -1) {
+        return { title: block.trim(), source: "" };
+      }
+
+      return {
+        title: block.slice(0, bodyStart).trim(),
+        source: block.slice(bodyStart + 1).trim(),
+      };
+    });
 }
 
 export function generateStaticParams() {
