@@ -1,0 +1,44 @@
+macos_required_commands:
+  - brew
+  - colima
+  - docker
+  - launchctl
+
+mac_http_checks:
+  - name: Jellyfin
+    url: http://127.0.0.1:8096/health
+    status_codes: [200]
+  - name: SilverBullet
+    url: http://127.0.0.1:3001/
+    status_codes: [200, 401, 403]
+  - name: Prowlarr
+    url: http://127.0.0.1:9696/ping
+    status_codes: [200]
+  - name: Sonarr
+    url: http://127.0.0.1:8989/ping
+    status_codes: [200]
+  - name: Radarr
+    url: http://127.0.0.1:7878/ping
+    status_codes: [200]
+  - name: qBittorrent
+    url: http://127.0.0.1:8080/api/v2/app/version
+    status_codes: [200, 401, 403]
+  - name: Netdata
+    url: "{{ netdata_url }}"
+    status_codes: [200]
+
+ente_cli_version: 0.2.3
+ente_cli_archive_url: >-
+  https://github.com/ente/ente/releases/download/cli-v0.2.3/ente-cli-v0.2.3-darwin-arm64.tar.gz
+ente_cli_archive_sha256: 1369f6acac2b6a606c75b583dbfcb355c6c5ab37d6b1d9ec27d8bba11aef98a8
+ente_cli_binary_sha256: c3fcebf7dc0f893e5e41f6d651619d92d570bd08a70aca9806b63037a83c2bdb
+ente_cli_config_path: "{{ ansible_facts.env.HOME }}/.ente/ente-cli.db"
+ente_export_launchd_label: com.robbie.ente-export
+ente_export_health_launchd_label: homelab.ente-export-health
+ente_export_mount_path: /Volumes/Expansion
+ente_export_mount_uuid: 808A2851-4126-3A7B-B23F-9E1C3ADD28E4
+ente_export_path: /Volumes/Expansion/Pictures/Ente Photos
+ente_export_log_path: "{{ ansible_facts.env.HOME }}/Library/Logs/ente-export.log"
+ente_export_success_marker: >-
+  {{ ansible_facts.env.HOME }}/Library/Application Support/homelab/ente-export/last-success
+ente_export_max_age_hours: 48

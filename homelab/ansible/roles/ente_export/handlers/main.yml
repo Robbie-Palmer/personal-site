@@ -1,0 +1,36 @@
+---
+- name: Unload existing Ente launchd jobs
+  ansible.builtin.command:
+    argv:
+      - launchctl
+      - bootout
+      - "gui/{{ ansible_facts.user_uid }}"
+      - "{{ ansible_facts.env.HOME }}/Library/LaunchAgents/{{ item }}.plist"
+  loop:
+    - "{{ ente_export_launchd_label }}"
+    - "{{ ente_export_health_launchd_label }}"
+  changed_when: true
+  failed_when: false
+  listen: Reload Ente launchd jobs
+
+- name: Load Ente launchd jobs
+  ansible.builtin.command:
+    argv:
+      - launchctl
+      - bootstrap
+      - "gui/{{ ansible_facts.user_uid }}"
+      - "{{ ansible_facts.env.HOME }}/Library/LaunchAgents/{{ item }}.plist"
+  loop:
+    - "{{ ente_export_launchd_label }}"
+    - "{{ ente_export_health_launchd_label }}"
+  changed_when: true
+  listen: Reload Ente launchd jobs
+
+- name: Reload Netdata health alarms
+  ansible.builtin.command:
+    argv:
+      - launchctl
+      - kickstart
+      - -k
+      - "gui/{{ ansible_facts.user_uid }}/homebrew.mxcl.netdata"
+  changed_when: true

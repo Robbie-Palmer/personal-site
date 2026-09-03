@@ -34,7 +34,10 @@
   };
 
   services.openssh.enable = true;
-  services.tailscale.enable = true;
+  services.tailscale = {
+    enable = true;
+    extraSetFlags = [ "--ssh" ];
+  };
 
   networking.networkmanager.enable = true;
   networking.firewall.trustedInterfaces = [ "tailscale0" ];
@@ -56,7 +59,10 @@
     ];
   };
 
-  environment.systemPackages = with pkgs; [ git ];
+  environment.systemPackages = with pkgs; [
+    git
+    python3
+  ];
 
   system.stateVersion = "25.11";
 }

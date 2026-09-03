@@ -1,0 +1,70 @@
+---
+- name: Gather fleet facts and report prerequisites
+  hosts: all
+  gather_facts: false
+  serial: 1
+  pre_tasks:
+    - name: Locate a Python interpreter for Ansible modules
+      ansible.builtin.raw: command -v python3 || command -v python
+      check_mode: false
+      changed_when: false
+      failed_when: false
+      register: homelab_python_check
+
+    - name: Report hosts that need Python
+      ansible.builtin.debug:
+        msg: "Missing prerequisite: Python 3"
+      when: homelab_python_check.rc != 0
+
+    - name: Stop fact gathering on hosts without Python
+      ansible.builtin.meta: end_host
+      when: homelab_python_check.rc != 0
+
+    - name: Gather host facts
+      ansible.builtin.setup:
+
+  tasks:
+    - name: Select required commands for this host
+      ansible.builtin.set_fact:
+        homelab_required_commands: >-
+          {{
+            common_required_commands
+            + (macos_required_commands | default([]))
+            + (linux_required_commands | default([]))
+            + (nixos_required_commands | default([]))
+            + (dns_required_commands | default([]))
+            + (host_required_commands | default([]))
+          }}
+
+    - name: Locate required commands
+      ansible.builtin.shell: command -v -- "{{ item }}"
+      args:
+        executable: /bin/sh
+      check_mode: false
+      changed_when: false
+      failed_when: false
+      loop: "{{ homelab_required_commands | unique }}"
+      loop_control:
+        label: "{{ item }}"
+      register: homelab_command_checks
+
+    - name: Record missing prerequisites
+      ansible.builtin.set_fact:
+        homelab_missing_commands: >-
+          {{
+            homelab_command_checks.results
+            | rejectattr('rc', 'equalto', 0)
+            | map(attribute='item')
+            | list
+          }}
+
+    - name: Report host facts and prerequisites
+      ansible.builtin.debug:
+        msg:
+          host: "{{ inventory_hostname }}"
+          target: "{{ ansible_host }}"
+          system: "{{ ansible_facts.distribution }} {{ ansible_facts.distribution_version }}"
+          kernel: "{{ ansible_facts.kernel }}"
+          architecture: "{{ ansible_facts.architecture }}"
+          python: "{{ ansible_facts.python_version }}"
+          missing_prerequisites: "{{ homelab_missing_commands }}"

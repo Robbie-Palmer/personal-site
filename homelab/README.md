@@ -10,6 +10,27 @@ All services are reachable only over the home LAN and the
 [Tailscale](/projects/homelab/adrs/000-tailscale) tailnet. The router
 forwards no ports, so nothing is ever public.
 
+## Fleet inventory and checks
+
+[ADR 022](/projects/homelab/adrs/022-ansible-k3s-migration-bridge) introduces
+Ansible as a temporary host-discovery and migration tool. mise installs the
+pinned Ansible Core release and remains the command interface:
+
+```bash
+mise run //homelab:ansible-inventory
+mise run //homelab:ansible-syntax
+mise run //homelab:ansible-lint
+mise run //homelab:ansible-facts
+mise run //homelab:ansible-discover-pi
+mise run //homelab:ansible-verify
+mise run //homelab:ansible-check-mac
+```
+
+The last two commands connect to each live host in turn. They gather facts and
+report health without changing remote state. See
+[`ansible/README.md`](ansible/README.md) for first-connection setup and the
+reviewed apply command for the Mac host configuration.
+
 ## asus-desktop, the NixOS GPU worker
 
 The Asus desktop (ADR 010) runs NixOS, declared in [`flake.nix`](flake.nix)

@@ -1,0 +1,5 @@
+nixos_required_commands:
+  - docker
+  - nixos-rebuild
+  - nvidia-smi
+  - python3

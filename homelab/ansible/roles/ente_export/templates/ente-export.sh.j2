@@ -1,0 +1,73 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+
+ENTE_BIN="/opt/homebrew/bin/ente"
+CONFIG_PATH="{{ ente_cli_config_path }}"
+MOUNT_PATH="{{ ente_export_mount_path }}"
+EXPECTED_VOLUME_UUID="{{ ente_export_mount_uuid }}"
+EXPORT_PATH="{{ ente_export_path }}"
+STATE_DIR="{{ ansible_facts.env.HOME }}/Library/Application Support/homelab/ente-export"
+LOCK_FILE="${STATE_DIR}/run.lock"
+SUCCESS_MARKER="${STATE_DIR}/last-success"
+FAILURE_MARKER="${STATE_DIR}/last-failure"
+RUN_OUTPUT=""
+
+timestamp() {
+  /bin/date '+%Y-%m-%d %H:%M:%S'
+}
+
+fail() {
+  local message="$1"
+  /bin/mkdir -p "$STATE_DIR"
+  /bin/date -u '+%Y-%m-%dT%H:%M:%SZ' > "$FAILURE_MARKER"
+  echo "[$(timestamp)] failed: $message" >&2
+  exit 1
+}
+
+cleanup() {
+  /bin/rm -f "$LOCK_FILE"
+  if [[ -n "$RUN_OUTPUT" ]]; then
+    /bin/rm -f "$RUN_OUTPUT"
+  fi
+}
+
+/bin/mkdir -p "$STATE_DIR"
+if ! /usr/bin/shlock -f "$LOCK_FILE" -p "$$"; then
+  fail "another Ente export is already running"
+fi
+trap cleanup EXIT INT TERM
+
+[[ -x "$ENTE_BIN" ]] || fail "Ente CLI is missing"
+[[ -f "$CONFIG_PATH" ]] || fail "Ente CLI configuration is missing"
+[[ -d "$EXPORT_PATH" ]] || fail "export directory is missing"
+
+mounted_volume_uuid="$(
+  /usr/sbin/diskutil info -plist "$MOUNT_PATH" 2>/dev/null \
+    | /usr/bin/plutil -extract VolumeUUID raw - 2>/dev/null \
+    || true
+)"
+if [[ "$mounted_volume_uuid" != "$EXPECTED_VOLUME_UUID" ]]; then
+  fail "expected export volume is not mounted"
+fi
+
+RUN_OUTPUT="$(/usr/bin/mktemp "${STATE_DIR}/run.XXXXXX")"
+echo "[$(timestamp)] starting Ente export"
+
+set +e
+"$ENTE_BIN" export 2>&1 | /usr/bin/tee "$RUN_OUTPUT"
+export_status="${PIPESTATUS[0]}"
+set -e
+
+if [[ "$export_status" -ne 0 ]]; then
+  fail "Ente CLI exited with status $export_status"
+fi
+
+if /usr/bin/grep -Eiq '(^|[[:space:]])(error|failed|fatal)([[:space:]:]|$)' "$RUN_OUTPUT"; then
+  fail "Ente CLI logged an error"
+fi
+
+/bin/date -u '+%Y-%m-%dT%H:%M:%SZ' > "$SUCCESS_MARKER"
+/bin/rm -f "$FAILURE_MARKER"
+echo "[$(timestamp)] Ente export finished"

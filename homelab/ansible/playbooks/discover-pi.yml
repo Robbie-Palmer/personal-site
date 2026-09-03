@@ -1,0 +1,84 @@
+---
+- name: Inventory Raspberry Pi state without changing it
+  hosts: raspberry-pi
+  gather_facts: true
+  tasks:
+    - name: Gather installed package versions
+      ansible.builtin.package_facts:
+        manager: auto
+
+    - name: Gather systemd service state
+      ansible.builtin.service_facts:
+
+    - name: Inspect block devices
+      ansible.builtin.command:
+        argv:
+          - lsblk
+          - --json
+          - --output
+          - NAME,TYPE,SIZE,FSTYPE,MOUNTPOINTS,MODEL
+      check_mode: false
+      changed_when: false
+      register: pi_block_devices
+
+    - name: Inspect root mount and boot mounts
+      ansible.builtin.command:
+        argv:
+          - findmnt
+          - --json
+          - --output
+          - TARGET,SOURCE,FSTYPE,OPTIONS
+          - --target
+          - "{{ item }}"
+      check_mode: false
+      changed_when: false
+      failed_when: false
+      loop:
+        - /
+        - /boot
+        - /boot/firmware
+      register: pi_mounts
+
+    - name: Inspect CUPS queues
+      ansible.builtin.command:
+        argv:
+          - lpstat
+          - -p
+          - -d
+          - -v
+      check_mode: false
+      changed_when: false
+      failed_when: false
+      register: pi_cups_queues
+
+    - name: Report Raspberry Pi discovery
+      ansible.builtin.debug:
+        msg:
+          host:
+            distribution: "{{ ansible_facts.distribution }} {{ ansible_facts.distribution_version }}"
+            kernel: "{{ ansible_facts.kernel }}"
+            architecture: "{{ ansible_facts.architecture }}"
+          packages:
+            cups: "{{ ansible_facts.packages.cups | default([]) | map(attribute='version') | list }}"
+            cups_client: "{{ ansible_facts.packages['cups-client'] | default([]) | map(attribute='version') | list }}"
+            gutenprint: >-
+              {{ ansible_facts.packages['printer-driver-gutenprint'] | default([]) | map(attribute='version') | list }}
+            netdata: "{{ ansible_facts.packages.netdata | default([]) | map(attribute='version') | list }}"
+            tailscale: "{{ ansible_facts.packages.tailscale | default([]) | map(attribute='version') | list }}"
+          relevant_services: >-
+            {{
+              ansible_facts.services
+              | dict2items
+              | selectattr('key', 'search', '(?i)(adguard|cups|netdata|tailscale)')
+              | list
+            }}
+          block_devices: "{{ pi_block_devices.stdout | from_json }}"
+          boot_mounts: >-
+            {{
+              pi_mounts.results
+              | selectattr('rc', 'equalto', 0)
+              | map(attribute='stdout')
+              | map('from_json')
+              | list
+            }}
+          cups_queues: "{{ pi_cups_queues.stdout_lines }}"

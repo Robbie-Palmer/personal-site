@@ -1,0 +1,8 @@
+---
+- name: Configure permanent Mac host services
+  hosts: macos_hosts
+  gather_facts: true
+  serial: 1
+  any_errors_fatal: true
+  roles:
+    - ente_export

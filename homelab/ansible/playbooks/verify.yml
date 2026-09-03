@@ -1,0 +1,235 @@
+---
+- name: Verify common fleet health
+  hosts: all
+  gather_facts: false
+  serial: 1
+  tasks:
+    - name: Check Tailscale connectivity
+      ansible.builtin.raw: tailscale status --json >/dev/null
+      check_mode: false
+      changed_when: false
+      failed_when: false
+      register: tailscale_status
+
+    - name: Report Tailscale health
+      ansible.builtin.debug:
+        msg: "Tailscale: {{ 'OK' if tailscale_status.rc == 0 else 'FAILED' }}"
+
+    - name: Require healthy Tailscale
+      ansible.builtin.assert:
+        that: tailscale_status.rc == 0
+        fail_msg: Tailscale is not connected.
+
+- name: Verify both DNS resolvers
+  hosts: dns_resolvers
+  gather_facts: false
+  serial: 1
+  tasks:
+    - name: Query the local resolver
+      ansible.builtin.command:
+        argv:
+          - dig
+          - +short
+          - +time=2
+          - +tries=1
+          - "@127.0.0.1"
+          - "{{ dns_probe_name }}"
+          - A
+      check_mode: false
+      changed_when: false
+      failed_when: false
+      register: dns_query
+
+    - name: Report DNS health
+      ansible.builtin.debug:
+        msg: >-
+          DNS resolver: {{ 'OK' if dns_query.rc == 0 and dns_query.stdout_lines | length > 0 else 'FAILED' }}
+
+    - name: Require a working DNS resolver
+      ansible.builtin.assert:
+        that:
+          - dns_query.rc == 0
+          - dns_query.stdout_lines | length > 0
+        fail_msg: The local DNS resolver did not answer the probe.
+
+- name: Verify Raspberry Pi host services
+  hosts: raspberry-pi
+  gather_facts: false
+  tasks:
+    - name: Query CUPS scheduler
+      ansible.builtin.command:
+        argv:
+          - lpstat
+          - -r
+      check_mode: false
+      changed_when: false
+      failed_when: false
+      register: cups_status
+
+    - name: Query Netdata API
+      ansible.builtin.uri:
+        url: "{{ netdata_url }}"
+        method: GET
+        return_content: false
+        status_code: 200
+        timeout: 3
+      check_mode: false
+      failed_when: false
+      register: pi_netdata_status
+
+    - name: Report Raspberry Pi service health
+      ansible.builtin.debug:
+        msg:
+          CUPS: "{{ 'OK' if cups_status.rc == 0 else 'FAILED' }}"
+          Netdata: "{{ 'OK' if pi_netdata_status.status | default(0) == 200 else 'FAILED' }}"
+
+    - name: Require healthy Raspberry Pi services
+      ansible.builtin.assert:
+        that:
+          - cups_status.rc == 0
+          - pi_netdata_status.status | default(0) == 200
+        fail_msg: One or more Raspberry Pi host services failed verification.
+
+- name: Verify Mac mini services
+  hosts: mac-mini
+  gather_facts: true
+  tasks:
+    - name: Query Mac workload endpoints
+      ansible.builtin.uri:
+        url: "{{ item.url }}"
+        method: GET
+        return_content: false
+        status_code: "{{ item.status_codes }}"
+        timeout: 3
+      check_mode: false
+      changed_when: false
+      failed_when: false
+      loop: "{{ mac_http_checks }}"
+      loop_control:
+        label: "{{ item.name }}"
+      register: mac_http_results
+
+    - name: Report Mac workload health
+      ansible.builtin.debug:
+        msg: >-
+          {{ item.item.name }}:
+          {{ 'OK' if item.status | default(0) in item.item.status_codes else 'FAILED' }}
+      loop: "{{ mac_http_results.results }}"
+      loop_control:
+        label: "{{ item.item.name }}"
+
+    - name: Initialize failed Mac workload list
+      ansible.builtin.set_fact:
+        mac_failed_http_checks: []
+
+    - name: Record failed Mac workload endpoints
+      ansible.builtin.set_fact:
+        mac_failed_http_checks: "{{ mac_failed_http_checks + [item.item.name] }}"
+      loop: "{{ mac_http_results.results }}"
+      loop_control:
+        label: "{{ item.item.name }}"
+      when: item.status | default(0) not in item.item.status_codes
+
+    - name: Require healthy Mac workload endpoints
+      ansible.builtin.assert:
+        that: mac_failed_http_checks | length == 0
+        fail_msg: "HTTP health checks failed: {{ mac_failed_http_checks | join(', ') }}"
+
+    - name: Check whether Ente verification is configured
+      ansible.builtin.set_fact:
+        ente_verification_configured: >-
+          {{
+            ente_export_launchd_label | length > 0
+            and ente_export_mount_path | length > 0
+            and ente_export_success_marker | length > 0
+          }}
+
+    - name: Inspect the Ente launchd job
+      ansible.builtin.command:
+        argv:
+          - launchctl
+          - print
+          - "gui/{{ ansible_facts.user_uid }}/{{ ente_export_launchd_label }}"
+      check_mode: false
+      changed_when: false
+      failed_when: false
+      no_log: true
+      register: ente_launchd_status
+      when: ente_verification_configured
+
+    - name: Inspect mounted volumes
+      ansible.builtin.command:
+        argv:
+          - /sbin/mount
+      check_mode: false
+      changed_when: false
+      failed_when: false
+      no_log: true
+      register: mac_mounts
+      when: ente_verification_configured
+
+    - name: Inspect the latest successful Ente export marker
+      ansible.builtin.stat:
+        path: "{{ ente_export_success_marker }}"
+      no_log: true
+      register: ente_success_marker
+      when: ente_verification_configured
+
+    - name: Report Ente export health
+      ansible.builtin.debug:
+        msg: >-
+          Ente export:
+          {% if not ente_verification_configured %}
+          NOT CONFIGURED, run discovery and add the three local values
+          {% elif ente_launchd_status.rc != 0 %}
+          FAILED, launchd job is not loaded
+          {% elif (' on ' ~ ente_export_mount_path ~ ' ') not in mac_mounts.stdout %}
+          FAILED, destination volume is not mounted
+          {% elif not ente_success_marker.stat.exists %}
+          FAILED, success marker does not exist
+          {% elif (ansible_facts.date_time.epoch | int - ente_success_marker.stat.mtime | int) > ente_export_max_age_hours * 3600 %}
+          FAILED, latest success marker is stale
+          {% else %}
+          OK
+          {% endif %}
+
+    - name: Require a healthy Ente export
+      ansible.builtin.assert:
+        that:
+          - ente_verification_configured
+          - ente_launchd_status.rc == 0
+          - (' on ' ~ ente_export_mount_path ~ ' ') in mac_mounts.stdout
+          - ente_success_marker.stat.exists
+          - (ansible_facts.date_time.epoch | int - ente_success_marker.stat.mtime | int) <= ente_export_max_age_hours * 3600
+        fail_msg: The Ente export is not loaded, mounted, or fresh.
+
+- name: Verify Asus GPU path
+  hosts: asus-desktop
+  gather_facts: false
+  tasks:
+    - name: Check Docker daemon
+      ansible.builtin.raw: docker info >/dev/null 2>&1
+      check_mode: false
+      changed_when: false
+      failed_when: false
+      register: asus_docker_status
+
+    - name: Check NVIDIA driver
+      ansible.builtin.raw: nvidia-smi >/dev/null 2>&1
+      check_mode: false
+      changed_when: false
+      failed_when: false
+      register: asus_gpu_status
+
+    - name: Report Asus GPU health
+      ansible.builtin.debug:
+        msg:
+          Docker: "{{ 'OK' if asus_docker_status.rc == 0 else 'FAILED' }}"
+          NVIDIA: "{{ 'OK' if asus_gpu_status.rc == 0 else 'FAILED' }}"
+
+    - name: Require a healthy Asus GPU path
+      ansible.builtin.assert:
+        that:
+          - asus_docker_status.rc == 0
+          - asus_gpu_status.rc == 0
+        fail_msg: Docker or the NVIDIA driver failed verification.
