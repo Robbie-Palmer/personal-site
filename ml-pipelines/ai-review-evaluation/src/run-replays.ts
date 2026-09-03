@@ -1,7 +1,13 @@
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
-import { readJson, resetDirectory, sha256, writeJson } from "./artifact-files";
+import {
+  expandHome,
+  readJson,
+  resetDirectory,
+  sha256,
+  writeJson,
+} from "./artifact-files";
 import { parseArgs } from "./cli-arguments";
 import {
   EvaluationReplayIndexSchema,
@@ -118,6 +124,12 @@ type FrozenVariant = FrozenExperiment["experiment"]["baseline"] & {
   role: "baseline" | "candidate";
 };
 
+export function resolveReplayCacheRoot(cacheRoot?: string): string {
+  return path.resolve(expandHome(
+    cacheRoot ?? path.join(process.env.HOME ?? ".", ".cache/ai-review/evaluation-replays"),
+  ));
+}
+
 function variantMetadata(experiment: ReplayExperiment): { model: string; provider: string } {
   switch (experiment.kind) {
     case "scout-model":
@@ -217,7 +229,7 @@ export function runReplays({ cohortFile, experimentFile, corpusRoot, output, par
   resetDirectory(outputRoot);
   const resolvedAiReviewRoot = path.resolve(aiReviewRoot);
   const codeDigest = runnerDigest(resolvedAiReviewRoot);
-  const cacheBase = path.resolve(cacheRoot ?? path.join(process.env.HOME ?? ".", ".cache/ai-review/evaluation-replays"));
+  const cacheBase = resolveReplayCacheRoot(cacheRoot);
   const storeRoot = path.join(cacheBase, codeDigest);
   fs.mkdirSync(storeRoot, { recursive: true });
   const variants = [

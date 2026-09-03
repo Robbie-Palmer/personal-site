@@ -26,8 +26,22 @@ const SECRET_PATTERNS: Array<[string, RegExp]> = [
   ["github-token", /\b(?:gh[opsu]_\w{20,}|github_pat_\w{20,})\b/g],
   ["connection-uri", /\b(?:postgres(?:ql)?|mysql|mongodb(?:\+srv)?|redis):\/\/[^\s"']+/gi],
 ];
-const ASSIGNMENT_PATTERN = /\b[\w-]+\s*[:=]\s*(?:"[^"\n]*"|'[^'\n]*'|[^\s,;]+)/g;
-const SECRET_NAME_PATTERN = /(?:secret|token|password|passwd|api[_-]?key|private[_-]?key)/i;
+const ASSIGNMENT_PATTERN = /["']?([\w-]+)["']?\s*[:=]\s*(?:"[^"\n]*"|'[^'\n]*'|[^\s,;]+)/g;
+function isSecretName(name: string): boolean {
+  const normalized = name
+    .replace(/([a-z0-9])([A-Z])/g, "$1_$2")
+    .toLowerCase();
+  return (
+    normalized === "database_url" ||
+    /(?:^|[_-])(?:secret|token|password|passwd)(?:$|[_-])/.test(normalized) ||
+    /(?:^|[_-])(?:api|private)_key(?:$|[_-])/.test(normalized)
+  );
+}
+
+function assignedSecret(counts: Record<string, number>): string {
+  counts["assigned-secret"] = (counts["assigned-secret"] ?? 0) + 1;
+  return "[REDACTED:assigned-secret]";
+}
 
 function redact(value: string, counts: Record<string, number>): string {
   const patternsRedacted = SECRET_PATTERNS.reduce(
@@ -37,13 +51,11 @@ function redact(value: string, counts: Record<string, number>): string {
     }),
     value,
   );
-  return patternsRedacted.replace(ASSIGNMENT_PATTERN, (assignment) => {
-    const name = assignment.split(/[:=]/, 1)[0]?.trim() ?? "";
-    if (name.toLowerCase() !== "database_url" && !SECRET_NAME_PATTERN.test(name)) {
+  return patternsRedacted.replace(ASSIGNMENT_PATTERN, (assignment, name: string) => {
+    if (!isSecretName(name)) {
       return assignment;
     }
-    counts["assigned-secret"] = (counts["assigned-secret"] ?? 0) + 1;
-    return "[REDACTED:assigned-secret]";
+    return assignedSecret(counts);
   });
 }
 
@@ -52,10 +64,9 @@ function redactValue(value: unknown, counts: Record<string, number>): unknown {
   if (Array.isArray(value)) return value.map((item) => redactValue(item, counts));
   if (value && typeof value === "object") {
     return Object.fromEntries(
-      Object.entries(value as Record<string, unknown>).map(([key, item]) => [
-        key,
-        redactValue(item, counts),
-      ]),
+      Object.entries(value as Record<string, unknown>).map(([key, item]) =>
+        [key, isSecretName(key) ? assignedSecret(counts) : redactValue(item, counts)],
+      ),
     );
   }
   return value;

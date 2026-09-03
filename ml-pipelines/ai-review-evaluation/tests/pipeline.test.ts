@@ -10,7 +10,7 @@ import { changeSizeBand } from "../src/corpus-strata";
 import { extractCorpus } from "../src/extract-corpus";
 import { freezeCohort, stratifiedPullRequestSelection } from "../src/freeze-cohort";
 import { buildObservations, matchFinding } from "../src/match-replays";
-import { runReplays } from "../src/run-replays";
+import { resolveReplayCacheRoot, runReplays } from "../src/run-replays";
 import { stableJson, writeJson } from "../src/artifact-files";
 import {
   PipelineParamsSchema,
@@ -23,6 +23,21 @@ import {
 } from "../src/schemas";
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+
+test("replay cache paths expand a leading home alias", () => {
+  const originalHome = process.env.HOME;
+  const temporaryHome = path.join(os.tmpdir(), "ai-review-evaluation-home");
+  try {
+    process.env.HOME = temporaryHome;
+    assert.equal(
+      resolveReplayCacheRoot("~/replay-cache"),
+      path.join(temporaryHome, "replay-cache"),
+    );
+  } finally {
+    if (originalHome === undefined) delete process.env.HOME;
+    else process.env.HOME = originalHome;
+  }
+});
 
 function fixtureParams(overrides: Partial<PipelineParams> = {}): PipelineParams {
   return PipelineParamsSchema.parse({

@@ -5,6 +5,7 @@ stages:
       - source
       - cohort.changeSizeThresholds
     deps:
+      - mise.toml
       - ../../packages/ai-review-domain/src/records.ts
       - ../../packages/ai-review-domain/src/replay.ts
       - src/extract-corpus.ts
@@ -24,6 +25,7 @@ stages:
       - matching
       - decision
     deps:
+      - mise.toml
       - ../../packages/ai-review-domain/src/records.ts
       - ../../packages/ai-review-domain/src/replay.ts
       - data/corpus
@@ -43,6 +45,7 @@ stages:
     params:
       - replay
     deps:
+      - mise.toml
       - ../../ai-review/analytics/corpus-replay.ts
       - ../../ai-review/src/env.ts
       - ../../ai-review/src/finding-lifecycle.ts
@@ -67,6 +70,7 @@ stages:
   match:
     cmd: mise run //ml-pipelines/ai-review-evaluation:stage:match
     deps:
+      - mise.toml
       - ../../packages/ai-review-domain/src/records.ts
       - ../../packages/ai-review-domain/src/replay.ts
       - outputs/frozen/cohort.json
@@ -83,6 +87,7 @@ stages:
   evaluate:
     cmd: mise run //ml-pipelines/ai-review-evaluation:stage:evaluate
     deps:
+      - mise.toml
       - ../../packages/ai-review-domain/src/records.ts
       - ../../packages/ai-review-domain/src/replay.ts
       - analytics/scorecard.sql

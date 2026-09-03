@@ -11,6 +11,10 @@ stages:
       hash: md5
       md5: 43193e0633e3b0aebcd11087dfd05faf
       size: 1920
+    - path: mise.toml
+      hash: md5
+      md5: 39a9037591ae7106ee60c6b284ad5a99
+      size: 2410
     - path: src/artifact-files.ts
       hash: md5
       md5: 51a1370a9167f68d9d4724b57c4ae615
@@ -21,16 +25,16 @@ stages:
       size: 852
     - path: src/corpus-strata.ts
       hash: md5
-      md5: 8fe19706aa5df21b8f70506c0f01db35
-      size: 1874
+      md5: 4e1b86b7bc779c7587cd904b5953d26a
+      size: 1916
     - path: src/extract-corpus.ts
       hash: md5
-      md5: 4b01613e494ab902511b30c73989433c
-      size: 8790
+      md5: b9d248b6147f99f511a73ddfeeaa0ab9
+      size: 8932
     - path: src/schemas.ts
       hash: md5
-      md5: 44acb982346e324faadc2af089db489b
-      size: 10713
+      md5: d05d268b675b52a9434f4bd5ec6557ba
+      size: 11398
     params:
       params.yaml:
         cohort.changeSizeThresholds:
@@ -63,6 +67,10 @@ stages:
       md5: 8a8255ec373ec00497a5159b4c4388e2.dir
       size: 1119242
       nfiles: 8
+    - path: mise.toml
+      hash: md5
+      md5: 39a9037591ae7106ee60c6b284ad5a99
+      size: 2410
     - path: src/artifact-files.ts
       hash: md5
       md5: 51a1370a9167f68d9d4724b57c4ae615
@@ -73,12 +81,12 @@ stages:
       size: 852
     - path: src/freeze-cohort.ts
       hash: md5
-      md5: 23e3773c5e41bbeaa920d609560c3d4e
-      size: 10584
+      md5: 46859ccd406269a8217a3ab975b5e0f3
+      size: 10973
     - path: src/schemas.ts
       hash: md5
-      md5: 44acb982346e324faadc2af089db489b
-      size: 10713
+      md5: d05d268b675b52a9434f4bd5ec6557ba
+      size: 11398
     params:
       params.yaml:
         cohort:

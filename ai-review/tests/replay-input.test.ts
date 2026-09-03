@@ -37,7 +37,7 @@ function prepared(mode: ReviewCoverageMode): PreparedReview {
     diff: "+Authorization: Basic dXNlcjpwYXNzd29yZA==",
     context: "Authorization: Bearer abcdefghijklmnopqrstuvwxyz",
     guidelines: "Review carefully.",
-    threads: "Prior discussion.",
+    threads: '{"password":"quoted-secret-one","apiKey": "quoted-secret-two"}',
     paths: ["src/app.ts"],
     omitted: [],
     priorOpenFindings: [finding],
@@ -84,7 +84,10 @@ const configuration = {
     mergerMaxTokens: 6_000,
     openRouterScoutMaxPrices: { "model/scout": { prompt: 1, completion: 2 } },
   },
-  policy: { publication: { version: "policy-v1" } },
+  policy: {
+    publication: { version: "policy-v1" },
+    credentials: { password: "structured-secret-three" },
+  },
 };
 
 describe("replay input corpus", () => {
@@ -117,6 +120,9 @@ describe("replay input corpus", () => {
       expect(JSON.stringify(snapshot)).not.toContain("abcdefghijklmnopqrstuvwxyz");
       expect(JSON.stringify(snapshot)).not.toContain("dXNlcjpwYXNzd29yZA");
       expect(JSON.stringify(snapshot)).not.toContain("postgres://user:password");
+      expect(JSON.stringify(snapshot)).not.toContain("quoted-secret-one");
+      expect(JSON.stringify(snapshot)).not.toContain("quoted-secret-two");
+      expect(JSON.stringify(snapshot)).not.toContain("structured-secret-three");
       expect(snapshot.provenance.liveCredentialsIncluded).toBe(false);
       const manifest = JSON.parse(String(put.mock.calls[1]?.[1]));
       expect(manifest.snapshot.sha256).toMatch(/^[a-f0-9]{64}$/);

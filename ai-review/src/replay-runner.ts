@@ -139,11 +139,10 @@ function validateScoutExperiment(
   experiment: Extract<ReplayExperiment, { kind: "scout-model" }>,
   limits: ReplayLimits,
 ): void {
-  if (experiment.models.length === 0 || experiment.models.length > limits.maxModels) {
+  if (experiment.models.length > limits.maxModels) {
     throw new Error(`scout model count must be between 1 and ${limits.maxModels}`);
   }
-  for (const { model, provider } of experiment.models) {
-    if (!model.trim()) throw new Error("scout model IDs must not be empty");
+  for (const { provider } of experiment.models) {
     if (!limits.allowedProviders.includes(provider)) {
       throw new Error(`provider ${provider} is not allowed`);
     }
@@ -154,21 +153,6 @@ function validateExperimentValue(experiment: ReplayExperiment, limits: ReplayLim
   const result = ReplayExperimentSchema.safeParse(experiment);
   if (!result.success) throw new Error(`invalid replay experiment: ${zodMessage(result.error)}`);
   if (experiment.kind === "scout-model") validateScoutExperiment(experiment, limits);
-  if (
-    experiment.kind === "prompt-version" &&
-    (!experiment.prompt.version.trim() ||
-      !experiment.prompt.scoutSystem.trim() ||
-      !experiment.prompt.mergerSystem.trim())
-  ) {
-    throw new Error("prompt experiment requires a version and both system prompts");
-  }
-  if (
-    experiment.kind === "coverage-policy" &&
-    (!experiment.policy.version.trim() ||
-      !["recorded", "full"].includes(experiment.policy.mode))
-  ) {
-    throw new Error("coverage experiment requires a version and supported mode");
-  }
 }
 
 function recordedProviders(snapshot: ReplayInputSnapshot): Provider[] {

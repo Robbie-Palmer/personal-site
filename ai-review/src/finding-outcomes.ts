@@ -84,7 +84,7 @@ export function buildFindingOutcomeRecord(options: {
     manualOverride: options.manualOverride ?? null,
     sourceId: options.sourceId,
     evidence: options.evidence,
-    occurredAt: options.occurredAt,
+    occurredAt: new Date(options.occurredAt).toISOString(),
     recordedAt: options.recordedAt,
   });
 }
