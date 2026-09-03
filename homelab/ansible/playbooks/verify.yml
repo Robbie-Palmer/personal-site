@@ -25,35 +25,12 @@
   serial: 1
   tasks:
     - name: Query the local resolver
-      ansible.builtin.command:
-        argv:
-          - python3
-          - -c
-          - |
-            import socket
-            import struct
-            import sys
-
-            labels = sys.argv[1].rstrip(".").encode("idna").split(b".")
-            qname = b"".join(bytes((len(label),)) + label for label in labels) + b"\0"
-            query_id = 0xA022
-            query = struct.pack("!HHHHHH", query_id, 0x0100, 1, 0, 0, 0)
-            query += qname + struct.pack("!HH", 1, 1)
-
-            with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as dns_socket:
-                dns_socket.settimeout(2)
-                dns_socket.sendto(query, ("127.0.0.1", 53))
-                response, _ = dns_socket.recvfrom(4096)
-
-            if len(response) < 12:
-                raise SystemExit("short DNS response")
-
-            response_id, flags, _, answers, _, _ = struct.unpack("!HHHHHH", response[:12])
-            if response_id != query_id or not flags & 0x8000 or flags & 0xF or answers < 1:
-                raise SystemExit("DNS response did not contain an answer")
-
-            print(answers)
-          - "{{ dns_probe_name }}"
+      ansible.builtin.script:
+        cmd: >-
+          {{ playbook_dir }}/../scripts/dns_probe.py
+          --server 127.0.0.1
+          --name {{ dns_probe_name }}
+        executable: python3
       check_mode: false
       changed_when: false
       failed_when: false

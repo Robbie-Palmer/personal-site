@@ -37,7 +37,7 @@ ente_export_launchd_label: com.robbie.ente-export
 ente_export_health_launchd_label: homelab.ente-export-health
 ente_export_mount_path: /Volumes/Expansion
 ente_export_mount_uuid: 808A2851-4126-3A7B-B23F-9E1C3ADD28E4
-ente_export_path: /Volumes/Expansion/Pictures/Ente Photos
+ente_export_path: /Volumes/Expansion/Pictures/Ente Photos/Jade
 ente_export_log_path: "{{ ansible_facts.env.HOME }}/Library/Logs/ente-export.log"
 ente_export_success_marker: >-
   {{ ansible_facts.env.HOME }}/Library/Application Support/homelab/ente-export/last-success

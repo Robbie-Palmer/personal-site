@@ -10,7 +10,8 @@ The live job was inventoried on 2026-09-03 before Ansible took ownership.
 | CLI | `/opt/homebrew/bin/ente`, version `cli-v0.2.3` |
 | CLI installation | Official arm64 release binary, installed manually |
 | CLI configuration | `~/.ente/ente-cli.db`, mode `0600` |
-| Destination | `/Volumes/Expansion/Pictures/Ente Photos` |
+| Account | Jade's Ente Photos account; the email stays in the local CLI configuration |
+| Destination | `/Volumes/Expansion/Pictures/Ente Photos/Jade` |
 | Destination disk | 10 TB ExFAT volume named `Expansion` |
 | Log | `~/Library/Logs/ente-export.log` |
 | Original overlap guard | None |
