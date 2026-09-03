@@ -21,7 +21,7 @@ interface InitiativeSection {
 }
 
 function getInitiativeSections(content: string): InitiativeSection[] {
-  const matches = Array.from(content.matchAll(/^##\s+(.+)$/gm));
+  const matches = Array.from(content.matchAll(/^##[ \t]+([^\r\n]+)$/gm));
 
   if (matches.length === 0) {
     return [{ title: "About", source: content.trim() }];
@@ -50,9 +50,14 @@ export async function generateMetadata({ params }: PageProps) {
       title: `${initiative.title} - Initiative`,
       description: initiative.description,
     };
-  } catch (_error) {
-    // The page below turns unknown initiative slugs into a 404 response.
-    return { title: "Initiative Not Found" };
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      error.message.startsWith("Initiative not found:")
+    ) {
+      return { title: "Initiative Not Found" };
+    }
+    throw error;
   }
 }
 

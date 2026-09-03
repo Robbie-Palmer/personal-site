@@ -20,6 +20,8 @@ function initiativeFixture(): InitiativeWithProjects {
       { slug: "first", title: "First project", date: "2022-01-01" },
       { slug: "second", title: "Second project", date: "2023-01-01" },
       { slug: "third", title: "Third project", date: "2024-01-01" },
+      { slug: "fourth", title: "Fourth project", date: "2025-01-01" },
+      { slug: "fifth", title: "Fifth project", date: "2026-01-01" },
     ],
   } as unknown as InitiativeWithProjects;
 }
@@ -37,6 +39,7 @@ describe("initiative project navigation", () => {
     expect(
       screen.getByRole("link", { name: "Second project" }),
     ).toHaveAttribute("href", "/projects/second");
+    expect(screen.getByText("+1 more project")).toBeInTheDocument();
     expect(screen.queryByText("Read about the initiative")).toBeNull();
   });
 
@@ -88,7 +91,7 @@ describe("initiative project navigation", () => {
       "href",
       "/projects/third",
     );
-    expect(screen.getByText("Project 2 of 3")).toBeInTheDocument();
+    expect(screen.getByText("Project 2 of 5")).toBeInTheDocument();
   });
 
   it("avoids implying one sequence when a project has multiple parents", () => {

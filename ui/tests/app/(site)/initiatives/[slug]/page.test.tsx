@@ -31,10 +31,10 @@ const fixture = {
       contribution: "Made model outputs inspectable.",
       date: "2022-01-01",
       status: "completed",
-      tags: [],
+      tags: ["computational pathology"],
       technologies: [],
       adrSlugs: [],
-      adrs: [],
+      adrs: [{}],
     },
   ],
 };
@@ -84,15 +84,58 @@ describe("initiative page", () => {
       screen.getByRole("link", { name: "View Pathology Viewer" }),
     ).toHaveAttribute("href", "/projects/pathology-viewer");
     expect(screen.queryByText("Read the project")).toBeNull();
+    expect(screen.getByText("computational pathology")).toBeInTheDocument();
+    expect(screen.getByText("1 decision")).toBeInTheDocument();
+  });
+
+  it("renders unheaded initiative prose as an about section", async () => {
+    (getInitiative as Mock).mockReturnValue({
+      ...fixture,
+      content: "A plain-language initiative brief.",
+      projects: [],
+    });
+
+    render(
+      await InitiativePage({
+        params: Promise.resolve({ slug: "personalized-medicine" }),
+      }),
+    );
+
+    expect(
+      screen.getByRole("heading", { name: "About", level: 2 }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("A plain-language initiative brief."),
+    ).toBeInTheDocument();
+  });
+
+  it("renders the not-found boundary for an unknown initiative", async () => {
+    (getInitiative as Mock).mockImplementation(() => {
+      throw new Error("Initiative not found: missing");
+    });
+
+    await expect(
+      InitiativePage({ params: Promise.resolve({ slug: "missing" }) }),
+    ).rejects.toThrow();
   });
 
   it("uses not-found metadata for an unknown initiative", async () => {
     (getInitiative as Mock).mockImplementation(() => {
-      throw new Error("missing");
+      throw new Error("Initiative not found: missing");
     });
 
     await expect(
       generateMetadata({ params: Promise.resolve({ slug: "missing" }) }),
     ).resolves.toEqual({ title: "Initiative Not Found" });
+  });
+
+  it("does not disguise unexpected metadata failures as missing content", async () => {
+    (getInitiative as Mock).mockImplementation(() => {
+      throw new Error("Repository unavailable");
+    });
+
+    await expect(
+      generateMetadata({ params: Promise.resolve({ slug: "known" }) }),
+    ).rejects.toThrow("Repository unavailable");
   });
 });
