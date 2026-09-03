@@ -81,8 +81,8 @@ export const ReplayInputSnapshotSchema = z.looseObject({
   repository: z.string().min(1),
   pullRequestNumber: z.number().int().positive(),
   productionRunId: z.string().min(1),
-  git: z.object({ baseSha: z.string().min(1), headSha: z.string().min(1) }).strict(),
-  input: z.object({
+  git: z.looseObject({ baseSha: z.string().min(1), headSha: z.string().min(1) }),
+  input: z.looseObject({
     fullDiff: z.string(),
     reviewedDiff: z.string(),
     boundedFileContext: z.string(),
@@ -90,7 +90,7 @@ export const ReplayInputSnapshotSchema = z.looseObject({
     reviewThreads: z.string(),
     priorOpenFindings: z.array(OpenFindingBaselineSchema),
     affectedOpenFindings: z.array(OpenFindingBaselineSchema),
-  }).strict(),
+  }),
   decision: z.looseObject({
     changeProfile: ChangeProfileSchema.optional(),
     coverage: ReviewCoverageSchema.optional(),
@@ -98,13 +98,13 @@ export const ReplayInputSnapshotSchema = z.looseObject({
     omittedPaths: z.array(z.string()),
     reviewedHunks: z.array(ReviewHunkSchema).optional(),
   }),
-  prompt: z.object({
+  prompt: z.looseObject({
     version: z.string().min(1),
     scoutSystem: z.string(),
     scoutSchema: z.unknown(),
     mergerSystem: z.string(),
     mergerSchema: z.unknown(),
-  }).strict(),
+  }),
   policy: z.record(z.string(), z.unknown()),
   modelRequest: z.looseObject({
     openRouterScouts: z.array(z.string()),

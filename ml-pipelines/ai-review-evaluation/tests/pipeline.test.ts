@@ -14,6 +14,7 @@ import { resolveReplayCacheRoot, runReplays } from "../src/run-replays";
 import { stableJson, writeJson } from "../src/artifact-files";
 import {
   PipelineParamsSchema,
+  ReplayOutputSchema,
   type Finding,
   type FrozenCohort,
   type FrozenExperiment,
@@ -517,6 +518,16 @@ test("runtime configuration rejects providers outside the typed schema", () => {
   assert.equal(result.success, false);
   if (!result.success) {
     assert.deepEqual(result.error.issues[0]?.path, ["limits", "allowedProviders", 0]);
+  }
+});
+
+test("replay outputs reject unsafe cost values", () => {
+  const base = {
+    schemaVersion: 1,
+    recordType: "ai-review-replay-result",
+  };
+  for (const costUsd of [-0.01, Number.NaN, Number.POSITIVE_INFINITY]) {
+    assert.equal(ReplayOutputSchema.safeParse({ ...base, costUsd }).success, false);
   }
 });
 

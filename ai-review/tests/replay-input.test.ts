@@ -86,7 +86,10 @@ const configuration = {
   },
   policy: {
     publication: { version: "policy-v1" },
-    credentials: { password: "structured-secret-three" },
+    credentials: {
+      password: "structured-secret-three",
+      algorithm: "bcrypt",
+    },
   },
 };
 
@@ -110,6 +113,7 @@ describe("replay input corpus", () => {
         git: { baseSha: string; headSha: string };
         decision: { coverage: { mode: string } };
         input: { priorOpenFindings: unknown[]; affectedOpenFindings: unknown[] };
+        policy: { credentials: { algorithm: string } };
         provenance: { liveCredentialsIncluded: boolean };
       };
       expect(snapshot.git).toEqual({ baseSha: "a".repeat(40), headSha: "b".repeat(40) });
@@ -123,6 +127,7 @@ describe("replay input corpus", () => {
       expect(JSON.stringify(snapshot)).not.toContain("quoted-secret-one");
       expect(JSON.stringify(snapshot)).not.toContain("quoted-secret-two");
       expect(JSON.stringify(snapshot)).not.toContain("structured-secret-three");
+      expect(snapshot.policy.credentials.algorithm).toBe("bcrypt");
       expect(snapshot.provenance.liveCredentialsIncluded).toBe(false);
       const manifest = JSON.parse(String(put.mock.calls[1]?.[1]));
       expect(manifest.snapshot.sha256).toMatch(/^[a-f0-9]{64}$/);
@@ -179,5 +184,28 @@ describe("replay input corpus", () => {
       schemaVersion: 2,
       recordType: "ai-review-replay-input",
     })).toThrow("Unsupported replay input schema version: 2");
+  });
+
+  it("accepts forward-compatible fields in nested snapshot objects", async () => {
+    const { env, put } = fixture();
+    await persistReplayInput({
+      env,
+      params,
+      instanceId: "run-forward-compatible",
+      status: "published",
+      prepared: prepared("full"),
+      timestamp: new Date("2026-08-31T12:00:00Z"),
+      ...configuration,
+    });
+    const snapshot = JSON.parse(String(put.mock.calls[0]?.[1])) as {
+      git: Record<string, unknown>;
+      input: Record<string, unknown>;
+      prompt: Record<string, unknown>;
+    };
+    snapshot.git.objectFormat = "sha1";
+    snapshot.input.contextFormat = "bounded-v2";
+    snapshot.prompt.templateEngine = "liquid";
+
+    expect(() => assertReplaySchemaCompatible(snapshot)).not.toThrow();
   });
 });

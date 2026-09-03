@@ -249,7 +249,7 @@ export const ReplayOutputSchema = z.looseObject({
   metrics: z.array(ModelMetricSchema).optional(),
   tokens: z.looseObject({ input: z.number(), output: z.number(), cachedInput: z.number() }).optional(),
   latencyMs: z.number().optional(),
-  costUsd: z.number().optional(),
+  costUsd: z.number().finite().nonnegative().optional(),
   coverage: PartialReviewCoverageSchema.optional(),
 });
 

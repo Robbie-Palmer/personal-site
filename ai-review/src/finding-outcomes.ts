@@ -69,6 +69,7 @@ export function buildFindingOutcomeRecord(options: {
   recordedAt: string;
   evidence: Record<string, unknown>;
 }): FindingOutcomeRecord {
+  const occurredAt = Date.parse(options.occurredAt);
   return FindingOutcomeRecordSchema.parse({
     schemaVersion: 2,
     recordType: "finding-outcome",
@@ -84,7 +85,9 @@ export function buildFindingOutcomeRecord(options: {
     manualOverride: options.manualOverride ?? null,
     sourceId: options.sourceId,
     evidence: options.evidence,
-    occurredAt: new Date(options.occurredAt).toISOString(),
+    occurredAt: Number.isFinite(occurredAt)
+      ? new Date(occurredAt).toISOString()
+      : options.occurredAt,
     recordedAt: options.recordedAt,
   });
 }

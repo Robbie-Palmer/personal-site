@@ -268,7 +268,11 @@ export function runReplays({ cohortFile, experimentFile, corpusRoot, output, par
       storeRoot,
       experimentFile,
     });
-    spentUsd += Number(replay.costUsd ?? 0);
+    const replayCostUsd = replay.costUsd ?? 0;
+    if (!Number.isFinite(replayCostUsd) || replayCostUsd < 0) {
+      throw new Error(`replay returned an invalid cost for ${variant.id}/${entry.corpusId}/${repetition}`);
+    }
+    spentUsd += replayCostUsd;
     if (spentUsd > frozenExperiment.limits.maxTotalCostUsd) {
       throw new Error(`replay results exceeded the fixed total budget of $${frozenExperiment.limits.maxTotalCostUsd}`);
     }
