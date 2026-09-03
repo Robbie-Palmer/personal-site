@@ -37,5 +37,7 @@ mise run //homelab:ansible-check-mac
 mise run //homelab:ansible-configure-mac
 ```
 
-The apply reloads both launchd jobs but does not start a photo export. The next
-scheduled run creates the first success marker.
+The apply reloads both launchd jobs but does not start a photo export. A manual
+launchd run completed successfully on 3 September 2026, cleared the earlier
+failure marker, and created the first success marker. The whole-fleet verifier
+then reported the export healthy.
