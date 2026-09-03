@@ -46,14 +46,7 @@ export function InitiativeOverview({
             <CardHeader className="gap-3">
               <div className="flex items-start justify-between gap-4">
                 <CardTitle className="text-xl transition-colors group-hover:text-primary">
-                  <h3>
-                    <Link
-                      href={`/initiatives/${initiative.slug}`}
-                      className="relative z-10 underline-offset-4 hover:underline"
-                    >
-                      {initiative.title}
-                    </Link>
-                  </h3>
+                  <h3>{initiative.title}</h3>
                 </CardTitle>
                 <Badge variant="outline">
                   {initiative.projects.length}{" "}

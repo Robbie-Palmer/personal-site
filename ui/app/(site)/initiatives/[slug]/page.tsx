@@ -179,13 +179,8 @@ export default async function InitiativePage({ params }: Readonly<PageProps>) {
                         )}
                       </div>
                       <CardTitle className="text-xl">
-                        <h3>
-                          <Link
-                            href={`/projects/${project.slug}`}
-                            className="relative z-10 underline-offset-4 group-hover:text-primary hover:underline"
-                          >
-                            {project.title}
-                          </Link>
+                        <h3 className="transition-colors group-hover:text-primary">
+                          {project.title}
                         </h3>
                       </CardTitle>
                       <p className="max-w-3xl leading-7 text-muted-foreground">

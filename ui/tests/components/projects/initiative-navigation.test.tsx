@@ -37,6 +37,9 @@ describe("initiative project navigation", () => {
       screen.getByRole("link", { name: "View Personalized Medicine" }),
     ).toHaveAttribute("href", "/initiatives/personalized-medicine");
     expect(
+      screen.getAllByRole("link", { name: /Personalized Medicine/ }),
+    ).toHaveLength(1);
+    expect(
       screen.getByRole("link", { name: "Second project" }),
     ).toHaveAttribute("href", "/projects/second");
     expect(screen.getByText("+1 more project")).toBeInTheDocument();

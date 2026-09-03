@@ -83,6 +83,9 @@ describe("initiative page", () => {
     expect(
       screen.getByRole("link", { name: "View Pathology Viewer" }),
     ).toHaveAttribute("href", "/projects/pathology-viewer");
+    expect(
+      screen.getAllByRole("link", { name: /Pathology Viewer/ }),
+    ).toHaveLength(1);
     expect(screen.queryByText("Read the project")).toBeNull();
     expect(screen.getByText("computational pathology")).toBeInTheDocument();
     expect(screen.getByText("1 decision")).toBeInTheDocument();

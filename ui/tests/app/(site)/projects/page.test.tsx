@@ -48,7 +48,7 @@ describe("projects page", () => {
     render(await ProjectsPage());
 
     const initiative = screen.getByRole("link", {
-      name: "Personalized Medicine",
+      name: "View Personalized Medicine",
     });
     const allProjects = screen.getByRole("heading", { name: "All projects" });
 
