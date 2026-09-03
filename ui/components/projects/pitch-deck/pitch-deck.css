@@ -258,7 +258,7 @@ body.reveal-viewport:has(.pitch-deck) {
   height: 56px;
 }
 
-.pitch-deck .reveal .pitch-harness-map__icon {
+.pitch-deck .reveal img.pitch-harness-map__icon {
   filter: invert(1);
 }
 
