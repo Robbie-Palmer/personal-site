@@ -33,24 +33,24 @@ t3-code runs on an always-on Mac mini behind Tailscale.
   <div className="pitch-harness-map__stem" />
 
   <div className="pitch-harness-map__harnesses">
-    <div>
+    <div role="img" aria-label="Claude Code">
       <TechIcon name="Claude Code" iconSlug="claudecode" className="pitch-harness-map__icon" />
 
       <span>Claude Code</span>
     </div>
 
-    <div>
+    <div role="img" aria-label="Codex">
       <TechIcon name="Codex" iconSlug="codex" className="pitch-harness-map__icon" />
 
       <span>Codex</span>
     </div>
 
-    <div>
+    <div role="img" aria-label="Grok Build">
       <span className="pitch-harness-map__monogram" aria-hidden="true">G</span>
       <span>Grok Build</span>
     </div>
 
-    <div>
+    <div role="img" aria-label="OpenCode">
       <TechIcon name="OpenCode" iconSlug="opencode" className="pitch-harness-map__icon" />
 
       <span>OpenCode</span>
@@ -149,33 +149,21 @@ Every thread shares the host's repos, tools, GitHub auth, browser, and telemetry
 
 ***
 
-## The feedback loop ends at the running service
+<h2 className="pitch-slide__long-title">A finished change includes proof from the running system</h2>
 
-<div className="pitch-feedback-loop">
-  <div>
-    <span>1</span>
-    <strong>Change</strong>
-    <p>Real repo in an isolated worktree</p>
+<div className="pitch-proof-receipt">
+  <div className="pitch-proof-receipt__header">
+    <span>agent worktree</span>
+    <strong>evidence bundle</strong>
   </div>
 
-  <span className="pitch-feedback-loop__arrow" aria-hidden="true">→</span>
-
-  <div>
-    <span>2</span>
-    <strong>Run</strong>
-    <p>Host tools, browser and telemetry</p>
-  </div>
-
-  <span className="pitch-feedback-loop__arrow" aria-hidden="true">→</span>
-
-  <div>
-    <span>3</span>
-    <strong>Prove</strong>
-    <p>Preview, restart, health check and PR</p>
-  </div>
+  <div><span>WORKTREE</span><strong>Real repo, isolated branch</strong><b>✓</b></div>
+  <div><span>COMMAND</span><strong>Checked-in mise task</strong><b>✓</b></div>
+  <div><span>TARGET</span><strong>Restarted service or protected preview</strong><b>✓</b></div>
+  <div><span>PROOF</span><strong>Browser result, health response and logs</strong><b>✓</b></div>
 </div>
 
-<p className="pitch-slide__statement">Physical Android and iOS devices can join the same loop later.</p>
+<p className="pitch-slide__statement">The pull request carries the evidence. Real Android and iOS can join the bundle later.</p>
 
 <PitchNotes>
   A typecheck is useful, but it does not prove that launchd restarted a service, a VPN gate held, or a page works on an
@@ -191,16 +179,17 @@ Every thread shares the host's repos, tools, GitHub auth, browser, and telemetry
 
 ***
 
-## Every solved problem leaves something the next one can reuse
+## Every layer becomes part of the next build
 
-1. Tailscale made the Mac mini reachable without a public service.
-2. t3-code reused that host for four harnesses and their threads.
-3. mise tasks, worktrees, a browser, and telemetry made changes easier to test.
-4. The proposed phone lab can reuse the access, tasks, previews, and artifact collection.
+<div className="pitch-capability-stack">
+  <div className="pitch-capability-stack__proposed"><span>Next</span><strong>Phone lab</strong><p>Preview checks on real Android and iOS</p></div>
+  <div><span>Evidence</span><strong>Browser + telemetry</strong><p>Visible results from running services</p></div>
+  <div><span>Repeat</span><strong>mise + worktrees</strong><p>Shared commands and isolated changes</p></div>
+  <div><span>Work</span><strong>t3-code</strong><p>Persistent threads, repos and credentials</p></div>
+  <div><span>Reach</span><strong>Tailscale</strong><p>Private access from phone or laptop</p></div>
+</div>
 
-<PitchStep>
-  New work starts with access, commands, and feedback already working.
-</PitchStep>
+<p className="pitch-slide__statement">The next project starts four working layers ahead.</p>
 
 <PitchNotes>
   This is what cumulative value delivery means in this project. Each change solves its immediate problem and leaves a
@@ -274,19 +263,37 @@ Every thread shares the host's repos, tools, GitHub auth, browser, and telemetry
 
 ***
 
-<h2 className="pitch-slide__long-title">This is a personal setup, and the awkward parts are real</h2>
+## The Mac mini concentrates three failure modes
 
-<div className="pitch-boundary-list">
-  <div><strong>Mac mini outage</strong><span>Remote agent work stops.</span></div>
-  <div><strong>Shared host</strong><span>Agent credentials and personal data need a hard permission boundary.</span></div>
-  <div><strong>Same-house backup</strong><span>The 10TB copy does not cover theft or fire.</span></div>
+<div className="pitch-risk-map">
+  <div className="pitch-risk-map__hub">
+    <span>one host</span>
+    <strong>Mac mini</strong>
+    <p>agents · credentials · photos</p>
+  </div>
+
+  <div className="pitch-risk-map__risk pitch-risk-map__risk--outage">
+    <span>Outage</span>
+    <strong>Remote coding stops</strong>
+  </div>
+
+  <div className="pitch-risk-map__risk pitch-risk-map__risk--permissions">
+    <span>Permissions</span>
+    <strong>Agents share a host with personal data</strong>
+  </div>
+
+  <div className="pitch-risk-map__risk pitch-risk-map__risk--backup">
+    <span>Backup</span>
+    <strong>The second copy stays in the same house</strong>
+  </div>
 </div>
 
-<p className="pitch-slide__statement">Still unproven: the phone lab, cancelled streaming subscriptions and measured cash savings.</p>
+<p className="pitch-slide__statement">Accept outage · isolate agent storage · add an off-site copy</p>
 
 <PitchNotes>
-  I have not tracked maintenance time. Agents write configuration, run the same mise tasks I run, and repair routine
-  failures. I still own the host, the permissions, and the consequences of a bad change.
+  I accept that remote coding stops when the Mac mini fails. Agent access to the photo disk still needs a hard
+  boundary, and the 10TB backup does not cover theft or fire. I have not tracked maintenance time or measured cash
+  savings. I still own the host, the permissions, and the consequences of a bad change.
 
   \[Sources]
 
