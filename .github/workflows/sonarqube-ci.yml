@@ -149,7 +149,7 @@ jobs:
         shell: bash
         env:
           PROJECT_VERSION: ${{ steps.project-version.outputs.version }}
-          PROFILE_JASMIN: ${{ (github.event_name == 'workflow_dispatch' && inputs.profile_jasmin) || github.head_ref == 't3code/speed-up-sonarqube-ci' }}
+          PROFILE_JASMIN: ${{ github.event_name == 'workflow_dispatch' && inputs.profile_jasmin }}
         run: |
           args=()
 
