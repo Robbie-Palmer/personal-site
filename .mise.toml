@@ -27,7 +27,7 @@ verbose = false
 
 [tools]
 node = "lts"
-"github:pnpm/pnpm" = "12.1.0"
+"github:pnpm/pnpm" = "12.2.1"
 vale = "3.19.0"
 terraform = "1.16.0"
 tflint = "0.64.0"
