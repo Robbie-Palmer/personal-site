@@ -1,0 +1,19 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: t3-code
+spec:
+  template:
+    spec:
+      nodeSelector:
+        homelab.dev/capability: agent-workspace
+        homelab.dev/location: home
+      containers:
+        - name: t3-code
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: "2"
+              memory: 4Gi

@@ -1,0 +1,50 @@
+name: t3-code image
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "homelab/images/t3-code/**"
+      - "homelab/scripts/check-t3-image"
+      - "homelab/mise.toml"
+      - ".github/workflows/t3-code-image.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: t3-code-image
+  cancel-in-progress: false
+
+permissions: {}
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
+        with:
+          experimental: true
+
+      - name: Build and test image
+        run: |
+          mise run //homelab:t3-image-build
+          mise run //homelab:t3-image-check
+
+      - name: Log in to GHCR
+        env:
+          GHCR_TOKEN: ${{ github.token }}
+        run: printf '%s' "$GHCR_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+
+      - name: Publish image
+        run: mise run //homelab:t3-image-push
+
+      - name: Log out of GHCR
+        if: ${{ always() }}
+        run: docker logout ghcr.io || true

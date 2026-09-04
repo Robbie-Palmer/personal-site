@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+image=ghcr.io/robbie-palmer/t3-code:0.0.38-agent-tools-1
+target=${REMOTE_DEVELOPMENT_TAILNET_TARGET:-root@remote-development}
+
+for command in docker gzip ssh; do
+  if ! command -v "${command}" >/dev/null 2>&1; then
+    echo "${command} is required" >&2
+    exit 1
+  fi
+done
+
+docker image inspect "${image}" >/dev/null
+
+docker save "${image}" \
+  | gzip --fast \
+  | ssh "${target}" '
+      set -euo pipefail
+      test "$(hostname)" = remote-development
+      test "$(k3s kubectl get node remote-development --output=jsonpath='"'"'{.metadata.labels.homelab\.dev/location}'"'"')" = cloud
+      gzip --decompress --stdout | k3s ctr images import -
+    '
+
+ssh "${target}" \
+  "k3s ctr images list name=='${image}' | grep -F '${image}' >/dev/null"
+
+echo "loaded ${image} into remote-development K3s"
