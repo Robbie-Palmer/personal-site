@@ -59,7 +59,7 @@ const apiPreviewWrangler = parseToml(
 const pipelineParams = parseYaml(
   readRepoFile("ml-pipelines/recipe-parsing/params.yaml"),
 ) as StageParamsYaml;
-const terraformVariables = readRepoFile("infra/variables.tf");
+const terraformVariables = readRepoFile("infra/public-platform/variables.tf");
 
 function terraformVariableBlock(variableName: string): string {
   // Slice out the variable's block (up to the next top-level declaration)

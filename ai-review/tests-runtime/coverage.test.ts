@@ -131,7 +131,7 @@ describe("incremental review coverage in workerd", () => {
       reviewRiskSignals([
         "src/auth/session.ts",
         "drizzle/0001.sql",
-        "infra/main.tf",
+        "infra/public-platform/main.tf",
         ".github/workflows/deploy.yml",
       ]),
     ).toEqual([

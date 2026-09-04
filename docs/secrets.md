@@ -156,10 +156,10 @@ Required local Worker values in `dev_recipe_api`:
 Run Terraform through mise:
 
 ```bash
-mise run //infra:plan
-mise run //infra:apply
-mise run //infra-bootstrap:plan
-mise run //infra-bootstrap:apply
+mise run //infra/public-platform:plan
+mise run //infra/public-platform:apply
+mise run //infra/bootstrap:plan
+mise run //infra/bootstrap:apply
 ```
 
 Normal infra tasks inject both `dev_pages_env` and `dev_infra` locally.
@@ -328,7 +328,7 @@ into each service-specific Doppler config.
 Rotate `CLOUDFLARE_SLACK_WEBHOOK_URL` by creating a replacement webhook URL in
 the Slack app, setting the new value in both `dev_infra` and `prd_infra`,
 running `scripts/sync-doppler-github-envs.sh production-infra`, then running
-`mise run //infra:plan` and applying the destination update. Verify the new
+`mise run //infra/public-platform:plan` and applying the destination update. Verify the new
 URL by sending a test through Cloudflare Notifications → Destinations →
 Webhooks before deleting the old webhook from the Slack app.
 
@@ -410,10 +410,10 @@ scripts/sync-doppler-github-envs.sh production-database-backup
 scripts/sync-doppler-github-envs.sh production-ai-review
 
 mise run //:dev
-mise run //infra:format:check
-mise run //infra:precommit-lint
-mise run //infra-bootstrap:format:check
-mise run //infra-bootstrap:precommit-lint
+mise run //infra/public-platform:format:check
+mise run //infra/public-platform:precommit-lint
+mise run //infra/bootstrap:format:check
+mise run //infra/bootstrap:precommit-lint
 CI=true mise run //workers/recipe-api:typecheck
 doppler run --project personal-site --config dev_recipe_api -- mise x -- pnpm --dir workers/recipe-api exec wrangler deploy --dry-run
 ```

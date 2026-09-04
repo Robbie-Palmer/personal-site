@@ -19,7 +19,7 @@ Entry points for the external services this repo depends on.
 - [Neon console](https://console.neon.tech/), recipe Postgres (production and
   preview projects).
 - [Terraform Cloud workspace](https://app.terraform.io/app/robbie-palmer/workspaces/personal-site),
-  remote state and runs for `infra/`.
+  remote state and runs for `infra/public-platform/`.
 
 ## Secrets and configuration
 

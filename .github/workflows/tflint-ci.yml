@@ -24,8 +24,8 @@ jobs:
         with:
           experimental: true
 
-      - name: Lint infra with TFLint
-        run: mise run //infra:lint:tflint
+      - name: Lint public platform infrastructure with TFLint
+        run: mise run //infra/public-platform:lint:tflint
 
-      - name: Lint infra-bootstrap with TFLint
-        run: mise run //infra-bootstrap:lint:tflint
+      - name: Lint bootstrap infrastructure with TFLint
+        run: mise run //infra/bootstrap:lint:tflint

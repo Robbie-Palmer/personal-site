@@ -25,7 +25,7 @@ jobs:
       name: production-infra-bootstrap
     defaults:
       run:
-        working-directory: infra-bootstrap
+        working-directory: infra/bootstrap
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -49,15 +49,15 @@ jobs:
         run: rm -f .planfile
 
       - name: Terraform Plan
-        run: mise run //infra-bootstrap:plan
+        run: mise run //infra/bootstrap:plan
         env:
           DOPPLER_BOOTSTRAP_INFRA_CONFIG: prd_bootstrap_infra
           TF_TOKEN_app_terraform_io: ${{ secrets.TF_API_TOKEN }}
           TF_VAR_gcp_project_id: ${{ vars.GCP_PROJECT_ID }}
 
       - name: Terraform Apply
-        if: ${{ inputs.apply && success() && hashFiles('infra-bootstrap/.planfile') != '' }}
-        run: mise run //infra-bootstrap:apply
+        if: ${{ inputs.apply && success() && hashFiles('infra/bootstrap/.planfile') != '' }}
+        run: mise run //infra/bootstrap:apply
         env:
           DOPPLER_BOOTSTRAP_INFRA_CONFIG: prd_bootstrap_infra
           TF_TOKEN_app_terraform_io: ${{ secrets.TF_API_TOKEN }}

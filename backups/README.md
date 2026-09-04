@@ -94,8 +94,8 @@ compromise of those services cannot decrypt historical backups.
 ### 1. Apply the Terraform bucket
 
 ```bash
-mise run //infra:plan
-mise run //infra:apply
+mise run //infra/public-platform:plan
+mise run //infra/public-platform:apply
 ```
 
 The default bucket name is `personal-site-database-backups`.
