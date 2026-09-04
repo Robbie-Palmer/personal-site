@@ -80,3 +80,7 @@ supported; shrinking a Hetzner volume is not.
 
 The volume survives ordinary server replacement, but it is not a backup.
 Application-level encrypted backups and a tested restore remain required.
+
+Hetzner server backups default to disabled because they cover only the
+reproducible root disk, not the attached workspace volume. Enable them only if
+faster root-disk rollback is worth the additional cost.
