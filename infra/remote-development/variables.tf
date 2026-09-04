@@ -75,9 +75,9 @@ variable "data_volume_size_gb" {
 }
 
 variable "enable_backups" {
-  description = "Enable Hetzner server backups; these supplement but do not replace application backups"
+  description = "Enable Hetzner backups of the server root disk; attached volumes are excluded"
   type        = bool
-  default     = true
+  default     = false
 }
 
 variable "enable_delete_protection" {
