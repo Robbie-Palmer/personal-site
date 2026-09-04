@@ -114,7 +114,8 @@ best-fitting one per task.
 * **New orchestration dependency**: t3-code is young; the provider landscape
   it wraps changes quickly.
 * **Host availability**: remote sessions depend on the Mac mini staying up,
-  which is exactly what an always-on hub is for, but it does make the hub a
-  single point of failure for all agent work.
+  which makes home power and broadband a correlated single point of failure.
+  [ADR 025](/projects/homelab/adrs/025-cloud-remote-development-plane) proposes
+  an independent cloud instance without changing t3-code's role.
 * **Configuration surface**: agent auth, t3-code pairing, and the tailnet
   binding all need to be kept working together.

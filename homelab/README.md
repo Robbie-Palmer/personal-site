@@ -10,6 +10,12 @@ All services are reachable only over the home LAN and the
 [Tailscale](/projects/homelab/adrs/000-tailscale) tailnet. The router
 forwards no ports, so nothing is ever public.
 
+[ADR 025](/projects/homelab/adrs/025-cloud-remote-development-plane) proposes
+an off-site t3-code environment for continuity during a home power or broadband
+outage. It is an independent, single-node K3s cluster on a NixOS VPS, not a
+remote member of the home cluster. The two environments share declarations and
+handoff through GitHub branches rather than sharing live application state.
+
 ## Fleet inventory and checks
 
 [ADR 022](/projects/homelab/adrs/022-ansible-k3s-migration-bridge) introduces
