@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+target=${REMOTE_DEVELOPMENT_TAILNET_TARGET:-root@remote-development}
+
+ssh "${target}" 'bash -se' <<'REMOTE'
+set -euo pipefail
+test "$(hostname)" = remote-development
+test "$(id -u t3code)" = 2000
+test "$(id -g t3code)" = 2000
+test "$(findmnt --noheadings --output SOURCE /srv/remote-development)" = /dev/mapper/remote-development-data
+systemctl is-active --quiet tailscaled.service
+systemctl is-active --quiet k3s.service
+tailscale status --json | jq -e '.BackendState == "Running"' >/dev/null
+k3s kubectl get node remote-development \
+  --output=jsonpath='{.metadata.labels.homelab\.dev/location}{"\n"}' \
+  | grep -Fx cloud >/dev/null
+k3s kubectl get node remote-development \
+  --output=jsonpath='{.metadata.labels.homelab\.dev/capability}{"\n"}' \
+  | grep -Fx agent-workspace >/dev/null
+echo "host, encrypted volume, Tailscale, and independent K3s server are healthy"
+
+if k3s kubectl --namespace t3-code get deployment t3-code >/dev/null 2>&1; then
+  k3s kubectl --namespace t3-code rollout status deployment/t3-code --timeout=120s
+  curl --fail --silent --show-error http://127.0.0.1:30773/ >/dev/null
+  echo "t3-code workload is healthy"
+fi
+REMOTE

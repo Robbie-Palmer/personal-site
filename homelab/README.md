@@ -16,6 +16,122 @@ outage. It is an independent, single-node K3s cluster on a NixOS VPS, not a
 remote member of the home cluster. The two environments share declarations and
 handoff through GitHub branches rather than sharing live application state.
 
+## Remote development plane
+
+The NixOS host lives under `hosts/remote-development/`. Disko owns only the VPS
+root disk. The attached Hetzner volume is encrypted with LUKS2, mounted at
+`/srv/remote-development`, and holds the K3s data directory, t3-code state,
+coding-agent authentication, repositories, and worktrees. Terraform owns only
+the Hetzner server, firewall, public SSH key, and volume.
+
+The cloud K3s server is independent from the home cluster. The Kustomize base
+under `k3s/base/t3-code/` contains shared workload policy. The `home` and
+`remote-development` overlays provide separate local volumes, scheduling,
+resource limits, Doppler configs, and tailnet ports. Deployment tasks verify
+the exact Kubernetes context and every node's location label before applying.
+
+### First commissioning
+
+Create two Doppler configs before installation:
+
+- `homelab/prd_remote_development_host` stores the restricted
+  `DATA_VOLUME_LUKS_KEY` and the one-use `TAILSCALE_AUTH_KEY`.
+- `homelab/prd_remote_development` supplies runtime values to the Doppler
+  Kubernetes Operator. Do not put interactive OAuth sessions in this config.
+
+Build the host, encrypt the empty volume, and install NixOS while Terraform's
+single bootstrap SSH CIDR is active:
+
+```bash
+mise run //homelab:nix-flake-check
+mise run //homelab:remote-build
+mise run //homelab:remote-volume-prepare
+mise run //homelab:remote-install
+```
+
+Before enrolling the server, define `tag:remote-development` in the tailnet
+policy and grant only the intended operator identities access to SSH, HTTPS,
+and the Kubernetes API on that tag. Generate an auth key with these settings:
+
+- One-off enabled.
+- Tag set to `tag:remote-development`.
+- Pre-approved enabled if device approval is in use.
+- Ephemeral disabled, because this server must retain its tailnet identity.
+
+Store the key without putting it in shell history. This command accepts the
+value interactively and finishes when a line containing only `.` is entered:
+
+```bash
+doppler secrets set TAILSCALE_AUTH_KEY \
+  --project homelab \
+  --config prd_remote_development_host \
+  --visibility restricted
+```
+
+Start Tailscale on the operator workstation, then complete enrollment and
+cluster setup:
+
+```bash
+mise run //homelab:remote-tailscale-enrol
+mise run //homelab:remote-kubeconfig
+mise run //homelab:doppler-operator-install-remote
+mise run //homelab:k3s-dry-run-remote
+mise run //homelab:k3s-deploy-remote
+mise run //homelab:remote-health
+```
+
+The workload image normally arrives from GHCR. For a first install before the
+registry package exists, build, test, and load it over SSH before deployment:
+
+```bash
+mise run //homelab:t3-image-build
+mise run //homelab:t3-image-check
+mise run //homelab:t3-image-load-remote
+```
+
+After tailnet SSH, HTTPS, and the health task pass, set Terraform's
+`bootstrap_ssh_cidrs` to `[]`, review a new plan, and apply it. Reboot once more
+and rerun `remote-health`. Never remove public SSH first.
+
+### Agent authentication
+
+Interactive CLI sessions stay on the encrypted volume. Codex uses file-based
+credential storage inside the container because a system keyring is not
+available. Keep each subscription in its own `CODEX_HOME` and use device-code
+login from a shell in the t3-code pod:
+
+```bash
+CODEX_HOME=/data/home/.codex codex login --device-auth
+CODEX_HOME=/data/home/.codex-personal codex login --device-auth
+```
+
+The resulting `auth.json` files contain access tokens. Do not copy them into an
+image, Doppler, Kubernetes manifests, Terraform, logs, tickets, or chat. GitHub
+access should use a fine-grained repository token or GitHub App held in the
+remote workload Doppler config. Other interactive coding-harness sessions
+belong under `/data/home`, not in an image layer.
+
+### Updates, rollback, and backups
+
+Build every NixOS change first, then switch it over the tailnet:
+
+```bash
+mise run //homelab:remote-build
+mise run //homelab:remote-rebuild
+```
+
+Reverting the configuration and rebuilding is the normal rollback. NixOS boot
+generations provide console recovery. Workload rollback restores the previous
+image reference from Git and reapplies the cloud overlay.
+
+Hetzner server backups are disabled because they cover the reproducible root
+disk and exclude the attached volume. They would speed up root recovery, but
+they would not protect the data that matters here. LUKS encryption and Hetzner
+volume replication are also not backups. An encrypted, versioned copy of
+`/srv/remote-development/t3-code` in a separate provider or failure domain is
+still required. Do not claim backup coverage until that destination and a
+tested restore procedure exist.
+
 ## Fleet inventory and checks
 
 [ADR 022](/projects/homelab/adrs/022-ansible-k3s-migration-bridge) introduces

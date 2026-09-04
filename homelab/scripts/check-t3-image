@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+image=ghcr.io/robbie-palmer/t3-code:0.0.38-agent-tools-1
+container=personal-site-t3-image-check
+
+cleanup() {
+  docker stop "${container}" >/dev/null 2>&1 || true
+}
+trap cleanup EXIT
+
+docker run --rm \
+  --tmpfs /data:uid=2000,gid=2000,mode=0750 \
+  --entrypoint /bin/sh \
+  "${image}" \
+  -ec '
+    test "$(id -u)" = 2000
+    test "$(id -g)" = 2000
+    test "$(codex --version)" = "codex-cli 0.153.2"
+    test "$(claude --version)" = "2.1.260 (Claude Code)"
+    test "$(opencode --version)" = "1.18.27"
+    command -v git gh t3 >/dev/null
+  '
+
+docker run --detach --rm \
+  --name "${container}" \
+  --tmpfs /data:uid=2000,gid=2000,mode=0750 \
+  --publish 127.0.0.1::3773 \
+  "${image}" >/dev/null
+
+port=$(docker port "${container}" 3773/tcp | sed 's/.*://')
+for _ in $(seq 1 30); do
+  if curl --fail --silent "http://127.0.0.1:${port}/" >/dev/null; then
+    echo "t3-code image starts as UID/GID 2000 and serves HTTP"
+    exit 0
+  fi
+  sleep 1
+done
+
+echo "t3-code image did not become healthy" >&2
+exit 1
