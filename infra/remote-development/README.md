@@ -1,11 +1,13 @@
 # Remote development infrastructure
 
-This directory is reserved for the independently stateful Terraform root that
-will provision the remote coding-agent environment. It intentionally contains
-no Terraform configuration until the provider, host design, persistence model,
-and bootstrap boundary are accepted.
+This independently stateful Terraform root provisions the remote coding-agent
+environment proposed by
+[ADR 025](../../ui/content/projects/homelab/adrs/025-cloud-remote-development-plane.mdx).
 
-The future root is expected to own cloud resources such as the VPS, provider
-firewall, and persistent storage. NixOS will own host configuration, K3s will
-own containerised workloads, and Doppler will remain the secret source of
+This root owns only Hetzner Cloud resources: the VPS, provider firewall, SSH
+public key registration, and persistent storage. NixOS owns host configuration,
+K3s owns containerised workloads, and Doppler remains the secret source of
 truth. The remote cluster must not join the home K3s control plane.
+
+Its Terraform Cloud workspace is `personal-site-remote-development`. Plans and
+applies must remain independent from both existing infrastructure roots.

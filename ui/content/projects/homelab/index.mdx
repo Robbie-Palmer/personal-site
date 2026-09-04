@@ -2,7 +2,7 @@
 title: "Home Lab"
 description: "A private home fleet that backs up personal data, runs coding agents, filters DNS, monitors itself, and gives old hardware a useful job"
 date: "2026-08-02"
-updated: "2026-09-03"
+updated: "2026-09-04"
 status: "in_progress"
 tech_stack:
   - "Tailscale"
@@ -17,6 +17,9 @@ tech_stack:
   - "DVC"
   - "Netdata"
   - "NixOS"
+  - "K3s"
+  - "Terraform"
+  - "Hetzner Cloud"
   - "CUPS"
   - "Docker"
   - "Jellyfin"
@@ -38,9 +41,10 @@ The home lab exists to serve four goals, in priority order:
 1. **Data backup and coordination.** The lab syncs and backs up cloud photo
    libraries, datasets, and project files. Manual drive synchronisation has
    failed repeatedly. The machines now own that work.
-2. **Agentic development environments.** An always-on machine hosts my coding
-   harnesses (Claude Code, Codex, OpenCode, Grok Build) behind a mobile-friendly
-   GUI, so I can drive real development work from my phone over the tailnet.
+2. **Agentic development environments.** Always-available machines host my
+   coding harnesses (Claude Code, Codex, OpenCode, Grok Build) behind a
+   mobile-friendly GUI, so I can drive real development work from my phone over
+   the tailnet even when the home power or broadband is unavailable.
 3. **Privacy.** Network-wide ad and tracker blocking keeps my devices from
    phoning home to trackers, applied to every device on the LAN regardless of
    what it runs.
@@ -93,6 +97,9 @@ kit would solve a software problem with more hardware.
   agents, so I can keep shipping from the sofa.
 * As someone with two Codex subscriptions, I want both managed in one place,
   so I can use each plan's allowance and pick the best-fitting one per task.
+* As a developer during a home power or broadband outage, I want an off-site
+  t3-code environment already running, so coding capacity is available over a
+  modest mobile connection without bootstrapping a laptop locally.
 * As a household with a home router, I want ad and tracker blocking applied
   network-wide with automatic failover, so every device is protected even if
   one DNS box reboots.
@@ -334,12 +341,13 @@ class DNS,Monitor,Print service
 `}
 />
 
-### Proposed devices
+### Proposed devices and remote development
 
 The Mac mini already sends jobs to the Asus desktop over the tailnet. It will
 wake the 4080 laptop for GPU jobs and run browser tests on the phone lab. The
 View 20 will check the live hosts over cellular so it can still report a home
-power or internet failure.
+power or internet failure. An independent cloud development plane remains
+reachable when every device at home is offline.
 
 <Mermaid
   chart={`flowchart TB
@@ -350,7 +358,9 @@ Laptop["Laptop<br/>RTX 4080 compute"]
 Cache[("1TB DVC cache")]
 Phones["Phone lab<br/>Android and iOS QA"]
 Watchdog["View 20<br/>Cellular watchdog"]
+Remote["Hetzner VPS<br/>NixOS and independent K3s"]
 Slack["Slack"]
+GitHub["GitHub<br/>Branches and PRs"]
 
 Mini -->|"GPU jobs"| Worker
 Mini -->|"GPU jobs"| Laptop
@@ -359,12 +369,14 @@ Mini -->|"Browser tests"| Phones
 Watchdog -->|"Checks"| Mini
 Watchdog -->|"Checks"| Pi
 Watchdog -->|"Alerts"| Slack
+Remote -->|"Cloud t3-code"| GitHub
+Mini -->|"Home t3-code"| GitHub
 
 classDef live fill:#0f766e,color:#fff,stroke:#115e59
 classDef proposed fill:#fef3c7,color:#78350f,stroke:#d97706,stroke-dasharray:5 5
 classDef data fill:#4338ca,color:#fff,stroke:#3730a3
 class Mini,Pi,Worker live
-class Laptop,Phones,Watchdog proposed
+class Laptop,Phones,Watchdog,Remote proposed
 class Cache data
 `}
 />
@@ -419,6 +431,19 @@ owns the photo backup pipeline, the lab's two most important jobs.
   it while the VPN tunnel is up ([ADR 020](/projects/homelab/adrs/020-vpn-gated-stack)).
   Trakt watchlist taps become monitored titles, and finished downloads land
   straight in Jellyfin ([ADR 021](/projects/homelab/adrs/021-trakt-watchlist)).
+
+## Remote development plane, proposed
+
+[ADR 025](/projects/homelab/adrs/025-cloud-remote-development-plane) proposes
+a long-lived Hetzner VPS so a home power or broadband outage does not remove
+all coding capacity. Terraform provisions it, the repository's NixOS flake
+declares the host, and an independent single-node K3s cluster runs t3-code.
+
+It does not extend the home cluster across the internet. Home and cloud share
+Kustomize bases where useful, but retain separate control planes, overlays,
+volumes, authentication homes, and t3-code state. GitHub branches and pull
+requests are the handoff between them. Tailscale is the only application access
+path; t3-code and the K3s API remain closed to the public internet.
 
 ## Raspberry Pi, the independent fallback
 
@@ -501,6 +526,7 @@ workloads and layering on the rest:
 | 9     | Second compute node (idle 4080 laptop)                        | Idea     |
 | 10    | Automated media acquisition (arr stack behind the VPN gate)   | Live     |
 | 11    | Trakt watchlist recommendation loop into Jellyfin             | Live     |
+| 12    | Off-site t3-code environment on an independent NixOS/K3s VPS  | Proposed |
 
 # What this is not
 
@@ -533,6 +559,17 @@ These ideas remain outside the current build plan:
   do not justify it yet.
 
 # Risks
+
+## Home power removes the development environment
+
+The Mac mini and broadband router share one power and network failure domain.
+When both disappear, the agent subscriptions still exist but their prepared
+host, repositories, authentication, and t3-code interface are unreachable.
+
+**Mitigation.** ADR 025 proposes an independent cloud t3-code installation
+behind Tailscale. The two installations keep separate mutable state and hand
+work off through pushed Git branches. An outage drill must prove the cloud
+environment works from mobile data before it is treated as continuity.
 
 ## DNS is a single point of failure for the whole house
 
