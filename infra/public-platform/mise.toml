@@ -1,11 +1,11 @@
 [tasks.init]
-description = "Initialize bootstrap Terraform"
+description = "Initialize Terraform"
 run = "bash scripts/doppler-terraform-env terraform init"
-sources = ["*.tf", "**/*.tf", "**/*.tfvars", ".terraform.lock.hcl"]
+sources = ["*.tf"]
 outputs = [".terraform/**/*"]
 
 [tasks.format]
-description = "Format bootstrap Terraform files (optionally pass files as args)"
+description = "Format Terraform files (optionally pass files as args)"
 run = """
 #!/usr/bin/env bash
 if [ $# -eq 0 ]; then
@@ -16,7 +16,7 @@ fi
 """
 
 [tasks."format:check"]
-description = "Check bootstrap Terraform formatting without making changes"
+description = "Check Terraform formatting without making changes"
 run = """
 #!/usr/bin/env bash
 if [ $# -eq 0 ]; then
@@ -27,12 +27,12 @@ fi
 """
 
 [tasks.lint]
-description = "Validate bootstrap Terraform configuration"
-depends = ["//infra-bootstrap:init"]
+description = "Validate Terraform configuration"
+depends = ["//infra/public-platform:init"]
 run = "terraform validate"
 
 [tasks."lint:tflint"]
-description = "Lint bootstrap Terraform with TFLint (provider-agnostic correctness rules)"
+description = "Lint Terraform with TFLint (provider-agnostic correctness rules)"
 run = """
 #!/usr/bin/env bash
 # Lints the whole root; ignores file args appended by lint-staged
@@ -40,24 +40,25 @@ tflint --format compact
 """
 
 [tasks.precommit-lint]
-description = "Validate bootstrap Terraform configuration (lightweight for pre-commit)"
+description = "Validate Terraform configuration (lightweight for pre-commit)"
 run = """
 #!/usr/bin/env bash
+# Initialize without backend for pre-commit usage, showing errors if init fails
 bash scripts/doppler-terraform-env terraform init -backend=false > /dev/null || { echo "Terraform init failed" >&2; exit 1; }
 bash scripts/doppler-terraform-env terraform validate
 """
 
 [tasks.plan]
-description = "Run bootstrap Terraform plan"
-depends = ["//infra-bootstrap:init"]
+description = "Run Terraform plan"
+depends = ["//infra/public-platform:init"]
 run = "bash scripts/doppler-terraform-env terraform plan -out .planfile"
 outputs = [".planfile"]
 
 [tasks.apply]
-description = "Apply bootstrap Terraform changes"
-depends = ["//infra-bootstrap:init"]
+description = "Apply Terraform changes"
+depends = ["//infra/public-platform:init"]
 run = "bash scripts/doppler-terraform-env terraform apply -auto-approve .planfile"
 
 [tasks.check]
-description = "Run all bootstrap Terraform checks"
-depends = ["//infra-bootstrap:format:check", "//infra-bootstrap:lint", "//infra-bootstrap:lint:tflint", "//infra-bootstrap:plan"]
+description = "Run all checks (format, lint, plan)"
+depends = ["//infra/public-platform:format:check", "//infra/public-platform:lint", "//infra/public-platform:lint:tflint", "//infra/public-platform:plan"]

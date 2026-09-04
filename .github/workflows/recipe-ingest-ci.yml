@@ -14,7 +14,7 @@ on:
       - "workers/recipe-api/wrangler.toml"
       - "workers/recipe-api/wrangler.preview.toml"
       - "ml-pipelines/recipe-parsing/params.yaml"
-      - "infra/variables.tf"
+      - "infra/public-platform/variables.tf"
 
 permissions:
   contents: read

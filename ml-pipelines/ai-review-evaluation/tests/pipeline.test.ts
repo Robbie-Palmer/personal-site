@@ -490,7 +490,7 @@ test("change-size bands keep names and upper bounds together", () => {
 
 test("language strata use Linguist extensions and special filenames", () => {
   assert.deepEqual(
-    languagesForPaths(["src/app.ts", "infra/main.tf", "Dockerfile", "docs/guide.mdx"]),
+    languagesForPaths(["src/app.ts", "infra/public-platform/main.tf", "Dockerfile", "docs/guide.mdx"]),
     ["dockerfile", "hcl", "mdx", "typescript"],
   );
 });

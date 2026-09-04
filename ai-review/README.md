@@ -70,7 +70,7 @@ justify higher published prices than the current multi-provider route.
 - Changed-file context is fetched through bounded GitHub GraphQL batches rather
   than one REST request per path. This keeps large reviews below Cloudflare's
   subrequest ceiling without changing the shared prompt or coverage budgets.
-- `infra/` owns the shared Cloudflare account's private R2 bucket.
+- `infra/public-platform/` owns the shared Cloudflare account's private R2 bucket.
 - R2 expires review records after 365 days and aborts incomplete multipart
   uploads after seven days. Cloudflare provider v4 cannot represent those
   rules, so they are configured once with Wrangler and verified during setup.
@@ -466,8 +466,8 @@ expiry or seven-day multipart-abort policy drifts.
 ```bash
 mise run //ai-review:check
 mise run //ai-review:deploy:dry-run
-mise run //infra:format:check
-mise run //infra:precommit-lint
+mise run //infra/public-platform:format:check
+mise run //infra/public-platform:precommit-lint
 mise run //:lint:actions
 ```
 

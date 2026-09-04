@@ -407,7 +407,7 @@ export function reviewRiskSignals(paths: string[]): string[] {
       : undefined,
     paths.some(
       (path) =>
-        /(^|\/)(infra|infra-bootstrap|terraform|k8s|kubernetes)(\/|$)/i.test(
+        /(^|\/)(infra|terraform|k8s|kubernetes)(\/|$)/i.test(
           path,
         ) || /(^|\/)(Dockerfile|docker-compose[^/]*)$/i.test(path) || /\.tf$/i.test(path),
     )

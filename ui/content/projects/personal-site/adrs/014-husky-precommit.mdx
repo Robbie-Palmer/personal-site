@@ -62,7 +62,8 @@ The `lint-staged` configuration in `package.json` maps file patterns to mise tas
 {
   "lint-staged": {
     "ui/**/*.{ts,tsx,js,jsx,json}": ["mise run //ui:format"],
-    "infra/**/*.tf": ["mise run //infra:format", "mise run //infra:precommit-lint"],
+    "infra/public-platform/**/*.tf": ["mise run //infra/public-platform:format", "mise run //infra/public-platform:precommit-lint"],
+    "infra/bootstrap/**/*.tf": ["mise run //infra/bootstrap:format", "mise run //infra/bootstrap:precommit-lint"],
     "**/*.md": ["mise run //:lint:markdown"],
     "**/*.mdx": ["mise run //:lint:mdx"],
     "*.{yml,yaml}": ["mise run //:lint:yaml"]
@@ -111,7 +112,7 @@ This builds directly on top of mise tasks from ADR 004, avoiding duplication. Th
 * **[Short Feedback Loops](/projects?tab=philosophy#short-feedback-loops)**: Linters run in seconds on staged files instead of minutes on the entire codebase. Typical pre-commit time: 2-5 seconds vs 30+ seconds for full repo checks.
 * **Fails Before CI**: Catches formatting, syntax, and linting errors before they enter git history. CI becomes a verification layer, not the first line of defense.
 * **Single Source of Truth**: Lint tasks are defined once in `.mise.toml` and reused by both pre-commit hooks and CI. No duplication between local checks and GitHub Actions.
-* **Monorepo Awareness**: Supports workspace-specific tasks (`//ui:format`, `//infra:format`) while maintaining repo-wide consistency for shared file types (Markdown, YAML).
+* **Monorepo Awareness**: Supports workspace-specific tasks (`//ui:format`, `//infra/public-platform:format`) while maintaining repo-wide consistency for shared file types (Markdown, YAML).
 * **Low Maintenance**: Husky auto-installs hooks via the `prepare` script on `pnpm install`. No manual setup or git hook configuration required.
 * **Boring Technology**: Husky is the industry standard, with excellent documentation and deep LLM training data. Works seamlessly with the LLM-optimized development workflow.
 * **Selective Execution**: lint-staged only processes files that are staged, reducing noise and focusing checks on what's actually changing.
