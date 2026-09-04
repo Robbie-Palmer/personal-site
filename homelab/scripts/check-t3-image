@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-image=ghcr.io/robbie-palmer/t3-code:0.0.38-agent-tools-1
+image=ghcr.io/robbie-palmer/t3-code:0.0.38-agent-tools-2
 container=personal-site-t3-image-check
 
 cleanup() {
@@ -19,7 +19,7 @@ docker run --rm \
     test "$(codex --version)" = "codex-cli 0.153.2"
     test "$(claude --version)" = "2.1.260 (Claude Code)"
     test "$(opencode --version)" = "1.18.27"
-    command -v git gh t3 >/dev/null
+    command -v bwrap git gh t3 >/dev/null
   '
 
 docker run --detach --rm \

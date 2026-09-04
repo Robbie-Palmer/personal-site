@@ -11,6 +11,7 @@ LABEL org.opencontainers.image.description="Pinned t3-code runtime for the remot
 RUN apt-get update \
     && apt-get install --yes --no-install-recommends \
       build-essential \
+      bubblewrap \
       ca-certificates \
       curl \
       dnsutils \
