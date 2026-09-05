@@ -3,6 +3,7 @@
 #include <array>
 #include <cstdint>
 #include <deque>
+#include <exception>
 #include <iostream>
 
 namespace {
@@ -47,10 +48,8 @@ private:
 };
 
 void SimulationBus::attach(SimulationTransport& transport) {
-  if (size_ < transports_.size()) {
-    transports_[size_] = &transport;
-    ++size_;
-  }
+  transports_.at(size_) = &transport;
+  ++size_;
 }
 
 void SimulationBus::broadcast(const SimulationTransport& sender, const Message& message) {
@@ -94,7 +93,7 @@ SatelliteSnapshot satelliteAt(float longitude, float latitude) {
 
 } // namespace
 
-int main() {
+int runSimulation() {
   SimulationBus bus;
   SimulationTransport transport_0(bus);
   SimulationTransport transport_1(bus);
@@ -131,4 +130,13 @@ int main() {
   }
 
   return node_1.state() == ControllerState::Active ? 0 : 1;
+}
+
+int main() {
+  try {
+    return runSimulation();
+  } catch (const std::exception& error) {
+    std::cerr << "simulation setup failed: " << error.what() << '\n';
+    return 1;
+  }
 }
