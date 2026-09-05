@@ -176,7 +176,7 @@ export type RecordTransferInput = z.infer<typeof RecordTransferInputSchema>;
 export const AddRecurringFlowInputSchema = z
   .object({
     ...RecurringFlowDefinitionShape,
-    name: RecurringFlowDefinitionShape.name.trim(),
+    name: z.string().trim().min(1, "Give the flow a name"),
     startDate: IsoDateSchema.optional(),
   })
   .superRefine(validateRecurringFlowDefinition);

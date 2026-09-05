@@ -801,6 +801,18 @@ describe("applyCloseAccount", () => {
 });
 
 describe("applyAddRecurringFlow / applyDeleteRecurringFlow", () => {
+  it("rejects a whitespace-only flow name", () => {
+    expect(() =>
+      applyAddRecurringFlow(baseData(), {
+        name: "   ",
+        toAccountId: "savings",
+        amount: 3_000,
+        frequency: "monthly",
+        startDate: "2024-07-01",
+      }),
+    ).toThrow(/Give the flow a name/);
+  });
+
   it("adds a fixed flow with a slugified ID", () => {
     const next = applyAddRecurringFlow(baseData(), {
       name: "ISA contribution",
