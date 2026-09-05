@@ -12,7 +12,7 @@
 
 class EspNowTransport : public satellite_swarm::Transport {
 public:
-  EspNowTransport();
+  EspNowTransport() = default;
 
   bool begin();
   bool send(const satellite_swarm::Message& message) override;
@@ -24,7 +24,8 @@ private:
 
   StaticQueue_t queue_control_{};
   std::array<uint8_t, kQueueDepth * sizeof(satellite_swarm::Message)> queue_storage_{};
-  QueueHandle_t queue_;
+  QueueHandle_t queue_ = xQueueCreateStatic(kQueueDepth, sizeof(satellite_swarm::Message),
+                                            queue_storage_.data(), &queue_control_);
   bool initialized_ = false;
 
   static void onReceive(const esp_now_recv_info_t* info, const uint8_t* data, int length);

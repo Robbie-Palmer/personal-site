@@ -12,10 +12,6 @@ constexpr std::array<uint8_t, ESP_NOW_ETH_ALEN> kBroadcastAddress = {0xFFU, 0xFF
 
 EspNowTransport* EspNowTransport::instance_ = nullptr;
 
-EspNowTransport::EspNowTransport()
-    : queue_(xQueueCreateStatic(kQueueDepth, sizeof(satellite_swarm::Message),
-                                queue_storage_.data(), &queue_control_)) {}
-
 bool EspNowTransport::begin() {
   if (instance_ != nullptr || queue_ == nullptr) {
     return false;
