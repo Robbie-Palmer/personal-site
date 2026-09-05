@@ -631,14 +631,24 @@ describe("Visualization browser rendering", () => {
         },
       );
       await speakerPage?.waitForFunction(
-        () => {
-          const frame = document.querySelector<HTMLIFrameElement>(
-            'iframe[data-presenter-frame="current"]',
-          );
-          return frame?.contentDocument?.querySelector(
-            ".pitch-deck .reveal.ready section.present h1, .pitch-deck .reveal.ready section.present h2",
-          )?.textContent;
-        },
+        () =>
+          [
+            {
+              selector: 'iframe[data-presenter-frame="current"]',
+              heading: "Managed reviewers",
+            },
+            {
+              selector: 'iframe[data-presenter-frame="upcoming"]',
+              heading: "Own the review loop",
+            },
+          ].every(({ selector, heading }) =>
+            document
+              .querySelector<HTMLIFrameElement>(selector)
+              ?.contentDocument?.querySelector(
+                ".pitch-deck .reveal.ready section.present h1, .pitch-deck .reveal.ready section.present h2",
+              )
+              ?.textContent?.includes(heading),
+          ),
         { timeout: 20_000 },
       );
       const speakerHeading = await speakerPage?.$eval(
@@ -665,22 +675,6 @@ describe("Visualization browser rendering", () => {
       );
       expect(speakerNotes).toContain("control of the review loop");
 
-      await speakerPage?.waitForFunction(
-        () =>
-          [
-            'iframe[data-presenter-frame="current"]',
-            'iframe[data-presenter-frame="upcoming"]',
-          ].every((selector) => {
-            const frameDocument =
-              document.querySelector<HTMLIFrameElement>(
-                selector,
-              )?.contentDocument;
-            return Boolean(
-              frameDocument?.querySelector(".pitch-deck .reveal.ready"),
-            );
-          }),
-        { timeout: 20_000 },
-      );
       const speakerPreviewChrome = await speakerPage?.evaluate(() =>
         [
           'iframe[data-presenter-frame="current"]',
