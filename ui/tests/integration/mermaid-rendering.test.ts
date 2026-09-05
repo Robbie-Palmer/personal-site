@@ -405,6 +405,108 @@ describe("Visualization browser rendering", () => {
     }
   }, 30_000);
 
+  it("fits the recipe diagrams into phone-sized slides", async () => {
+    const page = await browser.newPage();
+    const pageErrors: string[] = [];
+    page.on("pageerror", (error) => pageErrors.push(String(error)));
+
+    try {
+      await page.setViewport({ width: 390, height: 844 });
+      await page.goto(`${BASE_URL}/projects/recipe-site/deck`, {
+        waitUntil: "domcontentloaded",
+      });
+      await page.waitForSelector(".pitch-deck .reveal.ready", {
+        timeout: 20_000,
+      });
+
+      const advanceTo = async (slide: number) => {
+        while (
+          (await page.$eval(".pitch-deck__position", (position) =>
+            Number(position.textContent?.match(/Slide (\d+)/)?.[1]),
+          )) < slide
+        ) {
+          await page.click('button[aria-label="Next slide"]');
+        }
+        await page.waitForFunction(
+          (expected) =>
+            document
+              .querySelector(".pitch-deck__position")
+              ?.textContent?.startsWith(`Slide ${expected} `),
+          {},
+          slide,
+        );
+      };
+      const inspectPresentDiagram = async (selector: string) =>
+        page.$eval(`section.present ${selector}`, (element) => {
+          const diagram = element as HTMLElement;
+          const content = diagram.closest<HTMLElement>(".pitch-slide__content");
+          const diagramBounds = diagram.getBoundingClientRect();
+          const contentBounds = content?.getBoundingClientRect();
+          const countTracks = (value: string) => {
+            const repeatedTracks = /^repeat\(\s*(\d+)/.exec(value)?.[1];
+            if (repeatedTracks) return Number(repeatedTracks);
+
+            let count = 0;
+            let depth = 0;
+            let inTrack = false;
+            for (const character of value) {
+              if (character === "(") depth += 1;
+              if (character === ")") depth -= 1;
+              if (/\s/.test(character) && depth === 0) {
+                inTrack = false;
+              } else if (!inTrack) {
+                count += 1;
+                inTrack = true;
+              }
+            }
+            return count;
+          };
+          const styles = getComputedStyle(diagram);
+
+          return {
+            columnCount: countTracks(styles.gridTemplateColumns),
+            contained:
+              diagram.scrollWidth <= diagram.clientWidth + 1 &&
+              Boolean(
+                contentBounds &&
+                  diagramBounds.left >= contentBounds.left - 1 &&
+                  diagramBounds.right <= contentBounds.right + 1,
+              ),
+            rowCount: countTracks(styles.gridTemplateRows),
+          };
+        });
+
+      await advanceTo(2);
+      const loop = await inspectPresentDiagram(".pitch-recipe-loop");
+      await advanceTo(5);
+      const evidence = await inspectPresentDiagram(".pitch-evidence-ladder");
+      await advanceTo(7);
+      const recommendationImage = await page.$eval(
+        "section.present .pitch-recommendation-card__recipe",
+        (recommendation) => getComputedStyle(recommendation).backgroundImage,
+      );
+      await advanceTo(9);
+      const flywheel = await inspectPresentDiagram(".pitch-cooking-flywheel");
+      await advanceTo(10);
+      const roadmap = await inspectPresentDiagram(".pitch-recipe-roadmap");
+
+      expect(loop.columnCount).toBe(3);
+      expect(loop.rowCount).toBe(3);
+      expect(evidence.columnCount).toBe(3);
+      expect(flywheel.columnCount).toBe(1);
+      expect(roadmap.columnCount).toBe(2);
+      expect(
+        [loop, evidence, flywheel, roadmap].every(
+          (diagram) => diagram.contained,
+        ),
+      ).toBe(true);
+      expect(recommendationImage).toBe("none");
+      expect(pageErrors).toEqual([]);
+    } finally {
+      await page.close();
+    }
+  }, 30_000);
+
   it("uses swipeable slides and a pannable overview on phones", async () => {
     const page = await browser.newPage();
     const pageErrors: string[] = [];
