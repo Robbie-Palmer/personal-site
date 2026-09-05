@@ -600,6 +600,56 @@ describe("ShoppingListBoundary", () => {
     ]);
   });
 
+  it("ignores a stale refetch that arrives after a save", async () => {
+    mocks.saveCurrentShoppingList.mockResolvedValue({
+      ...storedList,
+      revision: "1",
+    });
+    const { queryClient } = renderWithQueryClient(
+      <ShoppingListBoundary>
+        <p>List ready</p>
+      </ShoppingListBoundary>,
+    );
+    await screen.findByText("List ready");
+    await waitForInstalledList();
+
+    act(() => toggleChecked("garlic"));
+    await waitFor(() =>
+      expect(
+        queryClient.getQueryData<StoredShoppingList>([
+          "recipes",
+          "private",
+          "user-1",
+          "shopping-list",
+        ])?.revision,
+      ).toBe("1"),
+    );
+    mocks.saveCurrentShoppingList.mockClear();
+
+    // A GET that was already in flight before the save resolves with the
+    // pre-save revision "0" and snapshot. It must not roll the ticked item back
+    // nor reset the saved revision, or the next save carries stale data on a
+    // stale revision.
+    act(() => {
+      queryClient.setQueryData(
+        ["recipes", "private", "user-1", "shopping-list"],
+        storedList,
+      );
+    });
+    act(() => addExtra("Milk"));
+
+    await waitFor(() =>
+      expect(mocks.saveCurrentShoppingList).toHaveBeenCalledWith(
+        storedList.id,
+        "1",
+        expect.objectContaining({
+          checked: ["garlic"],
+          extras: [expect.objectContaining({ text: "Milk" })],
+        }),
+      ),
+    );
+  });
+
   it("shows a load error instead of an editable local list", async () => {
     mocks.getCurrentShoppingList.mockRejectedValue(new Error("offline"));
 
