@@ -75,6 +75,14 @@ function sourceObject<T>(root: string, file: string, record: T): SourceObject<T>
   };
 }
 
+function pullRequestMetadata(
+  terminal: ReviewTerminal,
+  snapshot: ReplayInputSnapshot,
+): DatasetManifest["entries"][number]["pullRequest"] {
+  const recorded = terminal.pullRequest ?? snapshot.pullRequest;
+  return recorded ? completePullRequestMetadata(recorded) : undefined;
+}
+
 export function extractCorpus({
   input,
   output,
@@ -141,10 +149,7 @@ export function extractCorpus({
     const languages = languagesForPaths(paths);
     const coverage = terminal.coverage ?? snapshot.decision?.coverage ?? null;
     const changedLines = (terminal.change?.additions ?? 0) + (terminal.change?.deletions ?? 0);
-    const recordedPullRequest = terminal.pullRequest ?? snapshot.pullRequest;
-    const pullRequest = recordedPullRequest
-      ? completePullRequestMetadata(recordedPullRequest)
-      : undefined;
+    const pullRequest = pullRequestMetadata(terminal, snapshot);
     const entryPath = `entries/${corpusId}.json`;
     fs.writeFileSync(path.join(outputRoot, entryPath), snapshotContent);
     entries.push({

@@ -45,8 +45,8 @@ export function inferPullRequestTaskType({
   if (/^feat(?:\([^)]+\))?!?:/.test(normalizedTitle)) return "feature";
 
   const normalizedHead = headRef?.trim().toLowerCase() ?? "";
-  if (/(^|\/)(?:fix|bugfix|hotfix)(?:\/|-)/.test(normalizedHead)) return "bug";
-  if (/(^|\/)(?:docs|documentation)(?:\/|-)/.test(normalizedHead)) return "documentation";
+  if (/(^|\/)(?:fix|bugfix|hotfix)[\/-]/.test(normalizedHead)) return "bug";
+  if (/(^|\/)(?:docs|documentation)[\/-]/.test(normalizedHead)) return "documentation";
   if (/^(?:add|create|feature|implement|improve|introduce)\b/.test(normalizedTitle)) return "feature";
   return undefined;
 }

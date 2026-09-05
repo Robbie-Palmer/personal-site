@@ -411,8 +411,8 @@ function metricsFor(subset: Subset, options: MetricOptions): Metrics {
         modelCallsPerPullRequest !== null &&
         uncachedTokensPerPullRequest !== null
           ? {
-              ...(baseline.baselineId ? { baselineId: baseline.baselineId } : {}),
-              ...(baseline.sample ? { sample: baseline.sample } : {}),
+              baselineId: baseline.baselineId,
+              sample: baseline.sample,
               modelCallsPerPullRequest: {
                 value: baseline.modelCallsPerPullRequest,
                 ratio: round6(modelCallsPerPullRequest / baseline.modelCallsPerPullRequest),
@@ -830,8 +830,9 @@ function renderMarkdown(report: Json): string {
   lines.push("## Scorecard", "", markdownTable(["Metric", "Value", "Sample size"], metricsRows(metrics)), "");
   if (metrics.reviewEfficiency.baseline) {
     const baseline = metrics.reviewEfficiency.baseline;
+    const baselineReference = baseline.baselineId ? ` ${baseline.baselineId}` : "";
     lines.push(
-      `Review-efficiency baseline${baseline.baselineId ? ` ${baseline.baselineId}` : ""}: ${baseline.modelCallsPerPullRequest.value} model calls/PR and ${baseline.uncachedInputTokensPerPullRequest.value} uncached input tokens/PR. Current-to-baseline ratios are ${baseline.modelCallsPerPullRequest.ratio} and ${baseline.uncachedInputTokensPerPullRequest.ratio}.`,
+      `Review-efficiency baseline${baselineReference}: ${baseline.modelCallsPerPullRequest.value} model calls/PR and ${baseline.uncachedInputTokensPerPullRequest.value} uncached input tokens/PR. Current-to-baseline ratios are ${baseline.modelCallsPerPullRequest.ratio} and ${baseline.uncachedInputTokensPerPullRequest.ratio}.`,
       "",
     );
   }
