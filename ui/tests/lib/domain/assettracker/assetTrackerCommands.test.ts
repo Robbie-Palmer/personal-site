@@ -363,6 +363,30 @@ describe("applyImportAccountHistory", () => {
     ]);
   });
 
+  it("preserves capital flows during a balance-only replacement import", () => {
+    const imported = applyImportAccountHistory(baseData(), {
+      accountId: "stocks-isa",
+      balances: [],
+      capitalFlows: [{ date: "2024-01-01", value: 100 }],
+      capitalFlowKind: "personalSaving",
+    });
+
+    const next = applyImportAccountHistory(imported, {
+      accountId: "stocks-isa",
+      balances: [{ date: "2024-06-01", value: 13_000 }],
+      capitalFlows: [],
+      capitalFlowKind: "personalSaving",
+      replaceCapitalFlows: true,
+    });
+
+    expect(next.capitalFlows).toEqual(imported.capitalFlows);
+    expect(next.snapshots).toContainEqual({
+      accountId: "stocks-isa",
+      date: "2024-06-01",
+      balance: 13_000,
+    });
+  });
+
   it("keeps independently classified capital histories on the same date", () => {
     const personal = applyImportAccountHistory(baseData(), {
       accountId: "stocks-isa",

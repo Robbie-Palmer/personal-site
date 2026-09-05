@@ -401,14 +401,15 @@ export function applyImportAccountHistory(
     );
   }
 
-  const existingCapitalFlows = parsed.replaceCapitalFlows
-    ? data.capitalFlows.filter(
-        (flow) =>
-          flow.accountId !== parsed.accountId ||
-          capitalFlowKind(flow) !==
-            (parsed.capitalFlowKind ?? "personalSaving"),
-      )
-    : data.capitalFlows;
+  const existingCapitalFlows =
+    parsed.replaceCapitalFlows && parsed.capitalFlows.length > 0
+      ? data.capitalFlows.filter(
+          (flow) =>
+            flow.accountId !== parsed.accountId ||
+            capitalFlowKind(flow) !==
+              (parsed.capitalFlowKind ?? "personalSaving"),
+        )
+      : data.capitalFlows;
   const capitalFlowsByAccountDate = new Map(
     existingCapitalFlows.map((flow) => [
       `${flow.accountId}\0${flow.date}\0${capitalFlowKind(flow)}`,

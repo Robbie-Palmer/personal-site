@@ -103,7 +103,7 @@ export function IncomeExpenditureChart({
           </p>
         </div>
         <fieldset className="flex gap-1">
-          <legend className="sr-only">Income and expenditure chart view</legend>
+          <legend className="sr-only">Income and spending chart view</legend>
           <Button
             type="button"
             size="sm"
