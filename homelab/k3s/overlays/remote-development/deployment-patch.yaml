@@ -11,6 +11,21 @@ spec:
         homelab.dev/power-profile: always-on
       containers:
         - name: t3-code
+          env:
+            - name: OPENCODE_CONFIG_CONTENT
+              value: |
+                {
+                  "$schema": "https://opencode.ai/config.json",
+                  "provider": {
+                    "openrouter": {
+                      "models": {
+                        "z-ai/glm-5.3-flash": {
+                          "name": "GLM 5.3 Flash"
+                        }
+                      }
+                    }
+                  }
+                }
           resources:
             requests:
               cpu: 500m
