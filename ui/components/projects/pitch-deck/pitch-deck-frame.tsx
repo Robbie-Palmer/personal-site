@@ -400,7 +400,7 @@ export function PitchDeckFrame({
   return (
     <section
       ref={shellRef}
-      className={`pitch-deck pitch-deck--${mode}`}
+      className={`pitch-deck pitch-deck--${mode}${projectSlug ? ` pitch-deck--project-${projectSlug}` : ""}`}
       aria-label={`${title} presentation`}
     >
       {hasPresenterTools && (

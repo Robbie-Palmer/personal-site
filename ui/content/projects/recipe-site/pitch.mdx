@@ -51,26 +51,44 @@ Recipe Site turns cooking, adapting, and repeating recipes into useful evidence 
 
 ## The useful personal product already exists
 
-<div className="pitch-recipe-product">
-  <div className="pitch-recipe-product__nav">
-    <strong>Recipe Site</strong>
-    <span className="is-active">Recipe box</span>
-    <span>Discover</span>
-    <span>Kitchen</span>
-    <span>Shopping</span>
-    <span>Cook log</span>
-  </div>
+<div className="pitch-product-surfaces">
+  <article>
+    <header className="pitch-product-surfaces__header"><span className="pitch-product-surfaces__title">Recipe box</span><b className="pitch-product-surfaces__meta">Collection</b></header>
 
-  <div className="pitch-recipe-product__main">
-    <div className="pitch-recipe-product__header"><span>Tonight</span><b>3 recipes match your kitchen</b></div>
-
-    <div className="pitch-recipe-product__cards">
-      <article><span>25 min</span><strong>Chicken quesadillas</strong><small>8 of 10 ingredients in stock</small></article>
-      <article><span>repeat</span><strong>Salt & chilli chips</strong><small>Cooked 3 weeks ago</small></article>
+    <div className="pitch-product-surfaces__preview is-box">
+      <span className="pitch-product-surfaces__search">Search by ingredient…</span>
+      <div><i /><span><b className="pitch-product-surfaces__recipe-name">Chicken quesadillas</b><small>Mexican · 25 min</small></span></div>
+      <div><i /><span><b className="pitch-product-surfaces__recipe-name">Salt & chilli chips</b><small>British · side</small></span></div>
     </div>
 
-    <div className="pitch-recipe-product__footer"><span>4 portions</span><span>2 timers</span><span>metric</span></div>
-  </div>
+    <strong>Capture & find</strong>
+    <small>URL, photo and Cooklang imports</small>
+  </article>
+
+  <article>
+    <header className="pitch-product-surfaces__header"><span className="pitch-product-surfaces__title">Cook mode</span><b className="pitch-product-surfaces__meta">Step 2 of 5</b></header>
+
+    <div className="pitch-product-surfaces__preview is-cook">
+      <p>Fry the onions until soft.</p>
+      <div><span>2× portions</span><span className="pitch-product-surfaces__timer">08:42</span></div>
+    </div>
+
+    <strong>Adapt & cook</strong>
+    <small>Scaling, unit conversion and concurrent timers</small>
+  </article>
+
+  <article>
+    <header className="pitch-product-surfaces__header"><span className="pitch-product-surfaces__title">Kitchen</span><b className="pitch-product-surfaces__meta">Stock match</b></header>
+
+    <div className="pitch-product-surfaces__preview is-kitchen">
+      <div><i /><span>onion</span><b className="pitch-product-surfaces__stock-status">in stock</b></div>
+      <div><i /><span>tortillas</span><b className="pitch-product-surfaces__stock-status">in stock</b></div>
+      <div className="pitch-product-surfaces__stock-last"><i /><span>cheddar</span><b className="pitch-product-surfaces__stock-status">add</b></div>
+    </div>
+
+    <strong>Plan & coordinate</strong>
+    <small>Meal plan, merged shopping and shared pantry</small>
+  </article>
 </div>
 
 <p className="pitch-slide__statement">Capture → plan → shop → stock → cook, in one working product.</p>
@@ -78,8 +96,8 @@ Recipe Site turns cooking, adapting, and repeating recipes into useful evidence 
 <PitchNotes>
   The live product has recipe boxes, search, Cooklang editing, scaling, unit conversion, cooking mode, concurrent
   timers, meal planning, shopping lists, pantry matching, imports, accounts, households, recommendations, and cook
-  history. The mock window condenses those shipped surfaces. It is not a screenshot or a claim that one screen
-  contains every control.
+  history. These three panels show the shipped Recipe box, Cook mode, and Kitchen surfaces rather than inventing
+  a single screen that contains every control.
 
   \[Sources]
 
@@ -166,10 +184,10 @@ Recipe Site turns cooking, adapting, and repeating recipes into useful evidence 
 <div className="pitch-taste-map">
   <span className="pitch-taste-map__axis pitch-taste-map__axis--taste">How good was it? →</span>
   <span className="pitch-taste-map__axis pitch-taste-map__axis--fit">How well did it fit today? →</span>
-  <div className="is-treat"><strong>Celebration dish</strong><small>loved · rarely repeated</small></div>
+  <div className="is-fallback"><strong>Emergency fallback</strong><small>useful · not a favourite</small></div>
   <div className="is-staple"><strong>Tuesday staple</strong><small>good · fast · reliable</small></div>
-  <div className="is-miss"><strong>Worth the work?</strong><small>good result · wrong occasion</small></div>
   <div className="is-skip"><strong>Skip next time</strong><small>neither enjoyable nor useful</small></div>
+  <div className="is-treat"><strong>Worth the work?</strong><small>great result · wrong occasion</small></div>
 </div>
 
 <PitchNotes>
