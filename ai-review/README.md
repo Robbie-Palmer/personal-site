@@ -265,7 +265,8 @@ credentials from Doppler) and build from them:
 ```bash
 mise run //ai-review:scorecard:pull
 mise run //ai-review:scorecard:build
-mise run //ai-review:scorecard:report
+mise run //ai-review:scorecard:baseline
+mise run //ai-review:scorecard:report -- --baseline ~/.cache/ai-review/baseline/stateless-baseline.json
 ```
 
 `pull` caches the bucket under `~/.cache/ai-review/r2-export` (idempotent:
@@ -279,6 +280,13 @@ paths are resolved relative to `ai-review/` when run through mise. The
 cache root can be redirected with `AI_REVIEW_SCORECARD_CACHE`. Building
 from any other fixed export prefix stays fully deterministic and
 offline.
+
+`scorecard:baseline` selects schema-v1 review runs from the marts and writes
+`~/.cache/ai-review/baseline/stateless-baseline.json`. The artifact records its
+source mart checksums, sample sizes, efficiency values, and a content-derived
+baseline ID. Pass it to the report with `--baseline` to compare schema-v2
+stateful review against the same stateless evidence instead of entering
+baseline values by hand.
 
 Metric definitions follow
 [Agentic Code Review ADR 033](/projects/agentic-code-review/adrs/033-duckdb-ai-review-scorecard):

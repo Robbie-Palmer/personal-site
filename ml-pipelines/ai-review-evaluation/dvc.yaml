@@ -7,6 +7,7 @@ stages:
     deps:
       - package.json
       - ../../packages/ai-review-domain/src/records.ts
+      - ../../packages/ai-review-domain/src/pull-request-metadata.ts
       - ../../packages/ai-review-domain/src/replay.ts
       - src/extract-corpus.ts
       - src/artifact-files.ts
@@ -40,6 +41,8 @@ stages:
       - outputs/frozen/experiment.json
       - outputs/frozen/matching.json
       - outputs/frozen/predeclaration.json
+      - outputs/frozen/readiness.json
+      - outputs/frozen/readiness.md
 
   replay:
     cmd: bash scripts/replay.sh
@@ -56,9 +59,11 @@ stages:
       - ../../ai-review/src/review-engine.ts
       - ../../.github/scripts/ai-review/ai-review.ts
       - ../../packages/ai-review-domain/src/records.ts
+      - ../../packages/ai-review-domain/src/pull-request-metadata.ts
       - ../../packages/ai-review-domain/src/replay.ts
       - outputs/frozen/cohort.json
       - outputs/frozen/experiment.json
+      - outputs/frozen/readiness.json
       - data/corpus
       - src/artifact-files.ts
       - src/cli-arguments.ts

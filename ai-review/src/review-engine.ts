@@ -48,6 +48,10 @@ import type {
   ReviewCoverageMode,
   ReviewHunk,
 } from "ai-review-domain/records";
+import {
+  inferOriginatingAgent,
+  inferPullRequestTaskType,
+} from "ai-review-domain/pull-request-metadata";
 import { createInstallationToken } from "./github-app";
 import {
   publishFindingComments,
@@ -359,32 +363,6 @@ function countPatchLines(diff: string, prefix: "+" | "-"): number {
         line.startsWith(prefix) &&
         !line.startsWith(prefix === "+" ? "+++" : "---"),
     ).length;
-}
-
-function taskType(labels: string[]): PullRequestMetadata["taskType"] {
-  const normalized = new Set(labels.map((label) => label.toLowerCase()));
-  if (["bug", "fix"].some((label) => normalized.has(label))) return "bug";
-  if (["dependencies", "dependency"].some((label) => normalized.has(label))) {
-    return "dependency";
-  }
-  if (["documentation", "docs"].some((label) => normalized.has(label))) {
-    return "documentation";
-  }
-  if (["enhancement", "feature"].some((label) => normalized.has(label))) {
-    return "feature";
-  }
-  return undefined;
-}
-
-function originatingAgent(
-  title: string | undefined,
-  headRef: string | undefined,
-): PullRequestMetadata["originatingAgent"] {
-  const source = `${title ?? ""} ${headRef ?? ""}`.toLowerCase();
-  if (/(^|[^a-z])claude([^a-z]|$)/.test(source)) return "claude";
-  if (/(^|[^a-z])codex([^a-z]|$)/.test(source)) return "codex";
-  if (/(^|[^a-z])opencode([^a-z]|$)/.test(source)) return "opencode";
-  return undefined;
 }
 
 export function reviewRiskSignals(paths: string[]): string[] {
@@ -948,8 +926,16 @@ export async function prepareReview(
       title: pr.title,
       labels,
       headRef: pr.head.ref,
-      taskType: taskType(labels),
-      originatingAgent: originatingAgent(pr.title, pr.head.ref),
+      taskType: inferPullRequestTaskType({
+        author: pr.user.login,
+        headRef: pr.head.ref,
+        labels,
+        title: pr.title,
+      }),
+      originatingAgent: inferOriginatingAgent({
+        headRef: pr.head.ref,
+        title: pr.title,
+      }),
       reviewers: reviewContext.reviewers,
     },
     context,

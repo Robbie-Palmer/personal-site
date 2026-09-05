@@ -6,11 +6,14 @@ import {
   readJson,
   resetDirectory,
   sha256,
+  stableJson,
   writeJson,
 } from "./artifact-files";
 import { parseArgs } from "./cli-arguments";
+import { buildEvaluationReadiness } from "./freeze-cohort";
 import {
   EvaluationReplayIndexSchema,
+  EvaluationReadinessSchema,
   EvaluationReplaySchema,
   FrozenCohortSchema,
   FrozenExperimentSchema,
@@ -35,6 +38,7 @@ const RUNNER_FILES = [
   "src/review-engine.ts",
   "../.github/scripts/ai-review/ai-review.ts",
   "../packages/ai-review-domain/src/records.ts",
+  "../packages/ai-review-domain/src/pull-request-metadata.ts",
   "../packages/ai-review-domain/src/replay.ts",
 ];
 
@@ -113,6 +117,7 @@ function runOne({ aiReviewRoot, snapshot, corpusId, output, experimentFile, vari
 interface RunReplaysOptions {
   cohortFile: string;
   experimentFile: string;
+  readinessFile: string;
   corpusRoot: string;
   output: string;
   paramsFile: string;
@@ -233,15 +238,29 @@ export function validatedReplayCostUsd(
   return replay.costUsd;
 }
 
-export function runReplays({ cohortFile, experimentFile, corpusRoot, output, paramsFile, aiReviewRoot, cacheRoot }: RunReplaysOptions): EvaluationReplayIndex {
+export function runReplays({ cohortFile, experimentFile, readinessFile, corpusRoot, output, paramsFile, aiReviewRoot, cacheRoot }: RunReplaysOptions): EvaluationReplayIndex {
   const cohort = FrozenCohortSchema.parse(readJson(cohortFile));
   const frozenExperiment = FrozenExperimentSchema.parse(readJson(experimentFile));
+  const readiness = EvaluationReadinessSchema.parse(readJson(readinessFile));
   const params = PipelineParamsSchema.parse(readJson(paramsFile));
   if (frozenExperiment.cohortId !== cohort.cohortId) {
     throw new Error("experiment does not belong to the frozen cohort");
   }
+  if (readiness.cohortId !== cohort.cohortId || readiness.datasetId !== cohort.datasetId) {
+    throw new Error("readiness report does not belong to the frozen cohort");
+  }
+  const expectedReadiness = buildEvaluationReadiness(cohort, params);
+  if (stableJson(readiness) !== stableJson(expectedReadiness)) {
+    throw new Error("readiness report does not match the frozen cohort and pipeline parameters");
+  }
   const mode = params.replay.mode;
   const execute = mode === "execute";
+  if (execute && !readiness.sample.ready && !params.replay.allowUnderpoweredPilot) {
+    throw new Error(
+      `paid replay blocked: maximum available ${readiness.sample.unit} is ${readiness.sample.maximumAvailable}; ` +
+      `the frozen decision requires ${readiness.sample.minimum}. Set replay.allowUnderpoweredPilot=true only for a pipeline pilot`,
+    );
+  }
   const outputRoot = path.resolve(output);
   resetDirectory(outputRoot);
   const resolvedAiReviewRoot = path.resolve(aiReviewRoot);
@@ -332,10 +351,11 @@ export function runReplays({ cohortFile, experimentFile, corpusRoot, output, par
 }
 
 function main(): void {
-  const args = parseArgs(process.argv.slice(2), ["cohort", "experiment", "corpus", "output", "params", "ai-review-root"]);
+  const args = parseArgs(process.argv.slice(2), ["cohort", "experiment", "readiness", "corpus", "output", "params", "ai-review-root"]);
   const index = runReplays({
     cohortFile: args.cohort,
     experimentFile: args.experiment,
+    readinessFile: args.readiness,
     corpusRoot: args.corpus,
     output: args.output,
     paramsFile: args.params,

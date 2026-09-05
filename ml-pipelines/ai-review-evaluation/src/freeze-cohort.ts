@@ -1,18 +1,22 @@
+import fs from "node:fs";
 import path from "node:path";
 import { readJson, resetDirectory, sha256, stableJson, writeJson } from "./artifact-files";
 import { parseArgs } from "./cli-arguments";
 import {
   DatasetManifestSchema,
+  EvaluationReadinessSchema,
   FrozenCohortSchema,
   FrozenDecisionSchema,
   FrozenExperimentSchema,
   FrozenMatchingSchema,
   PipelineParamsSchema,
   type DatasetEntry,
+  type EvaluationReadiness,
   type FrozenCohort,
   type FrozenDecision,
   type FrozenExperiment,
   type FrozenMatching,
+  type PipelineParams,
 } from "./schemas";
 
 interface PullRequestGroup {
@@ -45,6 +49,7 @@ interface Predeclaration {
   experimentId: string;
   matchingId: string;
   decisionId: string;
+  readinessId: string;
   predeclarationId: string;
 }
 
@@ -53,7 +58,127 @@ interface FrozenArtifacts {
   experiment: FrozenExperiment;
   matching: FrozenMatching;
   decision: FrozenDecision;
+  readiness: EvaluationReadiness;
   predeclaration: Predeclaration;
+}
+
+function maximumAvailableSample(
+  entries: DatasetEntry[],
+  params: PipelineParams,
+): number {
+  switch (params.decision.sampleUnit) {
+    case "pull-requests":
+      return new Set(entries.map((entry) => entry.pullRequestNumber)).size;
+    case "completed-replays": {
+      const maximum = entries.length * params.experiment.repetitions;
+      if (!Number.isSafeInteger(maximum)) {
+        throw new TypeError("maximum completed replay sample exceeds the safe integer range");
+      }
+      return maximum;
+    }
+    case "adjudicated-findings": {
+      const findings = new Set<string>();
+      for (const entry of entries) {
+        for (const historical of entry.historicalFindings) {
+          if (["confirmed-fixed", "acknowledged", "rejected"].includes(historical.outcome?.outcome ?? "")) {
+            findings.add(`${entry.pullRequestNumber}#${historical.finding.findingId}`);
+          }
+        }
+      }
+      return findings.size;
+    }
+  }
+}
+
+function countPresence(entries: DatasetEntry[], present: (entry: DatasetEntry) => boolean) {
+  const count = entries.filter(present).length;
+  return { present: count, missing: entries.length - count };
+}
+
+export function buildEvaluationReadiness(
+  cohort: FrozenCohort,
+  params: PipelineParams,
+): EvaluationReadiness {
+  const entries = cohort.entries;
+  const maximum = maximumAvailableSample(entries, params);
+  const minimum = params.decision.minimumSampleSize;
+  const fields = {
+    taskType: countPresence(entries, (entry) => entry.strata.taskType !== null),
+    originatingAgent: countPresence(entries, (entry) => entry.strata.originatingAgent !== null),
+    languages: countPresence(entries, (entry) => entry.strata.languages.length > 0),
+    repositoryAreas: countPresence(entries, (entry) => entry.strata.repositoryAreas.length > 0),
+    coverage: countPresence(entries, (entry) => entry.coverage?.totalHunks !== undefined),
+  };
+  const metadataComplete = Object.values(fields).every(({ missing }) => missing === 0);
+  const availability: Record<string, number> = {};
+  let adjudicatedFindings = 0;
+  for (const entry of entries) {
+    const outcomeAvailability = entry.strata.outcomeAvailability;
+    availability[outcomeAvailability] = (availability[outcomeAvailability] ?? 0) + 1;
+    adjudicatedFindings += entry.historicalFindings.filter(({ outcome }) =>
+      ["confirmed-fixed", "acknowledged", "rejected"].includes(outcome?.outcome ?? "")).length;
+  }
+  const body = {
+    schemaVersion: 1,
+    recordType: "ai-review-evaluation-readiness",
+    cohortId: cohort.cohortId,
+    datasetId: cohort.datasetId,
+    sample: {
+      unit: params.decision.sampleUnit,
+      minimum,
+      maximumAvailable: maximum,
+      deficit: Math.max(0, minimum - maximum),
+      ready: maximum >= minimum,
+    },
+    metadata: {
+      unit: "replay-snapshots",
+      total: entries.length,
+      complete: metadataComplete,
+      fields,
+    },
+    outcomes: {
+      unit: "replay-snapshots",
+      adjudicatedFindings,
+      availability: Object.fromEntries(Object.entries(availability).sort(([left], [right]) =>
+        left.localeCompare(right))),
+    },
+    decisionReady: maximum >= minimum && metadataComplete && adjudicatedFindings > 0,
+  } as const;
+  return EvaluationReadinessSchema.parse({
+    ...body,
+    readinessId: sha256(stableJson(body)),
+  });
+}
+
+function readinessMarkdown(readiness: EvaluationReadiness): string {
+  const lines = [
+    "# AI review evaluation readiness",
+    "",
+    `Decision ready: **${readiness.decisionReady ? "yes" : "no"}**`,
+    "",
+    `Maximum available ${readiness.sample.unit}: ${readiness.sample.maximumAvailable} of ${readiness.sample.minimum} required.`,
+    "",
+    "## Metadata",
+    "",
+    "| Field | Present | Missing |",
+    "| --- | ---: | ---: |",
+  ];
+  for (const [field, count] of Object.entries(readiness.metadata.fields)) {
+    lines.push(`| ${field} | ${count.present} | ${count.missing} |`);
+  }
+  lines.push(
+    "",
+    "## Historical outcomes",
+    "",
+    `Adjudicated findings across snapshots: ${readiness.outcomes.adjudicatedFindings}`,
+    "",
+    "| Availability | Snapshots |",
+    "| --- | ---: |",
+  );
+  for (const [availability, count] of Object.entries(readiness.outcomes.availability)) {
+    lines.push(`| ${availability} | ${count} |`);
+  }
+  return `${lines.join("\n")}\n`;
 }
 
 export function freezeCohort({
@@ -125,6 +250,7 @@ export function freezeCohort({
     decision: params.decision,
   };
   const decision = FrozenDecisionSchema.parse({ ...decisionBody, decisionId: sha256(stableJson(decisionBody)) });
+  const readiness = buildEvaluationReadiness(cohort, params);
   const predeclarationBody = {
     schemaVersion: 1,
     recordType: "ai-review-evaluation-predeclaration",
@@ -134,6 +260,7 @@ export function freezeCohort({
     experimentId: experiment.experimentId,
     matchingId: matching.matchingId,
     decisionId: decision.decisionId,
+    readinessId: readiness.readinessId,
   } as const;
   const predeclaration: Predeclaration = {
     ...predeclarationBody,
@@ -145,8 +272,10 @@ export function freezeCohort({
   writeJson(path.join(outputRoot, "experiment.json"), experiment, true);
   writeJson(path.join(outputRoot, "matching.json"), matching, true);
   writeJson(path.join(outputRoot, "decision.json"), decision, true);
+  writeJson(path.join(outputRoot, "readiness.json"), readiness, true);
+  fs.writeFileSync(path.join(outputRoot, "readiness.md"), readinessMarkdown(readiness));
   writeJson(path.join(outputRoot, "predeclaration.json"), predeclaration, true);
-  return { cohort, experiment, matching, decision, predeclaration };
+  return { cohort, experiment, matching, decision, readiness, predeclaration };
 }
 
 function main() {

@@ -58,6 +58,7 @@
     "maximumProviderFailureRate": 0.05
   },
   "replay": {
-    "mode": "execute"
+    "mode": "execute",
+    "allowUnderpoweredPilot": false
   }
 }
