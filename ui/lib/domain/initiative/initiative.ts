@@ -1,8 +1,7 @@
 import { z } from "zod";
-import type { InitiativeSlug } from "../slugs";
 import { InitiativeSlugSchema, ProjectSlugSchema } from "../slugs";
 
-export type { InitiativeSlug };
+export type { InitiativeSlug } from "../slugs";
 
 export const InitiativeStatusSchema = z.enum(["idea", "active", "inactive"]);
 
