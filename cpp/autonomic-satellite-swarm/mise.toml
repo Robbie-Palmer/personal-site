@@ -1,0 +1,66 @@
+[tools]
+arduino-cli = "1.5.1"
+
+[tasks.configure]
+description = "Configure the host build"
+run = "cmake --preset dev"
+
+[tasks.clean]
+description = "Remove generated host build directories"
+run = "cmake -E rm -rf build/dev build/sanitizers"
+
+[tasks.build]
+description = "Build the portable library, tests, and simulation"
+depends = ["configure"]
+run = "cmake --build --preset dev"
+
+[tasks.test]
+description = "Run host-side tests"
+depends = ["build"]
+run = "ctest --preset dev"
+
+[tasks.simulate]
+description = "Run the deterministic three-node simulation"
+depends = ["build"]
+run = "./build/dev/autonomic-satellite-swarm-simulation"
+
+[tasks.lint]
+description = "Run clang-tidy with warnings promoted to errors"
+depends = ["configure"]
+run = '''
+gcc_install_dir=$(dirname "$(c++ -print-libgcc-file-name)")
+find src examples -type f -name '*.cpp' -print0 |
+  xargs -0 clang-tidy -p build/dev --extra-arg-before="--gcc-install-dir=$gcc_install_dir"
+'''
+
+[tasks.sanitize]
+description = "Run tests with AddressSanitizer and UndefinedBehaviorSanitizer"
+run = [
+  "cmake --preset sanitizers",
+  "cmake --build --preset sanitizers",
+  "ctest --preset sanitizers",
+]
+
+[tasks."firmware:uno"]
+description = "Compile the legacy Arduino Uno infrared firmware"
+run = "arduino-cli compile --profile uno firmware/uno_ir"
+
+[tasks."firmware:esp32"]
+description = "Compile the modern ESP32 ESP-NOW firmware"
+run = "arduino-cli compile --profile esp32 firmware/esp32_espnow"
+
+[tasks."lint:typos"]
+description = "Check spelling in the project"
+run = "typos ."
+
+[tasks.check]
+description = "Run all project quality gates"
+depends = [
+  "//cpp:format:check",
+  "test",
+  "lint",
+  "sanitize",
+  "firmware:uno",
+  "firmware:esp32",
+  "lint:typos",
+]

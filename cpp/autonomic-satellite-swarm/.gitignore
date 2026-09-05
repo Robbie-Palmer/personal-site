@@ -1,0 +1,24 @@
+# CMake and editor output
+/build/
+/build-*/
+/out/
+/.cache/
+/.idea/
+/.vscode/
+compile_commands.json
+
+# Arduino CLI output
+firmware/**/build/
+*.elf
+*.hex
+
+# Coverage and profiling
+*.gcda
+*.gcno
+*.profraw
+*.profdata
+coverage/
+
+# Operating-system files
+.DS_Store
+Thumbs.db

@@ -1,0 +1,15 @@
+[tools]
+cmake = "4.4.3"
+ninja = "1.13.2"
+"pipx:clang-format" = "23.1.0"
+"pipx:clang-tidy" = "22.1.8"
+
+[tasks.format]
+description = "Format all C++ and Arduino sources"
+dir = "{{config_root}}"
+run = "find . -type f -regex '.*\\.\\(cpp\\|h\\|hpp\\|ino\\)' -not -path '*/build/*' -print0 | xargs -0 clang-format -i"
+
+[tasks."format:check"]
+description = "Check formatting for all C++ and Arduino sources"
+dir = "{{config_root}}"
+run = "find . -type f -regex '.*\\.\\(cpp\\|h\\|hpp\\|ino\\)' -not -path '*/build/*' -print0 | xargs -0 clang-format --dry-run --Werror"

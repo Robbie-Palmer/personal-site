@@ -1,0 +1,39 @@
+# Contributing
+
+## Set up
+
+Install [mise](https://mise.jdx.dev/), then run:
+
+```shell
+mise trust
+mise install
+mise run test
+```
+
+Use the tasks in `mise.toml`; they are the same entry points used by CI.
+
+## Change behavior safely
+
+1. Express the intended state transition, score behavior, or wire validation as a host-side test.
+2. Change the portable core without importing Arduino or operating-system headers.
+3. Run `mise run test` and `mise run sanitize`.
+4. If an adapter changed, compile both firmware targets.
+5. Run `mise run check` before opening a pull request.
+
+Hardware compilation is not proof of hardware behavior. Record the board, wiring, library versions,
+observations, and repeatable procedure when physical integration testing becomes possible.
+
+## Style
+
+- Format C++ and Arduino code with `mise run format`.
+- Treat clang-tidy findings and compiler warnings as errors.
+- Use fixed-width types for protocol and persisted data.
+- Avoid heap allocation in the portable library and adapters.
+- Prefer explicit state transitions and bounded storage over implicit ownership.
+- Document scientific assumptions separately from software behavior.
+
+## Scope and safety
+
+This code is not suitable for a flight or safety-critical system. Proposals that improve realism
+should add traceable requirements and validation evidence rather than strengthening claims without
+evidence.

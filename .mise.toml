@@ -19,6 +19,8 @@ config_roots = [
     "workers/recipe-api",
     "workers/recipe-ingest",
     "homelab",
+    "cpp",
+    "cpp/autonomic-satellite-swarm",
 ]
 
 [settings]

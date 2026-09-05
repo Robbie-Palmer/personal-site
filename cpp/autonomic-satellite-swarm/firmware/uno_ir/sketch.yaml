@@ -1,0 +1,11 @@
+profiles:
+  uno:
+    notes: "Legacy three-Arduino proof-of-concept target using NEC infrared frames"
+    fqbn: arduino:avr:uno
+    platforms:
+      - platform: arduino:avr (1.8.8)
+    libraries:
+      - IRremote (4.7.1)
+      - dir: ../..
+
+default_profile: uno

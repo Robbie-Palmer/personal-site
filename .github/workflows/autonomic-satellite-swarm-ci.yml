@@ -1,0 +1,65 @@
+name: Autonomic Satellite Swarm CI
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/autonomic-satellite-swarm-ci.yml"
+      - ".mise.toml"
+      - "cpp/.clang-format"
+      - "cpp/.clang-tidy"
+      - "cpp/.editorconfig"
+      - "cpp/mise.toml"
+      - "cpp/autonomic-satellite-swarm/**"
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/autonomic-satellite-swarm-ci.yml"
+      - ".mise.toml"
+      - "cpp/.clang-format"
+      - "cpp/.clang-tidy"
+      - "cpp/.editorconfig"
+      - "cpp/mise.toml"
+      - "cpp/autonomic-satellite-swarm/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  host:
+    name: Host checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: jdx/mise-action@3c2e0cf82a5b2e5249f0d3635a4d83d0ae861518 # v4.2.5
+
+      - name: Format, lint, test, sanitize, and spell-check
+        run: |
+          mise run //cpp:format:check
+          mise run //cpp/autonomic-satellite-swarm:lint
+          mise run //cpp/autonomic-satellite-swarm:test
+          mise run //cpp/autonomic-satellite-swarm:sanitize
+          mise run //cpp/autonomic-satellite-swarm:lint:typos
+
+  firmware:
+    name: Firmware (${{ matrix.target }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - uno
+          - esp32
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: jdx/mise-action@3c2e0cf82a5b2e5249f0d3635a4d83d0ae861518 # v4.2.5
+
+      - name: Compile firmware
+        run: mise run //cpp/autonomic-satellite-swarm:firmware:${{ matrix.target }}

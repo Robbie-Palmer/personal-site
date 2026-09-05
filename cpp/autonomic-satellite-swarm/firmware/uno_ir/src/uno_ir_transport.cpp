@@ -1,0 +1,71 @@
+#define DECODE_NEC
+#include "uno_ir_transport.hpp"
+
+#include <IRremote.hpp>
+
+UnoInfraredTransport::UnoInfraredTransport(uint8_t receive_pin, uint8_t send_pin)
+    : receive_pin_(receive_pin), send_pin_(send_pin), packet_(), received_chunks_(0),
+      last_chunk_at_ms_(0) {}
+
+void UnoInfraredTransport::begin() {
+  IrReceiver.begin(receive_pin_, DISABLE_LED_FEEDBACK);
+  IrSender.begin(send_pin_, DISABLE_LED_FEEDBACK);
+}
+
+bool UnoInfraredTransport::send(const satellite_swarm::Message& message) {
+  uint8_t packet[satellite_swarm::WireCodec::kPacketSize];
+  if (!satellite_swarm::WireCodec::encode(message, packet, sizeof(packet))) {
+    return false;
+  }
+
+  IrReceiver.stop();
+  for (uint8_t chunk = 0; chunk < kChunkCount; ++chunk) {
+    const uint8_t offset = static_cast<uint8_t>(chunk * kChunkBytes);
+    const uint32_t frame = (static_cast<uint32_t>(kFramePrefix | chunk) << 24U) |
+                           (static_cast<uint32_t>(packet[offset]) << 16U) |
+                           (static_cast<uint32_t>(packet[offset + 1U]) << 8U) |
+                           static_cast<uint32_t>(packet[offset + 2U]);
+    IrSender.sendNECRaw(frame, 0);
+    delay(10U);
+  }
+  IrReceiver.start();
+  return true;
+}
+
+bool UnoInfraredTransport::receive(satellite_swarm::Message& message) {
+  const uint32_t now_ms = millis();
+  if (received_chunks_ != 0U &&
+      static_cast<uint32_t>(now_ms - last_chunk_at_ms_) >= kAssemblyTimeoutMs) {
+    resetAssembly();
+  }
+  if (!IrReceiver.decode()) {
+    return false;
+  }
+
+  const uint32_t frame = static_cast<uint32_t>(IrReceiver.decodedIRData.decodedRawData);
+  IrReceiver.resume();
+  const uint8_t header = static_cast<uint8_t>(frame >> 24U);
+  if ((header & 0xFCU) != kFramePrefix) {
+    return false;
+  }
+
+  const uint8_t chunk = header & 0x03U;
+  if (chunk == 0U) {
+    resetAssembly();
+  }
+  const uint8_t offset = static_cast<uint8_t>(chunk * kChunkBytes);
+  packet_[offset] = static_cast<uint8_t>(frame >> 16U);
+  packet_[offset + 1U] = static_cast<uint8_t>(frame >> 8U);
+  packet_[offset + 2U] = static_cast<uint8_t>(frame);
+  received_chunks_ |= static_cast<uint8_t>(1U << chunk);
+  last_chunk_at_ms_ = now_ms;
+
+  if (received_chunks_ != 0x0FU) {
+    return false;
+  }
+  const bool decoded = satellite_swarm::WireCodec::decode(packet_, sizeof(packet_), message);
+  resetAssembly();
+  return decoded;
+}
+
+void UnoInfraredTransport::resetAssembly() { received_chunks_ = 0U; }
