@@ -26,6 +26,9 @@ research story while removing defects that would obscure or destabilize further 
 | An update drained the transport until it became empty. | A busy or adversarial transport could make one update's execution time unbounded. | Configuration limits the number of messages processed per update. |
 | The ESP-NOW adapter allowed sends and receives before successful initialization. | Callers could accidentally rely on platform error behavior instead of the adapter contract. | Both operations require a successfully completed `begin`. |
 | The IR fragment count and packet size were related only by convention. | A future size change could make the masked chunk index address beyond the packet. | Compile-time assertions bind the two-bit index, chunk layout, and packet size. |
+| Every firmware build hard-coded node ID `0`. | Multiple boards could not participate as distinct nodes. | Both adapters require the shared `SATELLITE_SWARM_NODE_ID` build definition; mise validates and supplies it. |
+| A direct assignment could complete negotiation without clearing earlier communication failures. | A later isolated failure could safe-disable a node despite an intervening successful negotiation. | Accepting a matching assignment now resets the consecutive-failure evidence, just like accepting its acknowledgement. |
+| A replacement scorer could return values above the protocol's `0..100` range. | Local candidacies could be encoded but rejected by peers, or local and remote candidates could be compared under different rules. | The controller bounds every local scorer result before comparison or transmission. |
 | CMake contained an invalid project name, stale include paths, duplicated sources, and no CTest registration. | The advertised host workflow was not reproducible. | Presets, named targets, CTest discovery, warnings, sanitizers, and mise tasks form one workflow. |
 
 ## Revisited design choices

@@ -8,17 +8,14 @@
 namespace satellite_swarm {
 
 struct ControllerConfig {
-  uint32_t response_window_ms;
-  uint32_t retry_interval_ms;
-  uint8_t maximum_attempts;
-  uint8_t failed_missions_before_safe_disable;
-  uint8_t node_capacity;
-  uint8_t maximum_messages_per_update;
+  uint32_t response_window_ms = 2000U;
+  uint32_t retry_interval_ms = 250U;
+  uint8_t maximum_attempts = 4U;
+  uint8_t failed_missions_before_safe_disable = 2U;
+  uint8_t node_capacity = kMaximumNodes;
+  uint8_t maximum_messages_per_update = 4U;
 
-  ControllerConfig()
-      : response_window_ms(2000U), retry_interval_ms(250U), maximum_attempts(4),
-        failed_missions_before_safe_disable(2), node_capacity(kMaximumNodes),
-        maximum_messages_per_update(4) {}
+  ControllerConfig() = default;
 };
 
 class SwarmController {
@@ -41,8 +38,8 @@ public:
 
 private:
   struct Candidate {
-    bool received;
-    uint8_t score;
+    bool received = false;
+    uint8_t score = 0U;
   };
 
   NodeId node_id_;
@@ -51,15 +48,15 @@ private:
   HealthMonitor& health_monitor_;
   const CandidacyScorer& scorer_;
   ControllerConfig config_;
-  ControllerState state_;
-  Message current_mission_;
-  MissionId next_mission_id_;
-  NodeId assigned_node_;
-  uint32_t phase_started_at_ms_;
-  uint32_t last_attempt_at_ms_;
-  uint8_t attempts_;
-  uint8_t communication_failures_;
-  Candidate candidates_[kMaximumNodes];
+  ControllerState state_ = ControllerState::Idle;
+  Message current_mission_{};
+  MissionId next_mission_id_ = 1U;
+  NodeId assigned_node_ = kBroadcastNode;
+  uint32_t phase_started_at_ms_ = 0U;
+  uint32_t last_attempt_at_ms_ = 0U;
+  uint8_t attempts_ = 0U;
+  uint8_t communication_failures_ = 0U;
+  Candidate candidates_[kMaximumNodes]{};
 
   void resetCandidates();
   void process(const Message& message, uint32_t now_ms);

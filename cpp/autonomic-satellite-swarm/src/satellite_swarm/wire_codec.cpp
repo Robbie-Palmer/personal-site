@@ -5,11 +5,11 @@
 namespace satellite_swarm {
 namespace {
 
-const uint8_t kMagicAndVersion = 0xA1;
-const float kCoordinateScale = 100.0F;
+constexpr uint8_t kMagicAndVersion = 0xA1U;
+constexpr float kCoordinateScale = 100.0F;
 
 void writeInt16(int16_t value, uint8_t* output) {
-  const uint16_t bits = static_cast<uint16_t>(value);
+  const auto bits = static_cast<uint16_t>(value);
   output[0] = static_cast<uint8_t>(bits >> 8U);
   output[1] = static_cast<uint8_t>(bits & 0xFFU);
 }
@@ -30,7 +30,7 @@ bool isKnownMessageType(uint8_t type) {
 bool WireCodec::encode(const Message& message, uint8_t* output, size_t output_size) {
   if (output == nullptr || output_size != kPacketSize ||
       !isKnownMessageType(static_cast<uint8_t>(message.type)) || !isValid(message.objective) ||
-      message.score > 100U) {
+      message.score > kMaximumCandidacyScore) {
     return false;
   }
 
@@ -51,7 +51,7 @@ bool WireCodec::encode(const Message& message, uint8_t* output, size_t output_si
 
 bool WireCodec::decode(const uint8_t* packet, size_t packet_size, Message& message) {
   if (packet == nullptr || packet_size != kPacketSize || packet[0] != kMagicAndVersion ||
-      !isKnownMessageType(packet[1]) || packet[10] > 100U ||
+      !isKnownMessageType(packet[1]) || packet[10] > kMaximumCandidacyScore ||
       packet[11] != checksum(packet, kPacketSize - 1U)) {
     return false;
   }
@@ -79,7 +79,7 @@ uint8_t WireCodec::checksum(const uint8_t* bytes, size_t size) {
   for (size_t index = 0; index < size; ++index) {
     crc ^= bytes[index];
     for (uint8_t bit = 0; bit < 8U; ++bit) {
-      const uint8_t shifted = static_cast<uint8_t>(static_cast<uint16_t>(crc) << 1U);
+      const auto shifted = static_cast<uint8_t>(static_cast<uint16_t>(crc) << 1U);
       crc = (crc & 0x80U) != 0U ? static_cast<uint8_t>(shifted ^ uint8_t{0x07}) : shifted;
     }
   }

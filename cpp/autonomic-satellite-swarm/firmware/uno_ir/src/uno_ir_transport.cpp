@@ -4,8 +4,7 @@
 #include <IRremote.hpp>
 
 UnoInfraredTransport::UnoInfraredTransport(uint8_t receive_pin, uint8_t send_pin)
-    : receive_pin_(receive_pin), send_pin_(send_pin), packet_(), received_chunks_(0),
-      last_chunk_at_ms_(0) {}
+    : receive_pin_(receive_pin), send_pin_(send_pin) {}
 
 void UnoInfraredTransport::begin() {
   IrReceiver.begin(receive_pin_, DISABLE_LED_FEEDBACK);
@@ -13,18 +12,18 @@ void UnoInfraredTransport::begin() {
 }
 
 bool UnoInfraredTransport::send(const satellite_swarm::Message& message) {
-  uint8_t packet[satellite_swarm::WireCodec::kPacketSize];
+  uint8_t packet[satellite_swarm::WireCodec::kPacketSize]{};
   if (!satellite_swarm::WireCodec::encode(message, packet, sizeof(packet))) {
     return false;
   }
 
   IrReceiver.stop();
   for (uint8_t chunk = 0; chunk < kChunkCount; ++chunk) {
-    const uint8_t offset = static_cast<uint8_t>(chunk * kChunkBytes);
-    const uint32_t frame = (static_cast<uint32_t>(kFramePrefix | chunk) << 24U) |
-                           (static_cast<uint32_t>(packet[offset]) << 16U) |
-                           (static_cast<uint32_t>(packet[offset + 1U]) << 8U) |
-                           static_cast<uint32_t>(packet[offset + 2U]);
+    const auto offset = static_cast<uint8_t>(chunk * kChunkBytes);
+    const auto frame = (static_cast<uint32_t>(kFramePrefix | chunk) << 24U) |
+                       (static_cast<uint32_t>(packet[offset]) << 16U) |
+                       (static_cast<uint32_t>(packet[offset + 1U]) << 8U) |
+                       static_cast<uint32_t>(packet[offset + 2U]);
     IrSender.sendNECRaw(frame, 0);
     delay(10U);
   }
@@ -34,17 +33,16 @@ bool UnoInfraredTransport::send(const satellite_swarm::Message& message) {
 
 bool UnoInfraredTransport::receive(satellite_swarm::Message& message) {
   const uint32_t now_ms = millis();
-  if (received_chunks_ != 0U &&
-      static_cast<uint32_t>(now_ms - last_chunk_at_ms_) >= kAssemblyTimeoutMs) {
+  if (received_chunks_ != 0U && now_ms - last_chunk_at_ms_ >= kAssemblyTimeoutMs) {
     resetAssembly();
   }
   if (!IrReceiver.decode()) {
     return false;
   }
 
-  const uint32_t frame = static_cast<uint32_t>(IrReceiver.decodedIRData.decodedRawData);
+  const auto frame = static_cast<uint32_t>(IrReceiver.decodedIRData.decodedRawData);
   IrReceiver.resume();
-  const uint8_t header = static_cast<uint8_t>(frame >> 24U);
+  const auto header = static_cast<uint8_t>(frame >> 24U);
   if ((header & 0xFCU) != kFramePrefix) {
     return false;
   }
@@ -53,7 +51,7 @@ bool UnoInfraredTransport::receive(satellite_swarm::Message& message) {
   if (chunk == 0U) {
     resetAssembly();
   }
-  const uint8_t offset = static_cast<uint8_t>(chunk * kChunkBytes);
+  const auto offset = static_cast<uint8_t>(chunk * kChunkBytes);
   packet_[offset] = static_cast<uint8_t>(frame >> 16U);
   packet_[offset + 1U] = static_cast<uint8_t>(frame >> 8U);
   packet_[offset + 2U] = static_cast<uint8_t>(frame);

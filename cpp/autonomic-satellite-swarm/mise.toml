@@ -54,11 +54,33 @@ run = [
 
 [tasks."firmware:uno"]
 description = "Compile the legacy Arduino Uno infrared firmware"
-run = "arduino-cli compile --profile uno firmware/uno_ir"
+run = '''
+node_id=${SATELLITE_SWARM_NODE_ID:-0}
+case "$node_id" in
+  ''|*[!0-9]*) echo "SATELLITE_SWARM_NODE_ID must be an integer from 0 to 15" >&2; exit 2 ;;
+esac
+if [ "$node_id" -gt 15 ]; then
+  echo "SATELLITE_SWARM_NODE_ID must be an integer from 0 to 15" >&2
+  exit 2
+fi
+arduino-cli compile --profile uno \
+  --build-property "build.extra_flags=-DSATELLITE_SWARM_NODE_ID=$node_id" firmware/uno_ir
+'''
 
 [tasks."firmware:esp32"]
 description = "Compile the modern ESP32 ESP-NOW firmware"
-run = "arduino-cli compile --profile esp32 firmware/esp32_espnow"
+run = '''
+node_id=${SATELLITE_SWARM_NODE_ID:-0}
+case "$node_id" in
+  ''|*[!0-9]*) echo "SATELLITE_SWARM_NODE_ID must be an integer from 0 to 15" >&2; exit 2 ;;
+esac
+if [ "$node_id" -gt 15 ]; then
+  echo "SATELLITE_SWARM_NODE_ID must be an integer from 0 to 15" >&2
+  exit 2
+fi
+arduino-cli compile --profile esp32 \
+  --build-property "build.extra_flags=-DSATELLITE_SWARM_NODE_ID=$node_id" firmware/esp32_espnow
+'''
 
 [tasks."lint:typos"]
 description = "Check spelling in the project"

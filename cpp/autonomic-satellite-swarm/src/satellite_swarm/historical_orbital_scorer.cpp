@@ -48,12 +48,17 @@ uint8_t pathScore(const SatelliteSnapshot& satellite, const Coordinate& objectiv
   }
   const float raw_energy_fraction = energy_required / satellite.available_propulsion_energy_joules;
   const float energy_fraction = raw_energy_fraction < 1.0F ? raw_energy_fraction : 1.0F;
-  const int energy_score = static_cast<int>(lroundf(100.0F * (1.0F - energy_fraction)));
+  const auto energy_score = static_cast<int>(lroundf(100.0F * (1.0F - energy_fraction)));
 
   const float orbit_fraction = latitude_degrees / 360.0F;
-  const int time_score = static_cast<int>(100.0F * (1.0F - orbit_fraction));
+  const auto time_score = static_cast<int>(100.0F * (1.0F - orbit_fraction));
   const int combined = (energy_score * time_score) / 100;
-  const int bounded = combined < 0 ? 0 : (combined > 100 ? 100 : combined);
+  int bounded = combined;
+  if (bounded < 0) {
+    bounded = 0;
+  } else if (bounded > 100) {
+    bounded = 100;
+  }
   return static_cast<uint8_t>(bounded);
 }
 

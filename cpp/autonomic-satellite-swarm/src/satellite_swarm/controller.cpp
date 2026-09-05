@@ -1,15 +1,19 @@
 #include "satellite_swarm/controller.hpp"
 
 namespace satellite_swarm {
+namespace {
+
+uint8_t boundedScore(uint8_t score) {
+  return score > kMaximumCandidacyScore ? kMaximumCandidacyScore : score;
+}
+
+} // namespace
 
 SwarmController::SwarmController(NodeId node_id, const SatelliteSnapshot& satellite,
                                  Transport& transport, HealthMonitor& health_monitor,
                                  const CandidacyScorer& scorer, const ControllerConfig& config)
     : node_id_(node_id), satellite_(satellite), transport_(transport),
-      health_monitor_(health_monitor), scorer_(scorer), config_(config),
-      state_(ControllerState::Idle), next_mission_id_(1), assigned_node_(kBroadcastNode),
-      phase_started_at_ms_(0), last_attempt_at_ms_(0), attempts_(0), communication_failures_(0),
-      candidates_() {
+      health_monitor_(health_monitor), scorer_(scorer), config_(config) {
   if (config_.node_capacity == 0U || config_.node_capacity > kMaximumNodes) {
     config_.node_capacity = kMaximumNodes;
   }
@@ -46,7 +50,7 @@ bool SwarmController::initiateMission(const Coordinate& objective, uint32_t now_
 
   resetCandidates();
   candidates_[node_id_].received = true;
-  candidates_[node_id_].score = scorer_.score(satellite_, objective);
+  candidates_[node_id_].score = boundedScore(scorer_.score(satellite_, objective));
   assigned_node_ = kBroadcastNode;
   phase_started_at_ms_ = now_ms;
   state_ = ControllerState::Leading;
@@ -124,7 +128,8 @@ void SwarmController::process(const Message& message, uint32_t now_ms) {
     break;
   case MessageType::Candidacy:
     if (state_ == ControllerState::Leading && message.target == node_id_ &&
-        message.mission_id == current_mission_.mission_id && message.score <= 100U) {
+        message.mission_id == current_mission_.mission_id &&
+        message.score <= kMaximumCandidacyScore) {
       candidates_[message.origin].received = true;
       candidates_[message.origin].score = message.score;
       transport_.send(Message::acknowledgement(node_id_, message.origin, message.mission_id));
@@ -142,6 +147,7 @@ void SwarmController::process(const Message& message, uint32_t now_ms) {
     if ((state_ == ControllerState::AwaitingAcknowledgement ||
          state_ == ControllerState::AwaitingAssignment) &&
         message.target < config_.node_capacity && matchesCurrentMission(message)) {
+      communication_failures_ = 0U;
       assigned_node_ = message.target;
       state_ = message.target == node_id_ ? ControllerState::Active : ControllerState::Idle;
     }
@@ -157,8 +163,7 @@ void SwarmController::acceptMissionRequest(const Message& request, uint32_t now_
   current_mission_ = request;
   attempts_ = 0U;
   phase_started_at_ms_ = now_ms;
-  const uint8_t candidate_score = scorer_.score(satellite_, request.objective);
-  candidates_[node_id_].score = candidate_score;
+  candidates_[node_id_].score = boundedScore(scorer_.score(satellite_, request.objective));
   if (!sendCandidacy(now_ms)) {
     state_ = ControllerState::Idle;
   }

@@ -7,7 +7,7 @@ namespace satellite_swarm {
 
 class Transport {
 public:
-  virtual ~Transport() {}
+  virtual ~Transport() = default;
 
   virtual bool send(const Message& message) = 0;
   virtual bool receive(Message& message) = 0;
@@ -15,15 +15,16 @@ public:
 
 class HealthMonitor {
 public:
-  virtual ~HealthMonitor() {}
+  virtual ~HealthMonitor() = default;
 
   virtual HealthStatus poll() = 0;
 };
 
 class CandidacyScorer {
 public:
-  virtual ~CandidacyScorer() {}
+  virtual ~CandidacyScorer() = default;
 
+  // The controller constrains implementations' results to the protocol's 0..100 score range.
   virtual uint8_t score(const SatelliteSnapshot& satellite, const Coordinate& objective) const = 0;
 };
 

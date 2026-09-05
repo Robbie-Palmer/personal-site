@@ -5,17 +5,19 @@
 
 namespace satellite_swarm {
 
-typedef uint8_t NodeId;
-typedef uint16_t MissionId;
+using NodeId = uint8_t;
+using MissionId = uint16_t;
 
-const NodeId kBroadcastNode = UINT8_MAX;
-const uint8_t kMaximumNodes = 16;
+constexpr NodeId kBroadcastNode = UINT8_MAX;
+constexpr uint8_t kMaximumNodes = 16U;
+constexpr uint8_t kMaximumCandidacyScore = 100U;
 
 struct Coordinate {
-  float longitude_degrees;
-  float latitude_degrees;
+  float longitude_degrees = 0.0F;
+  float latitude_degrees = 0.0F;
 
-  Coordinate(float longitude = 0.0F, float latitude = 0.0F)
+  Coordinate() = default;
+  Coordinate(float longitude, float latitude)
       : longitude_degrees(longitude), latitude_degrees(latitude) {}
 };
 
@@ -24,16 +26,13 @@ bool isValid(const Coordinate& coordinate);
 enum class TravelDirection : uint8_t { Northbound, Southbound };
 
 struct SatelliteSnapshot {
-  Coordinate coordinate;
-  float orbital_radius_metres;
-  float mass_kilograms;
-  float available_propulsion_energy_joules;
-  TravelDirection travel_direction;
+  Coordinate coordinate{};
+  float orbital_radius_metres = 6750000.0F;
+  float mass_kilograms = 1.0F;
+  float available_propulsion_energy_joules = 40000.0F;
+  TravelDirection travel_direction = TravelDirection::Southbound;
 
-  SatelliteSnapshot()
-      : coordinate(), orbital_radius_metres(6750000.0F), mass_kilograms(1.0F),
-        available_propulsion_energy_joules(40000.0F),
-        travel_direction(TravelDirection::Southbound) {}
+  SatelliteSnapshot() = default;
 };
 
 enum class MessageType : uint8_t {
@@ -44,16 +43,14 @@ enum class MessageType : uint8_t {
 };
 
 struct Message {
-  MessageType type;
-  NodeId origin;
-  NodeId target;
-  MissionId mission_id;
-  Coordinate objective;
-  uint8_t score;
+  MessageType type = MessageType::MissionRequest;
+  NodeId origin = 0U;
+  NodeId target = kBroadcastNode;
+  MissionId mission_id = 0U;
+  Coordinate objective{};
+  uint8_t score = 0U;
 
-  Message()
-      : type(MessageType::MissionRequest), origin(0), target(kBroadcastNode), mission_id(0),
-        objective(), score(0) {}
+  Message() = default;
 
   static Message missionRequest(NodeId origin, MissionId mission_id, Coordinate objective);
   static Message candidacy(NodeId origin, NodeId leader, MissionId mission_id, uint8_t score);

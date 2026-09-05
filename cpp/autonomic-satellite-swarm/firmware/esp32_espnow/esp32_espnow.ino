@@ -6,9 +6,16 @@
 #define LED_BUILTIN 2
 #endif
 
+#ifndef SATELLITE_SWARM_NODE_ID
+#error "Define SATELLITE_SWARM_NODE_ID through the firmware build task"
+#endif
+
 namespace {
 
-const uint8_t kNodeId = 0;
+static_assert(SATELLITE_SWARM_NODE_ID >= 0 &&
+                  SATELLITE_SWARM_NODE_ID < satellite_swarm::kMaximumNodes,
+              "SATELLITE_SWARM_NODE_ID must identify a configured swarm node");
+constexpr uint8_t kNodeId = SATELLITE_SWARM_NODE_ID;
 const uint8_t kMissionButtonPin = 0;
 const uint32_t kButtonDebounceMs = 250U;
 

@@ -3,6 +3,7 @@
 
 #include <Arduino.h>
 #include <WiFi.h>
+#include <array>
 #include <esp_now.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/queue.h>
@@ -21,10 +22,10 @@ private:
   static const uint8_t kQueueDepth = 4;
   static EspNowTransport* instance_;
 
-  StaticQueue_t queue_control_;
-  uint8_t queue_storage_[kQueueDepth * sizeof(satellite_swarm::Message)];
+  StaticQueue_t queue_control_{};
+  std::array<uint8_t, kQueueDepth * sizeof(satellite_swarm::Message)> queue_storage_{};
   QueueHandle_t queue_;
-  bool initialized_;
+  bool initialized_ = false;
 
   static void onReceive(const esp_now_recv_info_t* info, const uint8_t* data, int length);
 };

@@ -73,6 +73,59 @@ TEST_CASE("a candidate progresses from request to acknowledgement to assignment"
   CHECK(controller.state() == ControllerState::Idle);
 }
 
+TEST_CASE("a direct assignment completes the negotiation and clears earlier failures") {
+  FakeTransport transport;
+  FakeHealthMonitor health;
+  FixedScorer scorer(73);
+  SwarmController controller(2, SatelliteSnapshot(), transport, health, scorer, fastConfig());
+
+  transport.deliver(Message::missionRequest(0, 16, Coordinate()));
+  controller.update(0U);
+  controller.update(10U);
+  controller.update(20U);
+  REQUIRE(controller.state() == ControllerState::Idle);
+  REQUIRE(controller.consecutiveCommunicationFailures() == 1U);
+
+  transport.deliver(Message::missionRequest(0, 17, Coordinate()));
+  controller.update(30U);
+  REQUIRE(controller.state() == ControllerState::AwaitingAcknowledgement);
+  transport.deliver(Message::assignment(0, 2, 17));
+  controller.update(31U);
+
+  CHECK(controller.state() == ControllerState::Active);
+  CHECK(controller.consecutiveCommunicationFailures() == 0U);
+}
+
+TEST_CASE("custom scorer output is constrained to the wire score range") {
+  SECTION("candidate score") {
+    FakeTransport transport;
+    FakeHealthMonitor health;
+    FixedScorer scorer(255U);
+    SwarmController controller(2, SatelliteSnapshot(), transport, health, scorer, fastConfig());
+
+    transport.deliver(Message::missionRequest(0, 17, Coordinate()));
+    controller.update(0U);
+
+    REQUIRE(transport.sent.size() == 1U);
+    CHECK(transport.sent.front().score == kMaximumCandidacyScore);
+  }
+
+  SECTION("leader score") {
+    FakeTransport transport;
+    FakeHealthMonitor health;
+    FixedScorer scorer(255U);
+    SwarmController controller(0, SatelliteSnapshot(), transport, health, scorer, fastConfig());
+
+    REQUIRE(controller.initiateMission(Coordinate(), 0U));
+    transport.deliver(Message::candidacy(1, 0, controller.currentMissionId(), 99U));
+    controller.update(1U);
+    controller.update(100U);
+
+    CHECK(controller.state() == ControllerState::Active);
+    CHECK(controller.assignedNode() == 0U);
+  }
+}
+
 TEST_CASE("an active node does not volunteer for another mission") {
   FakeTransport transport;
   FakeHealthMonitor health;

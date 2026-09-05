@@ -24,9 +24,9 @@ private:
 
   uint8_t receive_pin_;
   uint8_t send_pin_;
-  uint8_t packet_[satellite_swarm::WireCodec::kPacketSize];
-  uint8_t received_chunks_;
-  uint32_t last_chunk_at_ms_;
+  uint8_t packet_[satellite_swarm::WireCodec::kPacketSize]{};
+  uint8_t received_chunks_ = 0U;
+  uint32_t last_chunk_at_ms_ = 0U;
 
   void resetAssembly();
 };
