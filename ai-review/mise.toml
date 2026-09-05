@@ -49,11 +49,11 @@ run = "pnpm exec wrangler deploy --dry-run"
 [tasks."deploy:staging"]
 description = "Deploy the isolated staging AI review Worker"
 depends = ["install"]
-env = {
-  AI_REVIEW_DOPPLER_CONFIG = "stg",
-  AI_REVIEW_WRANGLER_CONFIG = "wrangler.staging.toml",
-}
 run = "bash scripts/deploy.sh"
+
+[tasks."deploy:staging".env]
+AI_REVIEW_DOPPLER_CONFIG = "stg"
+AI_REVIEW_WRANGLER_CONFIG = "wrangler.staging.toml"
 
 [tasks."deploy:staging:dry-run"]
 description = "Bundle the isolated staging AI review Worker without deploying it"

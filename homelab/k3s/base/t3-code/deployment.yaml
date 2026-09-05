@@ -2,6 +2,8 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: t3-code
+  annotations:
+    secrets.doppler.com/reload: "true"
 spec:
   replicas: 1
   strategy:
@@ -26,12 +28,24 @@ spec:
           type: RuntimeDefault
       initContainers:
         - name: prepare-data-directories
-          image: ghcr.io/robbie-palmer/t3-code:0.0.38-agent-tools-2
+          image: ghcr.io/robbie-palmer/t3-code:0.0.38-agent-tools-3
           command:
             - /bin/sh
             - -eu
             - -c
-            - mkdir -p /data/home/.t3 /data/home/.codex /data/home/.codex-personal /data/workspaces
+            - >-
+              mkdir -p
+              /data/home/.t3
+              /data/home/.codex
+              /data/home/.codex-personal
+              /data/home/.config/opencode
+              /data/home/.grok
+              /data/home/.local/share/mise
+              /data/home/.cache/ms-playwright
+              /data/home/.cache/puppeteer
+              /data/workspaces
+              && node /usr/local/lib/t3-code/bootstrap-settings.mjs
+              /data/home/.t3/userdata/settings.json
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
@@ -45,7 +59,7 @@ spec:
               mountPath: /tmp
       containers:
         - name: t3-code
-          image: ghcr.io/robbie-palmer/t3-code:0.0.38-agent-tools-2
+          image: ghcr.io/robbie-palmer/t3-code:0.0.38-agent-tools-3
           imagePullPolicy: IfNotPresent
           env:
             - name: HOME
