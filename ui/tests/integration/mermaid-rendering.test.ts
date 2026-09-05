@@ -407,6 +407,223 @@ describe("Visualization browser rendering", () => {
     }
   }, 30_000);
 
+  it("keeps recipe styling in overview and scroll views", async () => {
+    const page = await browser.newPage();
+    const pageErrors: string[] = [];
+    page.on("pageerror", (error) => pageErrors.push(String(error)));
+
+    try {
+      await page.setViewport({ width: 1280, height: 900 });
+      await page.goto(`${BASE_URL}/projects/recipe-site/deck`, {
+        waitUntil: "domcontentloaded",
+      });
+      await page.waitForSelector(".pitch-deck .reveal.ready", {
+        timeout: 20_000,
+      });
+
+      await page.click('button[title="Slide overview"]');
+      await page.waitForSelector(".pitch-deck__static--overview");
+      const finalSlide = await page.$$eval(
+        ".pitch-deck__overview-targets button",
+        (buttons) => buttons.length,
+      );
+      expect(finalSlide).toBeGreaterThan(0);
+      await page.click(`button[aria-label="Open slide ${finalSlide}"]`);
+      await page.waitForFunction(
+        (expected) =>
+          document
+            .querySelector(".pitch-deck__position")
+            ?.textContent?.trim() === `Slide ${expected} of ${expected}`,
+        {},
+        finalSlide,
+      );
+      const finalCta = await page.$eval(
+        "section.present .pitch-final-cta",
+        (cta) => {
+          const bounds = cta.getBoundingClientRect();
+          const styles = getComputedStyle(cta);
+          return {
+            height: bounds.height,
+            isFragment: cta.classList.contains("fragment"),
+            opacity: styles.opacity,
+            visibility: styles.visibility,
+          };
+        },
+      );
+      expect(finalCta.isFragment).toBe(false);
+      expect(finalCta.height).toBeGreaterThan(0);
+      expect(finalCta.opacity).toBe("1");
+      expect(finalCta.visibility).toBe("visible");
+
+      await page.click('button[title="Toggle scroll view"]');
+      await page.waitForSelector(".pitch-deck__static--scroll");
+      const scrollBackground = await page.$eval(
+        ".pitch-deck__static--scroll > .slides > section",
+        (slide) => getComputedStyle(slide).backgroundColor,
+      );
+      expect(scrollBackground).toBe("rgb(244, 237, 223)");
+
+      await page.click('button[title="Toggle scroll view"]');
+      await page.waitForFunction(
+        () => !document.querySelector(".pitch-deck__static"),
+      );
+      await page.setViewport({ width: 390, height: 844 });
+      await page.click('button[title="Slide overview"]');
+      await page.waitForSelector(".pitch-deck__static--overview");
+      const overview = await page.$eval(
+        ".pitch-deck__static--overview > .slides > section",
+        (slide) => {
+          const content = slide.querySelector<HTMLElement>(
+            ".pitch-slide__content",
+          );
+          const slideBounds = slide.getBoundingClientRect();
+          const contentBounds = content?.getBoundingClientRect();
+          const heading = slide.querySelector<HTMLElement>("h1, h2");
+          return {
+            background: getComputedStyle(slide).backgroundColor,
+            contentHeight: contentBounds?.height ?? 0,
+            contentWidth: contentBounds?.width ?? 0,
+            headingColor: heading ? getComputedStyle(heading).color : "",
+            slideHeight: slideBounds.height,
+            slideWidth: slideBounds.width,
+            transform: content ? getComputedStyle(content).transform : "",
+          };
+        },
+      );
+
+      expect(overview.background).toBe("rgb(244, 237, 223)");
+      expect(overview.headingColor).toBe("rgb(53, 46, 38)");
+      expect(overview.transform).toContain("0.3");
+      expect(overview.contentWidth).toBeLessThanOrEqual(
+        overview.slideWidth + 1,
+      );
+      expect(overview.contentHeight).toBeLessThanOrEqual(
+        overview.slideHeight + 1,
+      );
+      expect(pageErrors).toEqual([]);
+    } finally {
+      await page.close();
+    }
+  }, 30_000);
+
+  it("fits the recipe diagrams into phone-sized slides", async () => {
+    const page = await browser.newPage();
+    const pageErrors: string[] = [];
+    page.on("pageerror", (error) => pageErrors.push(String(error)));
+
+    try {
+      await page.setViewport({ width: 390, height: 844 });
+      await page.goto(`${BASE_URL}/projects/recipe-site/deck`, {
+        waitUntil: "domcontentloaded",
+      });
+      await page.waitForSelector(".pitch-deck .reveal.ready", {
+        timeout: 20_000,
+      });
+
+      const advanceTo = async (slide: number) => {
+        let currentSlide = await page.$eval(
+          ".pitch-deck__position",
+          (position) => Number(position.textContent?.match(/Slide (\d+)/)?.[1]),
+        );
+        while (currentSlide < slide) {
+          const nextSlide = currentSlide + 1;
+          await page.click('button[aria-label="Next slide"]');
+          await page.waitForFunction(
+            (expected) =>
+              document
+                .querySelector(".pitch-deck__position")
+                ?.textContent?.startsWith(`Slide ${expected} `),
+            {},
+            nextSlide,
+          );
+          currentSlide = nextSlide;
+        }
+      };
+      const advanceToDiagram = async (selector: string) => {
+        const slide = await page.$$eval(
+          ".pitch-deck .slides > section",
+          (sections, target) =>
+            sections.findIndex((section) => section.querySelector(target)) + 1,
+          selector,
+        );
+        expect(slide).toBeGreaterThan(0);
+        await advanceTo(slide);
+      };
+      const inspectPresentDiagram = async (selector: string) =>
+        page.$eval(`section.present ${selector}`, (element) => {
+          const diagram = element as HTMLElement;
+          const content = diagram.closest<HTMLElement>(".pitch-slide__content");
+          const diagramBounds = diagram.getBoundingClientRect();
+          const contentBounds = content?.getBoundingClientRect();
+          const countTracks = (value: string) => {
+            const repeatedTracks = /^repeat\(\s*(\d+)/.exec(value)?.[1];
+            if (repeatedTracks) return Number(repeatedTracks);
+
+            let count = 0;
+            let depth = 0;
+            let inTrack = false;
+            for (const character of value) {
+              if (character === "(") depth += 1;
+              if (character === ")") depth -= 1;
+              if (/\s/.test(character) && depth === 0) {
+                inTrack = false;
+              } else if (!inTrack) {
+                count += 1;
+                inTrack = true;
+              }
+            }
+            return count;
+          };
+          const styles = getComputedStyle(diagram);
+
+          return {
+            columnCount: countTracks(styles.gridTemplateColumns),
+            contained:
+              diagram.scrollWidth <= diagram.clientWidth + 1 &&
+              diagram.scrollHeight <= diagram.clientHeight + 1 &&
+              Boolean(
+                contentBounds &&
+                  diagramBounds.left >= contentBounds.left - 1 &&
+                  diagramBounds.right <= contentBounds.right + 1 &&
+                  diagramBounds.top >= contentBounds.top - 1 &&
+                  diagramBounds.bottom <= contentBounds.bottom + 1,
+              ),
+            rowCount: countTracks(styles.gridTemplateRows),
+          };
+        });
+
+      await advanceToDiagram(".pitch-recipe-loop");
+      const loop = await inspectPresentDiagram(".pitch-recipe-loop");
+      await advanceToDiagram(".pitch-evidence-ladder");
+      const evidence = await inspectPresentDiagram(".pitch-evidence-ladder");
+      await advanceToDiagram(".pitch-recommendation-card__recipe");
+      const recommendationImage = await page.$eval(
+        "section.present .pitch-recommendation-card__recipe",
+        (recommendation) => getComputedStyle(recommendation).backgroundImage,
+      );
+      await advanceToDiagram(".pitch-cooking-flywheel");
+      const flywheel = await inspectPresentDiagram(".pitch-cooking-flywheel");
+      await advanceToDiagram(".pitch-recipe-roadmap");
+      const roadmap = await inspectPresentDiagram(".pitch-recipe-roadmap");
+
+      expect(loop.columnCount).toBe(3);
+      expect(loop.rowCount).toBe(3);
+      expect(evidence.columnCount).toBe(3);
+      expect(flywheel.columnCount).toBe(1);
+      expect(roadmap.columnCount).toBe(2);
+      expect({ evidence, flywheel, loop, roadmap }).toMatchObject({
+        evidence: { contained: true },
+        flywheel: { contained: true },
+        loop: { contained: true },
+        roadmap: { contained: true },
+      });
+      expect(recommendationImage).toBe("none");
+      expect(pageErrors).toEqual([]);
+    } finally {
+      await page.close();
+    }
+  }, 30_000);
+
   it("uses swipeable slides and a pannable overview on phones", async () => {
     const page = await browser.newPage();
     const pageErrors: string[] = [];
@@ -698,14 +915,24 @@ describe("Visualization browser rendering", () => {
         },
       );
       await speakerPage?.waitForFunction(
-        () => {
-          const frame = document.querySelector<HTMLIFrameElement>(
-            'iframe[data-presenter-frame="current"]',
-          );
-          return frame?.contentDocument?.querySelector(
-            ".pitch-deck .reveal.ready section.present h1, .pitch-deck .reveal.ready section.present h2",
-          )?.textContent;
-        },
+        () =>
+          [
+            {
+              selector: 'iframe[data-presenter-frame="current"]',
+              heading: "Managed reviewers",
+            },
+            {
+              selector: 'iframe[data-presenter-frame="upcoming"]',
+              heading: "Own the review loop",
+            },
+          ].every(({ selector, heading }) =>
+            document
+              .querySelector<HTMLIFrameElement>(selector)
+              ?.contentDocument?.querySelector(
+                ".pitch-deck .reveal.ready section.present h1, .pitch-deck .reveal.ready section.present h2",
+              )
+              ?.textContent?.includes(heading),
+          ),
         { timeout: 20_000 },
       );
       const speakerHeading = await speakerPage?.$eval(
@@ -732,22 +959,6 @@ describe("Visualization browser rendering", () => {
       );
       expect(speakerNotes).toContain("control of the review loop");
 
-      await speakerPage?.waitForFunction(
-        () =>
-          [
-            'iframe[data-presenter-frame="current"]',
-            'iframe[data-presenter-frame="upcoming"]',
-          ].every((selector) => {
-            const frameDocument =
-              document.querySelector<HTMLIFrameElement>(
-                selector,
-              )?.contentDocument;
-            return Boolean(
-              frameDocument?.querySelector(".pitch-deck .reveal.ready"),
-            );
-          }),
-        { timeout: 20_000 },
-      );
       const speakerPreviewChrome = await speakerPage?.evaluate(() =>
         [
           'iframe[data-presenter-frame="current"]',

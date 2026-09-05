@@ -111,6 +111,11 @@ describe("PitchDeckFrame", () => {
       "href",
       "/projects/agentic-code-review/deck",
     );
+    expect(
+      screen.getByRole("region", {
+        name: "Agentic Code Review pitch presentation",
+      }),
+    ).toHaveClass("pitch-deck--project-agentic-code-review");
     expect(deckState.props?.config).toMatchObject({
       embedded: true,
       hash: false,
@@ -222,6 +227,7 @@ describe("PitchDeckFrame", () => {
       configurable: true,
       value: deckShell,
     });
+    deckApi.layout.mockClear();
     fireEvent(document, new Event("fullscreenchange"));
     await waitFor(() => expect(deckApi.layout).toHaveBeenCalledOnce());
     fireEvent.click(screen.getByRole("button", { name: "Exit fullscreen" }));

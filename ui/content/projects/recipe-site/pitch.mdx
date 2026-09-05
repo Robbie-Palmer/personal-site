@@ -1,0 +1,365 @@
+---
+title: "Recipe Site pitch"
+description: "A social cooking network built from the meals people actually make"
+---
+
+# The family recipe book should learn from every meal
+
+Recipe Site turns cooking, adapting, and repeating recipes into useful evidence for the people you trust.
+
+<PitchNotes>
+  This began as a digital replacement for our handwritten recipe book. Search, editing, scaling, and backup solve
+  real problems, but they do not justify another recipe manager. The larger idea is a social cooking network built
+  from what reaches the table.
+
+  \[Sources]
+
+  * [Recipe Site vision](/projects/recipe-site?tab=overview#vision)
+  * [Live Recipe Site](/recipes)
+    \[/Sources]
+</PitchNotes>
+
+***
+
+## The paper book loses the loop
+
+<div className="pitch-recipe-loop">
+  <div><span>01</span><strong>Find</strong><small>links, videos, family recipes</small></div>
+  <i>→</i>
+  <div><span>02</span><strong>Cook</strong><small>scale, convert, time</small></div>
+  <i>→</i>
+  <div><span>03</span><strong>Change</strong><small>adapt to this kitchen</small></div>
+  <i>→</i>
+  <div><span>04</span><strong>Repeat</strong><small>the strongest signal</small></div>
+</div>
+
+<p className="pitch-slide__statement">Paper preserves the recipe. It loses what happened next.</p>
+
+<PitchNotes>
+  The physical book is good at being glanceable and hard to interrupt. It is bad at capture, search, safe edits,
+  portion changes, measurement conversion, shopping, and backup. Most of all, it cannot connect a recipe to the
+  changes and repeated cooks that prove it works.
+
+  \[Sources]
+
+  * [Problem statement](/projects/recipe-site?tab=overview#problem-statement)
+  * [Why digital beats physical](/projects/recipe-site?tab=overview#why-digital-beats-physical)
+    \[/Sources]
+</PitchNotes>
+
+***
+
+## The useful personal product already exists
+
+<div className="pitch-product-surfaces">
+  <article>
+    <header className="pitch-product-surfaces__header"><span className="pitch-product-surfaces__title">Recipe box</span><b className="pitch-product-surfaces__meta">Collection</b></header>
+
+    <div className="pitch-product-surfaces__preview is-box">
+      <span className="pitch-product-surfaces__search">Search by ingredient…</span>
+      <div><i /><span><b className="pitch-product-surfaces__recipe-name">Chicken quesadillas</b><small>Mexican · 25 min</small></span></div>
+      <div><i /><span><b className="pitch-product-surfaces__recipe-name">Salt & chilli chips</b><small>British · side</small></span></div>
+    </div>
+
+    <strong>Capture & find</strong>
+    <small>URL, photo and Cooklang imports</small>
+  </article>
+
+  <article>
+    <header className="pitch-product-surfaces__header"><span className="pitch-product-surfaces__title">Cook mode</span><b className="pitch-product-surfaces__meta">Step 2 of 5</b></header>
+
+    <div className="pitch-product-surfaces__preview is-cook">
+      <p>Fry the onions until soft.</p>
+      <div><span>2× portions</span><span className="pitch-product-surfaces__timer">08:42</span></div>
+    </div>
+
+    <strong>Adapt & cook</strong>
+    <small>Scaling, unit conversion and concurrent timers</small>
+  </article>
+
+  <article>
+    <header className="pitch-product-surfaces__header"><span className="pitch-product-surfaces__title">Kitchen</span><b className="pitch-product-surfaces__meta">Stock match</b></header>
+
+    <div className="pitch-product-surfaces__preview is-kitchen">
+      <div><i /><span>onion</span><b className="pitch-product-surfaces__stock-status">in stock</b></div>
+      <div><i /><span>tortillas</span><b className="pitch-product-surfaces__stock-status">in stock</b></div>
+      <div className="pitch-product-surfaces__stock-last"><i /><span>cheddar</span><b className="pitch-product-surfaces__stock-status">add</b></div>
+    </div>
+
+    <strong>Plan & coordinate</strong>
+    <small>Meal plan, merged shopping and shared pantry</small>
+  </article>
+</div>
+
+<p className="pitch-slide__statement">Capture → plan → shop → stock → cook, in one working product.</p>
+
+<PitchNotes>
+  The live product has recipe boxes, search, Cooklang editing, scaling, unit conversion, cooking mode, concurrent
+  timers, meal planning, shopping lists, pantry matching, imports, accounts, households, recommendations, and cook
+  history. These three panels show the shipped Recipe box, Cook mode, and Kitchen surfaces rather than inventing
+  a single screen that contains every control.
+
+  \[Sources]
+
+  * [Product today](/projects/recipe-site?tab=overview#product-today)
+  * [Mid-fi product design](/projects/recipe-site?tab=overview#product-design)
+  * [Live Recipe Site](/recipes)
+    \[/Sources]
+</PitchNotes>
+
+***
+
+## The market solved the checklist
+
+<div className="pitch-competitor-row">
+  <div>
+    <span className="pitch-competitor-row__wordmark">Tandoor</span>
+    <strong>Run the collection</strong>
+    <small>Migration, planning, shared shopping, offline use</small>
+  </div>
+
+  <div>
+    <TechIcon name="Samsung" className="pitch-competitor-row__logo" />
+
+    <strong>Connect the food journey</strong>
+    <small>Communities, Made It, nutrition, retailer baskets</small>
+  </div>
+
+  <div>
+    <TechIcon name="TikTok" className="pitch-competitor-row__logo" />
+
+    <strong>Win discovery</strong>
+    <small>Watch time, relevance, exploration</small>
+  </div>
+</div>
+
+<p className="pitch-slide__statement">Another long feature list is not a reason to build.</p>
+
+<PitchNotes>
+  Tandoor is the benchmark for an owned, long-lived collection. Samsung Food is the strongest full-lifecycle and
+  social competitor. TikTok is a discovery competitor because it is exceptionally good at predicting what people
+  will watch. Recipe Site needs a model these products would have to reorganize around, not one more checkbox.
+
+  \[Sources]
+
+  * [Competitor analysis](/projects/recipe-site?tab=overview#competitor-analysis)
+  * [Tandoor Recipes](https://tandoor.dev/)
+  * [Samsung Food](https://samsungfood.com/)
+  * [How TikTok recommends videos](https://newsroom.tiktok.com/how-tiktok-recommends-videos-for-you)
+    \[/Sources]
+</PitchNotes>
+
+***
+
+<h2 className="pitch-slide__long-title">The strongest signal happens after somebody taps save</h2>
+
+<div className="pitch-evidence-ladder">
+  <div><span>attention</span><strong>watched</strong></div>
+  <div><span>interest</span><strong>saved</strong></div>
+  <div><span>intent</span><strong>planned</strong></div>
+  <div className="is-proof"><span>proof</span><strong>cooked</strong></div>
+  <div className="is-proof"><span>fit</span><strong>adapted</strong></div>
+  <div className="is-proof"><span>strongest</span><strong>repeated</strong></div>
+</div>
+
+<p className="pitch-slide__statement">Views measure attention. Meals measure whether a recipe worked.</p>
+
+<PitchNotes>
+  A star rating collapses many kinds of value. A completed cook is stronger evidence than a view, and a repeat is
+  stronger again. These events need precise definitions. Starting cook mode is not the same as completing a meal,
+  and a repeat should stay tied to the exact recipe version that reached the table.
+
+  \[Sources]
+
+  * [Recipe Site vision](/projects/recipe-site?tab=overview#vision)
+  * [Close the social cooking loop](/projects/recipe-site?tab=overview#close-the-social-cooking-loop)
+  * [Samsung Food Made Its and reviews](https://support.samsungfood.com/hc/en-us/articles/18588391246740-Recipes-Made-Its-and-Review-FAQs)
+    \[/Sources]
+</PitchNotes>
+
+***
+
+## One score hides two different questions
+
+<div className="pitch-taste-map">
+  <span className="pitch-taste-map__axis pitch-taste-map__axis--taste">How good was it? →</span>
+  <span className="pitch-taste-map__axis pitch-taste-map__axis--fit">How well did it fit today? →</span>
+  <div className="is-fallback"><strong>Emergency fallback</strong><small>useful · not a favourite</small></div>
+  <div className="is-staple"><strong>Tuesday staple</strong><small>good · fast · reliable</small></div>
+  <div className="is-skip"><strong>Skip next time</strong><small>neither enjoyable nor useful</small></div>
+  <div className="is-treat"><strong>Worth the work?</strong><small>great result · wrong occasion</small></div>
+</div>
+
+<PitchNotes>
+  Enjoyment and practical fit are related but distinct. A spectacular dish may appear once a year. A good meal can
+  become foundational because it is predictable, affordable, accepted by the household, and compatible with the
+  time and energy available. Ranking should preserve both truths.
+
+  \[Sources]
+
+  * [Recipe Site vision](/projects/recipe-site?tab=overview#vision)
+  * [Discover through taste neighbours](/projects/recipe-site?tab=overview#discover-through-taste-neighbours)
+    \[/Sources]
+</PitchNotes>
+
+***
+
+## A recommendation should arrive with evidence
+
+<div className="pitch-recommendation-card">
+  <div className="pitch-recommendation-card__sender"><span>E</span><p><strong>Ellie recommended this</strong><small>"the kids actually ate this, zero complaints."</small></p></div>
+  <div className="pitch-recommendation-card__recipe"><span>weeknight · 25 min</span><strong>Chicken quesadillas</strong><p>Made <b>128×</b> · <b>54%</b> made it again</p></div>
+  <div className="pitch-recommendation-card__actions"><span>Save to box</span><span>Add to plan</span><strong>Cook now</strong></div>
+</div>
+
+<p className="pitch-slide__statement">Personal context, public proof, and an action that closes the loop.</p>
+
+<PitchNotes>
+  This card comes from the mid-fi design language. A deliberate person-to-person hand-off stays distinct from an
+  algorithmic recommendation. The note explains why Ellie chose it. Public cook and repeat signals supply broader
+  evidence. Save, plan, and cook actions let the product observe whether the hand-off helped.
+
+  \[Sources]
+
+  * [Product design](/projects/recipe-site?tab=overview#product-design)
+  * [Recommendations design source](https://github.com/Robbie-Palmer/personal-site/blob/main/ui/content/projects/recipe-site/designs/mid-fi/recommend.jsx)
+    \[/Sources]
+</PitchNotes>
+
+***
+
+## Four graphs answer "what should we cook tonight?"
+
+<Mermaid
+  chart={`flowchart LR
+A[Recipe graph<br/>versions and forks] --> E[Next meal]
+B[Cooking graph<br/>cooks and repeats] --> E
+C[Trust graph<br/>people who matter] --> E
+D[Kitchen twin<br/>time, stock, diet] --> E
+E --> F[Cook · adapt · repeat]
+F --> B
+F --> A`}
+/>
+
+<PitchNotes>
+  The recipe graph preserves provenance and exact versions. The cooking graph records outcomes. The trust graph
+  weights evidence from households, friends, followed cooks, and taste neighbours. The kitchen twin supplies the
+  practical context for this meal. The result should be explainable, not one blended score.
+
+  \[Sources]
+
+  * [Recipe Site vision](/projects/recipe-site?tab=overview#vision)
+  * [Social cooking graph architecture](/projects/recipe-site?tab=overview#social-cooking-graph)
+  * [Build the household kitchen twin](/projects/recipe-site?tab=overview#build-the-household-kitchen-twin)
+    \[/Sources]
+</PitchNotes>
+
+***
+
+## The network grows from ordinary cooking
+
+<div className="pitch-cooking-flywheel">
+  <div><span>1</span><strong>Better fit</strong><small>A useful recipe reaches the right kitchen</small></div>
+  <i>→</i>
+  <div><span>2</span><strong>More cooking</strong><small>The household plans, shops, and cooks</small></div>
+  <i>→</i>
+  <div><span>3</span><strong>Better evidence</strong><small>Repeats and adaptations keep their lineage</small></div>
+  <i className="pitch-cooking-flywheel__repeat">repeat</i>
+</div>
+
+<p className="pitch-slide__statement">No posting streak. No engagement chore. Dinner is the contribution.</p>
+
+<PitchNotes>
+  The public network should grow from useful personal actions. People do not need to write a review after every
+  meal. When they choose to share a cook, repeat, adaptation, or recommendation outcome, the graph becomes more
+  useful. Visibility stays explicit: personal, household, connections, or public.
+
+  \[Sources]
+
+  * [Turn public activity into a flywheel](/projects/recipe-site?tab=overview#turn-public-activity-into-a-flywheel)
+  * [Close the social cooking loop](/projects/recipe-site?tab=overview#close-the-social-cooking-loop)
+    \[/Sources]
+</PitchNotes>
+
+***
+
+<h2 className="pitch-slide__long-title">First finish the loop inside one household</h2>
+
+<div className="pitch-recipe-roadmap">
+  <div className="is-live"><span>Live</span><strong>Capture and cook</strong><small>Recipes, imports, scaling, timers</small></div>
+  <div className="is-live"><span>Live</span><strong>Plan and stock</strong><small>Meal plan, shopping, pantry</small></div>
+  <div className="is-next"><span>Next</span><strong>Share the state</strong><small>Server-backed plans, lists, leftovers</small></div>
+  <div><span>Then</span><strong>Close the outcome loop</strong><small>Versioned cooks, repeats, adaptations</small></div>
+  <div><span>Then</span><strong>Rank with evidence</strong><small>Taste neighbours plus practical fit</small></div>
+</div>
+
+<PitchNotes>
+  The personal journey must work before network effects can retain anyone. Plans and shopping still live in the
+  browser. Moving them into household state is the critical boundary. That creates one continuous path from a
+  recommendation to the exact meal cooked and repeated.
+
+  \[Sources]
+
+  * [Recipe Site roadmap](/projects/recipe-site?tab=overview#roadmap)
+  * [Complete the personal food lifecycle](/projects/recipe-site?tab=overview#complete-the-personal-food-lifecycle)
+  * [Current architecture](/projects/recipe-site?tab=overview#current-static-frontend-dynamic-product)
+    \[/Sources]
+</PitchNotes>
+
+***
+
+## The build has an honest stop condition
+
+<PitchColumns>
+  <PitchColumn>
+    ### Use Tandoor
+
+    If the real job is collection management, migration, planning, and self-hosted shared shopping.
+  </PitchColumn>
+
+  <PitchColumn>
+    ### Keep building
+
+    Only if cooks, lineage, trust, and kitchen context produce better next-meal decisions.
+  </PitchColumn>
+</PitchColumns>
+
+<PitchStep>
+  If the network does not help real friends and families cook better, migrate the collection.
+</PitchStep>
+
+<PitchNotes>
+  Tandoor is mature and far ahead in collection administration. Recipe Site earns its maintenance cost only if
+  the social learning loop becomes useful. The test is behavioural: did a trusted recommendation get planned,
+  cooked, enjoyed, adapted, or repeated?
+
+  \[Sources]
+
+  * [The build-or-use test](/projects/recipe-site?tab=overview#the-build-or-use-test)
+  * [Tandoor Recipes](https://tandoor.dev/)
+  * [Recipe Site risks](/projects/recipe-site?tab=overview#risks)
+    \[/Sources]
+</PitchNotes>
+
+***
+
+# Build the network out of dinner, not engagement
+
+The next test is simple: do cooking outcomes and household context lead to better meals than ratings and feeds?
+
+<div className="pitch-step pitch-final-cta">
+  [Try the product](/recipes) · [Read the full brief](/projects/recipe-site?tab=overview)
+</div>
+
+<PitchNotes>
+  End on the falsifiable idea. The product already supports much of the personal food lifecycle. The next phase is
+  not a bigger feed. It is a durable connection between recommendations, plans, cooks, versions, repeats, and the
+  context of the household making dinner.
+
+  \[Sources]
+
+  * [Live Recipe Site](/recipes)
+  * [Full Recipe Site brief](/projects/recipe-site?tab=overview)
+  * [Hypothesis-led delivery](/projects/recipe-site?tab=overview#hypothesis-led-delivery)
+    \[/Sources]
+</PitchNotes>

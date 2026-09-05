@@ -396,11 +396,14 @@ export function PitchDeckFrame({
 
   const hasPresenterTools =
     !isSpeakerPreview && (mode === "focused" || showPresenterTools);
+  const projectClassName = projectSlug
+    ? ` pitch-deck--project-${projectSlug}`
+    : "";
 
   return (
     <section
       ref={shellRef}
-      className={`pitch-deck pitch-deck--${mode}`}
+      className={`pitch-deck pitch-deck--${mode}${projectClassName}`}
       aria-label={`${title} presentation`}
     >
       {hasPresenterTools && (
