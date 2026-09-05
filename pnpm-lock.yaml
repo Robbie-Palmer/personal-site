@@ -373,6 +373,9 @@ importers:
       postgres:
         specifier: ^3.4.5
         version: 3.4.9
+      recipe-domain:
+        specifier: workspace:*
+        version: link:../recipe-domain
     devDependencies:
       typescript:
         specifier: ^6.0.0

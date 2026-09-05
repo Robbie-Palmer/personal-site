@@ -6,12 +6,12 @@ import { isRecipeSlug } from "recipe-domain/slugs";
 import { AddRecipeView } from "@/components/recipes/add-recipe-view";
 import { RecipeAuthRequired } from "@/components/recipes/recipe-auth-required";
 import {
-  errorMessage,
   RecipeLoadError,
   RecipeLoading,
   RecipeQueryStatus,
 } from "@/components/recipes/recipe-load-state";
 import { authClient } from "@/lib/auth-client";
+import { errorMessage } from "@/lib/generic/errors";
 import { savedRecipeQuery } from "@/lib/query/recipe-queries";
 
 export function EditRecipeView() {

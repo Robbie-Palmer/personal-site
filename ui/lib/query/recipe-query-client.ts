@@ -1,5 +1,6 @@
 import { QueryClient, type QueryKey } from "@tanstack/react-query";
 import { isApiError } from "@/lib/api/http";
+import { isAbortError } from "@/lib/generic/errors";
 import { recipeQueryKeys } from "@/lib/query/recipe-query-keys";
 
 const MAX_TRANSIENT_FAILURES = 2;
@@ -8,7 +9,7 @@ export function shouldRetryRecipeRequest(
   failureCount: number,
   error: unknown,
 ): boolean {
-  if (error instanceof DOMException && error.name === "AbortError") {
+  if (isAbortError(error)) {
     return false;
   }
   if (isApiError(error)) {

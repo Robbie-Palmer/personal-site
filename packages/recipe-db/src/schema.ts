@@ -14,6 +14,7 @@ import {
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
+import { RECIPE_VISIBILITIES } from "recipe-domain/visibility";
 
 export const user = pgTable("user", {
   id: text().primaryKey(),
@@ -283,11 +284,8 @@ export const agentAuthAuditEvent = pgTable(
   ],
 );
 
-export const visibilityEnum = pgEnum("visibility", [
-  "public",
-  "private",
-  "household",
-]);
+export const visibilityEnum = pgEnum("visibility", RECIPE_VISIBILITIES);
+export type RecipeVisibility = (typeof visibilityEnum.enumValues)[number];
 
 export const dietRecipeMatchModeEnum = pgEnum("diet_recipe_match_mode", [
   "hide",

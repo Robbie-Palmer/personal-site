@@ -12,6 +12,7 @@ import {
   getAgentHost,
 } from "@/lib/api/agents";
 import { authClient } from "@/lib/auth-client";
+import { isAbortError } from "@/lib/generic/errors";
 
 type ApprovalIntent = {
   agentId: string;
@@ -73,13 +74,11 @@ export function AgentApprovalView() {
           );
           if (!controller.signal.aborted) setHost(loadedHost);
         } catch (cause) {
-          if (cause instanceof DOMException && cause.name === "AbortError")
-            return;
+          if (isAbortError(cause)) return;
           if (!controller.signal.aborted) setHost(null);
         }
       } catch (cause) {
-        if (cause instanceof DOMException && cause.name === "AbortError")
-          return;
+        if (isAbortError(cause)) return;
         setError(
           cause instanceof Error
             ? cause.message

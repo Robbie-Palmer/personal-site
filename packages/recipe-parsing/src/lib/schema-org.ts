@@ -1,7 +1,9 @@
 import * as cheerio from "cheerio";
 import { scrapeRecipe } from "recipe-scrapers";
+import { isRecord } from "recipe-domain/validation";
 import type { ExtractionRecipe } from "../schemas/stage-artifacts.js";
 import { buildCooklangDraftFromExtraction } from "./cooklang.js";
+import { httpUrl } from "./url.js";
 
 export type SchemaOrgRecipeImport = {
   title: string;
@@ -19,10 +21,6 @@ export type SchemaOrgRecipeFileImport = SchemaOrgRecipeImport & {
 
 function servings(value: string): string {
   return /\d+(?:\.\d+)?/.exec(value)?.[0] ?? "1";
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
 function isRecipeType(value: unknown): boolean {
@@ -51,18 +49,6 @@ function findRecipeObject(value: unknown): Record<string, unknown> | undefined {
     }
   }
   return undefined;
-}
-
-function httpUrl(value: unknown): string | undefined {
-  if (typeof value !== "string") return undefined;
-  try {
-    const url = new URL(value);
-    return url.protocol === "http:" || url.protocol === "https:"
-      ? url.toString()
-      : undefined;
-  } catch {
-    return undefined;
-  }
 }
 
 function recipeCanonicalUrl(

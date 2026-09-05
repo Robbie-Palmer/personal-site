@@ -1,3 +1,4 @@
+import { isRecord } from "recipe-domain/validation";
 import { z } from "zod";
 import { apiRequest } from "@/lib/api/http";
 
@@ -45,10 +46,6 @@ export type AgentHost = {
   name: string;
   status: string;
 };
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
 
 const agentDateTime = z.iso.datetime({ offset: true });
 

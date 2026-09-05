@@ -9,6 +9,8 @@
     "./ingredient-normalization": "./src/ingredient-normalization.ts",
     "./recipe": "./src/recipe.ts",
     "./serialization": "./src/serialization.ts",
+    "./validation": "./src/validation.ts",
+    "./visibility": "./src/visibility.ts",
     "./unit": "./src/unit.ts",
     "./slugs": "./src/slugs.ts",
     "./pluralization": "./src/pluralization.ts",

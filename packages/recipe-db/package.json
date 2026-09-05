@@ -12,7 +12,8 @@
   },
   "dependencies": {
     "drizzle-orm": "^0.45.0",
-    "postgres": "^3.4.5"
+    "postgres": "^3.4.5",
+    "recipe-domain": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^6.0.0"

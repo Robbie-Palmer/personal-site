@@ -3,6 +3,7 @@
 import { Share2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { isAbortError } from "@/lib/generic/errors";
 
 export function ShareRecipeButton({
   recipeSlug,
@@ -19,7 +20,7 @@ export function ShareRecipeButton({
         await navigator.share({ title: recipeTitle, url });
         return;
       } catch (error) {
-        if (error instanceof DOMException && error.name === "AbortError") {
+        if (isAbortError(error)) {
           return;
         }
       }

@@ -8,7 +8,6 @@ import { useEffect } from "react";
 import { isRecipeSlug, recipeSlugFromPathname } from "recipe-domain/slugs";
 import { RecipeContent } from "@/components/recipes/recipe-content";
 import {
-  errorMessage,
   RecipeLoadError,
   RecipeLoading,
   RecipeQueryStatus,
@@ -20,6 +19,7 @@ import {
   parseSavedRecipe,
   recipePageHref,
 } from "@/lib/domain/recipe/recipeDraft";
+import { errorMessage } from "@/lib/generic/errors";
 import { savedRecipeQuery } from "@/lib/query/recipe-queries";
 
 export function SavedRecipeView() {
