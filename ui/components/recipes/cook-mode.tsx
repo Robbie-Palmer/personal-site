@@ -129,7 +129,7 @@ export function CookMode({
   onExit: () => void;
   onComplete: () => void;
 }>) {
-  const { setCookModeOpen } = useCookMode();
+  const { setCookModeOpen, setActiveStep } = useCookMode();
   const clampedStep = Math.min(Math.max(step, 0), steps.length - 1);
   const current = steps[clampedStep];
   const [showIngredients, setShowIngredients] = useState(false);
@@ -163,6 +163,17 @@ export function CookMode({
       setCookModeOpen(false);
     };
   }, [setCookModeOpen]);
+
+  useEffect(() => {
+    if (!current) return;
+    setActiveStep({
+      recipeSlug,
+      recipeTitle,
+      stepIndex: clampedStep,
+      stepText: current.text,
+    });
+    return () => setActiveStep(null);
+  }, [setActiveStep, recipeSlug, recipeTitle, clampedStep, current]);
 
   // A non-modal <dialog> (see below) doesn't make the rest of the page inert,
   // so assistive tech could still reach the covered content. Mark every other
@@ -678,25 +689,65 @@ function CookModeTimer({
   const remaining = timer?.remainingSeconds ?? durationSeconds;
 
   const circleBackground = timerCircleBackground(state);
+  const circleClassName = [
+    "flex size-32 shrink-0 items-center justify-center rounded-full border-[3px] border-[var(--ink)]",
+    state === "completed" ? "rt-timer-attention" : "",
+  ].join(" ");
+
+  const start = useCallback(
+    () =>
+      startTimer({
+        id: timerId,
+        recipeSlug,
+        recipeTitle,
+        label,
+        stepIndex,
+        stepText,
+        durationSeconds,
+      }),
+    [
+      timerId,
+      recipeSlug,
+      recipeTitle,
+      label,
+      stepIndex,
+      stepText,
+      durationSeconds,
+    ],
+  );
 
   return (
     <div className="mt-7 flex flex-col items-center gap-4 sm:flex-row sm:items-center sm:gap-6">
-      <div
-        className={[
-          "flex size-32 shrink-0 items-center justify-center rounded-full border-[3px] border-[var(--ink)]",
-          state === "completed" ? "rt-timer-attention" : "",
-        ].join(" ")}
-        style={{ background: circleBackground }}
-      >
-        <span
+      {state === "idle" ? (
+        <button
+          type="button"
+          onClick={start}
+          aria-label={`Start ${label} timer`}
           className={[
-            "rt-display text-4xl tabular-nums",
-            state === "completed" ? "text-white" : "text-[var(--ink)]",
+            circleClassName,
+            "cursor-pointer transition-transform hover:scale-[1.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--terracotta)] focus-visible:ring-offset-2",
           ].join(" ")}
+          style={{ background: circleBackground }}
         >
-          {state === "completed" ? "done!" : formatCountdown(remaining)}
-        </span>
-      </div>
+          <span className="rt-display text-4xl tabular-nums text-[var(--ink-3)] opacity-60">
+            {formatCountdown(remaining)}
+          </span>
+        </button>
+      ) : (
+        <div
+          className={circleClassName}
+          style={{ background: circleBackground }}
+        >
+          <span
+            className={[
+              "rt-display text-4xl tabular-nums",
+              state === "completed" ? "text-white" : "text-[var(--ink)]",
+            ].join(" ")}
+          >
+            {state === "completed" ? "done!" : formatCountdown(remaining)}
+          </span>
+        </div>
+      )}
       <div className="flex flex-col items-center gap-2 sm:items-start">
         <div className="rt-body text-[var(--ink-2)]">{label}</div>
         <div className="rt-mono text-[var(--ink-3)]">
@@ -709,17 +760,7 @@ function CookModeTimer({
           {state === "idle" && (
             <Button
               size="sm"
-              onClick={() =>
-                startTimer({
-                  id: timerId,
-                  recipeSlug,
-                  recipeTitle,
-                  label,
-                  stepIndex,
-                  stepText,
-                  durationSeconds,
-                })
-              }
+              onClick={start}
               className="bg-[var(--terracotta)] text-white hover:bg-[var(--terracotta-deep)]"
             >
               <Play className="size-4" />

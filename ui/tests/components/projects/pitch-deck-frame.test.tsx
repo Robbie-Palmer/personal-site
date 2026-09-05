@@ -222,6 +222,7 @@ describe("PitchDeckFrame", () => {
       configurable: true,
       value: deckShell,
     });
+    deckApi.layout.mockClear();
     fireEvent(document, new Event("fullscreenchange"));
     await waitFor(() => expect(deckApi.layout).toHaveBeenCalledOnce());
     fireEvent.click(screen.getByRole("button", { name: "Exit fullscreen" }));
