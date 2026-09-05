@@ -1,0 +1,139 @@
+---
+title: "Agent-first Writing Editor"
+description: "A layered writing system that turns dense agent output into prose people can absorb without erasing the author's voice"
+date: "2026-09-04"
+status: "in_progress"
+initiatives:
+  - "semi-autonomous-software-development"
+tech_stack:
+  - "Vale"
+  - "Python"
+  - "PyTorch"
+  - "Hugging Face"
+tags:
+  - "machine-learning"
+  - "agentic-engineering"
+---
+
+# Vision
+
+Make the final writing artifact as strong as the research and thinking that
+produced it.
+
+Long agent sessions excel at research, discovery, criticism, and working through
+half-formed ideas. Their raw output often proves miserable to
+share. It repeats itself, flattens the author's voice, over-explains simple
+points, and asks readers to spend more energy than the ideas deserve. People who
+read a lot of AI writing become overwhelmed and demoralized by it.
+
+Writing should teach, motivate, and leave the reader with energy. Rewriting the
+whole thing by hand should not be the only reliable way to get there.
+
+# Product thesis
+
+Grammarly combines different levels of intervention. It can
+flag a local error, suggest a sentence, rewrite a passage, or let the writer
+ignore it. An agent-first editor should do the same while accepting much larger
+and messier inputs, including research sessions, plans, ADRs, and drafts built
+by multiple models.
+
+The system should build quality in layers:
+
+1. Fast deterministic rules catch known problems and give exact feedback.
+2. Lightweight models classify style problems and propose local corrections.
+3. More capable models handle changes that need wider context.
+4. A human accepts individual suggestions, reviews a readable diff, or approves
+   a confident rewrite according to the risk and type of artifact.
+
+This follows the same pattern as agentic code review. Cheap checks handle what
+they can prove. Expensive judgment is reserved for the remaining uncertainty.
+
+# Current state
+
+The Personal Site runs Vale against changed prose. Its custom rules target the
+patterns that make agent writing tiring to read. This makes agent-authored work
+more bearable and catches problems before review.
+
+I tested GECToR-2024 by running ADRs through it. It found only insubstantial
+corrections and did not close the gap between a technically correct draft and
+something I wanted to publish. That negative result narrows the problem. Generic
+grammatical error correction is not enough.
+
+Grammarly remains the practical baseline for the final mile, but it does not
+provide the API needed for an agentic publishing system. Its published research
+and descriptions of its correction approach provide useful prior work without
+making its private product reproducible.
+
+# Product behavior
+
+The editor should support three levels of control:
+
+* Inline suggestions for local problems, each with a source span, proposed
+  replacement, reason, and confidence
+* A proposed rewrite shown as a diff when changes depend on one another
+* Automatic rewriting for narrow, high-confidence rules, followed by final
+  review when the artifact will be published under somebody's name
+
+The user should be able to move between them. A deterministic punctuation fix
+does not need the same ceremony as restructuring an argument.
+
+# Evaluation data
+
+The useful dataset should capture more than a generic collection of
+grammatically correct text. It records the decisions made while turning rough
+work into published work:
+
+* raw notes and agent output;
+* early drafts and later revisions in git;
+* Vale findings;
+* Grammarly suggestions where they can be captured legitimately;
+* accepted and rejected edits; and
+* the final published artifact.
+
+This can test whether an edit improves clarity while preserving facts, intent,
+terminology, and voice. Acceptance rate is evidence, not the goal. A system that
+makes timid edits could achieve a high acceptance rate while adding little
+value.
+
+# First useful release
+
+The first release should work on content in this repository before becoming a
+general editor:
+
+1. Define a versioned suggestion format with source spans, replacements,
+   categories, reasons, confidence, and model or rule provenance.
+2. Build an evaluation set from ADR and project-page revisions, including the
+   GECToR-2024 result as a baseline.
+3. Measure factual preservation, unwanted voice changes, accepted edits, time
+   saved, and regressions caught by deterministic rules.
+4. Run Vale and other deterministic checks through the same suggestion format.
+5. Add a lightweight model only for failure classes that the evaluation set
+   proves Vale cannot handle.
+6. Add passage rewrites with diffs after local suggestions are reliable.
+7. Capture accept and reject decisions so the evaluation set grows through use.
+8. Extract the repository-specific implementation into a general product only
+   after it improves real published pages.
+
+# Relationship to the knowledge graph
+
+The knowledge graph supplies the context that generic writing tools lack. It
+can tell the editor which project a draft describes, which ADR contains the
+source decision, what terminology the author uses, and which claims need fresh
+evidence. The editor returns proposed public artifacts and structured edit
+history. It does not decide what is true or publish in the author's name without
+the authority to do so.
+
+# Success
+
+The editor succeeds when people prefer reading its output to the raw agent
+draft, authors keep their voice, and publishing takes less manual rewriting.
+It fails if it merely produces more polished AI prose with the same cognitive
+load underneath.
+
+# Non-goals
+
+* Replacing research, fact checking, or editorial judgment
+* Training one universal style into every author
+* Treating grammatical correctness as the whole measure of quality
+* Automatically publishing essays under a person's name
+* Adding a large model to problems a deterministic rule can solve

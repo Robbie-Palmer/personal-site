@@ -341,6 +341,9 @@ export function loadInitiatives(): InitiativeLoadResult {
       slug,
       title: data.title,
       description: data.description,
+      date: data.date,
+      updated: data.updated,
+      status: data.status,
       projectContributions: data.project_contributions ?? {},
       content,
     };

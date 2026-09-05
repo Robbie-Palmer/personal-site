@@ -8,6 +8,7 @@ import {
   Code2,
   FolderKanban,
   Home,
+  Network,
   Search,
   X,
 } from "lucide-react";
@@ -65,12 +66,34 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
     keywords: ["projects", "work", "portfolio"],
   },
   {
+    label: "Initiatives",
+    href: "/projects?tab=initiatives",
+    icon: <Network className="size-4" />,
+    keywords: ["initiatives", "programmes", "strategy", "outcomes"],
+  },
+  {
     label: "Experience",
     href: "/experience",
     icon: <Briefcase className="size-4" />,
     keywords: ["experience", "jobs", "career", "work history"],
   },
 ];
+
+function getActiveNavigationHref(
+  pathname: string,
+  searchParams: Pick<URLSearchParams, "get">,
+): string {
+  const queryMatch = NAVIGATION_ITEMS.find((item) => {
+    const [itemPathname, itemQuery] = item.href.split("?", 2);
+    if (itemPathname !== pathname || !itemQuery) return false;
+
+    return Array.from(new URLSearchParams(itemQuery)).every(
+      ([name, value]) => searchParams.get(name) === value,
+    );
+  });
+
+  return queryMatch?.href ?? pathname;
+}
 
 interface CommandPaletteDialogProps {
   open: boolean;
@@ -88,6 +111,7 @@ export function CommandPaletteDialog({
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const activeNavigationHref = getActiveNavigationHref(pathname, searchParams);
   const inputRef = useRef<HTMLInputElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const [search, setSearch] = useState("");
@@ -242,12 +266,12 @@ export function CommandPaletteDialog({
                     className={cn(
                       "flex items-center gap-2 px-2 py-1.5 text-sm rounded-sm cursor-pointer",
                       "aria-selected:bg-accent aria-selected:text-accent-foreground",
-                      pathname === item.href && "text-primary",
+                      activeNavigationHref === item.href && "text-primary",
                     )}
                   >
                     {item.icon}
                     <span>{item.label}</span>
-                    {pathname === item.href && (
+                    {activeNavigationHref === item.href && (
                       <span className="ml-auto text-xs text-muted-foreground">
                         Current
                       </span>

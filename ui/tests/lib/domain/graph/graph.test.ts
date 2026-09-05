@@ -75,6 +75,25 @@ describe("buildContentGraph", () => {
     expect(techs?.has("react")).toBe(true);
   });
 
+  it("builds initiative-project edges", () => {
+    const relations = createEmptyRelationData();
+    relations.projectInitiatives.set("site", ["software-development"]);
+
+    const graph = buildContentGraph({
+      technologySlugs: [],
+      initiativeSlugs: ["software-development"],
+      projectSlugs: ["site"],
+      relations,
+    });
+
+    expect(
+      getInitiativesForProject(graph, "site").has("software-development"),
+    ).toBe(true);
+    expect(
+      getProjectsForInitiative(graph, "software-development").has("site"),
+    ).toBe(true);
+  });
+
   it("builds reverse edges for technologies", () => {
     const relations = createEmptyRelationData();
     relations.projectTechnologies.set("site", ["typescript"]);

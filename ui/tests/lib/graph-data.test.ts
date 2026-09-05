@@ -6,6 +6,9 @@ describe("extractGraphData", () => {
   it("skips ADR nodes when project mapping is missing", () => {
     const repository = {
       technologies: new Map(),
+      initiatives: new Map([
+        ["software-development", { title: "Software Development" }],
+      ]),
       projects: new Map([["site", { title: "Site" }]]),
       blogs: new Map(),
       roles: new Map(),
@@ -16,6 +19,9 @@ describe("extractGraphData", () => {
       graph: {
         edges: {
           usesTechnology: new Map(),
+          contributesToInitiative: new Map([
+            ["site", new Set(["software-development"])],
+          ]),
           partOfProject: new Map([["site:001-react", "site"]]),
           supersedes: new Map(),
           inheritsFrom: new Map(),
@@ -25,6 +31,7 @@ describe("extractGraphData", () => {
         },
         reverse: {
           technologyUsedBy: new Map(),
+          initiativeProjects: new Map(),
           projectADRs: new Map(),
           supersededBy: new Map(),
           inheritedBy: new Map(),
@@ -44,5 +51,16 @@ describe("extractGraphData", () => {
 
     expect(adrNodeIds).toContain("adr:site:001-react");
     expect(adrNodeIds).not.toContain("adr:site:999-missing");
+    expect(data.nodes).toContainEqual(
+      expect.objectContaining({
+        id: "initiative:software-development",
+        href: "/initiatives/software-development",
+      }),
+    );
+    expect(data.edges).toContainEqual({
+      source: "project:site",
+      target: "initiative:software-development",
+      type: "CONTRIBUTES_TO_INITIATIVE",
+    });
   });
 });

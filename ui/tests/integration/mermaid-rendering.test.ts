@@ -138,6 +138,73 @@ describe("Visualization browser rendering", () => {
     }
   }, 30_000);
 
+  it("renders the initiative operating loop without duplicate actors", async () => {
+    const page = await browser.newPage();
+    const pageErrors: string[] = [];
+    page.on("pageerror", (error) => pageErrors.push(String(error)));
+
+    try {
+      await page.goto(
+        `${BASE_URL}/initiatives/semi-autonomous-software-development`,
+        { waitUntil: "domcontentloaded" },
+      );
+      await page.waitForSelector(".mermaid-diagram svg", {
+        timeout: 20_000,
+      });
+
+      const layout = await page.$eval(".mermaid-diagram svg", (svg) => {
+        const nodes = Array.from(svg.querySelectorAll<SVGGElement>(".node"));
+        const edgeLabels = Array.from(
+          svg.querySelectorAll<SVGGElement>(".edgeLabel"),
+        );
+        const assignment = nodes.find((node) =>
+          node.textContent?.includes("2. Assign ready work"),
+        );
+        const directRead = edgeLabels.find((label) =>
+          label.textContent?.includes("read directly while working"),
+        );
+
+        const assignmentBounds = assignment?.getBoundingClientRect();
+        const directReadBounds = directRead?.getBoundingClientRect();
+
+        return {
+          assignmentLeft: assignmentBounds?.left ?? 0,
+          directReadCenter:
+            directReadBounds === undefined
+              ? 0
+              : directReadBounds.left + directReadBounds.width / 2,
+          directReadLabels: new Set(
+            edgeLabels
+              .filter((label) =>
+                label.textContent?.includes("read directly while working"),
+              )
+              .map((label) => label.textContent?.trim()),
+          ).size,
+          executionNodes: nodes.filter((node) =>
+            node.textContent?.includes("People and agents execute"),
+          ).length,
+          knowledgeNodes: nodes.filter((node) =>
+            node.textContent?.includes("Knowledge graph"),
+          ).length,
+          workNodes: nodes.filter((node) =>
+            node.textContent?.includes("Work graph"),
+          ).length,
+        };
+      });
+
+      expect(pageErrors).toEqual([]);
+      expect(layout).toMatchObject({
+        directReadLabels: 1,
+        executionNodes: 1,
+        knowledgeNodes: 1,
+        workNodes: 1,
+      });
+      expect(layout.directReadCenter).toBeLessThan(layout.assignmentLeft);
+    } finally {
+      await page.close();
+    }
+  }, 30_000);
+
   it("runs the reveal.js integration fixture on its technology page", async () => {
     const page = await browser.newPage();
     const pageErrors: string[] = [];

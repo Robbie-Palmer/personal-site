@@ -133,6 +133,8 @@ describe("project page", () => {
         slug: "personalized-medicine",
         title: "Personalized Medicine",
         description: "A longer-running goal",
+        date: "2017-07-04",
+        status: "inactive",
         content: "",
         projectContributions: {
           homelab: "This project advances the goal.",

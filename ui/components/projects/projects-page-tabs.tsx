@@ -4,18 +4,24 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface ProjectsPageTabsProps {
+  initiatives: React.ReactNode;
   projects: React.ReactNode;
   philosophy: React.ReactNode;
 }
 
 export function ProjectsPageTabs({
+  initiatives,
   projects,
   philosophy,
 }: Readonly<ProjectsPageTabsProps>) {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const currentTab = searchParams.get("tab") || "projects";
+  const requestedTab = searchParams.get("tab");
+  const currentTab =
+    requestedTab === "initiatives" || requestedTab === "philosophy"
+      ? requestedTab
+      : "projects";
 
   const onTabChange = (value: string) => {
     const params = new URLSearchParams(searchParams.toString());
@@ -35,6 +41,12 @@ export function ProjectsPageTabs({
           All Projects
         </TabsTrigger>
         <TabsTrigger
+          value="initiatives"
+          className="flex-1 sm:flex-none sm:w-[150px]"
+        >
+          Initiatives
+        </TabsTrigger>
+        <TabsTrigger
           value="philosophy"
           className="flex-1 sm:flex-none sm:w-[200px]"
         >
@@ -47,6 +59,13 @@ export function ProjectsPageTabs({
         className="animate-in fade-in-50 duration-500 mt-6"
       >
         {projects}
+      </TabsContent>
+
+      <TabsContent
+        value="initiatives"
+        className="animate-in fade-in-50 duration-500 mt-6"
+      >
+        {initiatives}
       </TabsContent>
 
       <TabsContent

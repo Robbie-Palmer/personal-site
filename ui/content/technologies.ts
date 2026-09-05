@@ -74,6 +74,13 @@ export const technologies: TechnologyContent[] = [
     type: "library",
   },
   {
+    name: "Vale",
+    added: "2026-09-04",
+    description: "A configurable command-line linter for prose",
+    website: "https://vale.sh",
+    type: "tool",
+  },
+  {
     name: "shadcn/ui",
     added: "2026-01-04",
     description:
