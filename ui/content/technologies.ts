@@ -432,6 +432,44 @@ export const technologies: TechnologyContent[] = [
     type: "platform",
   },
   {
+    name: "Quix Streams",
+    added: "2026-09-05",
+    description:
+      "Python library for stateful stream processing with Kafka-compatible brokers",
+    website: "https://quix.io/docs/quix-streams/introduction.html",
+    type: "library",
+  },
+  {
+    name: "Strimzi",
+    added: "2026-09-05",
+    description: "Kubernetes operators for running and managing Apache Kafka",
+    website: "https://strimzi.io",
+    type: "tool",
+  },
+  {
+    name: "Kubernetes",
+    added: "2026-09-05",
+    description: "Container orchestration platform for distributed workloads",
+    website: "https://kubernetes.io",
+    type: "platform",
+  },
+  {
+    name: "Amazon S3",
+    added: "2026-09-05",
+    description: "AWS object storage for data lakes and application artifacts",
+    website: "https://aws.amazon.com/s3/",
+    iconSlug: "aws",
+    type: "platform",
+  },
+  {
+    name: "dbt",
+    added: "2026-09-05",
+    description:
+      "SQL-based data transformation, testing, and documentation for analytics",
+    website: "https://www.getdbt.com",
+    type: "tool",
+  },
+  {
     name: "Arduino",
     added: "2026-01-04",
     description:

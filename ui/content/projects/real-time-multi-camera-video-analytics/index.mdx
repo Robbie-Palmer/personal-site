@@ -1,0 +1,82 @@
+---
+title: "Real-Time Multi-Camera Video Analytics"
+description: "Cross-camera tracking, identifier recognition, and streaming analytics for logistics yards"
+date: "2024-05-01"
+tech_stack:
+  - "Python"
+  - "Kafka"
+  - "Quix Streams"
+  - "Strimzi"
+  - "Kubernetes"
+  - "GitHub Actions"
+  - "Terraform"
+  - "AWS"
+  - "Amazon S3"
+  - "dbt"
+  - "DuckDB"
+  - "OpenTelemetry"
+  - "Grafana"
+tags:
+  - "machine-learning"
+  - "computer-vision"
+  - "stream-processing"
+product_url: "https://terminal-industries.com/terminal-at-the-gate"
+status: "live"
+role: "terminal-industries"
+---
+
+# Vision
+
+Warehouse yards contain constant physical activity, but the people coordinating them often work from incomplete or stale information. This project turns camera observations into a live record of the vehicles, trailers, and containers moving through gates and other key locations.
+
+That record lets operators check assets in and out faster, work remotely, review dwell time and fuel-island transactions, investigate fraud, and control gate arms based on the identity and status of each asset.
+
+# The engineering problem
+
+On-premises cameras capture and upload video when they observe an event. The cloud persists that video in a video management system for playback, audit, and future model improvement. It also sends the event through a real-time processing path. Models detect trucks and read identifiers, while temporal tracking carries object identity through frames and occlusions. Re-identification then links the same asset across camera views and separate event streams.
+
+The system has to produce useful answers within a few seconds while dealing with the less tidy parts of physical deployments:
+
+* Slow or unreliable connections cause events to arrive late or out of order.
+* Trucks and identifiers become occluded or move between camera views.
+* More than one camera may observe the same physical activity from different perspectives.
+* Bursts of video and inference results require explicit windowing and backpressure handling.
+
+The processing path correlates those observations across time and cameras, then materializes a single operational view of activity at the location. Preserving that view becomes difficult when the evidence arrives incomplete, duplicated, or in the wrong order.
+
+# Building the system
+
+We built the cloud services around a Kafka event plane. Quix Streams handles stateful stream processing, while Strimzi manages Kafka in Kubernetes. Moving services onto this shared event model gave the multi-stage video analysis a consistent way to handle ordering, replay, windowing, and backpressure.
+
+Running the system in production also required:
+
+* Infrastructure as code and deployment workflows for the cloud services
+* Shared libraries, project structure, packaging, and code-quality standards
+* Benchmarking and MLOps tooling around model-driven services
+* OpenTelemetry instrumentation and Grafana dashboards for tracing events across a distributed, asynchronous system
+
+My focus within the team covered event-plane and cross-camera fusion design, technology selection, cloud infrastructure, observability, analytics, engineering standards, and technical leadership.
+
+The wider team's work included Kubernetes cluster setup, on-premises deployments, video-transfer optimization, VRAM and GPU core optimization, model training, and management of third-party data-labelling projects.
+
+# Making it commercially viable
+
+A technically correct system still fails as a product if customers cannot afford to run it. The cost problem starts with video. Sending a continuous 4K feed from every camera can push annual transfer into petabyte scale across even a modest deployment, with storage costs on top. Event-triggered capture moves and retains the video tied to useful events instead.
+
+GPU inference creates a similar constraint. The team used NVIDIA MPS and GPU-aware processing so concurrent inference workloads made better use of the available VRAM and GPU cores, reducing compute costs.
+
+Engineering time carries its own cost. Deep learning, video processing, Kafka, Kubernetes, and data engineering each demand specialist knowledge. Shared libraries, reproducible packaging, benchmarks, observability, and deployment automation shortened the path from a production event to diagnosis, labelled data, model evaluation, and a verified release.
+
+CI speed mattered to that loop. GitHub Actions ran through Actions Runner Controller (ARC) on a dedicated Kubernetes cluster. Targeted caching avoided repeating expensive work. Deliberate use of coding agents shortened implementation cycles further, while the same CI system provided fast, repeatable feedback on each change.
+
+This formed part of a broader practice of continuous improvement across the product, engineering process, infrastructure, and developer tooling. Each improvement reduced the time or cost of the next one, helping a small team make progress across these specialised engineering disciplines.
+
+# Analytics
+
+The real-time path reports current activity. Historical data shows whether yard operations improve over days and months.
+
+An offline analytics path runs alongside the event plane. Operational data lands in an Amazon S3 data lake, while dbt and DuckDB turn it into data marts for measuring dwell time, throughput, and other operational outcomes. This keeps analytical queries away from the latency-sensitive processing path and makes the operational data available for historical analysis.
+
+# Result
+
+The live system combines detections and identifiers such as licence plates, power-unit IDs, USDOT numbers, trailer IDs, and container IDs into an activity view within a few seconds. Terminal deploys it at warehouse gates and has also run it at fuel islands, where the same event model supports transaction monitoring and operational analysis.
