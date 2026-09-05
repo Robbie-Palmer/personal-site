@@ -72,7 +72,7 @@ function maximumAvailableSample(
     case "completed-replays": {
       const maximum = entries.length * params.experiment.repetitions;
       if (!Number.isSafeInteger(maximum)) {
-        throw new Error("maximum completed replay sample exceeds the safe integer range");
+        throw new TypeError("maximum completed replay sample exceeds the safe integer range");
       }
       return maximum;
     }
