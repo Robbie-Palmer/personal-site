@@ -135,7 +135,11 @@ function addRecurringFlowLinks(
     (total, flow) => total + recurringFlowValue(flow, liabilityBalances),
     0,
   );
-  const pensionFitsWithinGrossPay = grossPay >= takeHomePay + employeePension;
+  const allocatedGrossPay = takeHomePay + employeePension;
+  const allocationTolerance =
+    Math.max(1, grossPay, allocatedGrossPay) * Number.EPSILON * 4;
+  const pensionFitsWithinGrossPay =
+    grossPay + allocationTolerance >= allocatedGrossPay;
 
   if (grossPay > 0) {
     builder.addLink(

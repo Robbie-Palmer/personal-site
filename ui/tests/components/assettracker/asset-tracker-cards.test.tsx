@@ -838,6 +838,71 @@ describe("buildFlowSankeyData", () => {
     ]);
   });
 
+  it("tolerates floating-point noise in an exactly allocated gross pay", () => {
+    const data = buildFlowSankeyData(
+      [
+        {
+          id: "current",
+          name: "Current",
+          provider: "Bank",
+          currency: "GBP",
+          assetType: "cash",
+          expectedAnnualReturn: 0,
+          isOpen: true,
+          latestBalance: 0,
+          latestSnapshotDate: "2026-07-03",
+          cagr: null,
+        },
+        {
+          id: "pension",
+          name: "Pension",
+          provider: "Provider",
+          currency: "GBP",
+          assetType: "stocks",
+          expectedAnnualReturn: 0,
+          isOpen: true,
+          latestBalance: 0,
+          latestSnapshotDate: "2026-07-03",
+          cagr: null,
+        },
+      ],
+      [
+        {
+          id: "salary",
+          name: "Take-home salary",
+          toAccountId: "current",
+          amount: 0.1,
+          grossAmount: 0.3,
+          compensationKind: "takeHomeIncome",
+          frequency: "monthly",
+          startDate: "2026-07-01",
+        },
+        {
+          id: "employee-pension",
+          name: "Employee pension",
+          toAccountId: "pension",
+          amount: 0.2,
+          compensationKind: "employeePension",
+          frequency: "monthly",
+          startDate: "2026-07-01",
+        },
+      ],
+      {},
+    );
+
+    expect(
+      data.links.map(({ sourceName, targetName, value }) => ({
+        sourceName,
+        targetName,
+        value,
+      })),
+    ).toEqual([
+      { sourceName: "External income", targetName: "Gross pay", value: 0.3 },
+      { sourceName: "Gross pay", targetName: "Current", value: 0.1 },
+      { sourceName: "Gross pay", targetName: "Pension", value: 0.2 },
+    ]);
+  });
+
   it("converts regular flows into monthly Sankey links", () => {
     const data = buildFlowSankeyData(
       [
