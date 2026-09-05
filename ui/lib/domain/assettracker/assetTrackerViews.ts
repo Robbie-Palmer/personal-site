@@ -418,7 +418,7 @@ export function toNetWorthTimeSeries(
   return sortedDates.map((date) => {
     // Advance pointer through snapshots up to current date
     let snapshot = sortedSnapshots[snapshotIndex];
-    while (snapshot && new Date(snapshot.date) <= new Date(date)) {
+    while (snapshot && compareIsoDates(snapshot.date, date) <= 0) {
       latestByAccount.set(snapshot.accountId, snapshot.balance);
       snapshotIndex++;
       snapshot = sortedSnapshots[snapshotIndex];
