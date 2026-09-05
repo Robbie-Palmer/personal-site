@@ -68,11 +68,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
     return projectDate > latest ? projectDate : latest;
   }, new Date(0));
 
-  const latestInitiativeDate = initiatives.reduce((latest, initiative) => {
-    const initiativeDate = new Date(initiative.updated || initiative.date);
-    return initiativeDate > latest ? initiativeDate : latest;
-  }, new Date(0));
-
   return [
     {
       url: siteConfig.url,
@@ -87,11 +82,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
     {
       url: `${siteConfig.url}/experience`,
       lastModified: new Date().toISOString(),
-      priority: 0.7,
-    },
-    {
-      url: `${siteConfig.url}/initiatives`,
-      lastModified: latestInitiativeDate.toISOString(),
       priority: 0.7,
     },
     {
