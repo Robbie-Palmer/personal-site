@@ -170,6 +170,25 @@ TEST_CASE("invalid missions and out-of-range node identifiers are rejected") {
   CHECK_FALSE(controller.initiateMission(Coordinate(0.0F, 91.0F), 0U));
 }
 
+TEST_CASE("zero-valued controller limits are normalized to safe operating bounds") {
+  FakeTransport transport;
+  FakeHealthMonitor health;
+  FixedScorer scorer(50);
+  ControllerConfig config = fastConfig();
+  config.node_capacity = 0U;
+  config.maximum_attempts = 0U;
+  config.failed_missions_before_safe_disable = 0U;
+  SwarmController controller(kMaximumNodes - 1U, SatelliteSnapshot(), transport, health, scorer,
+                             config);
+
+  transport.deliver(Message::missionRequest(0, 1, Coordinate()));
+  controller.update(0U);
+  REQUIRE(controller.state() == ControllerState::AwaitingAcknowledgement);
+
+  controller.update(config.retry_interval_ms);
+  CHECK(controller.state() == ControllerState::SafeDisabled);
+}
+
 TEST_CASE("an assignment to an out-of-range node is ignored") {
   FakeTransport transport;
   FakeHealthMonitor health;
