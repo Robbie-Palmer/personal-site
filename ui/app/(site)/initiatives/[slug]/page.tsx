@@ -88,7 +88,7 @@ export default async function InitiativePage({ params }: Readonly<PageProps>) {
 
         <Markdown source={initiative.content} components={{ Mermaid }} />
 
-        {Object.keys(initiative.projectContributions).length > 0 && (
+        {initiative.projects.length > 0 && (
           <section className="space-y-4" aria-labelledby="initiative-projects">
             <h2 id="initiative-projects" className="text-2xl font-semibold">
               Projects advancing this goal

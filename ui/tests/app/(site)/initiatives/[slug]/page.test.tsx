@@ -82,6 +82,29 @@ describe("initiative page", () => {
     ).toHaveLength(2);
   });
 
+  it("renders related projects when contribution prose is not yet written", async () => {
+    (getInitiative as Mock).mockReturnValue({
+      ...fixture,
+      projectContributions: {},
+      projects: fixture.projects.map(
+        ({ contribution: _, ...project }) => project,
+      ),
+    });
+
+    render(
+      await InitiativePage({
+        params: Promise.resolve({ slug: "personalized-medicine" }),
+      }),
+    );
+
+    expect(
+      screen.getByRole("heading", { name: "Projects advancing this goal" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("View digital pathology slides"),
+    ).toBeInTheDocument();
+  });
+
   it("renders the not-found boundary for an unknown initiative", async () => {
     (getInitiative as Mock).mockReturnValue(null);
 

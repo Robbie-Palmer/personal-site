@@ -45,7 +45,7 @@ import { filterGraphData } from "@/lib/domain/technology/graphFilter";
 import { calculateGraphLayout } from "@/lib/domain/technology/graphLayout";
 
 const NODE_COLORS: Record<string, string> = {
-  initiative: "#a855f7",
+  initiative: "#ec4899",
   project: "#3b82f6",
   blog: "#f97316",
   role: "#a855f7",

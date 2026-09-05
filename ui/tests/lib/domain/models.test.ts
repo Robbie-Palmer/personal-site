@@ -383,6 +383,22 @@ describe("Domain Model Schemas", () => {
       expect(result.success).toBe(false);
     });
 
+    it.each(["2023-02-29", "2023-02-30", "2023-13-01"])(
+      "rejects the invalid calendar date %s",
+      (date) => {
+        const result = InitiativeSchema.safeParse({
+          slug: "personalized-medicine",
+          title: "Personalized Medicine",
+          description: "Making patient-specific treatment decisions accessible",
+          date,
+          status: "inactive",
+          content: "# Goal",
+        });
+
+        expect(result.success).toBe(false);
+      },
+    );
+
     it.each(["Personalized-Medicine", "personalized medicine", "../medicine"])(
       "rejects an unsafe initiative slug: %s",
       (slug) => {

@@ -12,13 +12,16 @@ import {
 
 const pushMock = vi.fn();
 const replaceMock = vi.fn();
-const { captureMock } = vi.hoisted(() => ({ captureMock: vi.fn() }));
+const { captureMock, navigation } = vi.hoisted(() => ({
+  captureMock: vi.fn(),
+  navigation: { search: "" },
+}));
 const originalScrollIntoView = Element.prototype.scrollIntoView;
 
 vi.mock("next/navigation", () => ({
   usePathname: () => "/projects",
   useRouter: () => ({ push: pushMock, replace: replaceMock }),
-  useSearchParams: () => new URLSearchParams(),
+  useSearchParams: () => new URLSearchParams(navigation.search),
 }));
 
 vi.mock("posthog-js", () => ({
@@ -47,6 +50,7 @@ describe("CommandPalette", () => {
     pushMock.mockReset();
     replaceMock.mockReset();
     captureMock.mockReset();
+    navigation.search = "";
     vi.stubGlobal(
       "ResizeObserver",
       class {
@@ -167,6 +171,26 @@ describe("CommandPalette", () => {
     if (!secondTrigger) throw new Error("Expected a command-palette trigger");
     await userEvent.click(secondTrigger);
     expect(screen.queryByText("Active projects")).not.toBeInTheDocument();
+  });
+
+  it("marks the initiatives navigation item current on its projects tab", async () => {
+    navigation.search = "tab=initiatives";
+    render(
+      <CommandPaletteProvider>
+        <CommandPaletteTrigger />
+      </CommandPaletteProvider>,
+    );
+
+    const trigger = screen.getAllByRole("button", { name: "Search" })[0];
+    if (!trigger) throw new Error("Expected a command-palette trigger");
+    await userEvent.click(trigger);
+
+    const initiativesItem = screen
+      .getByText("Initiatives")
+      .closest("[cmdk-item]");
+    const projectsItem = screen.getByText("Projects").closest("[cmdk-item]");
+    expect(initiativesItem).toHaveTextContent("Current");
+    expect(projectsItem).not.toHaveTextContent("Current");
   });
 
   it("rejects hooks outside the provider", () => {

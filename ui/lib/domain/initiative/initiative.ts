@@ -7,6 +7,8 @@ export const InitiativeStatusSchema = z.enum(["idea", "active", "inactive"]);
 
 export type InitiativeStatus = z.infer<typeof InitiativeStatusSchema>;
 
+const InitiativeDateSchema = z.iso.date();
+
 export const INITIATIVE_STATUS_CONFIG: Record<
   InitiativeStatus,
   { label: string; badgeClass: string }
@@ -30,11 +32,8 @@ export const InitiativeSchema = z.object({
   slug: InitiativeSlugSchema,
   title: z.string().min(1),
   description: z.string().min(1),
-  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  updated: z
-    .string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/)
-    .optional(),
+  date: InitiativeDateSchema,
+  updated: InitiativeDateSchema.optional(),
   status: InitiativeStatusSchema,
   projectContributions: z
     .record(ProjectSlugSchema, z.string().min(1))
