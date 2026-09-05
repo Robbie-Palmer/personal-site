@@ -7,6 +7,7 @@ import { getNetWorthTimeSeries } from "./assetTrackerQueries";
 import type { AssetTrackerRepository } from "./assetTrackerRepository";
 import type { NetWorthDataPoint } from "./assetTrackerViews";
 import { type CapitalFlow, capitalFlowKind } from "./capitalFlow";
+import { monthlyAmount } from "./recurringFlow";
 
 const DAYS_PER_YEAR = 365.2425;
 export const FI_PROJECTION_MAX_YEARS = 100;
@@ -42,9 +43,14 @@ export type PortfolioFinancialIndependence = {
   periods: PortfolioReconciliationPeriod[];
   representativeAnnualExpenditure: number | null;
   representativeAnnualCurrentExpenditure: number | null;
+  /** Active compensation-based saving, falling back to the historical median. */
   representativeAnnualSavings: number | null;
-  /** Income retained divided by income across all reconciled periods. */
+  /** Active compensation savings rate, falling back to the historical rate. */
   savingsRate: number | null;
+  /** Active take-home income left after long-term expenditure, as a rate. */
+  takeHomeSavingsRate: number | null;
+  /** Present when active recurring compensation replaces the historical savings basis. */
+  currentCompensation: PortfolioCurrentCompensation | null;
   /** Positive balances in open cash accounts. */
   emergencyFund: number;
   emergencyFundMonths: number | null;
@@ -55,6 +61,13 @@ export type PortfolioFinancialIndependence = {
   projection: PortfolioFiProjectionPoint[];
   projectedFiDate: string | null;
   yearsToFi: number | null;
+};
+
+export type PortfolioCurrentCompensation = {
+  annualTakeHomeIncome: number;
+  annualTakeHomeSavings: number;
+  annualEmployeePensionContribution: number;
+  annualEmployerPensionContribution: number;
 };
 
 export type PortfolioFiProjectionPoint = {
@@ -174,7 +187,12 @@ function reconcileRetainedIncome(
 export function reconcilePortfolio(
   repository: AssetTrackerRepository,
 ): PortfolioReconciliationPeriod[] {
-  const netWorth = getNetWorthTimeSeries(repository);
+  const snapshotDates = new Set(
+    repository.snapshots.map((snapshot) => snapshot.date),
+  );
+  const netWorth = getNetWorthTimeSeries(repository).filter((point) =>
+    snapshotDates.has(point.date),
+  );
   const income = repository.incomeHistory.toSorted((a, b) =>
     a.date.localeCompare(b.date),
   );
@@ -220,25 +238,40 @@ export function reconcilePortfolio(
   return periods;
 }
 
-/** Median annualised period expenditure resists one unusually lumpy period. */
+const RECENT_PERIOD_COUNT = 12;
+
+function medianAnnualizedRecentPeriods(
+  periods: readonly PortfolioReconciliationPeriod[],
+  selectAmount: (period: PortfolioReconciliationPeriod) => number,
+): number | null {
+  const recent = periods
+    .toSorted((a, b) => a.endDate.localeCompare(b.endDate))
+    .filter((period) => {
+      const amount = selectAmount(period);
+      return Number.isFinite(amount) && amount >= 0 && period.days > 0;
+    })
+    .slice(-RECENT_PERIOD_COUNT);
+  return median(
+    recent.map(
+      (period) => (selectAmount(period) * DAYS_PER_YEAR) / period.days,
+    ),
+  );
+}
+
+/** Median of the latest 12 periods, using recent nominal spending only. */
 export function representativeAnnualExpenditure(
   periods: readonly PortfolioReconciliationPeriod[],
 ): number | null {
-  return median(
-    periods
-      .map((period) => period.annualizedExpenditure)
-      .filter((value) => Number.isFinite(value) && value >= 0),
-  );
+  return medianAnnualizedRecentPeriods(periods, (period) => period.expenditure);
 }
 
 /** Current spending includes debt principal that will end at payoff. */
 export function representativeAnnualCurrentExpenditure(
   periods: readonly PortfolioReconciliationPeriod[],
 ): number | null {
-  return median(
-    periods
-      .map((period) => period.annualizedCurrentExpenditure)
-      .filter((value) => Number.isFinite(value) && value >= 0),
+  return medianAnnualizedRecentPeriods(
+    periods,
+    (period) => period.currentExpenditure,
   );
 }
 
@@ -251,6 +284,52 @@ export function representativeAnnualSavings(
       .map((period) => (period.netCapitalFlow * DAYS_PER_YEAR) / period.days)
       .filter(Number.isFinite),
   );
+}
+
+function currentCompensation(
+  repository: AssetTrackerRepository,
+  annualExpenditure: number | null,
+  asOfDate: string,
+): PortfolioCurrentCompensation | null {
+  if (annualExpenditure == null) return null;
+
+  let annualTakeHomeIncome = 0;
+  let annualEmployeePensionContribution = 0;
+  let annualEmployerPensionContribution = 0;
+  for (const flow of repository.recurringFlows) {
+    const destination =
+      flow.toAccountId == null
+        ? null
+        : repository.accounts.get(flow.toAccountId);
+    if (
+      flow.compensationKind == null ||
+      (destination?.closedAt != null && destination.closedAt <= asOfDate) ||
+      flow.startDate > asOfDate ||
+      (flow.endDate != null && flow.endDate < asOfDate)
+    ) {
+      continue;
+    }
+    const annualAmount = monthlyAmount(flow) * 12;
+    switch (flow.compensationKind) {
+      case "takeHomeIncome":
+        annualTakeHomeIncome += annualAmount;
+        break;
+      case "employeePension":
+        annualEmployeePensionContribution += annualAmount;
+        break;
+      case "employerPension":
+        annualEmployerPensionContribution += annualAmount;
+        break;
+    }
+  }
+  if (annualTakeHomeIncome <= 0) return null;
+
+  return {
+    annualTakeHomeIncome,
+    annualTakeHomeSavings: annualTakeHomeIncome - annualExpenditure,
+    annualEmployeePensionContribution,
+    annualEmployerPensionContribution,
+  };
 }
 
 function latestBalances(
@@ -351,13 +430,14 @@ export function getPortfolioFinancialIndependence(
   const annualExpenditure = representativeAnnualExpenditure(periods);
   const annualCurrentExpenditure =
     representativeAnnualCurrentExpenditure(periods);
-  const annualSavings = representativeAnnualSavings(periods);
+  const historicalAnnualSavings = representativeAnnualSavings(periods);
   const totalIncome = periods.reduce((sum, period) => sum + period.income, 0);
   const totalSavings = periods.reduce(
     (sum, period) => sum + period.personalCapitalFlow,
     0,
   );
-  const savingsRate = totalIncome > 0 ? totalSavings / totalIncome : null;
+  const historicalSavingsRate =
+    totalIncome > 0 ? totalSavings / totalIncome : null;
   const withdrawalRate =
     repository.settings.withdrawalRate ?? DEFAULT_WITHDRAWAL_RATE;
   const target =
@@ -381,6 +461,26 @@ export function getPortfolioFinancialIndependence(
       ? (emergencyFund * 12) / annualCurrentExpenditure
       : null;
   const startDate = todayIsoDate();
+  const compensation = currentCompensation(
+    repository,
+    annualExpenditure,
+    startDate,
+  );
+  let annualSavings = historicalAnnualSavings;
+  let savingsRate = historicalSavingsRate;
+  let takeHomeSavingsRate: number | null = null;
+  if (compensation != null) {
+    const annualPensionContributions =
+      compensation.annualEmployeePensionContribution +
+      compensation.annualEmployerPensionContribution;
+    annualSavings =
+      compensation.annualTakeHomeSavings + annualPensionContributions;
+    const totalCurrentCompensation =
+      compensation.annualTakeHomeIncome + annualPensionContributions;
+    savingsRate = annualSavings / totalCurrentCompensation;
+    takeHomeSavingsRate =
+      compensation.annualTakeHomeSavings / compensation.annualTakeHomeIncome;
+  }
   const expectedRealReturn = expectedPortfolioRealReturn(
     repository,
     balances,
@@ -406,6 +506,8 @@ export function getPortfolioFinancialIndependence(
     representativeAnnualCurrentExpenditure: annualCurrentExpenditure,
     representativeAnnualSavings: annualSavings,
     savingsRate,
+    takeHomeSavingsRate,
+    currentCompensation: compensation,
     emergencyFund,
     emergencyFundMonths,
     target,

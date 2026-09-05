@@ -82,6 +82,7 @@ export function getNetWorthTimeSeries(
   return toNetWorthTimeSeries(
     Array.from(repository.accounts.values()),
     repository.snapshots,
+    repository.capitalFlows,
   );
 }
 
@@ -291,9 +292,10 @@ export function getTotalByAssetType(
   const { absorbedIds, mortgagesByProperty } = buildLinkage(accounts);
 
   for (const account of accounts) {
-    if (absorbedIds.has(account.id)) continue;
+    if (absorbedIds.has(account.id) || account.closedAt != null) continue;
     let balance = latestSnapshots.get(account.id)?.balance ?? 0;
     for (const mortgageId of mortgagesByProperty.get(account.id) ?? []) {
+      if (repository.accounts.get(mortgageId)?.closedAt != null) continue;
       balance += latestSnapshots.get(mortgageId)?.balance ?? 0;
     }
     totals.set(

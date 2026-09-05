@@ -320,15 +320,62 @@ describe("buildAccountHistorySeries", () => {
         ],
       ),
     ).toEqual([
-      { date: "2022-01-01", contributed: 8_000 },
-      { date: "2023-01-01", contributed: 10_000 },
+      { date: "2022-01-01", expected: 8_000, contributed: 8_000 },
+      { date: "2023-01-01", expected: 10_000, contributed: 10_000 },
       {
         date: "2024-01-01",
         actual: 12_000,
-        expected: 12_000,
+        expected: 10_000,
         contributed: 10_000,
       },
     ]);
+  });
+
+  it("estimates a balance between valuations and resets at the next valuation", () => {
+    expect(
+      buildAccountHistorySeries(
+        { expectedAnnualReturn: 0 },
+        [
+          { date: "2024-01-01", balance: 1_000 },
+          { date: "2026-01-01", balance: 1_650 },
+        ],
+        [{ date: "2025-01-01", amount: 500 }],
+      ),
+    ).toEqual([
+      { date: "2024-01-01", actual: 1_000, expected: 1_000 },
+      { date: "2025-01-01", expected: 1_500, contributed: 500 },
+      {
+        date: "2026-01-01",
+        actual: 1_650,
+        expected: 1_500,
+        contributed: 500,
+      },
+    ]);
+  });
+
+  it("compounds from the first valuation before applying the next dated flow", () => {
+    const series = buildAccountHistorySeries(
+      { expectedAnnualReturn: 0.1 },
+      [{ date: "2024-01-01", balance: 1_000 }],
+      [{ date: "2025-01-01", amount: 100 }],
+    );
+
+    expect(series.at(-1)?.expected).toBeCloseTo(1_200, 0);
+  });
+
+  it("carries estimates and contributed capital onto requested chart dates", () => {
+    const series = buildAccountHistorySeries(
+      { expectedAnnualReturn: 0 },
+      [{ date: "2024-01-01", balance: 0 }],
+      [{ date: "2024-03-01", amount: 750 }],
+      ["2024-04-01"],
+    );
+
+    expect(series.at(-1)).toEqual({
+      date: "2024-04-01",
+      expected: 750,
+      contributed: 750,
+    });
   });
 });
 

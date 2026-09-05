@@ -16,10 +16,10 @@ import {
   capitalFlowKind,
 } from "./capitalFlow";
 import {
-  FlowFrequencySchema,
   flowOccurrenceDates,
-  MinimumPaymentFormulaSchema,
   monthlyAmount,
+  RecurringFlowDefinitionShape,
+  validateRecurringFlowDefinition,
 } from "./recurringFlow";
 
 /**
@@ -175,27 +175,11 @@ export type RecordTransferInput = z.infer<typeof RecordTransferInputSchema>;
 
 export const AddRecurringFlowInputSchema = z
   .object({
+    ...RecurringFlowDefinitionShape,
     name: z.string().trim().min(1, "Give the flow a name"),
-    fromAccountId: AccountIdSchema.optional(),
-    toAccountId: AccountIdSchema.optional(),
-    amount: z.number().positive("Amount must be positive").optional(),
-    formula: MinimumPaymentFormulaSchema.optional(),
-    frequency: FlowFrequencySchema,
     startDate: IsoDateSchema.optional(),
-    endDate: IsoDateSchema.optional(),
   })
-  .refine((f) => f.fromAccountId != null || f.toAccountId != null, {
-    message: "A flow needs a source or a destination account",
-  })
-  .refine((f) => f.fromAccountId !== f.toAccountId, {
-    message: "Source and destination must differ",
-  })
-  .refine((f) => (f.amount != null) !== (f.formula != null), {
-    message: "Provide either an amount or a formula, not both",
-  })
-  .refine((f) => f.formula == null || f.frequency === "monthly", {
-    message: "Formula payments must use a monthly frequency",
-  });
+  .superRefine(validateRecurringFlowDefinition);
 export type AddRecurringFlowInput = z.infer<typeof AddRecurringFlowInputSchema>;
 
 export const DeleteRecurringFlowInputSchema = z.object({
@@ -689,7 +673,9 @@ export function applyAddRecurringFlow(
     fromAccountId: parsed.fromAccountId,
     toAccountId: parsed.toAccountId,
     amount: parsed.amount,
+    grossAmount: parsed.grossAmount,
     formula: parsed.formula,
+    compensationKind: parsed.compensationKind,
     frequency: parsed.frequency,
     startDate,
     endDate: parsed.endDate,

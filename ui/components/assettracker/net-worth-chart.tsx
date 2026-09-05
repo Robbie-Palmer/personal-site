@@ -86,13 +86,19 @@ export function NetWorthChart({ data }: Readonly<NetWorthChartProps>) {
     [data, rangeYears],
   );
 
-  // Every point carries every series key, so the last point names them all
-  // (mortgages folded into their property never appear — no dead legend pills)
+  // The last point names every account with at least one market valuation.
+  // Mortgages folded into their property and contribution-only accounts do
+  // not produce dead legend pills.
   const seriesNames = useMemo(() => {
     const last = rangedData[rangedData.length - 1];
     if (!last) return [];
-    return Object.keys(last).filter((key) => key !== "date" && key !== "total");
+    return Object.keys(last).filter(
+      (key) => key !== "date" && key !== "total" && key !== "estimatedTotal",
+    );
   }, [rangedData]);
+  const hasEstimatedTotal = rangedData.some(
+    (point) => point.estimatedTotal != null,
+  );
 
   const [hidden, setHidden] = useState<ReadonlySet<string>>(new Set());
   // Ignore hidden entries for series that no longer exist (import/reset)
@@ -157,6 +163,10 @@ export function NetWorthChart({ data }: Readonly<NetWorthChartProps>) {
       label: isFiltered ? "Selected total" : "Net worth",
       color: "var(--foreground)",
     },
+    estimatedTotal: {
+      label: "Estimated net worth",
+      color: "hsl(220, 10%, 55%)",
+    },
   };
   for (const [i, name] of seriesNames.entries()) {
     chartConfig[name] = {
@@ -201,9 +211,9 @@ export function NetWorthChart({ data }: Readonly<NetWorthChartProps>) {
           </p>
         )}
         <CardDescription>
-          Historical market valuations with net worth as the bold line.
-          Liabilities sit below zero, and linked mortgages reduce property to
-          home equity.
+          The bold line uses logged market valuations. The dashed line estimates
+          unvalued investments from their last valuation, dated contributions,
+          and expected return. Linked mortgages reduce property to home equity.
         </CardDescription>
       </CardHeader>
       <CardContent className="px-2 sm:px-6">
@@ -245,6 +255,17 @@ export function NetWorthChart({ data }: Readonly<NetWorthChartProps>) {
                 strokeWidth={2.5}
                 dot={false}
               />
+              {hasEstimatedTotal && !isFiltered && (
+                <Line
+                  type="monotone"
+                  dataKey="estimatedTotal"
+                  stroke="hsl(220, 10%, 55%)"
+                  strokeWidth={2}
+                  strokeDasharray="6 4"
+                  dot={false}
+                  connectNulls
+                />
+              )}
             </ComposedChart>
           </ResponsiveContainer>
         </ChartContainer>

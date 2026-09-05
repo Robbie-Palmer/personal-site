@@ -6,6 +6,8 @@ import {
   isLiability,
 } from "./account";
 import {
+  type BalanceEstimatePoint,
+  buildBalanceEstimateSeries,
   computeMoneyWeightedReturn,
   type ExternalFlow,
 } from "./assetTrackerAnalytics";
@@ -86,7 +88,9 @@ export type AccountDetailView = AccountSummaryView & {
 export type NetWorthDataPoint = {
   date: string;
   total: number;
-  [accountName: string]: string | number;
+  /** Net worth with unvalued investments replaced by expected balances. */
+  estimatedTotal?: number;
+  [accountName: string]: string | number | undefined;
 };
 
 export type EquitySummary = {
@@ -255,12 +259,120 @@ export function toAccountDetailView(
   };
 }
 
+function accountHasRecordedValue(
+  accountId: string,
+  mortgageIds: readonly string[],
+  recordedAccountIds: Readonly<{ has(value: string): boolean }>,
+): boolean {
+  return (
+    recordedAccountIds.has(accountId) ||
+    mortgageIds.some((mortgageId) => recordedAccountIds.has(mortgageId))
+  );
+}
+
+function recordedBalanceWithMortgages(
+  accountId: string,
+  mortgageIds: readonly string[],
+  latestByAccount: ReadonlyMap<string, number>,
+): number {
+  return mortgageIds.reduce(
+    (balance, mortgageId) => balance + (latestByAccount.get(mortgageId) ?? 0),
+    latestByAccount.get(accountId) ?? 0,
+  );
+}
+
+function recordedNetWorthPoint(
+  date: string,
+  accounts: readonly Account[],
+  accountById: ReadonlyMap<string, Account>,
+  absorbedIds: ReadonlySet<string>,
+  mortgagesByProperty: ReadonlyMap<string, string[]>,
+  accountsWithMarketValue: ReadonlySet<string>,
+  latestByAccount: ReadonlyMap<string, number>,
+): NetWorthDataPoint {
+  const point: NetWorthDataPoint = { date, total: 0 };
+  for (const account of accounts) {
+    if (
+      absorbedIds.has(account.id) ||
+      (account.closedAt != null && account.closedAt <= date)
+    ) {
+      continue;
+    }
+    const mortgageIds = (mortgagesByProperty.get(account.id) ?? []).filter(
+      (mortgageId) => {
+        const closedAt = accountById.get(mortgageId)?.closedAt;
+        return closedAt == null || closedAt > date;
+      },
+    );
+    const hasMarketHistory = accountHasRecordedValue(
+      account.id,
+      mortgageIds,
+      accountsWithMarketValue,
+    );
+    const hasRecordedBalance = accountHasRecordedValue(
+      account.id,
+      mortgageIds,
+      latestByAccount,
+    );
+    // A contribution history is not a market valuation. Leave accounts out
+    // until they or a linked mortgage have a recorded balance.
+    if (!hasMarketHistory || !hasRecordedBalance) continue;
+    const balance = recordedBalanceWithMortgages(
+      account.id,
+      mortgageIds,
+      latestByAccount,
+    );
+    point[account.name] = balance;
+    point.total += balance;
+  }
+  return point;
+}
+
+function withEstimatedNetWorth(
+  point: NetWorthDataPoint,
+  date: string,
+  accounts: readonly Account[],
+  accountsWithMarketValue: ReadonlySet<string>,
+  latestByAccount: ReadonlyMap<string, number>,
+  estimatesByAccount: ReadonlyMap<
+    string,
+    ReadonlyMap<string, BalanceEstimatePoint>
+  >,
+): NetWorthDataPoint {
+  let estimatedTotal = point.total;
+  let usesEstimate = false;
+  for (const account of accounts) {
+    if (account.closedAt != null && account.closedAt <= date) continue;
+    const estimate = estimatesByAccount.get(account.id)?.get(date);
+    if (estimate == null || estimate.actual != null) continue;
+    const recordedBalance = accountsWithMarketValue.has(account.id)
+      ? (latestByAccount.get(account.id) ?? 0)
+      : 0;
+    estimatedTotal += estimate.estimated - recordedBalance;
+    usesEstimate = true;
+  }
+  if (!usesEstimate) return point;
+  return {
+    ...point,
+    estimatedTotal: Math.round(estimatedTotal * 100) / 100,
+  };
+}
+
 export function toNetWorthTimeSeries(
   accounts: Account[],
   snapshots: BalanceSnapshot[],
+  capitalFlows: CapitalFlow[] = [],
 ): NetWorthDataPoint[] {
-  const dateSet = new Set(snapshots.map((s) => s.date));
+  const dateSet = new Set([
+    ...snapshots.map((snapshot) => snapshot.date),
+    ...capitalFlows.map((flow) => flow.date),
+  ]);
   const sortedDates = Array.from(dateSet).sort(compareIsoDates);
+  const accountsWithMarketValue = new Set(
+    snapshots
+      .filter((snapshot) => snapshot.balance !== 0)
+      .map((snapshot) => snapshot.accountId),
+  );
 
   const sortedSnapshots = [...snapshots].sort((a, b) =>
     compareIsoDates(a.date, b.date),
@@ -273,26 +385,61 @@ export function toNetWorthTimeSeries(
   // A linked mortgage is folded into its property's series (shown as equity)
   // rather than appearing as its own negative series
   const { absorbedIds, mortgagesByProperty } = buildLinkage(accounts);
+  const accountById = new Map(accounts.map((account) => [account.id, account]));
+
+  const estimatedInvestmentTypes = new Set<AssetType>([
+    "stocks",
+    "bonds",
+    "reits",
+    "crypto",
+  ]);
+  const estimatesByAccount = new Map(
+    accounts
+      .filter(
+        (account) =>
+          estimatedInvestmentTypes.has(account.assetType) &&
+          !absorbedIds.has(account.id),
+      )
+      .map((account) => [
+        account.id,
+        new Map(
+          buildBalanceEstimateSeries(
+            account,
+            snapshots.filter((snapshot) => snapshot.accountId === account.id),
+            capitalFlows
+              .filter((flow) => flow.accountId === account.id)
+              .map(({ date, amount }) => ({ date, amount })),
+            sortedDates,
+          ).map((point) => [point.date, point]),
+        ),
+      ]),
+  );
 
   return sortedDates.map((date) => {
     // Advance pointer through snapshots up to current date
     let snapshot = sortedSnapshots[snapshotIndex];
-    while (snapshot && new Date(snapshot.date) <= new Date(date)) {
+    while (snapshot && compareIsoDates(snapshot.date, date) <= 0) {
       latestByAccount.set(snapshot.accountId, snapshot.balance);
       snapshotIndex++;
       snapshot = sortedSnapshots[snapshotIndex];
     }
 
-    const point: NetWorthDataPoint = { date, total: 0 };
-    for (const account of accounts) {
-      if (absorbedIds.has(account.id)) continue;
-      let balance = latestByAccount.get(account.id) ?? 0;
-      for (const mortgageId of mortgagesByProperty.get(account.id) ?? []) {
-        balance += latestByAccount.get(mortgageId) ?? 0;
-      }
-      point[account.name] = balance;
-      point.total += balance;
-    }
-    return point;
+    const point = recordedNetWorthPoint(
+      date,
+      accounts,
+      accountById,
+      absorbedIds,
+      mortgagesByProperty,
+      accountsWithMarketValue,
+      latestByAccount,
+    );
+    return withEstimatedNetWorth(
+      point,
+      date,
+      accounts,
+      accountsWithMarketValue,
+      latestByAccount,
+      estimatesByAccount,
+    );
   });
 }

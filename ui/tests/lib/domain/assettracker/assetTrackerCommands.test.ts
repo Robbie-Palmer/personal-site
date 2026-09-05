@@ -801,6 +801,18 @@ describe("applyCloseAccount", () => {
 });
 
 describe("applyAddRecurringFlow / applyDeleteRecurringFlow", () => {
+  it("rejects a whitespace-only flow name", () => {
+    expect(() =>
+      applyAddRecurringFlow(baseData(), {
+        name: "   ",
+        toAccountId: "savings",
+        amount: 3_000,
+        frequency: "monthly",
+        startDate: "2024-07-01",
+      }),
+    ).toThrow(/Give the flow a name/);
+  });
+
   it("adds a fixed flow with a slugified ID", () => {
     const next = applyAddRecurringFlow(baseData(), {
       name: "ISA contribution",
@@ -817,6 +829,47 @@ describe("applyAddRecurringFlow / applyDeleteRecurringFlow", () => {
       amount: 500,
       frequency: "monthly",
     });
+  });
+
+  it("preserves compensation classification on an external income flow", () => {
+    const next = applyAddRecurringFlow(baseData(), {
+      name: "Employer pension",
+      toAccountId: "stocks-isa",
+      amount: 375,
+      compensationKind: "employerPension",
+      frequency: "monthly",
+      startDate: "2024-07-01",
+    });
+
+    expect(next.recurringFlows[0]?.compensationKind).toBe("employerPension");
+  });
+
+  it("preserves gross pay on a take-home income flow", () => {
+    const next = applyAddRecurringFlow(baseData(), {
+      name: "Take-home salary",
+      toAccountId: "savings",
+      amount: 3_000,
+      grossAmount: 5_000,
+      compensationKind: "takeHomeIncome",
+      frequency: "monthly",
+      startDate: "2024-07-01",
+    });
+
+    expect(next.recurringFlows[0]?.grossAmount).toBe(5_000);
+  });
+
+  it("rejects compensation classified as an internal transfer", () => {
+    expect(() =>
+      applyAddRecurringFlow(baseData(), {
+        name: "Misclassified pension",
+        fromAccountId: "savings",
+        toAccountId: "stocks-isa",
+        amount: 500,
+        compensationKind: "employeePension",
+        frequency: "monthly",
+        startDate: "2024-07-01",
+      }),
+    ).toThrow(/entering an account from outside/);
   });
 
   it("adds a minimum payment formula flow", () => {

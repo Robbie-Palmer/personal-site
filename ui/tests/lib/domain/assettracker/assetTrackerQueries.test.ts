@@ -68,6 +68,21 @@ describe("getTotalByAssetType", () => {
     // Standalone debt still surfaces as its own negative total
     expect(byType.debt).toBe(-2000);
   });
+
+  it("excludes closed accounts and closed linked mortgages from current totals", () => {
+    const data = homeData();
+    const mortgage = data.accounts.find((account) => account.id === "mortgage");
+    const card = data.accounts.find((account) => account.id === "card");
+    if (mortgage == null || card == null) {
+      throw new Error("Expected mortgage and card fixtures");
+    }
+    mortgage.closedAt = "2024-01-01";
+    card.closedAt = "2024-01-01";
+
+    const totals = getTotalByAssetType(buildRepository(data));
+
+    expect(totals).toEqual([{ assetType: "property", total: 300_000 }]);
+  });
 });
 
 describe("getAssetAllocationTimeSeries", () => {
@@ -154,6 +169,162 @@ describe("getNetWorthTimeSeries", () => {
     expect(point?.Home).toBe(90000);
     expect(point?.Mortgage).toBeUndefined();
     expect(point?.total).toBe(88000); // 90,000 equity − 2,000 card
+  });
+
+  it("omits contribution-only accounts instead of inventing zero valuations", () => {
+    const data = homeData();
+    data.accounts.push({
+      id: "unvalued-isa",
+      name: "Unvalued ISA",
+      provider: "Broker",
+      currency: "GBP",
+      assetType: "stocks",
+      expectedAnnualReturn: 0.07,
+      createdAt: "2024-01-01",
+    });
+    data.capitalFlows = [
+      {
+        accountId: "unvalued-isa",
+        date: "2024-01-01",
+        amount: 4_000,
+      },
+    ];
+
+    const point = getNetWorthTimeSeries(buildRepository(data)).at(-1);
+
+    expect(point?.["Unvalued ISA"]).toBeUndefined();
+    expect(point?.total).toBe(88_000);
+  });
+
+  it("adds a separate estimate for investments awaiting a market valuation", () => {
+    const data = homeData();
+    data.accounts.push({
+      id: "growth-fund",
+      name: "Growth fund",
+      provider: "Broker",
+      currency: "GBP",
+      assetType: "stocks",
+      expectedAnnualReturn: 0,
+      createdAt: "2024-01-01",
+    });
+    data.snapshots.push(
+      { accountId: "growth-fund", date: "2024-01-01", balance: 0 },
+      { accountId: "home", date: "2025-01-01", balance: 300_000 },
+    );
+    data.capitalFlows = [
+      { accountId: "growth-fund", date: "2025-01-01", amount: 5_000 },
+    ];
+
+    const point = getNetWorthTimeSeries(buildRepository(data)).at(-1);
+
+    expect(point?.["Growth fund"]).toBeUndefined();
+    expect(point?.total).toBe(88_000);
+    expect(point?.estimatedTotal).toBe(93_000);
+  });
+
+  it("adds a capital-flow point without leaking a later valuation", () => {
+    const data = homeData();
+    data.accounts.push({
+      id: "growth-fund",
+      name: "Growth fund",
+      provider: "Broker",
+      currency: "GBP",
+      assetType: "stocks",
+      expectedAnnualReturn: 0,
+      createdAt: "2024-01-01",
+    });
+    data.snapshots.push(
+      {
+        accountId: "growth-fund",
+        date: "2024-01-01",
+        balance: 1_000,
+      },
+      {
+        accountId: "growth-fund",
+        date: "2026-01-01",
+        balance: 3_000,
+      },
+    );
+    data.capitalFlows = [
+      { accountId: "growth-fund", date: "2025-01-01", amount: 500 },
+    ];
+
+    const point = getNetWorthTimeSeries(buildRepository(data)).find(
+      ({ date }) => date === "2025-01-01",
+    );
+
+    expect(point).toMatchObject({
+      date: "2025-01-01",
+      "Growth fund": 1_000,
+      total: 89_000,
+      estimatedTotal: 89_500,
+    });
+  });
+
+  it("omits accounts whose only recorded balance is a closing zero", () => {
+    const data = homeData();
+    data.accounts.push({
+      id: "repaid-loan",
+      name: "Repaid loan",
+      provider: "Private",
+      currency: "GBP",
+      assetType: "bonds",
+      expectedAnnualReturn: 0,
+      createdAt: "2023-01-01",
+      closedAt: "2024-01-01",
+    });
+    data.snapshots.push({
+      accountId: "repaid-loan",
+      date: "2024-01-01",
+      balance: 0,
+    });
+
+    const point = getNetWorthTimeSeries(buildRepository(data)).at(-1);
+
+    expect(point?.["Repaid loan"]).toBeUndefined();
+    expect(point?.total).toBe(88_000);
+  });
+
+  it("removes a closed investment from recorded and estimated net worth", () => {
+    const data = homeData();
+    data.accounts.push({
+      id: "old-isa",
+      name: "Old ISA",
+      provider: "Broker",
+      currency: "GBP",
+      assetType: "stocks",
+      expectedAnnualReturn: 0.05,
+      createdAt: "2023-01-01",
+      closedAt: "2025-01-01",
+    });
+    data.snapshots.push(
+      { accountId: "old-isa", date: "2024-01-01", balance: 10_000 },
+      { accountId: "home", date: "2025-01-01", balance: 300_000 },
+    );
+
+    const series = getNetWorthTimeSeries(buildRepository(data));
+
+    expect(series[0]?.["Old ISA"]).toBe(10_000);
+    expect(series.at(-1)?.["Old ISA"]).toBeUndefined();
+    expect(series.at(-1)?.total).toBe(88_000);
+    expect(series.at(-1)?.estimatedTotal).toBeUndefined();
+  });
+
+  it("stops netting a closed mortgage into its linked property", () => {
+    const data = homeData();
+    const mortgage = data.accounts.find((account) => account.id === "mortgage");
+    if (mortgage == null) throw new Error("Expected mortgage fixture");
+    mortgage.closedAt = "2025-01-01";
+    data.snapshots.push(
+      { accountId: "home", date: "2025-01-01", balance: 310_000 },
+      { accountId: "mortgage", date: "2025-01-01", balance: -190_000 },
+    );
+
+    const point = getNetWorthTimeSeries(buildRepository(data)).at(-1);
+
+    expect(point?.Home).toBe(310_000);
+    expect(point?.Mortgage).toBeUndefined();
+    expect(point?.total).toBe(308_000);
   });
 });
 

@@ -54,7 +54,7 @@ export function PortfolioFiProjectionChart({
         <p className="text-xs text-muted-foreground">
           In today&apos;s money, using{" "}
           {formatCurrency(Math.round(annualSavings))}
-          /yr median retained income and an expected real portfolio return of{" "}
+          /yr expected saving and an expected real portfolio return of{" "}
           {formatAnnualRate(expectedRealReturn)}/yr.
         </p>
       </div>
