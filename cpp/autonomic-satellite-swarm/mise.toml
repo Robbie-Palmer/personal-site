@@ -42,14 +42,14 @@ run = [
 ]
 
 [tasks.coverage]
-description = "Generate SonarQube-compatible C++ coverage and enforce the line-coverage floor"
+description = "Generate SonarQube-compatible C++ coverage and enforce coverage floors"
 run = [
   "cmake -E rm -rf build/coverage coverage",
   "cmake --preset coverage",
   "cmake --build --preset coverage",
   "ctest --preset coverage",
   "cmake -E make_directory coverage",
-  "gcovr --root ../.. --filter 'src/satellite_swarm/' --sonarqube coverage/sonarqube.xml --print-summary --fail-under-line 80 build/coverage",
+  "gcovr --root ../.. --filter 'src/satellite_swarm/' --filter 'examples/simulation/' --sonarqube coverage/sonarqube.xml --print-summary --fail-under-line 80 --fail-under-branch 70 build/coverage",
 ]
 
 [tasks."firmware:uno"]

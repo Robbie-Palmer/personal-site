@@ -30,7 +30,6 @@
       "inherits": "base",
       "displayName": "GCC coverage",
       "cacheVariables": {
-        "SATELLITE_SWARM_BUILD_SIMULATION": "OFF",
         "SATELLITE_SWARM_ENABLE_COVERAGE": "ON"
       }
     }

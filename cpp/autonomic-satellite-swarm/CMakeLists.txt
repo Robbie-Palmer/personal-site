@@ -51,6 +51,14 @@ endif()
 if(SATELLITE_SWARM_BUILD_SIMULATION)
   add_executable(autonomic-satellite-swarm-simulation examples/simulation/main.cpp)
   target_link_libraries(autonomic-satellite-swarm-simulation PRIVATE satellite_swarm::coordination)
+
+  if(SATELLITE_SWARM_ENABLE_COVERAGE)
+    target_compile_options(autonomic-satellite-swarm-simulation PRIVATE --coverage -O0 -g)
+  endif()
+
+  if(BUILD_TESTING)
+    add_test(NAME satellite_swarm_simulation COMMAND autonomic-satellite-swarm-simulation)
+  endif()
 endif()
 
 if(BUILD_TESTING)
@@ -69,6 +77,10 @@ if(BUILD_TESTING)
   target_link_libraries(
     satellite_swarm_tests
     PRIVATE satellite_swarm::coordination Catch2::Catch2WithMain)
+
+  if(SATELLITE_SWARM_ENABLE_COVERAGE)
+    target_compile_options(satellite_swarm_tests PRIVATE --coverage -O0 -g)
+  endif()
 
   if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
     target_compile_options(
