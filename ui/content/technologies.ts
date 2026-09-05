@@ -453,6 +453,27 @@ export const technologies: TechnologyContent[] = [
     type: "language",
   },
   {
+    name: "CMake",
+    added: "2026-09-04",
+    description: "Cross-platform build-system generator for native software",
+    website: "https://cmake.org",
+    type: "tool",
+  },
+  {
+    name: "Catch2",
+    added: "2026-09-04",
+    description: "Unit-testing framework for C++",
+    website: "https://github.com/catchorg/Catch2",
+    type: "library",
+  },
+  {
+    name: "ESP32",
+    added: "2026-09-04",
+    description: "Espressif microcontroller platform with Wi-Fi and Bluetooth",
+    website: "https://www.espressif.com/en/products/socs/esp32",
+    type: "platform",
+  },
+  {
     name: "Cloudflare Workers",
     added: "2026-01-04",
     description: "Serverless execution environment",

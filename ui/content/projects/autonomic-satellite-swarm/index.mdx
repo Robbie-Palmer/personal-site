@@ -1,0 +1,154 @@
+---
+title: "Autonomic Satellite Swarm"
+description: "A revived C++ research prototype for fail-safe coordination across hardware-independent satellite-swarm agents"
+date: "2019-07-30"
+updated: "2026-09-05"
+tech_stack:
+  - "C++"
+  - "CMake"
+  - "Arduino"
+  - "ESP32"
+  - "Catch2"
+  - "GitHub Actions"
+repo_url: "https://github.com/Robbie-Palmer/personal-site/tree/main/cpp/autonomic-satellite-swarm"
+status: "in_progress"
+tags:
+  - "embedded-systems"
+  - "research"
+  - "satellite-swarms"
+---
+
+# Vision
+
+Turn a summer-internship proof of concept into an honest, reproducible research artifact: preserve
+the interesting idea, make the software understandable, and create safe seams for better hardware
+and better science.
+
+The project explores whether a swarm can assign a temporary mission to the best available agent and
+withdraw an unhealthy agent's permission to participate. It calls that final fail-safe behavior
+"apoptosis", borrowing the biological metaphor of programmed cell death.
+
+In this implementation, apoptosis is a latched **safe-disabled software state**. It does not destroy
+or deorbit a satellite. This is a research prototype, not flight software.
+
+# Origin
+
+I created the original C++ and three-Arduino demonstration, then called *Apoptotic Temporal
+Satellite Swarms*, during a summer internship. The work
+contributed to the paper [*Autonomic Providing Pre-Programmed Death of Cubesats for Avoiding Space
+JUNK*](https://doi.org/10.1109/SMC-IT.2019.00015), published with Roy Sterritt at the 2019 IEEE
+International Conference on Space Mission Challenges for Information Technology.
+
+The prototype used infrared communication in place of a spacecraft radio and a rover in place of a
+propulsion system. It demonstrated temporary-leader negotiation, agent scoring, quiescence under low
+light, and fail-safe withdrawal after communication faults.
+
+Returning to the code years later exposed a useful contrast. The concept was worth preserving, but
+the repository relied on unsafe ownership and made stronger physical claims than its evidence
+supported. Its tight integration of hardware, protocol, scoring, health, and coordination may also
+have been a reasonable attempt to fit a small embedded target. The revival gives those concerns
+explicit seams while retaining firmware-size checks so the abstraction cost remains measurable.
+
+# Product requirements
+
+## Users
+
+* As a researcher, I want to replace the scoring or failure policy without rewriting radio code, so
+  I can test a different hypothesis.
+* As an embedded developer, I want the same coordination core to compile for old and modern boards,
+  so hardware choice is an adapter decision.
+* As a contributor, I want a deterministic host simulation and fast tests, so I can work without
+  owning a three-device bench setup.
+* As a reader of the paper, I want the repository to distinguish demonstrated behavior, historical
+  assumptions, and unverified claims.
+* As my future self, I want pinned tools, documented decisions, and one quality command, so returning
+  to the project does not require reconstructing its development environment.
+
+## Functional requirements
+
+1. An idle node can initiate a mission for a geographic objective.
+2. Available nodes produce a candidacy score through a replaceable policy.
+3. A temporary leader collects bounded responses, acknowledges them, and assigns one node.
+4. Equal scores produce a deterministic result.
+5. Busy nodes do not accept another mission.
+6. Health policy supports reversible quiescence and latched safe-disablement.
+7. Communication failures use bounded retries and explicit evidence before safe-disablement.
+8. A versioned codec validates message size, type, coordinate range, score range, byte order, and
+   integrity.
+9. The portable core runs without Arduino, an operating system, heap allocation, or wall-clock
+   access.
+10. Reference adapters compile for the original Arduino Uno/infrared setup and a modern ESP32/
+    ESP-NOW setup.
+
+## Quality requirements
+
+* CMake and Catch2 provide host builds, characterization tests, and a deterministic simulation.
+* Arduino CLI profiles pin each board core and external library.
+* Compiler warnings, clang-tidy, formatting, sanitizers, spelling, and workflow linting run in CI.
+* Unsigned elapsed-time calculations remain correct across `millis()` rollover.
+* Protocol fields use fixed-width types and explicit serialization rather than C++ object layout.
+* Hardware compilation is reported as compilation, not evidence of physical integration.
+
+# Architecture
+
+The core owns a deterministic state machine and domain messages. Three narrow ports surround it:
+
+* `Transport` moves messages through an in-memory bus, infrared, ESP-NOW, or a future radio.
+* `HealthMonitor` converts platform observations into nominal, quiescent, or fatal health.
+* `CandidacyScorer` ranks a node for an objective.
+
+The original orbital-energy calculation survives as `HistoricalOrbitalScorer`. Tests preserve the
+paper examples, but the type and documentation label it as a heuristic rather than validated orbital
+mechanics. Better guidance and maneuver planning can replace it without changing the negotiation
+protocol.
+
+The legacy adapter fragments each validated packet across four NEC infrared frames. The modern
+reference adapter sends the same packet over ESP-NOW. ESP-NOW is useful for a benchtop demonstration;
+it is not presented as a spacecraft communication choice.
+
+The next research cycle would add bounded telemetry for mission-control observation, a governed and
+adversarially reviewed improvement loop, fair resource-aware allocation, and a platform safe-state
+action hook. These are research directions, not capabilities of the current implementation.
+
+# Non-goals
+
+* Flight qualification, radiation tolerance, or safety certification
+* A physically valid deorbit or self-destruction mechanism
+* Validated orbit propagation, collision avoidance, or guidance/navigation/control
+* Secure command and control; the prototype lacks authentication and replay protection
+* Multi-hop topology, consensus, Byzantine fault tolerance, or unbounded swarms
+* Claims that compile-tested adapters have been verified on absent hardware
+
+# Verification
+
+Host tests cover the published score examples, invalid inputs, exact-arrival behavior, message
+corruption, mission negotiation, retries, deterministic ties, busy nodes, health transitions, and
+32-bit clock rollover. A three-node in-memory simulation reconstructs the central demonstration
+without hardware. CI compiles both firmware targets from pinned profiles.
+
+Physical timing, sensor calibration, radio behavior under load, real propulsion, and orbital
+validity remain outside the current evidence boundary.
+
+# Roadmap
+
+1. Complete the software revival and retain the original paper examples as characterization tests.
+2. Define bounded, prioritized telemetry so an autonomous mission-control observer can reconstruct
+   decisions and detect swarm-level failures without becoming a dependency of local autonomy.
+3. Replace the lowest-ID tie-break with measured resource- and lifetime-aware allocation, using a
+   reproducible rotation or mission-keyed tie-break where candidates are otherwise equal.
+4. Add a narrow, idempotent platform hook for physical safe-state actions and verify it with fault
+   injection before connecting an irreversible actuator.
+5. Run packet-loss, partition, event-storm, and biased-telemetry experiments in a richer simulator.
+6. Evaluate policy changes through replay, independent adversarial review, shadow operation,
+   limited canaries, authenticated rollout, and explicit rollback instead of live self-modification.
+7. Research an appropriate open-source astrodynamics stack and define what a defensible mission-cost
+   model would need to prove.
+8. Select physical boards and radios only when there is a concrete experiment to run.
+9. Add hardware-in-the-loop tests, authenticated messages, persistent identity, and reset recovery
+   before treating the system as more than a bench prototype.
+
+# Success
+
+The revival succeeds when a contributor can clone the repository, run one setup path, reproduce the
+coordination behavior without hardware, understand every safety and scientific caveat, and replace
+one hardware or research assumption without disturbing the others.

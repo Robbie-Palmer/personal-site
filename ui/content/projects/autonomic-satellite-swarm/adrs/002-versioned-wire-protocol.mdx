@@ -1,0 +1,28 @@
+---
+title: "ADR 002: Explicit Versioned Wire Protocol"
+status: "Accepted"
+date: "2026-09-04"
+tech_stack: ["C++"]
+---
+
+# Context
+
+The historical implementation packed messages into platform-dependent signed `long` values. Some
+shifts were undefined, a target-ID mask selected the wrong bits, and coordinate requests contained no
+origin ID. Sending 32 bits through Sony infrared framing also exceeded the standard Sony payload
+sizes.
+
+# Decision
+
+Define a 12-byte version-one packet with explicit message type, origin, target, mission ID, signed
+centidegree coordinates, score, and CRC-8. Encode multi-byte fields in big-endian order and validate
+the complete packet before exposing it to the state machine.
+
+The infrared adapter fragments this packet into four NEC frames. ESP-NOW transports the packet
+directly. Wire compatibility with the defective historical encoding is intentionally not preserved.
+
+# Consequences
+
+The protocol behaves consistently across 8-bit AVR and 32-bit ESP32 targets, corrupted packets are
+rejected, and round-trip tests describe the contract. CRC detects errors but does not authenticate a
+sender; authentication, replay protection, and key lifecycle require a future protocol decision.

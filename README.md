@@ -17,6 +17,7 @@ the projects incubated here alongside it. Each project owns its details in its o
 - [`workers/recipe-ingest/`](workers/recipe-ingest/README.md), durable photo-to-recipe ingestion pipeline
 - [`packages/`](packages/), shared libraries (database schema, domain model, parsing, observability)
 - [`ml-pipelines/`](ml-pipelines/README.md), DVC-managed ML experiments feeding the recipe features
+- [`cpp/`](cpp/README.md), C++ projects with shared formatting and static-analysis tooling
 - [`ai-review/`](ai-review/README.md), stateful AI code-review service
 - [`homelab/`](homelab/README.md), home lab declared as code
 - [`infra/`](infra/README.md) and [`infra-bootstrap/`](infra-bootstrap/README.md), Terraform roots

@@ -1,0 +1,28 @@
+---
+title: "ADR 003: Historical Orbital Score as a Replaceable Policy"
+status: "Accepted"
+date: "2026-09-04"
+tech_stack: ["C++"]
+---
+
+# Context
+
+The paper's candidacy score combines a simplified energy estimate with time around an idealized
+fixed-longitude orbit. It was suitable for explaining a proof of concept, but it is not validated
+guidance, navigation, control, or mission planning. Coupling it directly to the coordinator made the
+software appear more physically authoritative than the evidence justified.
+
+# Decision
+
+Retain the calculation as `HistoricalOrbitalScorer` behind the `CandidacyScorer` interface. Preserve
+the published example outputs as characterization tests. Add coordinate, physical-parameter, exact-
+arrival, and division-edge validation.
+
+Do not replace it with another invented formula during the software revival. A new scorer requires
+separate research, stated assumptions, comparative scenarios, and validation evidence.
+
+# Consequences
+
+The project remains traceable to the paper without presenting historical assumptions as current
+science. Coordination work can continue independently. The default demonstration is illustrative,
+and every public description must say so.

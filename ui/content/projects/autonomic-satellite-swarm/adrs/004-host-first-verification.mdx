@@ -1,0 +1,27 @@
+---
+title: "ADR 004: Host-First Verification with Firmware Compile Gates"
+status: "Accepted"
+date: "2026-09-04"
+tech_stack: ["Catch2", "GitHub Actions", "CMake"]
+---
+
+# Context
+
+The original hardware no longer exists. Requiring devices for every behavioral test would make the
+project difficult to maintain, while compiling a sketch alone cannot verify electrical, radio, or
+timing behavior.
+
+# Decision
+
+Put coordination, scoring, and codec behavior under fast host-side Catch2 tests. Add a deterministic
+in-memory three-node simulation for the main negotiation path. Run warnings, clang-tidy, AddressSanitizer,
+UndefinedBehaviorSanitizer, formatting, spelling, and workflow linting in CI.
+
+Compile both Arduino reference targets from pinned profiles. Describe those results as compile gates,
+not hardware verification.
+
+# Consequences
+
+Most changes receive quick, reproducible feedback without devices. Adapter API drift is caught by
+cross-compilation. Physical integration risk remains visible and requires a future hardware-in-the-
+loop suite with documented boards, wiring, observations, and failure injection.

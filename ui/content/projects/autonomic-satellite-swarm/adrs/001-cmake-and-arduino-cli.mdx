@@ -1,0 +1,24 @@
+---
+title: "ADR 001: CMake and Arduino CLI Split Toolchain"
+status: "Accepted"
+date: "2026-09-04"
+tech_stack: ["CMake", "Arduino"]
+---
+
+# Context
+
+No single build system serves modern host-side C++ analysis and Arduino board packaging equally
+well. The old CMake target described stale paths and could not build the firmware. IDE-only Arduino
+instructions did not provide an isolated, repeatable dependency graph.
+
+# Decision
+
+Use CMake for the portable library, Catch2 tests, simulation, warnings, clang-tidy, and sanitizers.
+Use Arduino CLI for firmware compilation and upload. Pin board cores, libraries, and local-library
+paths in each sketch's build profile. Expose both through mise tasks and use those tasks in CI.
+
+# Consequences
+
+Each tool has one clear responsibility and contributors get short host feedback without cross-
+compiling. Two build graphs must remain aligned, so CI compiles both reference sketches. PlatformIO
+is not added because it would overlap both tools without solving a current requirement.

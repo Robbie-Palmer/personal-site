@@ -1,0 +1,73 @@
+#ifndef SATELLITE_SWARM_CONTROLLER_HPP
+#define SATELLITE_SWARM_CONTROLLER_HPP
+
+#include "satellite_swarm/interfaces.hpp"
+
+#include <stdint.h>
+
+namespace satellite_swarm {
+
+struct ControllerConfig {
+  uint32_t response_window_ms = 2000U;
+  uint32_t retry_interval_ms = 250U;
+  uint8_t maximum_attempts = 4U;
+  uint8_t failed_missions_before_safe_disable = 2U;
+  uint8_t node_capacity = kMaximumNodes;
+  uint8_t maximum_messages_per_update = 4U;
+
+  ControllerConfig() = default;
+};
+
+class SwarmController {
+public:
+  SwarmController(NodeId node_id, const SatelliteSnapshot& satellite, Transport& transport,
+                  HealthMonitor& health_monitor, const CandidacyScorer& scorer,
+                  const ControllerConfig& config = ControllerConfig());
+
+  // now_ms must use one modulo-2^32 monotonic tick source for every call. Unsigned elapsed-time
+  // comparisons support one clock rollover when configured durations are shorter than that period.
+  bool initiateMission(const Coordinate& objective, uint32_t now_ms);
+  void update(uint32_t now_ms);
+  void completeMission();
+
+  ControllerState state() const { return state_; }
+  NodeId nodeId() const { return node_id_; }
+  MissionId currentMissionId() const { return current_mission_.mission_id; }
+  NodeId assignedNode() const { return assigned_node_; }
+  uint8_t consecutiveCommunicationFailures() const { return communication_failures_; }
+
+private:
+  struct Candidate {
+    bool received = false;
+    uint8_t score = 0U;
+  };
+
+  NodeId node_id_;
+  SatelliteSnapshot satellite_;
+  Transport& transport_;
+  HealthMonitor& health_monitor_;
+  const CandidacyScorer& scorer_;
+  ControllerConfig config_;
+  ControllerState state_ = ControllerState::Idle;
+  Message current_mission_{};
+  MissionId next_mission_id_ = 1U;
+  NodeId assigned_node_ = kBroadcastNode;
+  uint32_t phase_started_at_ms_ = 0U;
+  uint32_t last_attempt_at_ms_ = 0U;
+  uint8_t attempts_ = 0U;
+  uint8_t communication_failures_ = 0U;
+  Candidate candidates_[kMaximumNodes]{};
+
+  void resetCandidates();
+  void process(const Message& message, uint32_t now_ms);
+  void acceptMissionRequest(const Message& request, uint32_t now_ms);
+  bool sendCandidacy(uint32_t now_ms);
+  void finishLeading();
+  void abandonUnacknowledgedMission();
+  bool matchesCurrentMission(const Message& message) const;
+  bool elapsed(uint32_t now_ms, uint32_t since_ms, uint32_t duration_ms) const;
+};
+
+} // namespace satellite_swarm
+
+#endif
