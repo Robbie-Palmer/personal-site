@@ -100,7 +100,9 @@ export function PortfolioGoal() {
   const [withdrawalRateDraft, setWithdrawalRateDraft] = useState(() =>
     String(withdrawalRate * 100),
   );
-  const currentNetWorth = computeTotalBalance(accounts);
+  const currentNetWorth = computeTotalBalance(
+    accounts.filter((account) => account.isOpen),
+  );
   const {
     periods,
     representativeAnnualExpenditure,

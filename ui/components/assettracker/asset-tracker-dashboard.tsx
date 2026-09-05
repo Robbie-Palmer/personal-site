@@ -63,7 +63,7 @@ export function AssetTrackerDashboard() {
         <div className="border rounded-lg p-6">
           <p className="text-sm text-muted-foreground">Market net worth</p>
           <p className="text-3xl font-bold mt-1">
-            {formatTotalBalances(accounts)}
+            {formatTotalBalances(openAccounts)}
           </p>
           <p className="text-xs text-muted-foreground mt-1">
             Latest valuations less liabilities

@@ -315,7 +315,16 @@ export function buildFlowSankeyData(
   flows: RecurringFlow[],
   liabilityBalances: Record<string, number>,
 ): FlowSankeyData {
-  const accountById = new Map(accounts.map((account) => [account.id, account]));
+  const openAccounts = accounts.filter((account) => account.isOpen);
+  const openAccountIds = new Set(openAccounts.map((account) => account.id));
+  const activeFlows = flows.filter(
+    (flow) =>
+      (flow.fromAccountId == null || openAccountIds.has(flow.fromAccountId)) &&
+      (flow.toAccountId == null || openAccountIds.has(flow.toAccountId)),
+  );
+  const accountById = new Map(
+    openAccounts.map((account) => [account.id, account]),
+  );
   const nodeIndexes = new Map<string, number>();
   const nodes: FlowSankeyNode[] = [];
   const linkTotals = new Map<string, FlowSankeyLink>();
@@ -363,8 +372,8 @@ export function buildFlowSankeyData(
     },
   };
 
-  addRecurringFlowLinks(flows, liabilityBalances, builder);
-  addSyntheticFlowLinks(accounts, flows, liabilityBalances, builder);
+  addRecurringFlowLinks(activeFlows, liabilityBalances, builder);
+  addSyntheticFlowLinks(openAccounts, activeFlows, liabilityBalances, builder);
 
   return {
     nodes,

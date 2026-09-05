@@ -195,6 +195,50 @@ describe("PortfolioGoal", () => {
     expect(progress).toHaveAttribute("value", "0.25");
   });
 
+  it("excludes closed accounts from the current FI net worth", () => {
+    mockAssetTracker({
+      accounts: [
+        {
+          id: "open-isa",
+          name: "Open ISA",
+          provider: "Broker",
+          currency: "GBP",
+          assetType: "stocks",
+          expectedAnnualReturn: 0.07,
+          isOpen: true,
+          latestBalance: 10_000,
+          latestSnapshotDate: "2026-07-03",
+          cagr: null,
+        },
+        {
+          id: "closed-isa",
+          name: "Closed ISA",
+          provider: "Broker",
+          currency: "GBP",
+          assetType: "stocks",
+          expectedAnnualReturn: 0.07,
+          isOpen: false,
+          latestBalance: 5_000,
+          latestSnapshotDate: "2026-07-03",
+          cagr: null,
+        },
+      ],
+      financialIndependence: {
+        ...EMPTY_FI,
+        target: 100_000,
+        progress: 0.1,
+      },
+    });
+
+    render(<PortfolioGoal />);
+
+    expect(
+      screen.getByText(
+        "£10,000 total net worth, including all pension assets and home equity",
+      ),
+    ).toBeVisible();
+  });
+
   it("plots current and long-term spending and switches to retained income", async () => {
     mockAssetTracker({
       incomeHistory: [
@@ -579,6 +623,38 @@ describe("FlowSankeyChart", () => {
 });
 
 describe("buildFlowSankeyData", () => {
+  it("omits closed accounts and recurring flows attached to them", () => {
+    const data = buildFlowSankeyData(
+      [
+        {
+          id: "closed-isa",
+          name: "Closed ISA",
+          provider: "Broker",
+          currency: "GBP",
+          assetType: "stocks",
+          expectedAnnualReturn: 0.07,
+          isOpen: false,
+          latestBalance: 10_000,
+          latestSnapshotDate: "2026-07-03",
+          cagr: null,
+        },
+      ],
+      [
+        {
+          id: "closed-contribution",
+          name: "Closed contribution",
+          toAccountId: "closed-isa",
+          amount: 500,
+          frequency: "monthly",
+          startDate: "2026-07-01",
+        },
+      ],
+      {},
+    );
+
+    expect(data).toEqual({ nodes: [], links: [] });
+  });
+
   it("splits gross salary into take-home pay, pension, and tax", () => {
     const data = buildFlowSankeyData(
       [

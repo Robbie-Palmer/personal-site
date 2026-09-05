@@ -68,6 +68,21 @@ describe("getTotalByAssetType", () => {
     // Standalone debt still surfaces as its own negative total
     expect(byType.debt).toBe(-2000);
   });
+
+  it("excludes closed accounts and closed linked mortgages from current totals", () => {
+    const data = homeData();
+    const mortgage = data.accounts.find((account) => account.id === "mortgage");
+    const card = data.accounts.find((account) => account.id === "card");
+    if (mortgage == null || card == null) {
+      throw new Error("Expected mortgage and card fixtures");
+    }
+    mortgage.closedAt = "2024-01-01";
+    card.closedAt = "2024-01-01";
+
+    const totals = getTotalByAssetType(buildRepository(data));
+
+    expect(totals).toEqual([{ assetType: "property", total: 300_000 }]);
+  });
 });
 
 describe("getAssetAllocationTimeSeries", () => {
