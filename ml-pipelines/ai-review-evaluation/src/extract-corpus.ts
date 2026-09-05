@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { completePullRequestMetadata } from "ai-review-domain/pull-request-metadata";
 import {
   expandHome,
   listJsonFiles,
@@ -140,6 +141,10 @@ export function extractCorpus({
     const languages = languagesForPaths(paths);
     const coverage = terminal.coverage ?? snapshot.decision?.coverage ?? null;
     const changedLines = (terminal.change?.additions ?? 0) + (terminal.change?.deletions ?? 0);
+    const recordedPullRequest = terminal.pullRequest ?? snapshot.pullRequest;
+    const pullRequest = recordedPullRequest
+      ? completePullRequestMetadata(recordedPullRequest)
+      : undefined;
     const entryPath = `entries/${corpusId}.json`;
     fs.writeFileSync(path.join(outputRoot, entryPath), snapshotContent);
     entries.push({
@@ -149,7 +154,7 @@ export function extractCorpus({
       pullRequestNumber: snapshot.pullRequestNumber,
       capturedAt: snapshot.provenance.capturedAt,
       changedLines,
-      pullRequest: terminal.pullRequest ?? snapshot.pullRequest,
+      pullRequest,
       productionRunId: snapshot.productionRunId,
       headSha: snapshot.git?.headSha,
       promptVersion: snapshot.prompt?.version,
@@ -159,6 +164,8 @@ export function extractCorpus({
         changeSize: changeSizeBand(changedLines, params.cohort.changeSizeBands),
         languages,
         repositoryAreas,
+        taskType: pullRequest?.taskType ?? null,
+        originatingAgent: pullRequest?.originatingAgent ?? null,
         outcomeAvailability: outcomeAvailability(labels),
       },
       coverage,

@@ -45,6 +45,14 @@ export interface ReplayObservation {
   provider: string;
   corpus_id: string;
   pull_request_number: number;
+  task_type: string | null;
+  originating_agent: string | null;
+  risk: string;
+  risk_signals: string[];
+  change_size: string;
+  languages: string[];
+  repository_areas: string[];
+  outcome_availability: string;
   repetition: number;
   replay_status: string;
   completed: boolean;
@@ -68,7 +76,7 @@ export interface ReplayObservation {
   cached_input_tokens: number;
   latency_ms: number | null;
   cost_usd: number;
-  [key: string]: string | number | boolean | null;
+  [key: string]: string | number | boolean | null | string[];
 }
 
 function normalizedFile(value: unknown): string {
@@ -239,6 +247,14 @@ function runObservation(wrapper: EvaluationReplay, entry: DatasetEntry, matches:
     provider: wrapper.variant.provider,
     corpus_id: wrapper.corpusId,
     pull_request_number: wrapper.pullRequestNumber,
+    task_type: entry.strata.taskType,
+    originating_agent: entry.strata.originatingAgent,
+    risk: entry.strata.risk,
+    risk_signals: entry.strata.riskSignals,
+    change_size: entry.strata.changeSize,
+    languages: entry.strata.languages,
+    repository_areas: entry.strata.repositoryAreas,
+    outcome_availability: entry.strata.outcomeAvailability,
     repetition: wrapper.repetition,
     replay_status: replay.status ?? (replay.recordType === "ai-review-replay-plan" ? "planned" : "unknown"),
     completed: replay.status === "completed" || replay.status === "partial",

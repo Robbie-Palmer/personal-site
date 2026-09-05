@@ -6,8 +6,10 @@ import {
 import {
   FindingOutcomeRecordSchema,
   ModelMetricSchema,
+  OriginatingAgentSchema,
   PartialReviewCoverageSchema,
   PullRequestMetadataSchema,
+  PullRequestTaskTypeSchema,
   ReplayInputSnapshotSchema,
   ReviewFindingSchema,
   ReviewTerminalRecordSchema,
@@ -95,7 +97,10 @@ const PipelineParamsBaseSchema = z.object({
   limits: PipelineLimitsSchema,
   matching: MatchingPolicySchema,
   decision: DecisionPolicySchema,
-  replay: z.object({ mode: z.enum(["execute", "plan"]) }).strict(),
+  replay: z.object({
+    mode: z.enum(["execute", "plan"]),
+    allowUnderpoweredPilot: z.boolean(),
+  }).strict(),
 }).strict();
 
 type PipelineParamsInput = z.infer<typeof PipelineParamsBaseSchema>;
@@ -193,6 +198,8 @@ export const DatasetManifestSchema = z.looseObject({
       changeSize: ChangeSizeSchema,
       languages: z.array(z.string()),
       repositoryAreas: z.array(z.string()),
+      taskType: PullRequestTaskTypeSchema.nullable(),
+      originatingAgent: OriginatingAgentSchema.nullable(),
       outcomeAvailability: z.string(),
     }),
     historicalFindings: z.array(HistoricalFindingSchema),
@@ -241,6 +248,44 @@ export const FrozenDecisionSchema = z.looseObject({
   decision: DecisionPolicySchema,
 });
 
+const ReadinessCountSchema = z.object({
+  present: z.number().int().nonnegative(),
+  missing: z.number().int().nonnegative(),
+}).strict();
+
+export const EvaluationReadinessSchema = z.object({
+  schemaVersion: z.literal(1),
+  recordType: z.literal("ai-review-evaluation-readiness"),
+  readinessId: z.string().min(1),
+  cohortId: z.string().min(1),
+  datasetId: z.string().min(1),
+  sample: z.object({
+    unit: DecisionPolicySchema.shape.sampleUnit,
+    minimum: z.number().int().positive(),
+    maximumAvailable: z.number().int().nonnegative(),
+    deficit: z.number().int().nonnegative(),
+    ready: z.boolean(),
+  }).strict(),
+  metadata: z.object({
+    unit: z.literal("replay-snapshots"),
+    total: z.number().int().nonnegative(),
+    complete: z.boolean(),
+    fields: z.object({
+      taskType: ReadinessCountSchema,
+      originatingAgent: ReadinessCountSchema,
+      languages: ReadinessCountSchema,
+      repositoryAreas: ReadinessCountSchema,
+      coverage: ReadinessCountSchema,
+    }).strict(),
+  }).strict(),
+  outcomes: z.object({
+    unit: z.literal("replay-snapshots"),
+    adjudicatedFindings: z.number().int().nonnegative(),
+    availability: z.record(z.string(), z.number().int().nonnegative()),
+  }).strict(),
+  decisionReady: z.boolean(),
+}).strict();
+
 export const EvaluationReplayIndexSchema = z.looseObject({
   schemaVersion: z.literal(1),
   recordType: z.literal("ai-review-evaluation-replay-index"),
@@ -288,6 +333,7 @@ export type FrozenCohort = z.infer<typeof FrozenCohortSchema>;
 export type FrozenExperiment = z.infer<typeof FrozenExperimentSchema>;
 export type FrozenMatching = z.infer<typeof FrozenMatchingSchema>;
 export type FrozenDecision = z.infer<typeof FrozenDecisionSchema>;
+export type EvaluationReadiness = z.infer<typeof EvaluationReadinessSchema>;
 export type HistoricalFinding = z.infer<typeof HistoricalFindingSchema>;
 export type Finding = z.infer<typeof ReviewFindingSchema>;
 export type ReplayInputSnapshot = z.infer<typeof ReplayInputSnapshotSchema>;

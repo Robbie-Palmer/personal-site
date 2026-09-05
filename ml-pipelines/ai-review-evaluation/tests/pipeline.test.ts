@@ -5,6 +5,10 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { z } from "zod";
+import {
+  inferOriginatingAgent,
+  inferPullRequestTaskType,
+} from "ai-review-domain/pull-request-metadata";
 import { buildScorecard } from "../src/build-scorecard";
 import { changeSizeBand, languagesForPaths } from "../src/corpus-strata";
 import { extractCorpus } from "../src/extract-corpus";
@@ -95,7 +99,7 @@ function fixtureParams(overrides: Partial<PipelineParams> = {}): PipelineParams 
       maximumCoverageRateDrop: 0.02,
       maximumProviderFailureRate: 0.05,
     },
-    replay: { mode: "execute" },
+    replay: { mode: "execute", allowUnderpoweredPilot: false },
     ...overrides,
   });
 }
@@ -159,7 +163,7 @@ function writeSource(root: string): void {
       authorAssociation: "MEMBER",
       title: "Improve the widget",
       labels: ["feature"],
-      headRef: "feature/widget",
+      headRef: "t3code/feature-widget",
       reviewers: ["hubot"],
     },
     change: { additions: 20, deletions: 10, riskSignals: ["auth"], repositoryAreas: ["api"] },
@@ -292,7 +296,9 @@ test("extracts, freezes, matches, and scores a versioned replay corpus", () => {
     authorAssociation: "MEMBER",
     title: "Improve the widget",
     labels: ["feature"],
-    headRef: "feature/widget",
+    headRef: "t3code/feature-widget",
+    taskType: "feature",
+    originatingAgent: "t3-code",
     reviewers: ["hubot"],
   });
   const frozenResult = freezeCohort({ datasetFile: path.join(corpus, "manifest.json"), output: frozen, paramsFile });
@@ -301,13 +307,19 @@ test("extracts, freezes, matches, and scores a versioned replay corpus", () => {
   assert.equal(cohort.selection.unit, "pull-request");
   assert.equal(cohort.selection.selectedPullRequestCount, 1);
   assert.equal(cohort.selection.selectedSnapshotCount, 1);
+  assert.equal(frozenResult.readiness.sample.maximumAvailable, 3);
+  assert.equal(frozenResult.readiness.sample.ready, false);
+  assert.equal(frozenResult.readiness.metadata.complete, true);
+  assert.equal(frozenResult.readiness.outcomes.adjudicatedFindings, 3);
+  assert.ok(fs.existsSync(path.join(frozen, "readiness.md")));
   assert.equal(frozenResult.predeclaration.cohortId, cohort.cohortId);
 
   const planParamsFile = path.join(temporary, "plan-params.json");
-  writeJson(planParamsFile, fixtureParams({ replay: { mode: "plan" } }));
+  writeJson(planParamsFile, fixtureParams({ replay: { mode: "plan", allowUnderpoweredPilot: false } }));
   const plan = runReplays({
     cohortFile: path.join(frozen, "cohort.json"),
     experimentFile: path.join(frozen, "experiment.json"),
+    readinessFile: path.join(frozen, "readiness.json"),
     corpusRoot: corpus,
     output: plannedReplays,
     paramsFile: planParamsFile,
@@ -327,6 +339,9 @@ test("extracts, freezes, matches, and scores a versioned replay corpus", () => {
     outputRoot: evaluation,
   });
   assert.equal(matched.observations.length, 4);
+  assert.equal(matched.observations[0]?.task_type, "feature");
+  assert.equal(matched.observations[0]?.originating_agent, "t3-code");
+  assert.deepEqual(matched.observations[0]?.languages, ["typescript"]);
   assert.equal(matched.observations.find((row) => row.variant_role === "candidate")?.censored_finding_count, 1);
   assert.equal(matched.observations.find((row) => row.variant_role === "candidate")?.rejected_finding_count, 0);
 
@@ -404,7 +419,7 @@ test("ambiguous hunk matches require manual adjudication", () => {
   assert.deepEqual(result.historicalFindingIds, ["a", "b"]);
 });
 
-test("execute mode is the default and needs no second opt-in", () => {
+test("execute mode blocks underpowered decisions unless an explicit pilot is allowed", () => {
   const temporary = fs.mkdtempSync(path.join(os.tmpdir(), "ai-review-execution-mode-"));
   const cohortRoot = path.join(temporary, "frozen");
   fs.mkdirSync(cohortRoot, { recursive: true });
@@ -442,6 +457,29 @@ test("execute mode is the default and needs no second opt-in", () => {
     experiment: fixtureParams().experiment,
     limits: fixtureParams().limits,
   });
+  writeJson(path.join(cohortRoot, "readiness.json"), {
+    schemaVersion: 1,
+    recordType: "ai-review-evaluation-readiness",
+    readinessId: "readiness",
+    cohortId: "fixed",
+    datasetId: "dataset",
+    sample: {
+      unit: "adjudicated-findings",
+      minimum: 4,
+      maximumAvailable: 0,
+      deficit: 4,
+      ready: false,
+    },
+    metadata: {
+      unit: "replay-snapshots",
+      total: 0,
+      complete: true,
+      fields: Object.fromEntries(["taskType", "originatingAgent", "languages", "repositoryAreas", "coverage"]
+        .map((field) => [field, { present: 0, missing: 0 }])),
+    },
+    outcomes: { unit: "replay-snapshots", adjudicatedFindings: 0, availability: {} },
+    decisionReady: false,
+  });
   const paramsFile = path.join(temporary, "params.json");
   writeJson(paramsFile, fixtureParams());
   const fakeRepositoryRoot = path.join(temporary, "repository");
@@ -458,21 +496,31 @@ test("execute mode is the default and needs no second opt-in", () => {
     "src/review-engine.ts",
     "../.github/scripts/ai-review/ai-review.ts",
     "../packages/ai-review-domain/src/records.ts",
+    "../packages/ai-review-domain/src/pull-request-metadata.ts",
     "../packages/ai-review-domain/src/replay.ts",
   ]) {
     const file = path.resolve(fakeAiReviewRoot, relative);
     fs.mkdirSync(path.dirname(file), { recursive: true });
     fs.writeFileSync(file, relative);
   }
-  const result = runReplays({
+  const replayOptions = {
     cohortFile: path.join(cohortRoot, "cohort.json"),
     experimentFile: path.join(cohortRoot, "experiment.json"),
+    readinessFile: path.join(cohortRoot, "readiness.json"),
     corpusRoot: temporary,
     output: path.join(temporary, "output"),
     paramsFile,
     aiReviewRoot: fakeAiReviewRoot,
     cacheRoot: path.join(temporary, "cache"),
-  });
+  };
+  fs.mkdirSync(replayOptions.output, { recursive: true });
+  fs.writeFileSync(path.join(replayOptions.output, "sentinel"), "untouched");
+  assert.throws(() => runReplays(replayOptions), /paid replay blocked/);
+  assert.equal(fs.readFileSync(path.join(replayOptions.output, "sentinel"), "utf8"), "untouched");
+  writeJson(paramsFile, fixtureParams({
+    replay: { mode: "execute", allowUnderpoweredPilot: true },
+  }));
+  const result = runReplays(replayOptions);
   assert.equal(result.mode, "execute");
 });
 
@@ -495,6 +543,15 @@ test("language strata use Linguist extensions and special filenames", () => {
   );
 });
 
+test("pull request metadata uses labels, conventional titles, and agent branch prefixes", () => {
+  assert.equal(inferPullRequestTaskType({ labels: ["documentation"] }), "documentation");
+  assert.equal(inferPullRequestTaskType({ title: "fix(api): reject stale sessions" }), "bug");
+  assert.equal(inferPullRequestTaskType({ title: "chore(deps): update zod" }), "dependency");
+  assert.equal(inferPullRequestTaskType({ title: "Implement replay readiness" }), "feature");
+  assert.equal(inferOriginatingAgent({ headRef: "t3code/replay-readiness" }), "t3-code");
+  assert.equal(inferOriginatingAgent({ headRef: "codex/replay-readiness" }), "codex");
+});
+
 test("an empty explicit selection freezes every available pull request", () => {
   const temporary = fs.mkdtempSync(path.join(os.tmpdir(), "ai-review-all-pull-requests-"));
   const paramsFile = path.join(temporary, "params.json");
@@ -511,6 +568,8 @@ test("an empty explicit selection freezes every available pull request", () => {
       changeSize: "medium",
       languages: ["typescript"],
       repositoryAreas: ["api"],
+      taskType: "feature",
+      originatingAgent: "t3-code",
       outcomeAvailability: "complete",
     },
     historicalFindings: [],

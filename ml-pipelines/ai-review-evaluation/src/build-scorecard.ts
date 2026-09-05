@@ -95,6 +95,25 @@ function sqlPath(file: string): string {
   return resolved;
 }
 
+function countValues(values: string[]): Record<string, number> {
+  const counts = new Map<string, number>();
+  for (const value of values) counts.set(value, (counts.get(value) ?? 0) + 1);
+  return Object.fromEntries([...counts.entries()].sort(([left], [right]) => left.localeCompare(right)));
+}
+
+function cohortStrata(cohort: FrozenCohort) {
+  const entries = cohort.entries;
+  return {
+    risk: countValues(entries.map((entry) => entry.strata.risk)),
+    changeSize: countValues(entries.map((entry) => entry.strata.changeSize)),
+    languages: countValues(entries.flatMap((entry) => entry.strata.languages)),
+    repositoryAreas: countValues(entries.flatMap((entry) => entry.strata.repositoryAreas)),
+    taskType: countValues(entries.map((entry) => entry.strata.taskType ?? "(unknown)")),
+    originatingAgent: countValues(entries.map((entry) => entry.strata.originatingAgent ?? "(unknown)")),
+    outcomeAvailability: countValues(entries.map((entry) => entry.strata.outcomeAvailability)),
+  };
+}
+
 const METRIC_KEYS = {
   acceptedFindingsPerReplay: "accepted_findings_per_replay",
   acceptanceRate: "acceptance_rate",
@@ -342,6 +361,11 @@ export function buildScorecard({
     decisionId: frozenDecision.decisionId,
     datasetId: cohort.datasetId,
     cohortEntries: cohort.entries.length,
+    cohort: {
+      pullRequests: cohort.selection.selectedPullRequestCount,
+      replaySnapshots: cohort.selection.selectedSnapshotCount,
+      strata: cohortStrata(cohort),
+    },
     variants: Object.fromEntries(summaries.map((summary) => [summary.variant_id, summary])),
     decision: {
       recommendation: decision.recommendation,

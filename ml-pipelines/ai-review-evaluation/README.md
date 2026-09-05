@@ -15,7 +15,9 @@ The pipeline has five stages:
    PR unless `cohort.pullRequestNumbers` names an explicit cohort. Every snapshot
    for a selected PR remains in the cohort. The stage writes PR and snapshot
    counts, baseline, candidate, repetitions, limits, matching rules, metrics,
-   sample size, and thresholds before replay results exist.
+   sample size, and thresholds before replay results exist. It also writes JSON
+   and Markdown readiness reports with the maximum available decision sample,
+   missing metadata, coverage, and historical outcome availability.
 3. `replay` calls the production-isolated corpus runner once per corpus entry,
    variant, and repetition. It runs inference unless `replay.mode=plan`.
 4. `match` applies the frozen matching rules to immutable historical labels.
@@ -44,6 +46,11 @@ below 200 lines, medium changes from 200 through 999, substantial changes from 1
 through 1,999, large changes from 2,000 through 4,999, and oversized changes
 from 5,000. The frozen cohort records these thresholds.
 
+Paid replay stops before calling a provider when the frozen cohort cannot meet
+the declared minimum sample. Set `replay.allowUnderpoweredPilot=true` only for
+an explicit pipeline pilot. Pilot results still receive the normal
+`gather-more-evidence` decision and cannot change production configuration.
+
 Each baseline and candidate contains one experiment object. The pipeline accepts
 the replay runner's four variables: `scout-model`, `merger-model`,
 `prompt-version`, and `coverage-policy`. Both variants must use the one variable
@@ -62,8 +69,12 @@ Each stage has a dedicated command script, so editing one stage's mise wrapper
 does not invalidate unrelated cached stages.
 
 Corpus entries preserve the PR author and the unique GitHub users who submitted
-reviews. Older snapshots may omit reviewer metadata. Each trusted finding
-disposition records its actor separately on the historical outcome.
+reviews. The extractor fills missing task type and originating agent values
+from recorded labels, titles, authors, and branch names. It recognises T3 Code
+branches separately from Codex, Claude, and OpenCode. Older snapshots may still
+lack enough evidence for classification, which the readiness report counts
+instead of guessing. Each trusted finding disposition records its actor
+separately on the historical outcome.
 
 ## Plan without inference
 
@@ -91,6 +102,8 @@ start downstream of replay and do not call a provider again.
 
 Inspect these artifacts:
 
+- `outputs/frozen/readiness.json` and `.md`, the pre-inference sample and
+  metadata audit;
 - `outputs/evaluation/replay-scorecard.parquet`, one traceable row per replay;
 - `outputs/matched/matches.jsonl`, recorded match method, evidence,
   confidence, outcome revision, and manual-adjudication status;
@@ -108,6 +121,10 @@ weight as a PR with one. Raw finding, token, and cost totals remain available
 for operational accounting. The committed decision policy also uses completed
 PRs as its minimum-sample unit. Cost comparisons use the PR-weighted mean cost
 per replay rather than the raw experiment total.
+
+Each replay scorecard row retains task type, originating agent, risk, change
+size, languages, repository areas, and historical outcome availability. The
+metrics artifact reports the cohort distribution for those dimensions.
 
 Language strata come from the typed `linguist-languages` package, which mirrors
 GitHub Linguist's language metadata and has no runtime dependencies.

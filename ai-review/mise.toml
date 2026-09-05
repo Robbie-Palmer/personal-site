@@ -90,6 +90,10 @@ run = "bash analytics/test-scorecard.sh"
 description = "Generate versioned JSON and Markdown scorecard reports from built marts"
 run = "pnpm exec tsx analytics/report.ts"
 
+[tasks."scorecard:baseline"]
+description = "Build the reproducible schema-v1 stateless review-efficiency baseline"
+run = "pnpm exec tsx analytics/stateless-baseline.ts"
+
 [tasks."scorecard:report:test"]
 description = "Test the scorecard report CLI against mixed schema-version fixtures"
 depends = ["install"]

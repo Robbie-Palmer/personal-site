@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "exports": {
+    "./pull-request-metadata": "./src/pull-request-metadata.ts",
     "./records": "./src/records.ts",
     "./replay": "./src/replay.ts"
   },

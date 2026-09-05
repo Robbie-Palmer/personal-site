@@ -3,6 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
 import { parseArgs } from "node:util";
+import { z } from "zod";
 
 type Json = Record<string, unknown>;
 
@@ -65,6 +66,18 @@ interface MetricEntry {
   unavailable?: string;
 }
 
+const ReviewEfficiencyBaselineSchema = z.object({
+  modelCallsPerPullRequest: z.number().positive(),
+  uncachedInputTokensPerPullRequest: z.number().positive(),
+  baselineId: z.string().regex(/^[a-f0-9]{64}$/).optional(),
+  sample: z.object({
+    pullRequests: z.number().int().positive(),
+    reviewRuns: z.number().int().positive(),
+    modelCalls: z.number().int().positive(),
+  }).strict().optional(),
+}).loose();
+type ReviewEfficiencyBaseline = z.infer<typeof ReviewEfficiencyBaselineSchema>;
+
 interface Metrics {
   acceptanceRate: MetricEntry;
   fixThroughRate: MetricEntry;
@@ -79,6 +92,8 @@ interface Metrics {
     modelCallsPerPullRequest: MetricEntry;
     uncachedInputTokensPerPullRequest: MetricEntry;
     baseline: {
+      baselineId?: string;
+      sample?: { pullRequests: number; reviewRuns: number; modelCalls: number };
       modelCallsPerPullRequest: { value: number; ratio: number | null };
       uncachedInputTokensPerPullRequest: { value: number; ratio: number | null };
     } | null;
@@ -279,7 +294,7 @@ function median(values: number[]): number | null {
 
 interface MetricOptions {
   minSampleSize: number;
-  baseline: { modelCallsPerPullRequest: number; uncachedInputTokensPerPullRequest: number } | null;
+  baseline: ReviewEfficiencyBaseline | null;
 }
 
 function entry(
@@ -396,6 +411,8 @@ function metricsFor(subset: Subset, options: MetricOptions): Metrics {
         modelCallsPerPullRequest !== null &&
         uncachedTokensPerPullRequest !== null
           ? {
+              ...(baseline.baselineId ? { baselineId: baseline.baselineId } : {}),
+              ...(baseline.sample ? { sample: baseline.sample } : {}),
               modelCallsPerPullRequest: {
                 value: baseline.modelCallsPerPullRequest,
                 ratio: round6(modelCallsPerPullRequest / baseline.modelCallsPerPullRequest),
@@ -814,7 +831,7 @@ function renderMarkdown(report: Json): string {
   if (metrics.reviewEfficiency.baseline) {
     const baseline = metrics.reviewEfficiency.baseline;
     lines.push(
-      `Review-efficiency baseline: ${baseline.modelCallsPerPullRequest.value} model calls/PR, ${baseline.uncachedInputTokensPerPullRequest.value} uncached input tokens/PR (ratios ${baseline.modelCallsPerPullRequest.ratio}, ${baseline.uncachedInputTokensPerPullRequest.ratio}).`,
+      `Review-efficiency baseline${baseline.baselineId ? ` ${baseline.baselineId}` : ""}: ${baseline.modelCallsPerPullRequest.value} model calls/PR and ${baseline.uncachedInputTokensPerPullRequest.value} uncached input tokens/PR. Current-to-baseline ratios are ${baseline.modelCallsPerPullRequest.ratio} and ${baseline.uncachedInputTokensPerPullRequest.ratio}.`,
       "",
     );
   }
@@ -931,15 +948,14 @@ function main(): void {
       usageError(`unknown slice dimension: ${dimension}`);
     }
   }
-  let baseline: { modelCallsPerPullRequest: number; uncachedInputTokensPerPullRequest: number } | null = null;
+  let baseline: ReviewEfficiencyBaseline | null = null;
   if (values.baseline) {
     const parsed = JSON.parse(fs.readFileSync(values.baseline, "utf8")) as Json;
-    const calls = num(parsed.modelCallsPerPullRequest);
-    const tokens = num(parsed.uncachedInputTokensPerPullRequest);
-    if (calls === null || tokens === null) {
-      fail("baseline file must contain numeric modelCallsPerPullRequest and uncachedInputTokensPerPullRequest");
+    const result = ReviewEfficiencyBaselineSchema.safeParse(parsed);
+    if (!result.success) {
+      fail("baseline file must contain positive modelCallsPerPullRequest and uncachedInputTokensPerPullRequest values");
     }
-    baseline = { modelCallsPerPullRequest: calls, uncachedInputTokensPerPullRequest: tokens };
+    baseline = result.data;
   }
 
   const martsDir = values.marts;

@@ -90,20 +90,42 @@ jq -e '
 ' "$capped/scorecard-report.json" > /dev/null
 
 baseline_file="$work/baseline.json"
-cat > "$baseline_file" <<'JSON'
-{"modelCallsPerPullRequest": 4, "uncachedInputTokensPerPullRequest": 3200}
-JSON
+(cd "$here/.." && pnpm exec tsx analytics/stateless-baseline.ts --marts "$marts/v1" --output "$baseline_file")
+baseline_repeat="$work/baseline-repeat.json"
+(cd "$here/.." && pnpm exec tsx analytics/stateless-baseline.ts --marts "$marts/v1" --output "$baseline_repeat")
+cmp "$baseline_file" "$baseline_repeat"
+jq -e '
+  .schemaVersion == 1 and
+  .recordType == "ai-review-stateless-baseline" and
+  .selection.recordSchemaVersion == 1 and
+  .sample == {pullRequests: 1, reviewRuns: 1, modelCalls: 1} and
+  .uncachedInputTokens == 700 and
+  .modelCallsPerPullRequest == 1 and
+  .uncachedInputTokensPerPullRequest == 700 and
+  (.baselineId | length == 64)
+' "$baseline_file" > /dev/null
 baseline_out="$work/report-baseline"
 run_report --marts "$marts/v1" --output "$baseline_out" --baseline "$baseline_file"
 jq -e '
-  .metrics.reviewEfficiency.baseline.modelCallsPerPullRequest.value == 4 and
-  .metrics.reviewEfficiency.baseline.modelCallsPerPullRequest.ratio == 0.25 and
-  .metrics.reviewEfficiency.baseline.uncachedInputTokensPerPullRequest.ratio == 0.25
+  .metrics.reviewEfficiency.baseline.modelCallsPerPullRequest.value == 1 and
+  (.metrics.reviewEfficiency.baseline.baselineId | length == 64) and
+  .metrics.reviewEfficiency.baseline.sample.pullRequests == 1 and
+  .metrics.reviewEfficiency.baseline.modelCallsPerPullRequest.ratio == 1 and
+  .metrics.reviewEfficiency.baseline.uncachedInputTokensPerPullRequest.value == 700 and
+  .metrics.reviewEfficiency.baseline.uncachedInputTokensPerPullRequest.ratio == 1.142857
 ' "$baseline_out/scorecard-report.json" > /dev/null
 
 baseline_capped="$work/report-baseline-capped"
 run_report --marts "$marts/v1" --output "$baseline_capped" --baseline "$baseline_file" --min-sample-size 3
 jq -e '.metrics.reviewEfficiency.baseline == null' "$baseline_capped/scorecard-report.json" > /dev/null
+
+zero_baseline="$work/zero-baseline.json"
+echo '{"modelCallsPerPullRequest":0,"uncachedInputTokensPerPullRequest":0}' > "$zero_baseline"
+if run_report --marts "$marts/v1" --output "$work/zero-baseline-report" --baseline "$zero_baseline" >"$work/zero-baseline-error.log" 2>&1; then
+  echo "zero-valued baseline was not rejected" >&2
+  exit 1
+fi
+grep -q "baseline file must contain positive" "$work/zero-baseline-error.log"
 
 if run_report --marts "$work/does-not-exist" --output "$work/never" >"$work/error.log" 2>&1; then
   echo "missing marts directory was not rejected" >&2

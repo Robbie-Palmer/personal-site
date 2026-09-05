@@ -63,14 +63,30 @@ export type ReviewCoverage = z.infer<typeof ReviewCoverageSchema>;
 
 export const PartialReviewCoverageSchema = ReviewCoverageSchema.partial().loose();
 
+export const PullRequestTaskTypeSchema = z.enum([
+  "bug",
+  "dependency",
+  "documentation",
+  "feature",
+]);
+export type PullRequestTaskType = z.infer<typeof PullRequestTaskTypeSchema>;
+
+export const OriginatingAgentSchema = z.enum([
+  "claude",
+  "codex",
+  "opencode",
+  "t3-code",
+]);
+export type OriginatingAgent = z.infer<typeof OriginatingAgentSchema>;
+
 export const PullRequestMetadataSchema = z.object({
   author: z.string().min(1),
   authorAssociation: z.string().optional(),
   title: z.string().optional(),
   labels: z.array(z.string()),
   headRef: z.string().optional(),
-  taskType: z.enum(["bug", "dependency", "documentation", "feature"]).optional(),
-  originatingAgent: z.enum(["claude", "codex", "opencode"]).optional(),
+  taskType: PullRequestTaskTypeSchema.optional(),
+  originatingAgent: OriginatingAgentSchema.optional(),
   reviewers: z.array(z.string().min(1)).optional(),
 }).strict();
 export type PullRequestMetadata = z.infer<typeof PullRequestMetadataSchema>;
