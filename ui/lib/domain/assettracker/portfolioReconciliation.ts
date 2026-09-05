@@ -43,10 +43,11 @@ export type PortfolioFinancialIndependence = {
   periods: PortfolioReconciliationPeriod[];
   representativeAnnualExpenditure: number | null;
   representativeAnnualCurrentExpenditure: number | null;
+  /** Active compensation-based saving, falling back to the historical median. */
   representativeAnnualSavings: number | null;
-  /** Total saving divided by take-home income plus pension compensation. */
+  /** Active compensation savings rate, falling back to the historical rate. */
   savingsRate: number | null;
-  /** Take-home income left after long-term expenditure, divided by take-home income. */
+  /** Active take-home income left after long-term expenditure, as a rate. */
   takeHomeSavingsRate: number | null;
   /** Present when active recurring compensation replaces the historical savings basis. */
   currentCompensation: PortfolioCurrentCompensation | null;
