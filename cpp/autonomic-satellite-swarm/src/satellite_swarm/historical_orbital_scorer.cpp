@@ -44,13 +44,16 @@ uint8_t pathScore(const SatelliteSnapshot& satellite, const Coordinate& objectiv
   const float latitude_distance =
       metresFromDegrees(satellite.orbital_radius_metres, latitude_degrees);
 
-  if (latitude_distance == 0.0F) {
-    return longitude_distance == 0.0F ? 100U : 0U;
+  if (latitude_degrees == 0.0F) {
+    return longitude_degrees == 0.0F ? 100U : 0U;
   }
 
   const float velocity_squared = kEarthGravitationalParameter / satellite.orbital_radius_metres;
   const float scaled_longitude = longitude_distance / kDistanceScale;
   const float scaled_latitude = latitude_distance / kDistanceScale;
+  if (scaled_latitude == 0.0F) {
+    return 0U;
+  }
   const float energy_required =
       (4.0F * satellite.mass_kilograms * scaled_longitude * scaled_longitude * velocity_squared) /
       (scaled_latitude * scaled_latitude);

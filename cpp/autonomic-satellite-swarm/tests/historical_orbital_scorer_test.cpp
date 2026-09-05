@@ -41,6 +41,10 @@ TEST_CASE("the historical heuristic has defined edge-case behavior") {
   invalid = at(0.0F, 0.0F);
   invalid.mass_kilograms = std::numeric_limits<float>::quiet_NaN();
   CHECK(scorer.score(invalid, Coordinate(0.0F, -10.0F)) == 0);
+
+  invalid = at(0.0F, 0.0F);
+  invalid.orbital_radius_metres = std::numeric_limits<float>::min();
+  CHECK(scorer.score(invalid, Coordinate(0.0F, -10.0F)) == 0);
 }
 
 TEST_CASE("directed latitude distance accounts for pole crossings") {

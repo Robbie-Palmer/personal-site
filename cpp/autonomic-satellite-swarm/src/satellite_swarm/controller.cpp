@@ -30,7 +30,12 @@ bool SwarmController::initiateMission(const Coordinate& objective, uint32_t now_
     return false;
   }
 
-  current_mission_ = Message::missionRequest(node_id_, next_mission_id_, objective);
+  const Message mission = Message::missionRequest(node_id_, next_mission_id_, objective);
+  if (!transport_.send(mission)) {
+    return false;
+  }
+
+  current_mission_ = mission;
   ++next_mission_id_;
   if (next_mission_id_ == 0U) {
     next_mission_id_ = 1U;
@@ -42,7 +47,6 @@ bool SwarmController::initiateMission(const Coordinate& objective, uint32_t now_
   assigned_node_ = kBroadcastNode;
   phase_started_at_ms_ = now_ms;
   state_ = ControllerState::Leading;
-  transport_.send(current_mission_);
   return true;
 }
 
@@ -63,14 +67,6 @@ void SwarmController::update(uint32_t now_ms) {
     state_ = ControllerState::Idle;
   }
 
-  Message incoming;
-  while (transport_.receive(incoming)) {
-    process(incoming, now_ms);
-    if (state_ == ControllerState::SafeDisabled || state_ == ControllerState::Quiescent) {
-      return;
-    }
-  }
-
   if (state_ == ControllerState::Leading &&
       elapsed(now_ms, phase_started_at_ms_, config_.response_window_ms)) {
     finishLeading();
@@ -84,6 +80,14 @@ void SwarmController::update(uint32_t now_ms) {
   } else if (state_ == ControllerState::AwaitingAssignment &&
              elapsed(now_ms, phase_started_at_ms_, config_.response_window_ms)) {
     state_ = ControllerState::Idle;
+  }
+
+  Message incoming;
+  while (transport_.receive(incoming)) {
+    process(incoming, now_ms);
+    if (state_ == ControllerState::SafeDisabled || state_ == ControllerState::Quiescent) {
+      return;
+    }
   }
 }
 
@@ -149,15 +153,20 @@ void SwarmController::acceptMissionRequest(const Message& request, uint32_t now_
   phase_started_at_ms_ = now_ms;
   const uint8_t candidate_score = scorer_.score(satellite_, request.objective);
   candidates_[node_id_].score = candidate_score;
-  sendCandidacy(now_ms);
+  if (!sendCandidacy(now_ms)) {
+    state_ = ControllerState::Idle;
+  }
 }
 
-void SwarmController::sendCandidacy(uint32_t now_ms) {
-  transport_.send(Message::candidacy(node_id_, current_mission_.origin, current_mission_.mission_id,
-                                     candidates_[node_id_].score));
+bool SwarmController::sendCandidacy(uint32_t now_ms) {
+  const bool sent = transport_.send(Message::candidacy(
+      node_id_, current_mission_.origin, current_mission_.mission_id, candidates_[node_id_].score));
   ++attempts_;
   last_attempt_at_ms_ = now_ms;
-  state_ = ControllerState::AwaitingAcknowledgement;
+  if (sent) {
+    state_ = ControllerState::AwaitingAcknowledgement;
+  }
+  return sent;
 }
 
 void SwarmController::finishLeading() {
@@ -169,8 +178,13 @@ void SwarmController::finishLeading() {
     }
   }
 
+  if (!transport_.send(Message::assignment(node_id_, chosen, current_mission_.mission_id))) {
+    assigned_node_ = kBroadcastNode;
+    state_ = ControllerState::Idle;
+    return;
+  }
+
   assigned_node_ = chosen;
-  transport_.send(Message::assignment(node_id_, chosen, current_mission_.mission_id));
   state_ = chosen == node_id_ ? ControllerState::Active : ControllerState::Idle;
 }
 

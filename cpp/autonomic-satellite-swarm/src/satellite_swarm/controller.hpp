@@ -25,6 +25,8 @@ public:
                   HealthMonitor& health_monitor, const CandidacyScorer& scorer,
                   const ControllerConfig& config = ControllerConfig());
 
+  // now_ms must use one modulo-2^32 monotonic tick source for every call. Unsigned elapsed-time
+  // comparisons support one clock rollover when configured durations are shorter than that period.
   bool initiateMission(const Coordinate& objective, uint32_t now_ms);
   void update(uint32_t now_ms);
   void completeMission();
@@ -60,7 +62,7 @@ private:
   void resetCandidates();
   void process(const Message& message, uint32_t now_ms);
   void acceptMissionRequest(const Message& request, uint32_t now_ms);
-  void sendCandidacy(uint32_t now_ms);
+  bool sendCandidacy(uint32_t now_ms);
   void finishLeading();
   void abandonUnacknowledgedMission();
   bool matchesCurrentMission(const Message& message) const;

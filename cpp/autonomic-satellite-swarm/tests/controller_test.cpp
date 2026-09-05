@@ -187,3 +187,86 @@ TEST_CASE("an assignment to an out-of-range node is ignored") {
   CHECK(controller.state() == ControllerState::AwaitingAssignment);
   CHECK(controller.assignedNode() == kBroadcastNode);
 }
+
+TEST_CASE("transport rejection does not masquerade as protocol progress") {
+  FakeTransport transport;
+  FakeHealthMonitor health;
+  FixedScorer scorer(73);
+  SwarmController controller(0, SatelliteSnapshot(), transport, health, scorer, fastConfig());
+
+  transport.send_succeeds = false;
+  CHECK_FALSE(controller.initiateMission(Coordinate(), 0U));
+  CHECK(controller.state() == ControllerState::Idle);
+  CHECK(controller.currentMissionId() == 0U);
+
+  transport.deliver(Message::missionRequest(1, 17, Coordinate()));
+  controller.update(1U);
+  CHECK(controller.state() == ControllerState::Idle);
+  CHECK(controller.consecutiveCommunicationFailures() == 0U);
+}
+
+TEST_CASE("a failed assignment send aborts the local negotiation") {
+  FakeTransport transport;
+  FakeHealthMonitor health;
+  FixedScorer scorer(40);
+  SwarmController controller(0, SatelliteSnapshot(), transport, health, scorer, fastConfig());
+
+  REQUIRE(controller.initiateMission(Coordinate(), 0U));
+  transport.deliver(Message::candidacy(1, 0, controller.currentMissionId(), 80));
+  controller.update(1U);
+  transport.send_succeeds = false;
+  controller.update(100U);
+
+  CHECK(controller.state() == ControllerState::Idle);
+  CHECK(controller.assignedNode() == kBroadcastNode);
+}
+
+TEST_CASE("messages queued at or after a phase deadline are ignored") {
+  SECTION("late candidacy") {
+    FakeTransport transport;
+    FakeHealthMonitor health;
+    FixedScorer scorer(40);
+    SwarmController controller(0, SatelliteSnapshot(), transport, health, scorer, fastConfig());
+
+    REQUIRE(controller.initiateMission(Coordinate(), 0U));
+    transport.deliver(Message::candidacy(1, 0, controller.currentMissionId(), 80));
+    controller.update(100U);
+
+    CHECK(controller.state() == ControllerState::Active);
+    CHECK(controller.assignedNode() == 0U);
+  }
+
+  SECTION("late acknowledgement") {
+    FakeTransport transport;
+    FakeHealthMonitor health;
+    FixedScorer scorer(40);
+    SwarmController controller(2, SatelliteSnapshot(), transport, health, scorer, fastConfig());
+
+    transport.deliver(Message::missionRequest(0, 17, Coordinate()));
+    controller.update(0U);
+    controller.update(10U);
+    transport.deliver(Message::acknowledgement(0, 2, 17));
+    controller.update(20U);
+
+    CHECK(controller.state() == ControllerState::Idle);
+    CHECK(controller.consecutiveCommunicationFailures() == 1U);
+  }
+
+  SECTION("late assignment") {
+    FakeTransport transport;
+    FakeHealthMonitor health;
+    FixedScorer scorer(40);
+    SwarmController controller(2, SatelliteSnapshot(), transport, health, scorer, fastConfig());
+
+    transport.deliver(Message::missionRequest(0, 17, Coordinate()));
+    controller.update(0U);
+    transport.deliver(Message::acknowledgement(0, 2, 17));
+    controller.update(1U);
+    REQUIRE(controller.state() == ControllerState::AwaitingAssignment);
+    transport.deliver(Message::assignment(0, 2, 17));
+    controller.update(101U);
+
+    CHECK(controller.state() == ControllerState::Idle);
+    CHECK(controller.assignedNode() == kBroadcastNode);
+  }
+}
