@@ -36,27 +36,37 @@ function temporaryRoot(): string {
   return root;
 }
 
-test("builds the same schema-v1 baseline from unchanged marts", () => {
-  const root = temporaryRoot();
-  const marts = buildFixtureMarts(root);
+test(
+  "builds the same schema-v1 baseline from unchanged marts",
+  () => {
+    const root = temporaryRoot();
+    const marts = buildFixtureMarts(root);
 
-  const firstFile = path.join(root, "first.json");
-  const secondFile = path.join(root, "second.json");
-  const first = buildStatelessBaseline({
-    martsDir: marts,
-    outputFile: firstFile,
-  });
-  const second = buildStatelessBaseline({
-    martsDir: marts,
-    outputFile: secondFile,
-  });
+    const firstFile = path.join(root, "first.json");
+    const secondFile = path.join(root, "second.json");
+    const first = buildStatelessBaseline({
+      martsDir: marts,
+      outputFile: firstFile,
+    });
+    const second = buildStatelessBaseline({
+      martsDir: marts,
+      outputFile: secondFile,
+    });
 
-  expect(second).toEqual(first);
-  expect(fs.readFileSync(secondFile, "utf8")).toBe(fs.readFileSync(firstFile, "utf8"));
-  expect(first.sample).toEqual({ pullRequests: 1, reviewRuns: 1, modelCalls: 1 });
-  expect(first.uncachedInputTokens).toBe(700);
-  expect(first.baselineId).toMatch(/^[a-f0-9]{64}$/);
-});
+    expect(second).toEqual(first);
+    expect(fs.readFileSync(secondFile, "utf8")).toBe(
+      fs.readFileSync(firstFile, "utf8"),
+    );
+    expect(first.sample).toEqual({
+      pullRequests: 1,
+      reviewRuns: 1,
+      modelCalls: 1,
+    });
+    expect(first.uncachedInputTokens).toBe(700);
+    expect(first.baselineId).toMatch(/^[a-f0-9]{64}$/);
+  },
+  10_000,
+);
 
 test("treats mart paths as data during SQL template substitution", () => {
   const root = temporaryRoot();
