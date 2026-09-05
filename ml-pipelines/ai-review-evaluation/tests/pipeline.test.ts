@@ -19,8 +19,9 @@ import {
   runReplays,
   validatedReplayCostUsd,
 } from "../src/run-replays";
-import { stableJson, writeJson } from "../src/artifact-files";
+import { sha256, stableJson, writeJson } from "../src/artifact-files";
 import {
+  FrozenCohortSchema,
   PipelineParamsSchema,
   ReplayOutputSchema,
   type Finding,
@@ -464,31 +465,12 @@ test("execute mode blocks underpowered decisions unless an explicit pilot is all
     experiment: fixtureParams().experiment,
     limits: fixtureParams().limits,
   });
-  writeJson(path.join(cohortRoot, "readiness.json"), {
-    schemaVersion: 1,
-    recordType: "ai-review-evaluation-readiness",
-    readinessId: "readiness",
-    cohortId: "fixed",
-    datasetId: "dataset",
-    sample: {
-      unit: "adjudicated-findings",
-      minimum: 4,
-      maximumAvailable: 0,
-      deficit: 4,
-      ready: false,
-    },
-    metadata: {
-      unit: "replay-snapshots",
-      total: 0,
-      complete: true,
-      fields: Object.fromEntries(["taskType", "originatingAgent", "languages", "repositoryAreas", "coverage"]
-        .map((field) => [field, { present: 0, missing: 0 }])),
-    },
-    outcomes: { unit: "replay-snapshots", adjudicatedFindings: 0, availability: {} },
-    decisionReady: false,
-  });
   const paramsFile = path.join(temporary, "params.json");
-  writeJson(paramsFile, fixtureParams());
+  const params = fixtureParams();
+  writeJson(paramsFile, params);
+  const cohort = FrozenCohortSchema.parse(JSON.parse(fs.readFileSync(path.join(cohortRoot, "cohort.json"), "utf8")));
+  const readiness = buildEvaluationReadiness(cohort, params);
+  writeJson(path.join(cohortRoot, "readiness.json"), readiness);
   const fakeRepositoryRoot = path.join(temporary, "repository");
   const fakeAiReviewRoot = path.join(fakeRepositoryRoot, "ai-review");
   for (const relative of [
@@ -522,6 +504,15 @@ test("execute mode blocks underpowered decisions unless an explicit pilot is all
   };
   fs.mkdirSync(replayOptions.output, { recursive: true });
   fs.writeFileSync(path.join(replayOptions.output, "sentinel"), "untouched");
+  const forgedReadiness = {
+    ...readiness,
+    sample: { ...readiness.sample, ready: true },
+  };
+  forgedReadiness.readinessId = sha256(stableJson({ ...forgedReadiness, readinessId: undefined }));
+  writeJson(path.join(cohortRoot, "readiness.json"), forgedReadiness);
+  assert.throws(() => runReplays(replayOptions), /does not match the frozen cohort and pipeline parameters/);
+  assert.equal(fs.readFileSync(path.join(replayOptions.output, "sentinel"), "utf8"), "untouched");
+  writeJson(path.join(cohortRoot, "readiness.json"), readiness);
   assert.throws(() => runReplays(replayOptions), /paid replay blocked/);
   assert.equal(fs.readFileSync(path.join(replayOptions.output, "sentinel"), "utf8"), "untouched");
   writeJson(paramsFile, fixtureParams({

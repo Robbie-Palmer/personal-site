@@ -11,8 +11,8 @@ const ManifestSchema = z.object({
   schemaVersion: z.literal(1),
   martVersion: z.string().min(1),
   marts: z.object({
-    review_run_fact: z.object({ path: z.string(), rows: z.number(), sha256: z.string() }).loose(),
-    model_run_fact: z.object({ path: z.string(), rows: z.number(), sha256: z.string() }).loose(),
+    review_run_fact: z.object({ path: z.string(), rows: z.number(), sha256: z.string().regex(/^[a-f0-9]{64}$/) }).loose(),
+    model_run_fact: z.object({ path: z.string(), rows: z.number(), sha256: z.string().regex(/^[a-f0-9]{64}$/) }).loose(),
   }).loose(),
 }).loose();
 
@@ -43,6 +43,27 @@ export interface StatelessBaseline {
 
 function sha256(value: string): string {
   return createHash("sha256").update(value).digest("hex");
+}
+
+function fileSha256(file: string): string {
+  const hash = createHash("sha256");
+  const descriptor = fs.openSync(file, "r");
+  const buffer = Buffer.allocUnsafe(1024 * 1024);
+  try {
+    let bytesRead: number;
+    while ((bytesRead = fs.readSync(descriptor, buffer, 0, buffer.length, null)) > 0) {
+      hash.update(buffer.subarray(0, bytesRead));
+    }
+  } finally {
+    fs.closeSync(descriptor);
+  }
+  return hash.digest("hex");
+}
+
+function verifyChecksum(file: string, expected: string, mart: string): void {
+  if (fileSha256(file) !== expected) {
+    throw new Error(`${mart} checksum does not match the scorecard manifest`);
+  }
 }
 
 function sqlPath(file: string): string {
@@ -101,6 +122,8 @@ export function buildStatelessBaseline({
   const manifest = ManifestSchema.parse(JSON.parse(fs.readFileSync(manifestFile, "utf8")));
   const reviewRuns = martPath(resolvedMarts, manifest.marts.review_run_fact.path);
   const modelRuns = martPath(resolvedMarts, manifest.marts.model_run_fact.path);
+  verifyChecksum(reviewRuns, manifest.marts.review_run_fact.sha256, "review_run_fact");
+  verifyChecksum(modelRuns, manifest.marts.model_run_fact.sha256, "model_run_fact");
   const query = baselineQuery(reviewRuns, modelRuns);
   const result = spawnSync("duckdb", ["-json", "-noheader", "-c", query], {
     encoding: "utf8",

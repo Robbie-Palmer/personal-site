@@ -6,9 +6,11 @@ import {
   readJson,
   resetDirectory,
   sha256,
+  stableJson,
   writeJson,
 } from "./artifact-files";
 import { parseArgs } from "./cli-arguments";
+import { buildEvaluationReadiness } from "./freeze-cohort";
 import {
   EvaluationReplayIndexSchema,
   EvaluationReadinessSchema,
@@ -247,11 +249,9 @@ export function runReplays({ cohortFile, experimentFile, readinessFile, corpusRo
   if (readiness.cohortId !== cohort.cohortId || readiness.datasetId !== cohort.datasetId) {
     throw new Error("readiness report does not belong to the frozen cohort");
   }
-  if (
-    readiness.sample.unit !== params.decision.sampleUnit ||
-    readiness.sample.minimum !== params.decision.minimumSampleSize
-  ) {
-    throw new Error("readiness report does not match the declared decision sample policy");
+  const expectedReadiness = buildEvaluationReadiness(cohort, params);
+  if (stableJson(readiness) !== stableJson(expectedReadiness)) {
+    throw new Error("readiness report does not match the frozen cohort and pipeline parameters");
   }
   const mode = params.replay.mode;
   const execute = mode === "execute";

@@ -92,3 +92,15 @@ test("rejects mart paths outside the marts directory or containing control chara
   expect(() => buildStatelessBaseline({ martsDir: marts, outputFile: path.join(root, "control.json") }))
     .toThrow(/unsupported characters/);
 });
+
+test("rejects mart bytes that do not match the manifest provenance", () => {
+  const root = temporaryRoot();
+  const marts = buildFixtureMarts(root);
+  const manifest = JSON.parse(fs.readFileSync(path.join(marts, "scorecard-manifest.json"), "utf8")) as {
+    marts: { review_run_fact: { path: string } };
+  };
+  fs.appendFileSync(path.join(marts, manifest.marts.review_run_fact.path), "tampered");
+
+  expect(() => buildStatelessBaseline({ martsDir: marts, outputFile: path.join(root, "baseline.json") }))
+    .toThrow(/checksum does not match/);
+});
