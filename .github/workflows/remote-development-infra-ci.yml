@@ -35,9 +35,7 @@ jobs:
         run: mise run //infra/remote-development:format:check
 
       - name: Validate Terraform
-        run: mise run //infra/remote-development:lint
-        env:
-          TF_TOKEN_app_terraform_io: ${{ secrets.TF_API_TOKEN }}
+        run: mise run //infra/remote-development:precommit-lint
 
       - name: Lint Terraform
         run: mise run //infra/remote-development:lint:tflint
