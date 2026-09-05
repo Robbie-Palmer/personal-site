@@ -356,12 +356,19 @@ describe("Visualization browser rendering", () => {
 
       await page.click('button[title="Slide overview"]');
       await page.waitForSelector(".pitch-deck__static--overview");
-      await page.click('button[aria-label="Open slide 12"]');
+      const finalSlide = await page.$$eval(
+        ".pitch-deck__overview-targets button",
+        (buttons) => buttons.length,
+      );
+      expect(finalSlide).toBeGreaterThan(0);
+      await page.click(`button[aria-label="Open slide ${finalSlide}"]`);
       await page.waitForFunction(
-        () =>
+        (expected) =>
           document
             .querySelector(".pitch-deck__position")
-            ?.textContent?.trim() === "Slide 12 of 12",
+            ?.textContent?.trim() === `Slide ${expected} of ${expected}`,
+        {},
+        finalSlide,
       );
       const finalCta = await page.$eval(
         "section.present .pitch-final-cta",
@@ -447,21 +454,23 @@ describe("Visualization browser rendering", () => {
       });
 
       const advanceTo = async (slide: number) => {
-        while (
-          (await page.$eval(".pitch-deck__position", (position) =>
-            Number(position.textContent?.match(/Slide (\d+)/)?.[1]),
-          )) < slide
-        ) {
-          await page.click('button[aria-label="Next slide"]');
-        }
-        await page.waitForFunction(
-          (expected) =>
-            document
-              .querySelector(".pitch-deck__position")
-              ?.textContent?.startsWith(`Slide ${expected} `),
-          {},
-          slide,
+        let currentSlide = await page.$eval(
+          ".pitch-deck__position",
+          (position) => Number(position.textContent?.match(/Slide (\d+)/)?.[1]),
         );
+        while (currentSlide < slide) {
+          const nextSlide = currentSlide + 1;
+          await page.click('button[aria-label="Next slide"]');
+          await page.waitForFunction(
+            (expected) =>
+              document
+                .querySelector(".pitch-deck__position")
+                ?.textContent?.startsWith(`Slide ${expected} `),
+            {},
+            nextSlide,
+          );
+          currentSlide = nextSlide;
+        }
       };
       const inspectPresentDiagram = async (selector: string) =>
         page.$eval(`section.present ${selector}`, (element) => {
@@ -494,10 +503,13 @@ describe("Visualization browser rendering", () => {
             columnCount: countTracks(styles.gridTemplateColumns),
             contained:
               diagram.scrollWidth <= diagram.clientWidth + 1 &&
+              diagram.scrollHeight <= diagram.clientHeight + 1 &&
               Boolean(
                 contentBounds &&
                   diagramBounds.left >= contentBounds.left - 1 &&
-                  diagramBounds.right <= contentBounds.right + 1,
+                  diagramBounds.right <= contentBounds.right + 1 &&
+                  diagramBounds.top >= contentBounds.top - 1 &&
+                  diagramBounds.bottom <= contentBounds.bottom + 1,
               ),
             rowCount: countTracks(styles.gridTemplateRows),
           };
@@ -522,11 +534,12 @@ describe("Visualization browser rendering", () => {
       expect(evidence.columnCount).toBe(3);
       expect(flywheel.columnCount).toBe(1);
       expect(roadmap.columnCount).toBe(2);
-      expect(
-        [loop, evidence, flywheel, roadmap].every(
-          (diagram) => diagram.contained,
-        ),
-      ).toBe(true);
+      expect({ evidence, flywheel, loop, roadmap }).toMatchObject({
+        evidence: { contained: true },
+        flywheel: { contained: true },
+        loop: { contained: true },
+        roadmap: { contained: true },
+      });
       expect(recommendationImage).toBe("none");
       expect(pageErrors).toEqual([]);
     } finally {

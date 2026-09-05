@@ -1828,34 +1828,44 @@ body.reveal-viewport:has(.pitch-deck--project-recipe-site),
 
   .pitch-cooking-flywheel {
     grid-template-columns: 1fr;
-    gap: 6px;
-    margin-top: 22px;
+    gap: 4px;
+    margin-top: 16px;
   }
 
   .pitch-cooking-flywheel > div {
-    min-height: 112px;
-    padding: 16px 24px;
-    border-radius: 20px;
+    display: grid;
+    min-height: 64px;
+    padding: 8px 14px;
+    border-radius: 16px;
+    grid-template-columns: 28px minmax(0, 0.75fr) minmax(0, 1.25fr);
+    gap: 10px;
+    align-items: center;
+    text-align: left;
   }
 
   .pitch-cooking-flywheel > i {
-    min-height: 18px;
-    font-size: 24px;
-    transform: rotate(90deg);
-  }
-
-  .pitch-cooking-flywheel > i:last-child {
+    min-height: 14px;
+    line-height: 1;
     transform: none;
   }
 
+  .pitch-cooking-flywheel > i:not(.pitch-cooking-flywheel__repeat) {
+    font-size: 0;
+  }
+
+  .pitch-cooking-flywheel > i:not(.pitch-cooking-flywheel__repeat)::after {
+    font-size: 20px;
+    content: "↓";
+  }
+
   .pitch-deck .reveal .pitch-cooking-flywheel strong {
-    margin-top: 2px;
-    font-size: 22px;
+    margin-top: 0;
+    font-size: 20px;
   }
 
   .pitch-cooking-flywheel small {
-    margin-top: 3px;
-    font-size: 15px;
+    margin-top: 0;
+    font-size: 14px;
   }
 
   .pitch-recipe-roadmap {
