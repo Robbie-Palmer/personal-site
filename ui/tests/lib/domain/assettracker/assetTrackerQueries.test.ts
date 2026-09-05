@@ -222,6 +222,45 @@ describe("getNetWorthTimeSeries", () => {
     expect(point?.estimatedTotal).toBe(93_000);
   });
 
+  it("adds a capital-flow point without leaking a later valuation", () => {
+    const data = homeData();
+    data.accounts.push({
+      id: "growth-fund",
+      name: "Growth fund",
+      provider: "Broker",
+      currency: "GBP",
+      assetType: "stocks",
+      expectedAnnualReturn: 0,
+      createdAt: "2024-01-01",
+    });
+    data.snapshots.push(
+      {
+        accountId: "growth-fund",
+        date: "2024-01-01",
+        balance: 1_000,
+      },
+      {
+        accountId: "growth-fund",
+        date: "2026-01-01",
+        balance: 3_000,
+      },
+    );
+    data.capitalFlows = [
+      { accountId: "growth-fund", date: "2025-01-01", amount: 500 },
+    ];
+
+    const point = getNetWorthTimeSeries(buildRepository(data)).find(
+      ({ date }) => date === "2025-01-01",
+    );
+
+    expect(point).toMatchObject({
+      date: "2025-01-01",
+      "Growth fund": 1_000,
+      total: 89_000,
+      estimatedTotal: 89_500,
+    });
+  });
+
   it("omits accounts whose only recorded balance is a closing zero", () => {
     const data = homeData();
     data.accounts.push({

@@ -96,7 +96,7 @@ export function AccountsTable({
             <tfoot>
               <tr className="bg-muted/50">
                 <td colSpan={4} className="p-3 font-semibold">
-                  Net worth
+                  {showClosed ? "Open-account net worth" : "Net worth"}
                 </td>
                 <td className="p-3 text-right font-mono font-semibold">
                   {formatTotalBalances(openAccounts)}

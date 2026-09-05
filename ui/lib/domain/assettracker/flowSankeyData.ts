@@ -127,6 +127,15 @@ function addRecurringFlowLinks(
   const employeePensionFlows = flows.filter(
     (flow) => flow.compensationKind === "employeePension",
   );
+  const takeHomePay = grossPayFlows.reduce(
+    (total, flow) => total + recurringFlowValue(flow, liabilityBalances),
+    0,
+  );
+  const employeePension = employeePensionFlows.reduce(
+    (total, flow) => total + recurringFlowValue(flow, liabilityBalances),
+    0,
+  );
+  const pensionFitsWithinGrossPay = grossPay >= takeHomePay + employeePension;
 
   if (grossPay > 0) {
     builder.addLink(
@@ -151,7 +160,11 @@ function addRecurringFlowLinks(
       );
       continue;
     }
-    if (grossPay > 0 && flow.compensationKind === "employeePension") {
+    if (
+      grossPay > 0 &&
+      pensionFitsWithinGrossPay &&
+      flow.compensationKind === "employeePension"
+    ) {
       builder.addLink(
         GROSS_PAY_NODE,
         flow.toAccountId ?? EXTERNAL_SPENDING_NODE,
@@ -169,20 +182,18 @@ function addRecurringFlowLinks(
   }
 
   if (grossPay > 0) {
-    const takeHomePay = grossPayFlows.reduce(
-      (total, flow) => total + recurringFlowValue(flow, liabilityBalances),
-      0,
-    );
-    const employeePension = employeePensionFlows.reduce(
-      (total, flow) => total + recurringFlowValue(flow, liabilityBalances),
-      0,
-    );
-    builder.addLink(
-      GROSS_PAY_NODE,
-      TAX_NODE,
-      grossPay - takeHomePay - employeePension,
-      "Tax and deductions",
-    );
+    const taxAndDeductions =
+      grossPay -
+      takeHomePay -
+      (pensionFitsWithinGrossPay ? employeePension : 0);
+    if (taxAndDeductions > 0) {
+      builder.addLink(
+        GROSS_PAY_NODE,
+        TAX_NODE,
+        taxAndDeductions,
+        "Tax and deductions",
+      );
+    }
   }
 }
 

@@ -353,6 +353,16 @@ describe("buildAccountHistorySeries", () => {
     ]);
   });
 
+  it("compounds from the first valuation before applying the next dated flow", () => {
+    const series = buildAccountHistorySeries(
+      { expectedAnnualReturn: 0.1 },
+      [{ date: "2024-01-01", balance: 1_000 }],
+      [{ date: "2025-01-01", amount: 100 }],
+    );
+
+    expect(series.at(-1)?.expected).toBeCloseTo(1_200, 0);
+  });
+
   it("carries estimates and contributed capital onto requested chart dates", () => {
     const series = buildAccountHistorySeries(
       { expectedAnnualReturn: 0 },

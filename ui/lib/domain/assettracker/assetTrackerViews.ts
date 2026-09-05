@@ -363,7 +363,10 @@ export function toNetWorthTimeSeries(
   snapshots: BalanceSnapshot[],
   capitalFlows: CapitalFlow[] = [],
 ): NetWorthDataPoint[] {
-  const dateSet = new Set(snapshots.map((s) => s.date));
+  const dateSet = new Set([
+    ...snapshots.map((snapshot) => snapshot.date),
+    ...capitalFlows.map((flow) => flow.date),
+  ]);
   const sortedDates = Array.from(dateSet).sort(compareIsoDates);
   const accountsWithMarketValue = new Set(
     snapshots

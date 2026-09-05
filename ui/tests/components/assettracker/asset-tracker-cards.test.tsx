@@ -553,6 +553,7 @@ describe("AccountsTable", () => {
     expect(
       screen.getByRole("button", { name: "Hide closed accounts" }),
     ).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByText("Open-account net worth")).toBeVisible();
   });
 });
 
@@ -763,6 +764,76 @@ describe("buildFlowSankeyData", () => {
         label: "Tax and deductions",
         sourceName: "Gross pay",
         targetName: "Tax and deductions",
+      },
+    ]);
+  });
+
+  it("keeps pension external when it would over-allocate gross pay", () => {
+    const data = buildFlowSankeyData(
+      [
+        {
+          id: "current",
+          name: "Current",
+          provider: "Bank",
+          currency: "GBP",
+          assetType: "cash",
+          expectedAnnualReturn: 0,
+          isOpen: true,
+          latestBalance: 1_000,
+          latestSnapshotDate: "2026-07-03",
+          cagr: null,
+        },
+        {
+          id: "pension",
+          name: "Pension",
+          provider: "Provider",
+          currency: "GBP",
+          assetType: "stocks",
+          expectedAnnualReturn: 0,
+          isOpen: true,
+          latestBalance: 10_000,
+          latestSnapshotDate: "2026-07-03",
+          cagr: null,
+        },
+      ],
+      [
+        {
+          id: "salary",
+          name: "Take-home salary",
+          toAccountId: "current",
+          amount: 90,
+          grossAmount: 100,
+          compensationKind: "takeHomeIncome",
+          frequency: "monthly",
+          startDate: "2026-07-01",
+        },
+        {
+          id: "employee-pension",
+          name: "Employee pension",
+          toAccountId: "pension",
+          amount: 20,
+          compensationKind: "employeePension",
+          frequency: "monthly",
+          startDate: "2026-07-01",
+        },
+      ],
+      {},
+    );
+
+    expect(
+      data.links.map(({ sourceName, targetName, value }) => ({
+        sourceName,
+        targetName,
+        value,
+      })),
+    ).toEqual([
+      { sourceName: "External income", targetName: "Gross pay", value: 100 },
+      { sourceName: "Gross pay", targetName: "Current", value: 90 },
+      { sourceName: "External income", targetName: "Pension", value: 20 },
+      {
+        sourceName: "Gross pay",
+        targetName: "Tax and deductions",
+        value: 10,
       },
     ]);
   });
