@@ -1,3 +1,5 @@
+import { isRecord } from "recipe-domain/validation";
+
 export type ApiErrorDetail = {
   code?: string;
   message?: string;
@@ -42,10 +44,6 @@ type ApiRequestOptions = Omit<RequestInit, "body" | "credentials"> & {
   json?: unknown;
   responseType?: "json" | "void";
 };
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
 
 function parseErrorBody(value: unknown): ApiErrorBody | null {
   if (!isRecord(value)) return null;

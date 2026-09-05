@@ -1,4 +1,5 @@
 import { CooklangParser } from "@cooklang/cooklang";
+import { httpUrl } from "./url.js";
 import { deriveRecipeFromCooklang } from "./cooklang.js";
 import type { SchemaOrgRecipeFileImport } from "./schema-org.js";
 import { parseSchemaOrgRecipeJson } from "./schema-org.js";
@@ -72,18 +73,6 @@ function cuisineLabels(value: unknown): string[] {
 function fallbackTitle(filename: string): string {
   const basename = filename.replace(/\.[^.]+$/, "").replace(/[-_]+/g, " ").trim();
   return basename || "Imported recipe";
-}
-
-function httpUrl(value: unknown): string | undefined {
-  if (typeof value !== "string") return undefined;
-  try {
-    const url = new URL(value);
-    return url.protocol === "http:" || url.protocol === "https:"
-      ? url.toString()
-      : undefined;
-  } catch {
-    return undefined;
-  }
 }
 
 function parseCooklangRecipeFile(

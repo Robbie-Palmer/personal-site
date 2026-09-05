@@ -32,6 +32,7 @@ import {
   renameHousehold,
   revokeHouseholdInvitation,
 } from "@/lib/api/households";
+import { errorMessage } from "@/lib/generic/errors";
 import {
   type HouseholdSettingsData,
   householdSettingsQuery,
@@ -59,10 +60,6 @@ function friendlyDate(value: string) {
     month: "short",
     year: "numeric",
   }).format(new Date(value));
-}
-
-function errorMessage(error: unknown, fallback: string) {
-  return error instanceof Error ? error.message : fallback;
 }
 
 function excludeById<T extends { id: string }>(items: T[], id: string): T[] {

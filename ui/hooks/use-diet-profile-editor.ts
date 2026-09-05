@@ -10,6 +10,7 @@ import {
   emptyDietProfile,
 } from "@/lib/api/diet";
 import { authClient } from "@/lib/auth-client";
+import { errorMessage } from "@/lib/generic/errors";
 import { saveDietProfileMutation } from "@/lib/query/recipe-mutations";
 import { dietOptionsQuery, dietProfileQuery } from "@/lib/query/recipe-queries";
 
@@ -66,10 +67,6 @@ function editorSaveState(
   if (mutation.isError || loadError) return "error";
   if (mutation.isSuccess) return "saved";
   return "idle";
-}
-
-function errorMessage(error: unknown, fallback: string): string {
-  return error instanceof Error ? error.message : fallback;
 }
 
 export function useDietProfileEditor(): {

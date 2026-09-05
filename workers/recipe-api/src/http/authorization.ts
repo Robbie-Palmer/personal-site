@@ -1,6 +1,7 @@
 import type { Context, MiddlewareHandler } from "hono";
-import { createAuth, type Auth } from "../auth";
 import type { Db } from "recipe-db";
+import type { RecipeVisibility } from "recipe-domain/visibility";
+import { createAuth, type Auth } from "../auth";
 
 type AuthorizationEnv = Parameters<typeof createAuth>[1];
 
@@ -27,8 +28,6 @@ export type AuthorizationFailure = Extract<
   AuthorizationDecision,
   { allowed: false }
 >;
-
-export type RecipeVisibility = "public" | "private" | "household";
 
 export type OwnedResource = {
   userId: string;

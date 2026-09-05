@@ -15,6 +15,7 @@ import {
   updateNotification,
 } from "@/lib/api/notifications";
 import { authClient } from "@/lib/auth-client";
+import { isAbortError } from "@/lib/generic/errors";
 import { recipeQueryKeys } from "@/lib/query/recipe-query-keys";
 
 function bucket(date: string) {
@@ -142,7 +143,7 @@ export function NotificationsView() {
       setUnreadCount(page.unreadCount);
       setLoadedUserId(userId);
     } catch (cause) {
-      if (!(cause instanceof DOMException && cause.name === "AbortError")) {
+      if (!isAbortError(cause)) {
         setLoadedUserId(userId);
         setError(
           cause instanceof Error

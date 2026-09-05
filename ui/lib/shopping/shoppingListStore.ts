@@ -9,6 +9,7 @@
  * canonical database snapshots.
  */
 
+import { isRecord } from "recipe-domain/validation";
 import { captureRecipeProductActivity } from "@/lib/analytics/recipe-product";
 
 export type SelectedRecipeEntry = {
@@ -126,10 +127,6 @@ export function resetShoppingTripCompletion(): void {
   } catch {
     // The in-memory fallback still starts a new completion cycle.
   }
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
 }
 
 function isMealPlanDay(value: unknown): value is MealPlanDay {

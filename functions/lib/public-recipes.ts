@@ -3,6 +3,11 @@ import {
   type SavedRecipePayload,
   SavedRecipePayloadSchema,
 } from "recipe-domain/serialization";
+import { isRecord } from "recipe-domain/validation";
+import {
+  isRecipeVisibility,
+  type RecipeVisibility,
+} from "recipe-domain/visibility";
 
 export interface PublicRecipeEnv {
   RECIPE_API_URL?: string;
@@ -13,7 +18,7 @@ export type StoredRecipe = {
   title: string;
   description: string | null;
   body: string | null;
-  visibility: "public" | "private" | "household";
+  visibility: RecipeVisibility;
   createdAt?: string;
   updatedAt?: string;
 };
@@ -28,18 +33,8 @@ const API_TIMEOUT_MS = 5_000;
 const PAGE_LIMIT = 100;
 const MAX_PAGES = 100;
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
-}
-
 function isOptionalString(value: unknown): value is string | undefined {
   return value === undefined || typeof value === "string";
-}
-
-function isRecipeVisibility(
-  value: unknown,
-): value is StoredRecipe["visibility"] {
-  return value === "public" || value === "private" || value === "household";
 }
 
 export function isStoredRecipe(value: unknown): value is StoredRecipe {

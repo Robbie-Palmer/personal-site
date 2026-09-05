@@ -4,6 +4,7 @@ import { Bot, Clock, LoaderCircle, ShieldX } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { type AgentSummary, listAgents, revokeAgent } from "@/lib/api/agents";
+import { isAbortError } from "@/lib/generic/errors";
 import { PanelHead } from "./panel-head";
 
 function dateLabel(value: string | null): string {
@@ -40,7 +41,7 @@ export function AgentsPanel() {
     try {
       setAgents(await listAgents(signal));
     } catch (cause) {
-      if (cause instanceof DOMException && cause.name === "AbortError") return;
+      if (isAbortError(cause)) return;
       setError(
         cause instanceof Error ? cause.message : "Agents could not be loaded.",
       );

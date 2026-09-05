@@ -100,6 +100,38 @@ describe("AddRecipeView visibility", () => {
     expect(screen.getByRole("button", { name: "Household" })).toBeDisabled();
   });
 
+  it("falls back to private when household discovery fails", async () => {
+    mocks.getHouseholds.mockRejectedValue(new Error("Households unavailable"));
+
+    render(<AddRecipeView />);
+
+    expect(
+      await screen.findByText(
+        /Join a household to share recipes with its members\./,
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Private", pressed: true }),
+    ).toBeInTheDocument();
+  });
+
+  it("quietly stops household discovery when the request is aborted", async () => {
+    mocks.getHouseholds.mockRejectedValue(
+      new DOMException("Aborted", "AbortError"),
+    );
+
+    render(<AddRecipeView />);
+
+    expect(
+      await screen.findByText(
+        /Join a household to share recipes with its members\./,
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Private", pressed: true }),
+    ).toBeInTheDocument();
+  });
+
   it("preserves a visibility selected while household membership loads", async () => {
     let resolveHouseholds: (value: (typeof household)[]) => void = () => {};
     mocks.getHouseholds.mockReturnValue(

@@ -11,6 +11,7 @@ import {
   X,
 } from "lucide-react";
 import { type ChangeEvent, useEffect, useRef, useState } from "react";
+import { isRecord } from "recipe-domain/validation";
 import { Button } from "@/components/ui/button";
 import { apiRequest } from "@/lib/api/http";
 
@@ -53,10 +54,6 @@ const MAX_PHOTO_BYTES = 10 * 1024 * 1024;
 const MAX_TOTAL_PHOTO_BYTES = 30 * 1024 * 1024;
 const MAX_RECIPE_SOURCE_LENGTH = 10_000;
 const ACCEPTED_PHOTO_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
-}
 
 function hasOptionalString(record: Record<string, unknown>, key: string) {
   return record[key] === undefined || typeof record[key] === "string";

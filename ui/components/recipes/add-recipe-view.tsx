@@ -26,6 +26,7 @@ import {
   useRef,
   useState,
 } from "react";
+import type { RecipeVisibility } from "recipe-domain/visibility";
 import {
   PhotoRecipeImport,
   type PhotoRecipeImportDraft,
@@ -47,6 +48,7 @@ import {
   type SavedRecipeApiRecord,
   serializeSavedRecipe,
 } from "@/lib/domain/recipe/recipeDraft";
+import { isAbortError } from "@/lib/generic/errors";
 import { recipeSaveReturnPath } from "@/lib/generic/safe-return-path";
 import { normalizeSlug } from "@/lib/generic/slugs";
 import { recipeQueryKeys } from "@/lib/query/recipe-query-keys";
@@ -58,7 +60,6 @@ Meanwhile, warm @olive oil{2%tbsp} in a #frying pan{}. Add @garlic{2%cloves} and
 Stir in @chopped tomatoes{400%g} and simmer for ~{15%minutes}. Drain the pasta, toss it through the sauce, and serve.`;
 
 type AddMethod = "write" | "url" | "photo" | "file";
-type RecipeVisibility = "private" | "household" | "public";
 
 type ImportedRecipe = {
   title: string;
@@ -319,8 +320,7 @@ export function AddRecipeView({
         }
       })
       .catch((error: unknown) => {
-        if (error instanceof DOMException && error.name === "AbortError")
-          return;
+        if (isAbortError(error)) return;
         setHasHousehold(false);
         if (!visibilityTouchedRef.current) setVisibility("private");
       })

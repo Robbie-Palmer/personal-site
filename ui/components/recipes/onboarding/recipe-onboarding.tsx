@@ -38,6 +38,7 @@ import {
   resolveOnboardingRecipeSelection,
 } from "@/lib/domain/recipe/onboarding";
 import { savedRecipeCard } from "@/lib/domain/recipe/recipeDraft";
+import { isAbortError } from "@/lib/generic/errors";
 import { cn } from "@/lib/generic/styles";
 import {
   saveDietProfileMutation,
@@ -168,7 +169,7 @@ async function fetchOwnedRecipes(signal: AbortSignal) {
       signal,
     });
   } catch (error) {
-    if (error instanceof Error && error.name === "AbortError") {
+    if (isAbortError(error)) {
       throw error;
     }
     throw new Error("Your authored recipes could not be loaded.");
@@ -348,7 +349,7 @@ export function RecipeOnboarding() {
         }
       })
       .catch((error_: unknown) => {
-        if (!(error_ instanceof DOMException && error_.name === "AbortError")) {
+        if (!isAbortError(error_)) {
           console.error(
             `Recipe onboarding load attempt ${loadAttempt + 1} failed`,
             error_,

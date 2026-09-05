@@ -1,3 +1,4 @@
+import { isRecord } from "recipe-domain/validation";
 import type { Pantry } from "@/lib/api/pantry";
 
 export type PantryRealtimeMessage =
@@ -15,10 +16,6 @@ export type PantryRealtimeMessage =
       changeKind: string;
       pantry: Pantry;
     };
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
 
 function isStringRecord(value: unknown): value is Record<string, string> {
   return (

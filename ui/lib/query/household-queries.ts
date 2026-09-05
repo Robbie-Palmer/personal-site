@@ -9,6 +9,7 @@ import {
   type HouseholdMember,
   type IncomingHouseholdInvitation,
 } from "@/lib/api/households";
+import { errorMessage } from "@/lib/generic/errors";
 import { recipeQueryKeys } from "@/lib/query/recipe-query-keys";
 
 export type HouseholdSettingsData = {
@@ -18,10 +19,6 @@ export type HouseholdSettingsData = {
   incoming: IncomingHouseholdInvitation[];
   detailError: string | null;
 };
-
-function errorMessage(error: unknown, fallback: string) {
-  return error instanceof Error ? error.message : fallback;
-}
 
 function fulfilledValue<T>(result: PromiseSettledResult<T>, fallback: T): T {
   return result.status === "fulfilled" ? result.value : fallback;
