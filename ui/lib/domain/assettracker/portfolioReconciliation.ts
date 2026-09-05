@@ -186,7 +186,12 @@ function reconcileRetainedIncome(
 export function reconcilePortfolio(
   repository: AssetTrackerRepository,
 ): PortfolioReconciliationPeriod[] {
-  const netWorth = getNetWorthTimeSeries(repository);
+  const snapshotDates = new Set(
+    repository.snapshots.map((snapshot) => snapshot.date),
+  );
+  const netWorth = getNetWorthTimeSeries(repository).filter((point) =>
+    snapshotDates.has(point.date),
+  );
   const income = repository.incomeHistory.toSorted((a, b) =>
     a.date.localeCompare(b.date),
   );
