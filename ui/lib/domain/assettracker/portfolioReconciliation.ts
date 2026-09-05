@@ -291,8 +291,13 @@ function currentCompensation(
   let annualEmployeePensionContribution = 0;
   let annualEmployerPensionContribution = 0;
   for (const flow of repository.recurringFlows) {
+    const destination =
+      flow.toAccountId == null
+        ? null
+        : repository.accounts.get(flow.toAccountId);
     if (
       flow.compensationKind == null ||
+      (destination?.closedAt != null && destination.closedAt <= asOfDate) ||
       flow.startDate > asOfDate ||
       (flow.endDate != null && flow.endDate < asOfDate)
     ) {

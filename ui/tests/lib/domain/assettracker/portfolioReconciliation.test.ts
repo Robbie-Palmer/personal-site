@@ -265,6 +265,16 @@ describe("reconcilePortfolio", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-01-01T12:00:00Z"));
     const data = portfolioData();
+    data.accounts.push({
+      id: "closed-pension",
+      name: "Closed pension",
+      provider: "Old provider",
+      currency: "GBP",
+      assetType: "stocks",
+      expectedAnnualReturn: 0.05,
+      createdAt: "2024-01-01",
+      closedAt: "2025-12-31",
+    });
     data.recurringFlows = [
       {
         id: "salary",
@@ -289,6 +299,15 @@ describe("reconcilePortfolio", () => {
         name: "Employer pension",
         toAccountId: "portfolio",
         amount: 350,
+        compensationKind: "employerPension",
+        frequency: "monthly",
+        startDate: "2025-01-01",
+      },
+      {
+        id: "closed-pension-contribution",
+        name: "Closed pension contribution",
+        toAccountId: "closed-pension",
+        amount: 1_000,
         compensationKind: "employerPension",
         frequency: "monthly",
         startDate: "2025-01-01",
