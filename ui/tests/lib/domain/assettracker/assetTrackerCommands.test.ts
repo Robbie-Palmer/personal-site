@@ -363,6 +363,77 @@ describe("applyImportAccountHistory", () => {
     ]);
   });
 
+  it("preserves capital flows during a balance-only replacement import", () => {
+    const imported = applyImportAccountHistory(baseData(), {
+      accountId: "stocks-isa",
+      balances: [],
+      capitalFlows: [{ date: "2024-01-01", value: 100 }],
+      capitalFlowKind: "personalSaving",
+    });
+
+    const next = applyImportAccountHistory(imported, {
+      accountId: "stocks-isa",
+      balances: [{ date: "2024-06-01", value: 13_000 }],
+      capitalFlows: [],
+      capitalFlowKind: "personalSaving",
+      replaceCapitalFlows: true,
+    });
+
+    expect(next.capitalFlows).toEqual(imported.capitalFlows);
+    expect(next.snapshots).toContainEqual({
+      accountId: "stocks-isa",
+      date: "2024-06-01",
+      balance: 13_000,
+    });
+  });
+
+  it("keeps independently classified capital histories on the same date", () => {
+    const personal = applyImportAccountHistory(baseData(), {
+      accountId: "stocks-isa",
+      balances: [],
+      capitalFlows: [{ date: "2024-06-01", value: 400 }],
+      capitalFlowKind: "personalSaving",
+      replaceCapitalFlows: true,
+    });
+    const combined = applyImportAccountHistory(personal, {
+      accountId: "stocks-isa",
+      balances: [],
+      capitalFlows: [{ date: "2024-06-01", value: 200 }],
+      capitalFlowKind: "external",
+      replaceCapitalFlows: true,
+    });
+
+    expect(combined.capitalFlows).toEqual([
+      {
+        accountId: "stocks-isa",
+        date: "2024-06-01",
+        amount: 400,
+        kind: "personalSaving",
+      },
+      {
+        accountId: "stocks-isa",
+        date: "2024-06-01",
+        amount: 200,
+        kind: "external",
+      },
+    ]);
+
+    expect(
+      applyDeleteCapitalFlow(combined, {
+        accountId: "stocks-isa",
+        date: "2024-06-01",
+        kind: "external",
+      }).capitalFlows,
+    ).toEqual([
+      {
+        accountId: "stocks-isa",
+        date: "2024-06-01",
+        amount: 400,
+        kind: "personalSaving",
+      },
+    ]);
+  });
+
   it("deletes a capital-flow observation", () => {
     const imported = applyImportAccountHistory(baseData(), {
       accountId: "stocks-isa",
@@ -381,6 +452,13 @@ describe("applyImportAccountHistory", () => {
         date: "2024-06-01",
       }),
     ).toThrow(/No deposit or withdrawal/);
+    expect(() =>
+      applyDeleteCapitalFlow(imported, {
+        accountId: "stocks-isa",
+        date: "2024-06-01",
+        kind: "external",
+      }),
+    ).toThrow(/kind "external"/);
   });
 });
 

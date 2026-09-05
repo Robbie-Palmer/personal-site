@@ -45,8 +45,8 @@ function getYearsToFiLabel(
 }
 
 function getAnnualSavingsDescription(annualSavings: number | null): string {
-  if (annualSavings == null) return "Income retained ÷ income";
-  return `${formatCurrency(Math.round(annualSavings))}/yr median retained`;
+  if (annualSavings == null) return "Personal capital ÷ entered income";
+  return `${formatCurrency(Math.round(annualSavings))}/yr median total capital added`;
 }
 
 function getEmergencyFundDescription(months: number | null): string {
@@ -94,6 +94,7 @@ export function PortfolioGoal() {
   const {
     periods,
     representativeAnnualExpenditure,
+    representativeAnnualCurrentExpenditure,
     representativeAnnualSavings,
     savingsRate,
     emergencyFund,
@@ -143,7 +144,8 @@ export function PortfolioGoal() {
           <CardTitle>Financial independence</CardTitle>
           <CardDescription>
             Derived from income, complete account balances, and signed capital
-            flows—not a manually chosen net-worth goal.
+            flows. Capital sources keep personal saving, debt principal, and
+            external contributions distinct.
           </CardDescription>
         </div>
         <IncomeHistoryImportDrawer />
@@ -158,8 +160,18 @@ export function PortfolioGoal() {
               {optionalCurrency(representativeAnnualExpenditure)}
             </p>
             <p className="mt-1 text-xs text-muted-foreground">
-              Median annualised period
+              Long-term FI spending, excluding debt principal
             </p>
+            {representativeAnnualCurrentExpenditure != null &&
+              representativeAnnualCurrentExpenditure !==
+                representativeAnnualExpenditure && (
+                <p className="mt-2 border-t pt-2 text-xs text-muted-foreground">
+                  {formatCurrency(
+                    Math.round(representativeAnnualCurrentExpenditure),
+                  )}
+                  /yr current spending, including debt principal
+                </p>
+              )}
           </div>
           <div className="rounded-md border p-3">
             <div className="flex items-center justify-between gap-2">
@@ -192,7 +204,7 @@ export function PortfolioGoal() {
               {optionalCurrency(target)}
             </p>
             <p className="mt-1 text-xs text-muted-foreground">
-              Annual expenditure ÷ withdrawal rate
+              Long-term FI spending ÷ withdrawal rate
             </p>
           </div>
           <div className="rounded-md border p-3">
@@ -209,6 +221,7 @@ export function PortfolioGoal() {
               {percentage(savingsRate, 1)}
             </p>
             <p className="mt-1 text-xs text-muted-foreground">
+              From entered income.{" "}
               {getAnnualSavingsDescription(representativeAnnualSavings)}
             </p>
           </div>
@@ -260,14 +273,14 @@ export function PortfolioGoal() {
             <div>
               <h3 className="text-sm font-medium">Period reconciliation</h3>
               <p className="text-xs text-muted-foreground">
-                Opening net worth + income − expenditure + valuation gain =
-                closing net worth. Retained income uses recorded net deposits
-                and withdrawals where available; otherwise it falls back to the
-                total net-worth change and assumes zero valuation gain.
+                Opening net worth + income − long-term spending + external
+                capital + valuation gain = closing net worth. Current spending
+                adds debt principal back. When no classified capital exists,
+                reconciliation falls back to the total net-worth change.
               </p>
             </div>
             <div className="overflow-x-auto rounded-md border">
-              <table className="w-full min-w-[900px] text-sm">
+              <table className="w-full min-w-[1180px] text-sm">
                 <thead className="bg-muted/50 text-left text-xs text-muted-foreground">
                   <tr>
                     <th className="px-3 py-2 font-medium">Period</th>
@@ -276,14 +289,22 @@ export function PortfolioGoal() {
                     </th>
                     <th className="px-3 py-2 text-right font-medium">Income</th>
                     <th className="px-3 py-2 text-right font-medium">
-                      Retained
+                      Retained from income
                     </th>
-                    <th className="px-3 py-2 font-medium">Basis</th>
+                    <th className="px-3 py-2 text-right font-medium">
+                      External capital
+                    </th>
+                    <th className="px-3 py-2 text-right font-medium">
+                      Debt principal
+                    </th>
                     <th className="px-3 py-2 text-right font-medium">
                       Valuation gain
                     </th>
                     <th className="px-3 py-2 text-right font-medium">
-                      Expenditure
+                      Long-term spending
+                    </th>
+                    <th className="px-3 py-2 text-right font-medium">
+                      Current spending
                     </th>
                     <th className="px-3 py-2 text-right font-medium">
                       Closing
@@ -303,18 +324,29 @@ export function PortfolioGoal() {
                         {formatCurrency(period.income)}
                       </td>
                       <td className="whitespace-nowrap px-3 py-2 text-right">
-                        {signedCurrency(period.netCapitalFlow)}
+                        <span className="block">
+                          {signedCurrency(period.personalCapitalFlow)}
+                        </span>
+                        {period.retainedIncomeSource === "balance-change" && (
+                          <span className="block text-[11px] text-muted-foreground">
+                            Estimated from balances
+                          </span>
+                        )}
                       </td>
-                      <td className="whitespace-nowrap px-3 py-2">
-                        {period.retainedIncomeSource === "recorded-flows"
-                          ? "Recorded flows"
-                          : "Balance change"}
+                      <td className="whitespace-nowrap px-3 py-2 text-right">
+                        {signedCurrency(period.externalCapitalFlow)}
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-2 text-right">
+                        {signedCurrency(period.debtPrincipalFlow)}
                       </td>
                       <td className="whitespace-nowrap px-3 py-2 text-right">
                         {signedCurrency(period.valuationGain)}
                       </td>
                       <td className="whitespace-nowrap px-3 py-2 text-right">
                         {formatCurrency(period.expenditure)}
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-2 text-right">
+                        {formatCurrency(period.currentExpenditure)}
                       </td>
                       <td className="whitespace-nowrap px-3 py-2 text-right">
                         {formatCurrency(period.closingNetWorth)}

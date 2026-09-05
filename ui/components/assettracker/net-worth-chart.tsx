@@ -169,7 +169,7 @@ export function NetWorthChart({ data }: Readonly<NetWorthChartProps>) {
     <Card>
       <CardHeader>
         <div className="flex flex-wrap items-start justify-between gap-2">
-          <CardTitle>Net Worth Over Time</CardTitle>
+          <CardTitle>Market net worth over time</CardTitle>
           <div className="flex gap-1">
             {RANGE_OPTIONS.map((option) => (
               <Button
@@ -201,8 +201,9 @@ export function NetWorthChart({ data }: Readonly<NetWorthChartProps>) {
           </p>
         )}
         <CardDescription>
-          Stacked account balances with net worth as the bold line — liability
-          accounts stack below zero, so the line is the true total.
+          Historical market valuations with net worth as the bold line.
+          Liabilities sit below zero, and linked mortgages reduce property to
+          home equity.
         </CardDescription>
       </CardHeader>
       <CardContent className="px-2 sm:px-6">

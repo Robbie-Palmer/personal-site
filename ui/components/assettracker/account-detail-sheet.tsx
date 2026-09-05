@@ -13,6 +13,8 @@ import {
 } from "@/components/ui/sheet";
 import {
   type AccountDetailView,
+  type CapitalFlowKind,
+  capitalFlowKind,
   computeEquitySummary,
   type EquitySummary,
   effectiveExpectedReturn,
@@ -39,6 +41,12 @@ interface AccountDetailSheetProps {
   accountId: string | null;
   onClose(): void;
 }
+
+const CAPITAL_FLOW_LABELS: Record<CapitalFlowKind, string> = {
+  personalSaving: "From entered income",
+  debtPrincipal: "Debt principal",
+  external: "Outside entered income",
+};
 
 export function AccountDetailSheet({
   accountId,
@@ -137,7 +145,7 @@ function CapitalPerformanceCard({
   return (
     <div className="grid grid-cols-2 gap-3 rounded-lg border bg-muted/30 p-3">
       <div>
-        <p className="text-xs text-muted-foreground">Net contributed</p>
+        <p className="text-xs text-muted-foreground">Contributed capital</p>
         <p className="mt-1 font-semibold">
           {formatAccountCurrency(account.netContributed, account.currency)}
         </p>
@@ -194,7 +202,9 @@ function StatsCards({
   return (
     <div className={gridClass}>
       <div className="rounded-lg border p-3">
-        <p className="text-xs text-muted-foreground">Balance</p>
+        <p className="text-xs text-muted-foreground">
+          {liability ? "Balance" : "Market value"}
+        </p>
         <p className="mt-1 font-semibold">{balanceText}</p>
       </div>
       {/* CAGR is meaningless for a debt being paid down, so omit it */}
@@ -258,7 +268,7 @@ function BalanceHistory({ account }: Readonly<{ account: AccountDetailView }>) {
   return (
     <div>
       <div className="mb-2 flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <h3 className="text-sm font-medium">Balance history</h3>
+        <h3 className="text-sm font-medium">Market value history</h3>
         {account.snapshots.length > 0 && (
           <ClearAccountHistoryButton
             accountId={account.id}
@@ -305,25 +315,25 @@ function CapitalFlowHistory({
 }: Readonly<{ account: AccountDetailView }>) {
   const { deleteCapitalFlow } = useAssetTracker();
   const [error, setError] = useState<string | null>(null);
-  const [deletingDate, setDeletingDate] = useState<string | null>(null);
+  const [deletingFlowKey, setDeletingFlowKey] = useState<string | null>(null);
 
-  async function handleDelete(date: string) {
-    if (deletingDate != null) return;
-    setDeletingDate(date);
+  async function handleDelete(date: string, kind?: CapitalFlowKind) {
+    if (deletingFlowKey != null) return;
+    setDeletingFlowKey(`${date}-${kind ?? "personalSaving"}`);
     try {
-      await deleteCapitalFlow({ accountId: account.id, date });
+      await deleteCapitalFlow({ accountId: account.id, date, kind });
       setError(null);
     } catch (err) {
       setError(formatAssetTrackerError(err));
     } finally {
-      setDeletingDate(null);
+      setDeletingFlowKey(null);
     }
   }
 
   return (
     <div>
       <div className="mb-2 flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <h3 className="text-sm font-medium">Deposit / withdrawal history</h3>
+        <h3 className="text-sm font-medium">Contributed capital history</h3>
         {account.capitalFlows.length > 0 && (
           <ClearAccountHistoryButton
             accountId={account.id}
@@ -334,16 +344,19 @@ function CapitalFlowHistory({
       </div>
       {account.capitalFlows.length === 0 ? (
         <p className="text-sm text-muted-foreground">
-          No deposits or withdrawals recorded yet.
+          No contributed capital recorded yet.
         </p>
       ) : (
         <ul className="divide-y rounded-lg border">
           {[...account.capitalFlows].reverse().map((flow) => (
             <li
-              key={flow.date}
+              key={`${flow.date}-${capitalFlowKind(flow)}`}
               className="flex items-center justify-between gap-2 px-3 py-2 text-sm"
             >
               <span className="text-muted-foreground">{flow.date}</span>
+              <Badge variant="outline" className="font-normal">
+                {CAPITAL_FLOW_LABELS[capitalFlowKind(flow)]}
+              </Badge>
               <span className="ml-auto font-mono">
                 {flow.amount > 0 ? "+" : ""}
                 {formatAccountCurrency(flow.amount, account.currency)}
@@ -351,9 +364,9 @@ function CapitalFlowHistory({
               <Button
                 variant="ghost"
                 size="icon-sm"
-                aria-label={`Delete deposit or withdrawal from ${flow.date}`}
-                onClick={() => handleDelete(flow.date)}
-                disabled={deletingDate != null}
+                aria-label={`Delete ${CAPITAL_FLOW_LABELS[capitalFlowKind(flow)].toLowerCase()} capital from ${flow.date}`}
+                onClick={() => handleDelete(flow.date, flow.kind)}
+                disabled={deletingFlowKey != null}
               >
                 <Trash2Icon />
               </Button>

@@ -49,6 +49,7 @@ const FIXED_NOW = new Date("2026-07-03T12:00:00+01:00");
 const EMPTY_FI: PortfolioFinancialIndependence = {
   periods: [],
   representativeAnnualExpenditure: null,
+  representativeAnnualCurrentExpenditure: null,
   representativeAnnualSavings: null,
   savingsRate: null,
   emergencyFund: 0,
@@ -191,7 +192,7 @@ describe("PortfolioGoal", () => {
     expect(progress).toHaveAttribute("value", "0.25");
   });
 
-  it("plots income and expenditure and switches to their difference", async () => {
+  it("plots current and long-term spending and switches to retained income", async () => {
     mockAssetTracker({
       incomeHistory: [
         { date: "2026-01-31", amount: 4_000 },
@@ -207,14 +208,20 @@ describe("PortfolioGoal", () => {
             closingNetWorth: 101_500,
             income: 4_000,
             netCapitalFlow: 1_500,
+            personalCapitalFlow: 1_500,
+            debtPrincipalFlow: 500,
+            externalCapitalFlow: 0,
             retainedIncomeSource: "balance-change",
             valuationGain: 0,
             expenditure: 2_500,
+            currentExpenditure: 3_000,
             days: 31,
             annualizedExpenditure: 29_455.04,
+            annualizedCurrentExpenditure: 35_346.05,
           },
         ],
         representativeAnnualExpenditure: 29_455.04,
+        representativeAnnualCurrentExpenditure: 35_346.05,
         target: 736_376,
         progress: 0.14,
       },
@@ -223,7 +230,7 @@ describe("PortfolioGoal", () => {
     render(<PortfolioGoal />);
 
     expect(
-      screen.getByRole("img", { name: "Income and expenditure by period" }),
+      screen.getByRole("img", { name: "Income and spending by period" }),
     ).toBeVisible();
     expect(screen.getByTestId("line-chart")).toHaveAttribute(
       "data-chart-data",
@@ -232,6 +239,7 @@ describe("PortfolioGoal", () => {
           date: "2026-01-31",
           income: 4_000,
           expenditure: 2_500,
+          currentExpenditure: 3_000,
           difference: 1_500,
         },
         { date: "2026-02-28", income: 4_200 },
@@ -242,16 +250,22 @@ describe("PortfolioGoal", () => {
       document.querySelector('[data-series="expenditure"]'),
     ).toHaveAttribute("data-dots", "visible");
     expect(
-      screen.getByRole("table", { name: "Income and expenditure by period" }),
+      document.querySelector('[data-series="currentExpenditure"]'),
+    ).toHaveAttribute("data-dots", "visible");
+    expect(
+      screen.getByRole("table", { name: "Income and spending by period" }),
     ).toHaveTextContent(
-      "2026-01-31£4,000£2,500£1,5002026-02-28£4,200Awaiting reconciliationAwaiting reconciliation",
+      "2026-01-31£4,000£2,500£3,000£1,5002026-02-28£4,200Awaiting reconciliationAwaiting reconciliationAwaiting reconciliation",
     );
-    expect(screen.getByText("Balance change")).toBeVisible();
+    expect(screen.getByText("Estimated from balances")).toBeVisible();
+    expect(
+      screen.getByText("£35,346/yr current spending, including debt principal"),
+    ).toBeVisible();
 
-    await userEvent.click(screen.getByRole("button", { name: "Difference" }));
+    await userEvent.click(screen.getByRole("button", { name: "Retained" }));
 
     expect(
-      screen.getByRole("img", { name: "Income minus expenditure by period" }),
+      screen.getByRole("img", { name: "Income retained by period" }),
     ).toBeVisible();
     expect(document.querySelector('[data-series="income"]')).toBeNull();
     expect(document.querySelector('[data-series="expenditure"]')).toBeNull();

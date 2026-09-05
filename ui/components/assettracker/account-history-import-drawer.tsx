@@ -1,7 +1,14 @@
 "use client";
 
 import { ClipboardPasteIcon } from "lucide-react";
-import { type SubmitEvent, useMemo, useRef, useState } from "react";
+import {
+  type ReactNode,
+  type SubmitEvent,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { Button } from "@/components/ui/button";
 import {
   Drawer,
@@ -14,6 +21,7 @@ import {
 } from "@/components/ui/drawer";
 import {
   type AccountDetailView,
+  type CapitalFlowKind,
   type ContributionHistoryFormat,
   formatAssetTrackerError,
   type PastedHistoryResult,
@@ -23,6 +31,27 @@ import {
 import { useAssetTracker } from "./asset-tracker-provider";
 
 const EMPTY_RESULT: PastedHistoryResult = { rows: [], issues: [] };
+
+const CAPITAL_KIND_COPY: Record<
+  CapitalFlowKind,
+  { label: string; description: string }
+> = {
+  personalSaving: {
+    label: "From entered income or cash",
+    description:
+      "Your deposits, including employee pension contributions already represented in income. These reduce current and long-term spending.",
+  },
+  debtPrincipal: {
+    label: "Debt principal",
+    description:
+      "Mortgage or loan principal. It builds equity and counts in current spending, but not long-term FI spending.",
+  },
+  external: {
+    label: "Outside entered income",
+    description:
+      "Employer pension contributions, gifts, or inheritance. These build capital without reducing spending from the income you entered.",
+  },
+};
 
 function HistoryPreview({
   label,
@@ -170,17 +199,51 @@ function HistoryTextarea({
   );
 }
 
+interface AccountHistoryImportDrawerProps {
+  /** Locks the importer to one account when opened from account details. */
+  account?: AccountDetailView;
+  trigger?: ReactNode;
+}
+
 export function AccountHistoryImportDrawer({
-  account,
-}: Readonly<{ account: AccountDetailView }>) {
-  const { importAccountHistory } = useAssetTracker();
+  account: fixedAccount,
+  trigger,
+}: Readonly<AccountHistoryImportDrawerProps>) {
+  const { accountDetails, importAccountHistory } = useAssetTracker();
+  const availableAccounts = fixedAccount
+    ? [fixedAccount]
+    : (accountDetails ?? []);
   const [open, setOpen] = useState(false);
+  const [selectedAccountId, setSelectedAccountId] = useState(
+    fixedAccount?.id ?? availableAccounts[0]?.id ?? "",
+  );
   const [balances, setBalances] = useState("");
   const [capitalFlows, setCapitalFlows] = useState("");
   const [contributionFormat, setContributionFormat] =
     useState<ContributionHistoryFormat>("cumulative");
+  const [capitalKind, setCapitalKind] =
+    useState<CapitalFlowKind>("personalSaving");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const account =
+    fixedAccount ??
+    availableAccounts.find((candidate) => candidate.id === selectedAccountId);
+
+  const availableAccountIds = availableAccounts
+    .map((candidate) => candidate.id)
+    .join(",");
+  // biome-ignore lint/correctness/useExhaustiveDependencies: availableAccountIds fingerprints membership instead of the array's identity
+  useEffect(() => {
+    if (fixedAccount) {
+      setSelectedAccountId(fixedAccount.id);
+      return;
+    }
+    setSelectedAccountId((current) =>
+      availableAccounts.some((candidate) => candidate.id === current)
+        ? current
+        : (availableAccounts[0]?.id ?? ""),
+    );
+  }, [fixedAccount, availableAccountIds]);
 
   const balanceResult = useMemo(
     () =>
@@ -201,11 +264,16 @@ export function AccountHistoryImportDrawer({
     [capitalResult.rows, contributionFormat],
   );
   const rowCount = balanceResult.rows.length + capitalFlowRows.length;
-  const balanceTextareaId = `balance-history-${account.id}`;
-  const capitalTextareaId = `capital-history-${account.id}`;
+  const accountKey = account?.id ?? "unselected";
+  const balanceTextareaId = `balance-history-${accountKey}`;
+  const capitalTextareaId = `capital-history-${accountKey}`;
 
   async function handleSubmit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!account) {
+      setError("Choose an account");
+      return;
+    }
     if (hasIssues) {
       setError("Fix the highlighted rows before importing");
       return;
@@ -221,6 +289,7 @@ export function AccountHistoryImportDrawer({
         accountId: account.id,
         balances: balanceResult.rows,
         capitalFlows: capitalFlowRows,
+        capitalFlowKind: capitalKind,
         replaceCapitalFlows: contributionFormat === "cumulative",
       });
       setBalances("");
@@ -236,32 +305,67 @@ export function AccountHistoryImportDrawer({
   return (
     <Drawer open={open} onOpenChange={setOpen}>
       <DrawerTrigger asChild>
-        <Button variant="outline" size="sm">
-          <ClipboardPasteIcon />
-          Paste history
-        </Button>
+        {trigger ?? (
+          <Button
+            variant="outline"
+            size={fixedAccount ? "sm" : "default"}
+            disabled={availableAccounts.length === 0}
+          >
+            <ClipboardPasteIcon />
+            {fixedAccount ? "Paste history" : "Import history"}
+          </Button>
+        )}
       </DrawerTrigger>
       <DrawerContent className="h-[92dvh] max-h-[92dvh] overflow-hidden">
         <DrawerHeader className="mx-auto w-full max-w-4xl shrink-0">
-          <DrawerTitle>Paste history for {account.name}</DrawerTitle>
+          <DrawerTitle>
+            {fixedAccount
+              ? `Paste history for ${fixedAccount.name}`
+              : "Import account history"}
+          </DrawerTitle>
           <DrawerDescription>
-            Copy two columns from your spreadsheet. Headers are optional; comma-
-            and tab-separated values both work. Matching dates replace the
-            existing value.
+            Add market values and contributed capital as separate histories.
+            Copy two columns from a spreadsheet. Headers are optional, and
+            comma- or tab-separated values both work.
           </DrawerDescription>
         </DrawerHeader>
         <form
-          aria-label={`Import history for ${account.name}`}
+          aria-label={`Import history for ${account?.name ?? "an account"}`}
           onSubmit={handleSubmit}
           className="mx-auto flex min-h-0 w-full max-w-4xl flex-1 flex-col overflow-hidden"
         >
           <div className="grid min-h-0 flex-1 gap-5 overflow-y-auto overscroll-contain p-4 md:grid-cols-2">
+            {!fixedAccount && (
+              <div className="flex flex-col gap-1.5 md:col-span-2">
+                <label
+                  htmlFor="history-import-account"
+                  className="text-sm font-medium"
+                >
+                  Account
+                </label>
+                <select
+                  id="history-import-account"
+                  value={selectedAccountId}
+                  onChange={(event) => setSelectedAccountId(event.target.value)}
+                  className="border-input bg-background focus-visible:border-ring focus-visible:ring-ring/50 h-9 w-full rounded-md border px-3 text-sm shadow-xs outline-none focus-visible:ring-[3px]"
+                  required
+                >
+                  {availableAccounts.map((candidate) => (
+                    <option key={candidate.id} value={candidate.id}>
+                      {candidate.name} · {candidate.provider}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
             <div className="flex min-w-0 flex-col gap-2">
               <HistoryTextarea
                 id={balanceTextareaId}
-                label="Balance / market value"
-                description="The account value observed on each date."
-                placeholder={"date,value\n2024-01-31,12500\n2024-02-29,13120"}
+                label="Market value history"
+                description="What the account or property was worth on each date."
+                placeholder={
+                  "date,market value\n2024-01-31,12500\n2024-02-29,13120"
+                }
                 value={balances}
                 onChange={setBalances}
               />
@@ -275,13 +379,42 @@ export function AccountHistoryImportDrawer({
             <div className="flex min-w-0 flex-col gap-2">
               <div className="flex flex-col gap-1.5">
                 <label
-                  htmlFor={`contribution-format-${account.id}`}
+                  htmlFor={`capital-kind-${accountKey}`}
+                  className="text-sm font-medium"
+                >
+                  How this capital was funded
+                </label>
+                <select
+                  id={`capital-kind-${accountKey}`}
+                  value={capitalKind}
+                  onChange={(event) =>
+                    setCapitalKind(event.target.value as CapitalFlowKind)
+                  }
+                  className="border-input bg-background focus-visible:border-ring focus-visible:ring-ring/50 h-9 w-full rounded-md border px-3 text-sm shadow-xs outline-none focus-visible:ring-[3px]"
+                >
+                  {Object.entries(CAPITAL_KIND_COPY).map(([value, copy]) => (
+                    <option key={value} value={value}>
+                      {copy.label}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-xs text-muted-foreground">
+                  {CAPITAL_KIND_COPY[capitalKind].description}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  If an account has more than one source, import each source
+                  separately. They can share the same dates.
+                </p>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <label
+                  htmlFor={`contribution-format-${accountKey}`}
                   className="text-sm font-medium"
                 >
                   Contribution history format
                 </label>
                 <select
-                  id={`contribution-format-${account.id}`}
+                  id={`contribution-format-${accountKey}`}
                   value={contributionFormat}
                   onChange={(event) =>
                     setContributionFormat(
@@ -296,14 +429,10 @@ export function AccountHistoryImportDrawer({
               </div>
               <HistoryTextarea
                 id={capitalTextareaId}
-                label={
-                  contributionFormat === "cumulative"
-                    ? "Total contributed to date"
-                    : "Deposits / withdrawals"
-                }
+                label="Contributed capital history"
                 description={
                   contributionFormat === "cumulative"
-                    ? "Paste the complete series of cumulative amounts contributed by each date, net of withdrawals. Changes between rows become deposits or withdrawals automatically, replacing existing contribution history."
+                    ? `The cumulative amount by each date, net of withdrawals. This replaces ${CAPITAL_KIND_COPY[capitalKind].label.toLowerCase()} history for this account.`
                     : "The amount deposited (positive) or withdrawn (negative) on each row."
                 }
                 placeholder={
@@ -315,11 +444,7 @@ export function AccountHistoryImportDrawer({
                 onChange={setCapitalFlows}
               />
               <HistoryPreview
-                label={
-                  contributionFormat === "cumulative"
-                    ? "Contribution total"
-                    : "Capital flow"
-                }
+                label={contributionFormat === "cumulative" ? "Total" : "Flow"}
                 result={capitalResult}
                 source={capitalFlows}
                 textareaId={capitalTextareaId}

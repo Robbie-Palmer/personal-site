@@ -7,7 +7,7 @@ import {
   AssetTrackerDataSchema,
 } from "./assetTrackerData";
 import type { BalanceSnapshot } from "./balanceSnapshot";
-import type { CapitalFlow } from "./capitalFlow";
+import { type CapitalFlow, capitalFlowKind } from "./capitalFlow";
 import type { IncomeRecord } from "./incomeRecord";
 import type { RecurringFlow } from "./recurringFlow";
 import type { Transfer } from "./transfer";
@@ -80,12 +80,29 @@ function assertUniqueAccountDates(
   }
 }
 
+function assertUniqueCapitalFlows(records: readonly CapitalFlow[]): void {
+  const seen = new Set<string>();
+  for (const record of records) {
+    const key = `${record.accountId}\0${record.date}\0${capitalFlowKind(record)}`;
+    if (seen.has(key)) {
+      const label =
+        capitalFlowKind(record) === "personalSaving"
+          ? "capital flow"
+          : `${capitalFlowKind(record)} capital flow`;
+      throw new Error(
+        `Duplicate ${label} for account "${record.accountId}" on ${record.date}`,
+      );
+    }
+    seen.add(key);
+  }
+}
+
 function validateReferences(
   data: AssetTrackerData,
   accounts: Map<AccountId, Account>,
 ): void {
   assertUniqueAccountDates(data.snapshots, "snapshot");
-  assertUniqueAccountDates(data.capitalFlows, "capital flow");
+  assertUniqueCapitalFlows(data.capitalFlows);
   const incomeDates = new Set<string>();
   for (const income of data.incomeHistory) {
     if (incomeDates.has(income.date)) {

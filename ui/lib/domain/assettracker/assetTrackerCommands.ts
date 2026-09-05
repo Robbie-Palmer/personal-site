@@ -10,7 +10,11 @@ import {
 } from "./account";
 import type { AssetTrackerData } from "./assetTrackerData";
 import type { BalanceSnapshot } from "./balanceSnapshot";
-import type { CapitalFlow } from "./capitalFlow";
+import {
+  type CapitalFlow,
+  CapitalFlowKindSchema,
+  capitalFlowKind,
+} from "./capitalFlow";
 import {
   FlowFrequencySchema,
   flowOccurrenceDates,
@@ -96,6 +100,7 @@ export type DeleteSnapshotInput = z.infer<typeof DeleteSnapshotInputSchema>;
 export const DeleteCapitalFlowInputSchema = z.object({
   accountId: AccountIdSchema,
   date: IsoDateSchema,
+  kind: CapitalFlowKindSchema.optional(),
 });
 export type DeleteCapitalFlowInput = z.infer<
   typeof DeleteCapitalFlowInputSchema
@@ -136,7 +141,9 @@ export const ImportAccountHistoryInputSchema = z
     accountId: AccountIdSchema,
     balances: z.array(HistoryValueSchema).default([]),
     capitalFlows: z.array(HistoryValueSchema).default([]),
-    /** Complete cumulative imports replace this account's existing flow series. */
+    /** Applies to every capital row in this import. */
+    capitalFlowKind: CapitalFlowKindSchema.optional(),
+    /** Complete cumulative imports replace this account's selected classified series. */
     replaceCapitalFlows: z.boolean().optional(),
   })
   .refine(
@@ -394,12 +401,18 @@ export function applyImportAccountHistory(
     );
   }
 
-  const existingCapitalFlows = parsed.replaceCapitalFlows
-    ? data.capitalFlows.filter((flow) => flow.accountId !== parsed.accountId)
-    : data.capitalFlows;
+  const existingCapitalFlows =
+    parsed.replaceCapitalFlows && parsed.capitalFlows.length > 0
+      ? data.capitalFlows.filter(
+          (flow) =>
+            flow.accountId !== parsed.accountId ||
+            capitalFlowKind(flow) !==
+              (parsed.capitalFlowKind ?? "personalSaving"),
+        )
+      : data.capitalFlows;
   const capitalFlowsByAccountDate = new Map(
     existingCapitalFlows.map((flow) => [
-      `${flow.accountId}\0${flow.date}`,
+      `${flow.accountId}\0${flow.date}\0${capitalFlowKind(flow)}`,
       flow,
     ]),
   );
@@ -408,8 +421,14 @@ export function applyImportAccountHistory(
       accountId: parsed.accountId,
       date: row.date,
       amount: row.value,
+      ...(parsed.capitalFlowKind != null
+        ? { kind: parsed.capitalFlowKind }
+        : {}),
     };
-    capitalFlowsByAccountDate.set(`${flow.accountId}\0${flow.date}`, flow);
+    capitalFlowsByAccountDate.set(
+      `${flow.accountId}\0${flow.date}\0${capitalFlowKind(flow)}`,
+      flow,
+    );
   }
   return {
     ...data,
@@ -616,12 +635,17 @@ export function applyDeleteCapitalFlow(
   requireAccount(data, parsed.accountId);
   const capitalFlows = data.capitalFlows.filter(
     (flow) =>
-      !(flow.accountId === parsed.accountId && flow.date === parsed.date),
+      !(
+        flow.accountId === parsed.accountId &&
+        flow.date === parsed.date &&
+        capitalFlowKind(flow) === (parsed.kind ?? "personalSaving")
+      ),
   );
   if (capitalFlows.length === data.capitalFlows.length) {
+    const kindFilter = parsed.kind == null ? "" : ` of kind "${parsed.kind}"`;
     throw new AssetTrackerCommandError(
       "CAPITAL_FLOW_NOT_FOUND",
-      `No deposit or withdrawal recorded for ${parsed.accountId} on ${parsed.date}`,
+      `No deposit or withdrawal${kindFilter} recorded for ${parsed.accountId} on ${parsed.date}`,
     );
   }
   return { ...data, capitalFlows };
