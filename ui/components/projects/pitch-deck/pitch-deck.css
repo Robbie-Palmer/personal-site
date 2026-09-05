@@ -1760,6 +1760,98 @@ body.reveal-viewport:has(.pitch-deck--project-recipe-site),
   }
 }
 
+.pitch-deck--project-recipe-site
+  .reveal.pitch-deck__static--scroll
+  > .slides
+  > section,
+.pitch-deck--project-recipe-site
+  .reveal.pitch-deck__static--overview
+  > .slides
+  > section {
+  background:
+    linear-gradient(rgba(91, 69, 45, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(91, 69, 45, 0.035) 1px, transparent 1px),
+    #f4eddf;
+  background-size: 36px 36px;
+}
+
+.pitch-deck--project-recipe-site
+  .reveal.pitch-deck__static--overview
+  > .slides
+  > section {
+  padding: 0;
+}
+
+.pitch-deck--project-recipe-site
+  .reveal.pitch-deck__static--overview
+  .pitch-slide__content {
+  box-sizing: border-box;
+  width: 400%;
+  height: 400%;
+  padding: 72px 82px;
+  transform: scale(0.25);
+  transform-origin: top left;
+}
+
+.pitch-deck--project-recipe-site .reveal.pitch-deck__static--overview h1 {
+  font-size: 78px;
+}
+
+.pitch-deck--project-recipe-site .reveal.pitch-deck__static--overview h2 {
+  font-size: 52px;
+}
+
+.pitch-deck--project-recipe-site
+  .reveal.pitch-deck__static--overview
+  .pitch-slide__long-title {
+  font-size: 48px;
+}
+
+.pitch-deck--project-recipe-site .reveal.pitch-deck__static--overview h3 {
+  font-size: 30px;
+}
+
+.pitch-deck--project-recipe-site .reveal.pitch-deck__static--overview p,
+.pitch-deck--project-recipe-site .reveal.pitch-deck__static--overview li {
+  font-size: 28px;
+  line-height: 1.42;
+}
+
+@media (max-width: 700px) {
+  .pitch-deck--project-recipe-site
+    .reveal.pitch-deck__static--overview
+    .pitch-slide__content {
+    width: 333.333%;
+    height: 333.333%;
+    padding: 54px 52px;
+    transform: scale(0.3);
+  }
+
+  .pitch-deck--project-recipe-site .reveal.pitch-deck__static--overview h1 {
+    font-size: 58px;
+  }
+
+  .pitch-deck--project-recipe-site .reveal.pitch-deck__static--overview h2 {
+    font-size: 42px;
+  }
+
+  .pitch-deck--project-recipe-site
+    .reveal.pitch-deck__static--overview
+    .pitch-slide__long-title {
+    font-size: 36px;
+    line-height: 1.08;
+  }
+
+  .pitch-deck--project-recipe-site .reveal.pitch-deck__static--overview h3 {
+    font-size: 26px;
+  }
+
+  .pitch-deck--project-recipe-site .reveal.pitch-deck__static--overview p,
+  .pitch-deck--project-recipe-site .reveal.pitch-deck__static--overview li {
+    font-size: 24px;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .pitch-deck .pitch-deck__controls *,
   .pitch-deck .pitch-deck__topbar * {

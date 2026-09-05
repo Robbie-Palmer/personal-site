@@ -340,6 +340,71 @@ describe("Visualization browser rendering", () => {
     }
   }, 30_000);
 
+  it("keeps recipe styling in overview and scroll views", async () => {
+    const page = await browser.newPage();
+    const pageErrors: string[] = [];
+    page.on("pageerror", (error) => pageErrors.push(String(error)));
+
+    try {
+      await page.setViewport({ width: 1280, height: 900 });
+      await page.goto(`${BASE_URL}/projects/recipe-site/deck`, {
+        waitUntil: "domcontentloaded",
+      });
+      await page.waitForSelector(".pitch-deck .reveal.ready", {
+        timeout: 20_000,
+      });
+
+      await page.click('button[title="Toggle scroll view"]');
+      await page.waitForSelector(".pitch-deck__static--scroll");
+      const scrollBackground = await page.$eval(
+        ".pitch-deck__static--scroll > .slides > section",
+        (slide) => getComputedStyle(slide).backgroundColor,
+      );
+      expect(scrollBackground).toBe("rgb(244, 237, 223)");
+
+      await page.click('button[title="Toggle scroll view"]');
+      await page.waitForFunction(
+        () => !document.querySelector(".pitch-deck__static"),
+      );
+      await page.setViewport({ width: 390, height: 844 });
+      await page.click('button[title="Slide overview"]');
+      await page.waitForSelector(".pitch-deck__static--overview");
+      const overview = await page.$eval(
+        ".pitch-deck__static--overview > .slides > section",
+        (slide) => {
+          const content = slide.querySelector<HTMLElement>(
+            ".pitch-slide__content",
+          );
+          const slideBounds = slide.getBoundingClientRect();
+          const contentBounds = content?.getBoundingClientRect();
+          const heading = slide.querySelector<HTMLElement>("h1, h2");
+          return {
+            background: getComputedStyle(slide).backgroundColor,
+            contentHeight: contentBounds?.height ?? 0,
+            contentWidth: contentBounds?.width ?? 0,
+            headingColor: heading ? getComputedStyle(heading).color : "",
+            slideHeight: slideBounds.height,
+            slideWidth: slideBounds.width,
+            transform: content ? getComputedStyle(content).transform : "",
+          };
+        },
+      );
+
+      expect(overview.background).toBe("rgb(244, 237, 223)");
+      expect(overview.headingColor).toBe("rgb(53, 46, 38)");
+      expect(overview.transform).toContain("0.3");
+      expect(overview.contentWidth).toBeLessThanOrEqual(
+        overview.slideWidth + 1,
+      );
+      expect(overview.contentHeight).toBeLessThanOrEqual(
+        overview.slideHeight + 1,
+      );
+      expect(pageErrors).toEqual([]);
+    } finally {
+      await page.close();
+    }
+  }, 30_000);
+
   it("uses swipeable slides and a pannable overview on phones", async () => {
     const page = await browser.newPage();
     const pageErrors: string[] = [];
