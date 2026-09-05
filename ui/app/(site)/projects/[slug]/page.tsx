@@ -109,6 +109,7 @@ export default async function ProjectPage({ params }: Readonly<PageProps>) {
                 techStack={project.technologies.map((t) => ({
                   name: t.name,
                   slug: t.slug,
+                  iconSlug: t.iconSlug,
                 }))}
               />
             </div>

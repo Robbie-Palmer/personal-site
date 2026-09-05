@@ -83,6 +83,13 @@ const fixture = {
       hasIcon: true,
       website: "https://tailscale.com",
     },
+    {
+      name: "Kafka",
+      slug: "kafka",
+      iconSlug: "apachekafka",
+      hasIcon: true,
+      website: "https://kafka.apache.org",
+    },
   ],
   adrSlugs: ["000-tailscale"],
   adrs: [
@@ -114,6 +121,7 @@ describe("project page", () => {
     ).toBeInTheDocument();
     expect(screen.getByText("Test description")).toBeInTheDocument();
     expect(screen.getByText("adr-list")).toBeInTheDocument();
+    expect(screen.getByTitle("Apache Kafka")).toBeInTheDocument();
   });
 
   it("passes Mermaid and DesignEmbed to the project markdown renderer", async () => {

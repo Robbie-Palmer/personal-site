@@ -17,6 +17,7 @@ import { cn } from "@/lib/generic/styles";
 interface TechStackItem {
   name: string;
   slug: string;
+  iconSlug?: string;
 }
 
 interface ProjectTechStackProps {
@@ -30,7 +31,9 @@ export function ProjectTechStack({
 }: Readonly<ProjectTechStackProps>) {
   const [isExpanded, setIsExpanded] = useState(false);
 
-  const itemsWithIcons = techStack.filter((tech) => hasTechIcon(tech.name));
+  const itemsWithIcons = techStack.filter((tech) =>
+    hasTechIcon(tech.name, tech.iconSlug),
+  );
   const hiddenCount = techStack.length - itemsWithIcons.length;
   const visibleItems = isExpanded ? techStack : itemsWithIcons;
 
@@ -39,7 +42,7 @@ export function ProjectTechStack({
       <div className={cn("space-y-3", className)}>
         <div className="flex flex-wrap gap-2">
           {visibleItems.map((tech) => {
-            const hasIcon = hasTechIcon(tech.name);
+            const hasIcon = hasTechIcon(tech.name, tech.iconSlug);
 
             // Render logic:
             // If Collapsed AND Has Icon: Show Icon Only Badge (with Tooltip)
@@ -53,7 +56,11 @@ export function ProjectTechStack({
                     className="h-6 text-sm px-3 gap-1"
                   >
                     {hasIcon && (
-                      <TechIcon name={tech.name} className="w-3 h-3" />
+                      <TechIcon
+                        name={tech.name}
+                        iconSlug={tech.iconSlug}
+                        className="w-3 h-3"
+                      />
                     )}
                     {tech.name}
                   </Badge>
@@ -71,7 +78,11 @@ export function ProjectTechStack({
                       interactive
                       className="h-6 text-sm px-2"
                     >
-                      <TechIcon name={tech.name} className="w-4 h-4" />
+                      <TechIcon
+                        name={tech.name}
+                        iconSlug={tech.iconSlug}
+                        className="w-4 h-4"
+                      />
                       <span className="sr-only">{tech.name}</span>
                     </Badge>
                   </Link>

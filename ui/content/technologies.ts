@@ -444,6 +444,7 @@ export const technologies: TechnologyContent[] = [
     description:
       "Python library for stateful stream processing with Kafka-compatible brokers",
     website: "https://quix.io/docs/quix-streams/introduction.html",
+    iconSlug: "quixstreams",
     type: "library",
   },
   {
@@ -451,6 +452,7 @@ export const technologies: TechnologyContent[] = [
     added: "2026-09-05",
     description: "Kubernetes operators for running and managing Apache Kafka",
     website: "https://strimzi.io",
+    iconSlug: "strimzi",
     type: "tool",
   },
   {
@@ -474,6 +476,7 @@ export const technologies: TechnologyContent[] = [
     description:
       "SQL-based data transformation, testing, and documentation for analytics",
     website: "https://www.getdbt.com",
+    iconSlug: "dbt",
     type: "tool",
   },
   {

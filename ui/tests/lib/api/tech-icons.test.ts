@@ -11,6 +11,15 @@ describe("technology icons", () => {
     expect(getTechIconKey("K3s")).toBe("simple:k3s");
   });
 
+  it.each([
+    ["Kafka", "apachekafka", "simple:apachekafka"],
+    ["Quix Streams", "quixstreams", "custom:quixstreams"],
+    ["Strimzi", "strimzi", "custom:strimzi"],
+    ["dbt", "dbt", "custom:dbt"],
+  ])("resolves the %s logo", (name, iconSlug, expected) => {
+    expect(getTechIconKey(name, iconSlug)).toBe(expected);
+  });
+
   it("preserves the full-color t3-code logo", () => {
     expect(getTechIconKey("t3-code")).toBe("custom:t3code");
 
