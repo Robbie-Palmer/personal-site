@@ -354,6 +354,33 @@ describe("Visualization browser rendering", () => {
         timeout: 20_000,
       });
 
+      await page.click('button[title="Slide overview"]');
+      await page.waitForSelector(".pitch-deck__static--overview");
+      await page.click('button[aria-label="Open slide 12"]');
+      await page.waitForFunction(
+        () =>
+          document
+            .querySelector(".pitch-deck__position")
+            ?.textContent?.trim() === "Slide 12 of 12",
+      );
+      const finalCta = await page.$eval(
+        "section.present .pitch-final-cta",
+        (cta) => {
+          const bounds = cta.getBoundingClientRect();
+          const styles = getComputedStyle(cta);
+          return {
+            height: bounds.height,
+            isFragment: cta.classList.contains("fragment"),
+            opacity: styles.opacity,
+            visibility: styles.visibility,
+          };
+        },
+      );
+      expect(finalCta.isFragment).toBe(false);
+      expect(finalCta.height).toBeGreaterThan(0);
+      expect(finalCta.opacity).toBe("1");
+      expect(finalCta.visibility).toBe("visible");
+
       await page.click('button[title="Toggle scroll view"]');
       await page.waitForSelector(".pitch-deck__static--scroll");
       const scrollBackground = await page.$eval(
