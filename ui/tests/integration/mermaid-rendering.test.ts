@@ -472,6 +472,16 @@ describe("Visualization browser rendering", () => {
           currentSlide = nextSlide;
         }
       };
+      const advanceToDiagram = async (selector: string) => {
+        const slide = await page.$$eval(
+          ".pitch-deck .slides > section",
+          (sections, target) =>
+            sections.findIndex((section) => section.querySelector(target)) + 1,
+          selector,
+        );
+        expect(slide).toBeGreaterThan(0);
+        await advanceTo(slide);
+      };
       const inspectPresentDiagram = async (selector: string) =>
         page.$eval(`section.present ${selector}`, (element) => {
           const diagram = element as HTMLElement;
@@ -515,18 +525,18 @@ describe("Visualization browser rendering", () => {
           };
         });
 
-      await advanceTo(2);
+      await advanceToDiagram(".pitch-recipe-loop");
       const loop = await inspectPresentDiagram(".pitch-recipe-loop");
-      await advanceTo(5);
+      await advanceToDiagram(".pitch-evidence-ladder");
       const evidence = await inspectPresentDiagram(".pitch-evidence-ladder");
-      await advanceTo(7);
+      await advanceToDiagram(".pitch-recommendation-card__recipe");
       const recommendationImage = await page.$eval(
         "section.present .pitch-recommendation-card__recipe",
         (recommendation) => getComputedStyle(recommendation).backgroundImage,
       );
-      await advanceTo(9);
+      await advanceToDiagram(".pitch-cooking-flywheel");
       const flywheel = await inspectPresentDiagram(".pitch-cooking-flywheel");
-      await advanceTo(10);
+      await advanceToDiagram(".pitch-recipe-roadmap");
       const roadmap = await inspectPresentDiagram(".pitch-recipe-roadmap");
 
       expect(loop.columnCount).toBe(3);
