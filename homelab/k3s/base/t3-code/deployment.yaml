@@ -1,0 +1,117 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: t3-code
+  annotations:
+    secrets.doppler.com/reload: "true"
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: t3-code
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: t3-code
+    spec:
+      automountServiceAccountToken: false
+      serviceAccountName: t3-code
+      securityContext:
+        fsGroup: 2000
+        fsGroupChangePolicy: OnRootMismatch
+        runAsGroup: 2000
+        runAsNonRoot: true
+        runAsUser: 2000
+        seccompProfile:
+          type: RuntimeDefault
+      initContainers:
+        - name: prepare-data-directories
+          image: ghcr.io/robbie-palmer/t3-code:0.0.38-agent-tools-3
+          command:
+            - /bin/sh
+            - -eu
+            - -c
+            - >-
+              mkdir -p
+              /data/home/.t3
+              /data/home/.codex
+              /data/home/.codex-personal
+              /data/home/.config/opencode
+              /data/home/.grok
+              /data/home/.local/share/mise
+              /data/home/.cache/ms-playwright
+              /data/home/.cache/puppeteer
+              /data/workspaces
+              && node /usr/local/lib/t3-code/bootstrap-settings.mjs
+              /data/home/.t3/userdata/settings.json
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+          volumeMounts:
+            - name: data
+              mountPath: /data
+            - name: tmp
+              mountPath: /tmp
+      containers:
+        - name: t3-code
+          image: ghcr.io/robbie-palmer/t3-code:0.0.38-agent-tools-3
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: HOME
+              value: /data/home
+            - name: T3CODE_HOME
+              value: /data/home/.t3
+            - name: XDG_CONFIG_HOME
+              value: /data/home/.config
+          envFrom:
+            - secretRef:
+                name: t3-code-runtime
+                optional: true
+          ports:
+            - name: http
+              containerPort: 3773
+              protocol: TCP
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 3
+          livenessProbe:
+            tcpSocket:
+              port: http
+            initialDelaySeconds: 20
+            periodSeconds: 20
+            timeoutSeconds: 3
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: "2"
+              memory: 4Gi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+          volumeMounts:
+            - name: data
+              mountPath: /data
+            - name: tmp
+              mountPath: /tmp
+      terminationGracePeriodSeconds: 30
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: t3-code-data
+        - name: tmp
+          emptyDir:
+            sizeLimit: 1Gi

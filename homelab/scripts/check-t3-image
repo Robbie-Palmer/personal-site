@@ -1,0 +1,62 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+image=ghcr.io/robbie-palmer/t3-code:0.0.38-agent-tools-3
+container=personal-site-t3-image-check
+
+cleanup() {
+  docker stop "${container}" >/dev/null 2>&1 || true
+}
+trap cleanup EXIT
+
+docker run --rm \
+  --tmpfs /data:rw,exec,uid=2000,gid=2000,mode=0750 \
+  --entrypoint /bin/sh \
+  "${image}" \
+  -ec '
+    test "$(id -u)" = 2000
+    test "$(id -g)" = 2000
+    test "$(codex --version)" = "codex-cli 0.153.2"
+    test "$(claude --version)" = "2.1.260 (Claude Code)"
+    test "$(opencode --version)" = "1.18.27"
+    test "$(grok --version | cut -d" " -f1-2)" = "grok 1.0.13"
+    test "$(mise --version | cut -d" " -f1)" = "2026.9.1"
+    test "$(doppler --version)" = "v3.76.5"
+    test "$(vale --version)" = "vale version 3.19.0"
+    test "$(pnpm --version)" = "12.2.1"
+    command -v bwrap chromium git gh lsof t3 >/dev/null
+    test "$PUPPETEER_EXECUTABLE_PATH" = /usr/bin/chromium
+    test "$PLAYWRIGHT_BROWSERS_PATH" = /data/home/.cache/ms-playwright
+    node /usr/local/lib/t3-code/bootstrap-settings.mjs \
+      /data/home/.t3/userdata/settings.json
+    node -e '\''
+      const settings = require("/data/home/.t3/userdata/settings.json");
+      if (!settings.providers.grok.enabled) process.exit(1);
+      if (!settings.providers.opencode.enabled) process.exit(1);
+    '\''
+    timeout 30 chromium \
+      --headless \
+      --no-sandbox \
+      --disable-dev-shm-usage \
+      --dump-dom "data:text/html,<title>browser-ready</title>" \
+      2>/dev/null \
+      | grep -F browser-ready >/dev/null
+  '
+
+docker run --detach --rm \
+  --name "${container}" \
+  --tmpfs /data:rw,exec,uid=2000,gid=2000,mode=0750 \
+  --publish 127.0.0.1::3773 \
+  "${image}" >/dev/null
+
+port=$(docker port "${container}" 3773/tcp | sed 's/.*://')
+for _ in $(seq 1 30); do
+  if curl --fail --silent "http://127.0.0.1:${port}/" >/dev/null; then
+    echo "t3-code image starts as UID/GID 2000 and serves HTTP"
+    exit 0
+  fi
+  sleep 1
+done
+
+echo "t3-code image did not become healthy" >&2
+exit 1

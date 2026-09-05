@@ -118,7 +118,7 @@ with no application error.
 
 Mitigations:
 
-* A rotation runbook in `infra/README.md` ("Rotating `POSTHOG_KEY`") lists every consumer
+* A rotation runbook in `infra/public-platform/README.md` ("Rotating `POSTHOG_KEY`") lists every consumer
   and marks this destination as the manual step.
 * A pointer comment in `workers/recipe-api/wrangler.toml` references that runbook.
 * The public `phc_` project key rotates rarely, which keeps the manual step a low-frequency

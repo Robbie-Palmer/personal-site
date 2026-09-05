@@ -19,7 +19,7 @@ the projects incubated here alongside it. Each project owns its details in its o
 - [`ml-pipelines/`](ml-pipelines/README.md), DVC-managed ML experiments feeding the recipe features
 - [`ai-review/`](ai-review/README.md), stateful AI code-review service
 - [`homelab/`](homelab/README.md), home lab declared as code
-- [`infra/`](infra/README.md) and [`infra-bootstrap/`](infra-bootstrap/README.md), Terraform roots
+- [`infra/`](infra/README.md), independently stateful Terraform roots for bootstrap, the public platform, and remote development
   for Cloudflare, Neon, and PostHog
 - [`backups/`](backups/README.md), encrypted Postgres backups to R2
 - [`docs/`](docs/), internal runbooks: [external dashboards](docs/dashboards.md),

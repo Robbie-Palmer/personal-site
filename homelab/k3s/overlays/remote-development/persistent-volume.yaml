@@ -1,0 +1,26 @@
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: t3-code-remote-development
+spec:
+  accessModes:
+    - ReadWriteOnce
+  capacity:
+    storage: 90Gi
+  local:
+    path: /srv/remote-development/t3-code
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+        - matchExpressions:
+            - key: homelab.dev/location
+              operator: In
+              values:
+                - cloud
+            - key: homelab.dev/capability
+              operator: In
+              values:
+                - agent-workspace
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: t3-code-local
+  volumeMode: Filesystem

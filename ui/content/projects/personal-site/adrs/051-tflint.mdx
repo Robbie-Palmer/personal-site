@@ -7,7 +7,7 @@ tech_stack: ["TFLint"]
 
 # Context
 
-The Terraform layer (`infra/`, `infra-bootstrap/`) currently has two deterministic
+The Terraform layer (`infra/public-platform/`, `infra/bootstrap/`) currently has two deterministic
 checks, and both leave a gap between them:
 
 * **`terraform fmt` + `terraform validate`** ([ADR 010](/projects/personal-site/adrs/010-terraform))
@@ -42,7 +42,7 @@ pinned version:
 
 * A `.tflint.hcl` per Terraform root enables the bundled ruleset. No plugin
   downloads, so the lint needs no network and no `tflint --init` in CI.
-* `mise run //infra:lint:tflint` / `//infra-bootstrap:lint:tflint` tasks, wired
+* `mise run //infra/public-platform:lint:tflint` / `//infra/bootstrap:lint:tflint` tasks, wired
   into the root `lint` aggregate, each root's `check` aggregate, and lint-staged
   so a finding blocks the commit locally before it blocks the PR.
 * A dedicated **TFLint CI** workflow, triggered by any `*.tf` or `.tflint.hcl`
@@ -51,10 +51,10 @@ pinned version:
   correctness issues to fix, not risk findings to triage. A separate workflow
   rather than a job in Infrastructure CI keeps two properties: the lint needs no
   Terraform Cloud token and no `production-infra` environment, and
-  `infra-bootstrap/`-only changes don't trigger a no-op plan of `infra/` behind
+  `infra/bootstrap/`-only changes don't trigger a no-op plan of `infra/public-platform/` behind
   that environment's gate.
 
-This gives `infra-bootstrap/**` its first pull-request check of any kind (its
+This gives `infra/bootstrap/**` its first pull-request check of any kind (its
 own workflow is `workflow_dispatch`-only).
 
 # Why It Adds Something New
@@ -118,7 +118,7 @@ to the early-majority picks (zizmor) elsewhere in the stack.
 
 * Fills the deterministic Terraform-hygiene quadrant with a blocking, secrets-free
   CI check and a pre-commit hook.
-* Gives `infra-bootstrap/` its first pull-request check of any kind.
+* Gives `infra/bootstrap/` its first pull-request check of any kind.
 * Free, offline-capable, mise-pinned for local/CI parity.
 
 ## Negative

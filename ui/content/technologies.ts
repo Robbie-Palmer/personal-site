@@ -1040,6 +1040,15 @@ export const technologies: TechnologyContent[] = [
     type: "platform",
   },
   {
+    name: "Hetzner Cloud",
+    added: "2026-09-04",
+    description:
+      "European cloud platform providing virtual servers, persistent volumes, firewalls, and an infrastructure API",
+    website: "https://www.hetzner.com/cloud",
+    iconSlug: "hetzner",
+    type: "platform",
+  },
+  {
     name: "Ente",
     added: "2026-08-02",
     description:

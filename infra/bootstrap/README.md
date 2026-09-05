@@ -2,7 +2,7 @@
 
 Terraform configuration for foundational trust and control-plane resources.
 
-This root is intentionally separate from `infra/`. It manages project IAM,
+This root is intentionally separate from `infra/public-platform/`. It manages project IAM,
 Workload Identity Federation, and the service account used by GitHub Actions to
 manage those resources. That identity is powerful enough to change project IAM,
 so it must not be available to routine Cloudflare, Neon, PostHog, or Pages
@@ -53,6 +53,6 @@ gcloud config set project recipe-site-499720
 Then run via mise:
 
 ```bash
-mise run //infra-bootstrap:plan
-mise run //infra-bootstrap:apply
+mise run //infra/bootstrap:plan
+mise run //infra/bootstrap:apply
 ```

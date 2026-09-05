@@ -210,7 +210,7 @@ building a relay solely for this path, and reconsider a plan upgrade when the al
 The repository uses Cloudflare Terraform provider v4.52.8. It supports the notification
 destination and every implemented policy type, but its alert-type validation predates the current
 `workers_observability_alert` identifier returned by Cloudflare. Two further API quirks are
-recorded in `infra/README.md`: the Pages alert's `event` and `environment` filters accept only
+recorded in `infra/public-platform/README.md`: the Pages alert's `event` and `environment` filters accept only
 undocumented uppercase enums, and the billing usage alert accepts only the `r2_storage` product on
 this account. Evaluate a provider v5 upgrade or a narrowly scoped API resource
 separately before adding a Workers Observability policy; do not broaden alerting changes into a
@@ -338,7 +338,7 @@ for this decision.
 * Cloudflare-to-Slack delivery uses a bearer webhook URL that Terraform Cloud state and Cloudflare
   must store, protect, and support rotating.
 * The older Cloudflare provider cannot express every current alert type, and some Pages and
-  billing filter values are undocumented provider-side and recorded only in `infra/README.md`.
+  billing filter values are undocumented provider-side and recorded only in `infra/public-platform/README.md`.
 * A PostHog outage or telemetry-export failure can impair both detection and delivery.
 * Slack notification delivery is not guaranteed paging and can be affected by client settings,
   connectivity, or account access.

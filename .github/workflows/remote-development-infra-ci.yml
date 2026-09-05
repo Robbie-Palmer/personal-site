@@ -1,0 +1,56 @@
+name: Remote Development Infrastructure CI
+
+on:
+  pull_request:
+    paths:
+      - "infra/remote-development/**"
+      - ".github/workflows/remote-development-infra-ci.yml"
+
+permissions: {}
+
+jobs:
+  terraform:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    environment:
+      name: production-remote-development-infra-plan
+    defaults:
+      run:
+        working-directory: infra/remote-development
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
+        with:
+          experimental: true
+
+      - name: Create empty .env for mise
+        run: touch .env
+
+      - name: Check Terraform formatting
+        run: mise run //infra/remote-development:format:check
+
+      - name: Validate Terraform
+        run: mise run //infra/remote-development:precommit-lint
+
+      - name: Lint Terraform
+        run: mise run //infra/remote-development:lint:tflint
+
+      - name: Terraform Plan
+        run: mise run //infra/remote-development:plan
+        env:
+          TF_TOKEN_app_terraform_io: ${{ secrets.TF_API_TOKEN }}
+          HCLOUD_TOKEN: ${{ secrets.HCLOUD_TOKEN }}
+          TF_VAR_ssh_public_key: ${{ vars.SSH_PUBLIC_KEY }}
+          TF_VAR_bootstrap_ssh_cidrs: ${{ vars.BOOTSTRAP_SSH_CIDRS || '[]' }}
+
+      - name: Add Terraform Plan to PR Comment
+        uses: borchero/terraform-plan-comment@f585438eda2fa77c6f275994b92aeccd86ef3542 # v3
+        with:
+          token: ${{ github.token }}
+          planfile: .planfile
+          working-directory: ./infra/remote-development
