@@ -452,6 +452,13 @@ describe("applyImportAccountHistory", () => {
         date: "2024-06-01",
       }),
     ).toThrow(/No deposit or withdrawal/);
+    expect(() =>
+      applyDeleteCapitalFlow(imported, {
+        accountId: "stocks-isa",
+        date: "2024-06-01",
+        kind: "external",
+      }),
+    ).toThrow(/kind "external"/);
   });
 });
 

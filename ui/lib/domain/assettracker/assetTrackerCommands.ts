@@ -642,9 +642,10 @@ export function applyDeleteCapitalFlow(
       ),
   );
   if (capitalFlows.length === data.capitalFlows.length) {
+    const kindFilter = parsed.kind == null ? "" : ` of kind "${parsed.kind}"`;
     throw new AssetTrackerCommandError(
       "CAPITAL_FLOW_NOT_FOUND",
-      `No deposit or withdrawal recorded for ${parsed.accountId} on ${parsed.date}`,
+      `No deposit or withdrawal${kindFilter} recorded for ${parsed.accountId} on ${parsed.date}`,
     );
   }
   return { ...data, capitalFlows };
