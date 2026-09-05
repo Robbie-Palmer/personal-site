@@ -7,6 +7,7 @@
       "entry": [
         ".github/scripts/ai-review/ai-review.test.ts",
         "functions/**/*.ts",
+        "homelab/images/t3-code/bootstrap-settings.mjs",
         "scripts/prose-lint.ts"
       ],
       "ignoreDependencies": ["lint-staged", "markdownlint-cli", "remark-cli", "remark-lint", "tsx", "yaml-lint"]
