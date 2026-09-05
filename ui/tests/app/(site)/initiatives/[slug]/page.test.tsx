@@ -5,7 +5,10 @@ import InitiativePage, {
   generateMetadata,
   generateStaticParams,
 } from "@/app/(site)/initiatives/[slug]/page";
-import { getInitiative } from "@/lib/api/initiatives";
+import {
+  getInitiative,
+  type InitiativeWithProjects,
+} from "@/lib/api/initiatives";
 
 vi.mock("@/lib/api/initiatives", () => ({
   getAllInitiativeSlugs: () => ["personalized-medicine"],
@@ -34,10 +37,15 @@ const fixture = {
       description: "View digital pathology slides",
       date: "2021-11-01",
       status: "completed" as const,
+      content: "# Pathology Viewer",
+      technologies: [],
+      adrSlugs: [],
+      adrs: [],
+      tags: [],
       contribution: "Made model outputs inspectable.",
     },
   ],
-};
+} satisfies InitiativeWithProjects;
 
 describe("initiative page", () => {
   it("generates routes and metadata", async () => {
