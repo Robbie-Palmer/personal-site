@@ -10,6 +10,7 @@ include(CTest)
 include(FetchContent)
 
 option(SATELLITE_SWARM_BUILD_SIMULATION "Build the deterministic host simulation" ON)
+option(SATELLITE_SWARM_ENABLE_COVERAGE "Enable GCC coverage instrumentation" OFF)
 option(SATELLITE_SWARM_ENABLE_SANITIZERS "Enable address and undefined-behavior sanitizers" OFF)
 
 add_library(
@@ -36,6 +37,15 @@ endif()
 if(SATELLITE_SWARM_ENABLE_SANITIZERS AND CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
   target_compile_options(satellite_swarm PUBLIC -fno-omit-frame-pointer -fsanitize=address,undefined)
   target_link_options(satellite_swarm PUBLIC -fno-omit-frame-pointer -fsanitize=address,undefined)
+endif()
+
+if(SATELLITE_SWARM_ENABLE_COVERAGE)
+  if(NOT CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+    message(FATAL_ERROR "Coverage instrumentation requires GCC")
+  endif()
+
+  target_compile_options(satellite_swarm PRIVATE --coverage -O0 -g)
+  target_link_options(satellite_swarm PUBLIC --coverage)
 endif()
 
 if(SATELLITE_SWARM_BUILD_SIMULATION)

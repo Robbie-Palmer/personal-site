@@ -16,7 +16,7 @@ Use the tasks in `mise.toml`; they are the same entry points used by CI.
 
 1. Express the intended state transition, score behavior, or wire validation as a host-side test.
 2. Change the portable core without importing Arduino or operating-system headers.
-3. Run `mise run test` and `mise run sanitize`.
+3. Run `mise run test`, `mise run sanitize`, and `mise run coverage`.
 4. If an adapter changed, compile both firmware targets.
 5. Run `mise run check` before opening a pull request.
 

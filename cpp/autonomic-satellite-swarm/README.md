@@ -49,6 +49,10 @@ Run every host, firmware, formatting, lint, and spelling check with:
 mise run check
 ```
 
+`mise run coverage` also writes SonarQube's generic coverage report and rejects line coverage below
+80%. The monorepo's SonarQube workflow imports that report alongside its JavaScript and Python
+coverage.
+
 ## Architecture
 
 ```text

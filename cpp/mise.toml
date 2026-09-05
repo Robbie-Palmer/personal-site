@@ -3,6 +3,7 @@ cmake = "4.4.3"
 ninja = "1.13.2"
 "pipx:clang-format" = "23.1.0"
 "pipx:clang-tidy" = "22.1.8"
+"pipx:gcovr" = "8.6"
 
 [tasks.format]
 description = "Format all C++ and Arduino sources"

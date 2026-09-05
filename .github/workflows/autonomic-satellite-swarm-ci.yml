@@ -39,12 +39,13 @@ jobs:
         with:
           experimental: true
 
-      - name: Format, lint, test, sanitize, and spell-check
+      - name: Format, lint, test, sanitize, cover, and spell-check
         run: |
           mise run //cpp:format:check
           mise run //cpp/autonomic-satellite-swarm:lint
           mise run //cpp/autonomic-satellite-swarm:test
           mise run //cpp/autonomic-satellite-swarm:sanitize
+          mise run //cpp/autonomic-satellite-swarm:coverage
           mise run //cpp/autonomic-satellite-swarm:lint:typos
 
   firmware:

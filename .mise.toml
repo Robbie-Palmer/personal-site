@@ -316,9 +316,10 @@ description = "Install all dependencies (root and workspaces)"
 run = "pnpm install"
 
 [tasks."sonar:coverage"]
-description = "Generate all LCOV reports imported by SonarQube Cloud"
+description = "Generate all coverage reports imported by SonarQube Cloud"
 depends = [
     "//ai-review:test:coverage",
+    "//cpp/autonomic-satellite-swarm:coverage",
     "//ui:test:coverage",
     "//packages/observability:test:coverage",
     "//packages/recipe-parsing:test:coverage",
