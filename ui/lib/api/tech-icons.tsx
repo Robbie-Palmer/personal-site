@@ -196,6 +196,9 @@ const customIcons = new Set([
   "doppler",
   "ksqldb",
   "t3code",
+  "quixstreams",
+  "strimzi",
+  "dbt",
 ]);
 
 const fullColorCustomIcons = new Set(["t3code"]);
