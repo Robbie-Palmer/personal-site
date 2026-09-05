@@ -24,6 +24,7 @@ private:
   StaticQueue_t queue_control_;
   uint8_t queue_storage_[kQueueDepth * sizeof(satellite_swarm::Message)];
   QueueHandle_t queue_;
+  bool initialized_;
 
   static void onReceive(const esp_now_recv_info_t* info, const uint8_t* data, int length);
 };

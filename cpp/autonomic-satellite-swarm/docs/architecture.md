@@ -56,6 +56,7 @@ for a benchtop swarm demonstration; it is not proposed as a spacecraft communica
 
 - Node IDs are currently `0..15`, with `255` reserved for broadcast.
 - Candidate storage is statically bounded at 16 nodes.
+- Each update processes a configurable bounded number of received messages.
 - One controller negotiates one mission at a time.
 - Mission IDs are local 16-bit counters and are not globally unique.
 - The reference transport is unauthenticated and unencrypted.

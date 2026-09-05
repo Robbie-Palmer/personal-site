@@ -13,7 +13,8 @@ EspNowTransport* EspNowTransport::instance_ = nullptr;
 EspNowTransport::EspNowTransport()
     : queue_control_(), queue_storage_(),
       queue_(xQueueCreateStatic(kQueueDepth, sizeof(satellite_swarm::Message), queue_storage_,
-                                &queue_control_)) {}
+                                &queue_control_)),
+      initialized_(false) {}
 
 bool EspNowTransport::begin() {
   if (instance_ != nullptr || queue_ == nullptr) {
@@ -42,10 +43,14 @@ bool EspNowTransport::begin() {
     instance_ = nullptr;
     return false;
   }
+  initialized_ = true;
   return true;
 }
 
 bool EspNowTransport::send(const satellite_swarm::Message& message) {
+  if (!initialized_) {
+    return false;
+  }
   uint8_t packet[satellite_swarm::WireCodec::kPacketSize];
   if (!satellite_swarm::WireCodec::encode(message, packet, sizeof(packet))) {
     return false;
@@ -54,6 +59,9 @@ bool EspNowTransport::send(const satellite_swarm::Message& message) {
 }
 
 bool EspNowTransport::receive(satellite_swarm::Message& message) {
+  if (!initialized_) {
+    return false;
+  }
   return xQueueReceive(queue_, &message, 0) == pdTRUE;
 }
 

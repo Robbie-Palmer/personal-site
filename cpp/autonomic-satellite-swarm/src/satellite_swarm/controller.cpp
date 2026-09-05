@@ -19,6 +19,9 @@ SwarmController::SwarmController(NodeId node_id, const SatelliteSnapshot& satell
   if (config_.failed_missions_before_safe_disable == 0U) {
     config_.failed_missions_before_safe_disable = 1U;
   }
+  if (config_.maximum_messages_per_update == 0U) {
+    config_.maximum_messages_per_update = 1U;
+  }
   resetCandidates();
   if (node_id_ >= config_.node_capacity) {
     state_ = ControllerState::SafeDisabled;
@@ -83,7 +86,10 @@ void SwarmController::update(uint32_t now_ms) {
   }
 
   Message incoming;
-  while (transport_.receive(incoming)) {
+  for (uint8_t processed = 0U; processed < config_.maximum_messages_per_update; ++processed) {
+    if (!transport_.receive(incoming)) {
+      break;
+    }
     process(incoming, now_ms);
     if (state_ == ControllerState::SafeDisabled || state_ == ControllerState::Quiescent) {
       return;

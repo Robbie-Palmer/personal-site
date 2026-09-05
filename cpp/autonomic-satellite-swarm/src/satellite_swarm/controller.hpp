@@ -13,10 +13,12 @@ struct ControllerConfig {
   uint8_t maximum_attempts;
   uint8_t failed_missions_before_safe_disable;
   uint8_t node_capacity;
+  uint8_t maximum_messages_per_update;
 
   ControllerConfig()
       : response_window_ms(2000U), retry_interval_ms(250U), maximum_attempts(4),
-        failed_missions_before_safe_disable(2), node_capacity(kMaximumNodes) {}
+        failed_missions_before_safe_disable(2), node_capacity(kMaximumNodes),
+        maximum_messages_per_update(4) {}
 };
 
 class SwarmController {

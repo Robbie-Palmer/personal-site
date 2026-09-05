@@ -5,7 +5,7 @@ research story while removing defects that would obscure or destabilize further 
 
 ## Corrected defects
 
-| Original behavior | Risk | Revival |
+| Prior behavior | Risk | Revival |
 | --- | --- | --- |
 | `SynMessage` was allocated with `new` and never safely released. | Heap exhaustion and unclear ownership on an embedded target. | Messages are values; the core performs no dynamic allocation. |
 | The current SYN pointer and mock health state could be read uninitialized. | Undefined behavior and intermittent crashes. | All state is initialized and transitions are guarded. |
@@ -20,6 +20,12 @@ research story while removing defects that would obscure or destabilize further 
 | An active node could initiate a new mission. | Starting another negotiation overwrote its current assignment. | Only an idle node may initiate or accept a mission. |
 | The wire encoder accepted unknown message-type values that its decoder rejected. | Locally generated packets could violate the protocol contract. | Encoding and decoding now enforce the same closed set of message types. |
 | Non-finite physical inputs passed the historical scorer's positivity checks. | NaN or infinite arithmetic could produce undefined or misleading scores. | All physical inputs must be finite and positive. |
+| Protocol state advanced even when a transport rejected the outgoing message. | A local node could report progress or safe-disable on communication evidence that never existed. | Initiation, candidacy, and assignment transitions now depend on successful transport acceptance. |
+| Queued messages were handled before negotiation deadlines. | Late candidates, acknowledgements, or assignments could alter an expired phase. | Timed transitions run before the bounded receive loop. |
+| The historical energy calculation squared a scaled latitude distance. | Small positive radii could underflow the denominator to zero. | The algebraically equivalent degree ratio avoids the squared denominator and rejects non-finite energy. |
+| An update drained the transport until it became empty. | A busy or adversarial transport could make one update's execution time unbounded. | Configuration limits the number of messages processed per update. |
+| The ESP-NOW adapter allowed sends and receives before successful initialization. | Callers could accidentally rely on platform error behavior instead of the adapter contract. | Both operations require a successfully completed `begin`. |
+| The IR fragment count and packet size were related only by convention. | A future size change could make the masked chunk index address beyond the packet. | Compile-time assertions bind the two-bit index, chunk layout, and packet size. |
 | CMake contained an invalid project name, stale include paths, duplicated sources, and no CTest registration. | The advertised host workflow was not reproducible. | Presets, named targets, CTest discovery, warnings, sanitizers, and mise tasks form one workflow. |
 
 ## Revisited design choices

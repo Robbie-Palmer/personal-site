@@ -18,6 +18,9 @@ private:
   static const uint8_t kChunkBytes = 3;
   static const uint8_t kFramePrefix = 0xD0;
   static const uint32_t kAssemblyTimeoutMs = 250U;
+  static_assert(kChunkCount <= 4U, "the frame header reserves two bits for the chunk index");
+  static_assert(kChunkCount * kChunkBytes == satellite_swarm::WireCodec::kPacketSize,
+                "IR chunks must exactly cover one wire packet");
 
   uint8_t receive_pin_;
   uint8_t send_pin_;

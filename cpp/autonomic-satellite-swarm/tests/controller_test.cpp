@@ -16,6 +16,7 @@ ControllerConfig fastConfig() {
   config.maximum_attempts = 2U;
   config.failed_missions_before_safe_disable = 2U;
   config.node_capacity = 3U;
+  config.maximum_messages_per_update = 4U;
   return config;
 }
 
@@ -178,6 +179,7 @@ TEST_CASE("zero-valued controller limits are normalized to safe operating bounds
   config.node_capacity = 0U;
   config.maximum_attempts = 0U;
   config.failed_missions_before_safe_disable = 0U;
+  config.maximum_messages_per_update = 0U;
   SwarmController controller(kMaximumNodes - 1U, SatelliteSnapshot(), transport, health, scorer,
                              config);
 
@@ -187,6 +189,23 @@ TEST_CASE("zero-valued controller limits are normalized to safe operating bounds
 
   controller.update(config.retry_interval_ms);
   CHECK(controller.state() == ControllerState::SafeDisabled);
+}
+
+TEST_CASE("message processing per update is bounded") {
+  FakeTransport transport;
+  FakeHealthMonitor health;
+  FixedScorer scorer(50);
+  ControllerConfig config = fastConfig();
+  config.maximum_messages_per_update = 1U;
+  SwarmController controller(0, SatelliteSnapshot(), transport, health, scorer, config);
+
+  transport.deliver(Message::missionRequest(0, 1, Coordinate()));
+  transport.deliver(Message::missionRequest(0, 2, Coordinate()));
+  controller.update(0U);
+  CHECK(transport.incoming.size() == 1U);
+
+  controller.update(1U);
+  CHECK(transport.incoming.empty());
 }
 
 TEST_CASE("an assignment to an out-of-range node is ignored") {
