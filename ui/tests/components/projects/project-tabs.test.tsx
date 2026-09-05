@@ -58,6 +58,7 @@ describe("ProjectTabs", () => {
     const user = userEvent.setup();
     render(
       <ProjectsPageTabs
+        initiatives={<div>Initiatives content</div>}
         projects={<div>Projects content</div>}
         philosophy={<div>Philosophy content</div>}
       />,

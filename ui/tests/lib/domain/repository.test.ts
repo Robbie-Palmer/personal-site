@@ -278,6 +278,9 @@ Content`;
       const mockInitiativeContent = `---
 title: "Personalized Medicine"
 description: "Making patient-specific treatment decisions accessible"
+date: "2017-07-04"
+updated: "2021-11-01"
+status: "inactive"
 project_contributions:
   pathology-viewer: "Made model output inspectable."
 ---
@@ -293,6 +296,9 @@ project_contributions:
 
       expect(result.entities.get("personalized-medicine")).toMatchObject({
         title: "Personalized Medicine",
+        date: "2017-07-04",
+        updated: "2021-11-01",
+        status: "inactive",
         projectContributions: {
           "pathology-viewer": "Made model output inspectable.",
         },

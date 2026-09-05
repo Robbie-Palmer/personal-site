@@ -20,6 +20,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
     priority: 0.9,
   }));
 
+  const initiativePages = initiatives.map((initiative) => ({
+    url: `${siteConfig.url}/initiatives/${initiative.slug}`,
+    lastModified: initiative.updated || initiative.date,
+    priority: 0.8,
+  }));
+
   const projectPages = projects.map((project) => ({
     url: `${siteConfig.url}/projects/${project.slug}`,
     lastModified: project.updated || project.date,
@@ -37,22 +43,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
         ]
       : [],
   );
-
-  const initiativePages = initiatives.map((initiative) => {
-    const lastModified = initiative.projects.reduce<string | undefined>(
-      (latest, project) => {
-        const projectDate = project.updated || project.date;
-        return !latest || projectDate > latest ? projectDate : latest;
-      },
-      undefined,
-    );
-
-    return {
-      url: `${siteConfig.url}/initiatives/${initiative.slug}`,
-      ...(lastModified ? { lastModified } : {}),
-      priority: 0.8,
-    };
-  });
 
   const adrPages = projects.flatMap((project) =>
     project.adrs.map((adr) => ({
@@ -78,6 +68,11 @@ export default function sitemap(): MetadataRoute.Sitemap {
     return projectDate > latest ? projectDate : latest;
   }, new Date(0));
 
+  const latestInitiativeDate = initiatives.reduce((latest, initiative) => {
+    const initiativeDate = new Date(initiative.updated || initiative.date);
+    return initiativeDate > latest ? initiativeDate : latest;
+  }, new Date(0));
+
   return [
     {
       url: siteConfig.url,
@@ -92,6 +87,11 @@ export default function sitemap(): MetadataRoute.Sitemap {
     {
       url: `${siteConfig.url}/experience`,
       lastModified: new Date().toISOString(),
+      priority: 0.7,
+    },
+    {
+      url: `${siteConfig.url}/initiatives`,
+      lastModified: latestInitiativeDate.toISOString(),
       priority: 0.7,
     },
     {

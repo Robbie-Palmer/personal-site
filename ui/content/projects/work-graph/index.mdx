@@ -1,0 +1,192 @@
+---
+title: "Work Graph"
+description: "A public source of truth for outcomes, dependencies, evidence, leases, and the human decisions that keep work moving"
+date: "2026-09-04"
+status: "idea"
+initiatives:
+  - "semi-autonomous-software-development"
+tags:
+  - "agentic-engineering"
+  - "project-management"
+---
+
+# Vision
+
+Replace the project board as the primary model of work with a directed acyclic
+graph that people and agents can share.
+
+The graph should answer five questions:
+
+* What outcome matters most?
+* Which work is ready now?
+* What blocks the critical path?
+* Who currently holds each task?
+* What evidence would prove it complete?
+
+The first user is me, across the projects in this repository. The first test is
+whether it can replace the mixture of Shortcut, GitHub, live agent sessions, and
+memory that currently holds the plan.
+
+# Problem
+
+Existing task tools assume people create, refine, assign, move, and close
+tickets. Agents make each of those actions cheap enough to flood the interface.
+A board full of generated prose can contain more information while making the
+actual state of delivery harder to understand.
+
+Much of that information should never require human attention. People care
+about priorities, product choices, risk, blocked outcomes, and whether the
+evidence is strong enough. They should not have to supervise every transition
+that leads there.
+
+A flat backlog also hides the important structure. Research may unlock a design
+decision. That decision may unlock two prototypes. Only one prototype may need
+to reach production before downstream tasks become useful. A visible DAG can
+show the critical path and the work that can safely run in parallel.
+
+# Approaches tried
+
+I have used Jira, Linear, GitHub Issues, GitHub Projects, Shortcut, Zen, CCPM,
+and extensions that try to add epics to simpler trackers. I have also watched
+teams fall back to local Markdown plans or keep the real execution plan in
+somebody's head.
+
+Simple Kanban boards, work-in-progress limits, lead time, flow, and team
+ownership have made teams much more productive in the past. Those principles
+still matter. The interface built around humans creating and moving every
+ticket does not survive agents producing and completing far more intermediate
+work. It becomes a sea of weakly written tickets which no person should need to
+read.
+
+Shortcut remains part of the current workflow, alongside GitHub issues,
+security notifications, Renovate pull requests, PostHog-created fixes, and live
+agent sessions. The Work Graph should absorb useful events from those systems
+without making any of them authoritative.
+
+# Responsibilities
+
+The Work Graph owns:
+
+* initiatives, projects, outcomes, tasks, and their dependencies;
+* owner-defined priority and policy;
+* acceptance criteria and completion evidence;
+* task state and the currently active lease;
+* blockers and attention requests;
+* plan revisions, including split, replacement, invalidation, and newly
+  discovered work; and
+* projections for people, agents, and external tools.
+
+It does not choose the model, machine, subscription, or person that should do a
+task. The [Agent Coordinator](/projects/agent-coordinator) owns that concern.
+
+# A constrained but adaptable graph
+
+Agents should be able to change the plan when execution teaches them something.
+They may split a task that exceeds its intended scope, add a missing dependency,
+mark earlier work as invalid, or propose a different route to the outcome.
+Allowing arbitrary
+workflows invented during every session would make state hard to query and
+unsafe to automate.
+
+Owners should define which node types, transitions, evidence requirements, and
+plan changes are allowed. Projects with low risk can grant broad authority.
+Production systems can require review at specific boundaries.
+
+# Core model
+
+The first schema should stay small:
+
+* An **initiative** defines a long-running outcome shared by multiple projects.
+* A **project** owns a coherent product or body of work.
+* An **outcome** states an observable change in the world.
+* A **task** is an executable piece of research, discovery, prototyping,
+  implementation, refactoring, deployment, or validation.
+* A **dependency** determines when work becomes ready and exposes the critical
+  path.
+* A **lease** gives one actor temporary ownership without making abandoned work
+  disappear.
+* **Evidence** explains why a task can close. Depending on context, that may be
+  accepted research, an ADR, passing checks, a merge, or a healthy deployment.
+* An **attention request** asks a person for a decision, authority, access,
+  review, or help after the actor exhausts the allowed alternatives.
+
+The system needs a history of changes even if the main interface shows only
+current state. Otherwise an expired lease or rewritten plan can erase the
+context needed by the next actor.
+
+# Leases and handoff
+
+Only one actor should hold a task at a time. A lease can be renewed while work
+continues and expires when an agent runs out of time, focus, or usage allowance.
+Expiry returns the task to the ready pool.
+
+A useful handoff should preserve findings, artifacts, attempts, unresolved
+problems, and the recommended next action. The exact contract should emerge
+from personal use rather than demand a long report for every small task.
+
+# Attention inbox
+
+The human interface should be an attention inbox, probably its own application.
+It should collect:
+
+* ambiguity that changes the product or plan;
+* missing authority, secrets, or access;
+* repeated technical failure after the actor has tried the allowed alternatives;
+* review or approval required by owner policy; and
+* discoveries that change scope or priority.
+
+Each item should include the decision needed, why it is needed now, options the
+actor considered, the affected critical path, and the consequence of waiting.
+A response should update the graph and allow eligible work to resume.
+
+# Public work, private telemetry
+
+The work DAG should normally be public. Public tasks let contributors and agents
+understand the same plan without translating it into a second tracker.
+
+Execution telemetry does not belong there. Token usage, model calls, retries,
+latency, private logs, and detailed cost data should flow to the data lake. The
+Work Graph can keep the evidence and summary needed to govern work without
+becoming an analytics warehouse.
+
+# First useful release
+
+1. Model one initiative, its projects, outcomes, tasks, dependencies, evidence,
+   leases, and attention requests.
+2. Import one live personal plan and make the Work Graph authoritative for it.
+3. Expose a narrow agent interface for reading ready work and proposing graph
+   changes.
+4. Add claim, renew, release, expire, block, and complete operations with
+   optimistic concurrency and an auditable history.
+5. Build a read-only public DAG view with the critical path and blockers.
+6. Build the smallest attention inbox that can answer a request and unblock the
+   graph.
+7. Connect one external source, likely GitHub or PostHog, as events rather than
+   a competing source of truth.
+8. Run real projects through it before adding the Agent Coordinator.
+
+# Later work
+
+* Analytics that find recurring waits, failed handoffs, and demands for human
+  intervention
+* Automatic creation of infrastructure work when a repeated bottleneck has a
+  credible systemic fix
+* Team ownership and multiple policy domains
+* Projections into GitHub, Shortcut, or chat where they help people work
+* Automatic merge and deployment when required evidence and owner policy agree
+* Public contributor workflows for Open Collective Development
+
+# Success
+
+The Work Graph succeeds when the next useful task is visible without
+reconstructing the plan from tools scattered across the workflow, expired work
+can be resumed by another actor, and human attention goes to decisions rather
+than ticket administration.
+
+# Non-goals
+
+* Scheduling models or managing their capacity
+* Storing private operational telemetry in the public graph
+* Predicting delivery dates through estimates disguised as certainty
+* Maximizing task throughput without regard for outcomes
+* Replacing owner judgment with one fixed risk policy

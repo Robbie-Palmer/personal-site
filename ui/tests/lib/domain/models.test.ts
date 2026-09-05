@@ -4,6 +4,7 @@ import {
   ADRStatusSchema,
   BlogPostSchema,
   InitiativeSchema,
+  InitiativeStatusSchema,
   JobRoleSchema,
   ProjectSchema,
   ProjectStatusSchema,
@@ -358,6 +359,8 @@ describe("Domain Model Schemas", () => {
         slug: "personalized-medicine",
         title: "Personalized Medicine",
         description: "Making patient-specific treatment decisions accessible",
+        date: "2017-07-04",
+        status: "inactive",
         content: "# Goal",
       });
 
@@ -372,6 +375,8 @@ describe("Domain Model Schemas", () => {
         slug: "personalized-medicine",
         title: "Personalized Medicine",
         description: "",
+        date: "2017-07-04",
+        status: "inactive",
         content: "# Goal",
       });
 
@@ -385,12 +390,25 @@ describe("Domain Model Schemas", () => {
           slug,
           title: "Personalized Medicine",
           description: "Making patient-specific treatment decisions accessible",
+          date: "2017-07-04",
+          status: "inactive",
           content: "# Goal",
         });
 
         expect(result.success).toBe(false);
       },
     );
+
+    it.each(["idea", "active", "inactive"])(
+      "accepts the %s lifecycle state",
+      (status) => {
+        expect(InitiativeStatusSchema.safeParse(status).success).toBe(true);
+      },
+    );
+
+    it("rejects completed as an initiative lifecycle state", () => {
+      expect(InitiativeStatusSchema.safeParse("completed").success).toBe(false);
+    });
   });
 
   describe("JobRoleSchema", () => {

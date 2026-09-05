@@ -19,22 +19,22 @@ vi.mock("@/components/markdown", () => ({
 const fixture = {
   slug: "personalized-medicine",
   title: "Personalized Medicine",
-  description: "Make patient-specific decisions more accessible.",
-  content:
-    "## Goal\n\nMake care more personal.\n\n## Scope\n\nPathology and genomics.",
-  projectContributions: {},
+  description: "Patient-specific treatment decisions",
+  date: "2017-07-04",
+  updated: "2021-11-01",
+  status: "inactive" as const,
+  projectContributions: {
+    "pathology-viewer": "Made model outputs inspectable.",
+  },
+  content: "## Goal\n\nImprove patient-specific decisions.",
   projects: [
     {
       slug: "pathology-viewer",
       title: "Pathology Viewer",
-      description: "Inspect whole-slide images.",
+      description: "View digital pathology slides",
+      date: "2021-11-01",
+      status: "completed" as const,
       contribution: "Made model outputs inspectable.",
-      date: "2022-01-01",
-      status: "completed",
-      tags: ["computational pathology"],
-      technologies: [],
-      adrSlugs: [],
-      adrs: [{}],
     },
   ],
 };
@@ -50,11 +50,11 @@ describe("initiative page", () => {
       }),
     ).resolves.toEqual({
       title: "Personalized Medicine - Initiative",
-      description: "Make patient-specific decisions more accessible.",
+      description: "Patient-specific treatment decisions",
     });
   });
 
-  it("renders the initiative and its immediate projects", async () => {
+  it("renders retained initiative content and project contributions", async () => {
     (getInitiative as Mock).mockReturnValue(fixture);
 
     render(
@@ -64,70 +64,22 @@ describe("initiative page", () => {
     );
 
     expect(
-      screen.getByRole("heading", { name: "Personalized Medicine", level: 1 }),
+      screen.getByRole("heading", { name: "Personalized Medicine" }),
     ).toBeInTheDocument();
+    expect(screen.getByText("Inactive")).toBeInTheDocument();
     const breadcrumb = screen.getByRole("navigation", { name: "Breadcrumb" });
-    expect(within(breadcrumb).getAllByRole("link")).toHaveLength(1);
     expect(
-      within(breadcrumb).getByRole("link", { name: "Projects" }),
-    ).toHaveAttribute("href", "/projects");
+      within(breadcrumb).getByRole("link", { name: "Initiatives" }),
+    ).toHaveAttribute("href", "/projects?tab=initiatives");
+    expect(
+      screen.getByText(/Improve patient-specific decisions/),
+    ).toBeInTheDocument();
     expect(
       screen.getByText("Made model outputs inspectable."),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("heading", { name: "Goal", level: 2 }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("heading", { name: "Scope", level: 2 }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("link", { name: "View Pathology Viewer" }),
-    ).toHaveAttribute("href", "/projects/pathology-viewer");
-    expect(
-      screen.getAllByRole("link", { name: /Pathology Viewer/ }),
-    ).toHaveLength(1);
-    expect(screen.queryByText("Read the project")).toBeNull();
-    expect(screen.getByText("computational pathology")).toBeInTheDocument();
-    expect(screen.getByText("1 decision")).toBeInTheDocument();
-  });
-
-  it("renders unheaded initiative prose as an about section", async () => {
-    (getInitiative as Mock).mockReturnValue({
-      ...fixture,
-      content: "A plain-language initiative brief.",
-      projects: [],
-    });
-
-    render(
-      await InitiativePage({
-        params: Promise.resolve({ slug: "personalized-medicine" }),
-      }),
-    );
-
-    expect(
-      screen.getByRole("heading", { name: "About", level: 2 }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText("A plain-language initiative brief."),
-    ).toBeInTheDocument();
-  });
-
-  it("supports a section heading without body copy", async () => {
-    (getInitiative as Mock).mockReturnValue({
-      ...fixture,
-      content: "## Goal",
-      projects: [],
-    });
-
-    render(
-      await InitiativePage({
-        params: Promise.resolve({ slug: "personalized-medicine" }),
-      }),
-    );
-
-    expect(
-      screen.getByRole("heading", { name: "Goal", level: 2 }),
-    ).toBeInTheDocument();
+      screen.getAllByRole("link", { name: "Pathology Viewer" }),
+    ).toHaveLength(2);
   });
 
   it("renders the not-found boundary for an unknown initiative", async () => {

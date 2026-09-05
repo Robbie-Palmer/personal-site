@@ -8,6 +8,7 @@ import {
   Code2,
   FolderKanban,
   Home,
+  Network,
   Search,
   X,
 } from "lucide-react";
@@ -63,6 +64,12 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
     href: "/projects",
     icon: <FolderKanban className="size-4" />,
     keywords: ["projects", "work", "portfolio"],
+  },
+  {
+    label: "Initiatives",
+    href: "/projects?tab=initiatives",
+    icon: <Network className="size-4" />,
+    keywords: ["initiatives", "programmes", "strategy", "outcomes"],
   },
   {
     label: "Experience",

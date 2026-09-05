@@ -42,9 +42,12 @@ function buildNeighbors(edges: GraphEdge[]): Map<string, Neighbor[]> {
 function canTraverse(edge: Neighbor): boolean {
   if (edge.type === "HAS_TAG") return false;
   if (edge.direction === "in") return true;
-  return !["PART_OF_PROJECT", "CREATED_AT_ROLE", "WRITTEN_AT_ROLE"].includes(
-    edge.type,
-  );
+  return ![
+    "CONTRIBUTES_TO_INITIATIVE",
+    "PART_OF_PROJECT",
+    "CREATED_AT_ROLE",
+    "WRITTEN_AT_ROLE",
+  ].includes(edge.type);
 }
 
 function findReachableTechnologies(

@@ -8,6 +8,8 @@ vi.mock("@/lib/api/initiatives", () => ({
       slug: "personalized-medicine",
       title: "Personalized Medicine",
       description: "Make patient-specific decisions more accessible.",
+      date: "2017-07-04",
+      status: "inactive",
       content: "",
       projectContributions: {},
       projects: [],
@@ -22,13 +24,16 @@ vi.mock("@/lib/api/projects", () => ({
 
 vi.mock("@/components/projects/projects-page-tabs", () => ({
   ProjectsPageTabs: ({
+    initiatives,
     projects,
     philosophy,
   }: {
+    initiatives: React.ReactNode;
     projects: React.ReactNode;
     philosophy: React.ReactNode;
   }) => (
     <div>
+      {initiatives}
       {projects}
       {philosophy}
     </div>
@@ -44,18 +49,12 @@ vi.mock("@/components/markdown", () => ({
 }));
 
 describe("projects page", () => {
-  it("places initiatives before the complete project list", async () => {
+  it("passes initiatives and projects to the project tabs", async () => {
     render(await ProjectsPage());
 
-    const initiative = screen.getByRole("link", {
-      name: "View Personalized Medicine",
-    });
-    const allProjects = screen.getByRole("heading", { name: "All projects" });
-
     expect(
-      initiative.compareDocumentPosition(allProjects) &
-        Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
+      screen.getByRole("link", { name: "Personalized Medicine" }),
+    ).toHaveAttribute("href", "/initiatives/personalized-medicine");
     expect(screen.getByText("Complete project list")).toBeInTheDocument();
   });
 });

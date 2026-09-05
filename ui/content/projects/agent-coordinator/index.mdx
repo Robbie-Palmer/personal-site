@@ -1,0 +1,115 @@
+---
+title: "Agent Coordinator"
+description: "A matching and handoff system that offers ready work to suitable people and agents without owning the work plan"
+date: "2026-09-04"
+status: "idea"
+initiatives:
+  - "semi-autonomous-software-development"
+tags:
+  - "agentic-engineering"
+  - "project-management"
+---
+
+# Vision
+
+Keep available agents working on the most useful tasks they can perform, while
+letting the Work Graph remain independent of models, subscriptions, machines,
+and agent products.
+
+The coordinator answers a different question from the graph. The Work Graph
+says what is ready and what constraints apply. The coordinator finds an actor
+whose capabilities, interests, authority, budget, and current capacity fit the
+task.
+
+# Why this is separate
+
+Model choice changes quickly. Some work needs a frontier model for research or
+architecture. Some can run on a cheaper model. Mechanical maintenance may be
+suited to a free model. Available capacity also shifts as subscriptions reach
+usage limits or a person loses focus.
+
+Putting those details in the Work Graph would couple durable project knowledge
+to a temporary market. The graph should keep task complexity, required
+capabilities, authority, and evidence. The coordinator should map those needs
+to the actors available now.
+
+The initial routing model can use broad bands. Deep research and architecture
+need frontier reasoning. Well-bounded implementation can use mid-priced models.
+Mechanical maintenance may fit cheap or free models. The named models will
+rotate too quickly to make them part of the durable schema. Evaluation history,
+observed task outcomes, current prices, subscription allowances, and available
+capacity should drive the mapping.
+
+# Actors
+
+An actor may be a person, an agent directed by that person, or an agent running
+under authority owned by the project. Each actor brings claims about capability,
+interests, cost, access, and availability. The coordinator must treat those
+claims as inputs to test, not unquestioned facts.
+
+For public contribution, people cannot hand a project access to a subsidized
+agent subscription. That would break product terms and create a credential
+nightmare. Instead, a contributor can ask their own agent to claim the highest
+priority ready task matching their skills and interests. They continue steering
+their agent and contribute the resulting work and evidence.
+
+# Responsibilities
+
+The coordinator should:
+
+* query ready work from the Work Graph;
+* match task requirements to an actor's declared and observed capabilities;
+* respect owner policy, budgets, access boundaries, and concurrency limits;
+* claim and renew the Work Graph's lease on behalf of the actor;
+* assemble the smallest context package needed to begin;
+* checkpoint progress before time or usage runs out;
+* release work with a usable handoff; and
+* record execution events for later analysis without filling the public DAG
+  with raw telemetry.
+
+# Personal mode
+
+The first coordinator can be small. It only needs to know which of my agents are
+available, what classes of work I trust each one to perform, and which ready
+task is most useful. It should make resuming after a usage limit routine rather
+than forcing the next session to rediscover the plan.
+
+# Contributor mode
+
+A public contributor should be able to request work using their own agent. The
+request can include interests, skills, available tools, budget, and desired
+complexity. The coordinator returns a task and a bounded context package. The
+contributor's agent claims the lease, works in the contributor's environment,
+and returns evidence or a proposed change through normal project controls.
+
+This creates a more useful entry point than a stale "good first issue". The
+work can match what the contributor wants to learn or support, while the graph
+explains why it matters and which evidence will prove completion.
+
+# First useful release
+
+1. Wait until the Work Graph contains real ready tasks and reliable leases.
+2. Define a portable description of task requirements and actor capabilities.
+3. Add advisory matching for my own agents, with the final choice visible before
+   claiming a lease.
+4. Add checkpoints and clean handoff when an execution session ends.
+5. Learn from completed, abandoned, and reassigned work instead of trusting
+   model labels alone.
+6. Add automatic matching within narrow owner-defined limits.
+7. Test contributor-directed matching only after the personal and team modes
+   work.
+
+# Success
+
+The coordinator succeeds when ready work spends less time waiting, actors receive
+tasks they can finish, and an expired session does not destroy its progress. It
+fails if it keeps cheap agents busy on low-value work or prizes subscription
+capacity over project outcomes.
+
+# Non-goals
+
+* Owning project priority, dependencies, or completion state
+* Receiving another person's subscription credentials
+* Pretending a model name is a stable measure of capability
+* Assigning every ready task when leaving capacity free is safer
+* Removing the project owner's authority over what may run

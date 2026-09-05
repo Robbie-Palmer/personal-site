@@ -75,7 +75,10 @@ export const BlogPostSchema = z.object({
 export type BlogPost = z.infer<typeof BlogPostSchema>;
 
 export type { Initiative } from "./initiative/initiative";
-export { InitiativeSchema } from "./initiative/initiative";
+export {
+  InitiativeSchema,
+  InitiativeStatusSchema,
+} from "./initiative/initiative";
 
 export { ADRStatusSchema };
 export type ADRStatus = z.infer<typeof ADRStatusSchema>;

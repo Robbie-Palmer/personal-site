@@ -48,6 +48,15 @@ function addContentNodes(
   repository: DomainRepository,
   state: GraphBuildState,
 ): void {
+  for (const [slug, initiative] of repository.initiatives) {
+    state.nodes.push({
+      id: `initiative:${slug}`,
+      name: initiative.title,
+      type: "initiative",
+      href: `/initiatives/${slug}`,
+      connections: 0,
+    });
+  }
   for (const [slug, project] of repository.projects) {
     state.nodes.push({
       id: `project:${slug}`,
@@ -163,6 +172,17 @@ function addRelationshipEdges(
   repository: DomainRepository,
   state: GraphBuildState,
 ): void {
+  const nodeIds = new Set(state.nodes.map((node) => node.id));
+  for (const [projectSlug, initiativeSlugs] of repository.graph.edges
+    .contributesToInitiative) {
+    for (const initiativeSlug of initiativeSlugs) {
+      const source = `project:${projectSlug}`;
+      const target = `initiative:${initiativeSlug}`;
+      if (nodeIds.has(source) && nodeIds.has(target)) {
+        addEdge(state, source, target, "CONTRIBUTES_TO_INITIATIVE");
+      }
+    }
+  }
   addMappedEdges(
     state,
     repository.graph.edges.partOfProject,
