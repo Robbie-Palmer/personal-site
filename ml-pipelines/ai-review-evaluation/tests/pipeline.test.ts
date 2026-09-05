@@ -12,7 +12,7 @@ import {
 import { buildScorecard } from "../src/build-scorecard";
 import { changeSizeBand, languagesForPaths } from "../src/corpus-strata";
 import { extractCorpus } from "../src/extract-corpus";
-import { freezeCohort } from "../src/freeze-cohort";
+import { buildEvaluationReadiness, freezeCohort } from "../src/freeze-cohort";
 import { buildObservations, matchFinding } from "../src/match-replays";
 import {
   resolveReplayCacheRoot,
@@ -303,6 +303,13 @@ test("extracts, freezes, matches, and scores a versioned replay corpus", () => {
   });
   const frozenResult = freezeCohort({ datasetFile: path.join(corpus, "manifest.json"), output: frozen, paramsFile });
   const { cohort, experiment } = frozenResult;
+  const overflowParams = fixtureParams();
+  overflowParams.decision.sampleUnit = "completed-replays";
+  overflowParams.experiment.repetitions = Number.MAX_SAFE_INTEGER;
+  assert.throws(
+    () => buildEvaluationReadiness({ ...cohort, entries: [cohort.entries[0]!, cohort.entries[0]!] }, overflowParams),
+    /safe integer range/,
+  );
   assert.equal(cohort.selection.method, "all-available-pull-requests");
   assert.equal(cohort.selection.unit, "pull-request");
   assert.equal(cohort.selection.selectedPullRequestCount, 1);

@@ -47,21 +47,45 @@ function sha256(value: string): string {
 
 function sqlPath(file: string): string {
   const resolved = path.resolve(file);
-  if (resolved.includes("'") || resolved.includes("\\")) {
-    throw new Error(`unsupported SQL path: ${resolved}`);
+  if (resolved.includes("'") || resolved.includes("\\") || /[\u0000-\u001f\u007f]/.test(resolved)) {
+    throw new Error("SQL path contains unsupported characters");
   }
   return resolved;
 }
 
+function martPath(martsDir: string, manifestPath: string): string {
+  const root = fs.realpathSync(martsDir);
+  const candidate = path.resolve(root, manifestPath);
+  sqlPath(candidate);
+  const relative = path.relative(root, candidate);
+  if (relative === ".." || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) {
+    throw new Error(`mart path escapes the marts directory: ${manifestPath}`);
+  }
+  const resolved = fs.realpathSync(candidate);
+  const resolvedRelative = path.relative(root, resolved);
+  if (resolvedRelative === ".." || resolvedRelative.startsWith(`..${path.sep}`) || path.isAbsolute(resolvedRelative)) {
+    throw new Error(`mart path escapes the marts directory: ${manifestPath}`);
+  }
+  return sqlPath(resolved);
+}
+
 function baselineQuery(reviewRuns: string, modelRuns: string): string {
   const queryFile = path.join(path.dirname(fileURLToPath(import.meta.url)), "stateless-baseline.sql");
-  const query = fs.readFileSync(queryFile, "utf8")
-    .replaceAll("__REVIEW_RUN_FACT__", reviewRuns)
-    .replaceAll("__MODEL_RUN_FACT__", modelRuns);
-  if (query.includes("__REVIEW_RUN_FACT__") || query.includes("__MODEL_RUN_FACT__")) {
-    throw new Error(`baseline SQL contains unresolved paths: ${queryFile}`);
+  const template = fs.readFileSync(queryFile, "utf8");
+  const replacements: Record<string, string> = {
+    __REVIEW_RUN_FACT__: reviewRuns,
+    __MODEL_RUN_FACT__: modelRuns,
+  };
+  const placeholders = template.match(/__[A-Z0-9_]+__/g) ?? [];
+  if (
+    placeholders.length !== 2 ||
+    Object.keys(replacements).some((placeholder) =>
+      placeholders.filter((candidate) => candidate === placeholder).length !== 1)
+  ) {
+    throw new Error(`baseline SQL must contain each mart placeholder exactly once: ${queryFile}`);
   }
-  return query;
+  return template.replace(/__(?:REVIEW_RUN_FACT|MODEL_RUN_FACT)__/g, (placeholder) =>
+    replacements[placeholder] ?? placeholder);
 }
 
 export function buildStatelessBaseline({
@@ -75,8 +99,8 @@ export function buildStatelessBaseline({
   const manifestFile = path.join(resolvedMarts, "scorecard-manifest.json");
   if (!fs.existsSync(manifestFile)) throw new Error(`scorecard manifest not found: ${manifestFile}`);
   const manifest = ManifestSchema.parse(JSON.parse(fs.readFileSync(manifestFile, "utf8")));
-  const reviewRuns = sqlPath(path.join(resolvedMarts, manifest.marts.review_run_fact.path));
-  const modelRuns = sqlPath(path.join(resolvedMarts, manifest.marts.model_run_fact.path));
+  const reviewRuns = martPath(resolvedMarts, manifest.marts.review_run_fact.path);
+  const modelRuns = martPath(resolvedMarts, manifest.marts.model_run_fact.path);
   const query = baselineQuery(reviewRuns, modelRuns);
   const result = spawnSync("duckdb", ["-json", "-noheader", "-c", query], {
     encoding: "utf8",

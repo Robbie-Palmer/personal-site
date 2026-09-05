@@ -69,8 +69,13 @@ function maximumAvailableSample(
   switch (params.decision.sampleUnit) {
     case "pull-requests":
       return new Set(entries.map((entry) => entry.pullRequestNumber)).size;
-    case "completed-replays":
-      return entries.length * params.experiment.repetitions;
+    case "completed-replays": {
+      const maximum = entries.length * params.experiment.repetitions;
+      if (!Number.isSafeInteger(maximum)) {
+        throw new Error("maximum completed replay sample exceeds the safe integer range");
+      }
+      return maximum;
+    }
     case "adjudicated-findings": {
       const findings = new Set<string>();
       for (const entry of entries) {

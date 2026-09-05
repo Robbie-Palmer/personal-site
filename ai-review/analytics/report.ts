@@ -75,7 +75,7 @@ const ReviewEfficiencyBaselineSchema = z.object({
     reviewRuns: z.number().int().positive(),
     modelCalls: z.number().int().positive(),
   }).strict().optional(),
-}).loose();
+});
 type ReviewEfficiencyBaseline = z.infer<typeof ReviewEfficiencyBaselineSchema>;
 
 interface Metrics {
