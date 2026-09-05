@@ -77,9 +77,9 @@ When OpenRouter reports exhausted account credits or an exhausted API-key
 spending limit, the run records the provider failure rather than claiming clean
 review coverage.
 
-Scout responses allow up to 8,000 output tokens because reasoning tokens count
-against the same limit and thinking models can otherwise exhaust the budget
-before emitting their final structured response.
+Scout and merger responses allow up to 8,000 output tokens because reasoning
+tokens count against the same limit and thinking models can otherwise exhaust
+the budget before emitting their final structured response.
 
 OpenCode describes the free models as limited-time feedback programmes. Prompts
 and outputs may be collected or used to improve those models, depending on the

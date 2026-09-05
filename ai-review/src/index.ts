@@ -69,6 +69,17 @@ type FindingOutcomeFlushRetry = {
   repository: string;
   pullRequestNumber: number;
 };
+type ControlledReplayEvidence = {
+  runId: string;
+  headSha: string;
+  verdict: FindingResolution["verdict"];
+  evidence: string;
+  validatedByFullReviewRunId?: string;
+};
+type FindingConfirmation = {
+  controlledReplay?: ControlledReplayEvidence;
+  unconfirmedReason?: "no-fixed-replay" | "stale-fixed-replay";
+};
 type PendingOutcomeEvaluation = {
   kind: "finding-outcome-evaluation";
   dueAt: number;
@@ -1455,6 +1466,93 @@ export class PullRequestCoordinator extends DurableObject<Env> {
     });
   }
 
+  private findingConfirmation(
+    event: FindingInteractionEvent,
+    findingId: string,
+  ): FindingConfirmation {
+    if (event.disposition !== "confirmed-fixed") return {};
+    const latestReplay = this.ctx.storage.sql
+      .exec<{
+        run_id: string;
+        head_sha: string;
+        finding_resolutions_json: string;
+      }>(
+        `SELECT run_id, head_sha, finding_resolutions_json
+         FROM review_runs
+         WHERE status = 'completed'
+           AND finding_resolutions_json IS NOT NULL
+         ORDER BY completed_at DESC, run_id DESC LIMIT 100`,
+      )
+      .toArray()
+      .map((run) => {
+        const resolution = storedFindingResolution(
+          run.finding_resolutions_json,
+          findingId,
+        );
+        return resolution
+          ? {
+              runId: run.run_id,
+              headSha: run.head_sha,
+              verdict: resolution.verdict,
+              evidence: resolution.evidence,
+            }
+          : undefined;
+      })
+      .find((resolution) => resolution !== undefined);
+    const currentHeadFullReview = event.headSha
+      ? this.ctx.storage.sql
+          .exec<{
+            run_id: string;
+            head_sha: string;
+            finding_resolutions_json: string | null;
+          }>(
+            `SELECT run_id, head_sha, finding_resolutions_json
+             FROM review_runs
+             WHERE status = 'completed' AND head_sha = ? AND force_run = 1
+             ORDER BY completed_at DESC, run_id DESC LIMIT 1`,
+            event.headSha,
+          )
+          .toArray()[0]
+      : undefined;
+    const currentHeadResolution = currentHeadFullReview
+      ? storedFindingResolution(
+          currentHeadFullReview.finding_resolutions_json,
+          findingId,
+        )
+      : undefined;
+    const authoritativeReplay = currentHeadResolution && currentHeadFullReview
+      ? {
+          runId: currentHeadFullReview.run_id,
+          headSha: currentHeadFullReview.head_sha,
+          verdict: currentHeadResolution.verdict,
+          evidence: currentHeadResolution.evidence,
+        }
+      : latestReplay;
+    const replayIsCurrent =
+      authoritativeReplay?.headSha === event.headSha ||
+      (currentHeadFullReview !== undefined && currentHeadResolution === undefined);
+    if (
+      authoritativeReplay?.verdict !== "fixed" ||
+      !event.headSha ||
+      !replayIsCurrent
+    ) {
+      return {
+        unconfirmedReason:
+          authoritativeReplay?.verdict === "fixed" && event.headSha
+            ? "stale-fixed-replay"
+            : "no-fixed-replay",
+      };
+    }
+    return {
+      controlledReplay: currentHeadFullReview
+        ? {
+            ...authoritativeReplay,
+            validatedByFullReviewRunId: currentHeadFullReview.run_id,
+          }
+        : authoritativeReplay,
+    };
+  }
+
   private async receiveInteraction(request: Request): Promise<Response> {
     const event = await request.json().catch(() => null);
     if (!isFindingInteractionEvent(event)) {
@@ -1502,51 +1600,14 @@ export class PullRequestCoordinator extends DurableObject<Env> {
       if (!finding) return { unknownFinding: true };
 
       const occurredAt = event.occurredAt ?? recordedAt;
-      const controlledReplay =
-        event.disposition === "confirmed-fixed"
-          ? this.ctx.storage.sql
-              .exec<{
-                run_id: string;
-                head_sha: string;
-                finding_resolutions_json: string;
-              }>(
-                `SELECT run_id, head_sha, finding_resolutions_json
-                 FROM review_runs
-                 WHERE status = 'completed'
-                   AND finding_resolutions_json IS NOT NULL
-                 ORDER BY completed_at DESC, run_id DESC LIMIT 100`,
-              )
-              .toArray()
-              .map((run) => {
-                const resolution = storedFindingResolution(
-                  run.finding_resolutions_json,
-                  findingId,
-                );
-                return resolution
-                  ? {
-                      runId: run.run_id,
-                      headSha: run.head_sha,
-                      verdict: resolution.verdict,
-                      evidence: resolution.evidence,
-                    }
-                  : undefined;
-              })
-              .find((resolution) => resolution !== undefined)
-          : undefined;
-      if (
-        event.disposition === "confirmed-fixed" &&
-        (controlledReplay?.verdict !== "fixed" ||
-          !event.headSha ||
-          controlledReplay.headSha !== event.headSha)
-      ) {
+      const confirmation = this.findingConfirmation(event, findingId);
+      if (confirmation.unconfirmedReason) {
         return {
           unconfirmedFix: true,
-          reason:
-            controlledReplay?.verdict === "fixed" && event.headSha
-              ? "stale-fixed-replay"
-              : "no-fixed-replay",
+          reason: confirmation.unconfirmedReason,
         };
       }
+      const { controlledReplay } = confirmation;
       const evidence = {
         schemaVersion: 2,
         recordType: "finding-interaction-evidence",

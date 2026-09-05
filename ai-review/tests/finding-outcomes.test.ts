@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { ZodError } from "zod";
 import {
   buildFindingOutcomeRecord,
   evaluateFinalizedFinding,
@@ -194,5 +195,41 @@ describe("finding outcomes", () => {
       manualOverride: { actor: "maintainer" },
       evidence: { outcomeHeadSha: "abc" },
     });
+  });
+
+  it("normalizes Date.parse-compatible outcome timestamps", () => {
+    const record = buildFindingOutcomeRecord({
+      repository: "owner/repository",
+      pullRequestNumber: 42,
+      findingId: `f_${"a".repeat(24)}`,
+      outcome: "superseded",
+      basis: "pull-request-finalization",
+      confidence: 1,
+      evaluatorVersion: "deterministic-outcomes-v1",
+      sourceId: "finalization:42",
+      outcomeVersion: 1,
+      occurredAt: "2026-08-15T14:00+02:00",
+      recordedAt: "2026-08-15T12:00:01Z",
+      evidence: {},
+    });
+
+    expect(record.occurredAt).toBe("2026-08-15T12:00:00.000Z");
+  });
+
+  it("routes invalid outcome timestamps through schema validation", () => {
+    expect(() => buildFindingOutcomeRecord({
+      repository: "owner/repository",
+      pullRequestNumber: 42,
+      findingId: `f_${"a".repeat(24)}`,
+      outcome: "superseded",
+      basis: "pull-request-finalization",
+      confidence: 1,
+      evaluatorVersion: "deterministic-outcomes-v1",
+      sourceId: "finalization:42",
+      outcomeVersion: 1,
+      occurredAt: "not-a-timestamp",
+      recordedAt: "2026-08-15T12:00:01Z",
+      evidence: {},
+    })).toThrow(ZodError);
   });
 });

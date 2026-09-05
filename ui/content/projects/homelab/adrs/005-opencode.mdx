@@ -1,19 +1,19 @@
 ---
-title: "ADR 005: opencode"
+title: "ADR 005: OpenCode"
 date: "2026-08-02"
 status: "Accepted"
-tech_stack: ["opencode"]
+tech_stack: ["OpenCode"]
 ---
 
 # Context
 
-The hub's agent lineup is Claude Code, Codex, and Grok Build, three
-proprietary agents, each tied to a commercial model family and subscription.
-I want at least one open-source agent in the mix for the same reasons the
+The hub's harness lineup is Claude Code, Codex, and Grok Build, three
+proprietary harnesses, each tied to a commercial model family and subscription.
+I want at least one open-source harness in the mix for the same reasons the
 rest of the lab is built on open tooling: no account dependency, no per-token
 surprise, and the freedom to point it at any model.
 
-opencode is an open-source, terminal-based agent that is intentionally
+OpenCode is an open-source, terminal-based coding harness that is intentionally
 model-agnostic. It can run against API providers or any OpenAI-compatible
 endpoint. That's what matters here, because open weight is how you get to the
 interesting models:
@@ -34,24 +34,24 @@ box in my house.
 
 # Decision
 
-Install **opencode** on the Mac mini alongside the proprietary agents.
+Install **OpenCode** on the Mac mini alongside the proprietary harnesses.
 
-opencode provides the model-agnostic fallback: if a provider's allowance is
-exhausted or its pricing changes, opencode can be pointed at a different
+OpenCode provides the model-agnostic fallback: if a provider's allowance is
+exhausted or its pricing changes, OpenCode can be pointed at a different
 model without changing the tool. It's also the way to use free and
 open-weight models, DeepSeek, Big Pickle, Kimi K3, whatever comes next,
 through whichever provider serves them.
 
 # Alternatives
 
-## Open source agents other than opencode (Aider, Continue)
+## Open-source harnesses other than OpenCode (Aider, Continue)
 
 * **Pros**: Aider and Continue are mature, well-known open-source options.
-* **Cons**: opencode's model-agnostic design and clean `AGENTS.md`-style
+* **Cons**: OpenCode's model-agnostic design and clean `AGENTS.md`-style
   conventions fit the hub best.
-* **Decision**: Rejected. opencode is the orchestrator-friendly choice.
+* **Decision**: Rejected. OpenCode is the orchestrator-friendly choice.
 
-## No open-source agent; rely on the three commercial ones
+## No open-source harness; rely on the three commercial ones
 
 * **Pros**: Fewer tools to maintain.
 * **Cons**: Leaves no model-agnostic fallback; all agent capacity depends on
@@ -68,12 +68,12 @@ through whichever provider serves them.
   open-weight releases like Kimi K3 are a few lines of config away, through
   third-party providers.
 * **Open source**: no account dependency, inspectable, and free.
-* **Complements the commercial agents** as the fourth in the lineup, all
+* **Complements the commercial harnesses** as the fourth in the lineup, all
   driven from the same orchestration surface.
 
 ### Cons
 
 * **Younger ecosystem**: fewer battle-tested integrations than Claude Code.
 * **Another tool to configure and keep updated.**
-* **Not the primary agent**: by design it's the fallback, so it gets less
+* **Not the primary harness**: by design it's the fallback, so it gets less
   real-world exercise than the commercial agents.

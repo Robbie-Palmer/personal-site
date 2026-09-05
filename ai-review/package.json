@@ -11,7 +11,9 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "@octokit/auth-app": "^8.2.0"
+    "@octokit/auth-app": "^8.2.0",
+    "ai-review-domain": "workspace:*",
+    "zod": "^4.2.1"
   },
   "devDependencies": {
     "@cloudflare/vitest-pool-workers": "^0.22.0",

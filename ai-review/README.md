@@ -211,12 +211,14 @@ with direct code evidence. Replay is evidence, not adjudication: the coordinator
 adds a `confirmed-fixed` outcome only after a trusted actor submits
 the top-level fallback `/ai-review confirm-fixed <finding-id> <reason>` for a
 recorded `fixed` replay when no finding thread is available.
-The replay head must match the authoritative current PR head fetched from
-GitHub when the trusted command is handled. The outcome links the trusted actor
-and reason to that replay's head, run, and
-evidence. PR content, stale replay, model omission, or a resolved GitHub thread
-cannot mint a confirmed label by itself. Confirmation suppresses replay only on
-that exact head; a later head makes the finding eligible for replay again.
+The coordinator fetches the authoritative current PR head from GitHub when it
+handles the trusted command. A completed forced full review can
+carry a fixed verdict forward when it produced no newer resolution for that
+finding, because the finding's file had no new semantic hunks. The outcome
+records that current-head validation run alongside the original replay. PR
+content, model omission, or a resolved GitHub thread cannot mint a confirmed
+label by itself. Confirmation suppresses replay only on that exact head; a
+later head makes the finding eligible for replay again.
 
 On `pull_request.closed`, the evaluator immediately joins each finding to the
 final reviewed head, later resolution evidence, replies, reaction snapshots,
@@ -263,7 +265,8 @@ credentials from Doppler) and build from them:
 ```bash
 mise run //ai-review:scorecard:pull
 mise run //ai-review:scorecard:build
-mise run //ai-review:scorecard:report
+mise run //ai-review:scorecard:baseline
+mise run //ai-review:scorecard:report -- --baseline ~/.cache/ai-review/baseline/stateless-baseline.json
 ```
 
 `pull` caches the bucket under `~/.cache/ai-review/r2-export` (idempotent:
@@ -277,6 +280,13 @@ paths are resolved relative to `ai-review/` when run through mise. The
 cache root can be redirected with `AI_REVIEW_SCORECARD_CACHE`. Building
 from any other fixed export prefix stays fully deterministic and
 offline.
+
+`scorecard:baseline` selects schema-v1 review runs from the marts and writes
+`~/.cache/ai-review/baseline/stateless-baseline.json`. The artifact records its
+source mart checksums, sample sizes, efficiency values, and a content-derived
+baseline ID. Pass it to the report with `--baseline` to compare schema-v2
+stateful review against the same stateless evidence instead of entering
+baseline values by hand.
 
 Metric definitions follow
 [Agentic Code Review ADR 033](/projects/agentic-code-review/adrs/033-duckdb-ai-review-scorecard):
@@ -337,6 +347,65 @@ exceeds the five-minute executor timeout, or reports a cost that breaches the
 cap.
 Replay outputs are versioned records; the CLI never rewrites the historical
 objects it reads.
+
+The corpus replay runner in `src/replay-runner.ts` executes one frozen
+`ai-review-replay-input` entry through the production scout, merger, validation,
+and finding-identification boundaries. Its adapter has no publication method,
+and isolated model calls neither read nor update the per-PR Durable Object.
+Call `runControlledReplay` with a corpus store, a production adapter, and one
+declared experiment: scout models, merger model, prompt version, or coverage
+policy. The store writes results below
+`replays/v1/<corpus-id>/<configuration-id>/repetition-<n>.json`, separate from
+production review records.
+
+The production service and evaluation pipeline import their shared Zod schemas
+and inferred TypeScript types from `packages/ai-review-domain`. This keeps replay
+inputs, finding outcomes, coverage, change profiles, model metrics, provider
+names, and experiment contracts identical on both sides of the boundary.
+
+Every request must declare model-count, token, cost, provider, privacy,
+timeout, and repetition limits. The default is a dry-run plan, which validates
+the frozen input and reports the full production-to-experiment difference
+without calling a model. Execution requires `dryRun: false`. Repeating the same
+corpus and configuration returns the stored result; set a new repetition index
+to run it again. The result retains raw candidates, merged findings, failures,
+usage, latency, cost, applied configuration, and corpus provenance.
+
+Run one locally cached production snapshot with the corpus CLI. Omit `--execute`
+for the dry plan, then load production provider credentials only for the explicit
+execution:
+
+```bash
+mise //ai-review:corpus:replay -- \
+  --snapshot <input-v1.json> \
+  --corpus-id <snapshot-sha256> \
+  --output ~/.cache/ai-review/corpus-replays \
+  --provider openrouter \
+  --model <experimental-model> \
+  --max-cost-usd 0.25
+
+doppler run --project ai-review --config prd -- \
+  mise //ai-review:corpus:replay -- \
+  --snapshot <input-v1.json> \
+  --corpus-id <snapshot-sha256> \
+  --output ~/.cache/ai-review/corpus-replays \
+  --provider openrouter \
+  --model <experimental-model> \
+  --max-cost-usd 0.25 \
+  --execute
+```
+
+Evaluation pipelines can pass any supported single-variable experiment as a
+JSON file with `--experiment`: scout models, merger model, prompt version, or
+coverage policy. `--max-models`, `--max-scout-tokens`, `--max-merger-tokens`,
+`--max-repetitions`, `--allowed-providers`, and
+`--require-zero-data-retention` keep the whole repeated experiment on one fixed
+limit set. The older `--model` and `--provider` form remains available for a
+single scout-model replay.
+
+The local store claims the result key atomically and writes the same
+`replays/v1` namespace used by the runner. The command prints the plan or result
+as one JSON object. It never calls a GitHub publication API.
 
 ## Deploy
 

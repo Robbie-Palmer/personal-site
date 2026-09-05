@@ -1,0 +1,34 @@
+#ifndef SATELLITE_SWARM_ESPNOW_TRANSPORT_HPP
+#define SATELLITE_SWARM_ESPNOW_TRANSPORT_HPP
+
+#include <Arduino.h>
+#include <WiFi.h>
+#include <array>
+#include <esp_now.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/queue.h>
+#include <satellite_swarm/interfaces.hpp>
+#include <satellite_swarm/wire_codec.hpp>
+
+class EspNowTransport : public satellite_swarm::Transport {
+public:
+  EspNowTransport() = default;
+
+  bool begin();
+  bool send(const satellite_swarm::Message& message) override;
+  bool receive(satellite_swarm::Message& message) override;
+
+private:
+  static const uint8_t kQueueDepth = 4;
+  static EspNowTransport* instance_;
+
+  StaticQueue_t queue_control_{};
+  std::array<uint8_t, kQueueDepth * sizeof(satellite_swarm::Message)> queue_storage_{};
+  QueueHandle_t queue_ = xQueueCreateStatic(kQueueDepth, sizeof(satellite_swarm::Message),
+                                            queue_storage_.data(), &queue_control_);
+  bool initialized_ = false;
+
+  static void onReceive(const esp_now_recv_info_t* info, const uint8_t* data, int length);
+};
+
+#endif

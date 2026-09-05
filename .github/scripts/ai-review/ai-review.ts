@@ -43,6 +43,7 @@ export interface PullRequest {
   author_association?: string;
   labels?: Array<{ name?: string }>;
   user: { login: string };
+  base?: { sha: string };
   head: { sha: string; ref?: string; repo?: { full_name?: string } };
 }
 
@@ -89,6 +90,11 @@ export interface ReviewState {
   runs: number;
   total_usd: number;
   models?: Record<string, ModelStats>;
+}
+
+export interface PullRequestReviewContext {
+  threads: string;
+  reviewers: string[];
 }
 
 export const MARKER = "<!-- ai-code-review -->";
@@ -214,7 +220,7 @@ const SCOUT_TIMEOUT_MS = 120_000;
 const SCOUT_TIMEOUT_BY_MODEL: Record<string, number> = {
   "nemotron-3-ultra-free": 180_000,
 };
-export const MERGER_MAX_TOKENS = 6_000;
+export const MERGER_MAX_TOKENS = 8_000;
 export const SCOUT_CONCURRENCY = 4;
 export const MAX_OPENROUTER_SCOUTS = 6;
 export const MAX_OPENCODE_SCOUTS = 6;
@@ -818,12 +824,17 @@ export class Reviewer {
     };
   }
 
-  async callOpenCodeScout(model: string, system: string, user: string): Promise<ModelResult> {
+  async callOpenCodeScout(
+    model: string,
+    system: string,
+    user: string,
+    options: { maxTokens?: number; timeoutMs?: number } = {},
+  ): Promise<ModelResult> {
     const response = await this.openCode.request<JsonObject>("POST", "/chat/completions", {
       body: {
         model,
         temperature: 0,
-        max_tokens: SCOUT_MAX_TOKENS,
+        max_tokens: options.maxTokens ?? SCOUT_MAX_TOKENS,
         messages: [
           {
             role: "system",
@@ -832,7 +843,7 @@ export class Reviewer {
           { role: "user", content: user },
         ],
       },
-      timeoutMs: SCOUT_TIMEOUT_BY_MODEL[model] ?? SCOUT_TIMEOUT_MS,
+      timeoutMs: options.timeoutMs ?? SCOUT_TIMEOUT_BY_MODEL[model] ?? SCOUT_TIMEOUT_MS,
     });
     const choices = response.choices;
     if (!Array.isArray(choices) || !isObject(choices[0])) throw new Error(`Invalid response from ${model}`);
@@ -845,7 +856,12 @@ export class Reviewer {
     };
   }
 
-  async callOpenRouterScout(model: string, system: string, user: string): Promise<ModelResult> {
+  async callOpenRouterScout(
+    model: string,
+    system: string,
+    user: string,
+    options: { maxTokens?: number; timeoutMs?: number } = {},
+  ): Promise<ModelResult> {
     const provider: JsonObject = {
       allow_fallbacks: true,
       require_parameters: true,
@@ -860,7 +876,7 @@ export class Reviewer {
       body: {
         model,
         temperature: 0,
-        max_tokens: SCOUT_MAX_TOKENS,
+        max_tokens: options.maxTokens ?? SCOUT_MAX_TOKENS,
         provider,
         ...(reasoning ? { reasoning } : {}),
         response_format: {
@@ -872,6 +888,7 @@ export class Reviewer {
           { role: "user", content: user },
         ],
       },
+      timeoutMs: options.timeoutMs,
     });
     const choices = response.choices;
     if (!Array.isArray(choices) || !isObject(choices[0])) throw new Error(`Invalid response from ${model}`);
@@ -890,6 +907,7 @@ export class Reviewer {
     schemaName: string,
     schema: JsonObject,
     maxTokens: number,
+    timeoutMs?: number,
   ): Promise<ModelResult> {
     const provider: JsonObject = {
       allow_fallbacks: true,
@@ -910,6 +928,7 @@ export class Reviewer {
           { role: "user", content: user },
         ],
       },
+      timeoutMs,
     });
     const choices = response.choices;
     if (!Array.isArray(choices) || !isObject(choices[0])) throw new Error(`Invalid response from ${model}`);
@@ -950,12 +969,13 @@ export class Reviewer {
     return { state: { runs: 0, total_usd: 0 } };
   }
 
-  async reviewThreadContext(paths?: string[]): Promise<string> {
+  async pullRequestReviewContext(paths?: string[]): Promise<PullRequestReviewContext> {
     const relevantPaths = paths ? new Set(paths) : undefined;
     const [owner, repository] = this.settings.repository.split("/", 2);
     const query = `query($owner:String!, $repository:String!, $number:Int!) {
       repository(owner:$owner, name:$repository) {
         pullRequest(number:$number) {
+          reviews(first:100) { nodes { author { login } } }
           reviewThreads(first:100) {
             nodes { isResolved isOutdated comments(first:20) { nodes { path line body author { login } } } }
           }
@@ -969,9 +989,23 @@ export class Reviewer {
       throw new Error(`GitHub GraphQL errors: ${JSON.stringify(payload.errors).slice(0, 1_000)}`);
     }
     const data = payload.data;
-    if (!isObject(data) || !isObject(data.repository) || !isObject(data.repository.pullRequest)) return "";
-    const threadConnection = data.repository.pullRequest.reviewThreads;
-    if (!isObject(threadConnection) || !Array.isArray(threadConnection.nodes)) return "";
+    if (!isObject(data) || !isObject(data.repository) || !isObject(data.repository.pullRequest)) {
+      return { threads: "", reviewers: [] };
+    }
+    const pullRequest = data.repository.pullRequest;
+    const reviewConnection = pullRequest.reviews;
+    const reviewNodes = isObject(reviewConnection) && Array.isArray(reviewConnection.nodes)
+      ? reviewConnection.nodes
+      : [];
+    const reviewers = [...new Set(reviewNodes.filter(isObject).flatMap((review) => {
+      const author = review.author;
+      if (!isObject(author) || typeof author.login !== "string" || author.login.length === 0) return [];
+      return [author.login];
+    }))].sort((left, right) => left.localeCompare(right));
+    const threadConnection = pullRequest.reviewThreads;
+    if (!isObject(threadConnection) || !Array.isArray(threadConnection.nodes)) {
+      return { threads: "", reviewers };
+    }
     const blocks: string[] = [];
     let used = 0;
     for (const value of threadConnection.nodes) {
@@ -995,7 +1029,11 @@ export class Reviewer {
       blocks.push(block);
       used += block.length;
     }
-    return blocks.join("\n\n");
+    return { threads: blocks.join("\n\n"), reviewers };
+  }
+
+  async reviewThreadContext(paths?: string[]): Promise<string> {
+    return (await this.pullRequestReviewContext(paths)).threads;
   }
 
   async writeComment(id: number | undefined, body: string): Promise<number | undefined> {

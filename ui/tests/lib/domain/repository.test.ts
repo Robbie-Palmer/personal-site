@@ -53,10 +53,12 @@ import * as fs from "node:fs";
 import {
   loadADRs,
   loadBlogPosts,
+  loadInitiatives,
   loadJobRoles,
   loadProjects,
   loadTechnologies,
   validateBlogPost,
+  validateInitiative,
   validateReferentialIntegrity,
   validateTechnology,
 } from "@/lib/repository";
@@ -144,6 +146,7 @@ description: "A test project"
 date: "2025-01-01"
 status: "live"
 tech_stack: ["React", "TypeScript"]
+initiatives: ["Connected Work"]
 ---
 
 # Project content`;
@@ -164,6 +167,9 @@ tech_stack: ["React", "TypeScript"]
         "react",
         "typescript",
       ]);
+      expect(result.relations.get("test-project")?.initiatives).toEqual([
+        "connected-work",
+      ]);
     });
 
     it("should load ADRs for each project", () => {
@@ -183,8 +189,8 @@ tech_stack: ["TypeScript"]
 ---
 Content`;
 
-      vi.mocked(fs.existsSync).mockImplementation(() => {
-        return true;
+      vi.mocked(fs.existsSync).mockImplementation((filePath) => {
+        return !filePath.toString().endsWith("pitch.mdx");
       });
 
       vi.mocked(fs.readdirSync).mockImplementation(((path: string) => {
@@ -231,6 +237,103 @@ Content`;
       vi.mocked(fs.readFileSync).mockReturnValue(mockProjectContent);
 
       expect(() => loadProjects()).toThrow("deprecated 'inherits_adrs'");
+    });
+
+    it.each([
+      ["a scalar", 'initiatives: "Connected Work"'],
+      [
+        "an array containing a non-string",
+        'initiatives: ["Connected Work", 42]',
+      ],
+    ])("rejects initiatives set to %s", (_case, initiatives) => {
+      const mockProjectContent = `---
+title: "Test Project"
+description: "A test project"
+date: "2025-01-01"
+status: "live"
+${initiatives}
+---
+Content`;
+
+      vi.mocked(fs.readdirSync).mockImplementation(((path: string) => {
+        if (path.endsWith("projects")) return [mockDirent("test-project")];
+        return [];
+      }) as unknown as typeof fs.readdirSync);
+      vi.mocked(fs.readFileSync).mockReturnValue(mockProjectContent);
+
+      expect(() => loadProjects()).toThrow(
+        "Project test-project failed validation",
+      );
+    });
+  });
+
+  describe("loadInitiatives", () => {
+    it("returns an empty map when the initiatives directory does not exist", () => {
+      vi.mocked(fs.existsSync).mockReturnValue(false);
+
+      expect(loadInitiatives().entities.size).toBe(0);
+    });
+
+    it("loads initiative content", () => {
+      const mockInitiativeContent = `---
+title: "Personalized Medicine"
+description: "Making patient-specific treatment decisions accessible"
+date: "2017-07-04"
+updated: "2021-11-01"
+status: "inactive"
+project_contributions:
+  pathology-viewer: "Made model output inspectable."
+---
+
+# Goal`;
+
+      vi.mocked(fs.readdirSync).mockReturnValue([
+        "personalized-medicine.mdx",
+      ] as unknown as ReaddirResult);
+      vi.mocked(fs.readFileSync).mockReturnValue(mockInitiativeContent);
+
+      const result = loadInitiatives();
+
+      expect(result.entities.get("personalized-medicine")).toMatchObject({
+        title: "Personalized Medicine",
+        date: "2017-07-04",
+        updated: "2021-11-01",
+        status: "inactive",
+        projectContributions: {
+          "pathology-viewer": "Made model output inspectable.",
+        },
+        content: "\n# Goal",
+      });
+    });
+
+    it("rejects invalid initiative content", () => {
+      const consoleError = vi
+        .spyOn(console, "error")
+        .mockImplementation(() => undefined);
+      vi.mocked(fs.readdirSync).mockReturnValue([
+        "invalid-initiative.mdx",
+      ] as unknown as ReaddirResult);
+      vi.mocked(fs.readFileSync).mockReturnValue(`---
+title: "Invalid Initiative"
+---
+
+# Goal`);
+
+      expect(() => loadInitiatives()).toThrow(
+        "Initiative invalid-initiative failed validation",
+      );
+      expect(consoleError).toHaveBeenCalledOnce();
+    });
+
+    it("returns schema errors for an invalid initiative", () => {
+      const result = validateInitiative({
+        slug: "invalid-initiative",
+        title: "Invalid Initiative",
+        description: "",
+        content: "# Goal",
+      });
+
+      expect(result.success).toBe(false);
     });
   });
 
@@ -602,6 +705,7 @@ Content`;
             {
               technologies: ["react"],
               adrs: [],
+              initiatives: [],
               tags: [],
             },
           ],
@@ -609,6 +713,7 @@ Content`;
 
         const errors = validateReferentialIntegrity({
           technologies,
+          initiatives: new Map(),
           adrs: new Map(),
           projects,
           blogRelations: new Map(),
@@ -642,6 +747,7 @@ Content`;
             {
               technologies: ["react"], // react doesn't exist
               adrs: [],
+              initiatives: [],
               tags: [],
             },
           ],
@@ -649,6 +755,7 @@ Content`;
 
         const errors = validateReferentialIntegrity({
           technologies,
+          initiatives: new Map(),
           adrs: new Map(),
           projects,
           blogRelations: new Map(),
@@ -684,6 +791,7 @@ Content`;
             {
               technologies: [],
               adrs: ["001-missing"], // ADR doesn't exist
+              initiatives: [],
               tags: [],
             },
           ],
@@ -691,6 +799,7 @@ Content`;
 
         const errors = validateReferentialIntegrity({
           technologies,
+          initiatives: new Map(),
           adrs: new Map(),
           projects,
           blogRelations: new Map(),
@@ -702,6 +811,52 @@ Content`;
         expect(errors.length).toBeGreaterThan(0);
         expect(errors[0]?.type).toBe("missing_reference");
         expect(errors[0]?.field).toBe("adrs");
+      });
+
+      it("should detect missing initiative reference", () => {
+        const projects = new Map([
+          [
+            "test-project",
+            {
+              slug: "test-project",
+              title: "Test",
+              description: "Desc",
+              date: "2025-01-01",
+              status: "live" as const,
+              content: "Content",
+            },
+          ],
+        ]);
+        const projectRelations = new Map([
+          [
+            "test-project",
+            {
+              technologies: [],
+              adrs: [],
+              initiatives: ["missing-initiative"],
+              tags: [],
+            },
+          ],
+        ]);
+
+        const errors = validateReferentialIntegrity({
+          technologies: new Map(),
+          initiatives: new Map(),
+          adrs: new Map(),
+          projects,
+          blogRelations: new Map(),
+          projectRelations,
+          adrRelations: new Map(),
+          roleRelations: new Map(),
+        });
+
+        expect(errors).toContainEqual(
+          expect.objectContaining({
+            type: "missing_reference",
+            field: "initiatives",
+            value: "missing-initiative",
+          }),
+        );
       });
 
       it("should detect duplicate ADR slugs in project context", () => {
@@ -765,6 +920,7 @@ Content`;
             {
               technologies: [],
               adrs: ["recipe-site:001-react", "personal-site:001-react"],
+              initiatives: [],
               tags: [],
             },
           ],
@@ -772,6 +928,7 @@ Content`;
 
         const errors = validateReferentialIntegrity({
           technologies,
+          initiatives: new Map(),
           adrs,
           projects,
           blogRelations: new Map(),
@@ -821,6 +978,7 @@ Content`;
 
         const errors = validateReferentialIntegrity({
           technologies,
+          initiatives: new Map(),
           adrs,
           projects,
           blogRelations: new Map(),

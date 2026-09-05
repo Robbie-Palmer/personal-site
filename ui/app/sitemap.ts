@@ -1,5 +1,6 @@
 import type { MetadataRoute } from "next";
 import { getAllPosts } from "@/lib/api/blog";
+import { getAllInitiatives } from "@/lib/api/initiatives";
 import { getAllProjects } from "@/lib/api/projects";
 import { siteConfig } from "@/lib/config/site-config";
 import { getAllTechnologySlugs, loadDomainRepository } from "@/lib/domain";
@@ -8,6 +9,7 @@ export const dynamic = "force-static";
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const posts = getAllPosts();
+  const initiatives = getAllInitiatives();
   const projects = getAllProjects();
   const repository = loadDomainRepository();
   const technologySlugs = getAllTechnologySlugs(repository);
@@ -18,11 +20,29 @@ export default function sitemap(): MetadataRoute.Sitemap {
     priority: 0.9,
   }));
 
+  const initiativePages = initiatives.map((initiative) => ({
+    url: `${siteConfig.url}/initiatives/${initiative.slug}`,
+    lastModified: initiative.updated || initiative.date,
+    priority: 0.8,
+  }));
+
   const projectPages = projects.map((project) => ({
     url: `${siteConfig.url}/projects/${project.slug}`,
     lastModified: project.updated || project.date,
     priority: 0.8,
   }));
+
+  const pitchDeckPages = projects.flatMap((project) =>
+    project.pitch
+      ? [
+          {
+            url: `${siteConfig.url}/projects/${project.slug}/deck`,
+            lastModified: project.updated || project.date,
+            priority: 0.7,
+          },
+        ]
+      : [],
+  );
 
   const adrPages = projects.flatMap((project) =>
     project.adrs.map((adr) => ({
@@ -75,8 +95,15 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: 0.4,
     },
     ...blogPosts,
+    ...initiativePages,
     ...projectPages,
+    ...pitchDeckPages,
     ...adrPages,
     ...technologyPages,
+    {
+      url: `${siteConfig.url}/technologies/revealdotjs/deck`,
+      lastModified: new Date().toISOString(),
+      priority: 0.5,
+    },
   ];
 }

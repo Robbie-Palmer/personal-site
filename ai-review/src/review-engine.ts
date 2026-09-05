@@ -5,6 +5,7 @@ import {
   MAX_OPENCODE_SCOUTS,
   MAX_OPENROUTER_SCOUTS,
   MERGER_MAX_TOKENS,
+  OPENROUTER_MERGER_MAX_PRICES,
   OPENROUTER_SCOUT_MAX_PRICES,
   Reviewer,
   SCOUT_CONCURRENCY,
@@ -22,7 +23,6 @@ import {
   type Finding,
   type MergedFinding,
   type ModelResult,
-  type ModelUsage,
   type ReviewState,
   type Scout,
   type Settings,
@@ -39,56 +39,49 @@ import {
   type HiddenFinding,
   type PublicationPolicy,
 } from "./guardrails";
+import type {
+  ChangeProfile,
+  ModelMetric,
+  OpenFindingBaseline,
+  PullRequestMetadata,
+  ReviewCoverage,
+  ReviewCoverageMode,
+  ReviewHunk,
+} from "ai-review-domain/records";
+import {
+  inferOriginatingAgent,
+  inferPullRequestTaskType,
+} from "ai-review-domain/pull-request-metadata";
 import { createInstallationToken } from "./github-app";
 import {
   publishFindingComments,
   renderFallbackFindings,
   type FindingPublication,
 } from "./finding-lifecycle";
+import { persistReplayInput } from "./replay-input";
+
+export type {
+  ChangeProfile,
+  ModelMetric,
+  OpenFindingBaseline,
+  PullRequestMetadata,
+  ReviewCoverage,
+  ReviewCoverageMode,
+  ReviewHunk,
+} from "ai-review-domain/records";
 
 type JsonObject = Record<string, unknown>;
 
 export const STATEFUL_REVIEW_MARKER = "<!-- stateful-ai-code-review -->";
 
-export interface ReviewHunk {
-  hunkId: string;
-  fingerprint: string;
-  file: string;
-  oldStart: number;
-  oldLines: number;
-  newStart: number;
-  newLines: number;
-}
-
-export interface ChangeProfile {
-  diffCharacters: number;
-  additions: number;
-  deletions: number;
-  changedFiles: number;
-  reviewableFiles: number;
-  omittedFiles: number;
-  hunks: number;
-  languages: string[];
-  repositoryAreas: string[];
-  riskSignals: string[];
-}
-
-export interface PullRequestMetadata {
-  author: string;
-  authorAssociation?: string;
-  title?: string;
-  labels: string[];
-  headRef?: string;
-  taskType?: "bug" | "dependency" | "documentation" | "feature";
-  originatingAgent?: "claude" | "codex" | "opencode";
-}
-
 export interface PreparedReview {
   skipReason?: string;
+  baseSha?: string;
   headSha?: string;
   diffFingerprint?: string;
   configFingerprint?: string;
   diff?: string;
+  fullDiff?: string;
   paths: string[];
   omitted: string[];
   hunks?: ReviewHunk[];
@@ -100,19 +93,7 @@ export interface PreparedReview {
   guidelines?: string;
   threads?: string;
   replayFindings?: OpenFindingBaseline[];
-}
-
-export type ReviewCoverageMode = "full" | "incremental" | "skipped";
-
-export interface OpenFindingBaseline {
-  findingId: string;
-  file: string;
-  title: string;
-  hunkIds: string[];
-  severity?: string;
-  line?: number | null;
-  evidence?: string;
-  recommendation?: string;
+  priorOpenFindings?: OpenFindingBaseline[];
 }
 
 export interface FindingResolution {
@@ -125,33 +106,6 @@ export interface ReviewBaseline {
   headSha?: string;
   hunkIds: string[];
   openFindings: OpenFindingBaseline[];
-}
-
-export interface ReviewCoverage {
-  mode: ReviewCoverageMode;
-  reason: string;
-  baselineHeadSha?: string;
-  totalHunks: number;
-  reviewedHunkIds: string[];
-  unchangedHunkIds: string[];
-  skippedHunkIds: string[];
-  affectedFindingIds: string[];
-  paths: string[];
-  skippedPaths: string[];
-}
-
-export interface ModelMetric {
-  model: string;
-  provider: "opencode" | "openrouter";
-  role: "scout" | "merger";
-  ok: boolean;
-  latencyMs: number;
-  costUsd: number;
-  usage?: ModelUsage;
-  error?: string;
-  skipped?: boolean;
-  consecutiveFailures?: number;
-  cooldownUntil?: string;
 }
 
 export interface CircuitSkippedModel {
@@ -173,13 +127,21 @@ export interface ScoutRun {
   circuitSkipped?: CircuitSkippedModel[];
 }
 
-interface ScoutRunOptions {
+export interface ScoutRunOptions {
   providers?: Array<Scout["provider"]>;
   observationId?: string;
+  isolated?: boolean;
+  systemPrompt?: string;
+  maxTokens?: number;
+  timeoutMs?: number;
 }
 
-interface MergeRunOptions {
+export interface MergeRunOptions {
   observationId?: string;
+  isolated?: boolean;
+  systemPrompt?: string;
+  maxTokens?: number;
+  timeoutMs?: number;
 }
 
 export interface MergedRun {
@@ -401,32 +363,6 @@ function countPatchLines(diff: string, prefix: "+" | "-"): number {
         line.startsWith(prefix) &&
         !line.startsWith(prefix === "+" ? "+++" : "---"),
     ).length;
-}
-
-function taskType(labels: string[]): PullRequestMetadata["taskType"] {
-  const normalized = new Set(labels.map((label) => label.toLowerCase()));
-  if (["bug", "fix"].some((label) => normalized.has(label))) return "bug";
-  if (["dependencies", "dependency"].some((label) => normalized.has(label))) {
-    return "dependency";
-  }
-  if (["documentation", "docs"].some((label) => normalized.has(label))) {
-    return "documentation";
-  }
-  if (["enhancement", "feature"].some((label) => normalized.has(label))) {
-    return "feature";
-  }
-  return undefined;
-}
-
-function originatingAgent(
-  title: string | undefined,
-  headRef: string | undefined,
-): PullRequestMetadata["originatingAgent"] {
-  const source = `${title ?? ""} ${headRef ?? ""}`.toLowerCase();
-  if (/(^|[^a-z])claude([^a-z]|$)/.test(source)) return "claude";
-  if (/(^|[^a-z])codex([^a-z]|$)/.test(source)) return "codex";
-  if (/(^|[^a-z])opencode([^a-z]|$)/.test(source)) return "opencode";
-  return undefined;
 }
 
 export function reviewRiskSignals(paths: string[]): string[] {
@@ -958,12 +894,21 @@ export async function prepareReview(
     statefulMergerSchema,
     guardrails: guardrailPolicy(env),
   });
+  const context = selectedDiff.trim()
+    ? await reviewer.fileContext(selectedPaths, headSha)
+    : "";
+  const guidelines = selectedDiff.trim() ? await reviewer.headGuidelines(headSha) : "";
+  const reviewContext = selectedDiff.trim()
+    ? await reviewer.pullRequestReviewContext(selectedPaths)
+    : { threads: "", reviewers: [] };
   return {
+    baseSha: pr.base?.sha,
     headSha,
     diffFingerprint: await sha256(rawDiff),
     configFingerprint: await sha256(config),
     ...(coverage.mode === "skipped" ? { skipReason: coverage.reason } : {}),
     diff: selectedDiff,
+    fullDiff: rawDiff,
     paths: selectedPaths,
     omitted,
     hunks: selectedHunks,
@@ -981,20 +926,28 @@ export async function prepareReview(
       title: pr.title,
       labels,
       headRef: pr.head.ref,
-      taskType: taskType(labels),
-      originatingAgent: originatingAgent(pr.title, pr.head.ref),
+      taskType: inferPullRequestTaskType({
+        author: pr.user.login,
+        headRef: pr.head.ref,
+        labels,
+        title: pr.title,
+      }),
+      originatingAgent: inferOriginatingAgent({
+        headRef: pr.head.ref,
+        title: pr.title,
+      }),
+      reviewers: reviewContext.reviewers,
     },
-    context: selectedDiff.trim()
-      ? await reviewer.fileContext(selectedPaths, headSha)
-      : "",
-    guidelines: selectedDiff.trim() ? await reviewer.headGuidelines(headSha) : "",
+    context,
+    guidelines,
     replayFindings: baseline.openFindings.filter((finding) =>
       coverage.affectedFindingIds.includes(finding.findingId),
     ),
+    priorOpenFindings: baseline.openFindings,
     threads: selectedDiff.trim()
       ? [
           affectedFindingContext(baseline, coverage),
-          await reviewer.reviewThreadContext(selectedPaths),
+          reviewContext.threads,
         ]
           .filter(Boolean)
           .join("\n\n")
@@ -1149,6 +1102,54 @@ function validateScoutPayload(
   };
 }
 
+async function prepareScoutRoster(
+  env: Env,
+  reviewer: Reviewer,
+  settings: Settings,
+  providers: Set<Scout["provider"]>,
+  isolated: boolean,
+) {
+  const availability = providers.has("opencode")
+    ? await reviewer.openCodeScoutModels()
+    : { models: [], unavailable: [] };
+  const duplicateModels = duplicateScoutModels(
+    settings.openRouterScouts,
+    [...availability.models, ...availability.unavailable],
+  );
+  if (duplicateModels.length > 0) {
+    throw new Error(
+      `Scout model IDs must be unique across providers: ${duplicateModels.join(", ")}`,
+    );
+  }
+  const configuredScouts: Scout[] = [];
+  if (providers.has("openrouter")) {
+    configuredScouts.push(...settings.openRouterScouts.map(
+      (model): Scout => ({ model, provider: "openrouter" }),
+    ));
+  }
+  if (providers.has("opencode")) {
+    configuredScouts.push(...availability.models.map(
+      (model): Scout => ({ model, provider: "opencode" }),
+    ));
+  }
+  const unavailableScouts: Scout[] = availability.unavailable.map((model) => ({
+    model,
+    provider: "opencode",
+  }));
+  const circuitSkipped = isolated
+    ? []
+    : await plannedCircuitSkips(env, [...configuredScouts, ...unavailableScouts]);
+  const skippedScouts = new Set(circuitSkipped.map(scoutIdentity));
+  return {
+    availability,
+    circuitSkipped,
+    configuredScouts,
+    runnableScouts: configuredScouts.filter(
+      (scout) => !skippedScouts.has(scoutIdentity(scout)),
+    ),
+  };
+}
+
 export async function runScouts(
   env: Env,
   params: ReviewWorkflowParams,
@@ -1163,45 +1164,16 @@ export async function runScouts(
   const providers = new Set(
     options.providers ?? (["openrouter", "opencode"] as const),
   );
-  const availability = providers.has("opencode")
-    ? await reviewer.openCodeScoutModels()
-    : { models: [], unavailable: [] };
-  const duplicateModels = duplicateScoutModels(
-    settings.openRouterScouts,
-    [...availability.models, ...availability.unavailable],
-  );
-  if (duplicateModels.length > 0) {
-    throw new Error(
-      `Scout model IDs must be unique across providers: ${duplicateModels.join(", ")}`,
+  const { availability, circuitSkipped, configuredScouts, runnableScouts } =
+    await prepareScoutRoster(
+      env,
+      reviewer,
+      settings,
+      providers,
+      options.isolated === true,
     );
-  }
-  const configuredScouts: Scout[] = [
-    ...(providers.has("openrouter")
-      ? settings.openRouterScouts.map(
-          (model): Scout => ({ model, provider: "openrouter" }),
-        )
-      : []),
-    ...(providers.has("opencode")
-      ? availability.models.map(
-          (model): Scout => ({ model, provider: "opencode" }),
-        )
-      : []),
-  ];
-  const unavailableScouts: Scout[] = availability.unavailable.map((model) => ({
-    model,
-    provider: "opencode",
-  }));
-  const circuitSkipped = await plannedCircuitSkips(env, [
-    ...configuredScouts,
-    ...unavailableScouts,
-  ]);
-  const skippedScouts = new Set(
-    circuitSkipped.map(scoutIdentity),
-  );
+  const skippedScouts = new Set(circuitSkipped.map(scoutIdentity));
   const isSkipped = (scout: Scout) => skippedScouts.has(scoutIdentity(scout));
-  const runnableScouts = configuredScouts.filter(
-    (scout) => !isSkipped(scout),
-  );
   const models = [
     ...configuredScouts.map(({ model }) => model),
     ...availability.unavailable,
@@ -1211,6 +1183,10 @@ export async function runScouts(
     prepared.context ?? "",
     prepared.guidelines ?? "",
   );
+  const scoutCallOptions =
+    options.maxTokens !== undefined || options.timeoutMs !== undefined
+      ? { maxTokens: options.maxTokens, timeoutMs: options.timeoutMs }
+      : undefined;
   const settled: Array<{
     scout: Scout;
     latencyMs: number;
@@ -1219,13 +1195,16 @@ export async function runScouts(
   for (let offset = 0; offset < runnableScouts.length; offset += SCOUT_CONCURRENCY) {
     const batch = runnableScouts.slice(offset, offset + SCOUT_CONCURRENCY);
     const started = batch.map(() => Date.now());
-    const outcomes = await Promise.allSettled(
-      batch.map(({ model, provider }) =>
-        provider === "openrouter"
-          ? reviewer.callOpenRouterScout(model, scoutSystem, source)
-          : reviewer.callOpenCodeScout(model, scoutSystem, source),
-      ),
-    );
+    const callScout = ({ model, provider }: Scout) => {
+      const args = [model, options.systemPrompt ?? scoutSystem, source] as const;
+      if (provider === "openrouter") {
+        if (scoutCallOptions) return reviewer.callOpenRouterScout(...args, scoutCallOptions);
+        return reviewer.callOpenRouterScout(...args);
+      }
+      if (scoutCallOptions) return reviewer.callOpenCodeScout(...args, scoutCallOptions);
+      return reviewer.callOpenCodeScout(...args);
+    };
+    const outcomes = await Promise.allSettled(batch.map(callScout));
     batch.forEach((scout, index) => {
       const outcome = outcomes[index];
       if (outcome) {
@@ -1315,14 +1294,16 @@ export async function runScouts(
       }
     }
   }
-  await recordModelReliability(
-    env,
-    options.observationId ??
-      `${params.deliveryId}:${[...providers]
-        .sort((a, b) => a.localeCompare(b))
-        .join(",")}`,
-    metrics,
-  );
+  if (!options.isolated) {
+    await recordModelReliability(
+      env,
+      options.observationId ??
+        `${params.deliveryId}:${[...providers]
+          .sort((a, b) => a.localeCompare(b))
+          .join(",")}`,
+      metrics,
+    );
+  }
   return {
     models,
     candidates,
@@ -1418,6 +1399,46 @@ function normalizeMergedPayload(
   }
 }
 
+function mergerPrompt(prepared: PreparedReview, scouts: ScoutRun): string {
+  return `<DATA kind=scout-candidates>
+${JSON.stringify(scouts.candidates)}
+</DATA>
+<DATA kind=durable-open-findings-for-controlled-replay>
+${JSON.stringify(prepared.replayFindings ?? [])}
+</DATA>
+<DATA kind=current-reviewed-diff>
+${prepared.diff ?? ""}
+</DATA>
+<DATA kind=current-file-context>
+${prepared.context ?? ""}
+</DATA>
+<DATA kind=github-review-threads>
+${prepared.threads ?? ""}
+</DATA>`;
+}
+
+export function estimateMergeCostCeilingUsd(
+  env: Env,
+  params: ReviewWorkflowParams,
+  prepared: PreparedReview,
+  scouts: ScoutRun,
+  options: MergeRunOptions = {},
+): number | undefined {
+  const settings = modelSettings(env, params, "not-used-for-model-calls");
+  const prices = OPENROUTER_MERGER_MAX_PRICES[settings.merger];
+  if (!prices) return undefined;
+  const requestText = [
+    options.systemPrompt ?? statefulMergerSystem,
+    JSON.stringify(statefulMergerSchema),
+    mergerPrompt(prepared, scouts),
+  ].join("\n");
+  const promptTokenCeiling = new TextEncoder().encode(requestText).length;
+  return (
+    promptTokenCeiling * prices.prompt +
+    (options.maxTokens ?? MERGER_MAX_TOKENS) * prices.completion
+  ) / 1_000_000;
+}
+
 export async function mergeFindings(
   env: Env,
   params: ReviewWorkflowParams,
@@ -1447,12 +1468,12 @@ export async function mergeFindings(
   }
   const settings = modelSettings(env, params, "not-used-for-model-calls");
   const reviewer = new Reviewer(settings);
-  const circuitSkip = (
-    await plannedCircuitSkips(env, [{
-      model: settings.merger,
-      provider: "openrouter",
-    }])
-  )[0];
+  const circuitSkip = options.isolated
+    ? undefined
+    : (await plannedCircuitSkips(env, [{
+        model: settings.merger,
+        provider: "openrouter",
+      }]))[0];
   if (circuitSkip) {
     const findingResolutions = (prepared.replayFindings ?? []).map(
       ({ findingId }) => ({
@@ -1485,32 +1506,21 @@ export async function mergeFindings(
       },
     };
   }
-  const prompt = `<DATA kind=scout-candidates>
-${JSON.stringify(scouts.candidates)}
-</DATA>
-<DATA kind=durable-open-findings-for-controlled-replay>
-${JSON.stringify(prepared.replayFindings ?? [])}
-</DATA>
-<DATA kind=current-reviewed-diff>
-${prepared.diff ?? ""}
-</DATA>
-<DATA kind=current-file-context>
-${prepared.context ?? ""}
-</DATA>
-<DATA kind=github-review-threads>
-${prepared.threads ?? ""}
-</DATA>`;
+  const prompt = mergerPrompt(prepared, scouts);
   const started = Date.now();
   let merged: ModelResult | undefined;
   try {
-    merged = await reviewer.callMerger(
+    const mergerArguments = [
       settings.merger,
-      statefulMergerSystem,
+      options.systemPrompt ?? statefulMergerSystem,
       prompt,
       "merged_code_review",
       statefulMergerSchema,
-      MERGER_MAX_TOKENS,
-    );
+      options.maxTokens ?? MERGER_MAX_TOKENS,
+    ] as const;
+    merged = options.timeoutMs === undefined
+      ? await reviewer.callMerger(...mergerArguments)
+      : await reviewer.callMerger(...mergerArguments, options.timeoutMs);
     const contributingScoutModels = Object.entries(scouts.candidates)
       .filter(([, findings]) => findings.length > 0)
       .map(([model]) => model);
@@ -1521,19 +1531,21 @@ ${prepared.threads ?? ""}
     );
   } catch (error) {
     const costUsd = merged?.cost ?? 0;
-    await recordModelReliability(
-      env,
-      options.observationId ?? `${params.deliveryId}:merger`,
-      [{
-        model: settings.merger,
-        provider: "openrouter",
-        role: "merger",
-        ok: false,
-        latencyMs: Date.now() - started,
-        costUsd,
-        error: errorMessage(error),
-      }],
-    );
+    if (!options.isolated) {
+      await recordModelReliability(
+        env,
+        options.observationId ?? `${params.deliveryId}:merger`,
+        [{
+          model: settings.merger,
+          provider: "openrouter",
+          role: "merger",
+          ok: false,
+          latencyMs: Date.now() - started,
+          costUsd,
+          error: errorMessage(error),
+        }],
+      );
+    }
     if (costUsd > 0) {
       throw new MergerOutputError(errorMessage(error), costUsd);
     }
@@ -1548,11 +1560,13 @@ ${prepared.threads ?? ""}
     costUsd: merged.cost,
     usage: merged.usage,
   };
-  await recordModelReliability(
-    env,
-    options.observationId ?? `${params.deliveryId}:merger`,
-    [metric],
-  );
+  if (!options.isolated) {
+    await recordModelReliability(
+      env,
+      options.observationId ?? `${params.deliveryId}:merger`,
+      [metric],
+    );
+  }
   return {
     result: merged.payload,
     cost: merged.cost,
@@ -1845,6 +1859,35 @@ export async function recordReviewTerminal(options: {
     }),
     { httpMetadata: { contentType: "application/json" } },
   );
+  if (prepared?.baseSha && prepared.fullDiff !== undefined) {
+    await persistReplayInput({
+      env,
+      params,
+      instanceId,
+      status,
+      prepared,
+      timestamp,
+      prompt: {
+        version: env.AI_REVIEW_PROMPT_VERSION,
+        scoutSystem,
+        scoutSchema,
+        mergerSystem: statefulMergerSystem,
+        mergerSchema: statefulMergerSchema,
+      },
+      modelSettings: {
+        openRouterScouts: csv(env.AI_REVIEW_MODELS, DEFAULT_OPENROUTER_SCOUTS),
+        openCodeScouts: csv(env.AI_REVIEW_OPENCODE_MODELS, []),
+        merger: env.AI_REVIEW_MERGER_MODEL?.trim() || DEFAULT_MERGER,
+        requireZeroDataRetention: ["1", "true", "yes", "on"].includes(
+          env.AI_REVIEW_ZDR?.trim().toLowerCase() ?? "",
+        ),
+        scoutMaxTokens: 8_000,
+        mergerMaxTokens: MERGER_MAX_TOKENS,
+        openRouterScoutMaxPrices: OPENROUTER_SCOUT_MAX_PRICES,
+      },
+      policy: guardrailPolicy(env),
+    });
+  }
 }
 
 export async function completeReview(

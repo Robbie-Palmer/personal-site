@@ -1,10 +1,15 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import posthog from "posthog-js";
+import { toast } from "sonner";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ShareButtons } from "@/components/blog/share-buttons";
 
 vi.mock("posthog-js", () => ({
   default: { capture: vi.fn() },
+}));
+
+vi.mock("sonner", () => ({
+  toast: { success: vi.fn(), error: vi.fn() },
 }));
 
 const post = {
@@ -17,9 +22,18 @@ function renderShareButtons() {
   render(<ShareButtons {...post} />);
 }
 
+function mockClipboard(writeText: ReturnType<typeof vi.fn>) {
+  Object.defineProperty(navigator, "clipboard", {
+    value: { writeText },
+    configurable: true,
+  });
+}
+
 describe("ShareButtons", () => {
   beforeEach(() => {
     vi.mocked(posthog.capture).mockReset();
+    vi.mocked(toast.success).mockReset();
+    vi.mocked(toast.error).mockReset();
   });
 
   it("links to X with the post url and title", () => {
@@ -79,5 +93,39 @@ describe("ShareButtons", () => {
       slug: post.slug,
       url: post.url,
     });
+  });
+
+  it("renders the copy link button with a non-submit type", () => {
+    renderShareButtons();
+
+    expect(screen.getByLabelText("Copy link")).toHaveAttribute(
+      "type",
+      "button",
+    );
+  });
+
+  it("copies the post url and shows success feedback when copy link is clicked", async () => {
+    mockClipboard(vi.fn().mockResolvedValue(undefined));
+    renderShareButtons();
+
+    fireEvent.click(screen.getByLabelText("Copy link"));
+
+    await waitFor(() => {
+      expect(navigator.clipboard.writeText).toHaveBeenCalledWith(post.url);
+      expect(toast.success).toHaveBeenCalledWith("Link copied");
+    });
+    expect(screen.getByLabelText("Copy link")).toHaveTextContent("Copied");
+  });
+
+  it("shows an error toast and keeps the share label when copying fails", async () => {
+    mockClipboard(vi.fn().mockRejectedValue(new Error("denied")));
+    renderShareButtons();
+
+    fireEvent.click(screen.getByLabelText("Copy link"));
+
+    await waitFor(() => {
+      expect(toast.error).toHaveBeenCalledWith("Could not copy link");
+    });
+    expect(screen.getByLabelText("Copy link")).toHaveTextContent("Share");
   });
 });

@@ -19,8 +19,15 @@ import {
   type BlogSlug,
 } from "../domain/blog/blogPost";
 import {
+  type Initiative,
+  InitiativeSchema,
+  type InitiativeSlug,
+} from "../domain/initiative/initiative";
+import { type PitchDeck, PitchDeckSchema } from "../domain/project/pitchDeck";
+import {
   type Project,
   type ProjectRelations,
+  ProjectRelationsSchema,
   ProjectSchema,
   type ProjectSlug,
 } from "../domain/project/project";
@@ -65,6 +72,7 @@ export interface ReferentialIntegrityError {
 
 const CONTENT_DIR = path.join(process.cwd(), "content");
 const BLOG_DIR = path.join(CONTENT_DIR, "blog");
+const INITIATIVES_DIR = path.join(CONTENT_DIR, "initiatives");
 const PROJECTS_DIR = path.join(CONTENT_DIR, "projects");
 const BUILDING_PHILOSOPHY_PATH = path.join(
   PROJECTS_DIR,
@@ -309,6 +317,67 @@ export function validateBlogPost(
   };
 }
 
+interface InitiativeLoadResult {
+  entities: Map<InitiativeSlug, Initiative>;
+}
+
+export function loadInitiatives(): InitiativeLoadResult {
+  const entities = new Map<InitiativeSlug, Initiative>();
+
+  if (!fs.existsSync(INITIATIVES_DIR)) {
+    return { entities };
+  }
+
+  const files = fs
+    .readdirSync(INITIATIVES_DIR)
+    .filter((file) => file.endsWith(".mdx"));
+
+  for (const filename of files) {
+    const slug = filename.replace(/\.mdx$/, "");
+    const filePath = path.join(INITIATIVES_DIR, filename);
+    const fileContent = fs.readFileSync(filePath, "utf-8");
+    const { data, content } = parseFrontmatter(fileContent);
+    const initiative: Initiative = {
+      slug,
+      title: data.title,
+      description: data.description,
+      date: data.date,
+      updated: data.updated,
+      status: data.status,
+      projectContributions: data.project_contributions ?? {},
+      content,
+    };
+
+    const validation = validateInitiative(initiative);
+    if (!validation.success) {
+      console.error(
+        `Failed to validate initiative ${slug}:`,
+        validation.schemaErrors,
+      );
+      throw new Error(`Initiative ${slug} failed validation`);
+    }
+    entities.set(slug, validation.data);
+  }
+
+  return { entities };
+}
+
+export function validateInitiative(
+  initiative: unknown,
+): DomainValidationResult<Initiative> {
+  const result = InitiativeSchema.safeParse(initiative);
+  if (!result.success) {
+    return {
+      success: false,
+      schemaErrors: result.error,
+    };
+  }
+  return {
+    success: true,
+    data: result.data,
+  };
+}
+
 interface ProjectLoadResult {
   entities: Map<ProjectSlug, Project>;
   relations: Map<ProjectSlug, ProjectRelations>;
@@ -333,6 +402,27 @@ export function loadProjects(): ProjectLoadResult {
     }
     const fileContent = fs.readFileSync(projectPath, "utf-8");
     const { data, content } = parseFrontmatter(fileContent);
+
+    let pitch: PitchDeck | undefined;
+    const pitchPath = path.join(PROJECTS_DIR, projectSlug, "pitch.mdx");
+    if (fs.existsSync(pitchPath)) {
+      const pitchFileContent = fs.readFileSync(pitchPath, "utf-8");
+      const { data: pitchData, content: pitchContent } =
+        parseFrontmatter(pitchFileContent);
+      const pitchResult = PitchDeckSchema.safeParse({
+        title: pitchData.title,
+        description: pitchData.description,
+        content: pitchContent,
+      });
+      if (!pitchResult.success) {
+        console.error(
+          `Failed to validate pitch deck ${projectSlug}:`,
+          pitchResult.error,
+        );
+        throw new Error(`Pitch deck ${projectSlug} failed validation`);
+      }
+      pitch = pitchResult.data;
+    }
 
     const adrRefs: ADRRef[] = [];
     const adrsDir = path.join(PROJECTS_DIR, projectSlug, "adrs");
@@ -366,12 +456,32 @@ export function loadProjects(): ProjectLoadResult {
       repoUrl: data.repo_url,
       demoUrl: data.demo_url,
       productUrl: data.product_url,
+      pitch,
       content,
     };
+
+    const rawInitiatives = data.initiatives || [];
+    const normalizedInitiatives = Array.isArray(rawInitiatives)
+      ? rawInitiatives.map((initiative) =>
+          typeof initiative === "string"
+            ? normalizeSlug(initiative)
+            : initiative,
+        )
+      : rawInitiatives;
+    const initiativesValidation =
+      ProjectRelationsSchema.shape.initiatives.safeParse(normalizedInitiatives);
+    if (!initiativesValidation.success) {
+      console.error(
+        `Failed to validate project ${projectSlug}:`,
+        initiativesValidation.error,
+      );
+      throw new Error(`Project ${projectSlug} failed validation`);
+    }
 
     const projectRelations: ProjectRelations = {
       technologies,
       adrs: adrRefs,
+      initiatives: initiativesValidation.data,
       role: data.role ? normalizeSlug(data.role) : undefined,
       tags: data.tags || [],
     };
@@ -657,6 +767,7 @@ export function loadBuildingPhilosophy(): string {
 
 interface ValidationInput {
   technologies: Map<TechnologySlug, Technology>;
+  initiatives: Map<InitiativeSlug, Initiative>;
   adrs: Map<ADRRef, ADR>;
   projects: Map<ProjectSlug, Project>;
   blogRelations: Map<BlogSlug, BlogRelations>;
@@ -712,6 +823,17 @@ export function validateReferentialIntegrity(
         });
       }
     });
+    relations.initiatives.forEach((initiativeSlug) => {
+      if (!input.initiatives.has(initiativeSlug)) {
+        errors.push({
+          type: "missing_reference",
+          entity: `Project[${projectSlug}]`,
+          field: "initiatives",
+          value: initiativeSlug,
+          message: `Initiative '${initiativeSlug}' referenced by project '${projectSlug}' does not exist`,
+        });
+      }
+    });
     const adrSlugSet = new Set<string>();
     for (const adrRef of relations.adrs) {
       const adr = input.adrs.get(adrRef);
@@ -736,6 +858,34 @@ export function validateReferentialIntegrity(
         value: relations.role,
         message: `Role '${relations.role}' referenced by project '${projectSlug}' does not exist`,
       });
+    }
+  });
+
+  input.initiatives.forEach((initiative, initiativeSlug) => {
+    for (const projectSlug of Object.keys(initiative.projectContributions)) {
+      if (!input.projects.has(projectSlug)) {
+        errors.push({
+          type: "missing_reference",
+          entity: `Initiative[${initiativeSlug}]`,
+          field: "projectContributions",
+          value: projectSlug,
+          message: `Project '${projectSlug}' described by initiative '${initiativeSlug}' does not exist`,
+        });
+        continue;
+      }
+      if (
+        !input.projectRelations
+          .get(projectSlug)
+          ?.initiatives.includes(initiativeSlug)
+      ) {
+        errors.push({
+          type: "invalid_reference",
+          entity: `Initiative[${initiativeSlug}]`,
+          field: "projectContributions",
+          value: projectSlug,
+          message: `Project '${projectSlug}' has contribution prose for initiative '${initiativeSlug}' but does not reference that initiative`,
+        });
+      }
     }
   });
 
@@ -817,6 +967,7 @@ export function validateReferentialIntegrity(
 
 export interface DomainRepository {
   technologies: Map<TechnologySlug, Technology>;
+  initiatives: Map<InitiativeSlug, Initiative>;
   blogs: Map<BlogSlug, BlogPost>;
   projects: Map<ProjectSlug, Project>;
   adrs: Map<ADRRef, ADR>;
@@ -828,6 +979,7 @@ export interface DomainRepository {
 
 interface LoaderResults {
   blogs: BlogLoadResult;
+  initiatives: InitiativeLoadResult;
   projects: ProjectLoadResult;
   adrs: ADRLoadResult;
   roles: RoleLoadResult;
@@ -843,6 +995,7 @@ function buildRelationDataFromLoaders(loaders: LoaderResults): RelationData {
       relations.projectRole.set(slug, projectRels.role);
     }
     relations.projectTags.set(slug, projectRels.tags);
+    relations.projectInitiatives.set(slug, projectRels.initiatives);
   }
 
   for (const [slug, blogRels] of loaders.blogs.relations) {
@@ -878,6 +1031,7 @@ function buildDomainRepository(): DomainRepository {
   const technologies = loadTechnologies();
   validateTechnologyReferences(technologies);
   const blogsResult = loadBlogPosts();
+  const initiativesResult = loadInitiatives();
   const projectsResult = loadProjects();
   const adrsResult = loadADRs();
   const rolesResult = loadJobRoles();
@@ -885,6 +1039,7 @@ function buildDomainRepository(): DomainRepository {
 
   const referentialIntegrityErrors = validateReferentialIntegrity({
     technologies,
+    initiatives: initiativesResult.entities,
     adrs: adrsResult.entities,
     projects: projectsResult.entities,
     blogRelations: blogsResult.relations,
@@ -905,6 +1060,7 @@ function buildDomainRepository(): DomainRepository {
 
   const loaders: LoaderResults = {
     blogs: blogsResult,
+    initiatives: initiativesResult,
     projects: projectsResult,
     adrs: adrsResult,
     roles: rolesResult,
@@ -914,11 +1070,13 @@ function buildDomainRepository(): DomainRepository {
   const graph = buildContentGraph({
     technologySlugs: technologies.keys(),
     projectSlugs: projectsResult.entities.keys(),
+    initiativeSlugs: initiativesResult.entities.keys(),
     relations,
   });
 
   return {
     technologies,
+    initiatives: initiativesResult.entities,
     blogs: blogsResult.entities,
     projects: projectsResult.entities,
     adrs: adrsResult.entities,

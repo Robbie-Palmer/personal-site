@@ -1,5 +1,6 @@
 import type { ADRRef } from "@/lib/domain/adr/adr";
 import type { BlogSlug } from "@/lib/domain/blog/blogPost";
+import type { InitiativeSlug } from "@/lib/domain/initiative/initiative";
 import type { ProjectSlug } from "@/lib/domain/project/project";
 import type { RoleSlug } from "@/lib/domain/role/jobRole";
 import type { TechnologySlug } from "@/lib/domain/technology/technology";
@@ -176,6 +177,20 @@ export function getProjectsForRole(
   slug: RoleSlug,
 ): Set<ProjectSlug> {
   return graph.reverse.roleProjects.get(slug) ?? new Set();
+}
+
+export function getInitiativesForProject(
+  graph: ContentGraph,
+  slug: ProjectSlug,
+): Set<InitiativeSlug> {
+  return graph.edges.contributesToInitiative.get(slug) ?? new Set();
+}
+
+export function getProjectsForInitiative(
+  graph: ContentGraph,
+  slug: InitiativeSlug,
+): Set<ProjectSlug> {
+  return graph.reverse.initiativeProjects.get(slug) ?? new Set();
 }
 
 export function getRoleForBlog(

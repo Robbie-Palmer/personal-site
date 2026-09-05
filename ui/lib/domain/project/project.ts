@@ -2,10 +2,12 @@ import { z } from "zod";
 import type { ProjectSlug } from "../slugs";
 import {
   ADRRefSchema,
+  InitiativeSlugSchema,
   ProjectSlugSchema,
   RoleSlugSchema,
   TechnologySlugSchema,
 } from "../slugs";
+import { PitchDeckSchema } from "./pitchDeck";
 
 export type { ProjectSlug };
 
@@ -66,6 +68,7 @@ export const ProjectSchema = z.object({
   repoUrl: z.string().url().optional(),
   demoUrl: z.string().url().optional(),
   productUrl: z.string().url().optional(),
+  pitch: PitchDeckSchema.optional(),
   content: z.string(),
 });
 
@@ -74,6 +77,7 @@ export type Project = z.infer<typeof ProjectSchema>;
 export const ProjectRelationsSchema = z.object({
   technologies: z.array(TechnologySlugSchema).default([]),
   adrs: z.array(ADRRefSchema).default([]),
+  initiatives: z.array(InitiativeSlugSchema).default([]),
   role: RoleSlugSchema.optional(),
   tags: z.array(z.string()).default([]),
 });

@@ -2,7 +2,9 @@ import { beforeAll, describe, expect, it } from "vitest";
 import {
   type DomainRepository,
   getADRSlugsForProject,
+  getInitiativesForProject,
   getProjectForADR,
+  getProjectsForInitiative,
   getTechnologiesForADR,
   getTechnologiesForProject,
   getTechnologiesForRole,
@@ -28,10 +30,34 @@ describe("Domain Content Validation (Integration)", () => {
   it("should load all content and pass validation", () => {
     expect(repo.blogs.size).toBeGreaterThan(0);
     expect(repo.projects.size).toBeGreaterThan(0);
+    expect(repo.initiatives.size).toBeGreaterThan(0);
     expect(repo.adrs.size).toBeGreaterThan(0);
     expect(repo.roles.size).toBeGreaterThan(0);
     expect(repo.technologies.size).toBeGreaterThan(0);
     expect(repo.referentialIntegrityErrors).toEqual([]);
+  });
+
+  it("should connect personalized medicine projects across roles", () => {
+    const initiativeSlug = "personalized-medicine";
+    const projectSlugs = getProjectsForInitiative(repo.graph, initiativeSlug);
+
+    expect(projectSlugs).toEqual(
+      new Set([
+        "ai-assisted-macrodissection",
+        "automated-macrodissection",
+        "bioinformatics-platform",
+        "genomic-prediction",
+        "pathology-viewer",
+      ]),
+    );
+    for (const projectSlug of projectSlugs) {
+      expect(getInitiativesForProject(repo.graph, projectSlug)).toContain(
+        initiativeSlug,
+      );
+      expect(
+        repo.initiatives.get(initiativeSlug)?.projectContributions[projectSlug],
+      ).toBeTruthy();
+    }
   });
 
   it("should have bidirectional technology relations in graph", () => {

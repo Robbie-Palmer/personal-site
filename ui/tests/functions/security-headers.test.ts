@@ -40,4 +40,17 @@ describe("Cloudflare Pages security headers", () => {
     expect(policy).toContain("https://avatars.githubusercontent.com");
     expect(policy).toContain("https://*.googleusercontent.com");
   });
+
+  it("allows only presentation routes to render same-origin speaker previews", () => {
+    for (const route of [
+      "/projects/:project/deck",
+      "/technologies/revealdotjs/deck",
+    ]) {
+      const rule = headersFile.split(route)[1]?.split("\n\n")[0];
+      expect(rule).toContain("! X-Frame-Options");
+      expect(rule).toContain("! Content-Security-Policy");
+      expect(rule).toContain("frame-ancestors 'self'");
+      expect(rule).not.toContain("frame-ancestors 'none'");
+    }
+  });
 });

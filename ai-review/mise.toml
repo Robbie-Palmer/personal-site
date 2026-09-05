@@ -83,20 +83,31 @@ run = "bash analytics/build-scorecard.sh"
 
 [tasks."scorecard:test"]
 description = "Test scorecard marts against fixed schema-v1 and schema-v2 fixtures"
+depends = ["install"]
 run = "bash analytics/test-scorecard.sh"
 
 [tasks."scorecard:report"]
 description = "Generate versioned JSON and Markdown scorecard reports from built marts"
 run = "pnpm exec tsx analytics/report.ts"
 
+[tasks."scorecard:baseline"]
+description = "Build the reproducible schema-v1 stateless review-efficiency baseline"
+run = "pnpm exec tsx analytics/stateless-baseline.ts"
+
 [tasks."scorecard:report:test"]
 description = "Test the scorecard report CLI against mixed schema-version fixtures"
+depends = ["install"]
 run = "bash analytics/test-report.sh"
 
 [tasks."scorecard:replay"]
 description = "Plan or execute an opt-in, budget-capped controlled replay from a frozen manifest"
 run = "pnpm exec tsx analytics/replay.ts"
 
+[tasks."corpus:replay"]
+description = "Plan or execute the production-isolated runner against one frozen corpus snapshot"
+run = "pnpm exec tsx analytics/corpus-replay.ts"
+
 [tasks."scorecard:replay:test"]
 description = "Test controlled replay opt-in gating and budget enforcement"
+depends = ["install"]
 run = "bash analytics/test-replay.sh"

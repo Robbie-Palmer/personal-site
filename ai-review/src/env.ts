@@ -13,13 +13,6 @@ export type FindingDisposition =
   | "confirmed-fixed"
   | "rejected";
 
-export type FindingOutcome =
-  | "confirmed-fixed"
-  | "acknowledged"
-  | "rejected"
-  | "superseded"
-  | "no-observable-response";
-
 export type PullRequestFinalizationEvent = {
   deliveryId: string;
   eventName: "pull_request";
@@ -89,3 +82,4 @@ export interface Env {
   OPENROUTER_API_KEY: string;
   OPENCODE_API_KEY?: string;
 }
+export type { FindingOutcomeValue as FindingOutcome } from "ai-review-domain/records";

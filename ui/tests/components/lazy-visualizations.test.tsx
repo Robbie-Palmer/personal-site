@@ -21,6 +21,14 @@ vi.mock("next/dynamic", () => ({
   },
 }));
 
+vi.mock("@/components/technology/revealjs-demo", () => ({
+  RevealJsDemo: () => <div data-testid="loaded-reveal-demo" />,
+}));
+
+vi.mock("@/components/projects/pitch-deck/project-pitch-deck", () => ({
+  ProjectPitchDeck: () => <div data-testid="loaded-project-deck" />,
+}));
+
 describe("lazy visualization wrappers", () => {
   it("defers every chart and provides client-only loading states", async () => {
     const wealthCharts = await import(
@@ -29,8 +37,14 @@ describe("lazy visualization wrappers", () => {
     const { LazyRechartsDemoChart } = await import(
       "@/components/technology/lazy-recharts-demo-chart"
     );
+    const { LazyRevealJsDemo } = await import(
+      "@/components/technology/lazy-revealjs-demo"
+    );
+    const { LazyProjectPitchDeck } = await import(
+      "@/components/projects/pitch-deck/lazy-project-pitch-deck"
+    );
 
-    expect(dynamicCalls).toHaveLength(5);
+    expect(dynamicCalls).toHaveLength(7);
     expect(dynamicCalls.every(({ options }) => options.ssr === false)).toBe(
       true,
     );
@@ -46,21 +60,30 @@ describe("lazy visualization wrappers", () => {
       options.loading ? [options.loading] : [],
     );
 
-    render(
+    const { container } = render(
       <>
         <wealthCharts.DebtInvestmentChart />
         <wealthCharts.FinancialIndependenceChart />
         <wealthCharts.LisaComparisonChart />
         <wealthCharts.PensionReturnsChart />
         <LazyRechartsDemoChart />
+        <LazyRevealJsDemo>Deck content</LazyRevealJsDemo>
+        <LazyProjectPitchDeck
+          projectSlug="agentic-code-review"
+          title="Agentic Code Review pitch"
+        >
+          Project deck content
+        </LazyProjectPitchDeck>
         {loadingComponents.map((LoadingComponent, index) =>
           createElement(LoadingComponent, { key: index }),
         )}
       </>,
     );
 
-    expect(screen.getAllByTestId("dynamic-component")).toHaveLength(5);
+    expect(screen.getAllByTestId("dynamic-component")).toHaveLength(7);
     expect(screen.getAllByText("Loading chart...")).toHaveLength(4);
     expect(screen.getByText("Loading charts...")).toBeInTheDocument();
+    expect(screen.getAllByText("Loading presentation...")).toHaveLength(2);
+    expect(container.querySelector("noscript")).toBeInTheDocument();
   });
 });

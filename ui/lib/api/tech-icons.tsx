@@ -34,9 +34,11 @@ import {
   siHuggingface,
   siJellyfin,
   siJenkins,
+  siK3s,
   siKeras,
   siKnip,
   siKotlin,
+  siKubernetes,
   siLeaflet,
   siLucide,
   siMdx,
@@ -119,9 +121,11 @@ const simpleIcons: Readonly<Record<string, SimpleIcon>> = {
   huggingface: siHuggingface,
   jellyfin: siJellyfin,
   jenkins: siJenkins,
+  k3s: siK3s,
   keras: siKeras,
   knip: siKnip,
   kotlin: siKotlin,
+  kubernetes: siKubernetes,
   leaflet: siLeaflet,
   lucide: siLucide,
   mdx: siMdx,
@@ -191,7 +195,13 @@ const customIcons = new Set([
   "mise",
   "doppler",
   "ksqldb",
+  "t3code",
+  "quixstreams",
+  "strimzi",
+  "dbt",
 ]);
+
+const fullColorCustomIcons = new Set(["t3code"]);
 
 // Map technology names to their slugs for edge cases
 const techSlugOverrides: Record<string, string> = {
@@ -268,12 +278,16 @@ export function TechIcon({
   if (!iconData) return null;
 
   if (iconData.type === "custom") {
+    const colorFilter = fullColorCustomIcons.has(iconData.slug)
+      ? ""
+      : "brightness-0 dark:invert";
+
     return (
       // biome-ignore lint/performance/noImgElement: SSG site uses Cloudflare Images CDN, not Next.js Image
       <img
         src={`/tech-icons/${iconData.slug}.svg`}
         alt={name}
-        className={`${className} block object-contain brightness-0 dark:invert`}
+        className={`${className} block object-contain ${colorFilter}`.trim()}
       />
     );
   }

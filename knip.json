@@ -40,6 +40,16 @@
     },
     "ml-pipelines/recipe-parsing": {
       "entry": ["src/stages/*.ts"]
+    },
+    "ml-pipelines/ai-review-evaluation": {
+      "entry": [
+        "src/extract-corpus.ts",
+        "src/freeze-cohort.ts",
+        "src/run-replays.ts",
+        "src/match-replays.ts",
+        "src/build-scorecard.ts",
+        "tests/*.test.ts"
+      ]
     }
   }
 }

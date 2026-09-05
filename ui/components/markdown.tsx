@@ -10,11 +10,15 @@ import {
 } from "@/lib/integrations/cloudflare-images";
 
 type MDXComponents = React.ComponentProps<typeof MDXRemote>["components"];
+type MDXOptions = NonNullable<
+  NonNullable<React.ComponentProps<typeof MDXRemote>["options"]>["mdxOptions"]
+>;
 
 export interface MarkdownProps {
   source: string;
   components?: MDXComponents; // Custom MDX components to override default rendering
   className?: string; // Optional className to apply to the wrapper article element
+  remarkPlugins?: MDXOptions extends { remarkPlugins?: infer T } ? T : never;
 }
 
 const baseComponents: MDXComponents = {
@@ -70,50 +74,60 @@ export function Markdown({
   source,
   components,
   className = defaultClassName,
+  remarkPlugins = [],
 }: Readonly<MarkdownProps>) {
-  // Preprocess MDX to convert Cloudflare Images IDs to URLs with srcset
-  // Match pattern: {namespace}/{name}-YYYY-MM-DD (e.g., blog/image-2025-12-14)
+  return (
+    <article className={className}>
+      <MarkdownContent
+        source={source}
+        components={components}
+        remarkPlugins={remarkPlugins}
+      />
+    </article>
+  );
+}
+
+export function MarkdownContent({
+  source,
+  components,
+  remarkPlugins = [],
+}: Readonly<Omit<MarkdownProps, "className">>) {
+  // Convert Cloudflare Images IDs to responsive URLs in every MDX renderer,
+  // including pitch decks that render without an article wrapper.
   const processedContent = source.replace(
     /src="([a-z0-9_-]+\/[a-z0-9_-]+-\d{4}-\d{2}-\d{2})"/g,
     (_match, imageId) => {
-      const url = getImageUrl(imageId, null, {
-        width: 800,
-        format: "auto",
-      });
+      const url = getImageUrl(imageId, null, { width: 800, format: "auto" });
       const srcSet = getImageSrcSet(imageId, null, [800, 1200, 1600]);
       return `src="${url}" srcSet="${srcSet}" sizes="(max-width: 896px) 100vw, 896px" loading="lazy"`;
     },
   );
-  const mergedComponents = { ...baseComponents, ...components };
+
   return (
-    <article className={className}>
-      <MDXRemote
-        source={processedContent}
-        components={mergedComponents}
-        options={{
-          parseFrontmatter: true,
-          blockJS: false,
-          mdxOptions: {
-            remarkPlugins: [
-              remarkGfm, // GitHub Flavored Markdown: tables, task lists, strikethrough, etc.
-            ],
-            rehypePlugins: [
-              rehypeSlug, // Add IDs to headings
-              rehypeAutolinkHeadings, // Add anchor links to headings
-              [
-                rehypePrettyCode, // Syntax highlighting
-                {
-                  theme: {
-                    dark: "github-dark",
-                    light: "github-light",
-                  },
-                  keepBackground: false,
+    <MDXRemote
+      source={processedContent}
+      components={{ ...baseComponents, ...components }}
+      options={{
+        parseFrontmatter: true,
+        blockJS: false,
+        mdxOptions: {
+          remarkPlugins: [remarkGfm, ...(remarkPlugins ?? [])],
+          rehypePlugins: [
+            rehypeSlug,
+            rehypeAutolinkHeadings,
+            [
+              rehypePrettyCode,
+              {
+                theme: {
+                  dark: "github-dark",
+                  light: "github-light",
                 },
-              ],
+                keepBackground: false,
+              },
             ],
-          },
-        }}
-      />
-    </article>
+          ],
+        },
+      }}
+    />
   );
 }

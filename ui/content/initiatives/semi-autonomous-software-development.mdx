@@ -1,0 +1,227 @@
+---
+title: "Semi-autonomous Software Development"
+description: "A connected system that keeps useful work moving, asks for human judgment when it matters, and learns how to need less intervention next time"
+date: "2026-09-04"
+status: "active"
+---
+
+# Vision
+
+Build software with a standing capacity to improve itself.
+
+People should set direction, supply taste, resolve genuine ambiguity, and own
+risk. They should not have to remember every unfinished task, move tickets
+between columns, repeatedly prompt an agent to continue, or notice the same
+mechanical failure for the fifth time.
+
+The system should track established knowledge, the intended outcome, blockers,
+who currently holds the work, and the evidence that would prove completion. It
+should keep agents working within the authority its owners grant. When it needs
+a person, it should ask through an attention inbox with enough context to make
+the decision quickly.
+
+This begins with my personal projects. Once it survives real use, I can pressure
+test it with my team, then other teams inside and outside my organisation.
+
+# Why these projects belong together
+
+Agentic development has made producing changes cheap. The surrounding work has
+not caught up. Plans still live across Shortcut, GitHub, live agent sessions,
+local documents, and people's heads. Agents can generate enough issues, pull
+requests, prose, and status updates to make those systems harder for people to
+use.
+
+The answer is not another board filled with more detailed tickets. The missing
+parts are connected systems with different responsibilities:
+
+* The [Personal Site and its knowledge graph](/projects/personal-site) record
+  what is known, why decisions were made, and which ideas, technologies, roles,
+  and projects relate.
+* The [Agent-first Writing Editor](/projects/agent-first-writing) turns the
+  output of research and agent sessions into writing people can absorb.
+* The [Work Graph](/projects/work-graph) records desired outcomes, dependencies,
+  evidence, leases, and requests for attention.
+* The [Agent Coordinator](/projects/agent-coordinator) matches ready work to an
+  available person or agent without making execution concerns part of the work
+  model.
+* [Agentic Code Review](/projects/agentic-code-review) supplies the independent
+  verification needed before more changes can merge without a person reading
+  every line.
+* [Open Collective Development](/projects/open-collective-development) tests
+  how the same model might coordinate people who contribute their judgment and
+  agent-assisted effort to public projects they want to exist.
+
+# The bottleneck is already visible
+
+Only four of the eight roles on this site have linked projects. Many technology
+pages still lack the detail behind the name. Ideas and useful new workflows sit
+in agent sessions or memory instead of becoming posts. The obstacle is rarely a
+lack of source material. Turning that material into a bounded project, checking
+the evidence, refining the argument, and producing prose worth somebody else's
+attention takes too much work.
+
+That content debt exposed the wider problem. The repository already contains
+much of the context an agent needs, but it does not yet notice every gap, plan
+the work, keep it moving, and ask for review at the right point.
+
+# The operating loop
+
+<Mermaid
+  chart={`flowchart TB
+Signals["1. Understand and prioritise<br/>Ideas, telemetry, users, code and research"]
+Signals --> Knowledge[Knowledge graph]
+Signals --> Work[Work graph]
+Knowledge -->|informs priorities| Work
+Work -->|ready work| Coordinator
+Knowledge -->|read directly while working| Execution
+Coordinator["2. Assign ready work<br/>Agent coordinator"] -->|lease and starting context| Execution[People and agents execute]
+Execution --> Evidence["3. Verify and decide<br/>Evidence"]
+Evidence --> Review[Automated checks and agentic review]
+Review -->|publish accepted knowledge| Knowledge
+Review -->|needs judgment| Attention[Attention inbox]
+Attention -->|decision| Execution
+Evidence -.-> Analytics
+Attention -.-> Analytics
+Analytics["4. Remove recurring bottlenecks<br/>Delivery and intervention analytics"] -->|creates work graph change| Work
+`}
+/>
+
+The graphs store different truths. The knowledge graph says what is known. The
+work graph says what should happen and in which order. A task can link to useful
+knowledge, but it should not copy that knowledge or limit what an actor may
+read. People and agents query the knowledge graph directly while working. They
+can find requirements, designs, ADRs, prior findings, and domain context as new
+questions arise.
+
+The coordinator decides who should attempt ready work and gives them the lease
+and enough context to start. Accepted discoveries return to the knowledge graph
+through review. Decisions return to the people and agents doing the work.
+Analytics creates work graph changes that remove recurring bottlenecks. A data
+warehouse retains operational telemetry without filling the public graph with
+every model call and retry.
+
+# Principles
+
+## Public by default
+
+The knowledge graph and work DAG should normally be public. Public plans make
+collaboration easier and expose abandoned ideas, negative results, and changing
+assumptions instead of presenting a false story of effortless progress.
+
+Some information cannot be public. Private notes can live in the Home Lab;
+personal financial records belong inside the authenticated Personal Finance
+App; product data can sit behind the agent authorization model introduced by
+Recipe Site. Private execution logs and cost telemetry belong in the data lake,
+not the public DAG.
+
+## Owners set authority
+
+Each owner defines acceptable risk through policy. The system should not bake in
+one universal answer to whether an agent may change a plan, spend money, access
+production, merge a pull request, or deploy. It should make the active authority
+visible and enforce it.
+
+## Evidence closes work
+
+Completion depends on context. It may mean accepted research, a recorded
+decision, a merged change, or a healthy deployment. Every executable task needs
+acceptance criteria and evidence strong enough for the owning project's risk.
+
+## Plans can change
+
+Agents must be able to split work, add dependencies, invalidate earlier tasks,
+and reshape the critical path as they learn. Owners constrain the allowed
+shapes and transitions. The Work Graph should be more structured than a model
+inventing an arbitrary workflow during every session, while retaining that
+ability to adapt.
+
+## Human attention is an exception worth learning from
+
+The attention inbox should receive decisions that require human judgment,
+missing authority or access, repeated technical failure, material review, and
+discoveries that change scope or priority. Analytics should find recurring
+causes. A repeated request for a secret may justify passwordless agent access.
+A recurring review failure may justify a test, deterministic check, or stronger
+review policy. The point is to remove the cause, not process the same exception
+faster forever.
+
+# Adoption path
+
+## Personal use
+
+Use the system on the projects in this repository. It must reduce the work held
+in my head and make it easier to resume across agents, machines, and usage
+limits. A public work DAG and a focused attention inbox are the first product
+test.
+
+## Team use
+
+Bring it into a small team once the personal loop works. Team use tests whether
+the recorded context is legible to somebody who did not create it and whether
+owner policies can represent different risk tolerances.
+
+## Wider use
+
+Support other teams and organisations only after the system works under shared
+ownership. Open project coordination comes later because governance and
+maintainer attention are harder problems than task execution.
+
+# Current evidence
+
+Parts of this already work:
+
+* This repository keeps requirements, designs, ADRs, content, and code together
+  so agents can find context without a large instruction file.
+* The public site renders projects, roles, posts, technologies, and ADRs as a
+  connected knowledge graph with plain Markdown twins for agents.
+* Vale checks changed prose before it reaches readers.
+* Agentic Code Review owns durable pull request state and records evidence about
+  which findings people accept and fix.
+* PostHog Self-driving watches telemetry and session replays, then creates work
+  without waiting for a person to notice and prompt an agent.
+* Recipe Site has an authorization flow through which a person can grant an
+  agent narrow, expiring access.
+
+These are useful parts, not yet a self-maintaining system. Shortcut, GitHub,
+agent sessions, and memory still compete as sources of truth for work.
+
+# Critical path
+
+1. Finish representing initiatives and their projects in the public knowledge
+   graph.
+2. Define the smallest Work Graph that can replace the personal Shortcut and
+   memory loop for one real project.
+3. Give agents a safe interface to propose, claim, update, block, and complete
+   work with evidence.
+4. Build the attention inbox around real exceptions from that loop.
+5. Connect one event source, likely GitHub or PostHog, without turning either
+   into the source of truth.
+6. Add the Agent Coordinator after the Work Graph has enough real work to test
+   matching, leases, expiry, and handoff.
+7. Increase automatic merge and deployment only where Agentic Code Review,
+   deterministic checks, and owner policy provide adequate evidence.
+8. Use intervention analytics to create and rank work that removes recurring
+   human bottlenecks.
+9. Test the system with a team before attempting open collective development.
+
+# Success
+
+The initiative succeeds when useful work continues without somebody repeatedly
+starting it, the critical path stays visible, and requests for human attention
+become fewer and more consequential. Neither task count nor agent use measures
+success. The outcome is software delivered with less coordination overhead and
+no hidden loss of quality or control.
+
+# What this is not
+
+* A promise to remove people from software development
+* A single agent with unlimited authority
+* A project board focused on reporting activity
+* A data lake exposed as a public knowledge graph
+* A model vendor or coding-agent subscription broker
+* A claim that every project should build its own permanent platform
+
+The surrounding market should eventually make much of this plumbing redundant.
+The bet appears in
+[Crossing the Chasm with AI Platform Teams](/blog/2026-08-18-crossing-the-chasm-with-ai-platform-teams).
+Waiting costs more than building the temporary system now.

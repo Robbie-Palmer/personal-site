@@ -1,0 +1,36 @@
+---
+title: "ADR 000: Portable Core and Hardware Adapters"
+status: "Accepted"
+date: "2026-09-04"
+tech_stack: ["C++", "Arduino", "ESP32"]
+---
+
+# Context
+
+The original proof of concept intertwined Arduino APIs, infrared details, health checks, orbital
+scoring, message ownership, and swarm state. That made the research hypothesis inseparable from the
+three boards used to demonstrate it.
+
+The original hardware is no longer available. The useful artifact is therefore the behavior and the
+ability to test alternatives, not a frozen pin-level implementation.
+
+# Decision
+
+Keep the coordination library free of Arduino and operating-system dependencies. Place physical
+integration behind three ports:
+
+* a transport for semantic messages;
+* a health monitor for platform-specific evidence; and
+* a candidacy scorer for the research policy.
+
+The core uses bounded storage, value semantics, explicit state, and caller-supplied monotonic time.
+It must not allocate dynamically.
+
+Maintain two reference adapters: Arduino Uno with infrared as the historical target, and ESP32 with
+ESP-NOW as a modern benchtop target. Neither adapter defines the domain model.
+
+# Consequences
+
+The core can run in a deterministic host simulation and can accept future radios, sensors, or score
+models. Hardware integration carries a small amount of adapter boilerplate. Platform-specific
+features cannot leak into the core merely because one board makes them convenient.

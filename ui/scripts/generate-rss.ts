@@ -12,6 +12,7 @@ import "./lib/register-wasm";
 import { Feed } from "feed";
 import { getAllPosts } from "@/lib/api/blog";
 import { getAllExperience, getExperienceSlug } from "@/lib/api/experience";
+import { getAllInitiatives } from "@/lib/api/initiatives";
 import { getAllADRs, getAllProjects } from "@/lib/api/projects";
 import { siteConfig } from "@/lib/config/site-config";
 import { loadDomainRepository } from "@/lib/domain";
@@ -56,6 +57,21 @@ function projectEntries(): FeedEntry[] {
       description: project.description,
       date: day(project.updated || project.date),
       categories: ["Project", ...(updated ? ["Updated"] : []), ...project.tags],
+    };
+  });
+}
+
+function initiativeEntries(): FeedEntry[] {
+  return getAllInitiatives().map((initiative) => {
+    const updated = Boolean(
+      initiative.updated && initiative.updated !== initiative.date,
+    );
+    return {
+      title: initiative.title,
+      url: `${siteConfig.url}/initiatives/${initiative.slug}`,
+      description: initiative.description,
+      date: day(initiative.updated || initiative.date),
+      categories: ["Initiative", ...(updated ? ["Updated"] : [])],
     };
   });
 }
@@ -146,12 +162,14 @@ function main(): void {
   }
 
   const blog = blogEntries();
+  const initiatives = initiativeEntries();
   const projects = projectEntries();
   const adrs = adrEntries();
   const roles = roleEntries();
   const technologies = technologyEntries();
   const combined = [
     ...blog,
+    ...initiatives,
     ...projects,
     ...adrs,
     ...roles,
@@ -163,7 +181,7 @@ function main(): void {
     buildFeed(
       {
         title: siteConfig.name,
-        description: `Everything from ${siteConfig.name} — posts, projects, architecture decisions, roles, and technologies.`,
+        description: `Everything from ${siteConfig.name}: posts, initiatives, projects, architecture decisions, roles, and technologies.`,
         feedPath: "/feed.xml",
       },
       combined,

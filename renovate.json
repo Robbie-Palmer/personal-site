@@ -138,6 +138,19 @@
       "automerge": true
     },
     {
+      "description": "packageManager tracks the pnpm 12 line via the latest-12 dist-tag - npm latest still points at 11.x, and once on 12.x respectLatest would hide every later 12.x release",
+      "matchManagers": [
+        "npm"
+      ],
+      "matchDepNames": [
+        "pnpm"
+      ],
+      "matchDepTypes": [
+        "packageManager"
+      ],
+      "followTag": "latest-12"
+    },
+    {
       "description": "Keep the pnpm version pinned in package.json (packageManager) and .mise.toml in one PR so they land together",
       "matchPackageNames": [
         "pnpm",

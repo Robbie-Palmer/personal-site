@@ -5,6 +5,7 @@ packages:
   - 'workers/*'
   - 'ml-pipelines/recipe-parsing'
   - 'ml-pipelines/recipe-dataset'
+  - 'ml-pipelines/ai-review-evaluation'
   - 'ml-pipelines/recipe-parsing/tools/viz'
 
 # pnpm 10 already skipped these dependency lifecycle scripts. pnpm 11 requires

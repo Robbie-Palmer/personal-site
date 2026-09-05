@@ -2,10 +2,14 @@
 title: "Personal Site"
 description: "My personal portfolio"
 date: "2025-11-02"
+updated: "2026-09-04"
+initiatives:
+  - "semi-autonomous-software-development"
 tech_stack:
   - "TypeScript"
   - "Zod"
   - "Lucide React"
+  - "Vale"
 repo_url: "https://github.com/Robbie-Palmer/personal-site"
 demo_url: "https://robbiepalmer.me"
 status: "live"
@@ -91,3 +95,31 @@ This site is infrastructure to enable future work:
 * **SaaS incubator**: The tech stack and deployment pipeline are production-grade. When an idea is worth pursuing, the foundation is already there
 * **Expanded project documentation**: More PRDs and ADRs as case studies in technical decision-making
 * **Enhanced data visualization**: Richer interactive content and visual communication
+* **Self-maintaining knowledge**: Find missing, weak, and stale content; gather supporting evidence; propose changes; and publish accepted updates through the same review path as code
+
+# Knowledge maintenance plan
+
+The current graph makes gaps visible but does not yet close them. Only four of
+the eight roles have linked project pages. Many technology nodes have a name and
+relations but little useful detail. Ideas and workflows often remain inside the
+agent session that developed them instead of becoming durable public writing.
+
+The self-maintenance loop should:
+
+1. Inventory missing and stale project, role, technology, ADR, and blog content.
+2. Extract candidate entities, claims, and relationships from repository files,
+   agent sessions, commits, pull requests, and cited external sources.
+3. Preserve provenance so a reader or reviewer can inspect where each claim
+   came from.
+4. Propose bounded updates through pull requests rather than silently rewriting
+   the public graph.
+5. Check links, dates, relations, prose rules, and claims with the cheapest
+   reliable layer available.
+6. Ask for human judgment when publication depends on taste, uncertain evidence,
+   or a statement made in my voice.
+7. Publish accepted changes and use the review outcome to improve the next
+   proposal.
+
+Private knowledge follows the same general shape under different access rules.
+Notes that cannot be public can live in the Home Lab. Personal application data
+belongs in its owning database behind narrow user and agent authorization.

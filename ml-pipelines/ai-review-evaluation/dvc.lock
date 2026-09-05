@@ -1,0 +1,180 @@
+schema: '2.0'
+stages:
+  extract_dataset:
+    cmd: bash scripts/extract.sh
+    deps:
+    - path: ../../packages/ai-review-domain/src/records.ts
+      hash: md5
+      md5: 9033ed9be43625106c309523ff8b86bb
+      size: 7344
+    - path: ../../packages/ai-review-domain/src/replay.ts
+      hash: md5
+      md5: ac58e08c0b042b0efdf3558355c2abf6
+      size: 2000
+    - path: package.json
+      hash: md5
+      md5: c50b1cf0edd39afe87694ad020548af8
+      size: 481
+    - path: scripts/extract.sh
+      hash: md5
+      md5: f9bf4c6b02aa7317199ee15e866844d9
+      size: 117
+    - path: src/artifact-files.ts
+      hash: md5
+      md5: 51a1370a9167f68d9d4724b57c4ae615
+      size: 2145
+    - path: src/cli-arguments.ts
+      hash: md5
+      md5: cc6d2792c9eed8c0999a895643eacbaf
+      size: 852
+    - path: src/corpus-strata.ts
+      hash: md5
+      md5: d1807e19a7659c8a0a5870001b7d6234
+      size: 3010
+    - path: src/extract-corpus.ts
+      hash: md5
+      md5: 30b469fa11ec977b0d07debb5c5c6ff2
+      size: 8992
+    - path: src/schemas.ts
+      hash: md5
+      md5: ff35f5207b06cd2fda30818c2a7f25f8
+      size: 11797
+    params:
+      params.yaml:
+        cohort.changeSizeBands:
+          small:
+            maxExclusive: 200
+          medium:
+            maxExclusive: 1000
+          substantial:
+            maxExclusive: 2000
+          large:
+            maxExclusive: 5000
+          oversized: {}
+        source:
+          repository: Robbie-Palmer/personal-site
+          exportPath: ~/.cache/ai-review/r2-export
+    outs:
+    - path: data/corpus
+      hash: md5
+      md5: 08a238b25b90a137855d3f6203681306.dir
+      size: 26254559
+      nfiles: 73
+  freeze_cohort:
+    cmd: bash scripts/freeze.sh
+    deps:
+    - path: ../../packages/ai-review-domain/src/records.ts
+      hash: md5
+      md5: 9033ed9be43625106c309523ff8b86bb
+      size: 7344
+    - path: ../../packages/ai-review-domain/src/replay.ts
+      hash: md5
+      md5: ac58e08c0b042b0efdf3558355c2abf6
+      size: 2000
+    - path: data/corpus
+      hash: md5
+      md5: 08a238b25b90a137855d3f6203681306.dir
+      size: 26254559
+      nfiles: 73
+    - path: scripts/freeze.sh
+      hash: md5
+      md5: 504c6c0a41063447f968e2ca240a43c5
+      size: 155
+    - path: src/artifact-files.ts
+      hash: md5
+      md5: 51a1370a9167f68d9d4724b57c4ae615
+      size: 2145
+    - path: src/cli-arguments.ts
+      hash: md5
+      md5: cc6d2792c9eed8c0999a895643eacbaf
+      size: 852
+    - path: src/freeze-cohort.ts
+      hash: md5
+      md5: 4ecdcaa6b446d5d69d4ee283a92a3085
+      size: 6032
+    - path: src/schemas.ts
+      hash: md5
+      md5: ff35f5207b06cd2fda30818c2a7f25f8
+      size: 11797
+    params:
+      params.yaml:
+        cohort:
+          frozenAt: '2026-09-02T00:00:00Z'
+          changeSizeBands:
+            small:
+              maxExclusive: 200
+            medium:
+              maxExclusive: 1000
+            substantial:
+              maxExclusive: 2000
+            large:
+              maxExclusive: 5000
+            oversized: {}
+          pullRequestNumbers: []
+        decision:
+          primaryMetrics:
+          - acceptedFindingsPerReplay
+          - noiseRate
+          - historicalCoverageRate
+          sampleUnit: pull-requests
+          minimumSampleSize: 30
+          minimumRelativeImprovement: 0.1
+          minimumAbsoluteImprovementWhenBaselineZero: 0.1
+          rejectRelativeDecline: 0.1
+          maximumNoiseRateIncrease: 0.02
+          maximumCoverageRateDrop: 0.02
+          maximumProviderFailureRate: 0.05
+        experiment:
+          variable: scout-model
+          baseline:
+            id: kimi-k2.6
+            experiment:
+              kind: scout-model
+              models:
+              - model: moonshotai/kimi-k2.6
+                provider: openrouter
+          candidate:
+            id: deepseek-v4-pro
+            experiment:
+              kind: scout-model
+              models:
+              - model: deepseek/deepseek-v4-pro
+                provider: openrouter
+          repetitions: 3
+        limits:
+          maxModels: 1
+          allowedProviders:
+          - openrouter
+          maxScoutTokens: 8000
+          maxMergerTokens: 6000
+          maxCostUsdPerReplay: 0.25
+          maxTotalCostUsd: 20
+          timeoutMs: 120000
+          requireZeroDataRetention: false
+        matching:
+          methods:
+          - finding-id
+          - file-hunk
+          - file-line
+          manualAdjudicationBelowConfidence: 0.9
+    outs:
+    - path: outputs/frozen/cohort.json
+      hash: md5
+      md5: 55d1ad7dd0c1a9a2722b1d797bcc80b4
+      size: 564771
+    - path: outputs/frozen/decision.json
+      hash: md5
+      md5: 8467343cda167212141236b7083ef2d7
+      size: 586
+    - path: outputs/frozen/experiment.json
+      hash: md5
+      md5: 655f008b8dcf7fdb63dabc63beeef06f
+      size: 766
+    - path: outputs/frozen/matching.json
+      hash: md5
+      md5: 63a5203112a3bf7fc06b11067ca4eb96
+      size: 332
+    - path: outputs/frozen/predeclaration.json
+      hash: md5
+      md5: e8abf45ecc11026354572a49e5b29c51
+      size: 590

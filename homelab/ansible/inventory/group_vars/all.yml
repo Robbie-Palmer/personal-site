@@ -1,0 +1,5 @@
+common_required_commands:
+  - tailscale
+
+dns_probe_name: example.com
+netdata_url: http://127.0.0.1:19999/api/v1/info

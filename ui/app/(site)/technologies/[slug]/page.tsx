@@ -7,6 +7,7 @@ import {
   type LucideIcon,
   Map as MapIcon,
   Play,
+  Presentation,
 } from "lucide-react";
 import type { Metadata } from "next";
 import Image from "next/image";
@@ -17,7 +18,9 @@ import { EmblaDemoCarousel } from "@/components/technology/embla-demo-carousel";
 import { KnowledgeGraph } from "@/components/technology/knowledge-graph";
 import { LazyLeafletMapDemo } from "@/components/technology/lazy-leaflet-map-demo";
 import { LazyRechartsDemoChart } from "@/components/technology/lazy-recharts-demo-chart";
+import { LazyRevealJsDemo } from "@/components/technology/lazy-revealjs-demo";
 import { MermaidDemo } from "@/components/technology/mermaid-demo";
+import { RevealJsDemoContent } from "@/components/technology/revealjs-demo-content";
 import { ShikiDemo } from "@/components/technology/shiki-demo";
 import { TechPagination } from "@/components/technology/tech-pagination";
 import { Button } from "@/components/ui/button";
@@ -137,6 +140,14 @@ const TECHNOLOGY_DEMOS: Record<
   recharts: { icon: BarChart3, component: <LazyRechartsDemoChart /> },
   mermaid: { icon: Play, component: <MermaidDemo /> },
   shiki: { icon: Play, component: <ShikiDemo /> },
+  revealdotjs: {
+    icon: Presentation,
+    component: (
+      <LazyRevealJsDemo>
+        <RevealJsDemoContent />
+      </LazyRevealJsDemo>
+    ),
+  },
 };
 
 export default async function TechnologyPage({ params }: Readonly<PageProps>) {

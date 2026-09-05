@@ -8,6 +8,13 @@ const posthog = vi.hoisted(() => ({
 
 vi.mock("posthog-js", () => ({ default: posthog }));
 
+function exception(message: string) {
+  return {
+    event: "$exception",
+    properties: { $exception_list: [{ type: "Error", value: message }] },
+  };
+}
+
 describe("PostHog browser instrumentation", () => {
   let originalFetch: typeof window.fetch;
 
@@ -50,6 +57,7 @@ describe("PostHog browser instrumentation", () => {
       ui_host: "https://eu.posthog.com",
       defaults: "2025-11-30",
       capture_exceptions: true,
+      before_send: expect.any(Function),
       debug: true,
     });
 
@@ -90,6 +98,120 @@ describe("PostHog browser instrumentation", () => {
     expect(apiHeaders.get("x-existing")).toBe("value");
     expect(apiHeaders.has("x-posthog-distinct-id")).toBe(false);
     expect(apiHeaders.has("x-posthog-session-id")).toBe(false);
+  });
+
+  it("drops ResizeObserver loop noise before it reaches error tracking", async () => {
+    vi.stubEnv("NEXT_PUBLIC_POSTHOG_KEY", "phc_test");
+
+    await import("../instrumentation-client");
+    const beforeSend = posthog.init.mock.calls[0]?.[1]?.before_send;
+
+    expect(
+      beforeSend(
+        exception(
+          "ResizeObserver loop completed with undelivered notifications.",
+        ),
+      ),
+    ).toBeNull();
+    expect(
+      beforeSend(exception("ResizeObserver loop limit exceeded")),
+    ).toBeNull();
+  });
+
+  it("keeps real exceptions and every other event", async () => {
+    vi.stubEnv("NEXT_PUBLIC_POSTHOG_KEY", "phc_test");
+
+    await import("../instrumentation-client");
+    const beforeSend = posthog.init.mock.calls[0]?.[1]?.before_send;
+
+    const chunkError = exception("Loading chunk 42 failed.");
+    expect(beforeSend(chunkError)).toBe(chunkError);
+
+    const pageview = { event: "$pageview", properties: {} };
+    expect(beforeSend(pageview)).toBe(pageview);
+
+    const exceptionWithoutList = { event: "$exception", properties: {} };
+    expect(beforeSend(exceptionWithoutList)).toBe(exceptionWithoutList);
+
+    expect(beforeSend(null)).toBeNull();
+  });
+
+  describe("before_send exception filter", () => {
+    type CaptureResult = {
+      event: string;
+      properties?: Record<string, unknown>;
+    };
+
+    async function getBeforeSend() {
+      vi.stubEnv("NEXT_PUBLIC_POSTHOG_KEY", "phc_test");
+      window.fetch = vi.fn(
+        async () => new Response("ok"),
+      ) as typeof window.fetch;
+      await import("../instrumentation-client");
+      return posthog.init.mock.calls[0]?.[1]?.before_send as (
+        event: CaptureResult | null,
+      ) => CaptureResult | null;
+    }
+
+    function exceptionEvent(filenames: (string | undefined)[]): CaptureResult {
+      return {
+        event: "$exception",
+        properties: {
+          $exception_list: [
+            {
+              stacktrace: {
+                frames: filenames.map((filename) => ({ filename })),
+              },
+            },
+          ],
+        },
+      };
+    }
+
+    it("drops exceptions whose frames all come from masked or extension URLs", async () => {
+      const beforeSend = await getBeforeSend();
+
+      for (const scheme of [
+        "webkit-masked-url://hidden/",
+        "safari-extension://abc/inject.js",
+        "chrome-extension://abc/inject.js",
+        "moz-extension://abc/inject.js",
+      ]) {
+        expect(beforeSend(exceptionEvent([scheme, scheme]))).toBeNull();
+      }
+    });
+
+    it("keeps exceptions with at least one frame from the site bundle", async () => {
+      const beforeSend = await getBeforeSend();
+
+      const event = exceptionEvent([
+        "webkit-masked-url://hidden/",
+        "https://example.test/_next/static/chunk.js",
+      ]);
+      expect(beforeSend(event)).toBe(event);
+    });
+
+    it("keeps exceptions whose frames have no resolvable filename", async () => {
+      const beforeSend = await getBeforeSend();
+
+      const event = exceptionEvent([undefined]);
+      expect(beforeSend(event)).toBe(event);
+    });
+
+    it("keeps exceptions that carry no stack frames", async () => {
+      const beforeSend = await getBeforeSend();
+
+      const event = exceptionEvent([]);
+      expect(beforeSend(event)).toBe(event);
+    });
+
+    it("leaves non-exception events untouched", async () => {
+      const beforeSend = await getBeforeSend();
+
+      const event: CaptureResult = { event: "$pageview" };
+      expect(beforeSend(event)).toBe(event);
+      expect(beforeSend(null)).toBeNull();
+    });
   });
 
   it("keeps API requests working when an identity lookup fails", async () => {

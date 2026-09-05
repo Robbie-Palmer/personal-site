@@ -74,6 +74,13 @@ export const technologies: TechnologyContent[] = [
     type: "library",
   },
   {
+    name: "Vale",
+    added: "2026-09-04",
+    description: "A configurable command-line linter for prose",
+    website: "https://vale.sh",
+    type: "tool",
+  },
+  {
     name: "shadcn/ui",
     added: "2026-01-04",
     description:
@@ -432,6 +439,47 @@ export const technologies: TechnologyContent[] = [
     type: "platform",
   },
   {
+    name: "Quix Streams",
+    added: "2026-09-05",
+    description:
+      "Python library for stateful stream processing with Kafka-compatible brokers",
+    website: "https://quix.io/docs/quix-streams/introduction.html",
+    iconSlug: "quixstreams",
+    type: "library",
+  },
+  {
+    name: "Strimzi",
+    added: "2026-09-05",
+    description: "Kubernetes operators for running and managing Apache Kafka",
+    website: "https://strimzi.io",
+    iconSlug: "strimzi",
+    type: "tool",
+  },
+  {
+    name: "Kubernetes",
+    added: "2026-09-05",
+    description: "Container orchestration platform for distributed workloads",
+    website: "https://kubernetes.io",
+    type: "platform",
+  },
+  {
+    name: "Amazon S3",
+    added: "2026-09-05",
+    description: "AWS object storage for data lakes and application artifacts",
+    website: "https://aws.amazon.com/s3/",
+    iconSlug: "aws",
+    type: "platform",
+  },
+  {
+    name: "dbt",
+    added: "2026-09-05",
+    description:
+      "SQL-based data transformation, testing, and documentation for analytics",
+    website: "https://www.getdbt.com",
+    iconSlug: "dbt",
+    type: "tool",
+  },
+  {
     name: "Arduino",
     added: "2026-01-04",
     description:
@@ -451,6 +499,27 @@ export const technologies: TechnologyContent[] = [
     added: "2026-01-04",
     website: "https://isocpp.org",
     type: "language",
+  },
+  {
+    name: "CMake",
+    added: "2026-09-04",
+    description: "Cross-platform build-system generator for native software",
+    website: "https://cmake.org",
+    type: "tool",
+  },
+  {
+    name: "Catch2",
+    added: "2026-09-04",
+    description: "Unit-testing framework for C++",
+    website: "https://github.com/catchorg/Catch2",
+    type: "library",
+  },
+  {
+    name: "ESP32",
+    added: "2026-09-04",
+    description: "Espressif microcontroller platform with Wi-Fi and Bluetooth",
+    website: "https://www.espressif.com/en/products/socs/esp32",
+    type: "platform",
   },
   {
     name: "Cloudflare Workers",
@@ -1125,6 +1194,14 @@ export const technologies: TechnologyContent[] = [
       "Container runtime on macOS that runs Docker in a lightweight Linux VM",
     website: "https://github.com/abiosoft/colima",
     type: "tool",
+  },
+  {
+    name: "K3s",
+    added: "2026-09-01",
+    description:
+      "Lightweight Kubernetes distribution for running container workloads across Linux nodes",
+    website: "https://k3s.io",
+    type: "platform",
   },
   {
     name: "Recyclarr",

@@ -1,0 +1,114 @@
+stages:
+  extract_dataset:
+    cmd: bash scripts/extract.sh
+    params:
+      - source
+      - cohort.changeSizeBands
+    deps:
+      - package.json
+      - ../../packages/ai-review-domain/src/records.ts
+      - ../../packages/ai-review-domain/src/pull-request-metadata.ts
+      - ../../packages/ai-review-domain/src/replay.ts
+      - src/extract-corpus.ts
+      - src/artifact-files.ts
+      - src/cli-arguments.ts
+      - src/corpus-strata.ts
+      - src/schemas.ts
+      - scripts/extract.sh
+    outs:
+      - data/corpus
+
+  freeze_cohort:
+    cmd: bash scripts/freeze.sh
+    params:
+      - cohort
+      - experiment
+      - limits
+      - matching
+      - decision
+    deps:
+      - ../../packages/ai-review-domain/src/records.ts
+      - ../../packages/ai-review-domain/src/replay.ts
+      - data/corpus
+      - src/freeze-cohort.ts
+      - src/artifact-files.ts
+      - src/cli-arguments.ts
+      - src/schemas.ts
+      - scripts/freeze.sh
+    outs:
+      - outputs/frozen/cohort.json
+      - outputs/frozen/decision.json
+      - outputs/frozen/experiment.json
+      - outputs/frozen/matching.json
+      - outputs/frozen/predeclaration.json
+      - outputs/frozen/readiness.json
+      - outputs/frozen/readiness.md
+
+  replay:
+    cmd: bash scripts/replay.sh
+    params:
+      - replay
+    deps:
+      - ../../ai-review/analytics/corpus-replay.ts
+      - ../../ai-review/src/env.ts
+      - ../../ai-review/src/finding-lifecycle.ts
+      - ../../ai-review/src/github-app.ts
+      - ../../ai-review/src/guardrails.ts
+      - ../../ai-review/src/replay-input.ts
+      - ../../ai-review/src/replay-runner.ts
+      - ../../ai-review/src/review-engine.ts
+      - ../../.github/scripts/ai-review/ai-review.ts
+      - ../../packages/ai-review-domain/src/records.ts
+      - ../../packages/ai-review-domain/src/pull-request-metadata.ts
+      - ../../packages/ai-review-domain/src/replay.ts
+      - outputs/frozen/cohort.json
+      - outputs/frozen/experiment.json
+      - outputs/frozen/readiness.json
+      - data/corpus
+      - src/artifact-files.ts
+      - src/cli-arguments.ts
+      - src/run-replays.ts
+      - src/schemas.ts
+      - scripts/replay.sh
+    outs:
+      - outputs/replays
+
+  match:
+    cmd: bash scripts/match.sh
+    deps:
+      - ../../packages/ai-review-domain/src/records.ts
+      - ../../packages/ai-review-domain/src/replay.ts
+      - outputs/frozen/cohort.json
+      - outputs/frozen/matching.json
+      - outputs/replays
+      - src/artifact-files.ts
+      - src/cli-arguments.ts
+      - src/corpus-strata.ts
+      - src/match-replays.ts
+      - src/schemas.ts
+      - scripts/match.sh
+    outs:
+      - outputs/matched
+
+  evaluate:
+    cmd: bash scripts/evaluate.sh
+    deps:
+      - ../../packages/ai-review-domain/src/records.ts
+      - ../../packages/ai-review-domain/src/replay.ts
+      - analytics/scorecard.sql
+      - outputs/frozen/cohort.json
+      - outputs/frozen/decision.json
+      - outputs/matched
+      - scripts/evaluate.sh
+      - src/build-scorecard.ts
+      - src/artifact-files.ts
+      - src/cli-arguments.ts
+      - src/schemas.ts
+    outs:
+      - outputs/evaluation/decision.json
+      - outputs/evaluation/decision.md
+      - outputs/evaluation/replay-scorecard.parquet
+      - outputs/evaluation/scorecard-manifest.json
+      - outputs/evaluation/summary.json
+    metrics:
+      - outputs/evaluation/metrics.json

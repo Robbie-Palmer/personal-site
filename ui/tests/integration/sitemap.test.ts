@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 
 const OUT_DIR = path.resolve(__dirname, "../../out");
 const SITEMAP_PATH = path.join(OUT_DIR, "sitemap.xml");
+const SITE_URL = "https://robbiepalmer.me";
 
 // Subdomain projects that have their own routing and should not be in main sitemap
 const SUBDOMAIN_PROJECTS = new Set(["assettracker"]);
@@ -13,9 +14,10 @@ const SUBDOMAIN_PROJECTS = new Set(["assettracker"]);
 // are intentionally excluded from the sitemap.
 const STATIC_ASSET_SEGMENTS = new Set(["recipe-site-design"]);
 
-// Interactive, noindex app pages (e.g. account settings and personalized
-// feeds) — served but kept out of the sitemap on purpose.
-const NOINDEX_APP_PAGES = new Set([
+// Compatibility and interactive app pages marked noindex — served but kept
+// out of the sitemap on purpose.
+const NOINDEX_PAGES = new Set([
+  "initiatives",
   "recipes/add",
   "recipes/cooks",
   "recipes/discover",
@@ -66,7 +68,10 @@ describe("Sitemap Integration Test", () => {
       if (topLevelSegment && STATIC_ASSET_SEGMENTS.has(topLevelSegment)) {
         return;
       }
-      if (NOINDEX_APP_PAGES.has(fileNameWithoutExt)) {
+      if (NOINDEX_PAGES.has(fileNameWithoutExt)) {
+        return;
+      }
+      if (fileNameWithoutExt.endsWith("/deck/presenter")) {
         return;
       }
 
@@ -82,15 +87,19 @@ describe("Sitemap Integration Test", () => {
         relativePath = relativePath.slice(0, -1);
       }
       // Construct expected URL
-      // Hardcoding site URL as it is in sitemap.ts
-      const baseUrl = "https://robbiepalmer.me";
-      const expectedUrl = relativePath ? `${baseUrl}/${relativePath}` : baseUrl;
+      const expectedUrl = relativePath
+        ? `${SITE_URL}/${relativePath}`
+        : SITE_URL;
       if (!urls.has(expectedUrl)) {
         missingUrls.push(`${file} -> ${expectedUrl}`);
       }
     });
 
     expect(missingUrls).toEqual([]);
+    expect(urls).not.toContain(`${SITE_URL}/initiatives`);
+    expect(
+      [...urls].some((url) => url.startsWith(`${SITE_URL}/initiatives/`)),
+    ).toBe(true);
   });
 });
 

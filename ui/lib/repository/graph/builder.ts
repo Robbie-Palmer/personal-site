@@ -1,5 +1,6 @@
 import type { ADRRef } from "@/lib/domain/adr/adr";
 import type { BlogSlug } from "@/lib/domain/blog/blogPost";
+import type { InitiativeSlug } from "@/lib/domain/initiative/initiative";
 import type { ProjectSlug } from "@/lib/domain/project/project";
 import type { RoleSlug } from "@/lib/domain/role/jobRole";
 import type { TechnologySlug } from "@/lib/domain/technology/technology";
@@ -10,6 +11,7 @@ export interface RelationData {
   projectADRs: Map<ProjectSlug, ADRRef[]>;
   projectRole: Map<ProjectSlug, RoleSlug>;
   projectTags: Map<ProjectSlug, string[]>;
+  projectInitiatives: Map<ProjectSlug, InitiativeSlug[]>;
   blogTechnologies: Map<BlogSlug, TechnologySlug[]>;
   blogTags: Map<BlogSlug, string[]>;
   adrTechnologies: Map<ADRRef, TechnologySlug[]>;
@@ -26,6 +28,7 @@ export function createEmptyRelationData(): RelationData {
     projectADRs: new Map(),
     projectRole: new Map(),
     projectTags: new Map(),
+    projectInitiatives: new Map(),
     blogTechnologies: new Map(),
     blogTags: new Map(),
     adrTechnologies: new Map(),
@@ -40,11 +43,17 @@ export function createEmptyRelationData(): RelationData {
 interface BuildGraphInput {
   technologySlugs: Iterable<TechnologySlug>;
   projectSlugs: Iterable<ProjectSlug>;
+  initiativeSlugs?: Iterable<InitiativeSlug>;
   relations: RelationData;
 }
 
 export function buildContentGraph(input: BuildGraphInput): ContentGraph {
-  const { technologySlugs, projectSlugs, relations } = input;
+  const {
+    technologySlugs,
+    projectSlugs,
+    initiativeSlugs = [],
+    relations,
+  } = input;
 
   const graph: ContentGraph = {
     edges: {
@@ -53,6 +62,7 @@ export function buildContentGraph(input: BuildGraphInput): ContentGraph {
       supersedes: new Map(),
       inheritsFrom: new Map(),
       hasTag: new Map(),
+      contributesToInitiative: new Map(),
       createdAtRole: new Map(),
       writtenAtRole: new Map(),
     },
@@ -62,6 +72,7 @@ export function buildContentGraph(input: BuildGraphInput): ContentGraph {
       supersededBy: new Map(),
       inheritedBy: new Map(),
       tagUsedBy: new Map(),
+      initiativeProjects: new Map(),
       roleProjects: new Map(),
       roleBlogs: new Map(),
     },
@@ -73,12 +84,22 @@ export function buildContentGraph(input: BuildGraphInput): ContentGraph {
   for (const projectSlug of projectSlugs) {
     graph.reverse.projectADRs.set(projectSlug, new Set());
   }
+  for (const initiativeSlug of initiativeSlugs) {
+    graph.reverse.initiativeProjects.set(initiativeSlug, new Set());
+  }
 
   for (const [slug, technologies] of relations.projectTechnologies) {
     addTechnologyEdges(graph, makeNodeId("project", slug), technologies);
   }
   for (const [slug, tags] of relations.projectTags) {
     addTagEdges(graph, makeNodeId("project", slug), tags);
+  }
+  for (const [projectSlug, initiatives] of relations.projectInitiatives) {
+    if (initiatives.length === 0) continue;
+    graph.edges.contributesToInitiative.set(projectSlug, new Set(initiatives));
+    for (const initiativeSlug of initiatives) {
+      graph.reverse.initiativeProjects.get(initiativeSlug)?.add(projectSlug);
+    }
   }
   for (const [projectSlug, adrRefs] of relations.projectADRs) {
     for (const adrRef of adrRefs) {

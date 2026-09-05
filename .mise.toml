@@ -7,9 +7,11 @@ config_roots = [
     "infra-bootstrap",
     "backups",
     "ml-pipelines",
+    "ml-pipelines/ai-review-evaluation",
     "ml-pipelines/recipe-dataset",
     "ml-pipelines/recipe-parsing",
     "ml-pipelines/wsi-analysis",
+    "packages/ai-review-domain",
     "packages/recipe-db",
     "packages/observability",
     "packages/recipe-parsing",
@@ -17,6 +19,8 @@ config_roots = [
     "workers/recipe-api",
     "workers/recipe-ingest",
     "homelab",
+    "cpp",
+    "cpp/autonomic-satellite-swarm",
 ]
 
 [settings]
@@ -25,15 +29,15 @@ verbose = false
 
 [tools]
 node = "lts"
-"github:pnpm/pnpm" = "12.0.0"
+"github:pnpm/pnpm" = "12.2.1"
 vale = "3.19.0"
 terraform = "1.16.0"
 tflint = "0.64.0"
 actionlint = "1.7.12"
-zizmor = "1.29.0"
+zizmor = "1.30.0"
 gitleaks = "8.30.1"
-typos = "1.49.1"
-"github:oasdiff/oasdiff" = "1.29.1"
+typos = "1.50.1"
+"github:oasdiff/oasdiff" = "1.30.0"
 duckdb = "1.5.5"
 
 [env]
@@ -42,7 +46,7 @@ MISE_EXPERIMENTAL = "1"
 # Root-level tasks for repo-wide tooling
 [tasks.lint]
 description = "Lint all files across the entire repo"
-depends = ["//:lint:markdown", "//:lint:mdx", "//:lint:yaml", "//:lint:typos", "//:lint:knip", "//:lint:actions", "//:lint:api", "//:lint:prose", "//ai-review:check", "//ui:lint", "//infra:lint", "//infra:lint:tflint", "//infra-bootstrap:lint", "//infra-bootstrap:lint:tflint"]
+depends = ["//:lint:markdown", "//:lint:mdx", "//:lint:yaml", "//:lint:typos", "//:lint:knip", "//:lint:actions", "//:lint:api", "//:lint:prose", "//packages/ai-review-domain:check", "//ai-review:check", "//ml-pipelines/ai-review-evaluation:check", "//ui:lint", "//infra:lint", "//infra:lint:tflint", "//infra-bootstrap:lint", "//infra-bootstrap:lint:tflint"]
 
 [tasks."lint:api"]
 description = "Generate-check and lint the recipe API OpenAPI contract"
@@ -312,13 +316,15 @@ description = "Install all dependencies (root and workspaces)"
 run = "pnpm install"
 
 [tasks."sonar:coverage"]
-description = "Generate all LCOV reports imported by SonarQube Cloud"
+description = "Generate all coverage reports imported by SonarQube Cloud"
 depends = [
     "//ai-review:test:coverage",
+    "//cpp/autonomic-satellite-swarm:coverage",
     "//ui:test:coverage",
     "//packages/observability:test:coverage",
     "//packages/recipe-parsing:test:coverage",
     "//ml-pipelines/recipe-parsing:test:coverage",
+    "//ml-pipelines/ai-review-evaluation:test:coverage",
     "//ml-pipelines/wsi-analysis:test:coverage",
     "//workers/recipe-api:test:coverage",
     "//workers/recipe-ingest:test:coverage",
