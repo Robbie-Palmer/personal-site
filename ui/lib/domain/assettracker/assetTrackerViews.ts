@@ -284,6 +284,7 @@ function recordedBalanceWithMortgages(
 function recordedNetWorthPoint(
   date: string,
   accounts: readonly Account[],
+  accountById: ReadonlyMap<string, Account>,
   absorbedIds: ReadonlySet<string>,
   mortgagesByProperty: ReadonlyMap<string, string[]>,
   accountsWithMarketValue: ReadonlySet<string>,
@@ -291,8 +292,18 @@ function recordedNetWorthPoint(
 ): NetWorthDataPoint {
   const point: NetWorthDataPoint = { date, total: 0 };
   for (const account of accounts) {
-    if (absorbedIds.has(account.id)) continue;
-    const mortgageIds = mortgagesByProperty.get(account.id) ?? [];
+    if (
+      absorbedIds.has(account.id) ||
+      (account.closedAt != null && account.closedAt <= date)
+    ) {
+      continue;
+    }
+    const mortgageIds = (mortgagesByProperty.get(account.id) ?? []).filter(
+      (mortgageId) => {
+        const closedAt = accountById.get(mortgageId)?.closedAt;
+        return closedAt == null || closedAt > date;
+      },
+    );
     const hasMarketHistory = accountHasRecordedValue(
       account.id,
       mortgageIds,
@@ -331,7 +342,7 @@ function withEstimatedNetWorth(
   let estimatedTotal = point.total;
   let usesEstimate = false;
   for (const account of accounts) {
-    if (account.closedAt != null && date > account.closedAt) continue;
+    if (account.closedAt != null && account.closedAt <= date) continue;
     const estimate = estimatesByAccount.get(account.id)?.get(date);
     if (estimate == null || estimate.actual != null) continue;
     const recordedBalance = accountsWithMarketValue.has(account.id)
@@ -371,6 +382,7 @@ export function toNetWorthTimeSeries(
   // A linked mortgage is folded into its property's series (shown as equity)
   // rather than appearing as its own negative series
   const { absorbedIds, mortgagesByProperty } = buildLinkage(accounts);
+  const accountById = new Map(accounts.map((account) => [account.id, account]));
 
   const estimatedInvestmentTypes = new Set<AssetType>([
     "stocks",
@@ -412,6 +424,7 @@ export function toNetWorthTimeSeries(
     const point = recordedNetWorthPoint(
       date,
       accounts,
+      accountById,
       absorbedIds,
       mortgagesByProperty,
       accountsWithMarketValue,

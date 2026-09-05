@@ -230,6 +230,48 @@ describe("getNetWorthTimeSeries", () => {
     expect(point?.["Repaid loan"]).toBeUndefined();
     expect(point?.total).toBe(88_000);
   });
+
+  it("removes a closed investment from recorded and estimated net worth", () => {
+    const data = homeData();
+    data.accounts.push({
+      id: "old-isa",
+      name: "Old ISA",
+      provider: "Broker",
+      currency: "GBP",
+      assetType: "stocks",
+      expectedAnnualReturn: 0.05,
+      createdAt: "2023-01-01",
+      closedAt: "2025-01-01",
+    });
+    data.snapshots.push(
+      { accountId: "old-isa", date: "2024-01-01", balance: 10_000 },
+      { accountId: "home", date: "2025-01-01", balance: 300_000 },
+    );
+
+    const series = getNetWorthTimeSeries(buildRepository(data));
+
+    expect(series[0]?.["Old ISA"]).toBe(10_000);
+    expect(series.at(-1)?.["Old ISA"]).toBeUndefined();
+    expect(series.at(-1)?.total).toBe(88_000);
+    expect(series.at(-1)?.estimatedTotal).toBeUndefined();
+  });
+
+  it("stops netting a closed mortgage into its linked property", () => {
+    const data = homeData();
+    const mortgage = data.accounts.find((account) => account.id === "mortgage");
+    if (mortgage == null) throw new Error("Expected mortgage fixture");
+    mortgage.closedAt = "2025-01-01";
+    data.snapshots.push(
+      { accountId: "home", date: "2025-01-01", balance: 310_000 },
+      { accountId: "mortgage", date: "2025-01-01", balance: -190_000 },
+    );
+
+    const point = getNetWorthTimeSeries(buildRepository(data)).at(-1);
+
+    expect(point?.Home).toBe(310_000);
+    expect(point?.Mortgage).toBeUndefined();
+    expect(point?.total).toBe(308_000);
+  });
 });
 
 describe("getPortfolioContributionTimeSeries", () => {
