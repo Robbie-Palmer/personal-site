@@ -22,8 +22,11 @@ complete packet before exposing it to the state machine.
 NEC is the 32-bit message format used by many consumer infrared remote controls and supported by the
 Arduino IRremote library. One NEC frame carries a chunk number and three bytes of the packet, so the
 infrared adapter needs four frames for one packet. The receiver accepts a message only after all four
-chunks arrive and discards an incomplete assembly after 250 milliseconds. ESP-NOW transports the
-complete 12-byte packet directly.
+chunks arrive and discards an incomplete assembly after 250 milliseconds. This timeout belongs to
+the infrared adapter rather than the wire protocol. Compile checks exercise the code, but no
+measurements from the unavailable bench hardware support that duration. Hardware-in-the-loop
+testing must measure NEC frame duration and inter-frame gaps before retaining or tuning it. ESP-NOW
+transports the complete 12-byte packet directly.
 
 Keep that fragmentation inside the infrared adapter. Do not shrink the domain message or spread its
 limitations into other transports merely to accommodate a weak bench link. Wire compatibility with

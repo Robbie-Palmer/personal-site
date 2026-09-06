@@ -20,10 +20,16 @@ only on desktop performance.
 
 The fit is technical rather than automatic. qrpTracker's [last archived
 commit](https://code.google.com/archive/p/qrptracker/source/default/commits) dates from 2010, before
-current Arduino library conventions. The archive records its license as GPLv3. Its calculations use
-the ATmega328's 32-bit floating-point arithmetic, which limits precision. PLAN-13 also needs a
-trustworthy clock and recent two-line element sets (TLEs), the standard text records describing an
-Earth satellite's orbit. Old TLEs produce increasingly inaccurate positions.
+current Arduino library conventions. The archive records its license as GPLv3. This repository uses
+AGPLv3; [section 13 of that license](https://www.gnu.org/licenses/agpl-3.0.html#section13) permits a
+combined work. GPLv3 still governs the qrpTracker code, while AGPLv3's network-source rule applies
+to the combination. Any import must keep qrpTracker's copyright and license notices, identify
+modifications, and provide its corresponding source. Compatibility does not relicense qrpTracker
+itself as AGPLv3.
+
+Its calculations use the ATmega328's 32-bit floating-point arithmetic, which limits precision.
+PLAN-13 also needs a trustworthy clock and recent two-line element sets (TLEs), the standard text
+records describing an Earth satellite's orbit. Old TLEs produce increasingly inaccurate positions.
 
 Orbit propagation would improve one input to candidacy scoring. It would not calculate the thrust,
 velocity change, fuel, or energy needed to reach a mission objective. Treating it as a complete
@@ -70,6 +76,8 @@ Keep this ADR Proposed until the experiment satisfies all of the following:
 
 * Recover the exact source revision and preserve its authorship, GPLv3 license, and modification
   history.
+* Record the GPLv3 and AGPLv3 obligations for the combined work and keep the required notices and
+  corresponding source with any imported code.
 * Compile the isolated PLAN-13 component with the project's pinned Arduino Uno toolchain.
 * Record the added flash, SRAM, stack, and calculation-time costs alongside the existing firmware
   size.
