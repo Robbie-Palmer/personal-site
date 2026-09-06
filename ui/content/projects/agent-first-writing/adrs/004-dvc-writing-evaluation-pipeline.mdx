@@ -9,9 +9,10 @@ tech_stack: ["DVC"]
 
 The editor needs a repeatable way to compare rules and models against real
 editorial work. The source material includes raw agent output, draft revisions,
-Vale findings, captured Grammarly suggestions, accepted and rejected edits, and
-published text. Git can identify the source revisions, but it should not store
-private notes, large model outputs, or every generated comparison artifact.
+Vale findings, captured Grammarly suggestions, accepted, rejected, and changed
+edits, and published text. Git can identify the source revisions, but it should
+not store private notes, large model outputs, or every generated comparison
+artifact.
 
 An experiment must bind the corpus, producer version, parameters, outputs, and
 metrics to one Git commit. Re-running a scoring change should reuse existing
@@ -54,9 +55,9 @@ Define these initial stages:
    [ADR 003](/projects/agent-first-writing/adrs/003-versioned-suggestion-contract).
    Captured Grammarly suggestions enter as reference data, not through an
    automated Grammarly stage.
-4. `match_edits` aligns suggestions with accepted edits, rejected edits, and
-   the final published diff. It keeps unmatched and ambiguous cases separate
-   instead of counting them as rejections.
+4. `match_edits` aligns suggestions with accepted, rejected, and changed edits
+   and the final published diff. It keeps unmatched and ambiguous cases
+   separate instead of counting them as rejections.
 5. `evaluate` writes per-artifact results, summary metrics, and a fixed-rule
    recommendation to adopt, reject, or gather more evidence.
 
