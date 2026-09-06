@@ -83,6 +83,10 @@ function getActiveNavigationHref(
   pathname: string,
   searchParams: Pick<URLSearchParams, "get">,
 ): string {
+  if (pathname === "/projects" && searchParams.get("tab") === "philosophy") {
+    return "/projects?tab=projects";
+  }
+
   const queryMatch = NAVIGATION_ITEMS.find((item) => {
     const [itemPathname, itemQuery] = item.href.split("?", 2);
     if (itemPathname !== pathname || !itemQuery) return false;
