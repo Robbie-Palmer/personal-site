@@ -1,5 +1,6 @@
 import { and, eq } from "drizzle-orm";
 import { createDb, schema } from "recipe-db";
+import { artifactKey, sourceImageKey } from "recipe-domain/import-storage";
 import {
   afterAll,
   beforeAll,
@@ -1319,6 +1320,11 @@ describe("recipe API PostgreSQL integration", () => {
     expect(importResponse.status).toBe(202);
     const importJob = await json<{ id: string }>(importResponse);
     expect(artifactPut).toHaveBeenCalledOnce();
+    expect(artifactPut).toHaveBeenCalledWith(
+      sourceImageKey(importJob.id, 0, "png"),
+      expect.any(File),
+      { httpMetadata: { contentType: "image/png" } },
+    );
     expect(workflowCreate).toHaveBeenCalledWith({
       id: importJob.id,
       params: { jobId: importJob.id },
@@ -1334,7 +1340,7 @@ describe("recipe API PostgreSQL integration", () => {
       jobId: importJob.id,
       stage: "extract",
       kind: "source-manifest",
-      r2Key: `imports/${importJob.id}/extract/source-manifest.json`,
+      r2Key: artifactKey(importJob.id, "extract", "source-manifest.json"),
       checksum: "integration-checksum",
     });
     await db.insert(schema.recipeImportAttempt).values({

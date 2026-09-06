@@ -852,6 +852,9 @@ importers:
       recipe-db:
         specifier: workspace:*
         version: link:../../packages/recipe-db
+      recipe-domain:
+        specifier: workspace:*
+        version: link:../../packages/recipe-domain
       recipe-parsing:
         specifier: workspace:*
         version: link:../../packages/recipe-parsing

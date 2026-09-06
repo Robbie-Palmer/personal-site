@@ -3,6 +3,11 @@ import { defineConfig } from "vitest/config";
 export default defineConfig({
   test: {
     coverage: {
+      allowExternal: true,
+      include: [
+        "workers/recipe-ingest/src/**/*.ts",
+        "packages/recipe-domain/src/import-storage.ts",
+      ],
       provider: "v8",
       reporter: ["text", ["lcovonly", { projectRoot: "../.." }]],
       reportsDirectory: "coverage",

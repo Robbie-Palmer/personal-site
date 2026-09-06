@@ -38,6 +38,10 @@ import {
   RECIPE_SLUG_MAX_LENGTH,
 } from "recipe-domain/slugs";
 import { RecipeVisibilitySchema } from "recipe-domain/visibility";
+import {
+  importJobPrefix,
+  sourceImageKey,
+} from "recipe-domain/import-storage";
 import { parseRecipeFile } from "recipe-parsing/recipe-file";
 import { parseSchemaOrgRecipeHtml } from "recipe-parsing/schema-org";
 import { recipeAgentConfiguration } from "./agent-auth";
@@ -5913,11 +5917,9 @@ registerRoute("post", "/recipe-imports", async (c) => {
       try {
         await Promise.all(
           images.map(({ file, extension }, index) =>
-            artifacts.put(
-              `imports/${job.id}/source/${index}.${extension}`,
-              file,
-              { httpMetadata: { contentType: file.type } },
-            ),
+            artifacts.put(sourceImageKey(job.id, index, extension), file, {
+              httpMetadata: { contentType: file.type },
+            }),
           ),
         );
         await withPostHogSpan(
@@ -5945,7 +5947,7 @@ registerRoute("post", "/recipe-imports", async (c) => {
         // Best-effort cleanup so partially uploaded images don't accumulate.
         try {
           const uploaded = await artifacts.list({
-            prefix: `imports/${job.id}/`,
+            prefix: importJobPrefix(job.id),
           });
           await Promise.all(
             uploaded.objects.map((object) => artifacts.delete(object.key)),
