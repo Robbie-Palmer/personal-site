@@ -89,6 +89,9 @@ as well as infrastructure cost.
    the shared host has capacity.
 9. Export or restore the user's state, then revoke access and delete the
    environment without affecting another user.
+10. Make the original host unavailable, restore the workspace on a replacement,
+    and confirm that uncommitted changes, configuration, authentication state,
+    and the other user's isolation survive the failure.
 
 Coder fails the pilot if private endpoint access requires broad operator
 membership, if provider authentication cannot remain per user, or if its

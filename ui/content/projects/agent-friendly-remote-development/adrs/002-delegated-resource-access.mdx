@@ -82,9 +82,12 @@ An early set may include:
 
 Keep model-provider subscriptions user-owned. When a provider offers only an
 interactive login stored in a home directory, treat it as a broad legacy
-credential path. Isolate it per user, encrypt and back up it as sensitive state,
-and show its wider authority. Do not claim that filesystem separation makes it
-a narrow capability.
+credential path. Isolate it per user, encrypt and back it up as sensitive state,
+and show its wider authority. Any process or agent in that user's workspace may
+be able to use it. Exclude it from per-agent isolation claims until each agent
+runs with a separate credential filesystem and execution identity, or a broker
+holds the login outside the workspace. Do not claim that per-user filesystem
+separation makes it a narrow capability.
 
 # Resource gateway
 
@@ -193,3 +196,9 @@ Keep this ADR Proposed until one end-to-end flow proves that:
    resource, and outcome; and
 6. the same workspace still supports a repository with no knowledge or work
    system attached.
+
+An interactive provider login does not pass this validation unless its separate
+execution identity, credential filesystem, or broker prevents a second agent
+from reading the login state or invoking the provider through it. Until that
+test passes, report the login as user-wide legacy access rather than an agent
+grant.

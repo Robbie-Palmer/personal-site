@@ -6,9 +6,11 @@ status: "Proposed"
 
 # Context
 
-The current Hetzner CX33 costs €8.49 per month in Germany or Finland and runs
-continuously for personal use. A second workspace creates no new compute bill
-while the machine has spare capacity.
+The current Hetzner CX33 list price is €8.49 per month in Germany or Finland.
+One [public IPv4](https://docs.hetzner.com/cloud/servers/primary-ips/overview/)
+adds €0.50, making the comparable host cost €8.99 net. This excludes VAT,
+backups, and paid networking or egress add-ons. A second workspace creates no
+new compute bill while the continuously running machine has spare capacity.
 
 An equivalent continuously running environment costs roughly $80 to $234 per
 month from the managed providers reviewed on the project page. Those prices pay
@@ -35,7 +37,13 @@ month** with these terms:
 * no SLA during the invited pilot;
 * founder onboarding and support included without a separate charge;
 * one workspace on shared infrastructure with fair-use resource limits; and
-* cancel at any time with an export of the user's data.
+* cancel at any time and receive an export within seven days.
+
+The export includes all POSIX workspace and non-credential home-directory state,
+with at least 10 GiB of export capacity. Before delivery, revoke provider
+sessions and Doppler access and remove tokens, cookies, private keys, and other
+login state from the export. Delete the hosted copy after the user confirms
+receipt or after 14 days, whichever comes first.
 
 This tests whether somebody prefers paying for the hosted experience over
 running the open source project themselves. It does not attempt to recover the
@@ -52,9 +60,9 @@ running managed environment. Do not claim savings against usage-based products
 for people who need only a few hours each month.
 
 Using the prices and assumptions on the project page, £15 becomes cheaper at
-about 57 hours per month against Runloop, 81 against Ona, 82 against Modal, 121
+about 64 hours per month against Runloop, 81 against Ona, 82 against Modal, 122
 against Daytona, 173 against GitHub Codespaces, and 176 against Fly. At £25 the
-same thresholds are about 99, 121, 139, 202, 248, and 295 hours. The intended
+same thresholds are about 106, 121, 139, 203, 248, and 294 hours. The intended
 £15 customer uses the workspace throughout their working week and does not want
 to operate their own server. These are workspace-hours. Parallel agents in one
 workspace do not multiply them unless they require separate environments or a
@@ -87,9 +95,11 @@ manual work needs automation.
 
 The provider break-even thresholds measure customer value, not gross margin.
 The current host has zero marginal compute cost until it runs out of capacity.
-If one customer carried the whole current host cost, £15 minus about £7.29 would
-leave £7.71 before tax, fees, backups, and support. The real margin depends on
-workspace density and the size of the next required server.
+The conversion uses the same 4 September 2026 ECB reference rates as the project
+page: £1 is about $1.353 and €1 is about $1.162. If one customer carried the
+whole €8.99 net host and IPv4 cost, about £7.72, £15 would leave £7.28 before
+tax, fees, backups, and support. The real margin depends on workspace density
+and the size of the next required server.
 
 At [Hetzner's June 2026 list
 prices](https://docs.hetzner.com/general/infrastructure-and-availability/price-adjustment/),
@@ -103,13 +113,16 @@ currently costs $10 per user per month when billed yearly, Linear Business costs
 $16, Jira Standard lists $7.91, and Jira Premium lists $14.54. Their free plans
 cover many small users. Count the Work Graph as validated value only when a user
 cancels another tracker, chooses this product instead of one, or pays more for
-the combined workflow. At 160 workspace-hours, the cheapest metered runtime plus
-Linear Business costs about £25 to £25.50 before Linear coding sessions. Linear
-then charges provider token rates without markup and $0.25 per 20-minute sandbox
-block. Twenty one-hour sessions add at least $15 and 160 session-hours add at
-least $120. Its $20-per-seat launch credit is promotional rather than a monthly
-allowance. Before token charges, £15 beats Linear Basic after about 14
-session-hours and Business after six. £25 beats them after about 32 and 24 hours.
+the combined workflow. At 160 workspace-hours, Codespaces plus Linear Business
+costs about £25.13 and Fly plus Linear Business costs about £25.51 before Linear
+coding sessions. Linear then charges provider token rates without markup and
+$0.25 per 20-minute sandbox block. Twenty one-hour sessions add at least $15 and
+160 session-hours add at least $120. At launch, Linear granted eligible
+workspaces a shared pool of
+promotional AI credits equal to $20 multiplied by the number of unsuspended
+users. The grant does not recur monthly. Before token charges, £15 beats
+Linear Basic after about 14 session-hours and Business after six. £25 beats them
+after about 32 and 24 hours.
 
 # Review point
 

@@ -139,27 +139,31 @@ egress, and support.
 
 | Runtime                         | Assumed environment                        |                                   Approximate monthly runtime cost | Fit                                                                     |
 | ------------------------------- | ------------------------------------------ | -----------------------------------------------------------------: | ----------------------------------------------------------------------- |
-| Current Hetzner CX33            | 4 shared vCPU, 8 GB                        |                                  €8.49 total in Germany or Finland | Baseline; adding another pod costs nothing while capacity remains       |
-| Coder Community on current host | Existing K3s capacity                      |                Same €8.49 host bill, plus control-service overhead | Best next experiment                                                    |
-| Fly Sprite                      | Average 0.6 CPU, 1.5 GB RAM, 10 GB storage |                                          $83.55 if it never sleeps | Attractive only if T3 and idle sessions allow reliable sleep            |
-| Daytona                         | 2 vCPU, 4 GiB RAM, 10 GiB storage          |                                                            $121.28 | Managed lifecycle, but far above the current always-on cost             |
+| Current Hetzner CX33            | 4 shared vCPU, 8 GB, one public IPv4       |                                    €8.99 net in Germany or Finland | Baseline; adding another pod costs nothing while capacity remains       |
+| Coder Community on current host | Existing K3s capacity                      |            Same €8.99 net host bill, plus control-service overhead | Best next experiment                                                    |
+| Fly Sprite                      | Average 0.6 CPU, 1.5 GB RAM, 10 GB storage |                                          $83.75 if it never sleeps | Attractive only if T3 and idle sessions allow reliable sleep            |
+| Daytona                         | 2 vCPU, 4 GiB RAM, 10 GiB storage          |                                                            $121.68 | Managed lifecycle, but far above the current always-on cost             |
 | GitHub Codespaces               | 2 cores, 8 GB, 8 GB storage                | $131.96 list price, or about $120.60 after a GitHub Free allowance | Capable environment, but stops after inactivity                         |
 | Modal Sandbox                   | 2 vCPU, 4 GiB RAM, 10 GiB volume           |                                                      About $174.61 | Maximum sandbox lifetime is 24 hours, so it is a poor persistent home   |
 | Ona Core                        | 4 vCPU, 16 GB for 730 hours                |                 About $183 to $190 from the published OCU examples | Managed product and support, but much more expensive for continuous use |
 | Runloop Basic                   | 2 CPU, 4 GB RAM, 10 GB storage             |                                                      About $233.76 | Built for agent execution rather than a cheap personal workstation      |
 
-Sources: [Hetzner pricing](https://docs.hetzner.com/general/infrastructure-and-availability/price-adjustment/),
+Sources: [Hetzner server pricing](https://docs.hetzner.com/general/infrastructure-and-availability/price-adjustment/),
+[Hetzner IP pricing](https://docs.hetzner.com/cloud/servers/primary-ips/overview/),
 [Fly pricing](https://fly.io/sprites/),
-[Daytona pricing](https://www.daytona.io/),
+[Daytona pricing](https://www.daytona.io/pricing),
 [Codespaces billing](https://docs.github.com/en/billing/concepts/product-billing/github-codespaces),
 [Modal pricing](https://modal.com/pricing),
 [Ona pricing](https://ona.com/pricing/), and
 [Runloop pricing](https://runloop.ai/pricing).
 
-The Hetzner deployment is unusually cheap. Managed providers become competitive
-when they suspend idle environments, but that needs a real T3 Code test. Fly
-counts open TCP connections as activity, so a persistent connection could turn a
-sleep-priced design into an $80 or higher monthly environment.
+The Hetzner figure combines the €8.49 CX33 list price with one €0.50 public
+IPv4. Like the other provider figures, it excludes VAT, paid networking or
+egress add-ons, backups, and support. The Hetzner deployment is unusually cheap.
+Managed providers become competitive when they suspend idle environments, but
+that needs a real T3 Code test. Fly counts open TCP connections as activity, so
+a persistent connection could turn a sleep-priced design into an $80 or higher
+monthly environment.
 
 The cost difference supports charging more than £5 for users who value continuous
 availability. The brother pilot remains free. The first non-family price to test
@@ -175,9 +179,9 @@ run an alternative. Using the providers' published rates and the
 [European Central Bank reference rates for 4 September
 2026](https://www.ecb.europa.eu/stats/policy_and_exchange_rates/euro_reference_exchange_rates/html/index.en.html),
 £1 was about $1.353. The table shows the active runtime at which each alternative
-would cost more than the proposed monthly price. Storage remains allocated for
-the whole month. Active runtime includes unattended agent work, not only time at
-a keyboard.
+would cost more than the proposed monthly price. Where a provider charges for
+inactive storage, the calculation keeps it allocated for the whole month. Active
+runtime includes unattended agent work, not only time at a keyboard.
 
 The unit is one running workspace, not one agent session. Two to five agents
 inside the same T3 Code workspace share the same clock. Parallel agents increase
@@ -187,35 +191,37 @@ environment at the listed size.
 
 | Alternative              | £15 becomes cheaper after | £25 becomes cheaper after | Important assumption                                                                  |
 | ------------------------ | ------------------------: | ------------------------: | ------------------------------------------------------------------------------------- |
-| Runloop Basic            |                  57 hours |                  99 hours | Suspend and resume requires its $250 Pro plan                                         |
+| Runloop Basic            |                  64 hours |                 106 hours | Suspend and resume requires its $250 Pro plan                                         |
 | Ona Core                 |                  81 hours |                 121 hours | Uses the included 80 OCUs, then whole 40-OCU add-on packs                             |
 | Modal Sandbox            |                  82 hours |                 139 hours | A sandbox can live for at most 24 hours                                               |
-| Daytona                  |                 121 hours |                 202 hours | 2 vCPU, 4 GiB RAM, and 10 GiB storage                                                 |
+| Daytona                  |                 122 hours |                 203 hours | 2 vCPU, 4 GiB RAM, and 10 GiB storage                                                 |
 | GitHub Codespaces        |                 173 hours |                 248 hours | Includes the personal GitHub Free allowance of 60 runtime hours on a two-core machine |
-| Fly Sprite               |                 176 hours |                 295 hours | Assumes an average 0.6 CPU, 1.5 GB RAM, and 10 GB storage while active                |
-| Self-hosted Hetzner CX33 |                     Never |                     Never | €8.49, or about £7.29, remains cheaper before the owner's time and operational risk   |
+| Fly Sprite               |                 176 hours |                 294 hours | Assumes an average 0.6 CPU, 1.5 GB RAM, and 10 GB storage while active                |
+| Self-hosted Hetzner CX33 |                     Never |                     Never | €8.99, or about £7.72, remains cheaper before the owner's time and operational risk   |
 
-For metered products, the calculation subtracts any monthly base or storage fee
-from the monthly price, then divides by the active hourly rate. Codespaces adds
-its first 60 runtime hours on a two-core machine. Ona rounds up to the next OCU
-pack.
+For metered products, the calculation subtracts any fixed monthly base or
+storage fee from the monthly price, then divides by the active hourly rate.
+Fly's hot storage is part of that active rate; its lower cold-storage rate runs
+for the full month. Codespaces adds its first 60 runtime hours on a two-core
+machine. Ona rounds up to the next OCU pack.
 
 These are bill break-even points, not claims that the products are equivalent.
 They exclude tax, egress, model usage, and the value of support. They also favour
 products that can sleep. An open connection or unattended agent can keep the
 meter running.
 
-At 160 hours, the estimated bills are about £13.30 for Codespaces, £13.65 for
-Fly, £19.87 for Daytona, £28.81 for Modal, £29.56 for Ona, and £39.31 for
+At 160 hours, the estimated bills are about £13.30 for Codespaces, £13.68 for
+Fly, £19.71 for Daytona, £28.81 for Modal, £29.56 for Ona, and £37.87 for
 Runloop. A £15 workspace sits just above the two cheapest metered choices and
 below the other four. Its persistent, multi-repository workflow can justify the
 small difference from Codespaces or Fly. A £25 price needs value beyond runtime.
 
 These thresholds describe the customer's alternatives, not my margin. Spare
-capacity on the current host costs nothing more. Even assigning the whole £7.29
-CX33 bill to one £15 customer leaves £7.71 before tax, payment fees, backups, and
-support. Sharing a larger host improves that figure. The unknown is how many
-people and concurrent agents fit before contention forces an upgrade.
+capacity on the current host costs nothing more. Even assigning the whole £7.72
+net CX33 and IPv4 bill to one £15 customer leaves £7.28 before tax, payment
+fees, backups, and support. Sharing a larger host improves that figure. The
+unknown is how many people and concurrent agents fit before contention forces
+an upgrade.
 
 The best early customer treats the environment as their main development
 computer. They need persistent multi-repository state, remote access, and
@@ -223,7 +229,7 @@ unattended execution. They could self-host, but would rather pay somebody else
 to handle deployment, updates, backups, and recovery.
 
 At £25, the cost case against Daytona, Codespaces, and Fly becomes strongest at
-about 200 to 295 active hours each month. People may still pay sooner for the
+about 203 to 294 active hours each month. People may still pay sooner for the
 workflow, but the price is harder to justify on infrastructure savings alone.
 Someone using agents for 20 to 60 hours each month, someone who enjoys operating
 their own server, or a company that needs an SLA is not the initial customer.
@@ -237,11 +243,13 @@ Basic and $16 for Business when billed yearly. [Jira](https://www.atlassian.com/
 lists $7.91 for Standard and $14.54 for Premium. At the same exchange rate,
 those prices span roughly £5.85 to £11.83 per user per month.
 
-At 160 workspace-hours, Codespaces or Fly plus Linear Business totals about £25
-to £25.50 per month before Linear coding sessions. Linear charges each coding
-session for model tokens at the provider's published rate, without markup, plus
-$0.25 for every 20-minute sandbox block. The published $20-per-seat launch credit
-is promotional rather than a monthly allowance.
+At 160 workspace-hours, Codespaces plus Linear Business totals about £25.13 per
+month and Fly plus Linear Business totals about £25.51, before Linear coding
+sessions. Linear charges each coding session for model tokens at the provider's
+published rate, without markup, plus $0.25 for every 20-minute sandbox block. At
+launch, Linear granted eligible workspaces a shared pool of promotional AI
+credits equal to $20 multiplied by the number of unsuspended users. The grant
+does not recur monthly.
 
 The sandbox charge alone makes a one-hour session $0.75. Twenty one-hour sessions
 cost $15 plus tokens; 40 cost $30; and 160 session-hours cost $120. Add the $10
