@@ -698,6 +698,13 @@ export const technologies: TechnologyContent[] = [
     type: "tool",
   },
   {
+    name: "Playwright",
+    added: "2026-09-06",
+    description: "Browser automation library with persistent local contexts",
+    website: "https://playwright.dev",
+    type: "library",
+  },
+  {
     name: "Plotly",
     added: "2026-01-04",
     description:

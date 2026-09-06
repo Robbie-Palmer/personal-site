@@ -1,0 +1,42 @@
+---
+title: "ADR 001: Generic grammar correction with GECToR-2024"
+date: "2026-09-04"
+status: "Rejected"
+tech_stack: ["PyTorch", "Hugging Face"]
+---
+
+# Context
+
+The editor must close the gap between correct sentences and publishable prose.
+GECToR-2024 offered a lightweight way to test whether generic grammatical error
+correction could close that gap without a larger editorial model.
+
+I ran existing architecture decision records through GECToR-2024. It proposed
+some useful corrections. They improved the input, but the result remained
+repetitive, over-explained, and harder to absorb than the final published
+writing.
+
+Serving it also failed the project's hardware constraint. The model would not
+fit on the GeForce GTX 1050 in the homelab. A remotely hosted GPU would add an
+ongoing cost for a model that still leaves most of the editorial work to the
+author.
+
+# Decision
+
+Reject serving GECToR-2024 as the editor's model layer. Its improvement does not
+justify either new local GPU hardware or a paid remote GPU.
+
+Keep the result as a baseline in the evaluation set. A later lightweight model
+must target failure classes that deterministic rules miss. It must either fit
+on the GTX 1050 or save enough editing work to justify remote inference.
+
+# Consequences
+
+The result still has value as a lower bound. It shows that grammatical error
+correction improves some sentences without solving the larger editing problem.
+Evaluation must also cover clarity, factual preservation, intent, terminology,
+cognitive load, and voice.
+
+This does not rule out every small model. It rules out adding one because it can
+make locally plausible corrections. A model that needs remote GPU serving has a
+higher bar because every use has a direct cost.

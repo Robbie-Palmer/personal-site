@@ -1,0 +1,106 @@
+---
+title: "ADR 007: Playwright-assisted Grammarly handoff"
+date: "2026-09-06"
+status: "Proposed"
+tech_stack: ["Playwright"]
+---
+
+# Context
+
+Grammarly catches useful issues during the final editorial pass, but
+[ADR 002](/projects/agent-first-writing/adrs/002-grammarly-as-an-automated-backend)
+rejects it as an automated backend. Its documented APIs do not return the
+suggestions and edit decisions that this project needs.
+
+The remaining option is a browser-assisted handoff.
+[Playwright](https://playwright.dev/docs/api/class-browsertype#browser-type-launch-persistent-context)
+can launch a headed browser with a persistent local profile, which keeps the
+author's login between sessions.
+[Browserbase](https://docs.browserbase.com/platform/browser/core-features/contexts)
+offers persistent remote contexts and a live view, but it would send the draft
+and authenticated browser state to another hosted service.
+
+Neither tool makes Grammarly's private interface stable or supported. The
+current [Grammarly Acceptable Use Policy](https://www.grammarly.com/acceptable-use-policy)
+requires supported interfaces and forbids circumventing access controls. The
+project must verify that Grammarly permits the proposed personal automation
+under its current terms before relying on either tool.
+
+Corpus retention in this proposal depends on accepting
+[ADR 004](/projects/agent-first-writing/adrs/004-dvc-writing-evaluation-pipeline).
+The handoff prototype may run with transfer data discarded at session end, but
+do not enable corpus opt-in until that pipeline and its retention controls
+exist.
+
+# Decision
+
+Prototype a local, headed Playwright handoff. A user must start and supervise
+every session. The first version will:
+
+1. copy the current draft for transfer;
+2. open Grammarly in a dedicated persistent browser profile;
+3. let the author paste the draft and review suggestions in Grammarly;
+4. accept revised text copied back by the author; and
+5. show a local diff before replacing the repository draft.
+
+Do not scrape Grammarly suggestions, automate accepting them, intercept private
+network calls, bypass authentication or bot controls, or run unattended batches.
+The evaluation set may record the before-and-after text and the author's final
+decision. It must not claim suggestion-level provenance that Grammarly does not
+expose.
+
+Discard clipboard transfer data when the session ends. Add a before-and-after
+pair to the private evaluation set only when the author opts in for that
+document. Store opted-in pairs only in the private DVC corpus from ADR 004, and
+limit access to the author and the evaluation jobs that need it. Do not train on
+or republish the pair. When the author removes its corpus manifest entry, remove
+the tracked object and purge any unreferenced remote cache within 30 days.
+
+Do not use Browserbase for the first version. Reconsider it only if remote
+human-in-the-loop sessions solve a demonstrated problem and the privacy, session
+recording, terms, and cost tradeoffs are acceptable.
+
+# Alternatives
+
+## Use the Grammarly browser extension directly
+
+This is simpler if the eventual editor exposes a compatible editing field. It
+does not help an agent prepare the handoff or import the result, but it avoids
+automation against Grammarly's own site. Test this before building the
+Playwright prototype.
+
+## Automate the Grammarly interface
+
+DOM selectors and private network calls could extract more detail. They would
+turn an undocumented interface into a dependency, create account risk, and
+still fail to provide a stable suggestion contract. Rejected.
+
+## Use Browserbase from the start
+
+Browserbase would make a remote session observable and reusable. That is useful
+for a distributed workflow, but this project has one author and private drafts.
+The extra service and data exposure do not yet solve a real constraint.
+
+# Acceptance criteria
+
+Keep this ADR Proposed until a spike can:
+
+* document that the workflow complies with the current Grammarly terms;
+* round-trip representative Markdown without changes outside the edits the
+  author made;
+* keep Grammarly credentials and browser state on the local machine;
+* discard transfer data by default and use the accepted ADR 004 pipeline to
+  enforce its retention and deletion rules whenever the author enables corpus
+  capture;
+* show the imported diff before changing a repository file;
+* save time compared with the existing manual Grammarly pass; and
+* stop cleanly when login, page structure, or clipboard transfer fails.
+
+# Consequences
+
+The experiment may remove repetitive copying while keeping the editorial choice
+with the author. It does not make Grammarly reproducible infrastructure, and it
+cannot supply the structured evidence expected from native producers.
+
+If the workflow needs selectors for suggestion internals or regular repairs for
+page changes, reject the proposal and keep Grammarly fully manual.

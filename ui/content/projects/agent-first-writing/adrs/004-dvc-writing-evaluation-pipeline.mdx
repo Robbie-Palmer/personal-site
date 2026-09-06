@@ -1,0 +1,132 @@
+---
+title: "ADR 004: DVC writing evaluation pipeline"
+date: "2026-09-06"
+status: "Proposed"
+tech_stack: ["DVC"]
+---
+
+# Context
+
+The editor needs a repeatable way to compare rules and models against real
+editorial work. The source material includes raw agent output, draft revisions,
+Vale findings, captured Grammarly suggestions, accepted, rejected, and changed
+edits, and published text. Git can identify the source revisions, but it should
+not store private notes, large model outputs, or every generated comparison
+artifact.
+
+An experiment must bind the corpus, producer version, parameters, outputs, and
+metrics to one Git commit. Re-running a scoring change should reuse existing
+model output. Changing a model or corpus should invalidate the affected stages.
+Loose scripts and dated output folders do not provide those guarantees.
+
+The repository already uses DVC for the AI reviewer evaluation and recipe
+parsing pipelines. Both keep pipeline definitions and lock data in Git, cache
+expensive stages, compare experiments from the command line, and store data in
+the shared private Cloudflare R2 remote.
+
+# Decision
+
+Create `ml-pipelines/writing-editor-evaluation` as a DVC project. Use the
+existing mise-managed DVC installation and give the project its own prefix in
+the private R2 remote.
+
+Commit `dvc.yaml`, `dvc.lock`, `params.yaml`, schemas, stage code, and compact
+metrics to Git. DVC will track the corpus, producer output, matched edits, and
+larger reports. Do not commit raw private writing or generated passages to the
+public repository.
+
+This proposal depends on accepting
+[ADR 003](/projects/agent-first-writing/adrs/003-versioned-suggestion-contract).
+Do not build `run_producers` against a provisional contract. If ADR 003
+changes during review, update this stage design before accepting either the DVC
+pipeline or its locked outputs.
+
+Define these initial stages:
+
+1. `extract_dataset` reads a committed manifest of source paths and Git
+   revisions, exports the selected document states, and records a content hash
+   and provenance for each artifact.
+2. `freeze_cohort` fixes the train, development, and holdout membership before
+   candidate results exist. It reports missing revisions, incomplete edit
+   outcomes, and coverage by artifact type.
+3. `run_producers` runs Vale, the GECToR-2024 baseline, and each declared
+   candidate against the frozen inputs. Every producer writes the versioned
+   suggestion format from
+   [ADR 003](/projects/agent-first-writing/adrs/003-versioned-suggestion-contract).
+   Captured Grammarly suggestions enter as reference data, not through an
+   automated Grammarly stage.
+4. `match_edits` aligns each stable proposal ID and its ordered member
+   suggestion IDs with accepted, rejected, and changed edits and the final
+   published diff. It keeps unmatched and ambiguous cases separate instead of
+   counting them as rejections.
+5. `evaluate` writes per-artifact results, summary metrics, and a fixed-rule
+   recommendation to adopt, reject, or gather more evidence.
+
+`params.yaml` will pin the cohort manifest, split seed, producer and model
+versions, inference limits, matching rules, primary metrics, required sample
+size, and decision thresholds. Each model producer also needs a committed
+runtime lock and an immutable model revision. For the GECToR-2024 baseline,
+track a model manifest and weights as DVC inputs; record the source repository,
+immutable revision or digest, and content hash rather than a mutable model
+label. Use `dvc exp run` for candidate variations and `dvc metrics diff` to
+compare them. Changes to matching or scoring must start downstream of
+`run_producers` so they do not repeat paid or slow inference.
+
+Acceptance rate remains a diagnostic, not the optimization target. The first
+scorecard must also report factual changes, terminology changes, unwanted voice
+changes, regressions caught by deterministic rules, and review time. The
+pipeline must preserve per-artifact results so a better headline score cannot
+hide a bad rewrite.
+
+# Alternatives
+
+## Keep the complete dataset in Git
+
+Git would give direct revision history without another tool. It would also put
+private source material and bulky generated artifacts in a public repository,
+and deleted material would remain in Git history. Rejected.
+
+## Run Python scripts manually
+
+Independent scripts would get the first metrics produced sooner. They would
+need custom provenance, cache invalidation, artifact versioning, and experiment
+comparison as soon as the corpus or producer set changes. Rejected because the
+repository already has those capabilities through DVC.
+
+## Add a hosted experiment tracker
+
+A hosted tracker could provide richer dashboards. The first evaluation needs a
+reproducible pipeline and reviewable metric diffs, both of which DVC already
+provides without another account or metadata store. Defer a tracker until the
+DVC reports fail a specific review need.
+
+# Acceptance criteria
+
+Keep this ADR Proposed until the pipeline can:
+
+* use the accepted ADR 003 schema and reject producer output that fails it;
+* preserve each proposal ID and ordered member mapping through matching and
+  scoring;
+* reproduce the Vale and GECToR-2024 baselines from a clean checkout and DVC
+  pull;
+* reject a run whose runtime lock, model revision, or model content hash does
+  not match the declared GECToR-2024 inputs;
+* prove that a scoring-only change reuses cached producer output;
+* invalidate the right stages when the corpus, producer, or model changes;
+* compare a baseline and candidate with the declared metrics and thresholds;
+* trace every scorecard row to its source revision, producer, and edit outcome;
+  and
+* keep private source text and generated passages out of Git and public build
+  artifacts.
+
+# Consequences
+
+The writing editor will use the same experiment workflow as the repository's
+other ML systems. A Git commit can identify the exact corpus, code, parameters,
+and locked outputs behind a result. DVC caching also keeps metric work from
+repeating inference.
+
+The pipeline adds another R2 prefix and requires careful `dvc.yaml` dependency
+declarations. Missing a code or data dependency can produce a stale cache hit,
+so review must treat the stage graph as part of the implementation rather than
+incidental configuration.
