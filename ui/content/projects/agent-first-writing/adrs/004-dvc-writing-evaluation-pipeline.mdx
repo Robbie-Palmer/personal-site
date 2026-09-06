@@ -62,9 +62,13 @@ Define these initial stages:
 
 `params.yaml` will pin the cohort manifest, split seed, producer and model
 versions, inference limits, matching rules, primary metrics, required sample
-size, and decision thresholds. Use `dvc exp run` for candidate variations and
-`dvc metrics diff` to compare them. Changes to matching or scoring must start
-downstream of `run_producers` so they do not repeat paid or slow inference.
+size, and decision thresholds. Each model producer also needs a committed
+runtime lock and an immutable model revision. For the GECToR-2024 baseline,
+track a model manifest and weights as DVC inputs; record the source repository,
+immutable revision or digest, and content hash rather than a mutable model
+label. Use `dvc exp run` for candidate variations and `dvc metrics diff` to
+compare them. Changes to matching or scoring must start downstream of
+`run_producers` so they do not repeat paid or slow inference.
 
 Acceptance rate remains a diagnostic, not the optimization target. The first
 scorecard must also report factual changes, terminology changes, unwanted voice
@@ -101,6 +105,8 @@ Keep this ADR Proposed until the pipeline can:
 * use the accepted ADR 003 schema and reject producer output that fails it;
 * reproduce the Vale and GECToR-2024 baselines from a clean checkout and DVC
   pull;
+* reject a run whose runtime lock, model revision, or model content hash does
+  not match the declared GECToR-2024 inputs;
 * prove that a scoring-only change reuses cached producer output;
 * invalidate the right stages when the corpus, producer, or model changes;
 * compare a baseline and candidate with the declared metrics and thresholds;
