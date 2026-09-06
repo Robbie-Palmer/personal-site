@@ -30,7 +30,14 @@ import {
 } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { z } from "zod";
-import { createDb, type Db, type DbClient, schema } from "recipe-db";
+import {
+  closeDbClient,
+  createDb,
+  databaseConnection,
+  type Db,
+  type DbClient,
+  schema,
+} from "recipe-db";
 import { SavedRecipePayloadSchema } from "recipe-domain/serialization";
 import {
   isRecipeAppRouteSlug,
@@ -928,10 +935,6 @@ function isValidAuthURL(value: string): boolean {
   }
 }
 
-function databaseConnection(env: Bindings): string | undefined {
-  return env.HYPERDRIVE?.connectionString ?? env.DATABASE_URL;
-}
-
 const NO_DATABASE_CONNECTION_ERROR =
   "No database connection configured (HYPERDRIVE or DATABASE_URL required)";
 
@@ -941,15 +944,6 @@ function requireDatabaseConnection(c: Context<AppEnv>): string | Response {
     return c.json({ error: NO_DATABASE_CONNECTION_ERROR }, 503);
   }
   return connectionString;
-}
-
-async function closeDbClient(client: DbClient | undefined) {
-  if (!client) return;
-  try {
-    await client.end({ timeout: 5 });
-  } catch (e) {
-    console.error("client.end() cleanup failed", e);
-  }
 }
 
 function recipeResponse(recipe: Recipe) {
