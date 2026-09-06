@@ -285,7 +285,6 @@ export const agentAuthAuditEvent = pgTable(
 );
 
 export const visibilityEnum = pgEnum("visibility", RECIPE_VISIBILITIES);
-export type RecipeVisibility = (typeof visibilityEnum.enumValues)[number];
 
 export const dietRecipeMatchModeEnum = pgEnum("diet_recipe_match_mode", [
   "hide",
