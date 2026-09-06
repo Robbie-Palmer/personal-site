@@ -55,9 +55,10 @@ Define these initial stages:
    [ADR 003](/projects/agent-first-writing/adrs/003-versioned-suggestion-contract).
    Captured Grammarly suggestions enter as reference data, not through an
    automated Grammarly stage.
-4. `match_edits` aligns suggestions with accepted, rejected, and changed edits
-   and the final published diff. It keeps unmatched and ambiguous cases
-   separate instead of counting them as rejections.
+4. `match_edits` aligns each stable proposal ID and its ordered member
+   suggestion IDs with accepted, rejected, and changed edits and the final
+   published diff. It keeps unmatched and ambiguous cases separate instead of
+   counting them as rejections.
 5. `evaluate` writes per-artifact results, summary metrics, and a fixed-rule
    recommendation to adopt, reject, or gather more evidence.
 
@@ -104,6 +105,8 @@ DVC reports fail a specific review need.
 Keep this ADR Proposed until the pipeline can:
 
 * use the accepted ADR 003 schema and reject producer output that fails it;
+* preserve each proposal ID and ordered member mapping through matching and
+  scoring;
 * reproduce the Vale and GECToR-2024 baselines from a clean checkout and DVC
   pull;
 * reject a run whose runtime lock, model revision, or model content hash does

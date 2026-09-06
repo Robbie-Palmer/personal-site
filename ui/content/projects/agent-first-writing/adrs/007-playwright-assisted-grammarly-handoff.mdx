@@ -43,6 +43,13 @@ The evaluation set may record the before-and-after text and the author's final
 decision. It must not claim suggestion-level provenance that Grammarly does not
 expose.
 
+Discard clipboard transfer data when the session ends. Add a before-and-after
+pair to the private evaluation set only when the author opts in for that
+document. Store opted-in pairs only in the private DVC corpus from ADR 004, and
+limit access to the author and the evaluation jobs that need it. Do not train on
+or republish the pair. When the author removes its corpus manifest entry, remove
+the tracked object and purge any unreferenced remote cache within 30 days.
+
 Do not use Browserbase for the first version. Reconsider it only if remote
 human-in-the-loop sessions solve a demonstrated problem and the privacy, session
 recording, terms, and cost tradeoffs are acceptable.
@@ -76,6 +83,8 @@ Keep this ADR Proposed until a spike can:
 * round-trip representative Markdown without changes outside the edits the
   author made;
 * keep Grammarly credentials and browser state on the local machine;
+* discard transfer data by default and enforce the opt-in corpus retention and
+  deletion rules;
 * show the imported diff before changing a repository file;
 * save time compared with the existing manual Grammarly pass; and
 * stop cleanly when login, page structure, or clipboard transfer fails.

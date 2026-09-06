@@ -37,10 +37,17 @@ proposal so the interface can present their combined replacement as a readable
 diff. Producers may report overlapping independent suggestions, but the editor
 must not apply them together without a new grouped proposal.
 
+Every proposal records a stable proposal ID and an ordered list of its member
+suggestion IDs. Use the suggestion sort order above for that list, and calculate
+the proposal ID from a canonical encoding of the schema version and ordered
+member IDs. A suggestion shown on its own forms a one-member proposal. This
+mapping must remain attached to the proposal through review and evaluation.
+
 Record a decision for each proposal with an `accepted`, `rejected`, or `changed`
-outcome. A changed decision stores the replacement the user chose. Preserve the
-original suggestion, schema version, producer version, and source revision so
-later evaluations compare like with like.
+outcome and its proposal ID. A changed decision stores the replacement the user
+chose. Preserve the ordered member IDs, original suggestions, schema version,
+producer versions, and source revision so later evaluations compare like with
+like.
 
 Before display or application, verify the source hash and that the bytes in the
 recorded span equal the recorded source text. Treat a mismatch as a stale-span
