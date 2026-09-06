@@ -39,13 +39,13 @@ Keep the runtime behind a small provider contract:
 1. Provision a workspace from a versioned blueprint.
 2. Start, suspend, resume, checkpoint, and delete it.
 3. Execute a command and stream its output.
-4. expose t3-code through an authenticated, user-scoped HTTPS endpoint;
-5. retain and export at least 10 GiB of POSIX workspace and home-directory
-   state;
-6. connect agents to user-approved resource capabilities without copying
-   another user's login state;
-7. apply resource requests and limits that protect the shared host; and
-8. restore the workspace after host or provider failure.
+4. Expose t3-code through an authenticated, user-scoped HTTPS endpoint.
+5. Preserve and export at least 10 GiB of POSIX workspace and home-directory
+   state.
+6. Connect agents to user-approved resource capabilities without copying
+   another user's login state.
+7. Apply resource requests and limits that protect the shared host.
+8. Restore the workspace after host or provider failure.
 
 [ADR 002](/projects/agent-friendly-remote-development/adrs/002-delegated-resource-access)
 defines the agent and resource boundary behind item 6. The runtime provider may
