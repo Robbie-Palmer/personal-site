@@ -2,6 +2,16 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import ProjectsPage from "@/app/(site)/projects/page";
 
+vi.mock("next/navigation", () => ({
+  usePathname: () => "/projects",
+  useRouter: () => ({ replace: vi.fn() }),
+  useSearchParams: () => new URLSearchParams(),
+}));
+
+vi.mock("posthog-js", () => ({
+  default: { capture: vi.fn() },
+}));
+
 vi.mock("@/lib/api/initiatives", () => ({
   getAllInitiatives: () => [
     {

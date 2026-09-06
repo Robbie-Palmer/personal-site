@@ -11,7 +11,7 @@ export function ProjectTabsSkeleton() {
         <Skeleton className="h-8 w-50 rounded-sm" />
       </div>
 
-      {/* Projects content skeleton (default tab) */}
+      {/* Initiatives content skeleton (default tab) */}
       <div className="mt-6">
         <CardGridSkeleton />
       </div>

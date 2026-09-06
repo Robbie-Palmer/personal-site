@@ -9,9 +9,9 @@ describe("InitiativesIndexRedirect", () => {
 
     expect(
       screen.getByRole("link", { name: "initiatives tab" }),
-    ).toHaveAttribute("href", "/projects?tab=initiatives");
+    ).toHaveAttribute("href", "/projects");
     expect(
       document.querySelector('meta[http-equiv="refresh"]'),
-    ).toHaveAttribute("content", "0;url=/projects?tab=initiatives");
+    ).toHaveAttribute("content", "0;url=/projects");
   });
 });

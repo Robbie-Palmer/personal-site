@@ -173,8 +173,7 @@ describe("CommandPalette", () => {
     expect(screen.queryByText("Active projects")).not.toBeInTheDocument();
   });
 
-  it("marks the initiatives navigation item current on its projects tab", async () => {
-    navigation.search = "tab=initiatives";
+  it("marks the initiatives navigation item current on the default projects tab", async () => {
     render(
       <CommandPaletteProvider>
         <CommandPaletteTrigger />

@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-const initiativesTab = "/projects?tab=initiatives";
+const initiativesTab = "/projects";
 
 export function InitiativesIndexRedirect() {
   return (

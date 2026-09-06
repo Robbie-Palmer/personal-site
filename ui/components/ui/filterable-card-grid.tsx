@@ -70,6 +70,7 @@ interface FilterableCardGridProps<T> {
   filterBarContent?: ReactNode;
   dateRangeConfig?: DateRangeConfig<T>;
   sortConfig: SortConfig<T>;
+  defaultSort?: SortOption;
   emptyState: EmptyStateConfig;
   itemName: string;
   /**
@@ -92,6 +93,7 @@ export function FilterableCardGrid<T>({
   filterBarContent,
   dateRangeConfig,
   sortConfig,
+  defaultSort = "newest",
   emptyState,
   itemName,
   searchValue,
@@ -101,7 +103,7 @@ export function FilterableCardGrid<T>({
 }: Readonly<FilterableCardGridProps<T>>) {
   const { currentSort, cycleSortOrder } = useSortParam<SortOption>(
     SORT_OPTIONS,
-    "newest",
+    defaultSort,
   );
   const pathname = usePathname();
   const [internalSearchQuery, setInternalSearchQuery] = useState("");

@@ -170,6 +170,14 @@ describe("Projects functions", () => {
         expect(slugs.length).toBe(uniqueSlugs.size);
       }
     });
+
+    it("loads the current project statuses and Ulster University role", () => {
+      expect(getProject("homelab").status).toBe("live");
+      expect(getProject("agentic-code-review").status).toBe("live");
+      expect(getProject("autonomic-satellite-swarm").role?.company).toBe(
+        "Ulster University",
+      );
+    });
   });
 
   describe("getProjectADR", () => {
