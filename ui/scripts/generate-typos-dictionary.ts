@@ -19,7 +19,6 @@
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import { errorMessage } from "ts-base/errors";
 import {
   applyExtendWords,
   parseExtendWords,
@@ -84,7 +83,7 @@ async function main(): Promise<void> {
     // Degrade gracefully rather than block dev/build on a network blip: leave
     // any existing asset in place; the editor shows a Retry when it's missing.
     console.warn(
-      `⚠ Could not fetch the typos dictionary (${errorMessage(error, String(error))}). Spell-check will be unavailable until the next successful generation.`,
+      `⚠ Could not fetch the typos dictionary (${error instanceof Error ? error.message : error}). Spell-check will be unavailable until the next successful generation.`,
     );
     return;
   } finally {

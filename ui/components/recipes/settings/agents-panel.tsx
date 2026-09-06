@@ -3,7 +3,6 @@
 import { isAbortError } from "browser-base/errors";
 import { Bot, Clock, LoaderCircle, ShieldX } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { errorMessage } from "ts-base/errors";
 import { Button } from "@/components/ui/button";
 import { type AgentSummary, listAgents, revokeAgent } from "@/lib/api/agents";
 import { PanelHead } from "./panel-head";
@@ -43,7 +42,9 @@ export function AgentsPanel() {
       setAgents(await listAgents(signal));
     } catch (cause) {
       if (isAbortError(cause)) return;
-      setError(errorMessage(cause, "Agents could not be loaded."));
+      setError(
+        cause instanceof Error ? cause.message : "Agents could not be loaded.",
+      );
     }
   }
 
@@ -77,7 +78,11 @@ export function AgentsPanel() {
       const signal = loadControllerRef.current?.signal;
       if (signal) await load(signal);
     } catch (cause) {
-      setError(errorMessage(cause, "Agent access could not be revoked."));
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : "Agent access could not be revoked.",
+      );
     } finally {
       setRevokingId(null);
     }

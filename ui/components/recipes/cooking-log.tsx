@@ -2,7 +2,6 @@
 
 import { ChefHat, Flame, UtensilsCrossed } from "lucide-react";
 import { useEffect, useState } from "react";
-import { errorMessage } from "ts-base/errors";
 import {
   type CookingInsights,
   getCookingInsights,
@@ -63,7 +62,9 @@ export function CookingLog() {
       .catch((loadError: unknown) => {
         if (!controller.signal.aborted) {
           setError(
-            errorMessage(loadError, "Cooking insights could not be loaded."),
+            loadError instanceof Error
+              ? loadError.message
+              : "Cooking insights could not be loaded.",
           );
         }
       });

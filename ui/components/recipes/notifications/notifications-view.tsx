@@ -5,7 +5,6 @@ import { isAbortError } from "browser-base/errors";
 import { Bell, LoaderCircle, Lock, X } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
-import { errorMessage } from "ts-base/errors";
 import { NotificationContent } from "@/components/recipes/notifications/notification-content";
 import { Button } from "@/components/ui/button";
 import {
@@ -146,7 +145,11 @@ export function NotificationsView() {
     } catch (cause) {
       if (!isAbortError(cause)) {
         setLoadedUserId(userId);
-        setError(errorMessage(cause, "Couldn't load notifications."));
+        setError(
+          cause instanceof Error
+            ? cause.message
+            : "Couldn't load notifications.",
+        );
       }
     } finally {
       if (!signal?.aborted) setLoading(false);
@@ -209,7 +212,11 @@ export function NotificationsView() {
         ]);
       }
     } catch (cause) {
-      setError(errorMessage(cause, "Couldn't complete notification action."));
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : "Couldn't complete notification action.",
+      );
     } finally {
       setActing(null);
     }
@@ -229,7 +236,11 @@ export function NotificationsView() {
         current === null ? null : Math.max(0, current - 1),
       );
     } catch (cause) {
-      setError(errorMessage(cause, "Couldn't dismiss notification."));
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : "Couldn't dismiss notification.",
+      );
     } finally {
       setActing(null);
     }
@@ -245,7 +256,11 @@ export function NotificationsView() {
       );
       setUnreadCount(0);
     } catch (cause) {
-      setError(errorMessage(cause, "Couldn't mark notifications as read."));
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : "Couldn't mark notifications as read.",
+      );
     }
   }
 
@@ -258,7 +273,11 @@ export function NotificationsView() {
       setNextOffset(null);
       setUnreadCount(0);
     } catch (cause) {
-      setError(errorMessage(cause, "Couldn't clear notifications."));
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : "Couldn't clear notifications.",
+      );
     } finally {
       setClearing(false);
     }
@@ -280,7 +299,11 @@ export function NotificationsView() {
       setNextOffset(page.nextOffset);
       setUnreadCount(page.unreadCount);
     } catch (cause) {
-      setError(errorMessage(cause, "Couldn't load more notifications."));
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : "Couldn't load more notifications.",
+      );
     } finally {
       setLoadingMore(false);
     }

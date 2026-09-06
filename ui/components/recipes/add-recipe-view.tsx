@@ -28,7 +28,6 @@ import {
   useState,
 } from "react";
 import type { RecipeVisibility } from "recipe-domain/visibility";
-import { errorMessage } from "ts-base/errors";
 import {
   PhotoRecipeImport,
   type PhotoRecipeImportDraft,
@@ -414,7 +413,11 @@ export function AddRecipeView({
       ) {
         return;
       }
-      setImportError(errorMessage(error, "The recipe could not be imported."));
+      setImportError(
+        error instanceof Error
+          ? error.message
+          : "The recipe could not be imported.",
+      );
     } finally {
       if (importRequestRef.current?.id === request.id) {
         importRequestRef.current = null;
@@ -552,10 +555,12 @@ export function AddRecipeView({
         navigateToRecipePage(saved);
       }
     } catch (error) {
-      let message = errorMessage(error, "The recipe could not be saved.");
+      let message = "The recipe could not be saved.";
       if (error instanceof ApiError && error.status === 409) {
         message =
           "A recipe with this name already exists. Choose a different name.";
+      } else if (error instanceof Error) {
+        message = error.message;
       }
       setSaveError(message);
     } finally {

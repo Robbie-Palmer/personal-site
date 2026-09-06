@@ -1,5 +1,3 @@
-import { errorMessage } from "ts-base/errors";
-
 interface Env {
   POSTHOG_API_HOST?: string;
   POSTHOG_ASSETS_HOST?: string;
@@ -72,7 +70,7 @@ export const onRequest = async (
         message: "PostHog proxy request failed",
         method: context.request.method,
         path: pathname,
-        error: errorMessage(error, "Unknown error"),
+        error: error instanceof Error ? error.message : "Unknown error",
       }),
     );
     return Response.json(

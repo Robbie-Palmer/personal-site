@@ -50,9 +50,8 @@ function editorError(
   loadError: unknown,
 ): string | null {
   if (saveError) return saveError;
-  if (loadError) {
-    return errorMessage(loadError, "Couldn't load your diet profile.");
-  }
+  if (loadError instanceof Error) return loadError.message;
+  if (loadError) return "Couldn't load your diet profile.";
   return null;
 }
 

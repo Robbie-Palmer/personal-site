@@ -1,6 +1,5 @@
 #!/usr/bin/env tsx
 
-import { errorMessage } from "ts-base/errors";
 import { listImages } from "./lib/cloudflare";
 import { env } from "./lib/env";
 
@@ -38,7 +37,9 @@ async function main() {
 		}
 	} catch (error) {
 		console.log("   ❌ API connection failed");
-		console.log(`   Error: ${errorMessage(error, "Unknown error")}`);
+		const errorMessage =
+			error instanceof Error ? error.message : "Unknown error";
+		console.log(`   Error: ${errorMessage}`);
 	}
 
 	console.log("");

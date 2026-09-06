@@ -15,7 +15,6 @@ import {
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { isRecipeSlug } from "recipe-domain/slugs";
-import { errorMessage } from "ts-base/errors";
 import { AuthButton } from "@/components/recipes/auth-button";
 import { RecipeThumb, recipeMetaLabel } from "@/components/recipes/recipe-card";
 import { Button } from "@/components/ui/button";
@@ -355,7 +354,11 @@ export function RecipeOnboarding() {
             `Recipe onboarding load attempt ${loadAttempt + 1} failed`,
             error_,
           );
-          setError(errorMessage(error_, "Setup could not be loaded."));
+          setError(
+            error_ instanceof Error
+              ? error_.message
+              : "Setup could not be loaded.",
+          );
         }
       })
       .finally(() => setLoading(false));
@@ -417,7 +420,11 @@ export function RecipeOnboarding() {
       setDiet(await dietMutation.mutateAsync(diet));
       setStep(2);
     } catch (error_) {
-      setError(errorMessage(error_, "Your diet could not be saved."));
+      setError(
+        error_ instanceof Error
+          ? error_.message
+          : "Your diet could not be saved.",
+      );
     } finally {
       setSaving(false);
     }
@@ -435,7 +442,11 @@ export function RecipeOnboarding() {
       });
       setStep(3);
     } catch (error_) {
-      setError(errorMessage(error_, "Your recipe box could not be saved."));
+      setError(
+        error_ instanceof Error
+          ? error_.message
+          : "Your recipe box could not be saved.",
+      );
     } finally {
       setSaving(false);
     }

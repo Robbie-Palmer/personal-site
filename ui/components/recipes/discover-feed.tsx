@@ -9,7 +9,6 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { errorMessage } from "ts-base/errors";
 import { RecipeThumb } from "@/components/recipes/recipe-card";
 import { RecipeQueryStatus } from "@/components/recipes/recipe-load-state";
 import { RecipePageLink } from "@/components/recipes/recipe-page-link";
@@ -210,7 +209,9 @@ function FeedResults({
       {error ? (
         <div className="mt-6 text-center">
           <p className="rt-body text-sm text-[var(--terracotta-deep)]">
-            {errorMessage(error, "The feed could not be loaded.")}
+            {error instanceof Error
+              ? error.message
+              : "The feed could not be loaded."}
           </p>
           <Button variant="outline" className="mt-3" onClick={onRetry}>
             Try again

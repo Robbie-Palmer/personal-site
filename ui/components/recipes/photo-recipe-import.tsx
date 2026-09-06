@@ -11,7 +11,6 @@ import {
   X,
 } from "lucide-react";
 import { type ChangeEvent, useEffect, useRef, useState } from "react";
-import { errorMessage } from "ts-base/errors";
 import { isRecord } from "ts-base/records";
 import { Button } from "@/components/ui/button";
 import { apiRequest } from "@/lib/api/http";
@@ -268,10 +267,10 @@ export function PhotoRecipeImport({
         pollTimeout = window.setTimeout(poll, PHOTO_IMPORT_POLL_INTERVAL_MS);
       } catch (pollError) {
         if (!controller.signal.aborted && activeRequest) {
-          const message = errorMessage(
-            pollError,
-            "We couldn't check the photo import status.",
-          );
+          const message =
+            pollError instanceof Error
+              ? pollError.message
+              : "We couldn't check the photo import status.";
           consecutiveFailures += 1;
           if (consecutiveFailures < MAX_PHOTO_POLL_FAILURES) {
             setError(`${message} Retrying…`);
@@ -371,7 +370,11 @@ export function PhotoRecipeImport({
       }
       setJob(body);
     } catch (uploadError) {
-      setError(errorMessage(uploadError, "The photos could not be uploaded."));
+      setError(
+        uploadError instanceof Error
+          ? uploadError.message
+          : "The photos could not be uploaded.",
+      );
     } finally {
       setUploading(false);
     }
