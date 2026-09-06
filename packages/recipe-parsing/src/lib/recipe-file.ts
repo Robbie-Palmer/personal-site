@@ -131,16 +131,12 @@ export async function parseRecipeFile(
   filename: string,
   source: string,
 ): Promise<RecipeFileImport | null> {
-  try {
-    const format = fileFormat(filename);
-    if (format === "cooklang") {
-      return parseCooklangRecipeFile(source, filename);
-    }
-    if (format === "schema-org") {
-      return await parseSchemaOrgRecipeJson(source);
-    }
-    return null;
-  } catch {
-    return null;
+  const format = fileFormat(filename);
+  if (format === "cooklang") {
+    return parseCooklangRecipeFile(source, filename);
   }
+  if (format === "schema-org") {
+    return await parseSchemaOrgRecipeJson(source);
+  }
+  return null;
 }

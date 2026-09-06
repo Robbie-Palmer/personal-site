@@ -81,5 +81,8 @@ Boil the pasta, then stir in the tomatoes.`;
         "---\ntitle: Unclosed metadata\n@rice{200%g}\n\nCook the rice.",
       ),
     ).resolves.toBeNull();
+    await expect(
+      parseRecipeFile("recipe.json", "{not valid JSON"),
+    ).resolves.toBeNull();
   });
 });
