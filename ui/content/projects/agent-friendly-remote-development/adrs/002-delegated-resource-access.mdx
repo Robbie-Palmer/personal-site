@@ -1,0 +1,204 @@
+---
+title: "ADR 002: Delegated Resource Access"
+date: "2026-09-06"
+status: "Proposed"
+tech_stack: ["Better Auth"]
+---
+
+# Context
+
+An isolated workspace limits damage between users, but it does not control what
+an agent can do outside that workspace. Coding agents need Git repositories,
+package registries, model providers, deployment systems, project knowledge,
+work queues, and sometimes production data. Copying the user's browser session
+or a broad API key into the workspace gives every process the same authority.
+It also makes one agent hard to identify or revoke.
+
+[Recipe Site ADR 061](/projects/recipe-site/adrs/061-agent-auth) applies the
+[Better Auth Agent Auth plugin](https://better-auth.com/docs/plugins/agent-auth)
+to private recipe data. The useful concepts apply here at a wider resource
+boundary:
+
+* a runtime agent has an identity distinct from its user, host, and harness;
+* it requests named capabilities instead of receiving a general token;
+* the user approves constraints and expiry;
+* short-lived signed requests identify the agent and intended recipient; and
+* one grant or agent can expire or be revoked without disturbing the rest.
+
+The plugin and protocol remain unstable. This project also needs to work with
+services that support only OAuth device login, GitHub Apps, service accounts,
+or static tokens. The decision must preserve the authorization model without
+requiring every resource provider to adopt one young protocol.
+
+# Decision
+
+Make delegated resource access part of the core environment contract. Adopt
+the Agent Auth identity and capability model, but keep the first implementation
+protocol-neutral.
+
+Model four separate principals:
+
+1. The **user** owns the workspace and delegates authority.
+2. The **workspace** runs tools and has only the infrastructure identity needed
+   for its own lifecycle.
+3. Each **runtime agent** has its own identity, key, grants, and expiry, even
+   when two agents use the same harness and workspace.
+4. The **resource service** remains authoritative for its data and the user's
+   current permissions.
+
+An agent may perform an operation only when every term allows it:
+
+```text
+allowed = valid agent proof
+       ∩ active user-approved capability and constraints
+       ∩ user's current permission on the resource
+       ∩ workspace network and execution policy
+       ∩ product budget and side-effect policy
+```
+
+An agent grant can narrow the user's authority. It can never expand it.
+Revoking repository access, organization membership, or a user account must
+take effect even when the agent's grant has not expired.
+
+# Capability design
+
+Name capabilities after useful actions. Do not expose the full provider API or
+filesystem because it already exists.
+
+An early set may include:
+
+| Capability              | Typical constraint                                                           | Approval                                 |
+| ----------------------- | ---------------------------------------------------------------------------- | ---------------------------------------- |
+| `repository.read`       | Named repository and branch set                                              | Durable, expiring grant                  |
+| `repository.write`      | Named repository and generated branch prefix                                 | Separate from read                       |
+| `pull_request.create`   | Named repository; no merge                                                   | Durable, expiring grant                  |
+| `pull_request.merge`    | Named repository, checks passing                                             | Per action or explicit work policy       |
+| `secret.use`            | Named secret and target service; value never returned                        | Durable for low-risk development secrets |
+| `deployment.preview`    | Named project and preview environment                                        | Durable with a spending limit            |
+| `deployment.production` | Named project and release evidence                                           | Per action at first                      |
+| `knowledge.read`        | Named project and visibility class                                           | Durable read grant                       |
+| `work.contribute`       | Find and claim ready work; comment and update status while holding the lease | Durable within the work system           |
+| `work.manage`           | Create, rewrite, reprioritize, cancel, or change dependencies between tasks  | Separate elevated grant                  |
+
+Keep model-provider subscriptions user-owned. When a provider offers only an
+interactive login stored in a home directory, treat it as a broad legacy
+credential path. Isolate it per user, encrypt and back it up as sensitive state,
+and show its wider authority. Any process or agent in that user's workspace may
+be able to use it. Exclude it from per-agent isolation claims until each agent
+runs with a separate credential filesystem and execution identity, or a broker
+holds the login outside the workspace. Do not claim that per-user filesystem
+separation makes it a narrow capability.
+
+# Resource gateway
+
+Prefer a gateway or connector that holds upstream credentials outside the
+workspace. The agent sends a signed capability request. The gateway checks the
+agent, user grant, live resource permission, constraints, budget, and target
+audience before proxying or exchanging the request. It returns the result, not
+the upstream credential.
+
+This follows the same useful pattern as Cloudflare OS Gatekeepers and Fly
+Sprite connectors without depending on either runtime. A runtime-supplied
+connector can implement the gateway interface. The product must still keep a
+portable record of the user's grant and revocation intent.
+
+MCP may expose capabilities as tools. REST, OpenAPI, CLIs, and provider SDKs may
+carry the same operations. Transport does not decide identity or policy.
+
+# Knowledge and work systems
+
+The Semi-autonomous Software Development initiative is an optional resource
+provider, not part of the workspace runtime.
+
+`knowledge.read` may supply a bounded context package containing relevant ADRs,
+requirements, prior findings, and source links. `work.contribute` may connect an
+executing agent to the Work Graph without granting `work.manage`. The workspace
+can cache that material for a session, but the external systems remain the
+sources of truth. Accepted evidence returns through their APIs and review rules.
+
+This keeps the dependency one-way. A plain repository must still work without
+the knowledge graph, Work Graph, Agent Coordinator, or attention analytics.
+Those systems should improve context and coordination when present rather than
+becoming prerequisites for remote development.
+
+# Pilot implementation
+
+Do not build a general credential gateway before onboarding the second user.
+Use the pilot to catalogue every resource and broad credential the current
+environment needs.
+
+For the brother pilot:
+
+1. Keep GitHub and model-provider accounts owned by the pilot user.
+2. Use a separate provider login home and workspace for him. Use Doppler's
+   existing project, user, and temporary-access controls rather than adding a
+   second password vault.
+3. Prefer a repository-scoped GitHub App, fine-grained token, or OAuth grant
+   when the chosen platform supports it.
+4. Record the intended capability, resource, expiry, and revocation step for
+   every credential, even if enforcement remains manual.
+5. Test revoking one repository or agent path without rebuilding the workspace
+   or invalidating another agent.
+6. Add private knowledge or work-system access only after the same test passes
+   for ordinary Git access.
+
+Implement the Better Auth Agent Auth adapter when t3-code can register each
+runtime agent and at least one resource gateway can enforce its grants. Start
+with delegated mode and allowlisted agent hosts. Do not enable autonomous
+registration during the trusted cohort.
+
+# Audit and user control
+
+Show the user:
+
+* the agent, harness, and workspace requesting access;
+* the named resource, actions, constraints, expiry, and expected cost;
+* recent executions and their outcomes; and
+* controls to revoke one grant, one agent, or the complete workspace.
+
+Record registration, approval, denial, execution, failure, expiry, and
+revocation without logging credential values or sensitive payloads. High-risk
+writes need an idempotency key and a provider-specific recovery path. An audit
+record explains what happened; it does not reverse a deployment or merge.
+
+# Consequences
+
+### Benefits
+
+* Users can coordinate resources without giving every process their full
+  identity.
+* Actions can identify one user, workspace, harness, and runtime agent.
+* One compromised or confused agent can lose access without disrupting others.
+* Knowledge and work systems can connect through the same boundary as GitHub or
+  a deployment service.
+* The model can adopt Agent Auth where supported and conventional OAuth or
+  service credentials elsewhere.
+
+### Costs
+
+* The product must build approval, grant inspection, revocation, audit, and
+  gateway behaviour that a VM provider does not supply.
+* Two policy layers must stay correct: the resource's current authorization and
+  the agent's narrower delegated grant.
+* Existing coding-harness login flows often expose more authority than the
+  intended capability model.
+* The Agent Auth protocol may change before broad adoption.
+
+# Validation
+
+Keep this ADR Proposed until one end-to-end flow proves that:
+
+1. a user approves one named repository for one agent;
+2. the agent can create a branch and pull request but cannot merge it;
+3. a second agent in the same workspace does not inherit the grant;
+4. revocation stops the first agent without ending the user's session;
+5. the audit trail identifies the user, workspace, harness, agent, capability,
+   resource, and outcome; and
+6. the same workspace still supports a repository with no knowledge or work
+   system attached.
+
+An interactive provider login does not pass this validation unless its separate
+execution identity, credential filesystem, or broker prevents a second agent
+from reading the login state or invoking the provider through it. Until that
+test passes, report the login as user-wide legacy access rather than an agent
+grant.

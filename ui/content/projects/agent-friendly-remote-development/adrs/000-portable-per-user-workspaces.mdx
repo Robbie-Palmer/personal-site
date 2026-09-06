@@ -1,0 +1,141 @@
+---
+title: "ADR 000: Portable Per-user Agent Workspaces"
+date: "2026-09-06"
+status: "Proposed"
+tech_stack: ["t3-code", "Tailscale"]
+---
+
+# Context
+
+[Pull request 1183](https://github.com/Robbie-Palmer/personal-site/pull/1183)
+provisions one useful remote development environment on Hetzner, NixOS, K3s,
+Tailscale, and an encrypted volume. It proves that the workflow has personal
+value. The next test is whether the value transfers to a trusted second user
+and then a small invited cohort.
+
+The deployed infrastructure belongs operationally with the Home Lab, but the
+product question does not. Agent-friendly Remote Development needs its own
+identity, user model, economics, provider choices, and evidence.
+
+Choosing a container layout or microVM vendor before defining the product unit
+would couple the control plane to an implementation detail. K3s schedules
+workloads but does not create a hard tenant boundary. Firecracker provides a
+microVM boundary but does not provide identity, durable storage, private
+service routing, secrets, billing, backup, or support.
+
+# Decision
+
+Treat one isolated, durable agent workspace as the unit of ownership,
+provisioning, access, state, cost, backup, export, and deletion.
+
+A workspace belongs to one person. It may contain adjacent first-party
+repositories, third-party dependencies checked out for inspection or forking,
+worktrees, agent harnesses, and sessions. Do not put several users into one
+t3-code process or shared login home. Separate workspaces may share one K3s
+host; they do not require separate cloud servers.
+
+Keep the runtime behind a small provider contract:
+
+1. Provision a workspace from a versioned blueprint.
+2. Start, suspend, resume, checkpoint, and delete it.
+3. Execute a command and stream its output.
+4. Expose t3-code through an authenticated, user-scoped HTTPS endpoint.
+5. Preserve and export at least 10 GiB of POSIX workspace and home-directory
+   state.
+6. Connect agents to user-approved resource capabilities without copying
+   another user's login state.
+7. Apply resource requests and limits that protect the shared host.
+8. Restore the workspace after host or provider failure.
+
+[ADR 002](/projects/agent-friendly-remote-development/adrs/002-delegated-resource-access)
+defines the agent and resource boundary behind item 6. The runtime provider may
+implement a credential connector or gateway, but it must not become the source
+of truth for the user's grants.
+
+Keep the current Hetzner deployment as the working baseline. Do not migrate
+because another platform has a stronger product page. Test Coder Community on
+the existing K3s cluster before deciding whether to build user and workspace
+management directly:
+
+* **Coder Community** is the self-hosted control-plane benchmark. It already
+  has multi-user identity, templates, Git OAuth, private workspace connections,
+  automatic shutdown, APIs, and support for VMs or Kubernetes pods. t3-code can
+  run as a workspace application without adopting Coder's own agent harness.
+
+Ona, Fly Sprites, Daytona, Codespaces, Modal, and Runloop cost much more than the
+current server when an environment remains awake all month. Revisit them only
+if reliable suspension preserves the workflow or the shared host no longer
+meets the security requirement. Do not run Firecracker on the current Hetzner
+Cloud server because Hetzner does not expose nested virtualization there.
+
+# Acceptance test
+
+Use the same repository and task on every candidate. Record operator minutes
+as well as infrastructure cost.
+
+1. Provision a new user's environment from Git.
+2. Let the user authenticate GitHub and one agent provider without revealing a
+   password or copying the operator's credentials.
+3. Start t3-code and reach it through a private browser URL.
+4. Clone a repository, start an agent task, disconnect the client, and return
+   later.
+5. Suspend or stop the environment, resume it, and confirm the repository,
+   uncommitted changes, tool configuration, and provider authentication remain.
+6. Open a pull request from the resumed environment.
+7. Revoke the pilot user's workspace, Doppler, and repository access without
+   affecting the operator's environment. ADR 002 owns later per-agent
+   revocation.
+8. Confirm that the second workspace creates no new infrastructure bill while
+   the shared host has capacity.
+9. Export or restore the user's state, then revoke access and delete the
+   environment without affecting another user.
+10. Make the original host unavailable, restore the workspace on a replacement,
+    and confirm that uncommitted changes, configuration, authentication state,
+    and the other user's isolation survive the failure.
+
+Coder fails the pilot if private endpoint access requires broad operator
+membership, if provider authentication cannot remain per user, or if its
+control service consumes too much of the existing host. A future sleep-priced
+runtime also fails if a long-lived t3-code connection prevents suspension.
+
+# Why not choose another ordinary VPS provider
+
+Scaleway, DigitalOcean, OVHcloud, and similar providers can run the same NixOS
+or container workload. They improve geography, support, or account preference,
+but they do not remove the work of user identity, provisioning, suspension,
+metering, backup, and offboarding.
+
+Hetzner remains a strong price baseline. Moving the same server definition to a
+more expensive generic VM would change the supplier without testing the
+product. An ordinary VM per user remains the simple hard-isolation fallback
+when trust no longer permits a shared host.
+
+# Consequences
+
+### Benefits
+
+* The product can learn from managed platforms without becoming a thin resale
+  layer for one of them.
+* A person retains one coherent working home while individual tasks can still
+  use disposable sandboxes later.
+* Provider comparison becomes an executable test rather than a feature matrix.
+* Firecracker and K3s remain replaceable infrastructure decisions.
+* Per-user export and deletion create a practical escape route from a provider.
+
+### Costs
+
+* Coder adds a control service, PostgreSQL database, and Terraform template to
+  operate.
+* A durable personal workspace may cost more than one disposable sandbox per
+  task.
+* User-scoped authentication still belongs in the product when the selected
+  runtime exposes only operator APIs.
+* The current Hetzner system remains soft tenancy until users receive separate
+  VMs or microVMs.
+
+# Status
+
+Keep this ADR Proposed until the direct K3s and Coder versions have run the
+acceptance test. Accept it with the selected implementation and recorded
+measurements. Revisit the one-workspace-per-person unit if the brother pilot
+shows that fresh per-task environments preserve all the continuity users value.

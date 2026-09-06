@@ -1,0 +1,159 @@
+---
+title: "ADR 001: Early-cohort Pricing"
+date: "2026-09-06"
+status: "Proposed"
+---
+
+# Context
+
+The current Hetzner CX33 list price is €8.49 per month in Germany or Finland.
+One [public IPv4](https://docs.hetzner.com/cloud/servers/primary-ips/overview/)
+adds €0.50, making the comparable host cost €8.99 net. This excludes VAT,
+backups, and paid networking or egress add-ons. A second workspace creates no
+new compute bill while the continuously running machine has spare capacity.
+
+An equivalent continuously running environment costs roughly $80 to $234 per
+month from the managed providers reviewed on the project page. Those prices pay
+for stronger isolation, lifecycle systems, and support. They still show that a
+persistent hosted workspace can provide much more than £5 of monthly value.
+
+The closest alternative for much of the likely audience is different. They can
+take the open source configuration, rent their own Hetzner server, and operate
+it themselves. The paid product sells convenience and saved maintenance rather
+than access to secret technology.
+
+Every user brings and pays for their own model-provider subscriptions and API
+keys. The workspace product never resells, meters, or includes model usage.
+
+# Decision
+
+The brother pilot remains free. Use it to test onboarding and isolation without
+turning a family relationship into a pricing experiment.
+
+Offer the first non-family invitees one persistent workspace for **£15 per
+month** with these terms:
+
+* bring your own model-provider accounts and keys;
+* no SLA during the invited pilot;
+* founder onboarding and support included without a separate charge;
+* one workspace on shared infrastructure with fair-use resource limits; and
+* cancel at any time and receive an export within seven days.
+
+The export includes all POSIX workspace and non-credential home-directory state,
+with at least 10 GiB of export capacity. Before delivery, revoke provider
+sessions and Doppler access and remove tokens, cookies, private keys, and other
+login state from the export. Delete the hosted copy after the user confirms
+receipt or after 14 days, whichever comes first.
+
+This tests whether somebody prefers paying for the hosted experience over
+running the open source project themselves. It does not attempt to recover the
+founder's time yet.
+
+Do not meter active hours or add infrastructure spend caps while users share a
+fixed-price server. If the cohort exhausts current capacity, pause invitations
+and decide whether existing revenue justifies the next server size before
+buying it.
+
+After three non-family users have each renewed twice, test **£25 per month** for
+the next invitee. Keep both prices below the cost of a comparable continuously
+running managed environment. Do not claim savings against usage-based products
+for people who need only a few hours each month.
+
+Using the prices and assumptions on the project page, £15 becomes cheaper at
+about 64 hours per month against Runloop, 81 against Ona, 82 against Modal, 122
+against Daytona, 173 against GitHub Codespaces, and 176 against Fly. At £25 the
+same thresholds are about 106, 121, 139, 203, 248, and 294 hours. The intended
+£15 customer uses the workspace throughout their working week and does not want
+to operate their own server. These are workspace-hours. Parallel agents in one
+workspace do not multiply them unless they require separate environments or a
+larger machine. Revisit that description after interviewing and observing paid
+users.
+
+# Economics
+
+Track two numbers separately.
+
+Cash contribution:
+
+```text
+cohort revenue
+- infrastructure added because of the cohort
+- payment and currency-conversion fees
+```
+
+Shadow contribution:
+
+```text
+cash contribution
+- allocated existing infrastructure
+- founder onboarding, support, and incident time
+```
+
+Cash contribution prevents an unplanned loss during discovery. Shadow
+contribution shows whether the product could later support a business and which
+manual work needs automation.
+
+The provider break-even thresholds measure customer value, not gross margin.
+The current host has zero marginal compute cost until it runs out of capacity.
+The conversion uses the same 4 September 2026 ECB reference rates as the project
+page: £1 is about $1.353 and €1 is about $1.162. If one customer carried the
+whole €8.99 net host and IPv4 cost, about £7.72, £15 would leave £7.28 before
+tax, fees, backups, and support. The real margin depends on workspace density
+and the size of the next required server.
+
+At [Hetzner's June 2026 list
+prices](https://docs.hetzner.com/general/infrastructure-and-availability/price-adjustment/),
+moving from a Germany or Finland CX33 to a CX43 adds €7.50 per month before tax
+and networking. One £15 customer would cover that compute increase. Real
+capacity must still be measured because concurrent builds and browser sessions
+may exhaust memory before average CPU becomes expensive.
+
+Do not include Work Graph value in the price until users rely on it. Linear Basic
+currently costs $10 per user per month when billed yearly, Linear Business costs
+$16, Jira Standard lists $7.91, and Jira Premium lists $14.54. Their free plans
+cover many small users. Count the Work Graph as validated value only when a user
+cancels another tracker, chooses this product instead of one, or pays more for
+the combined workflow. At 160 workspace-hours, Codespaces plus Linear Business
+costs about £25.13 and Fly plus Linear Business costs about £25.51 before Linear
+coding sessions. Linear then charges provider token rates without markup and
+$0.25 per 20-minute sandbox block. Twenty one-hour sessions add at least $15 and
+160 session-hours add at least $120. At launch, Linear granted eligible
+workspaces a shared pool of
+promotional AI credits equal to $20 multiplied by the number of unsuspended
+users. The grant does not recur monthly. Before token charges, £15 beats
+Linear Basic after about 14 session-hours and Business after six. £25 beats them
+after about 32 and 24 hours.
+
+# Review point
+
+Review this decision after two months or three non-family renewals, whichever
+comes later. Record:
+
+* retention at the quoted price;
+* which users would self-host if the service disappeared;
+* peak concurrent agents, memory pressure, and disk growth;
+* operator minutes per user and their causes;
+* infrastructure incidents and failed work; and
+* the alternative each user would choose.
+
+Raise the price only when retained users value the service and the next cohort
+accepts the higher amount. Lowering infrastructure cost alone does not prove
+that the product deserves a higher margin.
+
+# Consequences
+
+### Benefits
+
+* £15 tests willingness to pay without copying managed-provider prices.
+* BYOK keeps volatile model costs out of the product's economics.
+* Fixed pricing matches the fixed cost of the shared server.
+* Open source remains an honest escape route for people who prefer operating it
+  themselves.
+
+### Costs
+
+* Founder labour remains an intentional subsidy during discovery.
+* A technically capable audience may prefer self-hosting.
+* Shared capacity creates a small number of available places even when demand
+  exists.
+* A paid pilot creates expectations despite the explicit lack of an SLA.

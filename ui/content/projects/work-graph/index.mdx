@@ -149,6 +149,42 @@ latency, private logs, and detailed cost data should flow to the data lake. The
 Work Graph can keep the evidence and summary needed to govern work without
 becoming an analytics warehouse.
 
+# Market test
+
+Linear has become the closest commercial competitor. Its
+[Agent platform](https://linear.app/docs/agents-in-linear) lets people delegate
+issues to installed agents, and its
+[coding sessions](https://linear.app/docs/coding-sessions) run Codex or Claude
+Code in managed cloud environments. Linear can carry issue history into the
+session, expose work through MCP, and return a pull request for review. Its
+coding environment currently belongs to one repository.
+
+[Linear's paid plans](https://linear.app/pricing) cost $10 per user per month for
+Basic and $16 for Business when billed yearly. Jira lists $7.91 per user per
+month for Standard and $14.54 for Premium on its
+[pricing page](https://www.atlassian.com/software/jira/pricing). This shows that
+teams pay for work coordination, but both products also have free plans that can
+serve the first users.
+
+Linear coding sessions add usage charges to the seat price. Model tokens pass
+through at the provider's published rate without markup, and each session costs
+$0.25 per 20-minute sandbox block. That is $0.75 per session-hour before tokens.
+Concurrent sessions each incur the charge. At launch, Linear granted eligible
+workspaces a shared pool of promotional AI credits equal to $20 multiplied by
+the number of unsuspended users. The grant does not recur monthly.
+
+The Work Graph should not exist merely because paid task trackers exist. It must
+beat Linear plus its MCP interface for my real workflow. Different people and
+agents should be able to find ready work, hold leases, change the plan within
+policy, and attach the evidence needed to close a task. The graph must also work
+across repositories and long-running environments without making one
+coding-session provider authoritative.
+
+Do not set a standalone price yet. First replace Shortcut and memory for one
+real project. For later users, ask whether the graph replaced a paid tracker,
+prevented them from buying one, or made the combined remote workspace worth
+more. Those behaviours support a price. A feature comparison does not.
+
 # First useful release
 
 1. Model one initiative, its projects, outcomes, tasks, dependencies, evidence,
