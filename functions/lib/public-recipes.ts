@@ -3,7 +3,7 @@ import {
   type SavedRecipePayload,
   SavedRecipePayloadSchema,
 } from "recipe-domain/serialization";
-import { isRecord } from "recipe-domain/validation";
+import { isRecord } from "ts-base/records";
 import {
   isRecipeVisibility,
   type RecipeVisibility,

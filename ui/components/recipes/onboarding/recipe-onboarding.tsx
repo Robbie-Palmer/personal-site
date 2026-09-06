@@ -1,6 +1,7 @@
 "use client";
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { isAbortError } from "browser-base/errors";
 import {
   ArrowLeft,
   ArrowRight,
@@ -14,6 +15,7 @@ import {
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { isRecipeSlug } from "recipe-domain/slugs";
+import { errorMessage } from "ts-base/errors";
 import { AuthButton } from "@/components/recipes/auth-button";
 import { RecipeThumb, recipeMetaLabel } from "@/components/recipes/recipe-card";
 import { Button } from "@/components/ui/button";
@@ -38,7 +40,6 @@ import {
   resolveOnboardingRecipeSelection,
 } from "@/lib/domain/recipe/onboarding";
 import { savedRecipeCard } from "@/lib/domain/recipe/recipeDraft";
-import { isAbortError } from "@/lib/generic/errors";
 import { cn } from "@/lib/generic/styles";
 import {
   saveDietProfileMutation,
@@ -354,11 +355,7 @@ export function RecipeOnboarding() {
             `Recipe onboarding load attempt ${loadAttempt + 1} failed`,
             error_,
           );
-          setError(
-            error_ instanceof Error
-              ? error_.message
-              : "Setup could not be loaded.",
-          );
+          setError(errorMessage(error_, "Setup could not be loaded."));
         }
       })
       .finally(() => setLoading(false));
@@ -420,11 +417,7 @@ export function RecipeOnboarding() {
       setDiet(await dietMutation.mutateAsync(diet));
       setStep(2);
     } catch (error_) {
-      setError(
-        error_ instanceof Error
-          ? error_.message
-          : "Your diet could not be saved.",
-      );
+      setError(errorMessage(error_, "Your diet could not be saved."));
     } finally {
       setSaving(false);
     }
@@ -442,11 +435,7 @@ export function RecipeOnboarding() {
       });
       setStep(3);
     } catch (error_) {
-      setError(
-        error_ instanceof Error
-          ? error_.message
-          : "Your recipe box could not be saved.",
-      );
+      setError(errorMessage(error_, "Your recipe box could not be saved."));
     } finally {
       setSaving(false);
     }

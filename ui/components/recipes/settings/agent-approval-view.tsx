@@ -1,8 +1,10 @@
 "use client";
 
+import { isAbortError } from "browser-base/errors";
 import { Bot, Check, LoaderCircle, Lock, X } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { errorMessage } from "ts-base/errors";
 import { Button } from "@/components/ui/button";
 import {
   type AgentDetail,
@@ -12,7 +14,6 @@ import {
   getAgentHost,
 } from "@/lib/api/agents";
 import { authClient } from "@/lib/auth-client";
-import { isAbortError } from "@/lib/generic/errors";
 
 type ApprovalIntent = {
   agentId: string;
@@ -79,11 +80,7 @@ export function AgentApprovalView() {
         }
       } catch (cause) {
         if (isAbortError(cause)) return;
-        setError(
-          cause instanceof Error
-            ? cause.message
-            : "The agent request could not be loaded.",
-        );
+        setError(errorMessage(cause, "The agent request could not be loaded."));
         setLoading(false);
       }
     })();
@@ -104,9 +101,7 @@ export function AgentApprovalView() {
       setResult(action === "approve" ? "approved" : "denied");
     } catch (cause) {
       setError(
-        cause instanceof Error
-          ? cause.message
-          : "The approval decision could not be saved.",
+        errorMessage(cause, "The approval decision could not be saved."),
       );
     } finally {
       setPendingAction(null);

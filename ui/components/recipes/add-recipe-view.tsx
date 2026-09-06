@@ -1,6 +1,7 @@
 "use client";
 
 import { type QueryClient, useQueryClient } from "@tanstack/react-query";
+import { isAbortError } from "browser-base/errors";
 import {
   AlertCircle,
   ArrowLeft,
@@ -27,6 +28,7 @@ import {
   useState,
 } from "react";
 import type { RecipeVisibility } from "recipe-domain/visibility";
+import { errorMessage } from "ts-base/errors";
 import {
   PhotoRecipeImport,
   type PhotoRecipeImportDraft,
@@ -48,7 +50,6 @@ import {
   type SavedRecipeApiRecord,
   serializeSavedRecipe,
 } from "@/lib/domain/recipe/recipeDraft";
-import { isAbortError } from "@/lib/generic/errors";
 import { recipeSaveReturnPath } from "@/lib/generic/safe-return-path";
 import { normalizeSlug } from "@/lib/generic/slugs";
 import { recipeQueryKeys } from "@/lib/query/recipe-query-keys";
@@ -413,11 +414,7 @@ export function AddRecipeView({
       ) {
         return;
       }
-      setImportError(
-        error instanceof Error
-          ? error.message
-          : "The recipe could not be imported.",
-      );
+      setImportError(errorMessage(error, "The recipe could not be imported."));
     } finally {
       if (importRequestRef.current?.id === request.id) {
         importRequestRef.current = null;
@@ -555,12 +552,10 @@ export function AddRecipeView({
         navigateToRecipePage(saved);
       }
     } catch (error) {
-      let message = "The recipe could not be saved.";
+      let message = errorMessage(error, "The recipe could not be saved.");
       if (error instanceof ApiError && error.status === 409) {
         message =
           "A recipe with this name already exists. Choose a different name.";
-      } else if (error instanceof Error) {
-        message = error.message;
       }
       setSaveError(message);
     } finally {

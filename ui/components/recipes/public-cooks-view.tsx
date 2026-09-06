@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import { errorMessage } from "ts-base/errors";
 import { AuthButton } from "@/components/recipes/auth-button";
 import { CookConnectionList } from "@/components/recipes/cook-connection-list";
 import { RecipeAvatar } from "@/components/recipes/recipe-avatar";
@@ -140,9 +141,7 @@ function FollowCookAction({
           role="alert"
           className="rt-body mt-2 max-w-52 text-xs text-[var(--terracotta-deep)]"
         >
-          {followError instanceof Error
-            ? followError.message
-            : "Follow status could not be updated."}
+          {errorMessage(followError, "Follow status could not be updated.")}
         </p>
       ) : null}
     </div>
@@ -293,9 +292,7 @@ function fatalCooksError(
   subject: string,
 ): string | null {
   if (data !== undefined || !error) return null;
-  return error instanceof Error
-    ? error.message
-    : `${subject} could not be loaded.`;
+  return errorMessage(error, `${subject} could not be loaded.`);
 }
 
 function CooksContent({

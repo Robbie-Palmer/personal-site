@@ -1,9 +1,9 @@
 "use client";
 
+import { isAbortError } from "browser-base/errors";
 import { Share2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { isAbortError } from "@/lib/generic/errors";
 
 export function ShareRecipeButton({
   recipeSlug,

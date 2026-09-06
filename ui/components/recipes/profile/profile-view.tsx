@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { ArrowRight, Home, Settings, Users } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { errorMessage } from "ts-base/errors";
 import { CookConnectionList } from "@/components/recipes/cook-connection-list";
 import { RecipeAvatar } from "@/components/recipes/recipe-avatar";
 import { Button } from "@/components/ui/button";
@@ -22,12 +23,6 @@ type ProfileData = {
   profile: HouseholdMember["user"];
   role: HouseholdMember["role"] | null;
 };
-
-function loadErrorMessage(error: unknown) {
-  return error instanceof Error
-    ? error.message
-    : "We couldn't load this profile.";
-}
 
 export function ProfileView({ userId }: Readonly<{ userId?: string | null }>) {
   const { data: session, isPending: sessionPending } = authClient.useSession();
@@ -97,7 +92,9 @@ export function ProfileView({ userId }: Readonly<{ userId?: string | null }>) {
         }
       })
       .catch((loadError: unknown) => {
-        if (!controller.signal.aborted) setError(loadErrorMessage(loadError));
+        if (!controller.signal.aborted) {
+          setError(errorMessage(loadError, "We couldn't load this profile."));
+        }
       })
       .finally(() => {
         if (!controller.signal.aborted) setLoading(false);
@@ -208,7 +205,7 @@ export function ProfileView({ userId }: Readonly<{ userId?: string | null }>) {
           role="alert"
           className="rt-body mt-8 rounded-xl border border-dashed border-[var(--line-strong)] p-4 text-sm text-[var(--terracotta-deep)]"
         >
-          {loadErrorMessage(ownConnections.error)}
+          {errorMessage(ownConnections.error, "We couldn't load this profile.")}
         </p>
       ) : null}
 

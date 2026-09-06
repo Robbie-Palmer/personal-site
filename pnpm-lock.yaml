@@ -126,6 +126,9 @@ importers:
       recipe-domain:
         specifier: workspace:*
         version: link:packages/recipe-domain
+      ts-base:
+        specifier: workspace:*
+        version: link:packages/ts-base
     devDependencies:
       husky:
         specifier: ^9.1.7
@@ -175,6 +178,9 @@ importers:
       ai-review-domain:
         specifier: workspace:*
         version: link:../packages/ai-review-domain
+      ts-base:
+        specifier: workspace:*
+        version: link:../packages/ts-base
       zod:
         specifier: ^4.2.1
         version: 4.5.4
@@ -322,6 +328,18 @@ importers:
         specifier: ^5
         version: 5.9.3
 
+  packages/browser-base:
+    devDependencies:
+      '@vitest/coverage-v8':
+        specifier: ^4.1.10
+        version: 4.1.11(vitest@4.1.11)
+      typescript:
+        specifier: ^6.0.0
+        version: 6.0.3
+      vitest:
+        specifier: ^4.0.0
+        version: 4.1.11(@opentelemetry/api@1.9.1)(@types/node@24.13.3)(@vitest/coverage-v8@4.1.11)(jsdom@29.1.1(@noble/hashes@2.4.0))(vite@8.2.2(@types/node@24.13.3)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.13)(yaml@2.9.0))
+
   packages/observability:
     dependencies:
       '@opentelemetry/api':
@@ -420,9 +438,24 @@ importers:
       recipe-scrapers:
         specifier: ^1.9.0
         version: 1.11.0(cheerio@1.2.0)(zod@4.5.4)
+      ts-base:
+        specifier: workspace:*
+        version: link:../ts-base
       zod:
         specifier: ^4.2.1
         version: 4.5.4
+    devDependencies:
+      '@vitest/coverage-v8':
+        specifier: ^4.1.10
+        version: 4.1.11(vitest@4.1.11)
+      typescript:
+        specifier: ^6.0.0
+        version: 6.0.3
+      vitest:
+        specifier: ^4.0.0
+        version: 4.1.11(@opentelemetry/api@1.9.1)(@types/node@24.13.3)(@vitest/coverage-v8@4.1.11)(jsdom@29.1.1(@noble/hashes@2.4.0))(vite@8.2.2(@types/node@24.13.3)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.13)(yaml@2.9.0))
+
+  packages/ts-base:
     devDependencies:
       '@vitest/coverage-v8':
         specifier: ^4.1.10
@@ -478,6 +511,9 @@ importers:
       better-auth:
         specifier: ^1.6.19
         version: 1.7.2(@cloudflare/workers-types@5.20260830.1)(@opentelemetry/api@1.9.1)(drizzle-kit@0.31.10)(drizzle-orm@0.45.2(@cloudflare/workers-types@5.20260830.1)(@opentelemetry/api@1.9.1)(kysely@0.29.5)(postgres@3.4.9))(next@15.5.24(@opentelemetry/api@1.9.1)(@playwright/test@1.62.1)(@types/node@24.13.3)(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(vitest@4.1.11)
+      browser-base:
+        specifier: workspace:*
+        version: link:../packages/browser-base
       class-variance-authority:
         specifier: ^0.7.1
         version: 0.7.1
@@ -592,6 +628,9 @@ importers:
       tailwind-merge:
         specifier: ^3.3.1
         version: 3.6.0
+      ts-base:
+        specifier: workspace:*
+        version: link:../packages/ts-base
       vaul:
         specifier: ^1.1.2
         version: 1.1.2(@types/react-dom@19.2.5(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)

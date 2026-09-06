@@ -1,10 +1,11 @@
 "use client";
 
+import { isAbortError } from "browser-base/errors";
 import { Bot, Clock, LoaderCircle, ShieldX } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { errorMessage } from "ts-base/errors";
 import { Button } from "@/components/ui/button";
 import { type AgentSummary, listAgents, revokeAgent } from "@/lib/api/agents";
-import { isAbortError } from "@/lib/generic/errors";
 import { PanelHead } from "./panel-head";
 
 function dateLabel(value: string | null): string {
@@ -42,9 +43,7 @@ export function AgentsPanel() {
       setAgents(await listAgents(signal));
     } catch (cause) {
       if (isAbortError(cause)) return;
-      setError(
-        cause instanceof Error ? cause.message : "Agents could not be loaded.",
-      );
+      setError(errorMessage(cause, "Agents could not be loaded."));
     }
   }
 
@@ -78,11 +77,7 @@ export function AgentsPanel() {
       const signal = loadControllerRef.current?.signal;
       if (signal) await load(signal);
     } catch (cause) {
-      setError(
-        cause instanceof Error
-          ? cause.message
-          : "Agent access could not be revoked.",
-      );
+      setError(errorMessage(cause, "Agent access could not be revoked."));
     } finally {
       setRevokingId(null);
     }

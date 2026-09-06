@@ -5,6 +5,7 @@ import {
   type WorkflowStep,
   type WorkflowStepConfig,
 } from "cloudflare:workers";
+import { isRecord } from "ts-base/records";
 import type {
   Env,
   FindingInteractionEvent,
@@ -287,10 +288,6 @@ async function sha256(value: string): Promise<string> {
 
 function json(data: unknown, status = 200): Response {
   return Response.json(data, { status, headers: JSON_HEADERS });
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
 function errorType(error: unknown): string {

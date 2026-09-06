@@ -7,7 +7,8 @@
   "description": "Personal website mono-repo - root package for repo-wide tooling",
   "dependencies": {
     "observability": "workspace:*",
-    "recipe-domain": "workspace:*"
+    "recipe-domain": "workspace:*",
+    "ts-base": "workspace:*"
   },
   "scripts": {
     "prepare": "husky"

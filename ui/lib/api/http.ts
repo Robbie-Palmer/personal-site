@@ -1,4 +1,4 @@
-import { isRecord } from "recipe-domain/validation";
+import { isRecord } from "ts-base/records";
 
 export type ApiErrorDetail = {
   code?: string;

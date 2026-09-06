@@ -9,7 +9,7 @@
  * canonical database snapshots.
  */
 
-import { isRecord } from "recipe-domain/validation";
+import { isRecord } from "ts-base/records";
 import { captureRecipeProductActivity } from "@/lib/analytics/recipe-product";
 
 export type SelectedRecipeEntry = {

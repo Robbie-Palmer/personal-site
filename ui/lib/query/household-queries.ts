@@ -1,4 +1,5 @@
 import { queryOptions } from "@tanstack/react-query";
+import { errorMessage } from "ts-base/errors";
 import {
   getHouseholdInvitations,
   getHouseholdMembers,
@@ -9,7 +10,6 @@ import {
   type HouseholdMember,
   type IncomingHouseholdInvitation,
 } from "@/lib/api/households";
-import { errorMessage } from "@/lib/generic/errors";
 import { recipeQueryKeys } from "@/lib/query/recipe-query-keys";
 
 export type HouseholdSettingsData = {

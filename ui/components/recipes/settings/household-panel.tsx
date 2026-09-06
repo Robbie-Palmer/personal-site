@@ -14,6 +14,7 @@ import {
   X,
 } from "lucide-react";
 import { type FormEvent, useEffect, useRef, useState } from "react";
+import { errorMessage } from "ts-base/errors";
 import { RecipeAvatar } from "@/components/recipes/recipe-avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -32,7 +33,6 @@ import {
   renameHousehold,
   revokeHouseholdInvitation,
 } from "@/lib/api/households";
-import { errorMessage } from "@/lib/generic/errors";
 import {
   type HouseholdSettingsData,
   householdSettingsQuery,

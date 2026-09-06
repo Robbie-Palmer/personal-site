@@ -1,0 +1,22 @@
+[tasks.install]
+description = "Install browser-base dependencies"
+run = "pnpm install --frozen-lockfile --filter browser-base..."
+
+[tasks.typecheck]
+description = "Typecheck the browser base package"
+depends = ["install"]
+run = "pnpm typecheck"
+
+[tasks.test]
+description = "Test the browser base package"
+depends = ["install"]
+run = "pnpm test"
+
+[tasks."test:coverage"]
+description = "Test the browser base package with coverage"
+depends = ["install"]
+run = "pnpm test:coverage"
+
+[tasks.check]
+description = "Check the browser base package"
+depends = ["typecheck", "test"]

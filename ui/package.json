@@ -25,6 +25,7 @@
     "lighthouse": "LIGHTHOUSE_DEVICE=both node scripts/lighthouse.mjs"
   },
   "dependencies": {
+    "browser-base": "workspace:*",
     "@revealjs/react": "0.2.1",
     "@cooklang/cooklang": "^0.18.0",
     "@cosmos.gl/graph": "^3.4.1",
@@ -78,6 +79,7 @@
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.3.1",
     "vaul": "^1.1.2",
+    "ts-base": "workspace:*",
     "zod": "^4.2.1"
   },
   "devDependencies": {

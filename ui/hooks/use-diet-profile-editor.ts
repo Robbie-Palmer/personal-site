@@ -3,6 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { SetStateAction } from "react";
 import { useEffect, useState } from "react";
+import { errorMessage } from "ts-base/errors";
 import {
   type DietOptions,
   type DietProfile,
@@ -10,7 +11,6 @@ import {
   emptyDietProfile,
 } from "@/lib/api/diet";
 import { authClient } from "@/lib/auth-client";
-import { errorMessage } from "@/lib/generic/errors";
 import { saveDietProfileMutation } from "@/lib/query/recipe-mutations";
 import { dietOptionsQuery, dietProfileQuery } from "@/lib/query/recipe-queries";
 
@@ -50,8 +50,9 @@ function editorError(
   loadError: unknown,
 ): string | null {
   if (saveError) return saveError;
-  if (loadError instanceof Error) return loadError.message;
-  if (loadError) return "Couldn't load your diet profile.";
+  if (loadError) {
+    return errorMessage(loadError, "Couldn't load your diet profile.");
+  }
   return null;
 }
 

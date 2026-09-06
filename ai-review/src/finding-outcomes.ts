@@ -3,6 +3,7 @@ import {
   FindingOutcomeRecordSchema,
   type FindingOutcomeRecord,
 } from "ai-review-domain/records";
+import { isRecord } from "ts-base/records";
 
 export type { FindingOutcomeRecord } from "ai-review-domain/records";
 
@@ -109,10 +110,6 @@ function parseInteractionPayload(
   } catch {
     return undefined;
   }
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function interactionCommentKey(

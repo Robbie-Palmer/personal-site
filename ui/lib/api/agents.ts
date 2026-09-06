@@ -1,4 +1,4 @@
-import { isRecord } from "recipe-domain/validation";
+import { isRecord } from "ts-base/records";
 import { z } from "zod";
 import { apiRequest } from "@/lib/api/http";
 
