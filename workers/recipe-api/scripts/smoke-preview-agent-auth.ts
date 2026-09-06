@@ -4,16 +4,12 @@ import {
   type JWK,
   SignJWT,
 } from "jose";
+import { requiredEnv } from "node-base/env";
+import { betterAuthSessionCookie } from "../src/better-auth-session-cookie";
 
 const REQUEST_TIMEOUT_MS = 15_000;
 const APPROVAL_TIMEOUT_MS = 10 * 60_000;
 const APPROVAL_POLL_MS = 2_000;
-
-function requiredEnv(name: string): string {
-  const value = process.env[name];
-  if (!value) throw new Error(`${name} is required`);
-  return value;
-}
 
 function previewSiteURL(): string {
   const siteURL = new URL(requiredEnv("PREVIEW_SITE_URL"));
@@ -67,16 +63,6 @@ async function expectJson<T>(
     );
   }
   return response.json() as Promise<T>;
-}
-
-function sessionCookie(response: Response): string {
-  const cookie = response.headers
-    .get("set-cookie")
-    ?.match(/(?:__Secure-)?better-auth[.-]session_token=[^;,\s]+/)?.[0];
-  if (!cookie) {
-    throw new Error("Preview sign-in returned no session-token cookie");
-  }
-  return cookie;
 }
 
 type Discovery = {
@@ -211,7 +197,7 @@ const signIn = await request("/api/auth/preview/sign-in", {
 if (!signIn.ok) {
   throw new Error(`Preview sign-in failed (${signIn.status})`);
 }
-const cookie = sessionCookie(signIn);
+const cookie = await betterAuthSessionCookie(signIn);
 
 const cookingSessionId = crypto.randomUUID();
 const cookingSession = {

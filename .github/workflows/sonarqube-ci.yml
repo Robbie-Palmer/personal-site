@@ -63,6 +63,7 @@ jobs:
             cpp/autonomic-satellite-swarm/coverage/sonarqube.xml
             ui/coverage/lcov.info
             packages/browser-base/coverage/lcov.info
+            packages/node-base/coverage/lcov.info
             packages/observability/coverage/lcov.info
             packages/recipe-parsing/coverage/lcov.info
             packages/ts-base/coverage/lcov.info

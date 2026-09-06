@@ -243,6 +243,9 @@ importers:
       dotenv:
         specifier: ^17.2.3
         version: 17.4.2
+      node-base:
+        specifier: workspace:*
+        version: link:../../packages/node-base
       recipe-parsing:
         specifier: workspace:*
         version: link:../../packages/recipe-parsing
@@ -330,6 +333,21 @@ importers:
 
   packages/browser-base:
     devDependencies:
+      '@vitest/coverage-v8':
+        specifier: ^4.1.10
+        version: 4.1.11(vitest@4.1.11)
+      typescript:
+        specifier: ^6.0.0
+        version: 6.0.3
+      vitest:
+        specifier: ^4.0.0
+        version: 4.1.11(@opentelemetry/api@1.9.1)(@types/node@24.13.3)(@vitest/coverage-v8@4.1.11)(jsdom@29.1.1(@noble/hashes@2.4.0))(vite@8.2.2(@types/node@24.13.3)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.13)(yaml@2.9.0))
+
+  packages/node-base:
+    devDependencies:
+      '@types/node':
+        specifier: ^24
+        version: 24.13.3
       '@vitest/coverage-v8':
         specifier: ^4.1.10
         version: 4.1.11(vitest@4.1.11)
@@ -701,6 +719,9 @@ importers:
       lighthouse:
         specifier: ^13.0.1
         version: 13.4.1(@opentelemetry/core@2.10.0(@opentelemetry/api@1.9.1))(supports-color@10.2.2)
+      node-base:
+        specifier: workspace:*
+        version: link:../packages/node-base
       puppeteer:
         specifier: ^25.0.0
         version: 25.9.0
@@ -798,6 +819,9 @@ importers:
       drizzle-kit:
         specifier: ^0.31.0
         version: 0.31.10
+      node-base:
+        specifier: workspace:*
+        version: link:../../packages/node-base
       tsx:
         specifier: ^4.21.0
         version: 4.23.13

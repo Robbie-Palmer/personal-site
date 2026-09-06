@@ -2,14 +2,13 @@
 // creates independent Better Auth sessions for the seeded household owner and
 // member, connects both directly to the preview Worker, and verifies committed
 // pantry mutations are fanned out through the shared Durable Object room.
-import { createDb } from "recipe-db";
 import WebSocket, { type RawData } from "ws";
 import { z } from "zod";
-import { createAuth } from "../src/auth";
 import {
   previewApiOriginSchema,
   previewApiRequestURL,
 } from "./preview-api-url";
+import { createPreviewSessionCookie } from "./preview-session";
 
 const smokeEnvSchema = z.object({
   DATABASE_URL: z.string().min(1),
@@ -52,37 +51,6 @@ type RealtimeEvent = z.infer<typeof realtimeEventSchema>;
 
 const env = smokeEnvSchema.parse(process.env);
 const realtimeTimeoutMs = 15_000;
-
-async function createSessionCookie(email: string): Promise<string> {
-  const { db, client } = createDb(env.DATABASE_URL);
-  try {
-    const auth = createAuth(db, {
-      DEPLOYMENT_ENV: "preview",
-      BETTER_AUTH_URL: env.BETTER_AUTH_URL,
-      BETTER_AUTH_SECRET: env.BETTER_AUTH_SECRET,
-    });
-    const signIn = await auth.api.signInEmail({
-      body: { email, password: env.PREVIEW_AUTH_PASSWORD },
-      asResponse: true,
-    });
-    const setCookie = signIn.headers.get("set-cookie");
-    await signIn.body?.cancel();
-    if (!setCookie) {
-      throw new Error(
-        `Preview sign-in returned no session cookie (${signIn.status})`,
-      );
-    }
-    const cookie = setCookie.match(
-      /(?:__Secure-)?better-auth[.-]session_token=[^;,\s]+/,
-    )?.[0];
-    if (!cookie) {
-      throw new Error("Preview sign-in returned no session-token cookie");
-    }
-    return cookie;
-  } finally {
-    await client.end({ timeout: 5 });
-  }
-}
 
 function realtimeURL(): URL {
   const url = previewApiRequestURL(env.PREVIEW_API_URL, "/pantry/realtime");
@@ -217,8 +185,8 @@ async function mutatePantry(
 }
 
 const [ownerCookie, memberCookie] = await Promise.all([
-  createSessionCookie("household-owner@preview.invalid"),
-  createSessionCookie("household-member@preview.invalid"),
+  createPreviewSessionCookie(env, "household-owner@preview.invalid"),
+  createPreviewSessionCookie(env, "household-member@preview.invalid"),
 ]);
 const sockets: WebSocket[] = [];
 let garlicWasRemoved = false;

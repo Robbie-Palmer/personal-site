@@ -1,4 +1,5 @@
 import "dotenv/config";
+import { requiredEnv } from "node-base/env";
 import {
   EXTRACTION_PREDICTIONS_PATH,
   EXTRACTION_FAILURES_PATH,
@@ -25,7 +26,6 @@ import {
   mergeByImageSet,
   catchMissingFile,
 } from "../lib/stage-runner.js";
-import { requiredEnv } from "../lib/env.js";
 import { imagePathToDataUrl } from "../lib/images.js";
 import type {
   ExtractionPredictionEntry,

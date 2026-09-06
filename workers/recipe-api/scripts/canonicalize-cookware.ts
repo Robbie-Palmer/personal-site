@@ -1,4 +1,5 @@
 import { and, eq } from "drizzle-orm";
+import { requiredEnv } from "node-base/env";
 import { createDb, schema } from "recipe-db";
 import { SavedRecipePayloadSchema } from "recipe-domain";
 import { canonicalizeSavedRecipeCookware } from "./canonicalize-cookware-recipe";
@@ -11,12 +12,6 @@ import { canonicalizeSavedRecipeCookware } from "./canonicalize-cookware-recipe"
 // wording in the prose. Runs read-only by default; pass --apply to write.
 
 const APPLY = process.argv.includes("--apply");
-
-function requiredEnv(name: string): string {
-	const value = process.env[name];
-	if (!value) throw new Error(`${name} is required`);
-	return value;
-}
 
 const { db, client } = createDb(requiredEnv("DATABASE_URL"));
 

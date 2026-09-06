@@ -1,4 +1,5 @@
 import "dotenv/config";
+import { requiredEnv } from "node-base/env";
 import {
   PREDICTIONS_PATH,
   COOKLANG_PREDICTIONS_PATH,
@@ -29,7 +30,6 @@ import {
   mergeByImageSet,
   catchMissingFile,
 } from "../lib/stage-runner.js";
-import { requiredEnv } from "../lib/env.js";
 import type {
   PredictionEntry,
   PredictionsDataset,

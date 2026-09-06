@@ -1,4 +1,5 @@
 import { eq, inArray } from "drizzle-orm";
+import { requiredEnv } from "node-base/env";
 import { createAuth } from "../src/auth";
 import { createDb, schema } from "recipe-db";
 import { RecipeContentSchema } from "recipe-domain";
@@ -29,12 +30,6 @@ function previewRecipeBody(
     instructions,
   });
   return JSON.stringify({ version: 1, source: cookBody, recipe });
-}
-
-function requiredEnv(name: string): string {
-  const value = process.env[name];
-  if (!value) throw new Error(`${name} is required`);
-  return value;
 }
 
 const databaseURL = requiredEnv("DATABASE_URL");

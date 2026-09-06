@@ -1,34 +1,16 @@
 // Throwaway local-e2e helper: signs in a seeded preview user directly through
 // better-auth and prints the session cookie for curl-based API testing.
-import { createDb } from "recipe-db";
-import { createAuth } from "../src/auth";
+import { requiredEnv } from "node-base/env";
 import { previewScenarios } from "../src/preview-scenarios";
+import { createPreviewSessionCookie } from "./preview-session";
 
-function requiredEnv(name: string): string {
-  const value = process.env[name];
-  if (!value) throw new Error(`${name} is required`);
-  return value;
-}
-
-const databaseURL = requiredEnv("DATABASE_URL");
-const { db, client } = createDb(databaseURL);
-
-try {
-  const auth = createAuth(db, {
-    DEPLOYMENT_ENV: "preview",
+const cookie = await createPreviewSessionCookie(
+  {
+    DATABASE_URL: requiredEnv("DATABASE_URL"),
     BETTER_AUTH_URL: requiredEnv("BETTER_AUTH_URL"),
     BETTER_AUTH_SECRET: requiredEnv("BETTER_AUTH_SECRET"),
-  });
-  const response = await auth.api.signInEmail({
-    body: {
-      email: previewScenarios[0].email,
-      password: requiredEnv("PREVIEW_AUTH_PASSWORD"),
-    },
-    asResponse: true,
-  });
-  const setCookie = response.headers.get("set-cookie");
-  if (!setCookie) throw new Error(`No session cookie (status ${response.status})`);
-  console.log(setCookie.split(";")[0]);
-} finally {
-  await client.end({ timeout: 5 });
-}
+    PREVIEW_AUTH_PASSWORD: requiredEnv("PREVIEW_AUTH_PASSWORD"),
+  },
+  previewScenarios[0].email,
+);
+console.log(cookie);
