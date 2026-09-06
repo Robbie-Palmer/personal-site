@@ -1,9 +1,9 @@
 import * as cheerio from "cheerio";
 import { scrapeRecipe } from "recipe-scrapers";
 import { isRecord } from "ts-base/records";
+import { httpUrl } from "ts-base/urls";
 import type { ExtractionRecipe } from "../schemas/stage-artifacts.js";
 import { buildCooklangDraftFromExtraction } from "./cooklang.js";
-import { httpUrl } from "./url.js";
 
 export type SchemaOrgRecipeImport = {
   title: string;

@@ -1,5 +1,5 @@
 import { CooklangParser } from "@cooklang/cooklang";
-import { httpUrl } from "./url.js";
+import { httpUrl } from "ts-base/urls";
 import { deriveRecipeFromCooklang } from "./cooklang.js";
 import type { SchemaOrgRecipeFileImport } from "./schema-org.js";
 import { parseSchemaOrgRecipeJson } from "./schema-org.js";

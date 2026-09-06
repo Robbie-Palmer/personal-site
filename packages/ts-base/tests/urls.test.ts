@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { httpUrl } from "../../src/lib/url.js";
+import { httpUrl } from "../src/urls";
 
 describe("httpUrl", () => {
   it("normalizes HTTP and HTTPS URLs", () => {
