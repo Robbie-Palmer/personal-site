@@ -26,6 +26,12 @@ requires supported interfaces and forbids circumventing access controls. The
 project must verify that Grammarly permits the proposed personal automation
 under its current terms before relying on either tool.
 
+Corpus retention in this proposal depends on accepting
+[ADR 004](/projects/agent-first-writing/adrs/004-dvc-writing-evaluation-pipeline).
+The handoff prototype may run with transfer data discarded at session end, but
+do not enable corpus opt-in until that pipeline and its retention controls
+exist.
+
 # Decision
 
 Prototype a local, headed Playwright handoff. A user must start and supervise
@@ -83,8 +89,9 @@ Keep this ADR Proposed until a spike can:
 * round-trip representative Markdown without changes outside the edits the
   author made;
 * keep Grammarly credentials and browser state on the local machine;
-* discard transfer data by default and enforce the opt-in corpus retention and
-  deletion rules;
+* discard transfer data by default and use the accepted ADR 004 pipeline to
+  enforce its retention and deletion rules whenever the author enables corpus
+  capture;
 * show the imported diff before changing a repository file;
 * save time compared with the existing manual Grammarly pass; and
 * stop cleanly when login, page structure, or clipboard transfer fails.
