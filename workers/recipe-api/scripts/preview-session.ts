@@ -24,11 +24,7 @@ export async function createPreviewSessionCookie(
       body: { email, password: environment.PREVIEW_AUTH_PASSWORD },
       asResponse: true,
     });
-    try {
-      return betterAuthSessionCookie(response);
-    } finally {
-      await response.body?.cancel();
-    }
+    return await betterAuthSessionCookie(response);
   } finally {
     await client.end({ timeout: 5 });
   }

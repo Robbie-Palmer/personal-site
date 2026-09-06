@@ -97,7 +97,7 @@ async function createUser(name: string, email: string): Promise<TestUser> {
     throw new Error(`Better Auth sign-in failed for ${email}: ${response.status}`);
   }
 
-  const cookie = betterAuthSessionCookie(response);
+  const cookie = await betterAuthSessionCookie(response);
 
   return { cookie, email, id: createdUser.id };
 }

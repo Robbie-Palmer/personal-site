@@ -197,7 +197,7 @@ const signIn = await request("/api/auth/preview/sign-in", {
 if (!signIn.ok) {
   throw new Error(`Preview sign-in failed (${signIn.status})`);
 }
-const cookie = betterAuthSessionCookie(signIn);
+const cookie = await betterAuthSessionCookie(signIn);
 
 const cookingSessionId = crypto.randomUUID();
 const cookingSession = {

@@ -12,9 +12,12 @@ describe("requiredEnv", () => {
     expect(requiredEnv("NODE_BASE_ENV_TEST")).toBe("from-process");
   });
 
-  it("returns a present environment variable", () => {
-    expect(requiredEnv("API_TOKEN", { API_TOKEN: "secret" })).toBe("secret");
-  });
+  it.each(["secret", "0", "false"])(
+    "returns the present string value %s",
+    (value) => {
+      expect(requiredEnv("API_TOKEN", { API_TOKEN: value })).toBe(value);
+    },
+  );
 
   it.each([{}, { API_TOKEN: "" }])(
     "rejects a missing or empty environment variable",
