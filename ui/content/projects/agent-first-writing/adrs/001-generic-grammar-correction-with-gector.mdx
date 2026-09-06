@@ -1,0 +1,35 @@
+---
+title: "ADR 001: Generic grammar correction with GECToR-2024"
+date: "2026-09-04"
+status: "Rejected"
+tech_stack: ["PyTorch", "Hugging Face"]
+---
+
+# Context
+
+The editor must close the gap between correct sentences and publishable prose.
+GECToR-2024 offered a lightweight way to test whether generic grammatical error
+correction could close that gap without a larger editorial model.
+
+I ran existing architecture decision records through GECToR-2024. It proposed
+only minor corrections. The output remained repetitive, over-explained, and
+harder to absorb than the final published writing.
+
+# Decision
+
+Reject GECToR-2024, and generic grammatical error correction more broadly, as
+the editor's model layer.
+
+Keep the result as a baseline in the evaluation set. A later lightweight model
+must target failure classes that deterministic rules miss and show a measurable
+editorial gain over this result.
+
+# Consequences
+
+The first model milestone is no longer grammatical correctness. Evaluation must
+cover clarity, factual preservation, intent, terminology, cognitive load, and
+voice.
+
+This does not rule out every small model. It rules out adding one because it can
+make locally plausible corrections while leaving the real publishing work
+untouched.

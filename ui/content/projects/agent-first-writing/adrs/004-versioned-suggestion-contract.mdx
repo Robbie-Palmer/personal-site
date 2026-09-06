@@ -1,0 +1,39 @@
+---
+title: "ADR 004: Versioned suggestion contract"
+date: "2026-09-04"
+status: "Proposed"
+---
+
+# Context
+
+Vale, future classifiers, and contextual models need to report findings through
+one review workflow. Free-form model comments cannot reliably anchor a change,
+produce a diff, record a decision, or replay an evaluation against a later
+editor version.
+
+Local corrections and dependent passage rewrites have different review shapes,
+but both need enough provenance to explain where a proposed edit came from.
+
+# Decision
+
+Define a versioned suggestion format before adding another editing layer. A
+local suggestion records its source span, proposed replacement, category,
+reason, confidence, and model or rule provenance.
+
+Deterministic checks, including Vale, return the same structure. Passage-level
+work keeps the same provenance and presents the combined replacement as a
+readable diff when its edits depend on one another.
+
+Record whether the user accepted, rejected, or changed each proposal. Preserve
+the version of the suggestion schema and producer so later evaluations compare
+like with like.
+
+# Consequences
+
+The review interface can combine rule and model producers without discarding their
+identity. Decisions become usable evaluation evidence, and source spans make
+local changes inspectable.
+
+Schema versioning adds migration work. Source spans can also become stale after
+another edit, so the implementation must detect conflicts instead of applying a
+replacement to the wrong text.
