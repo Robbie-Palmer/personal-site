@@ -6,6 +6,7 @@ import {
   type Page,
   type WebSocket,
 } from "@playwright/test";
+import { requiredEnv } from "node-base/env";
 
 const previewSiteURL = new URL(requiredEnv("PREVIEW_SITE_URL"));
 const pagesHost = requiredEnv("CLOUDFLARE_PAGES_HOST");
@@ -25,12 +26,6 @@ type ScenarioSession = {
   context: BrowserContext;
   page: Page;
 };
-
-function requiredEnv(name: string): string {
-  const value = process.env[name];
-  if (!value) throw new Error(`${name} is required`);
-  return value;
-}
 
 function assertCanonicalPreviewURL(): void {
   const previewLabel = previewSiteURL.hostname.split(".", 1)[0];

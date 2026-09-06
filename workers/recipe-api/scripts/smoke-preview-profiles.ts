@@ -2,14 +2,13 @@
 // environment. It creates a Better Auth session directly against the isolated
 // preview database, then exercises the deployed Worker without bypassing
 // Cloudflare Access on the Pages UI.
-import { createDb } from "recipe-db";
 import { z } from "zod";
-import { createAuth } from "../src/auth";
 import { previewScenarios } from "../src/preview-scenarios";
 import {
   previewApiOriginSchema,
   previewApiRequestURL,
 } from "./preview-api-url";
+import { createPreviewSessionCookie } from "./preview-session";
 
 const smokeEnvSchema = z.object({
   DATABASE_URL: z.string().min(1),
@@ -145,37 +144,7 @@ async function expectAuthenticationRequired(path: string): Promise<void> {
 async function createSessionCookie(
   email: string = previewScenarios[0].email,
 ): Promise<string> {
-  const { db, client } = createDb(env.DATABASE_URL);
-  try {
-    const auth = createAuth(db, {
-      DEPLOYMENT_ENV: "preview",
-      BETTER_AUTH_URL: env.BETTER_AUTH_URL,
-      BETTER_AUTH_SECRET: env.BETTER_AUTH_SECRET,
-    });
-    const signIn = await auth.api.signInEmail({
-      body: {
-        email,
-        password: env.PREVIEW_AUTH_PASSWORD,
-      },
-      asResponse: true,
-    });
-    const setCookie = signIn.headers.get("set-cookie");
-    await signIn.body?.cancel();
-    if (!setCookie) {
-      throw new Error(
-        `Preview sign-in returned no session cookie (${signIn.status})`,
-      );
-    }
-    const cookie = setCookie.match(
-      /(?:__Secure-)?better-auth[.-]session_token=[^;,\s]+/,
-    )?.[0];
-    if (!cookie) {
-      throw new Error("Preview sign-in returned no session-token cookie");
-    }
-    return cookie;
-  } finally {
-    await client.end({ timeout: 5 });
-  }
+  return createPreviewSessionCookie(env, email);
 }
 
 function assertStringArray(

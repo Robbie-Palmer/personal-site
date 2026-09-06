@@ -104,6 +104,7 @@
     "cloudflare": "^7.0.0",
     "jsdom": "^29.0.0",
     "lighthouse": "^13.0.1",
+    "node-base": "workspace:*",
     "puppeteer": "^25.0.0",
     "qrcode-terminal": "^0.12.0",
     "serve": "^14.2.5",

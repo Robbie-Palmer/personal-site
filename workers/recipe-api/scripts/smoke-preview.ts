@@ -2,15 +2,9 @@
 // environment. It creates a Better Auth session directly against the isolated
 // preview database, then exercises the deployed Worker without bypassing
 // Cloudflare Access on the Pages UI.
-import { createDb } from "recipe-db";
-import { createAuth } from "../src/auth";
+import { requiredEnv } from "node-base/env";
 import { previewScenarios } from "../src/preview-scenarios";
-
-function requiredEnv(name: string): string {
-  const value = process.env[name];
-  if (!value) throw new Error(`${name} is required`);
-  return value;
-}
+import { createPreviewSessionCookie } from "./preview-session";
 
 type CookingInsights = {
   cookModeStarts: number;
@@ -22,13 +16,17 @@ type CookingInsights = {
   }>;
 };
 
-const databaseURL = requiredEnv("DATABASE_URL");
-const siteURL = requiredEnv("BETTER_AUTH_URL");
+const previewSessionEnvironment = {
+  DATABASE_URL: requiredEnv("DATABASE_URL"),
+  BETTER_AUTH_URL: requiredEnv("BETTER_AUTH_URL"),
+  BETTER_AUTH_SECRET: requiredEnv("BETTER_AUTH_SECRET"),
+  PREVIEW_AUTH_PASSWORD: requiredEnv("PREVIEW_AUTH_PASSWORD"),
+};
+const siteURL = previewSessionEnvironment.BETTER_AUTH_URL;
 const apiURL = requiredEnv("PREVIEW_API_URL").replace(/\/$/, "");
 const READY_TIMEOUT_MS = 120_000;
 const REQUEST_TIMEOUT_MS = 15_000;
 const RETRY_DELAY_MS = 2_000;
-const { db, client } = createDb(databaseURL);
 
 async function fetchPreview(
   path: string,
@@ -89,89 +87,69 @@ async function expectJson<T>(
   throw new Error(`GET ${path} did not become ready within 120 seconds`);
 }
 
-try {
-  const auth = createAuth(db, {
-    DEPLOYMENT_ENV: "preview",
-    BETTER_AUTH_URL: siteURL,
-    BETTER_AUTH_SECRET: requiredEnv("BETTER_AUTH_SECRET"),
-  });
-  const signIn = await auth.api.signInEmail({
-    body: {
-      email: previewScenarios[0].email,
-      password: requiredEnv("PREVIEW_AUTH_PASSWORD"),
-    },
-    asResponse: true,
-  });
-  const setCookie = signIn.headers.get("set-cookie");
-  if (!setCookie) {
-    throw new Error(`Preview sign-in returned no session cookie (${signIn.status})`);
-  }
-  const cookie = setCookie.match(
-    /(?:__Secure-)?better-auth[.-]session_token=[^;,\s]+/,
-  )?.[0];
-  if (!cookie) throw new Error("Preview sign-in returned no session-token cookie");
-  const headers = {
-    cookie,
-    origin: siteURL,
-    "content-type": "application/json",
-  };
+const cookie = await createPreviewSessionCookie(
+  previewSessionEnvironment,
+  previewScenarios[0].email,
+);
+const headers = {
+  cookie,
+  origin: siteURL,
+  "content-type": "application/json",
+};
 
-  const before = await expectJson<CookingInsights>(
-    "/api/profile/cooking-insights",
-    { headers: { cookie } },
-  );
-  const sessionId = crypto.randomUUID();
-  const event = {
-    sessionId,
-    recipeSlug: "weeknight-pasta",
-    recipeTitle: "Weeknight pasta",
-    servings: 2,
-  };
+const before = await expectJson<CookingInsights>(
+  "/api/profile/cooking-insights",
+  { headers: { cookie } },
+);
+const sessionId = crypto.randomUUID();
+const event = {
+  sessionId,
+  recipeSlug: "weeknight-pasta",
+  recipeTitle: "Weeknight pasta",
+  servings: 2,
+};
 
-  await expectJson(
-    "/api/profile/cooking-sessions",
-    {
-      method: "POST",
-      headers,
-      body: JSON.stringify({ ...event, event: "started" }),
-    },
-    201,
-  );
-  const afterStart = await expectJson<CookingInsights>(
-    "/api/profile/cooking-insights",
-    { headers: { cookie } },
-  );
-  if (
-    afterStart.cookModeStarts !== before.cookModeStarts + 1 ||
-    afterStart.mealsCooked !== before.mealsCooked
-  ) {
-    throw new Error("Cook-mode start did not update preview insights correctly");
-  }
-
-  await expectJson(
-    "/api/profile/cooking-sessions",
-    {
-      method: "POST",
-      headers,
-      body: JSON.stringify({ ...event, event: "completed" }),
-    },
-    200,
-  );
-  const afterFinish = await expectJson<CookingInsights>(
-    "/api/profile/cooking-insights",
-    { headers: { cookie } },
-  );
-  if (
-    afterFinish.cookModeStarts !== before.cookModeStarts + 1 ||
-    afterFinish.mealsCooked !== before.mealsCooked + 1 ||
-    !afterFinish.recent.some(
-      (session) => session.id === sessionId && session.completedAt,
-    )
-  ) {
-    throw new Error("Cook-mode finish did not update preview insights correctly");
-  }
-
-  console.log("Preview cooking-insights smoke test passed.");
-} finally {
-  await client.end({ timeout: 5 });
+await expectJson(
+  "/api/profile/cooking-sessions",
+  {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ ...event, event: "started" }),
+  },
+  201,
+);
+const afterStart = await expectJson<CookingInsights>(
+  "/api/profile/cooking-insights",
+  { headers: { cookie } },
+);
+if (
+  afterStart.cookModeStarts !== before.cookModeStarts + 1 ||
+  afterStart.mealsCooked !== before.mealsCooked
+) {
+  throw new Error("Cook-mode start did not update preview insights correctly");
 }
+
+await expectJson(
+  "/api/profile/cooking-sessions",
+  {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ ...event, event: "completed" }),
+  },
+  200,
+);
+const afterFinish = await expectJson<CookingInsights>(
+  "/api/profile/cooking-insights",
+  { headers: { cookie } },
+);
+if (
+  afterFinish.cookModeStarts !== before.cookModeStarts + 1 ||
+  afterFinish.mealsCooked !== before.mealsCooked + 1 ||
+  !afterFinish.recent.some(
+    (session) => session.id === sessionId && session.completedAt,
+  )
+) {
+  throw new Error("Cook-mode finish did not update preview insights correctly");
+}
+
+console.log("Preview cooking-insights smoke test passed.");

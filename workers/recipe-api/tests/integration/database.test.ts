@@ -10,6 +10,7 @@ import {
   vi,
 } from "vitest";
 import { createAuth } from "../../src/auth";
+import { betterAuthSessionCookie } from "../../src/better-auth-session-cookie";
 import {
   cookingLogResponse,
   decodeCookingLogCursor,
@@ -96,11 +97,7 @@ async function createUser(name: string, email: string): Promise<TestUser> {
     throw new Error(`Better Auth sign-in failed for ${email}: ${response.status}`);
   }
 
-  const setCookie = response.headers.get("set-cookie");
-  const cookie = setCookie?.match(
-    /(?:__Secure-)?better-auth[.-]session_token=[^;,\s]+/,
-  )?.[0];
-  if (!cookie) throw new Error(`Better Auth did not issue a session for ${email}`);
+  const cookie = betterAuthSessionCookie(response);
 
   return { cookie, email, id: createdUser.id };
 }
