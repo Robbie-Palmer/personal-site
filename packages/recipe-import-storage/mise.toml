@@ -14,7 +14,7 @@ run = "pnpm test"
 
 [tasks."test:coverage"]
 description = "Test the recipe import storage package with coverage"
-depends = ["install"]
+depends = ["//:install"]
 run = "pnpm test:coverage"
 
 [tasks.check]
