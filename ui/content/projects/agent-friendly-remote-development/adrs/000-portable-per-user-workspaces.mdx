@@ -47,15 +47,14 @@ Keep the runtime behind a small provider contract:
 7. Apply resource requests and limits that protect the shared host.
 8. Restore the workspace after host or provider failure.
 
-[ADR 002](/projects/agent-friendly-remote-development/adrs/002-delegated-resource-access)
-defines the agent and resource boundary behind item 6. The runtime provider may
-implement a credential connector or gateway, but it must not become the source
-of truth for the user's grants.
+The runtime provider may provide a credential connector or gateway, but it
+must not become the source of truth for the user's grants.
 
-Keep the current Hetzner deployment as the working baseline. Do not migrate
-because another platform has a stronger product page. Test Coder Community on
-the existing K3s cluster before deciding whether to build user and workspace
-management directly:
+Keep the current Hetzner deployment as the working baseline. Require the host
+and provider resources to be reproducible from versioned infrastructure as
+code; a routine web-console step fails the portability test. Test Coder
+Community on the existing K3s cluster before deciding whether to build user and
+workspace management directly:
 
 * **Coder Community** is the self-hosted control-plane benchmark. It already
   has multi-user identity, templates, Git OAuth, private workspace connections,
@@ -83,8 +82,8 @@ as well as infrastructure cost.
    uncommitted changes, tool configuration, and provider authentication remain.
 6. Open a pull request from the resumed environment.
 7. Revoke the pilot user's workspace, Doppler, and repository access without
-   affecting the operator's environment. ADR 002 owns later per-agent
-   revocation.
+   affecting the operator's environment. Per-agent revocation remains outside
+   this pilot.
 8. Confirm that the second workspace creates no new infrastructure bill while
    the shared host has capacity.
 9. Export or restore the user's state, then revoke access and delete the
@@ -98,16 +97,13 @@ membership, if provider authentication cannot remain per user, or if its
 control service consumes too much of the existing host. A future sleep-priced
 runtime also fails if a long-lived t3-code connection prevents suspension.
 
-# Why not choose another ordinary VPS provider
+# Why not another ordinary VPS provider
 
-Scaleway, DigitalOcean, OVHcloud, and similar providers can run the same NixOS
-or container workload. They improve geography, support, or account preference,
-but they do not remove the work of user identity, provisioning, suspension,
-metering, backup, and offboarding.
-
-Hetzner remains a strong price baseline. Moving the same server definition to a
-more expensive generic VM would change the supplier without testing the
-product. An ordinary VM per user remains the simple hard-isolation fallback
+An ordinary VPS provider can run the same NixOS or container workload. It may
+improve geography, support, price, or account preference, but it does not remove
+the work of user identity, provisioning, suspension, metering, backup, and
+offboarding. Provider selection follows the workspace contract rather than
+defining it. An ordinary VM per user remains the simple hard-isolation fallback
 when trust no longer permits a shared host.
 
 # Consequences

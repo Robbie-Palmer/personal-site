@@ -67,6 +67,34 @@ The pilot is free while it fits inside spare capacity. I will measure node
 pressure and operator interventions. I will not build per-user cost accounting
 until adding users causes a new infrastructure bill.
 
+# Infrastructure choice
+
+Infrastructure as code is part of the product, not just an operator preference.
+An agent should be able to inspect the declared infrastructure, propose a
+change, rebuild a host, and remove a test environment without depending on
+undocumented console state.
+
+[ADR 003](/projects/agent-friendly-remote-development/adrs/003-hetzner-cloud-for-pilot-infrastructure)
+keeps Hetzner Cloud for the pilot and the next host under the current
+architecture. Its official Terraform provider covers the complete small-server
+lifecycle needed here, and the NixOS deployment has already run real work.
+
+The previous evaluation rejected OVHcloud because of weak infrastructure as
+code support. Its official Terraform provider can now order and install a VPS,
+but that part of the provider remains incomplete. Open upstream work describes
+current VPS API coverage as about 15% and would add 20 resources and 40 data
+sources. OVHcloud's lower list price and included backup do not outweigh those
+lifecycle gaps when agent-operated, reproducible infrastructure is the leading
+criterion. Hostinger's young provider and netcup's API-first path are weaker
+still. Oracle has mature IaC, but reclaimable free ARM64 capacity and OCI's
+account, network, and policy model do not fit this continuously available
+single-node pilot.
+
+kube-hetzner strengthens the Hetzner growth path. This Terraform module builds
+K3s or RKE2 clusters; it does not sell hosting. Direct K3s on the declared NixOS
+host stays smaller today; kube-hetzner becomes relevant for a new multi-node
+cluster with automated node replacement or autoscaling.
+
 # The first platform experiment
 
 [Coder Community](https://coder.com/pricing) looks like the most useful component
@@ -130,12 +158,14 @@ a place only if one template can create my brother's workspace, expose T3 Code,
 preserve his home across stop and start, and revoke his access with less custom
 code than the direct K3s definition.
 
-# Cost comparison
+# Managed runtime cost comparison
 
 The requirement is access at any time and uninterrupted execution while an agent
 is working. The table uses 730 running hours to expose the worst case where T3
-Code or a task prevents automatic sleep. It excludes model subscriptions, tax,
-egress, and support.
+Code or a task prevents automatic sleep. This table compares the current host
+with managed development runtimes. ADR 003 records the infrastructure-provider
+decision. The figures below exclude model subscriptions, tax, egress, and
+support.
 
 | Runtime                         | Assumed environment                        |                                   Approximate monthly runtime cost | Fit                                                                     |
 | ------------------------------- | ------------------------------------------ | -----------------------------------------------------------------: | ----------------------------------------------------------------------- |
@@ -159,18 +189,19 @@ Sources: [Hetzner server pricing](https://docs.hetzner.com/general/infrastructur
 
 The Hetzner figure combines the €8.49 CX33 list price with one €0.50 public
 IPv4. Like the other provider figures, it excludes VAT, paid networking or
-egress add-ons, backups, and support. The Hetzner deployment is unusually cheap.
-Managed providers become competitive when they suspend idle environments, but
-that needs a real T3 Code test. Fly counts open TCP connections as activity, so
-a persistent connection could turn a sleep-priced design into an $80 or higher
-monthly environment.
+egress add-ons, backups, and support. Other low-cost VPS plans can undercut it,
+but the project requires a complete declarative lifecycle before comparing
+price. Managed development providers become competitive only when they suspend
+idle environments, but that needs a real T3 Code test. Fly counts open TCP
+connections as activity, so a persistent connection could turn a sleep-priced
+design into an $80 or higher monthly environment.
 
 The cost difference supports charging more than £5 for users who value continuous
 availability. The brother pilot remains free. The first non-family price to test
 is £15 per month with BYOK and no SLA, followed by £25 only after three users
 renew twice. That price sells avoided setup and maintenance. People willing to
-operate the open source deployment on their own Hetzner account remain the
-cheapest competitor.
+operate the open source deployment on their own low-cost VPS remain the
+cheapest competitors.
 
 # Price break-even and likely customer
 
@@ -320,6 +351,8 @@ enforcement outside T3 Code.
 * Can one user be backed up, restored, and removed without affecting the other?
 * Can an external resource gateway revoke one agent without exposing its
   upstream credential?
+* Can the provider resources and NixOS host be rebuilt from versioned code in a
+  clean project without an undocumented console step?
 
 The immediate milestone is two people completing real work through separate T3
 Code instances on the existing server. The next machine should be purchased only
