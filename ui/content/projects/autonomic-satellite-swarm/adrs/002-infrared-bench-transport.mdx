@@ -1,0 +1,32 @@
+---
+title: "ADR 002: Infrared as the Bench Transport"
+status: "Accepted"
+date: "2016-07-01"
+---
+
+# Context
+
+The three agents need to discover mission requests, return scores, acknowledge messages, and relay
+an assignment. A spacecraft radio is outside the prototype's budget and would add licensing,
+hardware, and protocol work unrelated to the coordination experiment.
+
+Wired serial, I2C, or SPI would make the bench reliable, but a shared cable would poorly represent
+independent vehicles exchanging broadcasts. Cheap infrared transmitters and receivers are readily
+available for the Uno, and the Arduino ecosystem already provides an IRremote library.
+
+# Decision
+
+Use infrared for communication among the three boards. Encode mission coordinates, message types,
+agent IDs, and scores into compact values carried by IRremote frames.
+
+Treat infrared as a visible, lossy stand-in for a shared radio channel. Do not present it as a
+candidate spacecraft link.
+
+# Consequences
+
+The demonstration remains inexpensive and wireless. Line of sight, dropped frames, and the need for
+acknowledgements also make communication failures observable on a desk.
+
+Infrared range, framing, collision behavior, and timing say nothing about a flight radio. The wire
+encoding is constrained by the chosen library and the Uno's native integer types, so both will need
+review before another transport can use the protocol.

@@ -488,6 +488,14 @@ export const technologies: TechnologyContent[] = [
     type: "platform",
   },
   {
+    name: "qrpTracker",
+    added: "2026-09-06",
+    description:
+      "C++ satellite tracking libraries for Arduino and ATmega328 processors",
+    website: "https://code.google.com/archive/p/qrptracker/",
+    type: "library",
+  },
+  {
     name: "Bitbucket Pipelines",
     added: "2026-01-04",
     description: "CI/CD service built into Bitbucket",
@@ -513,6 +521,13 @@ export const technologies: TechnologyContent[] = [
     description: "Unit-testing framework for C++",
     website: "https://github.com/catchorg/Catch2",
     type: "library",
+  },
+  {
+    name: "clang-tidy",
+    added: "2026-09-06",
+    description: "Static analysis and linting tool for C++",
+    website: "https://clang.llvm.org/extra/clang-tidy/",
+    type: "tool",
   },
   {
     name: "ESP32",
