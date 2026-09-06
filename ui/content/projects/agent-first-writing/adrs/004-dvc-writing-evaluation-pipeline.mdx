@@ -1,5 +1,5 @@
 ---
-title: "ADR 005: DVC writing evaluation pipeline"
+title: "ADR 004: DVC writing evaluation pipeline"
 date: "2026-09-06"
 status: "Proposed"
 tech_stack: ["DVC"]
@@ -45,7 +45,7 @@ Define these initial stages:
 3. `run_producers` runs Vale, the GECToR-2024 baseline, and each declared
    candidate against the frozen inputs. Every producer writes the versioned
    suggestion format from
-   [ADR 004](/projects/agent-first-writing/adrs/004-versioned-suggestion-contract).
+   [ADR 003](/projects/agent-first-writing/adrs/003-versioned-suggestion-contract).
    Captured Grammarly suggestions enter as reference data, not through an
    automated Grammarly stage.
 4. `match_edits` aligns suggestions with accepted edits, rejected edits, and
