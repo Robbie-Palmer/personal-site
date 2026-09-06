@@ -5,7 +5,7 @@ on:
     paths:
       - "workers/recipe-api/**"
       - "packages/recipe-db/**"
-      - "packages/recipe-import-storage/**"
+      - "packages/recipe-domain/**"
       - ".github/workflows/recipe-api-ci.yml"
 
 permissions:

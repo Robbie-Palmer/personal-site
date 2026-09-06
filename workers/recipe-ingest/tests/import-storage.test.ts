@@ -1,10 +1,10 @@
-import { describe, expect, it } from "vitest";
 import {
   artifactKey,
   importJobPrefix,
   sourceImageKey,
   sourcePrefix,
-} from "../src/keys";
+} from "recipe-domain/import-storage";
+import { describe, expect, it } from "vitest";
 
 describe("recipe import storage keys", () => {
   const jobId = "5d9bb640-6fa7-44ca-954c-87141c68fe8e";

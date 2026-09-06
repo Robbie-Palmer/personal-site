@@ -34,7 +34,6 @@
     "postgres": "^3.4.5",
     "recipe-db": "workspace:*",
     "recipe-domain": "workspace:*",
-    "recipe-import-storage": "workspace:*",
     "recipe-parsing": "workspace:*",
     "zod": "^4.2.1"
   },

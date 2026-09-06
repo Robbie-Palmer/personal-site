@@ -436,18 +436,6 @@ importers:
         specifier: ^6.0.0
         version: 6.0.3
 
-  packages/recipe-import-storage:
-    devDependencies:
-      '@vitest/coverage-v8':
-        specifier: ^4.1.10
-        version: 4.1.11(vitest@4.1.11)
-      typescript:
-        specifier: ^6.0.0
-        version: 6.0.3
-      vitest:
-        specifier: ^4.0.0
-        version: 4.1.11(@opentelemetry/api@1.9.1)(@types/node@24.13.3)(@vitest/coverage-v8@4.1.11)(jsdom@29.1.1(@noble/hashes@2.4.0))(vite@8.2.2(@types/node@24.13.3)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.13)(yaml@2.9.0))
-
   packages/recipe-parsing:
     dependencies:
       '@cooklang/cooklang':
@@ -803,9 +791,6 @@ importers:
       recipe-domain:
         specifier: workspace:*
         version: link:../../packages/recipe-domain
-      recipe-import-storage:
-        specifier: workspace:*
-        version: link:../../packages/recipe-import-storage
       recipe-parsing:
         specifier: workspace:*
         version: link:../../packages/recipe-parsing
@@ -867,9 +852,9 @@ importers:
       recipe-db:
         specifier: workspace:*
         version: link:../../packages/recipe-db
-      recipe-import-storage:
+      recipe-domain:
         specifier: workspace:*
-        version: link:../../packages/recipe-import-storage
+        version: link:../../packages/recipe-domain
       recipe-parsing:
         specifier: workspace:*
         version: link:../../packages/recipe-parsing

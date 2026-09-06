@@ -41,7 +41,7 @@ import { RecipeVisibilitySchema } from "recipe-domain/visibility";
 import {
   importJobPrefix,
   sourceImageKey,
-} from "recipe-import-storage/keys";
+} from "recipe-domain/import-storage";
 import { parseRecipeFile } from "recipe-parsing/recipe-file";
 import { parseSchemaOrgRecipeHtml } from "recipe-parsing/schema-org";
 import { recipeAgentConfiguration } from "./agent-auth";

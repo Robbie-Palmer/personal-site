@@ -8,7 +8,7 @@ on:
       - "workers/recipe-api/**"
       - "packages/observability/**"
       - "packages/recipe-db/**"
-      - "packages/recipe-import-storage/**"
+      - "packages/recipe-domain/**"
       - ".github/workflows/recipe-api-cd.yml"
   workflow_dispatch:
 

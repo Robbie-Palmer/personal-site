@@ -1,5 +1,5 @@
 import { recipeImportArtifact } from "recipe-db/schema";
-import { artifactKey, type ImportStage } from "recipe-import-storage/keys";
+import { artifactKey, type ImportStage } from "recipe-domain/import-storage";
 import type { Db } from "./db";
 import type { Env } from "./env";
 

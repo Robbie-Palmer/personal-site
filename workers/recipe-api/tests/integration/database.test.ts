@@ -1,6 +1,6 @@
 import { and, eq } from "drizzle-orm";
 import { createDb, schema } from "recipe-db";
-import { artifactKey, sourceImageKey } from "recipe-import-storage/keys";
+import { artifactKey, sourceImageKey } from "recipe-domain/import-storage";
 import {
   afterAll,
   beforeAll,
