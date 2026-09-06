@@ -15,6 +15,7 @@ config_roots = [
     "packages/browser-base",
     "packages/node-base",
     "packages/recipe-db",
+    "packages/recipe-import-storage",
     "packages/observability",
     "packages/recipe-parsing",
     "packages/ts-base",
@@ -49,7 +50,7 @@ MISE_EXPERIMENTAL = "1"
 # Root-level tasks for repo-wide tooling
 [tasks.lint]
 description = "Lint all files across the entire repo"
-depends = ["//:lint:markdown", "//:lint:mdx", "//:lint:yaml", "//:lint:typos", "//:lint:knip", "//:lint:actions", "//:lint:api", "//:lint:prose", "//packages/ai-review-domain:check", "//packages/browser-base:check", "//packages/node-base:check", "//packages/ts-base:check", "//ai-review:check", "//ml-pipelines/ai-review-evaluation:check", "//ui:lint", "//infra:lint", "//infra:lint:tflint", "//infra-bootstrap:lint", "//infra-bootstrap:lint:tflint"]
+depends = ["//:lint:markdown", "//:lint:mdx", "//:lint:yaml", "//:lint:typos", "//:lint:knip", "//:lint:actions", "//:lint:api", "//:lint:prose", "//packages/ai-review-domain:check", "//packages/browser-base:check", "//packages/node-base:check", "//packages/recipe-import-storage:check", "//packages/ts-base:check", "//ai-review:check", "//ml-pipelines/ai-review-evaluation:check", "//ui:lint", "//infra:lint", "//infra:lint:tflint", "//infra-bootstrap:lint", "//infra-bootstrap:lint:tflint"]
 
 [tasks."lint:api"]
 description = "Generate-check and lint the recipe API OpenAPI contract"
@@ -327,6 +328,7 @@ depends = [
     "//packages/browser-base:test:coverage",
     "//packages/node-base:test:coverage",
     "//packages/observability:test:coverage",
+    "//packages/recipe-import-storage:test:coverage",
     "//packages/recipe-parsing:test:coverage",
     "//packages/ts-base:test:coverage",
     "//ml-pipelines/recipe-parsing:test:coverage",

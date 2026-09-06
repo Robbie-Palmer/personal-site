@@ -7,6 +7,7 @@ on:
       - "packages/recipe-parsing/**"
       - "packages/recipe-db/**"
       - "packages/recipe-domain/**"
+      - "packages/recipe-import-storage/**"
       - "patches/**"
       - ".github/workflows/recipe-ingest-ci.yml"
       # Mirrored in tests/config-parity.test.ts, so drift in any copy of the

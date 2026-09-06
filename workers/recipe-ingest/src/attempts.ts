@@ -1,12 +1,12 @@
 import { and, count, eq } from "drizzle-orm";
 import { NonRetryableError } from "cloudflare:workflows";
 import { recipeImportAttempt } from "recipe-db/schema";
+import type { ImportStage } from "recipe-import-storage/keys";
 import { extractAttemptErrorDetail } from "recipe-parsing/attempts";
 import { isRetryableParseError } from "recipe-parsing/parse-retry";
 import type { LlmResult, LlmUsage } from "recipe-parsing/openrouter";
 import { withDb, type Db } from "./db";
 import type { Env } from "./env";
-import type { ImportStage } from "./keys";
 
 async function nextAttemptNumber(
   db: Db,

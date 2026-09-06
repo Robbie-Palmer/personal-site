@@ -1,7 +1,15 @@
-export type ImportStage = "extract" | "normalize" | "canonicalize" | "finalize";
+export type ImportStage =
+  | "extract"
+  | "normalize"
+  | "canonicalize"
+  | "finalize";
+
+export function importJobPrefix(jobId: string): string {
+  return `imports/${jobId}/`;
+}
 
 export function sourcePrefix(jobId: string): string {
-  return `imports/${jobId}/source/`;
+  return `${importJobPrefix(jobId)}source/`;
 }
 
 export function sourceImageKey(
@@ -17,5 +25,5 @@ export function artifactKey(
   stage: ImportStage,
   filename: string,
 ): string {
-  return `imports/${jobId}/${stage}/${filename}`;
+  return `${importJobPrefix(jobId)}${stage}/${filename}`;
 }

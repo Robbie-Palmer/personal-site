@@ -16,6 +16,7 @@
     "observability": "workspace:*",
     "postgres": "^3.4.5",
     "recipe-db": "workspace:*",
+    "recipe-import-storage": "workspace:*",
     "recipe-parsing": "workspace:*"
   },
   "devDependencies": {

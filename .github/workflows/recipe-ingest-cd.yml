@@ -10,6 +10,7 @@ on:
       - "packages/recipe-parsing/**"
       - "packages/recipe-db/**"
       - "packages/recipe-domain/**"
+      - "packages/recipe-import-storage/**"
       - "patches/**"
       - ".github/workflows/recipe-ingest-cd.yml"
   workflow_dispatch:

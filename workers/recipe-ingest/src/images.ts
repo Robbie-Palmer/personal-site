@@ -1,4 +1,4 @@
-import { sourcePrefix } from "./keys";
+import { sourcePrefix } from "recipe-import-storage/keys";
 import type { Env } from "./env";
 
 function bytesToBase64(bytes: Uint8Array): string {
