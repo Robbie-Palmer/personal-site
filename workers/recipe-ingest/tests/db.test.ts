@@ -33,6 +33,38 @@ describe("database connection lifecycle", () => {
     expect(operation).not.toHaveBeenCalled();
   });
 
+  it("returns the operation result and closes the client", async () => {
+    const operation = vi.fn().mockResolvedValue("done");
+
+    await expect(
+      withDb({ DATABASE_URL: "postgres://unused" }, operation),
+    ).resolves.toBe("done");
+    expect(operation).toHaveBeenCalledOnce();
+  });
+
+  it("closes the client when the operation fails", async () => {
+    const error = new Error("operation failed");
+
+    await expect(
+      withDb({ DATABASE_URL: "postgres://unused" }, async () => {
+        throw error;
+      }),
+    ).rejects.toBe(error);
+  });
+
+  it("accepts an absent client during cleanup", async () => {
+    await expect(closeDbClient(undefined)).resolves.toBeUndefined();
+  });
+
+  it("closes a connected client", async () => {
+    const end = vi.fn().mockResolvedValue(undefined);
+
+    await expect(
+      closeDbClient({ end } as unknown as DbClient),
+    ).resolves.toBeUndefined();
+    expect(end).toHaveBeenCalledWith({ timeout: 5 });
+  });
+
   it("records cleanup failures without rejecting", async () => {
     const error = new Error("close failed");
     const end = vi.fn().mockRejectedValue(error);
