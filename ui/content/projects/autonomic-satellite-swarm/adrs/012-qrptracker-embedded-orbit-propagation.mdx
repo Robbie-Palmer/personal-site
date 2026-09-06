@@ -1,0 +1,102 @@
+---
+title: "ADR 012: qrpTracker for Embedded Orbit Propagation"
+status: "Proposed"
+date: "2026-09-06"
+tech_stack: ["qrpTracker"]
+---
+
+# Context
+
+The historical candidacy scorer receives a fixed latitude, longitude, and direction of travel. It
+does not calculate where the satellite should be at the time of a mission request. That keeps the
+demonstration reproducible, but it leaves the position as an input that another system must supply.
+
+[qrpTracker](https://code.google.com/archive/p/qrptracker/) is a set of C++ libraries written for
+Arduino and the ATmega328. Its PLAN-13 component calculates satellite position from orbital elements
+and time. The 2009 demonstration stored data for thirteen satellites, calculated a position in about
+10 milliseconds, and left program space available on the processor later used by the Uno. This is
+rare evidence of an existing orbit propagator running on the chosen hardware, not an estimate based
+only on desktop performance.
+
+The fit is technical rather than automatic. qrpTracker's [last archived
+commit](https://code.google.com/archive/p/qrptracker/source/default/commits) dates from 2010, before
+current Arduino library conventions. The archive records its license as GPLv3. This repository uses
+AGPLv3; [section 13 of that license](https://www.gnu.org/licenses/agpl-3.0.html#section13) permits a
+combined work. GPLv3 still governs the qrpTracker code, while AGPLv3's network-source rule applies
+to the combination. Any import must keep qrpTracker's copyright and license notices, identify
+modifications, and provide its corresponding source. Compatibility does not relicense qrpTracker
+itself as AGPLv3.
+
+Its calculations use the ATmega328's 32-bit floating-point arithmetic, which limits precision.
+PLAN-13 also needs a trustworthy clock and recent two-line element sets (TLEs), the standard text
+records describing an Earth satellite's orbit. Old TLEs produce increasingly inaccurate positions.
+
+Orbit propagation would improve one input to candidacy scoring. It would not calculate the thrust,
+velocity change, fuel, or energy needed to reach a mission objective. Treating it as a complete
+replacement for the historical score would swap one unsupported physical claim for another.
+
+# Decision, proposed
+
+Use qrpTracker's PLAN-13 implementation as the reference for the first embedded orbit-propagation
+experiment. Limit the experiment to the PLAN-13 calculation. Do not import qrpTracker's radio,
+Morse-signaling, terminal, or EEPROM utilities.
+
+Keep propagation outside the coordination state machine. Add a narrow `OrbitPropagator` interface
+that accepts validated orbital elements and UTC time, then returns the position and direction needed
+to construct a fresh `SatelliteSnapshot`. Continue to use monotonic milliseconds for negotiation
+timeouts. Absolute UTC must not control retries or state-machine timing.
+
+Keep `HistoricalOrbitalScorer` as the default policy while this ADR remains Proposed. The experiment
+may supply it with propagated position, but the public API and documentation must continue to label
+its maneuver-energy calculation as a heuristic.
+
+# Alternatives
+
+## Vendor qrpTracker unchanged
+
+This preserves the exact historical library, but also imports unrelated device code and old Arduino
+APIs. Reject this option. Extracting one explicit dependency boundary makes testing and later
+replacement possible.
+
+## Use GMAT or Orekit on the ground
+
+Both support perturbation models and coordinate systems that make them useful comparison tools.
+Neither runs on the Uno. Ground-side propagation would also make an agent depend on a working ground
+link for its current position, weakening the local autonomy that the swarm experiment is testing.
+
+## Write another orbital model from scratch
+
+New code would avoid an archived dependency, but it would also discard the strongest evidence that
+the calculation fits the target. Reimplementation remains an option after qrpTracker establishes a
+measured baseline.
+
+# Acceptance criteria
+
+Keep this ADR Proposed until the experiment satisfies all of the following:
+
+* Recover the exact source revision and preserve its authorship, GPLv3 license, and modification
+  history.
+* Record the GPLv3 and AGPLv3 obligations for the combined work and keep the required notices and
+  corresponding source with any imported code.
+* Compile the isolated PLAN-13 component with the project's pinned Arduino Uno toolchain.
+* Record the added flash, SRAM, stack, and calculation-time costs alongside the existing firmware
+  size.
+* Define acceptable position error before testing, then compare host and Uno results with GMAT or
+  Orekit across representative low-Earth orbits, pole crossings, date boundaries, and stale TLEs.
+* Reject missing, malformed, or over-age TLEs and unavailable UTC rather than silently scoring from
+  invalid state.
+* Show at least one scenario where propagated position changes candidate ranking for a physically
+  explainable reason.
+* Keep host tests deterministic by injecting orbital elements and UTC rather than reading the wall
+  clock.
+
+# Consequences
+
+Each agent could update its own estimated position on the Uno without a Raspberry Pi or continuous
+ground calculation. The experiment would also establish a measured boundary between orbit
+propagation and maneuver-cost modeling.
+
+The software would gain new failure modes. Clock error, stale orbital elements, floating-point
+precision, and the imported source all affect the score. Passing these acceptance criteria would
+justify propagation as a better input, not validate the scorer for guidance, navigation, control, or
+mission planning.

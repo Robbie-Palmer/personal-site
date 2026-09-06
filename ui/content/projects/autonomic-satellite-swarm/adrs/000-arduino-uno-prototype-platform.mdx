@@ -1,0 +1,56 @@
+---
+title: "ADR 000: Arduino Uno Prototype Platform"
+status: "Accepted"
+date: "2016-07-01"
+tech_stack: ["Arduino"]
+---
+
+# Context
+
+The research needs several independent, programmable agents for a physical CubeSat swarm
+demonstration. Each agent must read sensors, exchange messages, calculate a candidacy score, and
+control a simple actuator. The prototype has to fit a summer internship budget and schedule.
+
+An [Arduino Uno](https://docs.arduino.cc/hardware/uno-rev3) provides enough processing and I/O for
+that job without a general-purpose operating system. It is widely stocked, documented, replaceable,
+and can run from USB or a battery. Its modest processor, memory, and power needs resemble the
+constraints that make embedded spacecraft software interesting.
+
+Arduino also has relevant precedent. The purchasable
+[ArduSat Space Kit](https://web.archive.org/web/20160725193115/http://store.ardusat.com/products/ardusat-space-kit)
+includes an Arduino and the same kinds of sensors sent into orbit on Spire CubeSats. ArduSat put
+Arduino-based CubeSats into orbit in 2013, as recorded by both the
+[Arduino project](https://blog.arduino.cc/2013/08/12/ardusat-successfully-launched-in-space/)
+and a [2014 NASA comparison of Arduino and Raspberry Pi hardware](https://ntrs.nasa.gov/api/citations/20140017620/downloads/20140017620.pdf).
+This is useful precedent for a research prototype, though it does not make an off-the-shelf Uno
+flight-qualified.
+
+ArduSat described itself as the first "open satellite platform." That matters beyond hardware
+choice. An accessible platform lets other people program experiments, inspect how they work,
+and build on the results. It follows my [build-in-public
+philosophy](/projects?tab=philosophy#build-in-public), creates [short feedback
+loops](/projects?tab=philosophy#short-feedback-loops) through external use and scrutiny, and starts a
+[flywheel](/projects?tab=philosophy#build-flywheels) in which shared tools and findings make each
+later experiment cheaper. Choosing a common, open-source board gives this project the same
+possibility instead of making the prototype a closed artifact that only its original author can
+reproduce.
+
+A [Raspberry Pi 3 Model B](https://www.raspberrypi.com/products/raspberry-pi-3-model-b/) has much
+more computing power, memory, storage, and networking. The demonstration does not use that extra
+capacity. A Pi also adds an operating system, removable storage, a longer boot path, and a much larger
+power supply requirement. The smaller microcontroller is a closer match for an always-on agent with
+a bounded job.
+
+# Decision
+
+Build each prototype agent around an Arduino Uno. Keep the workload within its 32 KB of flash, 2 KB
+of SRAM, and 16 MHz ATmega328P rather than selecting a more capable computer pre-emptively.
+
+# Consequences
+
+The boards are inexpensive, easy to replace, and quick to program. The demonstration can use common
+sensors and actuator modules without designing a processor board first.
+
+The Uno's limits are real. Software must conserve memory, avoid operating-system assumptions, and
+keep computation bounded. The prototype does not establish radiation tolerance, thermal fitness,
+component reliability, or flight readiness.

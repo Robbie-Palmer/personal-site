@@ -1,0 +1,37 @@
+---
+title: "ADR 005: Agent Health States for the Apoptosis Demonstration"
+status: "Accepted"
+date: "2016-07-01"
+---
+
+# Context
+
+The research asks whether a CubeSat can withdraw itself when it can no longer contribute safely to
+the swarm. The bench prototype cannot test deorbiting or destruction. It can test whether a node
+stops accepting work after local or peer-observed evidence of a fault.
+
+Not every adverse condition should be permanent. Low light may require a temporary power-saving
+state, while a fatal local fault or repeated communication failure may require withdrawal that
+remains in effect until the board is reset.
+
+# Decision
+
+Represent health with three agent states: alive, asleep, and dead. An asleep agent pauses swarm work
+and may return. A dead agent stops updating and cannot rejoin without a reset.
+
+Use a light sensor to demonstrate reversible sleep. If a dependent agent repeatedly sends a score
+but hears acknowledgements only for other agents, treat that peer evidence as a failed transmitter
+and move the agent to the dead state.
+
+The dead state is the prototype's apoptosis mechanism. It is a software state, not physical damage
+or a deorbit command.
+
+# Consequences
+
+The demonstration can distinguish power conservation from permanent withdrawal and can trigger the
+latter without destroying hardware. Communication behavior becomes part of health evidence instead
+of merely a delivery concern.
+
+The word "dead" is easy to overstate. The evidence thresholds are specific to a three-board demo,
+and a real spacecraft would need reset policy, persistence, independent fault evidence, safe-state
+actuation, and verification of every irreversible action.

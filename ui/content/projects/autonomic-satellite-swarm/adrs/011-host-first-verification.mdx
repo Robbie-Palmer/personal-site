@@ -1,0 +1,31 @@
+---
+title: "ADR 011: Host-First Verification with Firmware Compile Gates"
+status: "Accepted"
+date: "2026-09-04"
+tech_stack: ["Catch2", "GitHub Actions", "CMake", "clang-tidy"]
+supersedes: "autonomic-satellite-swarm:006-host-side-behavior-tests"
+---
+
+# Context
+
+The exact 2016 bench setup, including its three boards, infrared components, sensors, wiring, and
+rover, is no longer available. The Uno R3 itself is neither discontinued nor unsupported: Arduino
+[continues to sell and support it](https://support.arduino.cc/hc/en-us/articles/9350551575964-What-s-the-difference-between-UNO-R3-and-UNO-R4-boards).
+Reconstructing the full setup for every behavioral test would still make the project difficult to
+maintain, while compiling a sketch alone cannot verify electrical, radio, or timing behavior.
+
+# Decision
+
+Put coordination, scoring, and codec behavior under fast host-side Catch2 tests. Add a deterministic
+in-memory three-node simulation for the main negotiation path. Run compiler warnings, clang-tidy
+static analysis, AddressSanitizer, UndefinedBehaviorSanitizer, formatting, spelling, and workflow
+linting in GitHub Actions.
+
+Compile both Arduino reference targets from pinned profiles. Describe those results as compile gates,
+not hardware verification.
+
+# Consequences
+
+Most changes receive quick, reproducible feedback without devices. Adapter API drift is caught by
+cross-compilation. Physical integration risk remains visible and requires a future
+hardware-in-the-loop suite with documented boards, wiring, observations, and failure injection.

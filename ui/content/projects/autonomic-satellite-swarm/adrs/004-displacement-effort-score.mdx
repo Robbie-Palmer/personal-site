@@ -1,0 +1,59 @@
+---
+title: "ADR 004: Displacement-Effort Candidacy Score"
+status: "Accepted"
+date: "2016-07-01"
+---
+
+# Context
+
+The temporary leader needs one comparable value from each candidate. The value should account for
+whether an agent can reach the target and how much of its available energy the maneuver would use.
+The prototype has coordinates and a few physical parameters, but no validated spacecraft model. It
+also has no orbit propagator: software that predicts a spacecraft's future position and velocity
+from its orbit and the passage of time.
+
+Selecting the nearest agent ignores direction of travel and energy reserve. Existing astrodynamics
+approaches offer more physical detail, with different costs:
+
+* [NASA's General Mission Analysis Tool
+  (GMAT)](https://software.nasa.gov/software/GSC-19640-1) supports high-fidelity orbit propagation,
+  maneuvers, optimization, and mission design. It runs on a development or ground computer, not an
+  Uno with 32 KB of flash and 2 KB of SRAM. Using it would produce defensible trajectory and
+  maneuver comparisons, but it would move score calculation off the agents or require a
+  Linux-class onboard computer.
+* [Orekit](https://www.orekit.org/static/apidocs/) provides reusable Java components for time and
+  coordinate systems, orbit propagation, perturbations, maneuvers, and estimation. It offers finer
+  integration than a desktop application, but its Java runtime and supporting data do not fit the
+  Uno. Running it onboard would require a much more capable computer; running it on the ground
+  would make assignment depend on that ground link.
+* [PLAN-13](https://amsat.org/articles/g3ruh/111.html) is a compact satellite-position algorithm
+  originally published in BBC BASIC. A [2009 qrpTracker
+  port](https://forum.arduino.cc/t/a-satellite-tracking-library-for-the-arduino/37403) translated it
+  to C++ for Arduino and ran it on the same ATmega328 processor used by the Uno. Its author reported
+  one position calculation every 10 milliseconds, storage for thirteen satellites, and program
+  space left over. This option already fit the chosen hardware. It would improve position prediction,
+  but it would not plan a maneuver or estimate the energy needed to reach the mission objective.
+
+A more capable board could therefore unlock coordinate-frame conversion, perturbation-aware
+propagation, maneuver comparison, and a score based on estimated velocity change or fuel. It would
+also increase power draw, software footprint, startup complexity, and the amount of work needed to
+integrate and validate the model. That trade is not necessary to test whether three agents can
+negotiate an assignment during the internship.
+
+# Decision
+
+Calculate a score from zero to one hundred using an idealized circular orbit, latitude and longitude
+distance in the direction of travel, an estimated maneuver-energy cost, and the agent's available
+energy. Evaluate the routes with and without a pole crossing and keep the better result.
+
+Send only the final bounded score during negotiation. The leader compares scores without needing to
+know each agent's physical state.
+
+# Consequences
+
+The swarm can demonstrate local evaluation and distributed task assignment with a value small
+enough for the infrared message. The scorer also provides worked examples that can be tested away
+from the hardware.
+
+The formula is a research heuristic. It omits most of orbital mechanics and must not be used for
+guidance, navigation, control, or mission planning.

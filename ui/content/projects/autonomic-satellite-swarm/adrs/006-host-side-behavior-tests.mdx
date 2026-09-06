@@ -1,0 +1,29 @@
+---
+title: "ADR 006: Host-Side Behavior Tests"
+status: "Accepted"
+date: "2021-05-25"
+tech_stack: ["CMake", "Catch2"]
+---
+
+# Context
+
+The prototype is being prepared as a public source artifact. Running every scenario on three Uno
+boards makes failures slow to reproduce and hides the coordination rules inside hardware setup.
+Tests cannot execute on the embedded target with the available test libraries and workflow.
+
+# Decision
+
+Compile the higher-level C++ on Ubuntu with CMake. Describe agent, mission, retry, health, and scoring
+behavior with Catch2 scenarios and FakeIt test doubles.
+
+Put abstract boundaries around communication and countdown timing, with Arduino implementations for
+firmware and standard or fake implementations for the host. Keep low-level infrared and board health
+checks outside the host test claims.
+
+# Consequences
+
+Coordination scenarios run without the physical bench and document expected behavior in executable
+form. The interfaces also expose the first separation between swarm policy and Arduino services.
+
+Host success does not verify the sketch, infrared hardware, memory use, or embedded timing. Vendored
+test headers and a separate CMake graph also need maintenance.

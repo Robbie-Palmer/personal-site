@@ -1,0 +1,38 @@
+---
+title: "ADR 001: C++ for the Embedded Agents"
+status: "Accepted"
+date: "2016-07-01"
+tech_stack: ["C++"]
+---
+
+# Context
+
+Choosing the Arduino Uno constrains the software choice. Arduino sketches and the board's sensor,
+infrared, timing, and actuator libraries are built for its C and C++ toolchain. The implementation
+needs direct hardware access and predictable use of the Uno's 2 KB of SRAM, but the coordination
+logic is complex enough to benefit from types and classes for agents, messages, and swarm state.
+
+C would run on the target but would give up useful language support for those domain boundaries.
+Python and other interpreted languages require a different class of board or an interpreter that
+does not fit the Uno. Rust is young, has no mature Arduino or AVR workflow for this target, and
+cannot use the required Arduino libraries without substantial integration work.
+
+# Decision
+
+Write the agent and swarm software in C++. Use the Arduino framework for board access and existing
+device libraries. Keep the domain logic in ordinary C++ where practical so it can later compile on a
+development computer as well as the Uno.
+
+# Consequences
+
+C++ gives the prototype direct access to the supported Arduino ecosystem and enough structure for
+the state machine and message types. It also leaves memory ownership, integer width, and allocation
+discipline to the programmer. The small target makes mistakes in those areas expensive.
+
+# Status in 2026
+
+Rust is still not a replacement for this target's supported workflow. The current Rust compiler
+lists AVR as a [Tier 3 target](https://doc.rust-lang.org/rustc/platform-support/avr-none.html). It
+requires an external AVR GCC toolchain and the unstable `build-std` feature, and the Rust project
+does not build or test Tier 3 targets automatically. A future board can justify another language,
+but the Uno reference target continues to drive a C++ implementation.

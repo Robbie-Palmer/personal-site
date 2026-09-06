@@ -2,7 +2,7 @@
 title: "Autonomic Satellite Swarm"
 description: "A revived C++ research prototype for fail-safe coordination across hardware-independent satellite-swarm agents"
 date: "2019-07-30"
-updated: "2026-09-05"
+updated: "2026-09-06"
 tech_stack:
   - "C++"
   - "CMake"
@@ -28,8 +28,8 @@ The project explores whether a swarm can assign a temporary mission to the best 
 withdraw an unhealthy agent's permission to participate. It calls that final fail-safe behavior
 "apoptosis", borrowing the biological metaphor of programmed cell death.
 
-In this implementation, apoptosis is a latched **safe-disabled software state**. It does not destroy
-or deorbit a satellite. This is a research prototype, not flight software.
+In this implementation, apoptosis is a **safe-disabled software state** that lasts until reset. It
+does not destroy or deorbit a satellite. This is a research prototype, not flight software.
 
 # Origin
 
@@ -71,7 +71,7 @@ explicit seams while retaining firmware-size checks so the abstraction cost rema
 3. A temporary leader collects bounded responses, acknowledges them, and assigns one node.
 4. Equal scores produce a deterministic result.
 5. Busy nodes do not accept another mission.
-6. Health policy supports reversible quiescence and latched safe-disablement.
+6. Health policy supports reversible quiescence and safe-disablement that lasts until reset.
 7. Communication failures use bounded retries and explicit evidence before safe-disablement.
 8. A versioned codec validates message size, type, coordinate range, score range, byte order, and
    integrity.
@@ -138,11 +138,12 @@ validity remain outside the current evidence boundary.
    reproducible rotation or mission-keyed tie-break where candidates are otherwise equal.
 4. Add a narrow, idempotent platform hook for physical safe-state actions and verify it with fault
    injection before connecting an irreversible actuator.
-5. Run packet-loss, partition, event-storm, and biased-telemetry experiments in a richer simulator.
+5. Run packet-loss, network-partition (communication failure that splits the swarm into disconnected
+   groups), event-storm, and biased-telemetry experiments in a richer simulator.
 6. Evaluate policy changes through replay, independent adversarial review, shadow operation,
    limited canaries, authenticated rollout, and explicit rollback instead of live self-modification.
-7. Research an appropriate open-source astrodynamics stack and define what a defensible mission-cost
-   model would need to prove.
+7. Test the proposed qrpTracker PLAN-13 propagator on the Uno and compare it with GMAT or Orekit.
+   Separately define what a defensible mission-cost model would need to prove.
 8. Select physical boards and radios only when there is a concrete experiment to run.
 9. Add hardware-in-the-loop tests, authenticated messages, persistent identity, and reset recovery
    before treating the system as more than a bench prototype.
