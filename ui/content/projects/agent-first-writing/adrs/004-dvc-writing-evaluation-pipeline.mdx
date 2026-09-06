@@ -34,6 +34,12 @@ metrics to Git. DVC will track the corpus, producer output, matched edits, and
 larger reports. Do not commit raw private writing or generated passages to the
 public repository.
 
+This proposal depends on accepting
+[ADR 003](/projects/agent-first-writing/adrs/003-versioned-suggestion-contract).
+Do not build `run_producers` against a provisional contract. If ADR 003
+changes during review, update this stage design before accepting either the DVC
+pipeline or its locked outputs.
+
 Define these initial stages:
 
 1. `extract_dataset` reads a committed manifest of source paths and Git
@@ -92,6 +98,7 @@ DVC reports fail a specific review need.
 
 Keep this ADR Proposed until the pipeline can:
 
+* use the accepted ADR 003 schema and reject producer output that fails it;
 * reproduce the Vale and GECToR-2024 baselines from a clean checkout and DVC
   pull;
 * prove that a scoring-only change reuses cached producer output;
