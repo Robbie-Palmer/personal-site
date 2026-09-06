@@ -1319,6 +1319,7 @@ describe("recipe API PostgreSQL integration", () => {
     );
     expect(importResponse.status).toBe(202);
     const importJob = await json<{ id: string }>(importResponse);
+    expect(artifactPut).toHaveBeenCalledOnce();
     expect(artifactPut).toHaveBeenCalledWith(
       sourceImageKey(importJob.id, 0, "png"),
       expect.any(File),
