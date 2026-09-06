@@ -4,6 +4,7 @@ import { TimerDock } from "@/components/recipes/timer-dock";
 import { CookModeProvider, useCookMode } from "@/contexts/cook-mode-context";
 import {
   __resetTimerStoreForTests,
+  getTimersSnapshot,
   startTimer,
 } from "@/lib/cooking/timerStore";
 
@@ -12,6 +13,26 @@ function OpenCookModeButton() {
   return (
     <button type="button" onClick={() => setCookModeOpen(true)}>
       Open cook mode
+    </button>
+  );
+}
+
+function EnterStepButton() {
+  const { setCookModeOpen, setActiveStep } = useCookMode();
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        setCookModeOpen(true);
+        setActiveStep({
+          recipeSlug: "pasta",
+          recipeTitle: "Pasta",
+          stepIndex: 4,
+          stepText: "Boil the pasta",
+        });
+      }}
+    >
+      Enter step
     </button>
   );
 }
@@ -148,6 +169,56 @@ describe("TimerDock", () => {
     expect(screen.getByRole("alert")).toHaveTextContent("Time's up for roast.");
     // The completion must not tear down the open popover or discard the label.
     expect(screen.getByPlaceholderText("e.g. pasta")).toHaveValue("pasta");
+  });
+
+  it("binds a dock-started timer to the step cook mode is showing", () => {
+    render(
+      <CookModeProvider>
+        <EnterStepButton />
+        <TimerDock />
+      </CookModeProvider>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Enter step" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add a custom timer" }));
+    fireEvent.click(screen.getByRole("button", { name: "Start timer" }));
+
+    expect(getTimersSnapshot()).toEqual([
+      expect.objectContaining({
+        recipeSlug: "pasta",
+        recipeTitle: "Pasta",
+        stepIndex: 4,
+        stepText: "Boil the pasta",
+      }),
+    ]);
+  });
+
+  it("binds a collapsed-dock timer to the current step", () => {
+    startTimer({
+      id: "existing-timer",
+      label: "existing",
+      durationSeconds: 600,
+    });
+    render(
+      <CookModeProvider>
+        <EnterStepButton />
+        <TimerDock />
+      </CookModeProvider>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Enter step" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add a custom timer" }));
+    fireEvent.click(screen.getByRole("button", { name: "Start timer" }));
+
+    expect(getTimersSnapshot()).toContainEqual(
+      expect.objectContaining({
+        id: expect.stringMatching(/^custom:/),
+        recipeSlug: "pasta",
+        recipeTitle: "Pasta",
+        stepIndex: 4,
+        stepText: "Boil the pasta",
+      }),
+    );
   });
 
   it("resets a dragged position after the last timer is dismissed", () => {
