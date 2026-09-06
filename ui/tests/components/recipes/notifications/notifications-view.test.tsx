@@ -111,6 +111,18 @@ describe("NotificationsView", () => {
     expect(mocks.updateNotification).not.toHaveBeenCalled();
   });
 
+  it("shows the initial notification load error", async () => {
+    mocks.getNotificationPage.mockRejectedValue(
+      new Error("Notification service unavailable"),
+    );
+
+    renderNotifications();
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Notification service unavailable",
+    );
+  });
+
   it("adds a recommended recipe to the recipe box", async () => {
     const recommendation = {
       id: "notification-recipe-1",

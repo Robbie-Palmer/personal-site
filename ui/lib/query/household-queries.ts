@@ -1,4 +1,5 @@
 import { queryOptions } from "@tanstack/react-query";
+import { errorMessage } from "ts-base/errors";
 import {
   getHouseholdInvitations,
   getHouseholdMembers,
@@ -18,10 +19,6 @@ export type HouseholdSettingsData = {
   incoming: IncomingHouseholdInvitation[];
   detailError: string | null;
 };
-
-function errorMessage(error: unknown, fallback: string) {
-  return error instanceof Error ? error.message : fallback;
-}
 
 function fulfilledValue<T>(result: PromiseSettledResult<T>, fallback: T): T {
   return result.status === "fulfilled" ? result.value : fallback;

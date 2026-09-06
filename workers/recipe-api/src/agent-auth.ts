@@ -8,6 +8,7 @@ import { APIError } from "better-auth";
 import { and, desc, eq, ilike, inArray, or, type SQL } from "drizzle-orm";
 import type { Db } from "recipe-db";
 import * as schema from "recipe-db/schema";
+import { RECIPE_VISIBILITIES } from "recipe-domain/visibility";
 import { z } from "zod";
 import {
   cookingInsightsResponse,
@@ -144,7 +145,7 @@ const recipeSummarySchema = {
     slug: { type: "string" },
     title: { type: "string" },
     description: { type: ["string", "null"] },
-    visibility: { enum: ["public", "private", "household"] },
+    visibility: { enum: RECIPE_VISIBILITIES },
     owned: { type: "boolean" },
     updatedAt: { type: "string", format: "date-time" },
   },

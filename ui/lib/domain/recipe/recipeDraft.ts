@@ -3,6 +3,7 @@ import {
   type SavedRecipePayload,
   SavedRecipePayloadSchema,
 } from "recipe-domain/serialization";
+import type { RecipeVisibility } from "recipe-domain/visibility";
 import { buildRecipeContentFromParsed } from "@/lib/domain/recipe/cooklangTransform";
 import { resolveDisplayedIngredientSlug } from "@/lib/domain/recipe/ingredientIdentity";
 import {
@@ -33,7 +34,7 @@ export type SavedRecipeApiRecord = {
   title: string;
   description: string | null;
   body: string | null;
-  visibility: "public" | "private" | "household";
+  visibility: RecipeVisibility;
   createdAt: string;
   updatedAt: string;
   owned?: boolean;

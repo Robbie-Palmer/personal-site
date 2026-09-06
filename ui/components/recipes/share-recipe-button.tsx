@@ -1,5 +1,6 @@
 "use client";
 
+import { isAbortError } from "browser-base/errors";
 import { Share2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -19,7 +20,7 @@ export function ShareRecipeButton({
         await navigator.share({ title: recipeTitle, url });
         return;
       } catch (error) {
-        if (error instanceof DOMException && error.name === "AbortError") {
+        if (isAbortError(error)) {
           return;
         }
       }

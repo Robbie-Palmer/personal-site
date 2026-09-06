@@ -6,9 +6,9 @@ import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect } from "react";
 import { isRecipeSlug, recipeSlugFromPathname } from "recipe-domain/slugs";
+import { errorMessage } from "ts-base/errors";
 import { RecipeContent } from "@/components/recipes/recipe-content";
 import {
-  errorMessage,
   RecipeLoadError,
   RecipeLoading,
   RecipeQueryStatus,

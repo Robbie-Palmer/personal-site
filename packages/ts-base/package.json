@@ -1,0 +1,22 @@
+{
+  "name": "ts-base",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Dependency-free TypeScript extensions to JavaScript and web-standard APIs",
+  "type": "module",
+  "exports": {
+    "./errors": "./src/errors.ts",
+    "./records": "./src/records.ts",
+    "./urls": "./src/urls.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage"
+  },
+  "devDependencies": {
+    "@vitest/coverage-v8": "^4.1.10",
+    "typescript": "^6.0.0",
+    "vitest": "^4.0.0"
+  }
+}

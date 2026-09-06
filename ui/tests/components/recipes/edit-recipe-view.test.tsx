@@ -25,10 +25,6 @@ vi.mock("@/components/recipes/recipe-auth-required", () => ({
 }));
 
 import { EditRecipeView } from "@/components/recipes/edit-recipe-view";
-import {
-  errorMessage,
-  isAbortError,
-} from "@/components/recipes/recipe-load-state";
 
 const originalFetch = globalThis.fetch;
 
@@ -133,14 +129,5 @@ describe("EditRecipeView", () => {
     expect(
       await screen.findByText("The recipe could not be loaded."),
     ).toBeInTheDocument();
-  });
-});
-
-describe("recipe load errors", () => {
-  it("recognizes aborts and preserves ordinary error messages", () => {
-    expect(isAbortError(new DOMException("Aborted", "AbortError"))).toBe(true);
-    expect(isAbortError(new Error("Other"))).toBe(false);
-    expect(errorMessage(new Error("Specific"), "Fallback")).toBe("Specific");
-    expect(errorMessage("unexpected", "Fallback")).toBe("Fallback");
   });
 });

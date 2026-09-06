@@ -1,6 +1,7 @@
 "use client";
 
 import { useQueryClient } from "@tanstack/react-query";
+import { isAbortError } from "browser-base/errors";
 import { Bell, LoaderCircle, Lock, X } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
@@ -142,7 +143,7 @@ export function NotificationsView() {
       setUnreadCount(page.unreadCount);
       setLoadedUserId(userId);
     } catch (cause) {
-      if (!(cause instanceof DOMException && cause.name === "AbortError")) {
+      if (!isAbortError(cause)) {
         setLoadedUserId(userId);
         setError(
           cause instanceof Error

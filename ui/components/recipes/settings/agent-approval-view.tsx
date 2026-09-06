@@ -1,5 +1,6 @@
 "use client";
 
+import { isAbortError } from "browser-base/errors";
 import { Bot, Check, LoaderCircle, Lock, X } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -73,13 +74,11 @@ export function AgentApprovalView() {
           );
           if (!controller.signal.aborted) setHost(loadedHost);
         } catch (cause) {
-          if (cause instanceof DOMException && cause.name === "AbortError")
-            return;
+          if (isAbortError(cause)) return;
           if (!controller.signal.aborted) setHost(null);
         }
       } catch (cause) {
-        if (cause instanceof DOMException && cause.name === "AbortError")
-          return;
+        if (isAbortError(cause)) return;
         setError(
           cause instanceof Error
             ? cause.message

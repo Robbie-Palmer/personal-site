@@ -37,6 +37,7 @@ import {
   LOWERCASE_KEBAB_CASE_PATTERN,
   RECIPE_SLUG_MAX_LENGTH,
 } from "recipe-domain/slugs";
+import { RecipeVisibilitySchema } from "recipe-domain/visibility";
 import { parseRecipeFile } from "recipe-parsing/recipe-file";
 import { parseSchemaOrgRecipeHtml } from "recipe-parsing/schema-org";
 import { recipeAgentConfiguration } from "./agent-auth";
@@ -191,7 +192,6 @@ const recipeSlugSchema = z
       "Slug must use lowercase letters, numbers, and single hyphens between words",
   });
 
-const recipeVisibilitySchema = z.enum(["public", "private", "household"]);
 const creatableRecipeSlugSchema = recipeSlugSchema.refine(
   (slug) => !isRecipeAppRouteSlug(slug),
   { message: "Slug is reserved for a recipe application route" },
@@ -354,7 +354,7 @@ const createRecipeBodySchema = z.object({
   title: z.string().trim().min(1).max(120),
   description: z.string().trim().min(1).max(500).optional(),
   body: savedRecipeBodySchema,
-  visibility: recipeVisibilitySchema.default("private"),
+  visibility: RecipeVisibilitySchema.default("private"),
 });
 
 const importRecipeUrlBodySchema = z
@@ -388,7 +388,7 @@ const updateRecipeBodySchema = z
     title: z.string().trim().min(1).max(120).optional(),
     description: z.string().trim().min(1).max(500).nullable().optional(),
     body: savedRecipeBodySchema.nullable().optional(),
-    visibility: recipeVisibilitySchema.optional(),
+    visibility: RecipeVisibilitySchema.optional(),
   })
   .strict()
   .refine((body) => Object.keys(body).length > 0, {

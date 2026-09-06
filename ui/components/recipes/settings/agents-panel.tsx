@@ -1,5 +1,6 @@
 "use client";
 
+import { isAbortError } from "browser-base/errors";
 import { Bot, Clock, LoaderCircle, ShieldX } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -40,7 +41,7 @@ export function AgentsPanel() {
     try {
       setAgents(await listAgents(signal));
     } catch (cause) {
-      if (cause instanceof DOMException && cause.name === "AbortError") return;
+      if (isAbortError(cause)) return;
       setError(
         cause instanceof Error ? cause.message : "Agents could not be loaded.",
       );

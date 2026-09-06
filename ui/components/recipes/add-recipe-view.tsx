@@ -1,6 +1,7 @@
 "use client";
 
 import { type QueryClient, useQueryClient } from "@tanstack/react-query";
+import { isAbortError } from "browser-base/errors";
 import {
   AlertCircle,
   ArrowLeft,
@@ -26,6 +27,7 @@ import {
   useRef,
   useState,
 } from "react";
+import type { RecipeVisibility } from "recipe-domain/visibility";
 import {
   PhotoRecipeImport,
   type PhotoRecipeImportDraft,
@@ -58,7 +60,6 @@ Meanwhile, warm @olive oil{2%tbsp} in a #frying pan{}. Add @garlic{2%cloves} and
 Stir in @chopped tomatoes{400%g} and simmer for ~{15%minutes}. Drain the pasta, toss it through the sauce, and serve.`;
 
 type AddMethod = "write" | "url" | "photo" | "file";
-type RecipeVisibility = "private" | "household" | "public";
 
 type ImportedRecipe = {
   title: string;
@@ -319,8 +320,7 @@ export function AddRecipeView({
         }
       })
       .catch((error: unknown) => {
-        if (error instanceof DOMException && error.name === "AbortError")
-          return;
+        if (isAbortError(error)) return;
         setHasHousehold(false);
         if (!visibilityTouchedRef.current) setVisibility("private");
       })

@@ -14,6 +14,7 @@ import {
   X,
 } from "lucide-react";
 import { type FormEvent, useEffect, useRef, useState } from "react";
+import { errorMessage } from "ts-base/errors";
 import { RecipeAvatar } from "@/components/recipes/recipe-avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -59,10 +60,6 @@ function friendlyDate(value: string) {
     month: "short",
     year: "numeric",
   }).format(new Date(value));
-}
-
-function errorMessage(error: unknown, fallback: string) {
-  return error instanceof Error ? error.message : fallback;
 }
 
 function excludeById<T extends { id: string }>(items: T[], id: string): T[] {

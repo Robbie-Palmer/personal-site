@@ -1,4 +1,5 @@
 import { QueryClient, type QueryKey } from "@tanstack/react-query";
+import { isAbortError } from "browser-base/errors";
 import { isApiError } from "@/lib/api/http";
 import { recipeQueryKeys } from "@/lib/query/recipe-query-keys";
 
@@ -8,7 +9,7 @@ export function shouldRetryRecipeRequest(
   failureCount: number,
   error: unknown,
 ): boolean {
-  if (error instanceof DOMException && error.name === "AbortError") {
+  if (isAbortError(error)) {
     return false;
   }
   if (isApiError(error)) {

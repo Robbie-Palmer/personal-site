@@ -3,6 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { SetStateAction } from "react";
 import { useEffect, useState } from "react";
+import { errorMessage } from "ts-base/errors";
 import {
   type DietOptions,
   type DietProfile,
@@ -66,10 +67,6 @@ function editorSaveState(
   if (mutation.isError || loadError) return "error";
   if (mutation.isSuccess) return "saved";
   return "idle";
-}
-
-function errorMessage(error: unknown, fallback: string): string {
-  return error instanceof Error ? error.message : fallback;
 }
 
 export function useDietProfileEditor(): {

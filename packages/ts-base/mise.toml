@@ -1,0 +1,22 @@
+[tasks.install]
+description = "Install ts-base dependencies"
+run = "pnpm install --frozen-lockfile --filter ts-base..."
+
+[tasks.typecheck]
+description = "Typecheck the TypeScript base package"
+depends = ["install"]
+run = "pnpm typecheck"
+
+[tasks.test]
+description = "Test the TypeScript base package"
+depends = ["install"]
+run = "pnpm test"
+
+[tasks."test:coverage"]
+description = "Test the TypeScript base package with coverage"
+depends = ["install"]
+run = "pnpm test:coverage"
+
+[tasks.check]
+description = "Check the TypeScript base package"
+depends = ["typecheck", "test"]
