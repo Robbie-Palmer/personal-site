@@ -4,11 +4,20 @@ import { ApiError } from "@/lib/api/http";
 import {
   clearOtherPrivateRecipeQueries,
   clearPrivateRecipeQueries,
+  createRecipeQueryClient,
   shouldRetryRecipeRequest,
 } from "@/lib/query/recipe-query-client";
 import { recipeQueryKeys } from "@/lib/query/recipe-query-keys";
 
 describe("recipe query policy", () => {
+  it("refreshes stale recipe data when the window regains focus", () => {
+    const queryClient = createRecipeQueryClient();
+
+    expect(queryClient.getDefaultOptions().queries?.refetchOnWindowFocus).toBe(
+      true,
+    );
+  });
+
   it("does not retry deterministic or authorization responses", () => {
     for (const status of [400, 401, 403, 404, 422]) {
       expect(

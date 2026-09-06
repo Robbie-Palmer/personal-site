@@ -13,5 +13,4 @@ export const pantryQuery = (userId: string) =>
     structuralSharing: (current, incoming) =>
       installPantrySnapshot(current as Pantry | undefined, incoming as Pantry),
     staleTime: 15_000,
-    refetchOnWindowFocus: true,
   });
