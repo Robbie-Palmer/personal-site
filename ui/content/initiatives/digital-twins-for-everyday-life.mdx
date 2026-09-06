@@ -1,0 +1,148 @@
+---
+title: "Digital Twins for Everyday Life"
+description: "User-controlled models that remember relevant context, reduce repeated administration, and help the next decision improve on the last"
+date: "2023-05-01"
+updated: "2026-09-06"
+status: "active"
+project_contributions:
+  commercial-knowledge-graph: "Turned emails and receipt photos into structured commercial history, supplying memory for a person's commercial twin."
+  multi-modal-product-search: "Connected a photographed product to current market choices, giving the commercial twin a low-friction view of what the person was considering."
+  chatbot: "Joined personal purchase history with product search behind a conversational layer for shopping decisions."
+  personal-finance-app: "Proposes a financial twin of people, households, ownership, accounts, currencies, transfers, and plans that can replace a fragile spreadsheet."
+  recipe-site: "Builds a food and kitchen twin from recipes, pantry state, household needs, plans, purchases, and cooking outcomes."
+---
+
+# Vision
+
+> Build trustworthy digital twins of everyday life: user-controlled models that remember relevant context, reduce repeated administration, and help the next decision improve on the last.
+
+Industry builds digital twins for machines, factories, supply chains, and other systems whose state merits a
+model. A person's life merits one too. Purchases sit across emails and receipts. Finances span people, accounts,
+currencies, ownership, and future obligations. Food decisions depend on who is eating, what is in the kitchen,
+what worked before, and how much time or energy is available today.
+
+Most software sees one fragment at a time. The person has to remember the rest, enter it again, reconcile
+conflicting records, and translate generic output into a decision that fits their life. They become the database
+and the integration layer.
+
+The aim is to give people an increasingly capable model of their own lives. It can start with one useful problem
+and widen as new records, relationships, and domains make it more helpful. The limit is not an arbitrary product
+boundary or a fear of modelling too much. The model must remain legible, correctable, and under the control of the
+person it represents.
+
+Trust does not require keeping the twin small. It requires keeping power with the person represented. A broad
+twin that its owner can inspect and direct may empower them far more than a dozen narrow products that each hold
+an opaque fragment of their life.
+
+# The shared loop
+
+<Mermaid
+  chart={`flowchart LR
+Reality["Ordinary activity<br/>records, choices and outcomes"] --> Capture["Capture with little extra work"]
+Capture --> Model["Update and expand the personal model"]
+Model --> Decision["Support a decision in context"]
+Decision --> Outcome["Observe what happened next"]
+Outcome --> Model
+`}
+/>
+
+The loop matters more than any particular interface or model. A twin that only collects data becomes another
+dashboard to maintain. A recommendation system that does not remember outcomes keeps guessing from the same
+thin evidence. The useful system closes the loop and makes routine activity improve the next decision.
+
+This is also what makes the data compound. A purchase can improve later product comparisons. Actual balances can
+correct a financial forecast. A completed meal, repeat cook, or abandoned plan can improve the next recipe
+recommendation. The person should not have to create a separate diary for the system to learn.
+
+As the twin grows, connections between domains create new kinds of help. A person could understand how food
+choices affect their health and finances, how work changes their time and travel, or what a house move would mean
+for commuting, spending, routines, and relationships. It could help them coordinate with a household, carry out
+plans, delegate work to agents, and attempt things that would otherwise demand too much time or attention.
+
+# How the projects fit
+
+The three Bestomer projects form the beginnings of a commercial twin. The
+[Commercial Knowledge Graph](/projects/commercial-knowledge-graph) recovered a person's commercial history from
+emails and receipt photos. [Multi-Modal Product Search](/projects/multi-modal-product-search) connected something
+seen in a shop or on a screen to current products and prices with almost no typing. The
+[AI Shopping Assistant](/projects/chatbot) joined that personal history and product search behind an interface
+that could help with a purchase. Together, they connected memory of past commerce, the choice in front of the
+person, and the wider market.
+
+The [Personal Finance App](/projects/personal-finance-app) applies the same idea to financial life. Its twin needs
+to represent individuals, partners, households, ownership, assets, liabilities, currencies, transfers, taxes,
+and plans. It should reconcile forecasts with new observations and answer questions such as whether a household
+is on track. The alternative is a spreadsheet whose owner must keep the model coherent by hand and rebuild its
+logic for every new situation.
+
+The [Recipe Site](/projects/recipe-site) is developing a food and kitchen twin. It connects recipes and their
+lineage with the people eating, dietary constraints, equipment, pantry and freezer state, meal plans, shopping,
+portions, leftovers, and what the household actually cooked. That model can answer what will work tonight rather
+than rank food by generic popularity. Repeats, adaptations, and abandoned plans then make later suggestions more
+useful.
+
+# Toward a connected twin
+
+These projects can become connected parts of a wider twin as they mature. A meal plan can produce a shopping
+need. The commercial model can match that need to products, quantities, prices, and substitutions. A purchase can
+update both household spending and kitchen stock. The meal that reaches the table can update the recipe's history,
+while the financial model can show its real cost within the household's plans.
+
+<Mermaid
+  chart={`flowchart LR
+Food["Food and kitchen model"] -->|shopping need| Commerce["Commercial model"]
+Commerce -->|products, prices and purchases| Food
+Commerce -->|spending and ownership| Finance["Financial model"]
+Finance -->|budget and plans| Food
+`}
+/>
+
+Product categories should not dictate the boundaries of the twin. Money, food, shopping, work, health, the home,
+travel, and learning meet constantly in real decisions. The long-term opportunity is a joined model that can
+reason across those boundaries instead of handing the integration work back to the person.
+
+Domain boundaries still help with architecture, provenance, and permissions. They let the owner understand why
+the food model needs a budget or why the financial model received a supermarket total. Shared identity,
+relationships, and grants can connect the parts while preserving that clarity. People must be able to inspect,
+correct, export, disconnect, and delete the model built about them.
+
+# Principles
+
+## Grow through usefulness
+
+The twin has no fixed ceiling. Add a source, relationship, or part of life when it helps the person understand
+something, make a decision, coordinate with others, or carry out an intention. Coverage without use creates
+administration. Useful connections increase what the person can do.
+
+## Ordinary use should maintain the model
+
+Planning, buying, recording a balance, cooking, adapting, and repeating already produce evidence. The twin should
+learn from those actions instead of asking the person to keep a second administrative record.
+
+## Preserve messy reality
+
+People share homes and accounts unevenly. Products change names. Recipes fork. Data arrives late, currencies
+move, and plans fail. The model should represent ownership, time, lineage, provenance, uncertainty, and correction
+instead of flattening exceptions into one convenient score.
+
+## Work for the person represented
+
+The twin should help its owner make a decision. It should not exploit intimate context to sell the product with
+the highest commission, maximize time in a feed, or make leaving artificially difficult. Portability and clear
+incentives are part of whether the model can be trusted.
+
+## Connect wherever life connects
+
+The food, commercial, and financial products must each solve a useful problem while they mature. They should not
+stay isolated once a real journey crosses their boundaries. The eventual twin should follow the shape of the
+person's life, not the shape of the software market.
+
+# Current direction
+
+The Bestomer work tested the commercial twin through working prototypes. The Recipe Site is the most developed
+current test because it already records household state and real outcomes. The Personal Finance App remains a
+proposal for replacing the spreadsheet that currently holds its model.
+
+The next proof is not the number of facts collected. It is whether each project removes work from the person's
+head and makes a recurring decision better. The wider ambition is for those projects to join into a twin that
+understands more of the person's life and gives them a greater capacity to act without taking control away.
