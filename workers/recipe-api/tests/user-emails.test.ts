@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
-import { verifiedEmailsFromLinkedAccount } from "../src/user-emails";
+import type { Db } from "recipe-db";
+import {
+  syncCanonicalUserEmail,
+  verifiedEmailsFromLinkedAccount,
+} from "../src/user-emails";
 
 function googleIdToken(payload: Record<string, unknown>): string {
   const encoded = btoa(JSON.stringify(payload))
@@ -8,6 +12,69 @@ function googleIdToken(payload: Record<string, unknown>): string {
     .replace(/=+$/, "");
   return `header.${encoded}.signature`;
 }
+
+function canonicalEmailDb(registeredUserId?: string) {
+  const returning = vi
+    .fn()
+    .mockResolvedValue(registeredUserId ? [{ userId: registeredUserId }] : []);
+  const onConflictDoUpdate = vi.fn(() => ({ returning }));
+  const values = vi.fn(() => ({ onConflictDoUpdate }));
+  const insert = vi.fn(() => ({ values }));
+  const where = vi.fn().mockResolvedValue([]);
+  const set = vi.fn(() => ({ where }));
+  const update = vi.fn(() => ({ set }));
+  const transaction = vi.fn(async (operation: (tx: unknown) => unknown) =>
+    operation({ insert, update }),
+  );
+  return {
+    db: { transaction } as unknown as Db,
+    insert,
+    onConflictDoUpdate,
+    returning,
+    transaction,
+    update,
+    values,
+  };
+}
+
+describe("canonical user email", () => {
+  it("upserts the canonical address before clearing the old primary", async () => {
+    const fake = canonicalEmailDb("user-1");
+
+    await syncCanonicalUserEmail(fake.db, {
+      id: "user-1",
+      email: "New@Example.test",
+      emailVerified: true,
+    });
+
+    expect(fake.transaction).toHaveBeenCalledTimes(1);
+    expect(fake.values).toHaveBeenCalledWith({
+      email: "new@example.test",
+      userId: "user-1",
+      verified: true,
+      isPrimary: true,
+    });
+    expect(fake.onConflictDoUpdate).toHaveBeenCalledOnce();
+    expect(fake.update).toHaveBeenCalledOnce();
+    expect(fake.returning.mock.invocationCallOrder[0]).toBeLessThan(
+      fake.update.mock.invocationCallOrder[0] ?? Number.POSITIVE_INFINITY,
+    );
+  });
+
+  it("does not clear the old primary when another user owns the address", async () => {
+    const fake = canonicalEmailDb();
+
+    await expect(
+      syncCanonicalUserEmail(fake.db, {
+        id: "user-1",
+        email: "claimed@example.test",
+        emailVerified: true,
+      }),
+    ).rejects.toThrow("Canonical email is already owned by another account");
+
+    expect(fake.update).not.toHaveBeenCalled();
+  });
+});
 
 describe("linked account emails", () => {
   it("reads a verified email from a Google ID token", async () => {

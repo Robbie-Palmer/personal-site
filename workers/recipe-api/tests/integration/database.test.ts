@@ -17,6 +17,7 @@ import {
   decodeCookingLogCursor,
 } from "../../src/cooking-reads";
 import { app, type Bindings } from "../../src/index";
+import { syncCanonicalUserEmail } from "../../src/user-emails";
 
 const databaseURL = process.env.DATABASE_URL;
 if (!databaseURL) throw new Error("DATABASE_URL is required for integration tests");
@@ -185,6 +186,41 @@ afterAll(async () => {
 });
 
 describe("recipe API PostgreSQL integration", () => {
+  it("updates the canonical email atomically", async () => {
+    const cook = await createUser("Email Cook", "first@example.test");
+    const otherCook = await createUser(
+      "Other Email Cook",
+      "claimed@example.test",
+    );
+
+    await syncCanonicalUserEmail(db, {
+      id: cook.id,
+      email: "replacement@example.test",
+      emailVerified: true,
+    });
+
+    await expect(
+      syncCanonicalUserEmail(db, {
+        id: cook.id,
+        email: otherCook.email,
+        emailVerified: true,
+      }),
+    ).rejects.toThrow("Canonical email is already owned by another account");
+
+    const emails = await db
+      .select({
+        email: schema.userEmail.email,
+        isPrimary: schema.userEmail.isPrimary,
+      })
+      .from(schema.userEmail)
+      .where(eq(schema.userEmail.userId, cook.id))
+      .orderBy(schema.userEmail.email);
+    expect(emails).toEqual([
+      { email: "first@example.test", isPrimary: false },
+      { email: "replacement@example.test", isPrimary: true },
+    ]);
+  });
+
   it("reserves each Agent Auth JTI once under concurrent requests", async () => {
     const auth = createAuth(db, baseEnv);
     const storage = auth.options.secondaryStorage;
