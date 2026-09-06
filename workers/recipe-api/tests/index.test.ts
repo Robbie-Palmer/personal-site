@@ -1351,6 +1351,24 @@ const dbMock = vi.hoisted(() => {
 
     if (
       query.includes('from "member"') &&
+      query.includes('left join "organization"')
+    ) {
+      const userId = params[0] as string;
+      return state.members
+        .filter((member) => member.userId === userId)
+        .map((member) => {
+          const organization = state.organizations.find(
+            (candidate) => candidate.id === member.organizationId,
+          );
+          return [
+            organization?.id ?? null,
+            organization?.name ?? null,
+          ];
+        });
+    }
+
+    if (
+      query.includes('from "member"') &&
       query.includes('inner join "organization"')
     ) {
       const userId = params[0] as string;
