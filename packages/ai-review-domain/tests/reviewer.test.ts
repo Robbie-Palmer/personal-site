@@ -86,6 +86,10 @@ test("completion accepts a null finish reason but rejects truncation", () => {
     () => completionContent({ finish_reason: "length", message: { content: "{}" } }, "model"),
     /stopped with length/,
   );
+  assert.throws(
+    () => completionContent({ finish_reason: {}, message: { content: "{}" } }, "model"),
+    /stopped with unknown reason/,
+  );
 });
 
 test("credit exhaustion only matches payment and key-limit failures", () => {
@@ -125,6 +129,7 @@ test("OpenCode model discovery keeps live supplementary scouts and excludes fail
         { id: "laguna-s-2.1-free" },
         { id: "ling-3.0-flash-free" },
         { id: "north-mini-code-free" },
+        { id: { nested: "big-pickle" } },
       ],
     }),
     ["big-pickle", "nemotron-3-ultra-free"],
@@ -327,6 +332,53 @@ test("model payload accepts a single JSON fence but rejects prose", () => {
 test("model text cannot inject HTML, mentions, or markdown links", () => {
   const output = markdownText("<SCRIPT>@owner [click](https://example.com)</SCRIPT>");
   assert.doesNotMatch(output, /<script>|@owner|\[click\]\(/i);
+  assert.equal(markdownText({ unsafe: "object" }), "");
+});
+
+test("review context ignores malformed API scalar values", async () => {
+  vi.spyOn(globalThis, "fetch").mockResolvedValue(Response.json({
+    data: {
+      repository: {
+        pullRequest: {
+          reviews: {
+            nodes: [
+              { author: { login: "alice" } },
+              { author: { login: { unexpected: true } } },
+            ],
+          },
+          reviewThreads: {
+            nodes: [{
+              isResolved: false,
+              isOutdated: true,
+              comments: {
+                nodes: [
+                  { path: "app.ts", line: 4, body: "Review body", author: { login: "bob" } },
+                  { path: {}, line: {}, body: {}, author: { login: {} } },
+                ],
+              },
+            }],
+          },
+        },
+      },
+    },
+  }));
+  const reviewer = new Reviewer({
+    githubToken: "github-token",
+    openRouterKey: "openrouter-key",
+    repository: "Robbie-Palmer/personal-site",
+    prNumber: 837,
+    openRouterScouts: [],
+    openCodeScouts: [],
+    merger: "model-b",
+    ignoredAuthors: [],
+    requireZdr: false,
+  });
+
+  const context = await reviewer.pullRequestReviewContext();
+
+  assert.deepEqual(context.reviewers, ["alice"]);
+  assert.match(context.threads, /THREAD OUTDATED\nbob at app\.ts:4: Review body/);
+  assert.doesNotMatch(context.threads, /\[object Object\]/);
 });
 
 test("rendered comment preserves provenance and cumulative cost", () => {
@@ -360,6 +412,37 @@ test("rendered comment preserves provenance and cumulative cost", () => {
   assert.match(body, /&lt;details&gt;/);
   assert.match(body, /<!-- ai-review-cost:{"runs":2,"total_usd":0.75,"models":/);
   assert.match(body, /\| model-a \| 1 \| 1 \| 1 \| 0 \| 0 \| 0 \| \$0.1000 \|/);
+});
+
+test("summary-only comments describe thread delivery without duplicating findings", () => {
+  const body = renderComment({
+    result: {
+      summary: "Summary",
+      findings: [{
+        ...finding,
+        source_models: ["model-a"],
+        status: "open",
+        resolution_note: "",
+      }],
+    },
+    headSha: "a".repeat(40),
+    models: ["model-a"],
+    merger: "model-b",
+    failed: [],
+    candidateCounts: { "model-a": 1 },
+    invalidCounts: {},
+    outOfScopeCounts: {},
+    modelCosts: {},
+    mergerCost: 0,
+    omitted: [],
+    runCost: 0,
+    previousState: { runs: 0, total_usd: 0 },
+    summaryOnly: true,
+    findingDelivery: { line: 1, fallback: 0 },
+  });
+
+  assert.match(body, /1 open finding\(s\) published as review threads/);
+  assert.doesNotMatch(body, /### HIGH/);
 });
 
 test("historical scorecard schema drift cannot produce NaN", () => {

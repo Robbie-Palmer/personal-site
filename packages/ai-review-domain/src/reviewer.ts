@@ -221,6 +221,19 @@ export const MAX_OPENROUTER_SCOUTS = 6;
 export const MAX_OPENCODE_SCOUTS = 6;
 const HTTP_TIMEOUT_MS = 300_000;
 const RETRIES = 3;
+const RETRYABLE_HTTP_STATUSES = new Set([408, 409, 429, 500, 502, 503, 504]);
+
+interface JsonRequestOptions {
+  query?: Record<string, string | number>;
+  body?: unknown;
+  accept?: string;
+  timeoutMs?: number;
+  retries?: number;
+}
+
+interface CompletedRequest<T> {
+  value: T;
+}
 
 const findingProperties = {
   severity: { type: "string", enum: ["critical", "high", "medium", "low"] },
@@ -319,7 +332,7 @@ export function selectFreeScoutModels(payload: unknown): string[] {
     ...new Set(
       payload.data
         .filter(isObject)
-        .map((model) => String(model.id ?? ""))
+        .flatMap((model) => typeof model.id === "string" ? [model.id] : [])
         .filter(isEligibleFreeScoutModelId),
     ),
   ].slice(0, MAX_OPENCODE_SCOUTS);
@@ -354,6 +367,20 @@ function retryJitter(milliseconds = 1_000): number {
   return ((sample[0] ?? 0) / 2 ** 32) * milliseconds;
 }
 
+function responseRetryDelay(response: Response, attempt: number): number {
+  const retryAfter = Number.parseInt(response.headers.get("retry-after") ?? "", 10);
+  const delay = Number.isFinite(retryAfter) ? retryAfter * 1_000 : 2 ** attempt * 1_000;
+  return Math.min(delay + retryJitter(), 15_000);
+}
+
+function requestError(error: unknown): Error {
+  return error instanceof Error ? error : new Error(String(error));
+}
+
+function shouldStopRetrying(error: Error, attempt: number, retries: number): boolean {
+  return attempt === retries - 1 || /failed \(4\d\d\)/.test(error.message);
+}
+
 export class JsonClient {
   private readonly baseUrl: string;
   private readonly headers: Record<string, string>;
@@ -374,13 +401,7 @@ export class JsonClient {
   async request<T>(
     method: string,
     path: string,
-    options: {
-      query?: Record<string, string | number>;
-      body?: unknown;
-      accept?: string;
-      timeoutMs?: number;
-      retries?: number;
-    } = {},
+    options: JsonRequestOptions = {},
   ): Promise<T> {
     const retries = options.retries ?? this.retries;
     const url = new URL(`${this.baseUrl.replace(/\/$/, "")}${path}`);
@@ -388,31 +409,41 @@ export class JsonClient {
     let lastError: Error | undefined;
     for (let attempt = 0; attempt < retries; attempt += 1) {
       try {
-        const response = await fetch(url, {
-          method,
-          headers: { ...this.headers, ...(options.accept ? { Accept: options.accept } : {}) },
-          body: options.body === undefined ? undefined : JSON.stringify(options.body),
-          signal: AbortSignal.timeout(options.timeoutMs ?? this.timeoutMs),
-        });
-        if (response.ok) {
-          const raw = await response.text();
-          return (raw ? JSON.parse(raw) : undefined) as T;
-        }
-        const detail = (await response.text()).slice(0, 1_000);
-        const retryable = [408, 409, 429, 500, 502, 503, 504].includes(response.status);
-        if (!retryable || attempt === retries - 1) {
-          throw new Error(`${method} ${path} failed (${response.status}): ${detail}`);
-        }
-        const retryAfter = Number.parseInt(response.headers.get("retry-after") ?? "", 10);
-        const delay = Number.isFinite(retryAfter) ? retryAfter * 1_000 : 2 ** attempt * 1_000;
-        await sleep(Math.min(delay + retryJitter(), 15_000));
+        const completed = await this.requestOnce<T>(method, path, url, options, attempt, retries);
+        if (completed) return completed.value;
       } catch (error) {
-        lastError = error instanceof Error ? error : new Error(String(error));
-        if (attempt === retries - 1 || /failed \(4\d\d\)/.test(lastError.message)) throw lastError;
+        lastError = requestError(error);
+        if (shouldStopRetrying(lastError, attempt, retries)) throw lastError;
         await sleep(2 ** attempt * 1_000 + retryJitter());
       }
     }
     throw lastError ?? new Error(`${method} ${path} failed`);
+  }
+
+  private async requestOnce<T>(
+    method: string,
+    path: string,
+    url: URL,
+    options: JsonRequestOptions,
+    attempt: number,
+    retries: number,
+  ): Promise<CompletedRequest<T> | undefined> {
+    const response = await fetch(url, {
+      method,
+      headers: { ...this.headers, ...(options.accept ? { Accept: options.accept } : {}) },
+      body: options.body === undefined ? undefined : JSON.stringify(options.body),
+      signal: AbortSignal.timeout(options.timeoutMs ?? this.timeoutMs),
+    });
+    if (response.ok) {
+      const raw = await response.text();
+      return { value: (raw ? JSON.parse(raw) : undefined) as T };
+    }
+    const detail = (await response.text()).slice(0, 1_000);
+    if (!RETRYABLE_HTTP_STATUSES.has(response.status) || attempt === retries - 1) {
+      throw new Error(`${method} ${path} failed (${response.status}): ${detail}`);
+    }
+    await sleep(responseRetryDelay(response, attempt));
+    return undefined;
   }
 }
 
@@ -434,7 +465,8 @@ export function ignored(path: string): boolean {
 }
 
 export function markdownText(value: unknown, limit = 2_000): string {
-  return String(value ?? "")
+  const text = primitiveText(value, "");
+  return text
     .replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g, "")
     .trim()
     .slice(0, limit)
@@ -442,11 +474,23 @@ export function markdownText(value: unknown, limit = 2_000): string {
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;")
     .replaceAll("@", "@\u200b")
-    .replace(/[\\`*_{}\[\]()#!|]/g, "\\$&");
+    .replace(/[\\`*_{}[\]()#!|]/g, String.raw`\$&`);
 }
 
 function isObject(value: unknown): value is JsonObject {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function textValue(value: unknown, fallback = ""): string {
+  return typeof value === "string" ? value : fallback;
+}
+
+function primitiveText(value: unknown, fallback: string): string {
+  if (typeof value === "string") return value;
+  if (typeof value === "number" || typeof value === "boolean" || typeof value === "bigint") {
+    return String(value);
+  }
+  return fallback;
 }
 
 function finiteNumber(value: unknown): number {
@@ -470,7 +514,8 @@ function modelUsage(value: unknown): ModelUsage | undefined {
 
 export function completionContent(choice: JsonObject, model: string): string {
   if (choice.finish_reason != null && choice.finish_reason !== "stop") {
-    throw new Error(`${model} stopped with ${String(choice.finish_reason)}`);
+    const finishReason = typeof choice.finish_reason === "string" ? choice.finish_reason : "unknown reason";
+    throw new Error(`${model} stopped with ${finishReason}`);
   }
   if (!isObject(choice.message) || typeof choice.message.content !== "string") {
     throw new Error(`Invalid message from ${model}`);
@@ -494,6 +539,42 @@ export function parseModelPayload(content: string): JsonObject {
   return parsed;
 }
 
+function hasValidFindingLine(candidate: JsonObject): boolean {
+  return candidate.line === null || (
+    typeof candidate.line === "number" &&
+    Number.isSafeInteger(candidate.line) &&
+    candidate.line > 0
+  );
+}
+
+function hasValidMergedFields(candidate: JsonObject): boolean {
+  if (!Array.isArray(candidate.source_models)) return false;
+  if (candidate.status !== "open" && candidate.status !== "resolved") return false;
+  return candidate.source_models.every((model) => typeof model === "string");
+}
+
+function normalizeFinding(
+  candidate: unknown,
+  required: string[],
+  options: { merged: boolean; allowedFiles?: Set<string> },
+): Finding | MergedFinding | undefined {
+  if (!isObject(candidate) || !required.every((key) => key in candidate)) return undefined;
+  if (
+    typeof candidate.severity !== "string" ||
+    !["critical", "high", "medium", "low"].includes(candidate.severity)
+  ) return undefined;
+  if (typeof candidate.file !== "string") return undefined;
+  if (options.allowedFiles && !options.allowedFiles.has(candidate.file)) return undefined;
+  if (!hasValidFindingLine(candidate)) return undefined;
+  const confidence = Number(candidate.confidence);
+  if (!Number.isFinite(confidence)) return undefined;
+  if (options.merged && !hasValidMergedFields(candidate)) return undefined;
+  return {
+    ...candidate,
+    confidence: Math.min(1, Math.max(0, confidence)),
+  } as Finding | MergedFinding;
+}
+
 export function validateFindings(
   payload: unknown,
   options: { merged: boolean; allowedFiles?: Set<string> },
@@ -512,24 +593,49 @@ export function validateFindings(
   const findings: Array<Finding | MergedFinding> = [];
   const limit = options.merged ? MERGED_FINDINGS_LIMIT : SCOUT_FINDINGS_LIMIT;
   for (const candidate of payload.findings.slice(0, limit)) {
-    if (!isObject(candidate) || !required.every((key) => key in candidate)) continue;
-    if (!["critical", "high", "medium", "low"].includes(String(candidate.severity))) continue;
-    if (typeof candidate.file !== "string" || options.allowedFiles && !options.allowedFiles.has(candidate.file)) continue;
-    if (
-      candidate.line !== null &&
-      (typeof candidate.line !== "number" ||
-        !Number.isSafeInteger(candidate.line) ||
-        candidate.line <= 0)
-    ) continue;
-    const confidence = Number(candidate.confidence);
-    if (!Number.isFinite(confidence)) continue;
-    if (options.merged) {
-      if (!Array.isArray(candidate.source_models) || !["open", "resolved"].includes(String(candidate.status))) continue;
-      if (!candidate.source_models.every((model) => typeof model === "string")) continue;
-    }
-    findings.push({ ...candidate, confidence: Math.min(1, Math.max(0, confidence)) } as Finding | MergedFinding);
+    const finding = normalizeFinding(candidate, required, options);
+    if (finding) findings.push(finding);
   }
   return findings;
+}
+
+function reviewerLogins(reviewConnection: unknown): string[] {
+  if (!isObject(reviewConnection) || !Array.isArray(reviewConnection.nodes)) return [];
+  const logins = reviewConnection.nodes.flatMap((review) => {
+    if (!isObject(review) || !isObject(review.author)) return [];
+    const login = textValue(review.author.login);
+    return login ? [login] : [];
+  });
+  return [...new Set(logins)].sort((left, right) => left.localeCompare(right));
+}
+
+function reviewThreadState(value: JsonObject): "RESOLVED" | "OUTDATED" | "OPEN" {
+  if (value.isResolved === true) return "RESOLVED";
+  if (value.isOutdated === true) return "OUTDATED";
+  return "OPEN";
+}
+
+function reviewCommentLine(comment: JsonObject): string {
+  const author = isObject(comment.author) ? textValue(comment.author.login, "unknown") : "unknown";
+  const path = textValue(comment.path, "?");
+  const line = primitiveText(comment.line, "?");
+  const body = textValue(comment.body).slice(0, 1_500);
+  return `${author} at ${path}:${line}: ${body}`;
+}
+
+function reviewThreadBlock(
+  value: unknown,
+  relevantPaths: ReadonlySet<string> | undefined,
+): string | undefined {
+  if (!isObject(value) || !isObject(value.comments) || !Array.isArray(value.comments.nodes)) {
+    return undefined;
+  }
+  const comments = value.comments.nodes
+    .filter(isObject)
+    .filter((comment) => !relevantPaths || relevantPaths.has(textValue(comment.path)))
+    .map(reviewCommentLine);
+  if (comments.length === 0) return undefined;
+  return `THREAD ${reviewThreadState(value)}\n${comments.join("\n")}\nEND THREAD`;
 }
 
 export class Reviewer {
@@ -639,7 +745,7 @@ export class Reviewer {
       }
       const bytes = Uint8Array.from(
         atob(payload.content.replace(/\s/g, "")),
-        (character) => character.charCodeAt(0),
+        (character) => character.codePointAt(0) ?? 0,
       );
       return new TextDecoder().decode(bytes);
     } catch (error) {
@@ -917,10 +1023,10 @@ export class Reviewer {
     );
     for (const comment of comments) {
       const user = isObject(comment.user) ? comment.user : {};
-      const body = String(comment.body ?? "");
-      if (!botLogins.has(String(user.login)) || !body.includes(marker)) continue;
+      const body = textValue(comment.body);
+      if (!botLogins.has(textValue(user.login)) || !body.includes(marker)) continue;
       const state: ReviewState = { runs: 0, total_usd: 0 };
-      const match = body.match(COST_PATTERN);
+      const match = COST_PATTERN.exec(body);
       if (match) {
         try {
           const stored = JSON.parse(match[1] ?? "{}") as JsonObject;
@@ -960,15 +1066,7 @@ export class Reviewer {
       return { threads: "", reviewers: [] };
     }
     const pullRequest = data.repository.pullRequest;
-    const reviewConnection = pullRequest.reviews;
-    const reviewNodes = isObject(reviewConnection) && Array.isArray(reviewConnection.nodes)
-      ? reviewConnection.nodes
-      : [];
-    const reviewers = [...new Set(reviewNodes.filter(isObject).flatMap((review) => {
-      const author = review.author;
-      if (!isObject(author) || typeof author.login !== "string" || author.login.length === 0) return [];
-      return [author.login];
-    }))].sort((left, right) => left.localeCompare(right));
+    const reviewers = reviewerLogins(pullRequest.reviews);
     const threadConnection = pullRequest.reviewThreads;
     if (!isObject(threadConnection) || !Array.isArray(threadConnection.nodes)) {
       return { threads: "", reviewers };
@@ -976,22 +1074,8 @@ export class Reviewer {
     const blocks: string[] = [];
     let used = 0;
     for (const value of threadConnection.nodes) {
-      if (!isObject(value)) continue;
-      const state = value.isResolved ? "RESOLVED" : value.isOutdated ? "OUTDATED" : "OPEN";
-      const connection = value.comments;
-      const nodes = isObject(connection) && Array.isArray(connection.nodes) ? connection.nodes : [];
-      const comments = nodes
-        .filter(isObject)
-        .filter(
-          (comment) =>
-            !relevantPaths || relevantPaths.has(String(comment.path ?? "")),
-        )
-        .map((comment) => {
-          const author = isObject(comment.author) ? comment.author.login : "unknown";
-          return `${String(author ?? "unknown")} at ${String(comment.path ?? "?")}:${String(comment.line ?? "?")}: ${String(comment.body ?? "").slice(0, 1_500)}`;
-        });
-      if (comments.length === 0) continue;
-      const block = `THREAD ${state}\n${comments.join("\n")}\nEND THREAD`;
+      const block = reviewThreadBlock(value, relevantPaths);
+      if (!block) continue;
       if (used + block.length > MAX_THREAD_CHARS) break;
       blocks.push(block);
       used += block.length;
@@ -1029,7 +1113,7 @@ export function dataPrompt(diff: string, context: string, guidelines: string): s
 <DATA kind=current-file-context>\n${context}\n</DATA>`;
 }
 
-export function renderComment(options: {
+interface RenderCommentOptions {
   result: JsonObject;
   headSha: string;
   models: string[];
@@ -1047,19 +1131,24 @@ export function renderComment(options: {
   heading?: string;
   summaryOnly?: boolean;
   findingDelivery?: { line: number; fallback: number };
-}): string {
-  const findings = validateFindings(options.result, { merged: true }) as MergedFinding[];
-  const severityOrder: Record<Severity, number> = { critical: 0, high: 1, medium: 2, low: 3 };
-  findings.sort((left, right) =>
-    severityOrder[left.severity] - severityOrder[right.severity] ||
-    left.file.localeCompare(right.file) ||
-    (left.line ?? 0) - (right.line ?? 0),
-  );
-  const open = findings.filter((finding) => finding.status === "open");
-  const resolved = findings.filter((finding) => finding.status === "resolved");
-  const total = finiteNumber(options.previousState.total_usd) + options.runCost;
-  const runs = finiteNumber(options.previousState.runs) + 1;
-  const modelStats = { ...(options.previousState.models ?? {}) };
+}
+
+function findingLocation(finding: MergedFinding): string {
+  const file = finding.file.slice(0, 500);
+  return finding.line && finding.line > 0
+    ? `${file}:${finding.line}`
+    : file;
+}
+
+function markdownCode(value: string, limit = 2_000): string {
+  return `\`${markdownText(value, limit)}\``;
+}
+
+function updatedModelStats(
+  options: RenderCommentOptions,
+  findings: MergedFinding[],
+): Record<string, ModelStats> {
+  const modelStats: Record<string, ModelStats> = { ...options.previousState.models };
   for (const model of options.models) {
     const previous = modelStats[model] ?? {
       runs: 0,
@@ -1083,58 +1172,71 @@ export function renderComment(options: {
       cost: Number((finiteNumber(previous.cost) + (options.modelCosts[model] ?? 0)).toFixed(6)),
     };
   }
-  const state = JSON.stringify({
-    runs,
-    total_usd: Number(total.toFixed(6)),
-    models: modelStats,
-  }).replaceAll("--", "\\u002d\\u002d");
-  const lines = [
-    options.marker ?? MARKER,
-    `<!-- ai-review-cost:${state} -->`,
-    options.heading ?? "## AI code review",
-    "",
-    markdownText(options.result.summary, 1_000) || "Review complete.",
-    "",
-  ];
-  if (!open.length) {
-    const message =
-      options.failed.length === options.models.length
-        ? "No findings were evaluated because every scout failed."
-        : "No open findings reported.";
+  return modelStats;
+}
+
+function appendFindingSummary(
+  lines: string[],
+  options: RenderCommentOptions,
+  open: MergedFinding[],
+): void {
+  if (open.length === 0) {
+    const message = options.failed.length === options.models.length
+      ? "No findings were evaluated because every scout failed."
+      : "No open findings reported.";
     lines.push(message, "");
   }
-  if (options.summaryOnly && open.length) {
-    const delivery = options.findingDelivery ?? {
-      line: open.length,
-      fallback: 0,
-    };
-    lines.push(
-      `${delivery.line} open finding(s) published as review threads; ${delivery.fallback} shown below because GitHub could not attach them to a diff line.`,
-      "",
-    );
-  }
-  for (const finding of options.summaryOnly ? [] : open) {
-    const location = `${markdownText(finding.file, 500)}${finding.line && finding.line > 0 ? `:${finding.line}` : ""}`;
+  if (!options.summaryOnly || open.length === 0) return;
+  const delivery = options.findingDelivery ?? { line: open.length, fallback: 0 };
+  lines.push(
+    `${delivery.line} open finding(s) published as review threads; ${delivery.fallback} shown below because GitHub could not attach them to a diff line.`,
+    "",
+  );
+}
+
+function appendOpenFindings(
+  lines: string[],
+  findings: MergedFinding[],
+  summaryOnly: boolean | undefined,
+): void {
+  if (summaryOnly) return;
+  for (const finding of findings) {
+    const sources = finding.source_models.map((model) => markdownCode(model, 200)).join(", ");
     lines.push(
       `### ${finding.severity.toUpperCase()}: ${markdownText(finding.title, 300)}`,
       "",
-      `\`${location}\` — ${markdownText(finding.evidence)}`,
+      `${markdownCode(findingLocation(finding))} — ${markdownText(finding.evidence)}`,
       "",
       `Suggested fix: ${markdownText(finding.recommendation)}`,
       "",
-      `Reported by: ${finding.source_models.map((model) => `\`${markdownText(model, 200)}\``).join(", ")} · confidence: ${Math.round(finding.confidence * 100)}%`,
+      `Reported by: ${sources} · confidence: ${Math.round(finding.confidence * 100)}%`,
       "",
     );
   }
-  if (!options.summaryOnly && resolved.length) {
-    lines.push("## Resolved threads", "");
-    for (const finding of resolved) {
-      const location = `${markdownText(finding.file, 500)}${finding.line && finding.line > 0 ? `:${finding.line}` : ""}`;
-      lines.push(`- \`${location}\` — ${markdownText(finding.title, 300)}: ${markdownText(finding.resolution_note, 500)}`, "");
-    }
+}
+
+function appendResolvedFindings(
+  lines: string[],
+  findings: MergedFinding[],
+  summaryOnly: boolean | undefined,
+): void {
+  if (summaryOnly || findings.length === 0) return;
+  lines.push("## Resolved threads", "");
+  for (const finding of findings) {
+    lines.push(
+      `- ${markdownCode(findingLocation(finding))} — ${markdownText(finding.title, 300)}: ${markdownText(finding.resolution_note, 500)}`,
+      "",
+    );
   }
+}
+
+function countSummary(entries: Array<[string, number]>): string {
+  return entries.map(([model, count]) => `${markdownText(model)}: ${count}`).join(", ");
+}
+
+function appendReviewNotices(lines: string[], options: RenderCommentOptions): void {
   if (options.omitted.length) {
-    const shown = options.omitted.slice(0, 20).map((path) => `\`${markdownText(path, 200)}\``).join(", ");
+    const shown = options.omitted.slice(0, 20).map((path) => markdownCode(path, 200)).join(", ");
     const suffix = options.omitted.length > 20 ? ` and ${options.omitted.length - 20} more` : "";
     lines.push(`> Incomplete coverage: omitted ${shown}${suffix}. Split very large PRs for full review.`, "");
   }
@@ -1143,36 +1245,68 @@ export function renderComment(options: {
   }
   const invalid = Object.entries(options.invalidCounts).filter(([, count]) => count > 0);
   if (invalid.length) {
-    lines.push(
-      `> Structurally invalid findings dropped: ${invalid.map(([model, count]) => `${markdownText(model)}: ${count}`).join(", ")}`,
-      "",
-    );
+    lines.push(`> Structurally invalid findings dropped: ${countSummary(invalid)}`, "");
   }
   const outOfScope = Object.entries(options.outOfScopeCounts).filter(([, count]) => count > 0);
   if (outOfScope.length) {
-    lines.push(
-      `> Out-of-diff findings dropped: ${outOfScope.map(([model, count]) => `${markdownText(model)}: ${count}`).join(", ")}`,
-      "",
-    );
+    lines.push(`> Out-of-diff findings dropped: ${countSummary(outOfScope)}`, "");
   }
+}
+
+function scorecardRows(models: string[], modelStats: Record<string, ModelStats>): string[] {
+  return models.map((model) => {
+    const stats = modelStats[model];
+    if (!stats) throw new Error(`Missing scorecard state for ${model}`);
+    return `| ${markdownText(model, 200)} | ${stats.runs} | ${stats.candidates} | ${stats.retained} | ${stats.invalid} | ${stats.outOfScope} | ${stats.failures} | $${stats.cost.toFixed(4)} |`;
+  });
+}
+
+export function renderComment(options: RenderCommentOptions): string {
+  const findings = validateFindings(options.result, { merged: true }) as MergedFinding[];
+  const severityOrder: Record<Severity, number> = { critical: 0, high: 1, medium: 2, low: 3 };
+  findings.sort((left, right) =>
+    severityOrder[left.severity] - severityOrder[right.severity] ||
+    left.file.localeCompare(right.file) ||
+    (left.line ?? 0) - (right.line ?? 0),
+  );
+  const open = findings.filter((finding) => finding.status === "open");
+  const resolved = findings.filter((finding) => finding.status === "resolved");
+  const total = finiteNumber(options.previousState.total_usd) + options.runCost;
+  const runs = finiteNumber(options.previousState.runs) + 1;
+  const modelStats = updatedModelStats(options, findings);
+  const state = JSON.stringify({
+    runs,
+    total_usd: Number(total.toFixed(6)),
+    models: modelStats,
+  }).replaceAll("--", String.raw`\u002d\u002d`);
+  const lines = [
+    options.marker ?? MARKER,
+    `<!-- ai-review-cost:${state} -->`,
+    options.heading ?? "## AI code review",
+    "",
+    markdownText(options.result.summary, 1_000) || "Review complete.",
+    "",
+  ];
+  appendFindingSummary(lines, options, open);
+  appendOpenFindings(lines, open, options.summaryOnly);
+  appendResolvedFindings(lines, resolved, options.summaryOnly);
+  appendReviewNotices(lines, options);
   const candidateSummary = options.models
     .map((model) => `${markdownText(model, 200)}: ${options.candidateCounts[model] ?? 0}`)
     .join(", ");
+  const scoutList = options.models.map((model) => markdownCode(model, 200)).join(", ");
+  const merger = markdownCode(options.merger, 200);
   lines.push(
     "---",
     `Scout candidates: ${candidateSummary}.`,
-    `Head \`${options.headSha.slice(0, 12)}\` · scouts: ${options.models.map((model) => `\`${markdownText(model, 200)}\``).join(", ")} · merger: \`${markdownText(options.merger, 200)}\``,
+    `Head ${markdownCode(options.headSha.slice(0, 12))} · scouts: ${scoutList} · merger: ${merger}`,
     `Cost: $${options.runCost.toFixed(4)} this run; $${total.toFixed(4)} across ${runs} run(s).`,
     "",
     "<details><summary>Model scorecard</summary>",
     "",
     "| Scout | Runs | Candidates | Retained | Invalid | OOD | Failures | Cost |",
     "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
-    ...options.models.map((model) => {
-      const stats = modelStats[model];
-      if (!stats) throw new Error(`Missing scorecard state for ${model}`);
-      return `| ${markdownText(model, 200)} | ${stats.runs} | ${stats.candidates} | ${stats.retained} | ${stats.invalid} | ${stats.outOfScope} | ${stats.failures} | $${stats.cost.toFixed(4)} |`;
-    }),
+    ...scorecardRows(options.models, modelStats),
     "",
     `Merger cost this run: $${options.mergerCost.toFixed(4)}.`,
     "",
