@@ -64,7 +64,10 @@ protection default to enabled; disabling them requires a preceding apply.
 
 1. Plan and apply with one explicit bootstrap SSH CIDR.
 2. Use the `nixos_anywhere_target` output to install the NixOS flake. Do not
-   pass Tailscale, Doppler, or GitHub credentials through Terraform.
+   pass Tailscale, Doppler, or GitHub credentials through Terraform. The
+   installer records the first host key in
+   `~/.ssh/personal-site-remote-development-known_hosts` and preserves that
+   key across installation with `nixos-anywhere --copy-host-keys`.
 3. Supply a one-time tagged Tailscale key directly to the host bootstrap.
 4. Reboot and verify the data mount, Tailscale, and K3s over the tailnet.
 5. Set `bootstrap_mode_enabled` to `false` and `bootstrap_ssh_cidrs` back to
@@ -73,6 +76,13 @@ protection default to enabled; disabling them requires a preceding apply.
 The public IP remains available for outbound connectivity and emergency
 provider-console recovery, but the provider firewall exposes no SSH, t3-code,
 or Kubernetes management port after commissioning.
+
+All remote-development tasks use that dedicated known-hosts file, persist keys
+between runs, and reject a changed key. Override its location with
+`REMOTE_DEVELOPMENT_KNOWN_HOSTS_FILE`. After an intentional server reprovision,
+remove only the obsolete host entry with `ssh-keygen -R <host> -f <file>` and
+confirm the replacement fingerprint through the Hetzner console before the
+next connection.
 
 ## Persistence
 

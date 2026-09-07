@@ -11,6 +11,9 @@ homelab_dir=$(cd -- "${script_dir}/.." && pwd)
 secret_dir=$(mktemp -d)
 secret_file="${secret_dir}/var/lib/remote-development-secrets/data-volume.key"
 
+source "${script_dir}/remote-development-ssh"
+remote_development_prepare_ssh "${target}"
+
 cleanup() {
   if [ -f "${secret_file}" ]; then
     shred --remove "${secret_file}" 2>/dev/null || rm -f "${secret_file}"
@@ -34,7 +37,7 @@ if [ ! -r "${identity_file}" ]; then
   exit 1
 fi
 
-ssh -i "${identity_file}" "${target}" '
+ssh "${REMOTE_DEVELOPMENT_SSH_OPTIONS[@]}" -i "${identity_file}" "${target}" '
   set -eu
   root_disk=/dev/disk/by-path/pci-0000:06:00.0-scsi-0:0:0:0
   data_disk=/dev/disk/by-id/scsi-0HC_Volume_106792547
@@ -66,6 +69,7 @@ docker run --rm \
   -v personal-site-nix-store:/nix \
   -v "${homelab_dir}:/workspace" \
   -v "${identity_file}:/run/remote-development-identity:ro" \
+  -v "${REMOTE_DEVELOPMENT_KNOWN_HOSTS_FILE}:/run/remote-development-known-hosts" \
   -v "${secret_dir}:/run/remote-development-extra-files:ro" \
   -w /workspace \
   "${nix_image}" \
@@ -74,6 +78,7 @@ docker run --rm \
     --target-host "${target}" \
     -i /run/remote-development-identity \
     --extra-files /run/remote-development-extra-files \
-    --ssh-option UserKnownHostsFile=/dev/null \
-    --ssh-option StrictHostKeyChecking=no \
+    --copy-host-keys \
+    --ssh-option UserKnownHostsFile=/run/remote-development-known-hosts \
+    --ssh-option StrictHostKeyChecking=yes \
     --build-on local

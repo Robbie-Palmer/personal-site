@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-image=ghcr.io/robbie-palmer/t3-code:0.0.38-agent-tools-4
-container=personal-site-t3-image-check
+image=ghcr.io/robbie-palmer/t3-code:0.0.38-agent-tools-5
+container="personal-site-t3-image-check-$$"
 
 cleanup() {
   docker stop "${container}" >/dev/null 2>&1 || true

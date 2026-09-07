@@ -5,6 +5,10 @@ target=${REMOTE_DEVELOPMENT_TARGET:-root@188.245.208.107}
 device=/dev/disk/by-id/scsi-0HC_Volume_106792547
 project=homelab
 config=prd_remote_development_host
+script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+
+source "${script_dir}/remote-development-ssh"
+remote_development_prepare_ssh "${target}"
 
 for command in doppler ssh; do
   if ! command -v "${command}" >/dev/null 2>&1; then
@@ -86,6 +90,6 @@ doppler secrets get DATA_VOLUME_LUKS_KEY \
   --config "${config}" \
   --plain \
   | ssh \
-      -o StrictHostKeyChecking=accept-new \
+      "${REMOTE_DEVELOPMENT_SSH_OPTIONS[@]}" \
       "${target}" \
       "${remote_command}"

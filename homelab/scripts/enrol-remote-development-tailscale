@@ -4,6 +4,10 @@ set -euo pipefail
 target=${REMOTE_DEVELOPMENT_TARGET:-root@188.245.208.107}
 project=homelab
 config=prd_remote_development_host
+script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+
+source "${script_dir}/remote-development-ssh"
+remote_development_prepare_ssh "${target}"
 
 if ! doppler secrets get TAILSCALE_AUTH_KEY \
   --project "${project}" \
@@ -39,7 +43,6 @@ doppler secrets get TAILSCALE_AUTH_KEY \
   --config "${config}" \
   --plain \
   | ssh \
-      -o StrictHostKeyChecking=no \
-      -o UserKnownHostsFile=/dev/null \
+      "${REMOTE_DEVELOPMENT_SSH_OPTIONS[@]}" \
       "${target}" \
       "${remote_command}"

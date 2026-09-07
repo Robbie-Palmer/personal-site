@@ -2,6 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: t3-code
+  namespace: t3-code
 spec:
   replicas: 1
   strategy:
@@ -26,7 +27,7 @@ spec:
           type: RuntimeDefault
       initContainers:
         - name: prepare-data-directories
-          image: ghcr.io/robbie-palmer/t3-code:0.0.38-agent-tools-4
+          image: ghcr.io/robbie-palmer/t3-code:0.0.38-agent-tools-5
           command:
             - /bin/sh
             - -eu
@@ -49,6 +50,11 @@ spec:
               drop:
                 - ALL
             readOnlyRootFilesystem: true
+            runAsGroup: 2000
+            runAsNonRoot: true
+            runAsUser: 2000
+            seccompProfile:
+              type: RuntimeDefault
           resources:
             requests:
               cpu: 10m
@@ -63,7 +69,7 @@ spec:
               mountPath: /tmp
       containers:
         - name: t3-code
-          image: ghcr.io/robbie-palmer/t3-code:0.0.38-agent-tools-4
+          image: ghcr.io/robbie-palmer/t3-code:0.0.38-agent-tools-5
           imagePullPolicy: IfNotPresent
           env:
             - name: HOME

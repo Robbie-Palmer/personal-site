@@ -2,8 +2,12 @@
 set -euo pipefail
 
 target=${REMOTE_DEVELOPMENT_TAILNET_TARGET:-root@remote-development}
+script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 
-ssh "${target}" 'bash -se' <<'REMOTE'
+source "${script_dir}/remote-development-ssh"
+remote_development_prepare_ssh "${target}"
+
+ssh "${REMOTE_DEVELOPMENT_SSH_OPTIONS[@]}" "${target}" 'bash -se' <<'REMOTE'
 set -euo pipefail
 test "$(hostname)" = remote-development
 test "$(id -u t3code)" = 2000
