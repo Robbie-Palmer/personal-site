@@ -1,0 +1,63 @@
+[tasks.init]
+description = "Initialize remote-development Terraform"
+run = "bash scripts/doppler-terraform-env terraform init"
+sources = ["*.tf", "**/*.tf", "**/*.tfvars", ".terraform.lock.hcl"]
+outputs = [".terraform/**/*"]
+
+[tasks.format]
+description = "Format remote-development Terraform files (optionally pass files as args)"
+run = """
+#!/usr/bin/env bash
+if [ $# -eq 0 ]; then
+  terraform fmt -recursive .
+else
+  terraform fmt "$@"
+fi
+"""
+
+[tasks."format:check"]
+description = "Check remote-development Terraform formatting"
+run = """
+#!/usr/bin/env bash
+if [ $# -eq 0 ]; then
+  terraform fmt -check -recursive .
+else
+  terraform fmt -check "$@"
+fi
+"""
+
+[tasks.lint]
+description = "Validate remote-development Terraform configuration"
+depends = ["//infra/remote-development:init"]
+run = "terraform validate"
+
+[tasks."lint:tflint"]
+description = "Lint remote-development Terraform with TFLint"
+run = """
+#!/usr/bin/env bash
+# Lints the whole root; ignores file args appended by lint-staged
+tflint --format compact
+"""
+
+[tasks.precommit-lint]
+description = "Validate remote-development Terraform without its backend"
+run = """
+#!/usr/bin/env bash
+bash scripts/doppler-terraform-env terraform init -backend=false > /dev/null || { echo "Terraform init failed" >&2; exit 1; }
+bash scripts/doppler-terraform-env terraform validate
+"""
+
+[tasks.plan]
+description = "Create a saved remote-development Terraform plan"
+depends = ["//infra/remote-development:init"]
+run = "bash scripts/doppler-terraform-env terraform plan -out .planfile"
+outputs = [".planfile"]
+
+[tasks.apply]
+description = "Apply the previously saved remote-development Terraform plan"
+depends = ["//infra/remote-development:init"]
+run = "bash scripts/doppler-terraform-env terraform apply .planfile"
+
+[tasks.check]
+description = "Run all remote-development Terraform checks"
+depends = ["//infra/remote-development:format:check", "//infra/remote-development:lint", "//infra/remote-development:lint:tflint", "//infra/remote-development:plan"]

@@ -22,10 +22,14 @@ jobs:
 
       - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
         with:
+          version: "2026.9.1"
           experimental: true
 
-      - name: Lint infra with TFLint
-        run: mise run //infra:lint:tflint
+      - name: Lint public platform infrastructure with TFLint
+        run: mise run //infra/public-platform:lint:tflint
 
-      - name: Lint infra-bootstrap with TFLint
-        run: mise run //infra-bootstrap:lint:tflint
+      - name: Lint bootstrap infrastructure with TFLint
+        run: mise run //infra/bootstrap:lint:tflint
+
+      - name: Lint remote development infrastructure with TFLint
+        run: mise run //infra/remote-development:lint:tflint

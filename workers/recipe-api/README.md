@@ -102,12 +102,12 @@ Playwright suite covers visible two-browser convergence and reconnect recovery.
 
 Rate limiting is layered, with counters in Postgres.
 
-| Tier                 | Where                                       | Scope                     | Default            |
-| -------------------- | ------------------------------------------- | ------------------------- | ------------------ |
-| Edge (broad)         | `infra/main.tf` Cloudflare rule             | Per IP, `/api/auth/*`     | 20 / 10s           |
-| App auth (default)   | `src/auth.ts` Better Auth `customStorage`   | Per IP, `/api/auth/*`     | 100 / 60s          |
-| App auth (sign-in)   | `src/auth.ts` custom rule                   | Per IP, `/sign-in/social` | 20 / 60s           |
-| Per-account (writes) | `src/index.ts` invite handler               | Per user, invites         | 10 / hour          |
+| Tier                 | Where                                           | Scope                     | Default   |
+| -------------------- | ----------------------------------------------- | ------------------------- | --------- |
+| Edge (broad)         | `infra/public-platform/main.tf` Cloudflare rule | Per IP, `/api/auth/*`     | 20 / 10s  |
+| App auth (default)   | `src/auth.ts` Better Auth `customStorage`       | Per IP, `/api/auth/*`     | 100 / 60s |
+| App auth (sign-in)   | `src/auth.ts` custom rule                       | Per IP, `/sign-in/social` | 20 / 60s  |
+| Per-account (writes) | `src/index.ts` invite handler                   | Per user, invites         | 10 / hour |
 
 The shared limiter lives in `src/http/rate-limit.ts`. It does a single
 `INSERT ... ON CONFLICT` against the `app_rate_limit` table so concurrent

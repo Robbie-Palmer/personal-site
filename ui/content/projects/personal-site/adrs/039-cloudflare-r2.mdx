@@ -24,7 +24,7 @@ Beyond these, there are several natural extensions for a project-oriented person
 
 Use **Cloudflare R2** as the primary object storage layer for the site and its sub-projects.
 
-R2 buckets are provisioned via Terraform in `infra/main.tf` and scoped per use case (e.g. `map-tiles`, `dvc`).
+R2 buckets are provisioned via Terraform in `infra/public-platform/main.tf` and scoped per use case (e.g. `map-tiles`, `dvc`).
 Public buckets are exposed via custom subdomains with Cloudflare Rulesets controlling cache behaviour.
 Private buckets are accessed via S3-compatible API tokens.
 

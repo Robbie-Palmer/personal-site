@@ -82,12 +82,12 @@ application-scoped `Service Auth` policy for the coding-agent identity.
 
 ### 2. Apply Terraform and distribute the agent credential
 
-A push to `main` that touches `infra/**` applies the configuration
+A push to `main` that touches `infra/public-platform/**` applies the configuration
 automatically via the `infra-cd` workflow. To apply by hand (the fallback):
 
 ```bash
-mise run //infra:plan
-mise run //infra:apply
+mise run //infra/public-platform:plan
+mise run //infra/public-platform:apply
 ```
 
 Terraform creates a non-expiring `personal-site-preview-qa-agents` Access

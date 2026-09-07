@@ -177,6 +177,8 @@ known_environments=(
   production-infra
   production-infra-bootstrap
   production-infra-bootstrap-plan
+  production-remote-development-infra
+  production-remote-development-infra-plan
   production-database-backup
   production-ci
   production-ai-review
@@ -199,6 +201,8 @@ sync_requested_env production-site-ui prd_site_ui prd_pages_env
 sync_requested_env production-infra prd_infra
 sync_requested_env production-infra-bootstrap prd_bootstrap_infra
 sync_requested_env production-infra-bootstrap-plan prd_bootstrap_plan
+sync_requested_env production-remote-development-infra homelab/prd_remote_development_infra
+sync_requested_env production-remote-development-infra-plan homelab/prd_remote_development_infra
 sync_requested_env production-database-backup prd_database_backup
 sync_requested_env production-ci prd_ci_repo
 sync_requested_env production-ai-review ai-review/prd

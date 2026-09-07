@@ -6,7 +6,6 @@ on:
       # IaC / config-shaped paths (keep broad enough that new roots are not
       # silently skipped on PRs; weekly schedule is the full-tree backstop)
       - "infra/**"
-      - "infra-bootstrap/**"
       - "**/*.tf"
       - "**/*.tfvars"
       - "**/Dockerfile"
