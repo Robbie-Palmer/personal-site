@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-image=ghcr.io/robbie-palmer/t3-code:0.0.38-agent-tools-3
+image=ghcr.io/robbie-palmer/t3-code:0.0.38-agent-tools-4
 container=personal-site-t3-image-check
 
 cleanup() {
@@ -27,8 +27,7 @@ docker run --rm \
     command -v bwrap chromium git gh lsof t3 >/dev/null
     test "$PUPPETEER_EXECUTABLE_PATH" = /usr/bin/chromium
     test "$PLAYWRIGHT_BROWSERS_PATH" = /data/home/.cache/ms-playwright
-    node /usr/local/lib/t3-code/bootstrap-settings.mjs \
-      /data/home/.t3/userdata/settings.json
+    node /usr/local/lib/t3-code/bootstrap-settings.mjs
     node -e '\''
       const settings = require("/data/home/.t3/userdata/settings.json");
       if (!settings.providers.grok.enabled) process.exit(1);

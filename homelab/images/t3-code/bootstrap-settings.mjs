@@ -8,11 +8,7 @@ import {
 } from "node:fs";
 import { dirname } from "node:path";
 
-const settingsPath = process.argv[2];
-
-if (!settingsPath) {
-  throw new Error("usage: bootstrap-settings.mjs <settings-path>");
-}
+const settingsPath = "/data/home/.t3/userdata/settings.json";
 
 mkdirSync(dirname(settingsPath), { recursive: true });
 

@@ -39,26 +39,38 @@ RUN apt-get update \
       ripgrep \
       tini \
       unzip \
-    && npm install --global \
+    && npm install --global --ignore-scripts \
       "t3@${T3_VERSION}" \
       "@openai/codex@${CODEX_VERSION}" \
       "@anthropic-ai/claude-code@${CLAUDE_CODE_VERSION}" \
       "opencode-ai@${OPENCODE_VERSION}" \
       "@xai-official/grok@${GROK_VERSION}" \
       "pnpm@${PNPM_VERSION}" \
+    && ln --force \
+      /usr/local/lib/node_modules/@anthropic-ai/claude-code/node_modules/@anthropic-ai/claude-code-linux-x64/claude \
+      /usr/local/lib/node_modules/@anthropic-ai/claude-code/bin/claude.exe \
+    && ln --force \
+      /usr/local/lib/node_modules/opencode-ai/node_modules/opencode-linux-x64/bin/opencode \
+      /usr/local/lib/node_modules/opencode-ai/bin/opencode.exe \
+    && ln --force \
+      /usr/local/lib/node_modules/pnpm/node_modules/@pnpm/exe.linux-x64/pnpm \
+      /usr/local/lib/node_modules/pnpm/pnpm \
+    && cd /usr/local/lib/node_modules/t3/node_modules/node-pty \
+    && node /usr/local/lib/node_modules/npm/node_modules/node-gyp/bin/node-gyp.js rebuild \
+    && cd / \
     && npm cache clean --force \
-    && curl --fail --location --silent --show-error \
+    && curl --fail --location --proto '=https' --proto-redir '=https' --silent --show-error \
       "https://github.com/jdx/mise/releases/download/v${MISE_VERSION}/mise-v${MISE_VERSION}-linux-x64.tar.gz" \
       --output /tmp/mise.tar.gz \
     && echo "${MISE_SHA256}  /tmp/mise.tar.gz" | sha256sum --check \
     && tar --extract --gzip --file /tmp/mise.tar.gz --directory /usr/local/bin \
       --strip-components=2 mise/bin/mise \
-    && curl --fail --location --silent --show-error \
+    && curl --fail --location --proto '=https' --proto-redir '=https' --silent --show-error \
       "https://github.com/DopplerHQ/cli/releases/download/${DOPPLER_VERSION}/doppler_${DOPPLER_VERSION}_linux_amd64.tar.gz" \
       --output /tmp/doppler.tar.gz \
     && echo "${DOPPLER_SHA256}  /tmp/doppler.tar.gz" | sha256sum --check \
     && tar --extract --gzip --file /tmp/doppler.tar.gz --directory /usr/local/bin doppler \
-    && curl --fail --location --silent --show-error \
+    && curl --fail --location --proto '=https' --proto-redir '=https' --silent --show-error \
       "https://github.com/errata-ai/vale/releases/download/v${VALE_VERSION}/vale_${VALE_VERSION}_Linux_64-bit.tar.gz" \
       --output /tmp/vale.tar.gz \
     && echo "${VALE_SHA256}  /tmp/vale.tar.gz" | sha256sum --check \
