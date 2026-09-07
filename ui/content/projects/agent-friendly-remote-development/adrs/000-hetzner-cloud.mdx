@@ -117,12 +117,18 @@ capped at the offer's expiry date.
 
 The offers and on-demand prices checked on 7 September 2026 give these results:
 
-| Provider        | Comparison VM and compute price                                                          | Public offer                                                                                                                              | Time funded for one always-on VM                                                                                                                                                    |
-| --------------- | ---------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| AWS             | `m7i-flex.large`, 2 vCPU and 8 GiB, about $83.74 per month                               | New customers receive $100 and can earn another $100. The Free account plan lasts six months; credits expire after 12 months.             | The initial $100 covers about 36 days. Earning the full $200 raises that to about 73 days. Storage, addresses, and traffic use the same credit and would bring those dates forward. |
-| Google Cloud    | `e2-standard-2`, 2 vCPU and 8 GiB, about $63.00 per month                                | Eligible new customers receive $300 for 90 days.                                                                                          | The 90-day expiry caps the run at 90 days, using about $186 of the credit for compute. The continuing free `e2-micro` has only 1 GB of memory.                                      |
-| Microsoft Azure | `B2as_v2`, 2 vCPU and 8 GiB, about $63.07 per month                                      | Eligible new customers receive $200 for 30 days. New customers also receive 750 monthly hours of `B2pts_v2` and `B2ats_v2` for 12 months. | The 30-day expiry caps the run at 30 days, using about $62 of the credit for compute. Both 12-month VM sizes have only 1 GiB of memory.                                             |
-| Oracle Cloud    | `VM.Standard.A1.Flex`, 2 Arm OCPUs and 8 GB, $23.36 per month at published overage rates | New accounts advertise a $300, 30-day trial. Always Free includes 3,000 A1 OCPU-hours and 18,000 GB-hours of memory each month.           | The VM fits inside the monthly Always Free allocation and can continue past the trial while its capacity remains allocated. Oracle may reclaim an idle instance.                    |
+The selected CX33 and IPv4 cost €8.99 per month. The
+[European Central Bank reference rate for 4 September 2026](https://data-api.ecb.europa.eu/service/data/EXR/D.GBP.EUR.SP00.A?startPeriod=2026-09-04\&endPeriod=2026-09-04\&format=csvdata)
+converts that to £7.72, or about £0.254 per day. The last column shows the
+Hetzner bill avoided while each offer funds the comparison VM. Add-on charges
+that shorten the funded time also reduce this saving.
+
+| Provider        | Comparison VM and compute price                                                          | Public offer                                                                                                                              | Time funded for one always-on VM                                                                                                                                                    |                                    Hetzner cost avoided |
+| --------------- | ---------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------: |
+| AWS             | `m7i-flex.large`, 2 vCPU and 8 GiB, about $83.74 per month                               | New customers receive $100 and can earn another $100. The Free account plan lasts six months; credits expire after 12 months.             | The initial $100 covers about 36 days. Earning the full $200 raises that to about 73 days. Storage, addresses, and traffic use the same credit and would bring those dates forward. | About £9 initially or £18 after earning the full credit |
+| Google Cloud    | `e2-standard-2`, 2 vCPU and 8 GiB, about $63.00 per month                                | Eligible new customers receive $300 for 90 days.                                                                                          | The 90-day expiry caps the run at 90 days, using about $186 of the credit for compute. The continuing free `e2-micro` has only 1 GB of memory.                                      |                                               About £23 |
+| Microsoft Azure | `B2as_v2`, 2 vCPU and 8 GiB, about $63.07 per month                                      | Eligible new customers receive $200 for 30 days. New customers also receive 750 monthly hours of `B2pts_v2` and `B2ats_v2` for 12 months. | The 30-day expiry caps the run at 30 days, using about $62 of the credit for compute. Both 12-month VM sizes have only 1 GiB of memory.                                             |                                                About £8 |
+| Oracle Cloud    | `VM.Standard.A1.Flex`, 2 Arm OCPUs and 8 GB, $23.36 per month at published overage rates | New accounts advertise a $300, 30-day trial. Always Free includes 3,000 A1 OCPU-hours and 18,000 GB-hours of memory each month.           | The VM fits inside the monthly Always Free allocation and can continue past the trial while its capacity remains allocated. Oracle may reclaim an idle instance.                    | £7.72 for each month that the free VM remains available |
 
 The recipe site's OAuth project proves that a Google Cloud account exists.
 Google determines trial eligibility from the account's billing and trial
@@ -137,6 +143,10 @@ venture-backed startups, rising to $350,000 for qualifying AI companies.
 Microsoft's Investor Network advertises up to $150,000 for eligible
 partner-backed startups. Approval, company status, funding, prior credits, and
 expiry determine the usable amount.
+
+For this project, savings equal avoided Hetzner spend. One year on the selected
+host costs about £93. Extra credit has value when the project would otherwise
+buy more infrastructure before the award expires.
 
 Compare providers at their recurring post-credit cost. Record an awarded credit
 balance separately as temporary runway. An award that covers the same host for
