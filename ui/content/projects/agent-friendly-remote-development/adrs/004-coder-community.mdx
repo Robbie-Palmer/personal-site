@@ -1,0 +1,87 @@
+---
+title: "ADR 004: Coder Community trial"
+date: "2026-09-06"
+status: "Proposed"
+tech_stack: ["K3s", "PostgreSQL", "T3 Code"]
+---
+
+# Context
+
+[ADR 003](/projects/agent-friendly-remote-development/adrs/003-portable-per-user-workspaces)
+defines a portable per-user workspace. Direct K3s manifests can provide that
+contract. The project would still need to build user accounts, workspace
+ownership, provisioning controls, private application access, health reporting,
+and lifecycle APIs.
+
+[Coder Community](https://coder.com/pricing) is a self-hosted control plane for
+developer workspaces. It can install on Kubernetes with Helm, and its official
+Kubernetes template creates a pod with a persistent volume mounted at
+`/home/coder`. A template can package the T3 Code image, resource limits,
+private endpoint, and workspace volume.
+
+# Decision
+
+Run a one-day comparison between two implementations on the first host:
+
+1. the smallest direct K3s definition that satisfies ADR 003; and
+2. the same workspace managed by Coder Community.
+
+Keep my workspace unchanged during the experiment. Select Coder only if one
+template can create and remove my brother's workspace, preserve his home,
+enforce access and resource limits, and reduce the custom lifecycle code and
+operator work.
+
+# Technical fit
+
+Coder would own user and workspace records, Terraform-based create and delete
+operations, start and stop controls, health reporting, and access through its
+UI, CLI, and API. T3 Code would remain the agent interface inside the
+workspace.
+
+The official Kubernetes installation requires PostgreSQL, which adds a service
+to operate and back up. Run a small PostgreSQL workload in K3s for the
+experiment. A production database location can be decided after the control
+plane itself earns a place.
+
+Coder's tunnels may overlap with the project's Tailscale routing. The test must
+identify which layer owns authentication and the private application URL. A
+pilot user must not need broad operator membership to reach their workspace.
+
+# Licence boundary
+
+Coder Community is licensed under
+[AGPL-3.0](https://github.com/coder/coder/blob/main/LICENSE). If this project
+modifies Coder and lets users interact with that version over a network, it
+must offer those users the corresponding source. That obligation is compatible
+with this repository's AGPL-3.0 licence.
+
+Code in Coder's `enterprise` directory uses a
+[separate licence](https://github.com/coder/coder/blob/main/LICENSE.enterprise).
+The experiment must use Community features and avoid a dependency on separately
+licensed enterprise code.
+
+# Acceptance test
+
+Both implementations must complete the ADR 003 workspace test. Record for each:
+
+* lines and concepts in the versioned workspace definition;
+* manual steps for creation, login, update, recovery, and removal;
+* idle memory and CPU use;
+* new state and backup procedures;
+* the user's authentication and private-routing flow; and
+* failures that require direct cluster or database repair.
+
+Reject Coder if it requires broad operator access, weakens per-user provider
+identity, consumes too much of the 8 GB host at idle, or leaves more lifecycle
+work than it removes.
+
+# Consequences
+
+The experiment gives the project an executable comparison with a mature open
+source control plane. Selecting Coder could remove much of the account and
+lifecycle work. It would also add Coder upgrades, PostgreSQL, template
+maintenance, and another authentication surface.
+
+Selecting direct K3s keeps the first implementation small. The project would
+then own the missing user and workspace lifecycle features and should use the
+experiment record to define that work.

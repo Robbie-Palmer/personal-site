@@ -1,0 +1,183 @@
+---
+title: "ADR 005: Early-cohort pricing"
+date: "2026-09-06"
+status: "Proposed"
+---
+
+# Context
+
+The first paid offer needs to test whether developers value a maintained,
+persistent workspace. Every user brings and pays for their own model-provider
+subscriptions and API keys. The service price covers the workspace,
+availability, onboarding, backup, recovery, and support.
+
+The Hetzner CX33 selected in
+[ADR 000](/projects/agent-friendly-remote-development/adrs/000-hetzner-cloud)
+lists at €8.49 per month in Germany or Finland. One
+[public IPv4](https://docs.hetzner.com/cloud/servers/primary-ips/overview/)
+adds €0.50, producing an €8.99 net host bill before VAT, backup, and paid
+networking or egress add-ons. A second workspace creates no new compute bill
+while the host has spare capacity.
+
+Self-hosting is the cheapest close alternative. A capable user can take the
+open source definitions, rent a low-cost VPS, and operate it. The paid service
+charges for setup, maintenance, recovery, and ongoing availability.
+
+# Decision
+
+Keep the brother pilot free. Use it to test onboarding, isolation, and recovery
+without attaching a commercial experiment to a family relationship.
+
+Offer the first non-family invitees one persistent workspace for **£15 per
+month** with these terms:
+
+* users bring their own model-provider accounts and keys;
+* the invited pilot has no SLA;
+* founder onboarding and support are included;
+* one workspace runs on shared infrastructure with fair-use resource limits;
+  and
+* a user may cancel at any time and receive an export within seven days.
+
+The export includes POSIX workspace files and non-credential home-directory
+state, with at least 10 GiB of export capacity. Before delivery, revoke provider
+sessions and workspace access, then remove tokens, cookies, private keys, and
+other login state from the archive. Delete the hosted copy after the user
+confirms receipt or after 14 days, whichever comes first.
+
+Do not meter active hours while users share a fixed-price server. If the cohort
+exhausts capacity, pause invitations and decide whether existing revenue
+justifies the next server size before buying it.
+
+After three non-family users have each renewed twice, test **£25 per month** for
+the next invitee. Record the quote and response. Do not change existing users'
+prices during this experiment.
+
+# Managed-runtime comparison
+
+The product promises access at any time and continued execution while an agent
+is working. The comparison therefore models one environment running for 730
+hours in a month. Prices exclude tax, egress, model usage, and support.
+
+| Runtime                 | Assumed environment                        |                          Approximate monthly runtime cost |
+| ----------------------- | ------------------------------------------ | --------------------------------------------------------: |
+| Hetzner CX33            | 4 shared vCPU, 8 GB, one public IPv4       |                           €8.99 net in Germany or Finland |
+| Coder Community on CX33 | Existing K3s capacity                      |               Same host bill, plus control-plane overhead |
+| Fly Sprite              | Average 0.6 CPU, 1.5 GB RAM, 10 GB storage |                                 $83.75 if it never sleeps |
+| Daytona                 | 2 vCPU, 4 GiB RAM, 10 GiB storage          |                                                   $121.68 |
+| GitHub Codespaces       | 2 cores, 8 GB, 8 GB storage                | $131.96 list; about $120.60 after a GitHub Free allowance |
+| Modal Sandbox           | 2 vCPU, 4 GiB RAM, 10 GiB volume           |                                             About $174.61 |
+| Ona Core                | 4 vCPU, 16 GB for 730 hours                |            About $183 to $190 from published OCU examples |
+| Runloop Basic           | 2 CPU, 4 GB RAM, 10 GB storage             |                                             About $233.76 |
+
+Sources: [Hetzner server pricing](https://docs.hetzner.com/general/infrastructure-and-availability/price-adjustment/),
+[Hetzner IP pricing](https://docs.hetzner.com/cloud/servers/primary-ips/overview/),
+[Fly pricing](https://fly.io/sprites/),
+[Daytona pricing](https://www.daytona.io/pricing),
+[Codespaces billing](https://docs.github.com/en/billing/concepts/product-billing/github-codespaces),
+[Modal pricing](https://modal.com/pricing),
+[Ona pricing](https://ona.com/pricing/), and
+[Runloop pricing](https://runloop.ai/pricing).
+
+Managed runtimes can be cheaper when they suspend idle environments. The
+service must test that behaviour with T3 Code and unattended agents before
+using sleep assumptions in a savings claim. Fly, for example, counts open TCP
+connections as activity.
+
+# Customer break-even
+
+Using the providers' published rates and the
+[European Central Bank reference rates for 4 September 2026](https://www.ecb.europa.eu/stats/policy_and_exchange_rates/euro_reference_exchange_rates/html/index.en.html),
+£1 was about $1.353. The table shows the monthly active runtime after which the
+fixed workspace price becomes cheaper. Inactive storage remains allocated for
+the whole month where the provider charges for it.
+
+| Alternative              | £15 becomes cheaper after | £25 becomes cheaper after | Assumption                                                                         |
+| ------------------------ | ------------------------: | ------------------------: | ---------------------------------------------------------------------------------- |
+| Runloop Basic            |                  64 hours |                 106 hours | Suspend and resume requires its $250 Pro plan                                      |
+| Ona Core                 |                  81 hours |                 121 hours | Uses the included 80 OCUs, then whole 40-OCU add-on packs                          |
+| Modal Sandbox            |                  82 hours |                 139 hours | A sandbox can live for at most 24 hours                                            |
+| Daytona                  |                 122 hours |                 203 hours | 2 vCPU, 4 GiB RAM, and 10 GiB storage                                              |
+| GitHub Codespaces        |                 173 hours |                 248 hours | Includes 60 runtime hours on a two-core machine from the personal GitHub Free plan |
+| Fly Sprite               |                 176 hours |                 294 hours | Average 0.6 CPU, 1.5 GB RAM, and 10 GB storage while active                        |
+| Self-hosted Hetzner CX33 |                     Never |                     Never | €8.99, about £7.72, before the owner's time and operational risk                   |
+
+The calculation subtracts fixed base or storage fees from the monthly price,
+then divides by the active hourly rate. Fly includes hot storage in its active
+rate; its lower cold-storage rate runs for the full month. Codespaces includes
+the first 60 runtime hours on a two-core machine. Ona rounds up to the next OCU
+pack.
+
+These figures compare published bills under stated assumptions. The products
+differ in isolation, persistence, support, limits, and lifecycle features. A
+customer who uses only a few hours each month may spend less on a usage-based
+service.
+
+At 160 active hours, the estimated bills are about £13.30 for Codespaces,
+£13.68 for Fly, £19.71 for Daytona, £28.81 for Modal, £29.56 for Ona, and
+£37.87 for Runloop. The likely £15 customer uses the workspace throughout the
+working week and wants persistent multi-repository state without server
+maintenance. A £25 offer needs evidence of additional value.
+
+# Economics
+
+Track two measures separately.
+
+Cash contribution:
+
+```text
+cohort revenue
+- infrastructure added because of the cohort
+- payment and currency-conversion fees
+```
+
+Shadow contribution:
+
+```text
+cash contribution
+- allocated existing infrastructure
+- founder onboarding, support, and incident time
+```
+
+Cash contribution catches an immediate loss during discovery. Shadow
+contribution shows whether the service could support a business and which
+manual work needs automation.
+
+If one customer carried the complete €8.99 net host and IPv4 cost, about £7.72,
+a £15 payment would leave £7.28 before tax, fees, backup, and support. Actual
+margin depends on workspace density and the next server size. At
+[Hetzner's June 2026 list prices](https://docs.hetzner.com/general/infrastructure-and-availability/price-adjustment/),
+moving from a CX33 to a CX43 in Germany or Finland adds €7.50 per month before
+tax and networking. Capacity measurements remain necessary because concurrent
+builds and browser sessions may exhaust memory before average CPU becomes the
+constraint.
+
+Keep Work Graph and project-tracker value out of workspace savings claims until
+a user cancels another tracker, chooses this service because of that
+integration, or pays more for it. Promotional credits and free-plan list prices
+do not establish recurring customer savings.
+
+# Review point
+
+Review this decision after two months or three non-family renewals, whichever
+comes later. Record:
+
+* retention at the quoted price;
+* the alternative each user would choose;
+* which users would self-host if the service disappeared;
+* peak concurrent agents, memory pressure, and disk growth;
+* operator minutes per user and their causes; and
+* infrastructure incidents and failed work.
+
+Raise the price when retained users value the service and the next cohort
+accepts the higher amount. Infrastructure savings alone provide no evidence for
+a higher customer price.
+
+# Consequences
+
+The £15 offer tests willingness to pay while the free pilot tests the product
+contract. BYOK keeps volatile model costs outside the service economics, and
+fixed pricing matches the shared host's fixed cost.
+
+Founder labour remains subsidised during discovery. Shared capacity limits the
+number of available places, and a paid pilot creates expectations despite the
+lack of an SLA. Technically capable users may continue to prefer self-hosting.

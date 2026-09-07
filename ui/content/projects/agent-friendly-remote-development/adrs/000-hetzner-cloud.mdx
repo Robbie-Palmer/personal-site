@@ -1,0 +1,132 @@
+---
+title: "ADR 000: Hetzner Cloud"
+date: "2026-09-06"
+status: "Accepted"
+tech_stack: ["Terraform"]
+---
+
+# Context
+
+The project needs a general-purpose Linux server for its first two persistent
+workspaces. The initial target is one always-on machine with at least 8 GB of
+memory in a European region. It must support private access, encrypted backups,
+and later replacement from the repository.
+
+Infrastructure as code is a selection requirement. Coding agents need a
+versioned description they can inspect and change. The same description must
+create a test environment, detect drift, replace a failed server, and remove
+resources. Routine provider-console work would leave part of the recovery
+procedure outside the repository.
+
+This ADR compares general-purpose virtual-machine providers. The shortlist is
+Hetzner Cloud, Hostinger, netcup, OVHcloud, and Oracle Cloud.
+
+# Decision
+
+Use a Hetzner Cloud CX33 for the first host. Manage the provider layer with a
+pinned version of the official `hetznercloud/hcloud` Terraform provider.
+
+The declared provider resources must include the server, SSH keys, primary IP,
+firewall, network, and any attached volume. Host configuration starts after
+Terraform has created those resources. An emergency console change must be
+recorded in code or reverted once service is stable.
+
+Keep encrypted workspace backups independent of Hetzner. Provider snapshots or
+backups may shorten recovery, while the required restore path starts from a new
+server and the versioned project definitions.
+
+# Selection criteria
+
+Apply the criteria in this order:
+
+1. **Declarative lifecycle.** An actively maintained provider can create,
+   update, import, and destroy the VM and its network, firewall, IP, SSH-key,
+   and storage resources without routine console steps.
+2. **Reproducible host bootstrap.** The API and rescue or user-data facilities
+   can install the declared operating system and reach an idempotent second
+   plan.
+3. **Operational fit.** The provider has documented APIs, predictable deletion
+   and billing, suitable European regions, and a credible recovery path.
+4. **Continuity.** Paid capacity has no idle-use reclamation policy.
+5. **Cost.** Compare the full recurring cost among candidates that pass the
+   earlier criteria.
+
+# Provider comparison
+
+The comparison reflects published capabilities on 6 September 2026.
+
+| Provider      | Assessment                                                                                                                                                                                                                                                                                 | Outcome                                                                                                                                                       |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Hetzner Cloud | The official provider covers servers, IPs, networks, firewalls, volumes, snapshots, load balancers, and their attachments. Rescue mode and user data support automated host installation.                                                                                                  | Selected. It covers every resource in the baseline through a simple operating model with a low recurring cost.                                                |
+| OVHcloud      | The official provider can order and reinstall a VPS. VPS coverage remains narrower than the provider's wider public-cloud coverage. Open comprehensive-coverage work describes about 15% of the VPS API as implemented and proposes another 20 resources and 40 data sources.              | Rejected for this project. Important VPS lifecycle operations still depend on incomplete provider coverage or lower-level API and console work.               |
+| Hostinger     | The official provider can create and delete a VPS subscription, inject an SSH key, and run a post-install script. The provider remains in its 0.1 release series, and Hostinger does not accept custom operating-system images.                                                            | Rejected. The provider and custom-host installation path are less mature than Hetzner's. Comparable renewal terms also cost more.                             |
+| netcup        | netcup documents Server Control Panel and REST APIs, custom images, and hourly VPS billing. The community Terraform provider manages parts of an existing server. netcup's public API cannot create or delete the server contract itself.                                                  | Rejected. The lifecycle begins and ends outside Terraform, which prevents a complete create-and-destroy test.                                                 |
+| Oracle Cloud  | Oracle maintains a broad official Terraform provider. Its free Arm capacity may be unavailable in the account's home region, and Oracle may reclaim it after sustained low use. A deployment also requires compartments, virtual cloud networks, subnets, routes, security rules, and IAM. | Rejected for the pilot. Free capacity cannot support an availability promise. A paid deployment adds administration that this one-host service does not need. |
+
+Sources: [Hetzner Terraform server resource](https://registry.terraform.io/providers/hetznercloud/hcloud/latest/docs/resources/server),
+[Hetzner provider releases](https://github.com/hetznercloud/terraform-provider-hcloud/releases),
+[OVHcloud Terraform VPS resource](https://registry.terraform.io/providers/ovh/ovh/latest/docs/resources/vps),
+[OVHcloud provider changelog](https://github.com/ovh/terraform-provider-ovh/blob/master/CHANGELOG.md),
+[OVHcloud VPS coverage issue](https://github.com/ovh/terraform-provider-ovh/issues/1322),
+[Hostinger Terraform VPS resource](https://registry.terraform.io/providers/hostinger/hostinger/latest/docs/resources/vps),
+[Hostinger VPS prices](https://www.hostinger.com/vps-hosting),
+[Hostinger custom-image policy](https://www.hostinger.com/support/8852324-can-you-add-your-own-os-image-to-vps-at-hostinger/),
+[netcup server API documentation](https://www.netcup.com/en/helpcenter/documentation/server),
+[netcup VPS terms](https://www.netcup.com/en/server/vps),
+[community netcup Terraform provider](https://registry.terraform.io/providers/hornc-greedy/netcup/latest/docs),
+[Oracle Terraform provider](https://registry.terraform.io/providers/oracle/oci/latest/docs),
+and [Oracle Always Free limits](https://docs.oracle.com/en-us/iaas/Content/FreeTier/freetier_topic-Always_Free_Resources.htm).
+
+## OVHcloud detail
+
+OVHcloud has an official Terraform provider. Its `ovh_vps` resource appeared in
+April 2024, followed by SSH-key and image-installation fields in July 2025.
+Terraform can order and install a VPS.
+
+The remaining gaps affect operations needed for reproducible recovery. The
+open comprehensive-coverage work lists image discovery, reinstallation,
+snapshots, automated backups, networking, power operations, and existing
+creation fields. A recent fix also addressed a VPS becoming tainted immediately
+after creation. Hetzner exposes the required lifecycle through an established,
+integrated set of resources.
+
+OVHcloud's VPS-2 lists a lower monthly price than a Hetzner CX33 with IPv4 and
+includes a daily backup. That saving does not cover the engineering and
+recovery risk created by the provider gaps. OVHcloud becomes a candidate again
+when comprehensive VPS coverage has landed and passes the acceptance test.
+
+Sources: [OVHcloud VPS prices](https://www.ovhcloud.com/en-ie/vps/unmetered-vps/),
+[Hetzner server prices](https://docs.hetzner.com/general/infrastructure-and-availability/price-adjustment/),
+[Hetzner IP prices](https://docs.hetzner.com/cloud/servers/primary-ips/overview/),
+[initial OVHcloud VPS resource](https://github.com/ovh/terraform-provider-ovh/pull/594),
+[OVHcloud SSH-key and image-installation fields](https://github.com/ovh/terraform-provider-ovh/pull/1015),
+[OVHcloud comprehensive VPS pull request](https://github.com/ovh/terraform-provider-ovh/pull/1323),
+and [OVHcloud post-create state fix](https://github.com/ovh/terraform-provider-ovh/pull/1267).
+
+# Provider acceptance test
+
+A replacement provider must pass this test in a disposable project:
+
+1. Create the network, firewall, SSH key, IP, server, and volume from versioned
+   Terraform or OpenTofu configuration.
+2. Bootstrap the declared host without a provider-console step.
+3. Run a second plan with no unexplained changes.
+4. Restore an encrypted workspace backup and run the standard build and private
+   access checks.
+5. Replace the server while preserving the documented durable state.
+6. Destroy every test resource from code and reconcile the final invoice.
+
+# Consequences
+
+The provider lifecycle is reviewable by people and coding agents, and the first
+host has a low fixed cost. Hetzner-specific Terraform remains necessary at the
+lowest layer. The project also owns host installation, workload operation,
+backup, and recovery. Hetzner charges separately for backups, and a comparable
+OVHcloud VPS may have a lower list price.
+
+# Review point
+
+Review this decision when the service needs a region Hetzner cannot provide,
+the provider fails a recovery exercise, or another provider passes the complete
+acceptance test with materially better cost or reliability. Record a provider
+change in a new ADR after collecting that evidence.
