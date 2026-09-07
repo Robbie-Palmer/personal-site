@@ -78,7 +78,7 @@ describe("initiative page", () => {
     const breadcrumb = screen.getByRole("navigation", { name: "Breadcrumb" });
     expect(
       within(breadcrumb).getByRole("link", { name: "Initiatives" }),
-    ).toHaveAttribute("href", "/projects?tab=initiatives");
+    ).toHaveAttribute("href", "/projects");
     expect(
       screen.getByText(/Improve patient-specific decisions/),
     ).toBeInTheDocument();

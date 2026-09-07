@@ -2,7 +2,7 @@ import { Badge } from "@/components/ui/badge";
 import {
   INITIATIVE_STATUS_CONFIG,
   type InitiativeStatus,
-} from "@/lib/domain/initiative";
+} from "@/lib/domain/initiative/initiative";
 import { cn } from "@/lib/generic/styles";
 
 interface InitiativeStatusBadgeProps {

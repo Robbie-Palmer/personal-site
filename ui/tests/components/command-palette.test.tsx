@@ -173,8 +173,7 @@ describe("CommandPalette", () => {
     expect(screen.queryByText("Active projects")).not.toBeInTheDocument();
   });
 
-  it("marks the initiatives navigation item current on its projects tab", async () => {
-    navigation.search = "tab=initiatives";
+  it("marks the initiatives navigation item current on the default projects tab", async () => {
     render(
       <CommandPaletteProvider>
         <CommandPaletteTrigger />
@@ -191,6 +190,26 @@ describe("CommandPalette", () => {
     const projectsItem = screen.getByText("Projects").closest("[cmdk-item]");
     expect(initiativesItem).toHaveTextContent("Current");
     expect(projectsItem).not.toHaveTextContent("Current");
+  });
+
+  it("marks projects current on the building philosophy tab", async () => {
+    navigation.search = "tab=philosophy";
+    render(
+      <CommandPaletteProvider>
+        <CommandPaletteTrigger />
+      </CommandPaletteProvider>,
+    );
+
+    const trigger = screen.getAllByRole("button", { name: "Search" })[0];
+    if (!trigger) throw new Error("Expected a command-palette trigger");
+    await userEvent.click(trigger);
+
+    const initiativesItem = screen
+      .getByText("Initiatives")
+      .closest("[cmdk-item]");
+    const projectsItem = screen.getByText("Projects").closest("[cmdk-item]");
+    expect(projectsItem).toHaveTextContent("Current");
+    expect(initiativesItem).not.toHaveTextContent("Current");
   });
 
   it("rejects hooks outside the provider", () => {

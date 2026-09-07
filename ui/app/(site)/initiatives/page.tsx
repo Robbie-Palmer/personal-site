@@ -5,7 +5,7 @@ export const metadata: Metadata = {
   title: "Initiatives",
   description:
     "Long-running outcomes that connect several projects and explain why they belong together.",
-  alternates: { canonical: "/projects?tab=initiatives" },
+  alternates: { canonical: "/projects" },
   robots: { follow: true, index: false },
 };
 

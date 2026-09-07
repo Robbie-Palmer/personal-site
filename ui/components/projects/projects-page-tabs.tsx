@@ -19,32 +19,38 @@ export function ProjectsPageTabs({
 
   const requestedTab = searchParams.get("tab");
   const currentTab =
-    requestedTab === "initiatives" || requestedTab === "philosophy"
+    requestedTab === "projects" || requestedTab === "philosophy"
       ? requestedTab
-      : "projects";
+      : "initiatives";
 
   const onTabChange = (value: string) => {
     const params = new URLSearchParams(searchParams.toString());
-    params.set("tab", value);
+    if (value === "initiatives") {
+      params.delete("tab");
+    } else {
+      params.set("tab", value);
+    }
+    const queryString = params.toString();
+    const querySuffix = queryString ? `?${queryString}` : "";
     // Use replace to avoid filling history stack with tab changes,
     // scroll: false to maintain scroll position when switching tabs
-    router.replace(`/projects?${params.toString()}`, { scroll: false });
+    router.replace(`/projects${querySuffix}`, { scroll: false });
   };
 
   return (
     <Tabs value={currentTab} onValueChange={onTabChange} className="w-full">
       <TabsList className="w-full justify-start h-auto p-1 bg-muted rounded-md flex-wrap sm:inline-flex sm:w-auto sm:flex-nowrap">
         <TabsTrigger
-          value="projects"
-          className="flex-1 sm:flex-none sm:w-[150px]"
-        >
-          All Projects
-        </TabsTrigger>
-        <TabsTrigger
           value="initiatives"
           className="flex-1 sm:flex-none sm:w-[150px]"
         >
           Initiatives
+        </TabsTrigger>
+        <TabsTrigger
+          value="projects"
+          className="flex-1 sm:flex-none sm:w-[150px]"
+        >
+          All Projects
         </TabsTrigger>
         <TabsTrigger
           value="philosophy"

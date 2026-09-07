@@ -61,13 +61,13 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
   },
   {
     label: "Projects",
-    href: "/projects",
+    href: "/projects?tab=projects",
     icon: <FolderKanban className="size-4" />,
     keywords: ["projects", "work", "portfolio"],
   },
   {
     label: "Initiatives",
-    href: "/projects?tab=initiatives",
+    href: "/projects",
     icon: <Network className="size-4" />,
     keywords: ["initiatives", "programmes", "strategy", "outcomes"],
   },
@@ -83,6 +83,10 @@ function getActiveNavigationHref(
   pathname: string,
   searchParams: Pick<URLSearchParams, "get">,
 ): string {
+  if (pathname === "/projects" && searchParams.get("tab") === "philosophy") {
+    return "/projects?tab=projects";
+  }
+
   const queryMatch = NAVIGATION_ITEMS.find((item) => {
     const [itemPathname, itemQuery] = item.href.split("?", 2);
     if (itemPathname !== pathname || !itemQuery) return false;

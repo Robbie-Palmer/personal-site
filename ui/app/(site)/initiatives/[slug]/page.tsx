@@ -54,7 +54,7 @@ export default async function InitiativePage({ params }: Readonly<PageProps>) {
         className="mb-8 flex flex-wrap items-center gap-2 text-sm text-muted-foreground"
       >
         <Link
-          href="/projects?tab=initiatives"
+          href="/projects"
           className="hover:underline hover:underline-offset-4"
         >
           Initiatives
