@@ -76,8 +76,8 @@ overlap. Everything else zizmor audits (template injection, dangerous triggers,
 `github-env` injection, artifact credential persistence, excessive permissions)
 is net-new coverage on the most privileged, least-watched part of the repo.
 
-actionlint and zizmor are complementary, not alternatives: actionlint catches
-correctness (a typo'd expression, an invalid `runs-on`) and zizmor catches
+actionlint and zizmor cover different concerns. actionlint catches correctness
+problems such as a mistyped expression or invalid `runs-on`, while zizmor catches
 security. The research consensus on workflow scanners is explicitly to layer a
 fast linter with a broad security scanner rather than pick one.
 

@@ -207,7 +207,7 @@ acknowledgement or rejection creates an outcome immediately.
 When a later review covers the finding's file after its affected hunks change,
 the merger performs a controlled replay of the durable finding against the
 current diff and file context, recording `fixed`, `still-present`, or `uncertain`
-with direct code evidence. Replay is evidence, not adjudication: the coordinator
+with direct code evidence. Replay supplies evidence. The coordinator
 adds a `confirmed-fixed` outcome only after a trusted actor submits
 the top-level fallback `/ai-review confirm-fixed <finding-id> <reason>` for a
 recorded `fixed` replay when no finding thread is available.

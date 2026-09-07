@@ -115,11 +115,11 @@ developer-only. The recipe editor UI is required regardless of format choice.
 
 ### Phase 4: Recipe Ingestion Pipeline
 
-| Feature                   | Status                                                                                                                                                                                                                                                                                                                                                                                |
-| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **AI URL import**         | ✅ **Exceeds**, CookCLI includes AI-powered import from URLs supporting OpenAI, Claude, Gemini, and Ollama as providers. CookCLI is a reference implementation demonstrating the approach; we implement our own equivalent using AI APIs directly with `.cook` as the target output format.                                                                                            |
-| **Photo-to-recipe (OCR)** | 🔧 Not provided, CookCLI handles URL import but not image-to-recipe extraction. Our ML pipeline (`ml-pipelines/recipe-parsing/`) remains essential and is a genuine USP. Handwritten cursive OCR is [unsolved industry-wide](https://flavor365.com/how-to-scan-recipes-the-definitive-2026-guide/). The target output format is `.cook`, giving ML a well-defined schema to generate. |
-| **Open standard / SEO**   | 🔁 Derived view, Cooklang's `.cook` format is open but not schema.org Recipe. We emit schema.org at build time from `cooklang-rs` parsed output. `.cook` and schema.org coexist: one is the content format, the other is the SEO/interoperability view.                                                                                                                               |
+| Feature                   | Status                                                                                                                                                                                                                                                                                                                                                                                  |
+| ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **AI URL import**         | ✅ **Exceeds**, CookCLI includes AI-powered import from URLs supporting OpenAI, Claude, Gemini, and Ollama as providers. CookCLI is a reference implementation demonstrating the approach; we implement our own equivalent using AI APIs directly with `.cook` as the target output format.                                                                                              |
+| **Photo-to-recipe (OCR)** | 🔧 Not provided. CookCLI handles URL import and lacks image-to-recipe extraction. Our ML pipeline (`ml-pipelines/recipe-parsing/`) remains essential and is a genuine USP. Handwritten cursive OCR is [unsolved industry-wide](https://flavor365.com/how-to-scan-recipes-the-definitive-2026-guide/). The target output format is `.cook`, giving ML a well-defined schema to generate. |
+| **Open standard / SEO**   | 🔁 Derived view, Cooklang's `.cook` format is open but not schema.org Recipe. We emit schema.org at build time from `cooklang-rs` parsed output. `.cook` and schema.org coexist: one is the content format, the other is the SEO/interoperability view.                                                                                                                                 |
 
 ### Phase 5: Personalization & Social
 
@@ -131,9 +131,9 @@ developer-only. The recipe editor UI is required regardless of format choice.
 
 ### Phase 6: Nutrition & Intelligence
 
-| Feature                  | Status                                                                                                                                                                                                                                                                                                                                                                                                                        |
-| ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Nutritional analysis** | 🌱 Community-proven but not built in, the spec has no nutritional database, but the community has already built nutrition calculators and diabetes management systems on top of Cooklang's structured ingredient output. This is a well-trodden path: structured quantities and unit-annotated ingredients are the hard part, and Cooklang solves that. Integrating a nutrition API or database on top is the remaining step. |
+| Feature                  | Status                                                                                                                                                                                                                                                                                                                                                                                                   |
+| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Nutritional analysis** | 🌱 Available through community extensions. The spec has no nutritional database, though the community has already built nutrition calculators and diabetes management systems on top of Cooklang's structured ingredient output. Structured quantities and unit-annotated ingredients are the hard part, and Cooklang solves that. Integrating a nutrition API or database on top is the remaining step. |
 
 ### Future Ideas
 
@@ -171,26 +171,26 @@ developer-only. The recipe editor UI is required regardless of format choice.
    YAML frontmatter. Cooklang doesn't standardize these fields, so our frontmatter schema is ours
    to maintain. Community tooling won't handle custom metadata automatically.
 
-6. **No social or collaboration platform**, Cooklang is a file format, not a platform. User
+6. **No social or collaboration platform**. Cooklang defines a file format. User
    accounts, favorites, cooking logs, and recipe fork tracking are entirely outside scope.
 
-7. **Ecosystem breadth is a signal of traction, not a dependency**. The existence of parsers in
+7. **Ecosystem breadth signals traction**. The existence of parsers in
    12+ languages, community nutrition calculators, Obsidian plugins, and custom bots is a positive
    signal: real people found the format useful enough to build on. We don't depend on any of these
    directly, and their quality varies. What we actually depend on is `cooklang-rs` and its WASM
    bindings, both solid and actively maintained. CookCLI is useful as a reference implementation
    but warrants evaluation before hard-depending on specific features. The federated index is
-   nascent. Treat community extensions as validation of format fit, not as production infrastructure.
+   nascent. Community extensions validate the format without becoming production infrastructure.
    Cooklang also ships a native iOS/Android app, but that is irrelevant to us, we wouldn't depend
    on it, and it actively contradicts our web-first/PWA rationale.
 
-8. **Federated search is emerging, not production**. The community recipe index is actively
+8. **Federated search remains experimental**. The community recipe index is actively
    discussed but not a polished discovery mechanism yet.
 
 ## Data Model Note
 
-Cooklang occupies a specific role in our data model, it is the **content format**, not the
-storage layer:
+Cooklang occupies a specific role in our data model as the **content format**. The database owns
+storage:
 
 * **Canonical format**, recipe content is authored and stored as Cooklang syntax
 * **Import / export format**, readable by any Cooklang-compatible tool; portability and
@@ -306,8 +306,8 @@ Storing recipes directly in a database enables dynamic features (UI-based editin
 
 * **Recipe migration**, existing \~18 TypeScript recipe objects need converting to `.cook` format
   plus YAML frontmatter. Manageable at current scale; would be more costly later.
-* **Recipe editor UI is now load-bearing**, `.cook` syntax is not the blocker (it's simple), but
-  the GUI editor is required to onboard non-technical contributors. This was always true; it is now
+* **Recipe editor UI is now load-bearing**. The simple `.cook` syntax still needs
+  a GUI editor to onboard non-technical contributors. This was always true; it is now
   an explicit dependency rather than an implicit one.
 * **Unit conversion tables are ours to own**, metric↔imperial↔cups mapping is not provided by the
   spec. We maintain it; `cooklang-rs` gives us the parsed quantity and unit to plug in.

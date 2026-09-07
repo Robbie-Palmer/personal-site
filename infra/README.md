@@ -46,7 +46,7 @@ Secrets and config mirrored from Doppler:
    - Find at: Cloudflare Dashboard → Images → Delivery URL
    - Example: `AbCdEfGh123` (from `https://imagedelivery.net/AbCdEfGh123/...`)
    - Used to configure Cloudflare Images environment variable for deployments
-   - Note: Not actually sensitive (publicly visible in image URLs), but stored as secret for consistency
+   - Note: Publicly visible in image URLs; stored as a secret for consistency
 4. **`NEON_API_KEY`**
    - Create at: [Neon Console](https://console.neon.tech) → Account Settings → API Keys
    - Used by the Neon Terraform provider to manage database resources
@@ -54,10 +54,9 @@ Secrets and config mirrored from Doppler:
    - Find at: [Neon Console](https://console.neon.tech) → Organization settings
    - Passed as `TF_VAR_neon_org_id`
 6. **`POSTHOG_KEY`**
-   - PostHog project API key (`phc_…`). This is a public, write-only ingestion
-     key, it already ships to browsers via `NEXT_PUBLIC_POSTHOG_KEY`, so it is
-     not secret in the usual sense, but it is sourced from Doppler for
-     single-source-of-truth config management.
+   - PostHog project API key (`phc_…`). This public, write-only ingestion key
+     already ships to browsers via `NEXT_PUBLIC_POSTHOG_KEY`. Source it from
+     Doppler to keep configuration in one place.
    - Mapped to `TF_VAR_posthog_key` (Terraform → Pages Functions and UI) and
      deployed as a secret to both recipe Workers for direct OTLP tracing.
      It is **also** used, outside Terraform's reach, as the auth header on
@@ -93,7 +92,7 @@ Secrets and config mirrored from Doppler:
 12. **`CF_PAGES_PREVIEW_ACCESS_APPLICATION_ID`**
     - Find in: Cloudflare Zero Trust → Access → Applications → the Pages
       preview application → application overview or URL
-    - Mark unmasked in Doppler; it is a resource identifier, not a credential
+    - Mark unmasked in Doppler because it identifies a public resource
     - Passed as `TF_VAR_cloudflare_pages_preview_access_application_id`
 
 ### Required Environment
@@ -324,7 +323,7 @@ finalization.
 
 `posthog_otlp_base_url` selects the regional ingestion origin and defaults to
 `https://eu.i.posthog.com`. Traces go to `/i/v1/traces`; correlated logs go to
-`/i/v1/logs`. Both use the project token, not the PostHog personal API key.
+`/i/v1/logs`. Both authenticate with the project token. Never use the PostHog personal API key.
 
 PostHog distributed tracing is currently alpha. Cloudflare's own tracing/export
 features are also evolving, so keep the direct exporter until Cloudflare lists

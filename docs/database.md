@@ -15,8 +15,8 @@ Production and previews run those migrations before deploying the Worker.
    ```
 
 3. Review both the generated SQL and snapshot. Add explicit SQL for any data
-   backfill required by the new shape. Generated SQL is a starting point, not
-   an automatically approved change.
+   backfill required by the new shape. Treat the generated SQL as a draft that
+   requires approval.
 4. Run the database package and API checks:
 
    ```bash
@@ -32,7 +32,7 @@ Migration files are append-only after they reach `main`. Fix a deployed
 migration with a new migration; editing history makes environments disagree
 about what a recorded hash means.
 
-Use one migration per deployable domain change, not one per table. For example,
+Group each deployable domain change into one migration, even when it spans tables. For example,
 adding a notification subtype and its indexes belongs in one migration. Use an
 expand-and-contract sequence across multiple deployments when old and new
 Worker versions cannot safely share the final schema.
@@ -158,7 +158,7 @@ Then apply the committed history before deploying the Worker:
 mise run //workers/recipe-api:db:migrate
 ```
 
-This reset is a one-time migration cutover, not part of normal CD. Later schema
+Use this reset only for the one-time migration cutover. Later schema
 changes are always expressed as new migrations and migrate forward from the
 history recorded in `drizzle.__drizzle_migrations`.
 

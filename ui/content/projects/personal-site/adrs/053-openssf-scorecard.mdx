@@ -43,10 +43,10 @@ Adopt **OpenSSF Scorecard** via its official GitHub Action:
   digests fresh.
 
 Scorecard is a *meta-check*: it is deliberately **not blocking** on PRs. Its
-findings are posture regressions to triage weekly, not diff-level defects. The
-same Security-tab role Trivy's scheduled scan plays, and several of its
-checks (branch protection, token permissions) are about settings PRs cannot
-change anyway.
+findings record existing posture weaknesses and regressions for weekly triage.
+Treat them like Trivy's scheduled scans in the Security tab. Workflow permissions
+live in version-controlled YAML and should be fixed promptly through PRs. Branch
+protection is a repository setting and needs separate remediation.
 
 # Why It Adds Something New
 
@@ -88,7 +88,7 @@ comfortably sits inside the [Goldilocks zone](/projects?tab=philosophy#the-goldi
   work of ADRs 013–049 becomes a measured, maintained score rather than a
   one-time effort; each future repo inherits the rubric without setup.
 * [Respect Goodhart's Law](/projects?tab=philosophy#respect-goodharts-and-conways-laws).
-  The score is a diagnostic, not a target: checks we deliberately skip, e.g.
+  Treat the score as a diagnostic. Checks we deliberately skip, e.g.
   fuzzing, whose payoff doesn't map onto a memory-safe TS/Python site, stay
   red rather than being gamed green, and the number is published so the
   incentive is honesty.

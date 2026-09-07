@@ -2,20 +2,19 @@
  * prose-lint.ts — deterministic prose linter wrapper around Vale.
  *
  * Reads Vale JSON output and filters to only the lines changed in the
- * working tree (or, with --staged, the index).  This lets us add strict
- * rules incrementally without flooding the developer with pre-existing
- * issues.
+ * working tree (or, with --staged, the index). This lets us add
+ * high-confidence rules incrementally without flooding the developer with
+ * pre-existing issues.
  *
  * Usage:
  *   mise run //:lint:prose -- [files...]
  *   mise run //:lint:prose:staged           # staged changes only
- *   mise run //:lint:prose:check            # full repo, fail on any alert
+ *   mise run //:lint:prose:check            # full repo, enforce active errors
+ *   mise run //:lint:prose:audit            # full repo, audit broad styles
  *
  * Exit codes:
  *   0 — no blocking issues on changed lines
  *   1 — blocking issues found (or vale itself failed)
- *   2 — only advisory issues on changed lines (non-zero for CI when
- *       --strict is passed, otherwise still exits 0)
  */
 
 import { execFileSync } from "node:child_process";
@@ -50,7 +49,9 @@ function resolveBinary(name: string): string {
 
 const GIT_BIN = resolveBinary("git");
 const VALE_BIN = process.env.VALE_BIN || resolveBinary("vale");
-const VALE_CONFIG = resolve(import.meta.dirname, "..", ".vale.ini");
+const VALE_CONFIG = resolve(
+  process.env.VALE_CONFIG || join(import.meta.dirname, "..", ".vale.ini"),
+);
 
 /* ------------------------------------------------------------------ */
 /*  Help                                                              */
@@ -70,20 +71,23 @@ Options:
                  tracked files, full scan for untracked.
   --all          Treat every line of every file as changed (whole-file
                  scan; used by lint:prose:check).
-  --strict       Fail on warnings/advisories too (exit 1).
+  --tracked      Load all tracked Markdown and MDX paths from Git.
+  --report-only  Print content alerts without returning a failure. Vale and
+                 configuration failures still return a failure.
+  --             Treat every remaining argument as a file path.
   --help         Print this help and exit.
 
 Exit codes:
   0 — no blocking issues on changed lines
   1 — blocking issues found (or vale itself failed)
-  2 — only advisory issues on changed lines (non-zero with --strict)
 
 When lint-staged triggers this script it passes the staged file paths
 without flags.  Run with --staged (via lint:prose:staged) so pre-commit
 enforcement inspects the index rather than the working tree.
 
 Environment:
-  VALE_BIN  Override the vale binary path.
+  VALE_BIN     Override the Vale binary path.
+  VALE_CONFIG  Override the Vale configuration path.
 `);
   process.exit(0);
 }
@@ -175,7 +179,7 @@ interface ValeOutput {
   [file: string]: ValeAlert[];
 }
 
-function runVale(files: string[]): ValeAlert[] {
+function runValeBatch(files: string[]): ValeAlert[] {
   const args = ["--config", VALE_CONFIG, "--output", "JSON", ...files];
 
   let stdout: string;
@@ -231,6 +235,31 @@ function runVale(files: string[]): ValeAlert[] {
   }
 }
 
+function valeBatches(files: string[]): string[][] {
+  const batches: string[][] = [];
+  let batch: string[] = [];
+  let characters = 0;
+
+  for (const file of files) {
+    if (
+      batch.length > 0 &&
+      (batch.length >= 100 || characters + file.length > 24_000)
+    ) {
+      batches.push(batch);
+      batch = [];
+      characters = 0;
+    }
+    batch.push(file);
+    characters += file.length + 1;
+  }
+  if (batch.length > 0) batches.push(batch);
+  return batches;
+}
+
+function runVale(files: string[]): ValeAlert[] {
+  return valeBatches(files).flatMap(runValeBatch);
+}
+
 /* ------------------------------------------------------------------ */
 /*  Main                                                               */
 /* ------------------------------------------------------------------ */
@@ -240,8 +269,9 @@ type DiffMode = "cached" | "working" | "auto";
 interface ProseOptions {
   files: string[];
   staged: boolean;
-  strict: boolean;
   all: boolean;
+  tracked: boolean;
+  reportOnly: boolean;
   explicitDiff: DiffMode | null;
   base: string;
 }
@@ -265,8 +295,9 @@ function parseArgs(argv: string[]): ProseOptions {
   const opts: ProseOptions = {
     files: [],
     staged: false,
-    strict: false,
     all: false,
+    tracked: false,
+    reportOnly: false,
     explicitDiff: null,
     base: "HEAD",
   };
@@ -280,9 +311,14 @@ function parseArgs(argv: string[]): ProseOptions {
       opts.explicitDiff = parseDiffType(requireValue(argv, i, "--diff"));
       i++;
     } else if (arg === "--staged") opts.staged = true;
-    else if (arg === "--strict") opts.strict = true;
     else if (arg === "--all") opts.all = true;
-    else if (arg.startsWith("--")) {
+    else if (arg === "--tracked") opts.tracked = true;
+    else if (arg === "--report-only") opts.reportOnly = true;
+    else if (arg === "--help") printHelp();
+    else if (arg === "--") {
+      opts.files.push(...argv.slice(i + 1));
+      break;
+    } else if (arg.startsWith("--")) {
       console.error(`prose-lint: unknown flag ${arg}`);
       process.exit(1);
     } else opts.files.push(arg);
@@ -290,17 +326,60 @@ function parseArgs(argv: string[]): ProseOptions {
   return opts;
 }
 
-function isValeStylePath(file: string): boolean {
+function trackedProseFiles(): string[] {
+  try {
+    return execFileSync(
+      GIT_BIN,
+      ["ls-files", "-z", "--", "*.md", "*.mdx"],
+      {
+        encoding: "utf-8",
+        stdio: ["pipe", "pipe", "pipe"],
+      },
+    )
+      .split("\0")
+      .filter(Boolean);
+  } catch (e: unknown) {
+    const err = e as { stderr?: string };
+    if (err.stderr) console.error(err.stderr.trimEnd());
+    console.error("prose-lint: git ls-files failed");
+    process.exit(1);
+  }
+}
+
+function stagedProseFiles(): string[] {
+  try {
+    return execFileSync(
+      GIT_BIN,
+      ["diff", "--cached", "--name-only", "-z", "--", "*.md", "*.mdx"],
+      {
+        encoding: "utf-8",
+        stdio: ["pipe", "pipe", "pipe"],
+      },
+    )
+      .split("\0")
+      .filter(Boolean);
+  } catch (e: unknown) {
+    const err = e as { stderr?: string };
+    if (err.stderr) console.error(err.stderr.trimEnd());
+    console.error("prose-lint: git diff --cached failed");
+    process.exit(1);
+  }
+}
+
+function isNonContentPath(file: string): boolean {
   const norm = file.replaceAll("\\", "/");
   return (
     norm.startsWith("./.vale/") ||
     norm.startsWith(".vale/") ||
-    norm.includes("/.vale/")
+    norm.includes("/.vale/") ||
+    norm.startsWith("./.agents/skills/") ||
+    norm.startsWith(".agents/skills/") ||
+    norm.includes("/.agents/skills/")
   );
 }
 
 function contentFilesOnly(files: string[]): string[] {
-  return files.filter((f) => !isValeStylePath(f));
+  return files.filter((f) => !isNonContentPath(f));
 }
 
 function changedLinesFor(
@@ -407,35 +486,39 @@ function changedAlerts(
   });
 }
 
-function reportAlerts(alerts: ValeAlert[], strict: boolean): void {
+function reportAlerts(alerts: ValeAlert[], reportOnly: boolean): void {
   let hasBlockers = false;
-  let hasAdvisories = false;
 
   for (const alert of alerts) {
     console.log(
       `${SEVERITY_LABEL[alert.Severity]}  ${alert.File}:${alert.Line}  ${alert.Message}  [${alert.Check}]`,
     );
     if (alert.Severity === "error") hasBlockers = true;
-    if (alert.Severity !== "error") hasAdvisories = true;
   }
 
+  if (reportOnly) process.exit(0);
   if (hasBlockers) process.exit(1);
-  if (strict && hasAdvisories) process.exit(2);
   process.exit(0);
 }
 
 function main(): void {
   const args = process.argv.slice(2);
-  if (args.length === 0 || args.includes("--help")) printHelp();
+  if (args.length === 0) printHelp();
 
   const opts = parseArgs(args);
+  if (opts.tracked) opts.files.push(...trackedProseFiles());
+  if (opts.staged && opts.files.length === 0) {
+    opts.files.push(...stagedProseFiles());
+  }
+  opts.files = [...new Set(opts.files)];
+  if (opts.staged && opts.files.length === 0) process.exit(0);
   if (opts.files.length === 0) {
     console.error("prose-lint: no files specified");
     process.exit(1);
   }
 
-  // Vendored Vale styles under .vale/ are style definitions, not site
-  // content — never lint them against their own rules.
+  // Vale styles and agent skills are tooling definitions, not site content.
+  // They contain the phrases that their rules and instructions discuss.
   const contentFiles = contentFilesOnly(opts.files);
   if (contentFiles.length === 0) process.exit(0);
 
@@ -456,7 +539,7 @@ function main(): void {
     changedMap,
     loadExemptions(),
   );
-  reportAlerts(filtered, opts.strict);
+  reportAlerts(filtered, opts.reportOnly);
 }
 
 main();

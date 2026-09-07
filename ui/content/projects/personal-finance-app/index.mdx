@@ -213,7 +213,7 @@ Startup founders have a uniquely blurred line between personal and business fina
 personal burn rate alongside company burn rate, equity compensation, multiple income streams,
 and runway for both their company and their personal savings.
 
-This is not a v1 concern, but the same modelling engine that handles "when can I retire?"
+Defer this beyond v1. The same modelling engine that handles "when can I retire?"
 handles "how long is my personal runway if my startup fails?" The architecture should
 support this concentric expansion.
 
@@ -294,7 +294,7 @@ The target user expands in concentric rings, where each ring validates features 
 3. **Friends, family, colleagues**, invite-only. Diverse financial situations stress-test assumptions: different income structures, different countries, different levels of financial sophistication
 4. **General market**, only after the core product is proven through real usage by real people with real money
 
-This is a deliberate strategy, not a compromise. Each ring generates genuine usage data and unfiltered feedback faster than any survey or market research. The product ships when it's good enough for the next ring, not on a calendar.
+This deliberate strategy lets each ring generate genuine usage data and unfiltered feedback faster than any survey or market research. The product ships once it meets the next ring's needs, independent of the calendar.
 
 ## What PMF looks like
 
@@ -339,13 +339,13 @@ Blog content, social media, comparison pages. Only after the product is proven t
 
 Building for yourself risks over-fitting to your own financial situation. A tool that perfectly models one person's multi-currency ISA/SIPP/GIA setup might be confusing to someone with a simpler portfolio.
 
-**Mitigation:** Each concentric ring of users stress-tests this. A partner has different priorities. Friends have different income structures. Colleagues in different countries expose jurisdiction assumptions. The architecture must be flexible enough that simplicity is the default, not complexity.
+**Mitigation:** Each concentric ring of users stress-tests this. A partner has different priorities. Friends have different income structures. Colleagues in different countries expose jurisdiction assumptions. The architecture must keep simple cases simple and introduce complexity only when the user's finances require it.
 
 ## Solo execution
 
 Competing against funded teams (Monarch: $95M raised) and established bootstrappers (ProjectionLab: 4 years of momentum, growing team).
 
-**Mitigation:** ProjectionLab proved a solo founder can reach $1M ARR. Scope discipline matters more than headcount. The Cloudflare stack minimises ops overhead. And the positioning is deliberately different, not competing head-to-head but serving a different persona.
+**Mitigation:** ProjectionLab proved a solo founder can reach $1M ARR. Scope discipline matters more than headcount. The Cloudflare stack minimises ops overhead. The product also serves a different persona, which avoids head-to-head competition.
 
 ## Platform risk
 
@@ -374,7 +374,7 @@ The contrast is stark: YNAB and Monarch Money (both subscription-based) are thri
 
 * **Data cost trap:** UK Open Banking is free at the API level, no per-connection fees like Plaid. And v1 is manual-only, so data aggregation cost is zero
 * **Referral revenue trap:** Subscription or nothing. Never recommend financial products for commission
-* **"Free forever" trap:** "Free until proven" is a deliberate pre-PMF strategy, not a business model. Early adopters get lifetime free access as a reward for providing the PMF signals that matter more than their subscription revenue. New users post-PMF pay subscriptions. The transition is planned and honest, not a bait-and-switch
+* **"Free forever" trap:** "Free until proven" is a temporary pre-PMF strategy. Early adopters get lifetime free access as a reward for providing the PMF signals that matter more than their subscription revenue. New users post-PMF pay subscriptions. Publishing that plan up front prevents a bait-and-switch
 * **Acquisition trap:** Maintaining control over product direction. Simple and Level Money were killed by big-bank acquirers who couldn't justify a non-revenue product internally
 
 # Defensibility
@@ -394,7 +394,7 @@ No moat exists at v1, and the code is open source with no proprietary IP. This i
 
 ## Near-term: personal finance
 
-The core product is free. No artificial limits, no "you've reached 5 accounts" gates. The goal is genuine usage and PMF, not premature monetisation.
+The core product is free. No artificial limits, no "you've reached 5 accounts" gates. The current phase prioritizes genuine usage and PMF. Monetisation follows proof.
 
 **Early adopter pricing:** Users from rings 1–3 (invite-only phase) get lifetime free access. Their value is in PMF signals, feedback, and early traction, worth far more than any subscription revenue. When paid tiers launch, they apply to new users only. This rewards early believers, avoids the bait-and-switch resentment that poisons trust, and is the right thing to do.
 
@@ -414,11 +414,11 @@ The "whale" opportunity. Business financial planning commands higher willingness
 * **Equity tracking** for employees, vesting schedules, dilution scenarios, exercise planning. Sold to companies as a benefit, used by employees for personal financial planning
 * **Financial planning as a benefit**. Companies offer it alongside pension matching and health insurance
 
-This edges toward Carta and HR tooling territory without getting sucked into that scope. The key is that the same entity/account/entry architecture powers both personal and business use cases. It's a concentric expansion, not a pivot.
+This edges toward Carta and HR tooling territory without getting sucked into that scope. The same entity/account/entry architecture extends from personal to business use cases while the product keeps its original direction.
 
 ## Funding approach
 
-The immediate priority is building the alpha and validating with real usage. Funding decisions come after PMF signals, not before. The lesson from the Mint graveyard is not that external funding is dangerous, but that a free product without subscription revenue is. Monarch Money raised $95M and is thriving because it charges users. Mint had Intuit's backing and died because it never did.
+The immediate priority is building the alpha and validating with real usage. Funding decisions follow PMF signals. Subscription-funded products such as Monarch Money show one viable model, while Mint's closure after Intuit moved users to Credit Karma shows that corporate backing alone does not guarantee longevity. These examples inform the funding strategy without proving that either business model caused the outcome.
 
 Several paths are worth exploring once there's something to fund:
 
@@ -426,7 +426,7 @@ Several paths are worth exploring once there's something to fund:
   * **[Techstart PoC Concept Grant](https://www.investni.com/support-for-business/innovation-research-and-development/techstart-ventures-proof-of-concept-grant-fund) (up to £15k, Concept Plus up to £30k):** Invest NI's strongest fit for this stage. Solo founders welcome, pre-revenue fine, no sector bias, appears to be 100% funded. Constraints: cannot be used for marketing; oriented toward market research and product development with clear milestones. Can cover part of salary if incorporated as a Ltd company with timesheets and demonstrable outcomes
   * **[Invest NI Business Innovation Grant](https://www.investni.com/support-for-business/innovation-support/business-innovation-grant) (£5k–£20k at 70%):** Requires 30% match funding and a demonstrable innovation. Rounds open periodically
 * **Incubators/accelerators:**
-  * **[Founder Labs Accelerator](https://ormeaulabs.com/programs-and-support/founder-labs) (£25k grant + up to £500k in credits):** Invest NI programme run by Ormeau Labs. Credits include Microsoft Azure, Google Cloud, AWS, and Stripe. Six-month full-time commitment with international trips (SF, NY, London, Dublin). Targets £1M revenue/funding and 60%+ international sales by year 3. Equity terms not publicly disclosed but framed as a grant, needs clarification from Invest NI. Cohort applications run periodically
+  * **[Founder Labs Accelerator](https://ormeaulabs.com/programs-and-support/founder-labs) (£25k in non-dilutive capital, over £500k in credits, and 52 weeks of office space):** Invest NI-backed programme run by Ormeau Labs with partners. Its published programme includes six months of support and international trips to San Francisco, New York, London, and Dublin. Verify current cohort dates and application terms before applying
   * **Fintech accelerators:** [FCA Open Finance Accelerator](https://fintech.garden/news/2025-10-14-fca-launches-open-finance-accelerator/) (relevant once Open Banking integration is built), [NatWest Fintech Programme](https://www.natwestgroup.com/news-and-insights/news-room/press-releases/ai-and-data/2025/dec/natwest-group-opens-applications-for-2026-fintech-programme.html), JP Morgan Fintech Forward (requires product in market)
 * **VC:** Early-stage or fintech-specialist investors who understand that this category rewards patience over blitzscaling. The right investor accelerates without distorting the product
 * **Bootstrapped:** ProjectionLab's $0-to-$1M-ARR trajectory proves this works. Lower growth rate, full control

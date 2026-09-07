@@ -164,8 +164,8 @@ completed before acceptance.
 * Send concise alert state, affected service, threshold result, and investigation links. Keep raw
   logs, credentials, request headers, and unnecessary personal data in PostHog rather than copying
   them into Slack.
-* Treat Slack as notification transport and a transient inbox, not as the authoritative alert
-  history or diagnostic data store.
+* Use Slack as notification transport and a transient inbox. Keep the authoritative alert
+  history and diagnostic data in PostHog.
 
 Keep destination attachment manual while PostHog models alert destinations as internal Hog
 functions without a stable Terraform resource. Record that manual step in operational setup and

@@ -40,8 +40,8 @@ bootstrap doesn't repeat them:
    `/users/{username}/watchlist/...`, and Trakt answers `200 []` for a
    misspelled username rather than 404. Trakt auto-generated this account as
    `robbie_palmer_1cefe3`, but its canonical slug is the dashed
-   `robbie-palmer-1cefe3` (visible in any profile URL); the underscore
-   variant returned an empty watchlist that looked exactly like a broken
+   `robbie-palmer-1cefe3` (visible in any profile URL); the `_` variant
+   returned an empty watchlist that looked exactly like a broken
    connection. Use the slug from the OAuth'd profile URL, character for
    character.
 2. **Failed syncs lock for 12 hours.** Each list records a last-sync time

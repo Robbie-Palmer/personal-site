@@ -276,8 +276,9 @@ plan.
 
 ## Secrets
 
-A Kubernetes Secret is an API object, not an encrypted source of truth. Do not
-commit plain credentials or generated Secret manifests.
+A Kubernetes Secret manifest only base64-encodes its data; it does not encrypt
+it. Configure API-server encryption at rest for Secret objects separately. Do
+not commit plain credentials or generated Secret manifests.
 
 [ADR 024](/projects/homelab/adrs/024-doppler-secrets) makes Doppler the source
 of truth. The pilot may create its first Secret through a local mise command
@@ -341,8 +342,8 @@ recovers the Mac stacks after a reboot.
 
 The model stops at the Mac VM. It cannot declare GPU Jobs on the Asus worker,
 place work on the planned laptop, or use one API for workload status across
-the fleet. Keep Compose as the rollback path during the pilot, not the target
-workload API.
+the fleet. During the pilot, keep Compose only as the rollback path. K3s remains
+the target workload API.
 
 ## Use full Kubernetes
 

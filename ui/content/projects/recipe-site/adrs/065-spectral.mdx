@@ -45,7 +45,7 @@ without a gate:
 Two facts make the timing favourable. **One atomic consumer:** the only client
 of the recipe API today is the UI in this same repository, behind the proxy, so
 renaming `import-url`/`import-file` or folding `pantry/restore` into
-`PATCH /pantry` is a same-PR change to both sides, not a versioned migration,
+`PATCH /pantry` can change on both sides in the same PR without a versioned migration,
 and that window closes the moment the API is public. **The proxy already
 normalises the prefix:** callers only ever see `/api/*` (the internal split
 where profile and auth keep `/api` and everything else drops it never reaches a

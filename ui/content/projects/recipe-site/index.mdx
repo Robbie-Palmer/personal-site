@@ -19,7 +19,7 @@ creates a compounding knowledge base and whose household context makes that know
 five connected models:
 
 * **A public cooking commons** lets people publish recipes and adaptations, follow cooks, share outcomes, and
-  discover what is actually being cooked, not merely what attracts clicks or reviews.
+  discover what people actually cook rather than what attracts clicks or reviews.
 * **A recipe graph** records provenance, exact versions, forks, and the adaptations that make a recipe work in a
   particular home while allowing evidence to accumulate across related versions.
 * **A household kitchen twin** is a deliberately incomplete, useful model of the people eating, their dietary
@@ -237,8 +237,8 @@ recipes and profiles create the beginnings of a commons; follows shape discovery
 person-to-person hand-offs; cooking sessions record starts and completions; and the pantry represents household
 state. The product cannot yet connect those facts to say that a recommendation led to a completed meal,
 distinguish a one-off cook from a household staple, publish well-defined behavioural proof, or carry the outcome
-of an adaptation back through its lineage. That is the most important product gap, not another isolated feature
-checkbox.
+of an adaptation back through its lineage. Closing that loop is the highest-priority product gap;
+another isolated feature would not address it.
 
 Discovery also stops at public recency and the explicit follow graph. The system cannot yet identify cooks with
 similar demonstrated tastes, explain an affinity-based recommendation, suggest an emerging community, or
@@ -251,7 +251,7 @@ the product worth returning to and produces higher-quality outcome data.
 
 # Roadmap
 
-The roadmap is organized around dependencies and product gaps, not release phases. Critical-path work is
+The roadmap follows dependencies and product gaps. Critical-path work is
 sequenced; the other tracks can move concurrently when they do not contend for the same data model or user
 journey.
 
@@ -264,7 +264,7 @@ and discovery to server-backed plans, synchronized shopping, pantry and freezer 
 portions, leftovers, and repeat cooking. A person should get clear value from every stage even if none of their
 friends has joined yet.
 
-Treat retailer hand-off as part of the journey, not permanently out of scope. Once the canonical shopping list
+Include retailer hand-off in the journey. Once the canonical shopping list
 is server-backed, integrate one retailer or grocery intermediary deeply enough to validate ingredient-to-product
 matching, quantities, substitutions, availability, and basket transfer. Prefer providers with broad coverage or
 stable partner interfaces before maintaining many retailer-specific adapters. Corrections made during product
@@ -272,8 +272,8 @@ matching can improve the ingredient ontology and future lists.
 
 Nutrition should also fall out of normal use. Calculate recipe and serving nutrition from structured ingredients;
 when somebody completes a cook, infer the meal from the version and portion already selected, asking only about
-meaningful deviations. This is approximate decision support, not clinical intake measurement. Its job is to make
-the next plan, shop, adaptation, and meal better without creating another daily logging obligation. Barcode
+meaningful deviations. The resulting guidance is approximate and must never pose as clinical intake measurement. It
+should improve the next plan, shop, adaptation, and meal without creating another daily logging obligation. Barcode
 scanning does not solve this if users must assemble individual products into a meal, and meal photography does
 not solve it if every result requires full human reconstruction.
 
@@ -358,7 +358,7 @@ suggestions, with confidence and provenance visible whenever the state is inferr
 
 The twin must remain practical rather than pretending to be a perfect inventory ledger: make state easy to
 correct, distinguish observed facts from estimates, and never turn incomplete tracking into false certainty.
-Audience controls are necessary product hygiene, not the product thesis.
+Audience controls provide necessary product hygiene. They do not define the product thesis.
 
 ### Trustworthy Iteration and Lineage
 
@@ -445,7 +445,7 @@ Site should preserve provenance and reversibility as the differentiator.
 * **Social media ingestion** from Instagram, TikTok, YouTube, and Facebook once the batch review model can absorb
   noisier sources
 * **Constraint-aware meal assistance** after server-backed planning, nutrition, kitchen state, and behavioural
-  signals are trustworthy; use AI only where it improves the explanation or plan, not as the product thesis
+  signals are trustworthy; use AI only to improve the explanation or plan
 * **Printed recipe books** as a gift or archival artifact that complements the digital collection
 * **Seasonal and neglected-recipe suggestions** driven by ingredient seasonality and the existing cooking log
 
@@ -497,10 +497,10 @@ for discovery, not a promise or delivery sequence.
 The prototype already contains an important piece of the differentiated vision that the earlier written
 strategy failed to explain: recommendation cards show behavioural signals such as **made 128×** and **54% made
 it again**, distinguish household members from followed cooks, and connect a personal note directly to save,
-plan, and cook actions. The roadmap now treats that as the core system to make real, not decorative social proof
+plan, and cook actions. The roadmap now makes that core system real instead of adding decorative social proof
 around an otherwise conventional recipe manager.
 
-<DesignEmbed src="/recipe-site-design/standalone.html" title="Recipe Site — mid-fi prototype" caption="All 17 surfaces, desktop + mobile · interactive · scroll and pan the canvas" height={760} />
+<DesignEmbed src="/recipe-site-design/standalone.html" title="Recipe Site: mid-fi prototype" caption="All 17 surfaces, desktop + mobile · interactive · scroll and pan the canvas" height={760} />
 
 The prototype above is a self-contained build; the editable design source
 (tokens, shared components, and one file per screen) is vendored alongside this
@@ -737,7 +737,7 @@ focused, item-by-item review queue.
 | **[RecipeSage](https://docs.recipesage.com/docs/tutorials/settings/import/)**                                                        | Accepts newline-separated [URL lists](https://docs.recipesage.com/docs/tutorials/settings/import/urls/) and ZIP archives containing one recipe per [text file](https://docs.recipesage.com/docs/tutorials/settings/import/textfiles/), PDF, or [image](https://docs.recipesage.com/docs/tutorials/settings/import/images/). Imports continue as background jobs. | Every import receives an automatic label, making the batch easy to find and delete. It warns against retrying jobs because duplicates can be created.                                              | Make recipe boundaries explicit, persist the import as a first-class object, and provide batch-level recovery.                               |
 | **[Plan to Eat](https://learn.plantoeat.com/help/import-recipe-files-from-other-programs)**                                          | Imports established collection formats, supports up to 3,000 recipes in one file, and continues after the user leaves the page.                                                                                                                                                                                                                                  | Users choose whether matching titles should be overwritten. Progress and failures are reported beside individual recipe titles.                                                                    | Decide duplicate policy during preflight and isolate failures to individual items rather than failing the batch.                             |
 | **[Paprika](https://www.paprikaapp.com/help/windows/)** and **[AnyList](https://www.anylist.com/recipes/browser-extensions/safari)** | Paprika imports trusted database formats wholesale; both products handle ordinary website capture one recipe at a time.                                                                                                                                                                                                                                          | Individual web imports are shown in an editable recipe screen before the user saves them.                                                                                                          | Keep migration and everyday capture as related but distinct modes, and reuse the familiar edit-before-save experience for uncertain results. |
-| **[CookBook](https://help.cookbookmanager.com/en/article/how-to-import-recipes-from-another-app-1wqhgjs/)**                          | Individual files are self-service, while large collection transfers are queued as a separate assisted service.                                                                                                                                                                                                                                                   | A single imported file is reviewed before saving; collection imports complete in the background and notify the user.                                                                               | A collection import is migration infrastructure, not merely a file input with `multiple` enabled.                                            |
+| **[CookBook](https://help.cookbookmanager.com/en/article/how-to-import-recipes-from-another-app-1wqhgjs/)**                          | Individual files are self-service, while large collection transfers are queued as a separate assisted service.                                                                                                                                                                                                                                                   | A single imported file is reviewed before saving; collection imports complete in the background and notify the user.                                                                               | Treat a collection import as migration infrastructure with its own workflow.                                                                 |
 | **Document and receipt tools**                                                                                                       | [Expensify](https://help.expensify.com/articles/expensify-classic/expenses/Add-an-expense) treats rapid-fire receipt photos as separate items. [Dext](https://help.dext.com/en/articles/416680-why-was-my-document-rejected) sends uploads containing several transactions to a manual split tool.                                                               | [Adobe Acrobat](https://helpx.adobe.com/acrobat/web/edit-pdfs/organize-documents/organize-pages.html) uses a visual thumbnail workspace to reorder, insert, rotate, or remove pages before saving. | For photos, expose page grouping and ordering before extraction instead of relying on an invisible boundary guess.                           |
 
 ### Product Direction
@@ -762,7 +762,7 @@ Delivery is deliberately phased:
 The comparison is split because management-first and import-first products create different competitive
 pressures. A single wide matrix obscured more than it revealed.
 
-This is a first-party-documentation comparison, not an exhaustive hands-on review. "Not documented" means the
+This comparison draws only from first-party documentation. "Not documented" means the
 current product site or docs do not establish the capability; it is deliberately not converted into "No."
 
 ### Daily Use and Collection Management
@@ -856,7 +856,7 @@ or broad declared categories.
 that earns its place once a year and a dependable meal that quietly solves every Tuesday should both be visible
 for what they do. Planning, shopping, cooking, repeat, leftover, and adaptation behaviour can reveal effort,
 reliability, and routine fit that a review cannot, while lightweight feedback supplies the meaning behaviour
-alone lacks. Frequency is evidence, not the new universal score.
+alone lacks. Frequency supplies one piece of evidence and must not become a universal score.
 
 **A public graph of what people actually cook.** Public recipes, follows, and discovery are already live. The
 next step is to make completed cooks, repeats, attributed adaptations, and recommendation outcomes first-class
@@ -1057,8 +1057,8 @@ retailers; validate that one basket integration reaches checkout before building
 cook and repeat signals improve discovery before inventing a complex ranking model; validate that taste-neighbour
 recommendations lead to successful novel cooks before generating algorithmic communities. Useful metrics include
 accept-without-edit rate, median correction time, completed journeys, recommendation cook-through, repeat use,
-plan-to-cook conversion, actual versus expected effort, leftover use, and cuisines or techniques newly cooked, not
-click-through rate, viewing time, or the number of AI-powered surfaces shipped. No single metric should define
+plan-to-cook conversion, actual versus expected effort, leftover use, and cuisines or techniques newly cooked. Prefer
+them over click-through rate, viewing time, or the number of AI-powered surfaces shipped. No single metric should define
 value: repeat cadence identifies staples, while explicit enjoyment and occasion context preserve recipes worth
 making rarely.
 

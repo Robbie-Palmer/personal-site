@@ -158,7 +158,7 @@ polished client rather than endlessly rebuilding one.
 
 * Make the live space a private Git repository on the Mac mini's internal
   storage. Git records reviewable agent changes and makes bad reorganizations
-  easy to undo; it is history, not the only backup.
+  easy to undo. The separate backup system still owns recovery.
 * Install the free local Basic Memory CLI on the Mac mini, register the live
   space as one project, and expose `bm mcp --project <name>` to each compatible
   t3-code agent. Keep its SQLite data as a disposable index outside the Git
@@ -199,8 +199,8 @@ The initial workflow should stay deliberately small:
    for graph-aware work and falls back to normal file operations when that is
    simpler.
 3. Before a broad graph-driven mutation, the agent lets file watchers settle
-   and reads each target file from disk; an index is for discovery, not
-   authority. It then checkpoints the Git worktree, makes small inspectable
+   and reads each target file from disk. Use the index only for discovery.
+   It then checkpoints the Git worktree, makes small inspectable
    edits, and records the result in Git. Agents must not rewrite existing
    checkpoints or force-push the live corpus. Git is an audit and undo
    mechanism, not a pull-request ceremony for every thought.
@@ -352,8 +352,8 @@ to leave without a data migration.
   end-to-end encrypted and costs
   [$4/month annually or $5 monthly](https://obsidian.md/pricing), exactly at the
   budget ceiling.
-* **Cons**: Obsidian's core is proprietary. Sync is hosted synchronization, not
-  a self-hostable server, and Headless Sync is still in open beta. Community
+* **Cons**: Obsidian's core is proprietary. Sync is a hosted service with no
+  self-hosted server, and Headless Sync is still in open beta. Community
   plugins run with broad application permissions and vary in maintenance
   quality. It has no web client, and ecosystem enthusiasm can itself become
   configuration gardening.
@@ -407,8 +407,8 @@ to leave without a data migration.
   than 300 plugins. Its
   [Data API](https://joplinapp.org/help/api/references/rest_api/) lets external
   tools create, search, update, and delete notes.
-* **Cons**: It is primarily a notebook-and-tag notes application, not a
-  flexible knowledge graph. Joplin warns that its filesystem sync format is
+* **Cons**: It primarily supports notebooks and tags, with less flexible
+  graph modelling. Joplin warns that its filesystem sync format is
   [not meant to be edited directly](https://joplinapp.org/help/faq/), and its
   REST API is served by a running local client rather than making the server a
   simple agent-facing source of truth.

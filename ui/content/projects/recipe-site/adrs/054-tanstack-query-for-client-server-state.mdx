@@ -98,8 +98,8 @@ more honest than confidently displaying another state.
 Use a single bootstrap query if measurements show that the initial collection of authenticated
 requests is latency- or connection-bound. The bootstrap endpoint may aggregate recipe-box
 selection, diet, the first saved-recipe page, and unread count, while later pages and secondary
-details retain independent query keys. Aggregation is an API optimization, not a prerequisite for
-adopting the client cache.
+details retain independent query keys. The client cache does not depend on aggregation, which remains
+an optional API optimization.
 
 ## Freshness and failure policy
 
@@ -121,7 +121,7 @@ resource classes explicitly:
 Use query invalidation after successful mutations as the default consistency mechanism. Apply a
 direct cache update when the server returns the canonical updated entity. Reserve optimistic
 updates for high-value, easily reversible interactions; rollback code and concurrent optimistic
-mutation behavior are real complexity, not a default flourish.
+mutation behavior add enough complexity to require a measured benefit.
 
 ## Relationship to SSR
 

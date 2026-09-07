@@ -35,7 +35,7 @@ The recipe site is governed by a small set of strong constraints:
    [Less Is More](/projects?tab=philosophy#less-is-more) and
    [Short Feedback Loops](/projects?tab=philosophy#short-feedback-loops) push hard against adding
    per-provider integrations.
-2. **Model churn is structural, not transitional.** New frontier and open models ship monthly.
+2. **Model churn will continue.** New frontier and open models ship monthly.
    Locking the codebase to one vendor's SDK has a high opportunity cost.
 3. **Capacity matters more than brand.** The Anthropic API has had repeated availability and
    rate-limit issues during peak demand windows for Claude releases. AWS Bedrock and Google
@@ -69,9 +69,9 @@ model: "google/gemini-2.5-flash"
 model: "anthropic/claude-sonnet-4.6"
 ```
 
-Provider-level routing is configurable per request, fallbacks, sort-by-price, sort-by-throughput,
+Configure provider-level routing per request. Fallbacks, sort-by-price, sort-by-throughput,
 sort-by-latency, ignore-list, only-list, zero-data-retention enforcement, and quantisation
-filtering are all set in the request body, not in platform config. This means:
+filtering all live in the request body instead of platform config. This means:
 
 * **One commit, not one platform migration**, to try a new model in production for any feature.
 * **Automatic failover** if a provider rate-limits or has an outage. The pipeline doesn't see the
@@ -126,7 +126,7 @@ This aligns with:
   and more, behind one catalogue and one billing relationship. Crucially, deep coverage of the
   *open-weight long tail* (Together, DeepInfra, Fireworks, Groq, Cerebras, Nebius, AkashML,
   Parasail, Friendli, etc.) means popular models like Llama 3.3 70B Instruct route across
-  \~15 providers. Load balancing and price arbitrage are real, not hypothetical.
+  \~15 providers. This breadth enables load balancing and price arbitrage.
 * **Better availability than first-party APIs**. For models that ship on multiple clouds
   (Claude on Anthropic + Bedrock + Vertex, Llama on Together + DeepInfra + Fireworks + Bedrock),
   OpenRouter load-balances and falls back across providers. When the model author's own API is
@@ -205,7 +205,7 @@ OpenRouter's BYOK terms make the cost story phase-dependent:
   you directly ([announcement](https://openrouter.ai/announcements/1-million-free-byok-requests-per-month)).
 * **Above 1M BYOK requests per month**: 5% of the equivalent OpenRouter pay-as-you-go cost on the
   surplus.
-* **BYOK is per-provider, not all-or-nothing**. You can BYOK Anthropic while staying on
+* **BYOK is configured per provider**. You can BYOK Anthropic while staying on
   pay-as-you-go for Google, or vice versa, and switch any one of them independently.
 * **Fallback still works under BYOK**. By default, if BYOK keys rate-limit or fail, OpenRouter
   falls back to its own shared endpoints. The availability story doesn't change.
@@ -394,7 +394,7 @@ Production-focused BYOK gateway with Virtual Keys / Model Catalog for centralise
 management, budgets, guardrails, and routing. Markets "1,600+ models". Note this is the
 aggregate across upstream providers Portkey can proxy to (Together alone exposes hundreds of
 open-weight variants), not a Portkey-curated catalogue comparable to OpenRouter's 358 or
-Vercel's 275. Portkey is a pure router, not a marketplace. Pricing is per-log (\~$49/mo for
+Vercel's 275. Portkey operates only as a router. Pricing is per-log (\~$49/mo for
 100K logs at the time of writing).
 
 In May 2026, [Palo Alto Networks](https://www.paloaltonetworks.com/), one of the largest
@@ -410,7 +410,7 @@ grandfathered terms for 12–24 months post-acquisition.
   inference layer so doesn't remove provider sprawl, and log-based pricing scales unfavourably
   for a project where individual feature usage may be high-volume (every recipe ingestion is a
   request). The PANW acquisition reinforces the rejection, the product is heading further
-  away from the self-serve developer use case, not toward it.
+  toward enterprise buyers and away from self-serve developers.
 
 ### [Kong AI Gateway](https://konghq.com/products/kong-ai-gateway)
 
@@ -475,7 +475,7 @@ A typed `LLMClient` interface in the domain layer with adapters per provider, sw
   top traffic providers as scale grows, status monitoring, and accepting that long-tail
   experimentation features will be down during an OpenRouter outage.
 
-* **Per-user quotas, metering, and abuse protection are our responsibility, not OpenRouter's.**
+* **We own per-user quotas, metering, and abuse protection.**
   OpenRouter has account-level rate limits and the `user` parameter for activity tracking,
   but it isn't a per-user quota engine. At product scale, enforcing "free tier gets N
   ingestions/month, premium tier unlimited", detecting prompt injection / abuse, and
@@ -520,8 +520,8 @@ A typed `LLMClient` interface in the domain layer with adapters per provider, sw
   or worst-case business failure are live risks for any AI feature in critical path. Bounded
   by the OpenAI-compatible thin-integration shape, migrating to another aggregator (Vercel
   AI Gateway, Eden AI), to a BYOK gateway with full provider sprawl (Cloudflare AI Gateway,
-  Portkey), or to provider-direct is a baseURL change plus provider re-onboarding, not a
-  code rewrite. Keep the integration on the OpenAI-compatible surface and treat
+  Portkey), or to provider-direct requires a baseURL change and provider re-onboarding without a
+  code rewrite. Keep the integration on the OpenAI-compatible API and treat
   vendor-specific OpenRouter features as nice-to-have, not load-bearing.
 
 ## When to Revisit

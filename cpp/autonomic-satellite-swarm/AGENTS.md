@@ -2,7 +2,7 @@
 
 ## Intent
 
-This repository is a research prototype, not flight software. Preserve the separation between the
+This repository is a research prototype. Never treat it as flight software. Preserve the separation between the
 portable coordination core and hardware adapters. Do not describe the historical orbital heuristic
 as validated astrodynamics or the safe-disabled state as physical deorbiting.
 

@@ -30,7 +30,8 @@ withdraw an unhealthy agent's permission to participate. It calls that final fai
 "apoptosis", borrowing the biological metaphor of programmed cell death.
 
 In this implementation, apoptosis is a **safe-disabled software state** that lasts until reset. It
-does not destroy or deorbit a satellite. This is a research prototype, not flight software.
+does not destroy or deorbit a satellite. The project is a research prototype intended only for
+demonstration. Never treat it as flight software.
 
 # Origin
 
@@ -88,7 +89,7 @@ explicit seams while retaining firmware-size checks so the abstraction cost rema
 * Compiler warnings, clang-tidy, formatting, sanitizers, spelling, and workflow linting run in CI.
 * Unsigned elapsed-time calculations remain correct across `millis()` rollover.
 * Protocol fields use fixed-width types and explicit serialization rather than C++ object layout.
-* Hardware compilation is reported as compilation, not evidence of physical integration.
+* Hardware compilation proves only that the firmware compiles; it does not prove physical integration.
 
 # Architecture
 
@@ -109,7 +110,7 @@ it is not presented as a spacecraft communication choice.
 
 The next research cycle would add bounded telemetry for mission-control observation, a governed and
 adversarially reviewed improvement loop, fair resource-aware allocation, and a platform safe-state
-action hook. These are research directions, not capabilities of the current implementation.
+action hook. These research directions remain outside the current implementation.
 
 # Non-goals
 

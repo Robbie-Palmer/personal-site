@@ -42,8 +42,8 @@ the chance of all four arriving is `p⁴`, assuming independent losses. A missin
 the message incomplete until the receiver discards it, and there is no fragment-level retry. Frames
 from overlapping transmissions could also be combined. The CRC rejects most corrupted combinations,
 but it cannot recover a missing frame. The negotiation retries some messages, while a request or
-assignment can still be lost. This is an acknowledged weakness of the infrared demonstration, not a
-constraint on the core protocol or future hardware.
+assignment can still be lost. This weakness belongs to the infrared demonstration. It does not
+constrain the core protocol or future hardware.
 
 A CRC detects accidental corruption but does not prove who sent a message. Authentication, replay
 protection, and key lifecycle require a future protocol decision.

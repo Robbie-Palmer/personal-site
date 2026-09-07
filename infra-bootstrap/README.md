@@ -31,7 +31,7 @@ The environment needs:
 - `GCP_WORKLOAD_IDENTITY_PROVIDER`
 - `GCP_TERRAFORM_SERVICE_ACCOUNT`
 
-The GCP values are identifiers for the current bootstrap resources, not
+The GCP values identify the current bootstrap resources. They do not contain
 secrets. Store them as unmasked Doppler values so
 `scripts/sync-doppler-github-envs.sh` publishes them as GitHub environment
 variables.

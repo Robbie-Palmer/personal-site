@@ -37,7 +37,7 @@ This aligns with:
 
    The levers I pull instead are free and keep me on the standard runner: **GitHub Actions' native caching** (`actions/cache`), the [pnpm](/projects/personal-site/adrs/007-pnpm) content-addressable store and Next.js's incremental build cache (`.next/cache`), plus **cutting redundant work** (the build no longer re-runs the type-check that the `//ui:check` step already performs). These accelerate the parts that genuinely *are* CPU/IO-bound, such as installs, compilation, and tests, at **zero cost and zero lock-in**. The full measurement is in [Build performance](#build-performance-measured) below; the short version is that the free changes save more wall-clock than an 8-core runner upgrade would, for $0
 5. **Escape Hatches**: The decision above is not absolute. The workflow syntax still allows swapping the default runners for Blacksmith, or offloading to Depot, without rewriting the pipeline logic, so if this ever moves to a private repo (where compute is billed) or grows a Docker-based step, the option is one `runs-on:` change away
-6. **Good Enough**: It is not the most powerful CI in the world, but it is "good enough" for the current scale. The investment in `mise` ensures that if I hit the scaling limits, migrating to CircleCI or others is trivial
+6. **Good Enough**: The current scale does not need the most powerful CI available. The investment in `mise` keeps migration to CircleCI or another provider straightforward if I hit GitHub Actions' scaling limits
 
 # Build performance (measured)
 

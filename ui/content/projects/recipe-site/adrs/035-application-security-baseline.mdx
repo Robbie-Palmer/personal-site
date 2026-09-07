@@ -65,8 +65,8 @@ The Cloudflare Workers runtime provides several security properties at no cost:
 | **DDoS protection**                | Cloudflare's edge network provides baseline DDoS mitigation for all Workers. No configuration needed.                                                                                          |
 | **No exposed ports**               | Workers are not addressable by IP. All traffic flows through Cloudflare's reverse proxy. No server exists to port-scan.                                                                        |
 
-These do not replace the application-level controls above, but they reduce the surface area that
-needs explicit security engineering.
+These platform properties reduce the work left for the application-level controls above. The application
+still needs explicit security engineering.
 
 ## Rate Limiting Implementation
 
@@ -117,8 +117,8 @@ The following can stay deferred to keep the system lean:
 * public API key management
 * elaborate WAF tuning beyond sensible Cloudflare defaults
 
-This is intentionally a **baseline ADR**, not a promise to build security-heavy product features
-before they are justified.
+This **baseline ADR** leaves security-heavy product capabilities until evidence justifies
+them.
 
 # Consequences
 

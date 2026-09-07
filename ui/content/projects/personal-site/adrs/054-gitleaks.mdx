@@ -20,8 +20,8 @@ structural limits:
 1. **It fires after the push.** On a public repo that is too late by
    definition: the secret is in clone caches, mirrors, and scrapers the moment
    it lands. History rewrites un-publish nothing; the only real remediation is
-   rotation. Detection that arrives post-push is an incident report, not a
-   guard.
+   rotation. Post-push detection reports an incident after the guard has
+   already failed.
 2. **It matches known provider patterns.** Tokens with vendor-recognisable
    shapes are caught; a generic high-entropy string, a database URL with an
    inline password, or a private key in an unusual wrapper may not be.
@@ -46,7 +46,7 @@ pipeline:
   uploading SARIF with `--exit-code 0`. Findings gate via Code Scanning's
   new-alert behaviour rather than failing the job. A historical finding
   predating the scan cannot be fixed by whichever PR happens to trip over it,
-  and the remediation for anything historical is rotation, not a red build.
+  and historical findings require rotation. A red build cannot remediate them.
   A genuine tool failure still fails the job, so the scan cannot silently
   skip itself.
 
@@ -66,14 +66,14 @@ tab as Trivy, zizmor, and Scorecard.
 
 # Alternatives Considered
 
-| Tool                                         | Role                      | Pros                                                                                                                 | Cons                                                                                                       | Verdict                                                                |
-| -------------------------------------------- | ------------------------- | -------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
-| **gitleaks** *(accepted)*                    | Secret detection          | De-facto standard; single binary in mise; pre-commit + full-history modes; SARIF; TOML allowlist config when needed. | Pattern/entropy-based → occasional false positives to allowlist.                                           | **Accepted.**                                                          |
-| **GitHub push protection**                   | Push-time block           | Native, free on public repos, zero config.                                                                           | Known provider patterns only; fires at push, later than pre-commit; not a substitute for history auditing. | **Complementary**, worth enabling in repo settings, not a replacement. |
-| **TruffleHog**                               | Detection + verification  | Verifies candidates against live APIs (fewer false positives).                                                       | Verification means sending candidates to providers; heavier tool; OSS/paid split has churned.              | Rejected: verification isn't worth the weight here.                    |
-| **detect-secrets** (Yelp)                    | Baseline-driven detection | Mature baseline workflow.                                                                                            | Python toolchain in a Node monorepo; slower-moving project.                                                | Rejected: gitleaks covers it in one binary.                            |
-| **gitleaks-action**                          | Same engine, packaged     | Turnkey.                                                                                                             | Org licensing terms; less control than running the mise-pinned binary the hook already uses.               | Rejected: run the same binary both places instead.                     |
-| **Status quo** (GitHub secret scanning only) | n/a                       | Zero effort.                                                                                                         | Post-push detection only, vendor patterns only.                                                            | Rejected: detection after publication is rotation, not prevention.     |
+| Tool                                         | Role                      | Pros                                                                                                                 | Cons                                                                                                       | Verdict                                                                              |
+| -------------------------------------------- | ------------------------- | -------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| **gitleaks** *(accepted)*                    | Secret detection          | De-facto standard; single binary in mise; pre-commit + full-history modes; SARIF; TOML allowlist config when needed. | Pattern/entropy-based → occasional false positives to allowlist.                                           | **Accepted.**                                                                        |
+| **GitHub push protection**                   | Push-time block           | Native, free on public repos, zero config.                                                                           | Known provider patterns only; fires at push, later than pre-commit; not a substitute for history auditing. | **Complementary**, worth enabling in repo settings, not a replacement.               |
+| **TruffleHog**                               | Detection + verification  | Verifies candidates against live APIs (fewer false positives).                                                       | Verification means sending candidates to providers; heavier tool; OSS/paid split has churned.              | Rejected: verification isn't worth the weight here.                                  |
+| **detect-secrets** (Yelp)                    | Baseline-driven detection | Mature baseline workflow.                                                                                            | Python toolchain in a Node monorepo; slower-moving project.                                                | Rejected: gitleaks covers it in one binary.                                          |
+| **gitleaks-action**                          | Same engine, packaged     | Turnkey.                                                                                                             | Org licensing terms; less control than running the mise-pinned binary the hook already uses.               | Rejected: run the same binary both places instead.                                   |
+| **Status quo** (GitHub secret scanning only) | n/a                       | Zero effort.                                                                                                         | Post-push detection only, vendor patterns only.                                                            | Rejected: detection after publication requires rotation and cannot prevent exposure. |
 
 # Where It Sits On The Adoption Curve
 
@@ -102,8 +102,8 @@ trade-off to accept this time.
   `.gitleaks.toml` allowlist entries over time; the config is committed and
   reviewable, so exceptions are visible rather than silent.
 * **Pattern-based detection is not proof of absence**. A secret in a shape no
-  rule anticipates still gets through; pre-commit is a strong net, not a
-  guarantee.
+  rule anticipates still gets through; pre-commit reduces the risk without
+  guaranteeing absence.
 * **The hook can be bypassed** (`--no-verify`); the CI history scan is the
   backstop that still catches what skipped the hook.
 
