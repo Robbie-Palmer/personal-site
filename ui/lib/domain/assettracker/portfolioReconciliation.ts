@@ -1,5 +1,9 @@
 import { addMonths, format, parseISO } from "date-fns";
-import { effectiveExpectedReturn } from "./account";
+import {
+  accountLiquidity,
+  effectiveExpectedReturn,
+  isLiability,
+} from "./account";
 import { realRate } from "./assetTrackerAnalytics";
 import { todayIsoDate } from "./assetTrackerCommands";
 import { DEFAULT_WITHDRAWAL_RATE } from "./assetTrackerData";
@@ -8,6 +12,10 @@ import type { AssetTrackerRepository } from "./assetTrackerRepository";
 import type { NetWorthDataPoint } from "./assetTrackerViews";
 import { type CapitalFlow, capitalFlowKind } from "./capitalFlow";
 import { monthlyAmount } from "./recurringFlow";
+import {
+  buildRunwayForecast,
+  type RunwayForecastPoint,
+} from "./runwayForecast";
 
 const DAYS_PER_YEAR = 365.2425;
 export const FI_PROJECTION_MAX_YEARS = 100;
@@ -51,9 +59,11 @@ export type PortfolioFinancialIndependence = {
   takeHomeSavingsRate: number | null;
   /** Present when active recurring compensation replaces the historical savings basis. */
   currentCompensation: PortfolioCurrentCompensation | null;
-  /** Positive balances in open cash accounts. */
+  /** Positive balances in open accounts classified as cash. */
   emergencyFund: number;
   emergencyFundMonths: number | null;
+  runway: FinancialRunway;
+  runwayForecast: RunwayForecastPoint[];
   target: number | null;
   progress: number | null;
   /** Expected annual portfolio return after inflation, weighted by balance. */
@@ -61,6 +71,19 @@ export type PortfolioFinancialIndependence = {
   projection: PortfolioFiProjectionPoint[];
   projectedFiDate: string | null;
   yearsToFi: number | null;
+};
+
+export type FinancialRunwayPool = {
+  balance: number;
+  months: number | null;
+};
+
+export type FinancialRunway = {
+  cash: FinancialRunwayPool;
+  /** Cash plus investments that can be sold without access restrictions. */
+  liquid: FinancialRunwayPool;
+  /** Net worth across every account, including liabilities. */
+  total: FinancialRunwayPool;
 };
 
 export type PortfolioCurrentCompensation = {
@@ -451,7 +474,9 @@ export function getPortfolioFinancialIndependence(
   const balances = latestBalances(repository);
   const emergencyFund = Array.from(repository.accounts.values()).reduce(
     (sum, account) =>
-      account.assetType === "cash" && account.closedAt == null
+      accountLiquidity(account) === "cash" &&
+      !isLiability(account.assetType) &&
+      account.closedAt == null
         ? sum + Math.max(balances.get(account.id) ?? 0, 0)
         : sum,
     0,
@@ -459,6 +484,23 @@ export function getPortfolioFinancialIndependence(
   const emergencyFundMonths =
     annualCurrentExpenditure != null && annualCurrentExpenditure > 0
       ? (emergencyFund * 12) / annualCurrentExpenditure
+      : null;
+  const liquidAssets = Array.from(repository.accounts.values()).reduce(
+    (sum, account) => {
+      if (
+        account.closedAt != null ||
+        isLiability(account.assetType) ||
+        accountLiquidity(account) === "illiquid"
+      ) {
+        return sum;
+      }
+      return sum + Math.max(balances.get(account.id) ?? 0, 0);
+    },
+    0,
+  );
+  const monthsOfSpending = (balance: number): number | null =>
+    annualCurrentExpenditure != null && annualCurrentExpenditure > 0
+      ? (Math.max(balance, 0) * 12) / annualCurrentExpenditure
       : null;
   const startDate = todayIsoDate();
   const compensation = currentCompensation(
@@ -510,6 +552,23 @@ export function getPortfolioFinancialIndependence(
     currentCompensation: compensation,
     emergencyFund,
     emergencyFundMonths,
+    runway: {
+      cash: { balance: emergencyFund, months: emergencyFundMonths },
+      liquid: {
+        balance: liquidAssets,
+        months: monthsOfSpending(liquidAssets),
+      },
+      total: {
+        balance: currentNetWorth,
+        months: monthsOfSpending(currentNetWorth),
+      },
+    },
+    runwayForecast: buildRunwayForecast({
+      repository,
+      annualExpenditure,
+      annualCurrentExpenditure,
+      startDate,
+    }),
     target,
     progress:
       target == null || target <= 0

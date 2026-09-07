@@ -15,6 +15,15 @@ export const AssetTypeSchema = z.enum([
 ]);
 export type AssetType = z.infer<typeof AssetTypeSchema>;
 
+export const LiquidityTierSchema = z.enum(["cash", "liquid", "illiquid"]);
+export type LiquidityTier = z.infer<typeof LiquidityTierSchema>;
+
+export const LIQUIDITY_TIER_LABELS: Record<LiquidityTier, string> = {
+  cash: "Cash",
+  liquid: "Liquid investment",
+  illiquid: "Illiquid asset",
+};
+
 /** Liabilities carry negative balances; their rate is the interest charged */
 export function isLiability(assetType: AssetType): boolean {
   return assetType === "mortgage" || assetType === "debt";
@@ -40,6 +49,8 @@ export const AccountContentSchema = z.object({
   provider: z.string().min(1),
   currency: CurrencySchema,
   assetType: AssetTypeSchema,
+  /** How readily this account can fund spending without waiting or penalties. */
+  liquidity: LiquidityTierSchema.optional(),
   // For debt accounts this is the interest rate, compounding the (negative)
   // balance further from zero. Constrained like ExpectedReturnChange.rate —
   // a return at or below -100% can't compound.
@@ -58,6 +69,35 @@ export const AccountContentSchema = z.object({
 export type AccountContent = z.infer<typeof AccountContentSchema>;
 
 export type Account = AccountContent;
+
+type LiquidityAccount = Pick<
+  Account,
+  "assetType" | "liquidity" | "name" | "provider"
+>;
+
+/**
+ * Resolve liquidity for new and previously stored accounts. Older data did
+ * not have an explicit tier, so pension accounts need a small name-based
+ * migration rule while ordinary investments remain liquid.
+ */
+export function accountLiquidity(account: LiquidityAccount): LiquidityTier {
+  if (account.liquidity != null) return account.liquidity;
+  if (account.assetType === "cash") return "cash";
+  if (account.assetType === "property" || account.assetType === "mortgage") {
+    return "illiquid";
+  }
+  const searchableName = `${account.name} ${account.provider}`.toLowerCase();
+  if (/\b(pension|sipp)\b/.test(searchableName)) return "illiquid";
+  return "liquid";
+}
+
+export function defaultLiquidityForAssetType(
+  assetType: AssetType,
+): LiquidityTier {
+  if (assetType === "cash") return "cash";
+  if (assetType === "property" || assetType === "mortgage") return "illiquid";
+  return "liquid";
+}
 
 /** The expected annual return in force on a given date */
 export function effectiveExpectedReturn(
