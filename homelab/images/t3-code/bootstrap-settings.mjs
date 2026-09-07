@@ -10,31 +10,35 @@ import { dirname } from "node:path";
 
 const settingsPath = "/data/home/.t3/userdata/settings.json";
 
+function isRecord(value) {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function recordOrEmpty(value) {
+  return isRecord(value) ? value : {};
+}
+
 mkdirSync(dirname(settingsPath), { recursive: true });
 
 let settings = {};
 if (existsSync(settingsPath)) {
-  settings = JSON.parse(readFileSync(settingsPath, "utf8"));
-  if (settings === null || Array.isArray(settings) || typeof settings !== "object") {
+  const parsedSettings = JSON.parse(readFileSync(settingsPath, "utf8"));
+  if (!isRecord(parsedSettings)) {
     throw new Error(`${settingsPath} must contain a JSON object`);
   }
+  settings = parsedSettings;
 }
 
-const providers =
-  settings.providers !== null &&
-  !Array.isArray(settings.providers) &&
-  typeof settings.providers === "object"
-    ? settings.providers
-    : {};
+const providers = recordOrEmpty(settings.providers);
 
 settings.providers = {
   ...providers,
   grok: {
-    ...(providers.grok ?? {}),
+    ...recordOrEmpty(providers.grok),
     enabled: true,
   },
   opencode: {
-    ...(providers.opencode ?? {}),
+    ...recordOrEmpty(providers.opencode),
     enabled: true,
   },
 };

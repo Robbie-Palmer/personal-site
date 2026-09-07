@@ -16,10 +16,12 @@ ARG PNPM_VERSION=12.2.1
 LABEL org.opencontainers.image.source="https://github.com/Robbie-Palmer/personal-site"
 LABEL org.opencontainers.image.description="Pinned t3-code runtime for the remote development K3s cluster"
 
-RUN apt-get update \
+RUN groupadd --gid 2000 t3code \
+    && useradd --uid 2000 --gid 2000 --create-home --shell /bin/bash t3code \
+    && apt-get update \
     && apt-get install --yes --no-install-recommends \
-      build-essential \
       bubblewrap \
+      build-essential \
       ca-certificates \
       chromium \
       curl \
@@ -79,9 +81,6 @@ RUN apt-get update \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-RUN groupadd --gid 2000 t3code \
-    && useradd --uid 2000 --gid 2000 --create-home --shell /bin/bash t3code
-
 ENV HOME=/data/home
 ENV T3CODE_HOME=/data/home/.t3
 ENV T3CODE_HOST=0.0.0.0
@@ -99,6 +98,9 @@ COPY --chmod=0555 bootstrap-settings.mjs /usr/local/lib/t3-code/bootstrap-settin
 WORKDIR /data/workspaces
 USER 2000:2000
 EXPOSE 3773
+
+HEALTHCHECK --interval=30s --timeout=3s --start-period=20s --retries=3 \
+  CMD curl --fail --max-time 2 --silent http://127.0.0.1:3773/ >/dev/null || exit 1
 
 ENTRYPOINT ["/usr/bin/tini", "--"]
 CMD ["t3", "serve", "--host=0.0.0.0", "--port=3773", "--base-dir=/data/home/.t3", "/data/workspaces"]
