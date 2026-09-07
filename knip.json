@@ -19,6 +19,7 @@
       ],
       "ignoreDependencies": ["cloudflare"]
     },
+    "packages/ai-review-domain": {},
     "ui": {
       "ignore": ["content/**"],
       "ignoreDependencies": ["serve"]
