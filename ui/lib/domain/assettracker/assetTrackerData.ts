@@ -18,6 +18,14 @@ import { TransferSchema } from "./transfer";
 export const DEFAULT_EXPECTED_INFLATION = 0.025;
 export const DEFAULT_WITHDRAWAL_RATE = 0.04;
 
+/** A safe, user-facing failure caused by invalid persisted or imported data. */
+export class AssetTrackerDataError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "AssetTrackerDataError";
+  }
+}
+
 export const AssetTrackerSettingsSchema = z.object({
   /** Used to express projected values and rates in today's money */
   expectedAnnualInflation: z.number().gt(-1),

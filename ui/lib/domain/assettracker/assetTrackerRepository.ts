@@ -9,6 +9,7 @@ import {
 } from "./account";
 import {
   type AssetTrackerData,
+  AssetTrackerDataError,
   AssetTrackerDataSchema,
 } from "./assetTrackerData";
 import type { BalanceSnapshot } from "./balanceSnapshot";
@@ -52,7 +53,7 @@ function indexAccounts(accounts: Account[]): Map<AccountId, Account> {
   for (const account of accounts) {
     const existing = byId.get(account.id);
     if (existing) {
-      throw new Error(
+      throw new AssetTrackerDataError(
         `Duplicate account ID "${account.id}": "${existing.name}" and "${account.name}" both use the same ID`,
       );
     }
@@ -67,7 +68,9 @@ function assertKnownAccount(
   referrer: string,
 ): void {
   if (accountId != null && !accounts.has(accountId)) {
-    throw new Error(`${referrer} references unknown account "${accountId}"`);
+    throw new AssetTrackerDataError(
+      `${referrer} references unknown account "${accountId}"`,
+    );
   }
 }
 
@@ -79,7 +82,7 @@ function assertUniqueAccountDates(
   for (const record of records) {
     const key = `${record.accountId}\0${record.date}`;
     if (seen.has(key)) {
-      throw new Error(
+      throw new AssetTrackerDataError(
         `Duplicate ${label} for account "${record.accountId}" on ${record.date}`,
       );
     }
@@ -96,7 +99,7 @@ function assertUniqueCapitalFlows(records: readonly CapitalFlow[]): void {
         capitalFlowKind(record) === "personalSaving"
           ? "capital flow"
           : `${capitalFlowKind(record)} capital flow`;
-      throw new Error(
+      throw new AssetTrackerDataError(
         `Duplicate ${label} for account "${record.accountId}" on ${record.date}`,
       );
     }
@@ -113,7 +116,9 @@ function validateReferences(
   const incomeDates = new Set<string>();
   for (const income of data.incomeHistory) {
     if (incomeDates.has(income.date)) {
-      throw new Error(`Duplicate income record on ${income.date}`);
+      throw new AssetTrackerDataError(
+        `Duplicate income record on ${income.date}`,
+      );
     }
     incomeDates.add(income.date);
   }
@@ -175,8 +180,8 @@ function validateReferences(
         isLiability(source.assetType) ||
         accountLiquidity(source) === "illiquid")
     ) {
-      throw new Error(
-        `Planned expenditure "${expenditure.name}" references ineligible account "${source.id}"`,
+      throw new AssetTrackerDataError(
+        `Planned expenditure "${expenditure.name}" references ineligible account "${expenditure.fromAccountId}"`,
       );
     }
   }

@@ -22,7 +22,10 @@ import {
   applySetWithdrawalRate,
   formatAssetTrackerError,
 } from "@/lib/domain/assettracker/assetTrackerCommands";
-import type { AssetTrackerData } from "@/lib/domain/assettracker/assetTrackerData";
+import {
+  type AssetTrackerData,
+  AssetTrackerDataError,
+} from "@/lib/domain/assettracker/assetTrackerData";
 import { flowOccurrenceDates } from "@/lib/domain/assettracker/recurringFlow";
 
 function baseData(): AssetTrackerData {
@@ -511,6 +514,14 @@ describe("portfolio income settings", () => {
 });
 
 describe("formatAssetTrackerError", () => {
+  it("surfaces safe imported-data validation messages", () => {
+    expect(
+      formatAssetTrackerError(
+        new AssetTrackerDataError("Imported account reference is invalid"),
+      ),
+    ).toBe("Imported account reference is invalid");
+  });
+
   it("does not expose unexpected internal error messages", () => {
     expect(formatAssetTrackerError(new Error("internal storage detail"))).toBe(
       "Something went wrong",
@@ -984,6 +995,17 @@ describe("planned expenditures", () => {
         "Planned expenditure must come from cash or a liquid investment",
       );
     }
+  });
+
+  it("rejects spending from an account that is already closed", () => {
+    expect(() =>
+      applyAddPlannedExpenditure(baseData(), {
+        name: "Car",
+        amount: 20_000,
+        date: "2023-01-01",
+        fromAccountId: "old-pension",
+      }),
+    ).toThrow("Planned expenditure must come from an open account");
   });
 
   it("rejects expenditure dates that have already passed", () => {

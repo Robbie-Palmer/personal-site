@@ -11,7 +11,10 @@ import {
   isLiability,
   LiquidityTierSchema,
 } from "./account";
-import type { AssetTrackerData } from "./assetTrackerData";
+import {
+  type AssetTrackerData,
+  AssetTrackerDataError,
+} from "./assetTrackerData";
 import type { BalanceSnapshot } from "./balanceSnapshot";
 import {
   type CapitalFlow,
@@ -754,7 +757,13 @@ export function applyAddPlannedExpenditure(
   input: AddPlannedExpenditureInput,
 ): AssetTrackerData {
   const parsed = AddPlannedExpenditureInputSchema.parse(input);
-  const source = requireOpenOn(data, parsed.fromAccountId, parsed.date);
+  const source = requireAccount(data, parsed.fromAccountId);
+  if (source.closedAt != null) {
+    throw new AssetTrackerCommandError(
+      "INVALID_PLANNED_EXPENDITURE",
+      "Planned expenditure must come from an open account",
+    );
+  }
   if (
     isLiability(source.assetType) ||
     accountLiquidity(source) === "illiquid"
@@ -883,6 +892,7 @@ export function applySetNetWorthTarget(
 /** Maps validation and command failures to a message safe to show in a form */
 export function formatAssetTrackerError(error: unknown): string {
   if (error instanceof AssetTrackerCommandError) return error.message;
+  if (error instanceof AssetTrackerDataError) return error.message;
   if (error instanceof z.ZodError) {
     return error.issues[0]?.message ?? "Invalid input";
   }
