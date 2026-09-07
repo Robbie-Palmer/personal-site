@@ -37,6 +37,7 @@ export type AssetTrackerCommandErrorCode =
   | "ACCOUNT_CLOSED"
   | "ACCOUNT_ALREADY_CLOSED"
   | "ACCOUNT_HAS_LATER_HISTORY"
+  | "ACCOUNT_HAS_PLANNED_EXPENDITURES"
   | "SNAPSHOT_NOT_FOUND"
   | "CAPITAL_FLOW_NOT_FOUND"
   | "FLOW_NOT_FOUND"
@@ -316,6 +317,23 @@ function requireOpenOn(
   return account;
 }
 
+function assertNoPlannedExpendituresFrom(
+  data: AssetTrackerData,
+  account: Account,
+  action: string,
+): void {
+  if (
+    data.plannedExpenditures.some(
+      (expenditure) => expenditure.fromAccountId === account.id,
+    )
+  ) {
+    throw new AssetTrackerCommandError(
+      "ACCOUNT_HAS_PLANNED_EXPENDITURES",
+      `"${account.name}" funds planned spending; delete or reassign it before ${action}`,
+    );
+  }
+}
+
 function upsertSnapshot(
   snapshots: BalanceSnapshot[],
   snapshot: BalanceSnapshot,
@@ -584,6 +602,7 @@ export function applyCloseAccount(
       `"${account.name}" is already closed`,
     );
   }
+  assertNoPlannedExpendituresFrom(data, account, "closing");
   // Closing before later history would strand those snapshots, so the account
   // would reappear in net-worth views after its close date
   const hasLaterHistory = data.snapshots.some(
@@ -806,6 +825,13 @@ export function applySetAccountLiquidity(
 ): AssetTrackerData {
   const parsed = SetAccountLiquidityInputSchema.parse(input);
   const account = requireAccount(data, parsed.accountId);
+  if (parsed.liquidity === "illiquid") {
+    assertNoPlannedExpendituresFrom(
+      data,
+      account,
+      "making the account illiquid",
+    );
+  }
   const accounts = data.accounts.map((candidate) =>
     candidate.id === account.id
       ? { ...candidate, liquidity: parsed.liquidity }

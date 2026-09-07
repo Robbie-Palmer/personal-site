@@ -398,3 +398,41 @@ describe("getAccountDetail", () => {
     );
   });
 });
+
+describe("planned expenditure reference validation", () => {
+  function dataWithSource(
+    overrides: Partial<AssetTrackerData["accounts"][number]>,
+  ): AssetTrackerData {
+    const data = homeData();
+    const source = data.accounts[0];
+    if (source == null) throw new Error("Expected source account fixture");
+    data.accounts[0] = {
+      ...source,
+      assetType: "cash",
+      ...overrides,
+    };
+    data.plannedExpenditures = [
+      {
+        id: "new-car",
+        name: "New car",
+        amount: 20_000,
+        date: "2099-06-01",
+        fromAccountId: "home",
+      },
+    ];
+    return data;
+  }
+
+  it.each([
+    ["closed", { closedAt: "2025-01-01" }],
+    ["a liability", { assetType: "debt" as const }],
+    ["illiquid", { liquidity: "illiquid" as const }],
+  ])(
+    "rejects a persisted plan sourced from an account that is %s",
+    (_label, overrides) => {
+      expect(() => buildRepository(dataWithSource(overrides))).toThrow(
+        'Planned expenditure "New car" references ineligible account "home"',
+      );
+    },
+  );
+});

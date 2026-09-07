@@ -786,6 +786,22 @@ describe("applyCloseAccount", () => {
     ).toThrow(/recorded after/);
   });
 
+  it("rejects closing an account that funds planned spending", () => {
+    const data = applyAddPlannedExpenditure(baseData(), {
+      name: "New car",
+      amount: 20_000,
+      date: "2099-06-01",
+      fromAccountId: "savings",
+    });
+
+    expect(() =>
+      applyCloseAccount(data, {
+        accountId: "savings",
+        closedAt: "2025-01-01",
+      }),
+    ).toThrow(/funds planned spending/);
+  });
+
   it("does not overwrite a balance already recorded on the close date", () => {
     // User logs £5,000 on 2024-06-01, then closes that same day
     const next = applyCloseAccount(baseData(), {
@@ -1068,6 +1084,22 @@ describe("applySetAccountLiquidity", () => {
     const account = next.accounts.find((item) => item.id === "stocks-isa");
     expect(account?.liquidity).toBe("illiquid");
     expect(account?.assetType).toBe("stocks");
+  });
+
+  it("rejects making an account illiquid while it funds planned spending", () => {
+    const data = applyAddPlannedExpenditure(baseData(), {
+      name: "New car",
+      amount: 20_000,
+      date: "2099-06-01",
+      fromAccountId: "stocks-isa",
+    });
+
+    expect(() =>
+      applySetAccountLiquidity(data, {
+        accountId: "stocks-isa",
+        liquidity: "illiquid",
+      }),
+    ).toThrow(/funds planned spending/);
   });
 });
 

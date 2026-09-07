@@ -1,7 +1,12 @@
 import { accounts as definedAccounts } from "../../../content/assettracker/accounts";
 import { recurringFlows as definedRecurringFlows } from "../../../content/assettracker/recurringFlows";
 import { snapshots as definedSnapshots } from "../../../content/assettracker/snapshots";
-import type { Account, AccountId } from "./account";
+import {
+  type Account,
+  type AccountId,
+  accountLiquidity,
+  isLiability,
+} from "./account";
 import {
   type AssetTrackerData,
   AssetTrackerDataSchema,
@@ -163,6 +168,17 @@ function validateReferences(
       expenditure.fromAccountId,
       `Planned expenditure "${expenditure.name}"`,
     );
+    const source = accounts.get(expenditure.fromAccountId);
+    if (
+      source != null &&
+      (source.closedAt != null ||
+        isLiability(source.assetType) ||
+        accountLiquidity(source) === "illiquid")
+    ) {
+      throw new Error(
+        `Planned expenditure "${expenditure.name}" references ineligible account "${source.id}"`,
+      );
+    }
   }
 }
 
