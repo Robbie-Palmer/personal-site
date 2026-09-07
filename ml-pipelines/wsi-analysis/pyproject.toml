@@ -19,7 +19,7 @@ wsi-analysis = "wsi_analysis.cli:main"
 
 [dependency-groups]
 dev = [
-    "pytest>=8.4.2,<9",
+    "pytest>=9.0.3,<10",
     "pytest-cases>=3.10.1",
     "pytest-cov>=7.0.0",
     "ruff>=0.14.14",
