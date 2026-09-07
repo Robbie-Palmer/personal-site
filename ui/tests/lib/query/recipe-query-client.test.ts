@@ -2,6 +2,7 @@ import { QueryClient } from "@tanstack/react-query";
 import { describe, expect, it, vi } from "vitest";
 import { ApiError } from "@/lib/api/http";
 import {
+  cachedRecipeFromBootstrap,
   clearOtherPrivateRecipeQueries,
   clearPrivateRecipeQueries,
   createRecipeQueryClient,
@@ -16,6 +17,26 @@ describe("recipe query policy", () => {
     expect(queryClient.getDefaultOptions().queries?.refetchOnWindowFocus).toBe(
       true,
     );
+  });
+
+  it("finds a recipe in the current user's cached bootstrap snapshot", () => {
+    const queryClient = new QueryClient();
+    const recipe = { slug: "lentil-soup", title: "Lentil soup" };
+    queryClient.setQueryData(recipeQueryKeys.bootstrap("user-1"), {
+      recipeBox: { recipes: [recipe] },
+    });
+    queryClient.setQueryData(recipeQueryKeys.bootstrap("user-2"), {
+      recipeBox: {
+        recipes: [{ slug: "lentil-soup", title: "Someone else's soup" }],
+      },
+    });
+
+    expect(
+      cachedRecipeFromBootstrap(queryClient, "user-1", "lentil-soup"),
+    ).toBe(recipe);
+    expect(
+      cachedRecipeFromBootstrap(queryClient, "user-1", "missing"),
+    ).toBeUndefined();
   });
 
   it("does not retry deterministic or authorization responses", () => {

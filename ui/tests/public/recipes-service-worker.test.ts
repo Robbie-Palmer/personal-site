@@ -1,0 +1,178 @@
+import { readFileSync } from "node:fs";
+import path from "node:path";
+import { describe, expect, it, vi } from "vitest";
+
+type WorkerListener = (event: Record<string, unknown>) => void;
+
+class MemoryCache {
+  private readonly responses = new Map<string, Response>();
+
+  async add(request: RequestInfo | URL) {
+    const response = await fetch(request);
+    await this.put(request, response);
+  }
+
+  async delete(request: RequestInfo | URL) {
+    return this.responses.delete(this.key(request));
+  }
+
+  async keys() {
+    return [...this.responses.keys()].map((url) => new Request(url));
+  }
+
+  async match(request: RequestInfo | URL) {
+    return this.responses.get(this.key(request))?.clone();
+  }
+
+  async put(request: RequestInfo | URL, response: Response) {
+    this.responses.set(this.key(request), response.clone());
+  }
+
+  private key(request: RequestInfo | URL) {
+    const value = request instanceof Request ? request.url : String(request);
+    return new URL(value, "https://recipes.example.test").href;
+  }
+}
+
+function serviceWorkerHarness(fetchMock: typeof fetch) {
+  const listeners = new Map<string, WorkerListener>();
+  const stores = new Map<string, MemoryCache>();
+  const cacheStorage = {
+    delete: async (name: string) => stores.delete(name),
+    keys: async () => [...stores.keys()],
+    open: async (name: string) => {
+      const existing = stores.get(name);
+      if (existing) return existing;
+      const cache = new MemoryCache();
+      stores.set(name, cache);
+      return cache;
+    },
+  };
+  const workerSelf = {
+    addEventListener: (type: string, listener: WorkerListener) =>
+      listeners.set(type, listener),
+    clients: { claim: vi.fn() },
+    location: { origin: "https://recipes.example.test" },
+    skipWaiting: vi.fn(),
+  };
+  const source = readFileSync(
+    path.resolve(__dirname, "../../public/recipes-sw.js"),
+    "utf8",
+  );
+  const loadWorker = new Function("self", "caches", "fetch", source);
+  loadWorker(workerSelf, cacheStorage, fetchMock);
+
+  return {
+    async install() {
+      let pending = Promise.resolve();
+      listeners.get("install")?.({
+        waitUntil: (promise: Promise<unknown>) => {
+          pending = promise.then(() => undefined);
+        },
+      });
+      await pending;
+    },
+    async message(data: unknown) {
+      let pending = Promise.resolve();
+      listeners.get("message")?.({
+        data,
+        waitUntil: (promise: Promise<unknown>) => {
+          pending = promise.then(() => undefined);
+        },
+      });
+      await pending;
+    },
+    async request(request: Request) {
+      let response: Promise<Response> | undefined;
+      listeners.get("fetch")?.({
+        request,
+        respondWith: (value: Promise<Response>) => {
+          response = value;
+        },
+        waitUntil: vi.fn(),
+      });
+      if (!response) throw new Error("The worker did not handle the request");
+      return response;
+    },
+    stores,
+  };
+}
+
+describe("recipe service worker", () => {
+  it("precaches the recipe shells and WebAssembly needed to render them", async () => {
+    const wasmHash = "0123456789abcdef";
+    const fetchMock = vi.fn<typeof fetch>(async (request) => {
+      const value = request instanceof Request ? request.url : String(request);
+      const url = new URL(value, "https://recipes.example.test");
+      if (url.pathname === "/recipes" || url.pathname === "/recipes/saved") {
+        return new Response(
+          '<script src="/_next/static/chunks/recipes.js"></script>',
+          { headers: { "content-type": "text/html" } },
+        );
+      }
+      if (url.pathname.endsWith("/recipes.js")) {
+        return new Response(`runtime.v(target,module,"${wasmHash}",imports)`);
+      }
+      if (url.pathname.endsWith(`${wasmHash}.wasm`)) {
+        return new Response(new Uint8Array([0, 97, 115, 109]));
+      }
+      return new Response("Not found", { status: 404 });
+    });
+    const worker = serviceWorkerHarness(fetchMock);
+
+    await worker.install();
+
+    const shellKeys = await worker.stores.get("recipe-shell-v1")?.keys();
+    const assetKeys = await worker.stores.get("recipe-assets-v1")?.keys();
+    expect(shellKeys?.map((key) => new URL(key.url).pathname)).toEqual([
+      "/recipes",
+      "/recipes/saved",
+    ]);
+    expect(assetKeys?.map((key) => new URL(key.url).pathname)).toContain(
+      `/_next/static/wasm/${wasmHash}.wasm`,
+    );
+  });
+
+  it("uses an unexpired cached session to reopen the app offline", async () => {
+    const sessionRequest = new Request(
+      "https://recipes.example.test/api/auth/get-session",
+    );
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(
+        Response.json({
+          session: { expiresAt: "2099-01-01T00:00:00.000Z" },
+          user: { id: "user-1" },
+        }),
+      )
+      .mockRejectedValue(new TypeError("offline"));
+    const worker = serviceWorkerHarness(fetchMock);
+
+    await worker.request(sessionRequest);
+    expect(await (await worker.request(sessionRequest)).json()).toMatchObject({
+      user: { id: "user-1" },
+    });
+  });
+
+  it("removes the cached session when private offline data is cleared", async () => {
+    const sessionRequest = new Request(
+      "https://recipes.example.test/api/auth/get-session",
+    );
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(
+        Response.json({
+          session: { expiresAt: "2099-01-01T00:00:00.000Z" },
+          user: { id: "user-1" },
+        }),
+      )
+      .mockRejectedValue(new TypeError("offline"));
+    const worker = serviceWorkerHarness(fetchMock);
+    await worker.request(sessionRequest);
+
+    await worker.message({ type: "CLEAR_RECIPE_OFFLINE_DATA" });
+
+    expect([...worker.stores.keys()]).not.toContain("recipe-session-v1");
+    await expect(worker.request(sessionRequest)).rejects.toThrow("offline");
+  });
+});
