@@ -3051,11 +3051,7 @@ registerRoute("post", "/api/auth/preview/sign-up", async (c) => {
     console.error("Preview sign-up failed", error);
     return c.json({ error: "Preview sign-up failed" }, 502);
   } finally {
-    try {
-      await client.end({ timeout: 5 });
-    } catch (error) {
-      console.error("client.end() cleanup failed", error);
-    }
+    await closeDbClient(client);
   }
 });
 
@@ -3095,11 +3091,7 @@ registerRoute("post", "/api/auth/preview/sign-in", async (c) => {
     console.error("Preview sign-in failed", error);
     return c.json({ error: "Preview sign-in failed" }, 401);
   } finally {
-    try {
-      await client.end({ timeout: 5 });
-    } catch (error) {
-      console.error("client.end() cleanup failed", error);
-    }
+    await closeDbClient(client);
   }
 });
 
@@ -3157,11 +3149,7 @@ app.on(["POST", "GET"], "/api/auth/*", async (c) => {
     }
     return response;
   } finally {
-    try {
-      await client.end({ timeout: 5 });
-    } catch (e) {
-      console.error("client.end() cleanup failed", e);
-    }
+    await closeDbClient(client);
   }
 });
 
