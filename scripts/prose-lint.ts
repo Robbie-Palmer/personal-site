@@ -71,8 +71,10 @@ Options:
                  tracked files, full scan for untracked.
   --all          Treat every line of every file as changed (whole-file
                  scan; used by lint:prose:check).
+  --tracked      Load all tracked Markdown and MDX paths from Git.
   --report-only  Print content alerts without returning a failure. Vale and
                  configuration failures still return a failure.
+  --             Treat every remaining argument as a file path.
   --help         Print this help and exit.
 
 Exit codes:
@@ -177,7 +179,7 @@ interface ValeOutput {
   [file: string]: ValeAlert[];
 }
 
-function runVale(files: string[]): ValeAlert[] {
+function runValeBatch(files: string[]): ValeAlert[] {
   const args = ["--config", VALE_CONFIG, "--output", "JSON", ...files];
 
   let stdout: string;
@@ -233,6 +235,31 @@ function runVale(files: string[]): ValeAlert[] {
   }
 }
 
+function valeBatches(files: string[]): string[][] {
+  const batches: string[][] = [];
+  let batch: string[] = [];
+  let characters = 0;
+
+  for (const file of files) {
+    if (
+      batch.length > 0 &&
+      (batch.length >= 100 || characters + file.length > 24_000)
+    ) {
+      batches.push(batch);
+      batch = [];
+      characters = 0;
+    }
+    batch.push(file);
+    characters += file.length + 1;
+  }
+  if (batch.length > 0) batches.push(batch);
+  return batches;
+}
+
+function runVale(files: string[]): ValeAlert[] {
+  return valeBatches(files).flatMap(runValeBatch);
+}
+
 /* ------------------------------------------------------------------ */
 /*  Main                                                               */
 /* ------------------------------------------------------------------ */
@@ -243,6 +270,7 @@ interface ProseOptions {
   files: string[];
   staged: boolean;
   all: boolean;
+  tracked: boolean;
   reportOnly: boolean;
   explicitDiff: DiffMode | null;
   base: string;
@@ -268,6 +296,7 @@ function parseArgs(argv: string[]): ProseOptions {
     files: [],
     staged: false,
     all: false,
+    tracked: false,
     reportOnly: false,
     explicitDiff: null,
     base: "HEAD",
@@ -283,13 +312,58 @@ function parseArgs(argv: string[]): ProseOptions {
       i++;
     } else if (arg === "--staged") opts.staged = true;
     else if (arg === "--all") opts.all = true;
+    else if (arg === "--tracked") opts.tracked = true;
     else if (arg === "--report-only") opts.reportOnly = true;
-    else if (arg.startsWith("--")) {
+    else if (arg === "--help") printHelp();
+    else if (arg === "--") {
+      opts.files.push(...argv.slice(i + 1));
+      break;
+    } else if (arg.startsWith("--")) {
       console.error(`prose-lint: unknown flag ${arg}`);
       process.exit(1);
     } else opts.files.push(arg);
   }
   return opts;
+}
+
+function trackedProseFiles(): string[] {
+  try {
+    return execFileSync(
+      GIT_BIN,
+      ["ls-files", "-z", "--", "*.md", "*.mdx"],
+      {
+        encoding: "utf-8",
+        stdio: ["pipe", "pipe", "pipe"],
+      },
+    )
+      .split("\0")
+      .filter(Boolean);
+  } catch (e: unknown) {
+    const err = e as { stderr?: string };
+    if (err.stderr) console.error(err.stderr.trimEnd());
+    console.error("prose-lint: git ls-files failed");
+    process.exit(1);
+  }
+}
+
+function stagedProseFiles(): string[] {
+  try {
+    return execFileSync(
+      GIT_BIN,
+      ["diff", "--cached", "--name-only", "-z", "--", "*.md", "*.mdx"],
+      {
+        encoding: "utf-8",
+        stdio: ["pipe", "pipe", "pipe"],
+      },
+    )
+      .split("\0")
+      .filter(Boolean);
+  } catch (e: unknown) {
+    const err = e as { stderr?: string };
+    if (err.stderr) console.error(err.stderr.trimEnd());
+    console.error("prose-lint: git diff --cached failed");
+    process.exit(1);
+  }
 }
 
 function isNonContentPath(file: string): boolean {
@@ -429,9 +503,15 @@ function reportAlerts(alerts: ValeAlert[], reportOnly: boolean): void {
 
 function main(): void {
   const args = process.argv.slice(2);
-  if (args.length === 0 || args.includes("--help")) printHelp();
+  if (args.length === 0) printHelp();
 
   const opts = parseArgs(args);
+  if (opts.tracked) opts.files.push(...trackedProseFiles());
+  if (opts.staged && opts.files.length === 0) {
+    opts.files.push(...stagedProseFiles());
+  }
+  opts.files = [...new Set(opts.files)];
+  if (opts.staged && opts.files.length === 0) process.exit(0);
   if (opts.files.length === 0) {
     console.error("prose-lint: no files specified");
     process.exit(1);
