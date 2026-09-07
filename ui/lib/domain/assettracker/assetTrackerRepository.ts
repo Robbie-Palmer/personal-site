@@ -9,6 +9,7 @@ import {
 import type { BalanceSnapshot } from "./balanceSnapshot";
 import { type CapitalFlow, capitalFlowKind } from "./capitalFlow";
 import type { IncomeRecord } from "./incomeRecord";
+import type { PlannedExpenditure } from "./plannedExpenditure";
 import type { RecurringFlow } from "./recurringFlow";
 import type { Transfer } from "./transfer";
 
@@ -19,6 +20,7 @@ export interface AssetTrackerRepository {
   incomeHistory: IncomeRecord[];
   transfers: Transfer[];
   recurringFlows: RecurringFlow[];
+  plannedExpenditures: PlannedExpenditure[];
   settings: AssetTrackerData["settings"];
 }
 
@@ -155,6 +157,13 @@ function validateReferences(
       `Recurring flow "${flow.name}"`,
     );
   }
+  for (const expenditure of data.plannedExpenditures) {
+    assertKnownAccount(
+      accounts,
+      expenditure.fromAccountId,
+      `Planned expenditure "${expenditure.name}"`,
+    );
+  }
 }
 
 export function buildRepository(
@@ -177,6 +186,9 @@ export function buildRepository(
     ),
     transfers: data.transfers,
     recurringFlows: data.recurringFlows,
+    plannedExpenditures: [...data.plannedExpenditures].sort((a, b) =>
+      a.date.localeCompare(b.date),
+    ),
     settings: data.settings,
   };
 }

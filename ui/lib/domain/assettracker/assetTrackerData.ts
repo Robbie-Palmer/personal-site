@@ -3,6 +3,7 @@ import { AccountContentSchema } from "./account";
 import { BalanceSnapshotSchema } from "./balanceSnapshot";
 import { CapitalFlowSchema } from "./capitalFlow";
 import { IncomeRecordSchema } from "./incomeRecord";
+import { PlannedExpenditureSchema } from "./plannedExpenditure";
 import { RecurringFlowSchema } from "./recurringFlow";
 import { TransferSchema } from "./transfer";
 
@@ -36,6 +37,7 @@ export const AssetTrackerDataSchema = z.object({
   incomeHistory: z.array(IncomeRecordSchema).default([]),
   transfers: z.array(TransferSchema).default([]),
   recurringFlows: z.array(RecurringFlowSchema).default([]),
+  plannedExpenditures: z.array(PlannedExpenditureSchema).default([]),
   settings: AssetTrackerSettingsSchema.default({
     expectedAnnualInflation: DEFAULT_EXPECTED_INFLATION,
     withdrawalRate: DEFAULT_WITHDRAWAL_RATE,

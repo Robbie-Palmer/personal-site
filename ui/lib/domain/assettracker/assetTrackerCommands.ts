@@ -6,7 +6,10 @@ import {
   type AccountId,
   AccountIdSchema,
   AssetTypeSchema,
+  accountLiquidity,
   CurrencySchema,
+  isLiability,
+  LiquidityTierSchema,
 } from "./account";
 import type { AssetTrackerData } from "./assetTrackerData";
 import type { BalanceSnapshot } from "./balanceSnapshot";
@@ -37,6 +40,7 @@ export type AssetTrackerCommandErrorCode =
   | "SNAPSHOT_NOT_FOUND"
   | "CAPITAL_FLOW_NOT_FOUND"
   | "FLOW_NOT_FOUND"
+  | "PLANNED_EXPENDITURE_NOT_FOUND"
   | "DUPLICATE_INCOME_DATE"
   | "INVALID_ACCOUNT_NAME";
 
@@ -63,6 +67,7 @@ export const CreateAccountInputSchema = z.object({
   provider: z.string().trim().min(1, "Provider is required"),
   currency: CurrencySchema,
   assetType: AssetTypeSchema,
+  liquidity: LiquidityTierSchema.optional(),
   expectedAnnualReturn: AnnualRateSchema,
   /** e.g. the property a mortgage is secured on */
   linkedAccountId: AccountIdSchema.optional(),
@@ -189,6 +194,23 @@ export type DeleteRecurringFlowInput = z.infer<
   typeof DeleteRecurringFlowInputSchema
 >;
 
+export const AddPlannedExpenditureInputSchema = z.object({
+  name: z.string().trim().min(1, "Give the expenditure a name"),
+  amount: z.number().positive("Amount must be positive"),
+  date: IsoDateSchema,
+  fromAccountId: AccountIdSchema,
+});
+export type AddPlannedExpenditureInput = z.infer<
+  typeof AddPlannedExpenditureInputSchema
+>;
+
+export const DeletePlannedExpenditureInputSchema = z.object({
+  id: z.string().min(1),
+});
+export type DeletePlannedExpenditureInput = z.infer<
+  typeof DeletePlannedExpenditureInputSchema
+>;
+
 export const SetExpectedReturnInputSchema = z.object({
   accountId: AccountIdSchema,
   rate: AnnualRateSchema,
@@ -196,6 +218,14 @@ export const SetExpectedReturnInputSchema = z.object({
 });
 export type SetExpectedReturnInput = z.infer<
   typeof SetExpectedReturnInputSchema
+>;
+
+export const SetAccountLiquidityInputSchema = z.object({
+  accountId: AccountIdSchema,
+  liquidity: LiquidityTierSchema,
+});
+export type SetAccountLiquidityInput = z.infer<
+  typeof SetAccountLiquidityInputSchema
 >;
 
 export const MaterializeFlowInputSchema = z.object({
@@ -322,6 +352,7 @@ export function applyCreateAccount(
     provider: parsed.provider,
     currency: parsed.currency,
     assetType: parsed.assetType,
+    liquidity: parsed.liquidity,
     expectedAnnualReturn: parsed.expectedAnnualReturn,
     linkedAccountId: parsed.linkedAccountId,
     createdAt: openingDate,
@@ -698,6 +729,54 @@ export function applyDeleteRecurringFlow(
   return { ...data, recurringFlows };
 }
 
+export function applyAddPlannedExpenditure(
+  data: AssetTrackerData,
+  input: AddPlannedExpenditureInput,
+): AssetTrackerData {
+  const parsed = AddPlannedExpenditureInputSchema.parse(input);
+  const source = requireOpenOn(data, parsed.fromAccountId, parsed.date);
+  if (
+    isLiability(source.assetType) ||
+    accountLiquidity(source) === "illiquid"
+  ) {
+    throw new Error(
+      "Planned expenditure must come from cash or a liquid investment",
+    );
+  }
+  if (parsed.date <= todayIsoDate()) {
+    throw new Error("Planned expenditure must have a future date");
+  }
+  const base = normalizeSlug(parsed.name) || "expenditure";
+  const expenditure = {
+    id: uniqueId(
+      new Set(data.plannedExpenditures.map((item) => item.id)),
+      base,
+    ),
+    ...parsed,
+  };
+  return {
+    ...data,
+    plannedExpenditures: [...data.plannedExpenditures, expenditure],
+  };
+}
+
+export function applyDeletePlannedExpenditure(
+  data: AssetTrackerData,
+  input: DeletePlannedExpenditureInput,
+): AssetTrackerData {
+  const parsed = DeletePlannedExpenditureInputSchema.parse(input);
+  const plannedExpenditures = data.plannedExpenditures.filter(
+    (item) => item.id !== parsed.id,
+  );
+  if (plannedExpenditures.length === data.plannedExpenditures.length) {
+    throw new AssetTrackerCommandError(
+      "PLANNED_EXPENDITURE_NOT_FOUND",
+      `No planned expenditure found with ID ${parsed.id}`,
+    );
+  }
+  return { ...data, plannedExpenditures };
+}
+
 export function applySetExpectedReturn(
   data: AssetTrackerData,
   input: SetExpectedReturnInput,
@@ -712,6 +791,20 @@ export function applySetExpectedReturn(
   ].sort((a, b) => a.date.localeCompare(b.date));
   const accounts = data.accounts.map((a) =>
     a.id === account.id ? { ...a, expectedReturnChanges: changes } : a,
+  );
+  return { ...data, accounts };
+}
+
+export function applySetAccountLiquidity(
+  data: AssetTrackerData,
+  input: SetAccountLiquidityInput,
+): AssetTrackerData {
+  const parsed = SetAccountLiquidityInputSchema.parse(input);
+  const account = requireAccount(data, parsed.accountId);
+  const accounts = data.accounts.map((candidate) =>
+    candidate.id === account.id
+      ? { ...candidate, liquidity: parsed.liquidity }
+      : candidate,
   );
   return { ...data, accounts };
 }

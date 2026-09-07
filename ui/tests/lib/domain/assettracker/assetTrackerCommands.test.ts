@@ -1,12 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
   AssetTrackerCommandError,
+  applyAddPlannedExpenditure,
   applyAddRecurringFlow,
   applyClearAccountHistory,
   applyClearIncomeHistory,
   applyCloseAccount,
   applyCreateAccount,
   applyDeleteCapitalFlow,
+  applyDeletePlannedExpenditure,
   applyDeleteRecurringFlow,
   applyDeleteSnapshot,
   applyImportAccountHistory,
@@ -14,6 +16,7 @@ import {
   applyMaterializeFlow,
   applyRecordBalance,
   applyRecordTransfer,
+  applySetAccountLiquidity,
   applySetExpectedReturn,
   applySetNetWorthTarget,
   applySetWithdrawalRate,
@@ -74,6 +77,7 @@ function baseData(): AssetTrackerData {
     incomeHistory: [],
     transfers: [],
     recurringFlows: [],
+    plannedExpenditures: [],
     settings: { expectedAnnualInflation: 0.025, withdrawalRate: 0.04 },
   };
 }
@@ -915,6 +919,63 @@ describe("applyAddRecurringFlow / applyDeleteRecurringFlow", () => {
   });
 });
 
+describe("planned expenditures", () => {
+  it("adds and removes a dated expenditure", () => {
+    const added = applyAddPlannedExpenditure(baseData(), {
+      name: "Kitchen repair",
+      amount: 4_500,
+      date: "2099-06-01",
+      fromAccountId: "savings",
+    });
+
+    expect(added.plannedExpenditures[0]).toMatchObject({
+      id: "kitchen-repair",
+      amount: 4_500,
+      fromAccountId: "savings",
+    });
+    const removed = applyDeletePlannedExpenditure(added, {
+      id: "kitchen-repair",
+    });
+    expect(removed.plannedExpenditures).toEqual([]);
+  });
+
+  it("rejects spending from an unknown account", () => {
+    expect(() =>
+      applyAddPlannedExpenditure(baseData(), {
+        name: "Car",
+        amount: 20_000,
+        date: "2099-06-01",
+        fromAccountId: "missing",
+      }),
+    ).toThrow(/Account not found/);
+  });
+
+  it("rejects spending directly from an illiquid account", () => {
+    const data = baseData();
+    const isa = data.accounts.find((account) => account.id === "stocks-isa");
+    if (isa) isa.liquidity = "illiquid";
+    expect(() =>
+      applyAddPlannedExpenditure(data, {
+        name: "Car",
+        amount: 20_000,
+        date: "2099-06-01",
+        fromAccountId: "stocks-isa",
+      }),
+    ).toThrow(/cash or a liquid investment/);
+  });
+
+  it("rejects expenditure dates that have already passed", () => {
+    expect(() =>
+      applyAddPlannedExpenditure(baseData(), {
+        name: "Old plan",
+        amount: 100,
+        date: "2000-01-01",
+        fromAccountId: "savings",
+      }),
+    ).toThrow(/future date/);
+  });
+});
+
 describe("applySetNetWorthTarget", () => {
   it("sets and clears the target while preserving other settings", () => {
     const withTarget = applySetNetWorthTarget(baseData(), { target: 500000 });
@@ -982,6 +1043,19 @@ describe("applySetExpectedReturn", () => {
       { date: "2024-02-01", rate: 0.03 },
       { date: "2024-08-01", rate: 0.045 },
     ]);
+  });
+});
+
+describe("applySetAccountLiquidity", () => {
+  it("updates the access tier without changing the asset type", () => {
+    const next = applySetAccountLiquidity(baseData(), {
+      accountId: "stocks-isa",
+      liquidity: "illiquid",
+    });
+
+    const account = next.accounts.find((item) => item.id === "stocks-isa");
+    expect(account?.liquidity).toBe("illiquid");
+    expect(account?.assetType).toBe("stocks");
   });
 });
 

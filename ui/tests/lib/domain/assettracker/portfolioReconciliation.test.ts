@@ -42,6 +42,7 @@ function portfolioData(): AssetTrackerData {
     ],
     transfers: [],
     recurringFlows: [],
+    plannedExpenditures: [],
     settings: { expectedAnnualInflation: 0.025, withdrawalRate: 0.04 },
   };
 }
@@ -238,10 +239,22 @@ describe("reconcilePortfolio", () => {
       expectedAnnualReturn: 0.01,
       createdAt: "2024-01-01",
     });
+    data.accounts.push({
+      id: "pension",
+      name: "Workplace pension",
+      provider: "Pension provider",
+      currency: "GBP",
+      assetType: "stocks",
+      expectedAnnualReturn: 0.05,
+      createdAt: "2024-01-01",
+    });
     data.snapshots.push(
       { accountId: "cash", date: "2024-01-31", balance: 12_000 },
       { accountId: "cash", date: "2024-02-29", balance: 12_000 },
       { accountId: "cash", date: "2024-03-31", balance: 12_000 },
+      { accountId: "pension", date: "2024-01-31", balance: 20_000 },
+      { accountId: "pension", date: "2024-02-29", balance: 20_000 },
+      { accountId: "pension", date: "2024-03-31", balance: 20_000 },
     );
 
     const result = getPortfolioFinancialIndependence(buildRepository(data));
@@ -252,6 +265,12 @@ describe("reconcilePortfolio", () => {
     expect(result.emergencyFund).toBe(12_000);
     expect(result.emergencyFundMonths).toBeCloseTo(
       (12_000 * 12) / (result.representativeAnnualExpenditure ?? 1),
+    );
+    expect(result.runway.cash.balance).toBe(12_000);
+    expect(result.runway.liquid.balance).toBe(125_000);
+    expect(result.runway.total.balance).toBe(145_000);
+    expect(result.runway.liquid.months).toBeLessThan(
+      result.runway.total.months ?? 0,
     );
     expect(result.expectedRealReturn).toBeGreaterThan(0);
     expect(result.yearsToFi).toBeGreaterThan(0);

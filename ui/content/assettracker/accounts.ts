@@ -8,6 +8,7 @@ export const accounts: AccountContent[] = [
     currency: "GBP",
     createdAt: "2021-03-15",
     assetType: "cash",
+    liquidity: "cash",
     expectedAnnualReturn: 0.045,
   },
   {
@@ -17,6 +18,7 @@ export const accounts: AccountContent[] = [
     currency: "GBP",
     createdAt: "2020-06-01",
     assetType: "stocks",
+    liquidity: "liquid",
     expectedAnnualReturn: 0.08,
   },
   {
@@ -26,6 +28,7 @@ export const accounts: AccountContent[] = [
     currency: "GBP",
     createdAt: "2022-01-10",
     assetType: "stocks",
+    liquidity: "liquid",
     expectedAnnualReturn: 0.07,
   },
   {
@@ -35,6 +38,7 @@ export const accounts: AccountContent[] = [
     currency: "GBP",
     createdAt: "2021-11-01",
     assetType: "crypto",
+    liquidity: "liquid",
     expectedAnnualReturn: 0.15,
   },
   {
@@ -44,6 +48,7 @@ export const accounts: AccountContent[] = [
     currency: "GBP",
     createdAt: "2019-01-01",
     assetType: "cash",
+    liquidity: "cash",
     expectedAnnualReturn: 0.01,
   },
   {
@@ -53,6 +58,7 @@ export const accounts: AccountContent[] = [
     currency: "GBP",
     createdAt: "2023-03-01",
     assetType: "property",
+    liquidity: "illiquid",
     expectedAnnualReturn: 0.03,
   },
   {
@@ -62,6 +68,7 @@ export const accounts: AccountContent[] = [
     currency: "GBP",
     createdAt: "2023-03-01",
     assetType: "mortgage",
+    liquidity: "illiquid",
     expectedAnnualReturn: 0.0425,
     linkedAccountId: "home",
   },
@@ -72,6 +79,7 @@ export const accounts: AccountContent[] = [
     currency: "GBP",
     createdAt: "2022-03-01",
     assetType: "debt",
+    liquidity: "liquid",
     expectedAnnualReturn: 0.249,
   },
   {
@@ -82,6 +90,7 @@ export const accounts: AccountContent[] = [
     createdAt: "2018-09-01",
     closedAt: "2023-06-30",
     assetType: "stocks",
+    liquidity: "illiquid",
     expectedAnnualReturn: 0.06,
   },
 ];

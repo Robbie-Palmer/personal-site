@@ -23,6 +23,7 @@ function csvData(): AssetTrackerData {
     incomeHistory: [],
     transfers: [],
     recurringFlows: [],
+    plannedExpenditures: [],
     settings: { expectedAnnualInflation: 0.025, withdrawalRate: 0.04 },
   };
 }

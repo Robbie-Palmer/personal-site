@@ -1,5 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { addDays, format, parseISO } from "date-fns";
 import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AccountsTable } from "@/components/assettracker/accounts-table";
@@ -8,6 +9,11 @@ import { useAssetTracker } from "@/components/assettracker/asset-tracker-provide
 import { FlowSankeyChart } from "@/components/assettracker/flow-sankey-chart";
 import { PortfolioContributionChart } from "@/components/assettracker/portfolio-contribution-chart";
 import { PortfolioGoal } from "@/components/assettracker/portfolio-goal";
+import {
+  formatRunwayDuration,
+  RunwayChartTooltip,
+  RunwayForecast,
+} from "@/components/assettracker/runway-forecast";
 import { UpcomingFlows } from "@/components/assettracker/upcoming-flows";
 import {
   buildFlowSankeyData,
@@ -31,7 +37,14 @@ vi.mock("recharts", () => ({
     />
   ),
   CartesianGrid: () => null,
-  ReferenceLine: () => null,
+  ReferenceLine: ({ label, x }: { label?: { value?: string }; x?: number }) => (
+    <div
+      data-marker-x={x}
+      data-testid={x == null ? undefined : "planned-spending-marker"}
+    >
+      {label?.value}
+    </div>
+  ),
   XAxis: () => null,
   YAxis: () => null,
   Legend: () => null,
@@ -57,6 +70,12 @@ const EMPTY_FI: PortfolioFinancialIndependence = {
   currentCompensation: null,
   emergencyFund: 0,
   emergencyFundMonths: null,
+  runway: {
+    cash: { balance: 0, months: null },
+    liquid: { balance: 0, months: null },
+    total: { balance: 0, months: null },
+  },
+  runwayForecast: [],
   target: null,
   progress: null,
   expectedRealReturn: null,
@@ -77,6 +96,7 @@ function mockAssetTracker(
     assetAllocationHistory: [],
     transfers: [],
     recurringFlows: [],
+    plannedExpenditures: [],
     incomeHistory: [],
     financialIndependence: EMPTY_FI,
     portfolioReturn: null,
@@ -91,7 +111,9 @@ function mockAssetTracker(
     closeAccount: vi.fn(),
     deleteSnapshot: vi.fn(),
     addRecurringFlow: vi.fn(),
+    addPlannedExpenditure: vi.fn(),
     deleteRecurringFlow: vi.fn(),
+    deletePlannedExpenditure: vi.fn(),
     materializeFlow: vi.fn(),
     setExpectedReturn: vi.fn(),
     setInflation: vi.fn(),
@@ -325,6 +347,15 @@ describe("PortfolioGoal", () => {
     vi.useFakeTimers();
     vi.setSystemTime(FIXED_NOW);
     mockAssetTracker({
+      plannedExpenditures: [
+        {
+          id: "holiday",
+          name: "Holiday",
+          amount: 7_200,
+          date: "2027-01-15",
+          fromAccountId: "current",
+        },
+      ],
       financialIndependence: {
         ...EMPTY_FI,
         representativeAnnualExpenditure: 24_000,
@@ -339,6 +370,37 @@ describe("PortfolioGoal", () => {
         },
         emergencyFund: 9_000,
         emergencyFundMonths: 4.5,
+        runway: {
+          cash: { balance: 9_000, months: 4.5 },
+          liquid: { balance: 84_000, months: 42 },
+          total: { balance: 150_000, months: 75 },
+        },
+        runwayForecast: [
+          {
+            date: "2026-07-03",
+            cashBalance: 9_000,
+            liquidBalance: 84_000,
+            totalBalance: 150_000,
+            cashMonths: 4.5,
+            liquidMonths: 42,
+            totalMonths: 75,
+            baselineCashMonths: 4.5,
+            baselineLiquidMonths: 42,
+            baselineTotalMonths: 75,
+          },
+          {
+            date: "2027-07-03",
+            cashBalance: 12_000,
+            liquidBalance: 96_000,
+            totalBalance: 172_800,
+            cashMonths: 6,
+            liquidMonths: 48,
+            totalMonths: 86.4,
+            baselineCashMonths: 7,
+            baselineLiquidMonths: 50,
+            baselineTotalMonths: 90,
+          },
+        ],
         target: 600_000,
         progress: 0.25,
         expectedRealReturn: 0.04,
@@ -357,8 +419,30 @@ describe("PortfolioGoal", () => {
     expect(screen.getByText("All-in savings rate")).toBeVisible();
     expect(screen.getByText(/25.0% from take-home pay/)).toBeVisible();
     expect(screen.getByText(/£3,000 employee pension/)).toBeVisible();
-    expect(screen.getByText("£9,000")).toBeVisible();
+    expect(screen.getAllByText("£9,000")[0]).toBeVisible();
     expect(screen.getByText("4.5 months without income")).toBeVisible();
+    expect(
+      screen.getByRole("img", {
+        name: "Financial runway from cash, liquid assets, and total net worth",
+      }),
+    ).toBeVisible();
+    expect(
+      screen.getByRole("table", { name: "Financial runway data" }),
+    ).toHaveTextContent(
+      "Cash£9,0004.5 monthsLiquid assets£84,0003.5 yearsTotal net worth£150,0006.3 years",
+    );
+    expect(
+      screen.getByRole("img", {
+        name: "Expected cash, liquid asset, and total net worth runway over time",
+      }),
+    ).toBeVisible();
+    expect(screen.getByTestId("planned-spending-marker")).toHaveTextContent(
+      "£7,200",
+    );
+    expect(screen.getByText(/marked on its purchase date/)).toBeVisible();
+    expect(
+      screen.getByText("3.6 months less after planned spending"),
+    ).toBeVisible();
     expect(screen.getByText("12.0 years")).toBeVisible();
     expect(screen.getByText("Around Jul 2038")).toBeVisible();
     expect(
@@ -366,6 +450,93 @@ describe("PortfolioGoal", () => {
         name: "Projected portfolio net worth against the financial independence target",
       }),
     ).toBeVisible();
+  });
+});
+
+describe("RunwayForecast", () => {
+  it("formats chart values as years, months, and days", () => {
+    expect(formatRunwayDuration(188)).toBe("15 years, 8 months, 0 days");
+    expect(formatRunwayDuration(18.5)).toBe("1 year, 6 months, 15 days");
+  });
+
+  it("shows readable runway values and planned spending in the tooltip", () => {
+    const holiday = {
+      id: "holiday",
+      name: "Japan holiday",
+      amount: 7_200,
+      date: "2027-01-15",
+      fromAccountId: "current",
+    };
+    const point = {
+      date: "2027-02-03",
+      timestamp: parseISO("2027-02-03").getTime(),
+      cashBalance: 9_000,
+      liquidBalance: 84_000,
+      totalBalance: 150_000,
+      cashMonths: 4.5,
+      liquidMonths: 42,
+      totalMonths: 188,
+      baselineCashMonths: 5,
+      baselineLiquidMonths: 45,
+      baselineTotalMonths: 192,
+      plannedExpenditures: [holiday],
+    };
+
+    render(
+      <RunwayChartTooltip
+        active
+        payload={[
+          {
+            color: "purple",
+            dataKey: "totalMonths",
+            payload: point,
+            value: 188,
+          },
+        ]}
+      />,
+    );
+
+    expect(screen.getByText("3 Feb 2027")).toBeVisible();
+    expect(screen.getByText("Total net worth")).toBeVisible();
+    expect(screen.getByText("15 years, 8 months, 0 days")).toBeVisible();
+    expect(screen.getByText("Planned spending applied")).toBeVisible();
+    expect(screen.getByText("Japan holiday · 15 Jan")).toBeVisible();
+    expect(screen.getByText("£7,200")).toBeVisible();
+  });
+
+  it("adds a dated planned expenditure from the selected account", async () => {
+    const addPlannedExpenditure = vi.fn().mockResolvedValue(undefined);
+    mockAssetTracker({
+      accounts: [
+        {
+          id: "current",
+          name: "Current account",
+          provider: "Bank",
+          currency: "GBP",
+          assetType: "cash",
+          liquidity: "cash",
+          expectedAnnualReturn: 0,
+          isOpen: true,
+          latestBalance: 10_000,
+          latestSnapshotDate: "2026-07-01",
+          cagr: null,
+        },
+      ],
+      addPlannedExpenditure,
+    });
+
+    render(<RunwayForecast />);
+
+    await userEvent.type(screen.getByLabelText("Name"), "New car");
+    await userEvent.type(screen.getByLabelText("Amount"), "12000");
+    await userEvent.click(screen.getByRole("button", { name: "Add" }));
+
+    expect(addPlannedExpenditure).toHaveBeenCalledWith({
+      name: "New car",
+      amount: 12_000,
+      date: format(addDays(parseISO(todayIsoDate()), 1), "yyyy-MM-dd"),
+      fromAccountId: "current",
+    });
   });
 });
 
