@@ -50,7 +50,7 @@ docker run --detach --rm \
 
 port=$(docker port "${container}" 3773/tcp | sed 's/.*://')
 for _ in $(seq 1 30); do
-  if curl --fail --silent "http://127.0.0.1:${port}/" >/dev/null; then
+  if curl --fail --max-time 2 --silent "http://127.0.0.1:${port}/" >/dev/null; then
     echo "t3-code image starts as UID/GID 2000 and serves HTTP"
     exit 0
   fi
