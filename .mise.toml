@@ -134,6 +134,16 @@ pnpm exec tsx scripts/prose-lint.ts --staged "$@"
 description = "Lint all tracked Markdown and MDX files with Vale, failing on any enabled error-level alert"
 run = "pnpm exec tsx scripts/prose-lint.ts --all $(git ls-files '*.md' '*.mdx')"
 
+[tasks."lint:prose:audit"]
+description = "Run a non-blocking Vale audit with Unslop, write-good, and proselint (optionally pass files as args)"
+run = """
+#!/usr/bin/env bash
+if [ $# -eq 0 ]; then
+  set -- $(git ls-files '*.md' '*.mdx')
+fi
+VALE_CONFIG=.vale.audit.ini pnpm exec tsx scripts/prose-lint.ts --report-only --all "$@"
+"""
+
 [tasks."lint:knip"]
 description = "Detect unused files, dependencies, and exports across the monorepo with Knip"
 run = "pnpm exec knip"

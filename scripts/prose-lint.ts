@@ -9,7 +9,8 @@
  * Usage:
  *   mise run //:lint:prose -- [files...]
  *   mise run //:lint:prose:staged           # staged changes only
- *   mise run //:lint:prose:check            # full repo, fail on any alert
+ *   mise run //:lint:prose:check            # full repo, enforce active errors
+ *   mise run //:lint:prose:audit            # full repo, audit broad styles
  *
  * Exit codes:
  *   0 — no blocking issues on changed lines
@@ -48,7 +49,9 @@ function resolveBinary(name: string): string {
 
 const GIT_BIN = resolveBinary("git");
 const VALE_BIN = process.env.VALE_BIN || resolveBinary("vale");
-const VALE_CONFIG = resolve(import.meta.dirname, "..", ".vale.ini");
+const VALE_CONFIG = resolve(
+  process.env.VALE_CONFIG || join(import.meta.dirname, "..", ".vale.ini"),
+);
 
 /* ------------------------------------------------------------------ */
 /*  Help                                                              */
@@ -68,17 +71,21 @@ Options:
                  tracked files, full scan for untracked.
   --all          Treat every line of every file as changed (whole-file
                  scan; used by lint:prose:check).
+  --report-only  Print content alerts without returning a failure. Vale and
+                 configuration failures still return a failure.
   --help         Print this help and exit.
 
 Exit codes:
   0 — no blocking issues on changed lines
   1 — blocking issues found (or vale itself failed)
+
 When lint-staged triggers this script it passes the staged file paths
 without flags.  Run with --staged (via lint:prose:staged) so pre-commit
 enforcement inspects the index rather than the working tree.
 
 Environment:
-  VALE_BIN  Override the vale binary path.
+  VALE_BIN     Override the Vale binary path.
+  VALE_CONFIG  Override the Vale configuration path.
 `);
   process.exit(0);
 }
@@ -236,6 +243,7 @@ interface ProseOptions {
   files: string[];
   staged: boolean;
   all: boolean;
+  reportOnly: boolean;
   explicitDiff: DiffMode | null;
   base: string;
 }
@@ -260,6 +268,7 @@ function parseArgs(argv: string[]): ProseOptions {
     files: [],
     staged: false,
     all: false,
+    reportOnly: false,
     explicitDiff: null,
     base: "HEAD",
   };
@@ -274,6 +283,7 @@ function parseArgs(argv: string[]): ProseOptions {
       i++;
     } else if (arg === "--staged") opts.staged = true;
     else if (arg === "--all") opts.all = true;
+    else if (arg === "--report-only") opts.reportOnly = true;
     else if (arg.startsWith("--")) {
       console.error(`prose-lint: unknown flag ${arg}`);
       process.exit(1);
@@ -402,7 +412,7 @@ function changedAlerts(
   });
 }
 
-function reportAlerts(alerts: ValeAlert[]): void {
+function reportAlerts(alerts: ValeAlert[], reportOnly: boolean): void {
   let hasBlockers = false;
 
   for (const alert of alerts) {
@@ -412,6 +422,7 @@ function reportAlerts(alerts: ValeAlert[]): void {
     if (alert.Severity === "error") hasBlockers = true;
   }
 
+  if (reportOnly) process.exit(0);
   if (hasBlockers) process.exit(1);
   process.exit(0);
 }
@@ -448,7 +459,7 @@ function main(): void {
     changedMap,
     loadExemptions(),
   );
-  reportAlerts(filtered);
+  reportAlerts(filtered, opts.reportOnly);
 }
 
 main();

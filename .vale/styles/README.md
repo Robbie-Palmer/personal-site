@@ -5,9 +5,9 @@ Vale loads its rule packages from this directory.
 ## Vendored packages
 
 `proselint/` and `write-good/` are upstream packages imported in
-`e0e9a198` (the deterministic prose linting PR). They remain available for
-comparison, but the active configuration does not load them because their
-broad heuristics produced thousands of false positives. Treat them as
+`e0e9a198` (the deterministic prose linting PR). The default configuration does
+not load them because their broad heuristics produced thousands of false
+positives. The optional audit described below still uses them. Treat them as
 read-only:
 
 - Do not edit, extend, or trim them.
@@ -43,3 +43,16 @@ Warning and suggestion rules are disabled because their broad heuristics
 produce too many unactionable findings. Promote a rule to `error` only after it
 has proved precise enough to enforce and the repository is clean against it.
 Do not keep advisory findings as a permanent lint backlog.
+
+## Optional audit
+
+Run `mise run //:lint:prose:audit` to scan all tracked Markdown and MDX with
+`Unslop`, `write-good`, and `proselint`. Pass file paths after `--` for a focused
+scan. The wrapper retains the normal path and exact-instance exclusions. The
+task prints error, warning, and suggestion findings but returns success when it
+finds them. Vale execution and configuration failures still fail the task.
+
+The audit is a discovery tool and is not part of the default lint or CI tasks.
+When a rule repeatedly finds real problems, copy or tighten it in `Unslop`, scan
+the repository, and promote it to `error` only when its output is precise and
+the repository is clean.
