@@ -8,7 +8,7 @@
         "functions/**/*.ts",
         "scripts/prose-lint.ts"
       ],
-      "ignoreDependencies": ["lint-staged", "markdownlint-cli", "remark-cli", "remark-lint", "tsx", "yaml-lint"]
+      "ignoreDependencies": ["@vitest/coverage-v8", "lint-staged", "markdownlint-cli", "remark-cli", "remark-lint", "tsx", "vitest", "yaml-lint"]
     },
     "ai-review": {
       "entry": [
