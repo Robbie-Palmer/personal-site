@@ -379,12 +379,14 @@ export class JsonClient {
       body?: unknown;
       accept?: string;
       timeoutMs?: number;
+      retries?: number;
     } = {},
   ): Promise<T> {
+    const retries = options.retries ?? this.retries;
     const url = new URL(`${this.baseUrl.replace(/\/$/, "")}${path}`);
     for (const [key, value] of Object.entries(options.query ?? {})) url.searchParams.set(key, String(value));
     let lastError: Error | undefined;
-    for (let attempt = 0; attempt < this.retries; attempt += 1) {
+    for (let attempt = 0; attempt < retries; attempt += 1) {
       try {
         const response = await fetch(url, {
           method,
@@ -398,7 +400,7 @@ export class JsonClient {
         }
         const detail = (await response.text()).slice(0, 1_000);
         const retryable = [408, 409, 429, 500, 502, 503, 504].includes(response.status);
-        if (!retryable || attempt === this.retries - 1) {
+        if (!retryable || attempt === retries - 1) {
           throw new Error(`${method} ${path} failed (${response.status}): ${detail}`);
         }
         const retryAfter = Number.parseInt(response.headers.get("retry-after") ?? "", 10);
@@ -406,7 +408,7 @@ export class JsonClient {
         await sleep(Math.min(delay + retryJitter(), 15_000));
       } catch (error) {
         lastError = error instanceof Error ? error : new Error(String(error));
-        if (attempt === this.retries - 1 || /failed \(4\d\d\)/.test(lastError.message)) throw lastError;
+        if (attempt === retries - 1 || /failed \(4\d\d\)/.test(lastError.message)) throw lastError;
         await sleep(2 ** attempt * 1_000 + retryJitter());
       }
     }
@@ -1013,7 +1015,7 @@ export class Reviewer {
       const comment = await this.github.request<JsonObject>(
         "POST",
         `/repos/${this.settings.repository}/issues/${this.settings.prNumber}/comments`,
-        { body: { body: safeBody } },
+        { body: { body: safeBody }, retries: 1 },
       );
       const commentId = Number(comment.id);
       return Number.isSafeInteger(commentId) ? commentId : undefined;

@@ -158,6 +158,28 @@ test("paid OpenRouter completions are never retried by the HTTP client", async (
   assert.equal(attempts, 1);
 });
 
+test("GitHub comment creation is never retried", async () => {
+  let attempts = 0;
+  vi.spyOn(globalThis, "fetch").mockImplementation(async () => {
+    attempts += 1;
+    return new Response("temporary upstream failure", { status: 503 });
+  });
+  const reviewer = new Reviewer({
+    githubToken: "github-token",
+    openRouterKey: "openrouter-key",
+    repository: "Robbie-Palmer/personal-site",
+    prNumber: 837,
+    openRouterScouts: [],
+    openCodeScouts: [],
+    merger: "model-b",
+    ignoredAuthors: [],
+    requireZdr: false,
+  });
+
+  await assert.rejects(reviewer.writeComment(undefined, "Review body"), /failed \(503\)/);
+  assert.equal(attempts, 1);
+});
+
 test("HTTP retries use bounded Web Crypto jitter", async () => {
   vi.useFakeTimers();
   vi.spyOn(globalThis.crypto, "getRandomValues").mockImplementation((array) => {
@@ -459,5 +481,5 @@ test("rendered state cannot close its HTML comment", () => {
   const stateMarker = body.split("\n")[1] ?? "";
 
   assert.match(stateMarker, /model\\u002d\\u002d>injected-free/);
-  assert.equal(stateMarker.match(/-->/g)?.length, 1);
+  assert.equal(stateMarker.split("-->").length - 1, 1);
 });
