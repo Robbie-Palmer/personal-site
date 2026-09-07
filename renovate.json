@@ -138,6 +138,17 @@
       "automerge": true
     },
     {
+      "description": "Keep python on the 3.12 minor line - ml-pipelines is locked to 3.12 and bumping to 3.13/3.14 is a deliberate decision",
+      "matchManagers": [
+        "mise",
+        "pyenv"
+      ],
+      "matchDepNames": [
+        "python"
+      ],
+      "allowedVersions": "3.12"
+    },
+    {
       "description": "packageManager tracks the pnpm 12 line via the latest-12 dist-tag - npm latest still points at 11.x, and once on 12.x respectLatest would hide every later 12.x release",
       "matchManagers": [
         "npm"
