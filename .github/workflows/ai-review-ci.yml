@@ -5,7 +5,6 @@ on:
     paths:
       - "ai-review/**"
       - "packages/ai-review-domain/**"
-      - ".github/scripts/ai-review/**"
       - ".github/workflows/ai-review-ci.yml"
       - ".mise.toml"
       - "pnpm-workspace.yaml"
@@ -25,6 +24,7 @@ jobs:
         with:
           version: "2026.9.1"
           experimental: true
+          minimum_release_age: 24h
 
       - name: Check standalone project
         run: mise run //ai-review:check

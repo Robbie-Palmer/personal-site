@@ -32,6 +32,7 @@ jobs:
         with:
           version: "2026.9.1"
           experimental: true
+          minimum_release_age: 24h
 
       - name: Run gitleaks
         # Advisory on findings, but not on failure. --exit-code 0 makes

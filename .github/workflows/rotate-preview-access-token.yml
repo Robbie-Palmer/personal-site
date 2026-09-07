@@ -27,6 +27,7 @@ jobs:
         with:
           version: "2026.9.1"
           experimental: true
+          minimum_release_age: 24h
 
       - name: Rotate Access secret and update the agent config
         run: mise run //:preview:access:rotate

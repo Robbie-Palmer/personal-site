@@ -57,7 +57,6 @@ stages:
       - ../../ai-review/src/replay-input.ts
       - ../../ai-review/src/replay-runner.ts
       - ../../ai-review/src/review-engine.ts
-      - ../../.github/scripts/ai-review/ai-review.ts
       - ../../packages/ai-review-domain/src/records.ts
       - ../../packages/ai-review-domain/src/pull-request-metadata.ts
       - ../../packages/ai-review-domain/src/replay.ts

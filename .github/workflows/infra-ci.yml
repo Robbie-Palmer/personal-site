@@ -28,6 +28,7 @@ jobs:
         with:
           version: "2026.9.1"
           experimental: true
+          minimum_release_age: 24h
 
       # mise (infra/public-platform/mise.toml) loads .env if present; create it empty so the
       # secrets below reach terraform through the step env: blocks rather than the

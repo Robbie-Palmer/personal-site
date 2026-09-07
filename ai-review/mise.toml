@@ -1,6 +1,6 @@
 [tasks.install]
-description = "Install AI review dependencies"
-run = "pnpm install --frozen-lockfile --filter ai-review..."
+description = "Install stateful AI review, domain, and evaluation dependencies"
+run = "pnpm install --frozen-lockfile --filter ai-review --filter ai-review-domain --filter ai-review-evaluation-pipeline"
 
 [tasks.typecheck]
 description = "Typecheck the stateful AI review Worker"
@@ -15,13 +15,6 @@ description = "Run the stateful AI review tests"
 depends = ["install"]
 run = "pnpm test"
 
-[tasks."test:stateless"]
-description = "Test the shared stateless reviewer implementation"
-run = """
-node --test ../.github/scripts/ai-review/ai-review.test.ts
-node --check ../.github/scripts/ai-review/ai-review.ts
-"""
-
 [tasks."test:workerd"]
 description = "Run Durable Object integration tests in workerd"
 depends = ["install"]
@@ -34,7 +27,7 @@ run = "pnpm test:coverage"
 
 [tasks.check]
 description = "Run all stateful AI review checks"
-depends = ["typecheck", "test", "test:stateless", "test:workerd", "scorecard:test", "scorecard:report:test", "scorecard:replay:test"]
+depends = ["//packages/ai-review-domain:check", "typecheck", "test", "test:workerd", "scorecard:test", "scorecard:report:test", "scorecard:replay:test"]
 
 [tasks.deploy]
 description = "Deploy the stateful AI review Worker"

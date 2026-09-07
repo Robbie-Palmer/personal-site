@@ -24,6 +24,7 @@ jobs:
         with:
           version: "2026.9.1"
           experimental: true
+          minimum_release_age: 24h
 
       - name: Lint public platform infrastructure with TFLint
         run: mise run //infra/public-platform:lint:tflint

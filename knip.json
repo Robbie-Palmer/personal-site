@@ -5,7 +5,6 @@
   "workspaces": {
     ".": {
       "entry": [
-        ".github/scripts/ai-review/ai-review.test.ts",
         "functions/**/*.ts",
         "homelab/images/t3-code/bootstrap-settings.mjs",
         "scripts/prose-lint.ts"
@@ -21,6 +20,7 @@
       ],
       "ignoreDependencies": ["cloudflare"]
     },
+    "packages/ai-review-domain": {},
     "ui": {
       "ignore": ["content/**"],
       "ignoreDependencies": ["serve"]

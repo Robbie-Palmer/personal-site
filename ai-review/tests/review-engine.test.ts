@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   DEFAULT_OPENROUTER_SCOUTS,
   Reviewer,
-} from "../../.github/scripts/ai-review/ai-review";
+} from "ai-review-domain/reviewer";
 import type { Env, ReviewWorkflowParams } from "../src/env";
 import {
   STATEFUL_REVIEW_MARKER,
@@ -156,6 +156,7 @@ describe("stateful review engine", () => {
 
   it("caps per-file REST fallbacks when a GraphQL batch fails", async () => {
     const paths = Array.from({ length: 10 }, (_, index) => `src/file-${index}.ts`);
+    const errorMock = vi.spyOn(console, "error").mockImplementation(() => undefined);
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = new URL(String(input));
       if (url.pathname === "/graphql") {
@@ -178,6 +179,9 @@ describe("stateful review engine", () => {
     expect(context).toContain("FILE src/file-0.ts");
     expect(context).toContain("FILE src/file-3.ts");
     expect(context).not.toContain("FILE src/file-4.ts");
+    expect(errorMock).toHaveBeenCalledWith(
+      "::warning::Skipped 6 file-context path(s) after the REST fallback limit was exhausted",
+    );
   });
 
   it("does not automatically spend on fork pull requests", async () => {

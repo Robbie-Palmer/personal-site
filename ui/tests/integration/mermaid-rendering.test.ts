@@ -324,6 +324,9 @@ describe("Visualization browser rendering", () => {
       expect(fullscreenLayout.display).toBe("flex");
       expect(fullscreenLayout.deckHeight).toBeGreaterThan(500);
       expect(fullscreenLayout.stageHeight).toBeGreaterThan(300);
+      await page.waitForSelector('button[title="Exit fullscreen"]', {
+        timeout: 10_000,
+      });
       await page.click('button[title="Exit fullscreen"]');
       await page.waitForFunction(() => document.fullscreenElement === null);
 

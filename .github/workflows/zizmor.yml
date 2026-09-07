@@ -36,6 +36,7 @@ jobs:
         with:
           version: "2026.9.1"
           experimental: true
+          minimum_release_age: 24h
 
       - name: Run zizmor
         # Advisory on findings, but not on failure. --no-exit-codes makes

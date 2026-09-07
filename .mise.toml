@@ -339,6 +339,7 @@ depends = [
     "//ai-review:test:coverage",
     "//cpp/autonomic-satellite-swarm:coverage",
     "//ui:test:coverage",
+    "//packages/ai-review-domain:test:coverage",
     "//packages/browser-base:test:coverage",
     "//packages/node-base:test:coverage",
     "//packages/observability:test:coverage",

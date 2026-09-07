@@ -28,6 +28,7 @@ jobs:
         with:
           version: "2026.9.1"
           experimental: true
+          minimum_release_age: 24h
 
       # Cache the pnpm content-addressable store so installs restore packages
       # from disk instead of re-downloading them on every run.

@@ -27,6 +27,7 @@ jobs:
         with:
           version: "2026.9.1"
           experimental: true
+          minimum_release_age: 24h
 
       - name: Check AI reviewer evaluation pipeline
         run: mise run //ml-pipelines/ai-review-evaluation:check
@@ -45,6 +46,7 @@ jobs:
         with:
           version: "2026.9.1"
           experimental: true
+          minimum_release_age: 24h
 
       - name: Check WSI analysis Python project
         run: mise run //ml-pipelines/wsi-analysis:check
@@ -95,6 +97,7 @@ jobs:
         with:
           version: "2026.9.1"
           experimental: true
+          minimum_release_age: 24h
 
       - name: Get pnpm store directory
         if: matrix.pipeline == 'recipe-parsing'

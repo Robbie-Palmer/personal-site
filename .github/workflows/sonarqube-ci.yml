@@ -36,6 +36,7 @@ jobs:
         with:
           version: "2026.9.1"
           experimental: true
+          minimum_release_age: 24h
 
       - name: Get pnpm store directory
         id: pnpm-store
@@ -63,6 +64,7 @@ jobs:
             ai-review/coverage/lcov.info
             cpp/autonomic-satellite-swarm/coverage/sonarqube.xml
             ui/coverage/lcov.info
+            packages/ai-review-domain/coverage/lcov.info
             packages/browser-base/coverage/lcov.info
             packages/node-base/coverage/lcov.info
             packages/observability/coverage/lcov.info
@@ -105,6 +107,7 @@ jobs:
         with:
           version: "2026.9.1"
           experimental: true
+          minimum_release_age: 24h
 
       - name: Get pnpm store directory
         id: pnpm-store
