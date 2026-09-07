@@ -11,6 +11,7 @@ import { PortfolioContributionChart } from "@/components/assettracker/portfolio-
 import { PortfolioGoal } from "@/components/assettracker/portfolio-goal";
 import {
   formatRunwayDuration,
+  plannedExpenditureSourceId,
   RunwayChartTooltip,
   RunwayForecast,
 } from "@/components/assettracker/runway-forecast";
@@ -537,6 +538,35 @@ describe("RunwayForecast", () => {
       date: format(addDays(parseISO(todayIsoDate()), 1), "yyyy-MM-dd"),
       fromAccountId: "current",
     });
+  });
+
+  it("falls back when the selected payment account is no longer eligible", () => {
+    const currentAccount = {
+      id: "current",
+      name: "Current account",
+      provider: "Bank",
+      currency: "GBP" as const,
+      assetType: "cash" as const,
+      liquidity: "cash" as const,
+      expectedAnnualReturn: 0,
+      isOpen: true,
+      latestBalance: 10_000,
+      latestSnapshotDate: "2026-07-01",
+      cagr: null,
+    };
+    const stocksIsa = {
+      ...currentAccount,
+      id: "stocks-isa",
+      name: "Stocks ISA",
+      assetType: "stocks" as const,
+      liquidity: "liquid" as const,
+    };
+    expect(
+      plannedExpenditureSourceId([currentAccount, stocksIsa], "stocks-isa"),
+    ).toBe("stocks-isa");
+    expect(plannedExpenditureSourceId([currentAccount], "stocks-isa")).toBe(
+      "current",
+    );
   });
 });
 

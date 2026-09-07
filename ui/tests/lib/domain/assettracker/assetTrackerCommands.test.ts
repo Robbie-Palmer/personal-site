@@ -954,25 +954,37 @@ describe("planned expenditures", () => {
     const data = baseData();
     const isa = data.accounts.find((account) => account.id === "stocks-isa");
     if (isa) isa.liquidity = "illiquid";
-    expect(() =>
+    try {
       applyAddPlannedExpenditure(data, {
         name: "Car",
         amount: 20_000,
         date: "2099-06-01",
         fromAccountId: "stocks-isa",
-      }),
-    ).toThrow(/cash or a liquid investment/);
+      });
+      throw new Error("Expected planned expenditure validation to fail");
+    } catch (error) {
+      expect(error).toBeInstanceOf(AssetTrackerCommandError);
+      expect(formatAssetTrackerError(error)).toBe(
+        "Planned expenditure must come from cash or a liquid investment",
+      );
+    }
   });
 
   it("rejects expenditure dates that have already passed", () => {
-    expect(() =>
+    try {
       applyAddPlannedExpenditure(baseData(), {
         name: "Old plan",
         amount: 100,
         date: "2000-01-01",
         fromAccountId: "savings",
-      }),
-    ).toThrow(/future date/);
+      });
+      throw new Error("Expected planned expenditure validation to fail");
+    } catch (error) {
+      expect(error).toBeInstanceOf(AssetTrackerCommandError);
+      expect(formatAssetTrackerError(error)).toBe(
+        "Planned expenditure must have a future date",
+      );
+    }
   });
 });
 

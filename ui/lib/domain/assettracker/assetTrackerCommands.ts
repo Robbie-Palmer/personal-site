@@ -41,6 +41,7 @@ export type AssetTrackerCommandErrorCode =
   | "CAPITAL_FLOW_NOT_FOUND"
   | "FLOW_NOT_FOUND"
   | "PLANNED_EXPENDITURE_NOT_FOUND"
+  | "INVALID_PLANNED_EXPENDITURE"
   | "DUPLICATE_INCOME_DATE"
   | "INVALID_ACCOUNT_NAME";
 
@@ -739,12 +740,16 @@ export function applyAddPlannedExpenditure(
     isLiability(source.assetType) ||
     accountLiquidity(source) === "illiquid"
   ) {
-    throw new Error(
+    throw new AssetTrackerCommandError(
+      "INVALID_PLANNED_EXPENDITURE",
       "Planned expenditure must come from cash or a liquid investment",
     );
   }
   if (parsed.date <= todayIsoDate()) {
-    throw new Error("Planned expenditure must have a future date");
+    throw new AssetTrackerCommandError(
+      "INVALID_PLANNED_EXPENDITURE",
+      "Planned expenditure must have a future date",
+    );
   }
   const base = normalizeSlug(parsed.name) || "expenditure";
   const expenditure = {

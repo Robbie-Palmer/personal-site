@@ -115,6 +115,15 @@ type RunwayTooltipPayload = {
   value?: number | string;
 };
 
+export function plannedExpenditureSourceId(
+  accounts: ReadonlyArray<{ id: string }>,
+  requestedId: string,
+): string {
+  return accounts.some((account) => account.id === requestedId)
+    ? requestedId
+    : (accounts[0]?.id ?? "");
+}
+
 export function RunwayChartTooltip({
   active,
   payload,
@@ -240,7 +249,10 @@ export function RunwayForecast() {
         }),
     [accounts],
   );
-  const selectedSourceId = fromAccountId || assetAccounts[0]?.id || "";
+  const selectedSourceId = plannedExpenditureSourceId(
+    assetAccounts,
+    fromAccountId,
+  );
   const horizonIndex = Math.min(horizonYears * 12, runwayForecast.length - 1);
   const horizonEnd = runwayForecast[horizonIndex]?.date;
   const chartData = buildChartData(
