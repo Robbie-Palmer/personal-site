@@ -10,6 +10,14 @@ spec:
       nodeSelector:
         homelab.dev/capability: agent-workspace
         homelab.dev/location: home
+      securityContext:
+        fsGroup: 2000
+        fsGroupChangePolicy: OnRootMismatch
+        runAsGroup: 2000
+        runAsNonRoot: true
+        runAsUser: 2000
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: t3-code
           resources:
@@ -19,3 +27,9 @@ spec:
             limits:
               cpu: "2"
               memory: 4Gi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true

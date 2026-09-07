@@ -11,6 +11,14 @@ spec:
         homelab.dev/capability: agent-workspace
         homelab.dev/location: cloud
         homelab.dev/power-profile: always-on
+      securityContext:
+        fsGroup: 2000
+        fsGroupChangePolicy: OnRootMismatch
+        runAsGroup: 2000
+        runAsNonRoot: true
+        runAsUser: 2000
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: t3-code
           env:
@@ -35,3 +43,9 @@ spec:
             limits:
               cpu: "3"
               memory: 6Gi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true

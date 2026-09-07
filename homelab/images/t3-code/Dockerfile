@@ -55,9 +55,8 @@ RUN apt-get update \
     && ln --force \
       /usr/local/lib/node_modules/pnpm/node_modules/@pnpm/exe.linux-x64/pnpm \
       /usr/local/lib/node_modules/pnpm/pnpm \
-    && cd /usr/local/lib/node_modules/t3/node_modules/node-pty \
     && node /usr/local/lib/node_modules/npm/node_modules/node-gyp/bin/node-gyp.js rebuild \
-    && cd / \
+      --directory /usr/local/lib/node_modules/t3/node_modules/node-pty \
     && npm cache clean --force \
     && curl --fail --location --proto '=https' --proto-redir '=https' --silent --show-error \
       "https://github.com/jdx/mise/releases/download/v${MISE_VERSION}/mise-v${MISE_VERSION}-linux-x64.tar.gz" \
