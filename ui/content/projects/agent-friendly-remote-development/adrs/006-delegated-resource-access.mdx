@@ -46,6 +46,11 @@ Model four principals:
 4. The **resource service** remains authoritative for its data and the user's
    current permissions.
 
+Keep each signing key in a credential filesystem protected by that agent's
+execution identity, or keep the key in the gateway and expose only signing
+operations bound to that agent. Another runtime agent must be unable to read or
+use the key.
+
 An operation is allowed when every term permits it:
 
 ```text
@@ -162,7 +167,8 @@ Keep this ADR Proposed until one end-to-end flow proves that:
 1. a user approves one named repository for one agent;
 2. the agent can create a branch and pull request while merge remains outside
    its grant;
-3. a second agent in the same workspace does not inherit the grant;
+3. a second agent in the same workspace cannot read or use the first agent's
+   signing key, inherit its grant, or invoke the resource through that grant;
 4. revocation stops the first agent without ending the user's session;
 5. the audit trail identifies the user, workspace, harness, agent, capability,
    resource, and outcome; and
