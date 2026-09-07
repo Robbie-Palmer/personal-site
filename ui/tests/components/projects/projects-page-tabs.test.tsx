@@ -67,6 +67,23 @@ describe("ProjectsPageTabs", () => {
     expect(screen.getByText("Initiative list")).toBeVisible();
   });
 
+  it("renders building philosophy when selected in the URL", () => {
+    navigation.search = "tab=philosophy";
+
+    render(
+      <ProjectsPageTabs
+        initiatives={<div>Initiative list</div>}
+        projects={<div>Project list</div>}
+        philosophy={<div>Building philosophy</div>}
+      />,
+    );
+
+    expect(
+      screen.getByRole("tab", { name: "Building Philosophy" }),
+    ).toHaveAttribute("data-state", "active");
+    expect(screen.getByText("Building philosophy")).toBeVisible();
+  });
+
   it("uses the query-free projects URL for the default tab", async () => {
     navigation.search = "tab=projects";
     const user = userEvent.setup();
