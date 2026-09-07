@@ -80,6 +80,11 @@ mise run //homelab:k3s-deploy-remote
 mise run //homelab:remote-health
 ```
 
+Kubeconfig refreshes preserve the first trusted K3s certificate authority. If
+an intentional cluster rebuild changes it, verify the rebuild over the
+authenticated host connection and set
+`REMOTE_DEVELOPMENT_ACCEPT_NEW_KUBE_CA=1` for one refresh.
+
 The workload image normally arrives from GHCR. For a first install before the
 registry package exists, build, test, and load it over SSH before deployment:
 
@@ -120,6 +125,11 @@ Build every NixOS change first, then switch it over the tailnet:
 mise run //homelab:remote-build
 mise run //homelab:remote-rebuild
 ```
+
+Automatic NixOS upgrades are disabled so an unattended update cannot strand
+the remote host. Review NixOS security advisories and flake update PRs at least
+weekly, expedite critical fixes, and use the build-then-rebuild sequence above
+for every update.
 
 Reverting the configuration and rebuilding is the normal rollback. NixOS boot
 generations provide console recovery. Workload rollback restores the previous

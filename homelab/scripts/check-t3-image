@@ -10,7 +10,7 @@ cleanup() {
 trap cleanup EXIT
 
 docker run --rm \
-  --tmpfs /data:rw,exec,uid=2000,gid=2000,mode=0750 \
+  --tmpfs /data:rw,exec,uid=2000,gid=2000,mode=0750,size=1g \
   --entrypoint /bin/sh \
   "${image}" \
   -ec '
@@ -44,7 +44,7 @@ docker run --rm \
 
 docker run --detach --rm \
   --name "${container}" \
-  --tmpfs /data:rw,exec,uid=2000,gid=2000,mode=0750 \
+  --tmpfs /data:rw,exec,uid=2000,gid=2000,mode=0750,size=1g \
   --publish 127.0.0.1::3773 \
   "${image}" >/dev/null
 
