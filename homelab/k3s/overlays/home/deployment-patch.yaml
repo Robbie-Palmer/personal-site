@@ -2,6 +2,8 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: t3-code
+  annotations:
+    secrets.doppler.com/reload: "true"
 spec:
   template:
     spec:

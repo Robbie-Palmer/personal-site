@@ -47,6 +47,7 @@ jobs:
           HCLOUD_TOKEN: ${{ secrets.HCLOUD_TOKEN }}
           TF_VAR_ssh_public_key: ${{ vars.SSH_PUBLIC_KEY }}
           TF_VAR_bootstrap_ssh_cidrs: ${{ vars.BOOTSTRAP_SSH_CIDRS || '[]' }}
+          TF_VAR_bootstrap_mode_enabled: ${{ vars.BOOTSTRAP_MODE_ENABLED || 'false' }}
 
       - name: Add Terraform Plan to Summary
         uses: borchero/terraform-plan-comment@f585438eda2fa77c6f275994b92aeccd86ef3542 # v3
@@ -64,3 +65,8 @@ jobs:
           HCLOUD_TOKEN: ${{ secrets.HCLOUD_TOKEN }}
           TF_VAR_ssh_public_key: ${{ vars.SSH_PUBLIC_KEY }}
           TF_VAR_bootstrap_ssh_cidrs: ${{ vars.BOOTSTRAP_SSH_CIDRS || '[]' }}
+          TF_VAR_bootstrap_mode_enabled: ${{ vars.BOOTSTRAP_MODE_ENABLED || 'false' }}
+
+      - name: Remove Terraform plan
+        if: ${{ always() }}
+        run: rm -f .planfile

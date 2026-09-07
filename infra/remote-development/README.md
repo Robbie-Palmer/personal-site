@@ -36,7 +36,8 @@ Create these before the first plan:
 `BOOTSTRAP_SSH_CIDRS` is a JSON list held as a GitHub environment variable,
 for example `["203.0.113.10/32"]`. Leave it as `[]` during normal operation.
 Temporarily add the operator's current public address only while installing or
-recovering NixOS.
+recovering NixOS, and set `BOOTSTRAP_MODE_ENABLED` to `true`. The mode flag
+defaults to `false`, so CIDRs alone cannot open public SSH.
 
 ## Local use
 
@@ -45,6 +46,7 @@ Human-run commands obtain credentials through Doppler:
 ```bash
 export TF_VAR_ssh_public_key="$(cat ~/.ssh/id_ed25519.pub)"
 export TF_VAR_bootstrap_ssh_cidrs='["203.0.113.10/32"]'
+export TF_VAR_bootstrap_mode_enabled=true
 mise run //infra/remote-development:plan
 ```
 
@@ -65,7 +67,8 @@ protection default to enabled; disabling them requires a preceding apply.
    pass Tailscale, Doppler, or GitHub credentials through Terraform.
 3. Supply a one-time tagged Tailscale key directly to the host bootstrap.
 4. Reboot and verify the data mount, Tailscale, and K3s over the tailnet.
-5. Set `bootstrap_ssh_cidrs` back to `[]`, plan, and apply the firewall change.
+5. Set `bootstrap_mode_enabled` to `false` and `bootstrap_ssh_cidrs` back to
+   `[]`, then plan and apply the firewall change.
 
 The public IP remains available for outbound connectivity and emergency
 provider-console recovery, but the provider firewall exposes no SSH, t3-code,

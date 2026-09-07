@@ -53,7 +53,7 @@ variable "ssh_public_key" {
 }
 
 variable "bootstrap_ssh_cidrs" {
-  description = "Temporary source CIDRs allowed to reach SSH; keep empty after Tailscale is verified"
+  description = "Temporary source CIDRs allowed to reach SSH when bootstrap_mode_enabled is true"
   type        = set(string)
   default     = []
 
@@ -61,6 +61,12 @@ variable "bootstrap_ssh_cidrs" {
     condition     = alltrue([for cidr in var.bootstrap_ssh_cidrs : can(cidrhost(cidr, 0))])
     error_message = "Every bootstrap_ssh_cidrs entry must be a valid IPv4 or IPv6 CIDR."
   }
+}
+
+variable "bootstrap_mode_enabled" {
+  description = "Explicitly enable temporary public SSH access for installation or recovery"
+  type        = bool
+  default     = false
 }
 
 variable "data_volume_size_gb" {

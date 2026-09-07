@@ -20,7 +20,7 @@ resource "hcloud_firewall" "remote_development" {
   labels = local.common_labels
 
   dynamic "rule" {
-    for_each = length(var.bootstrap_ssh_cidrs) == 0 ? [] : [var.bootstrap_ssh_cidrs]
+    for_each = var.bootstrap_mode_enabled && length(var.bootstrap_ssh_cidrs) > 0 ? [var.bootstrap_ssh_cidrs] : []
 
     content {
       direction   = "in"
@@ -44,6 +44,13 @@ resource "hcloud_firewall" "remote_development" {
     protocol    = "icmp"
     source_ips  = ["0.0.0.0/0", "::/0"]
     description = "Path MTU discovery and network diagnostics"
+  }
+
+  lifecycle {
+    precondition {
+      condition     = !var.bootstrap_mode_enabled || length(var.bootstrap_ssh_cidrs) > 0
+      error_message = "bootstrap_mode_enabled requires at least one bootstrap_ssh_cidrs entry."
+    }
   }
 }
 

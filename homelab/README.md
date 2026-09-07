@@ -90,8 +90,9 @@ mise run //homelab:t3-image-load-remote
 ```
 
 After tailnet SSH, HTTPS, and the health task pass, set Terraform's
-`bootstrap_ssh_cidrs` to `[]`, review a new plan, and apply it. Reboot once more
-and rerun `remote-health`. Never remove public SSH first.
+`bootstrap_mode_enabled` to `false` and `bootstrap_ssh_cidrs` to `[]`, review a
+new plan, and apply it. Reboot once more and rerun `remote-health`. Never remove
+public SSH first.
 
 ### Agent authentication
 

@@ -31,5 +31,6 @@ set_if_unset HCLOUD_TOKEN "${HETZNER_CLOUD_TOKEN:-}"
 set_if_unset TF_TOKEN_app_terraform_io "${TF_API_TOKEN:-}"
 set_if_unset TF_VAR_ssh_public_key "${SSH_PUBLIC_KEY:-}"
 set_if_unset TF_VAR_bootstrap_ssh_cidrs "${BOOTSTRAP_SSH_CIDRS:-}"
+set_if_unset TF_VAR_bootstrap_mode_enabled "${BOOTSTRAP_MODE_ENABLED:-}"
 
 exec "$@"
