@@ -9,8 +9,8 @@ tech_stack: ["Terraform"]
 
 The project needs a general-purpose Linux server for its first two persistent
 workspaces. The initial target is one always-on machine with at least 8 GB of
-memory in a European region. It must support private access, encrypted backups,
-and later replacement from the repository.
+memory. It must support private access, encrypted backups, and later replacement
+from the repository.
 
 Infrastructure as code is a selection requirement. Coding agents need a
 versioned description they can inspect and change. The same description must
@@ -21,8 +21,8 @@ procedure outside the repository.
 Each candidate has a concrete reason for appearing here. Google Cloud already
 hosts the recipe site's Google sign-in configuration. AWS and Azure provide a
 useful baseline for mature cloud APIs and Terraform support. Hetzner Cloud,
-Hostinger, netcup, and OVHcloud sell low-cost virtual machines in Europe. Oracle
-Cloud's free Arm allowance makes it an obvious price outlier to check.
+Hostinger, netcup, and OVHcloud sell low-cost virtual machines. Oracle Cloud's
+free Arm allowance makes it an obvious price outlier to check.
 
 The provider search uses a satisficing rule. Stop once a provider passes the
 acceptance test, fits the first-host budget, and has no missing capability that
@@ -35,6 +35,8 @@ decision. Omitted providers have no recorded outcome.
 
 Use a Hetzner Cloud CX33 for the first host. Manage the provider layer with a
 pinned version of the official `hetznercloud/hcloud` Terraform provider.
+Within Hetzner, use the available region closest to the operator's usual
+location.
 
 The declared provider resources must include the server, SSH keys, primary IP,
 firewall, network, and any attached volume. Host configuration starts after
@@ -56,7 +58,7 @@ Apply the criteria in this order:
    can install the declared operating system and reach an idempotent second
    plan.
 3. **Operational fit.** The provider has documented APIs, predictable deletion
-   and billing, suitable European regions, and a credible recovery path.
+   and billing, and a credible recovery path.
 4. **Continuity.** Paid capacity has no idle-use reclamation policy.
 5. **Cost.** Compare the full recurring cost among candidates that pass the
    earlier criteria.
@@ -105,14 +107,22 @@ the project paying standard rates or migrating persistent workspaces. Check
 eligibility and the remaining balance in the provider's billing system before
 assigning any value to a credit offer.
 
-The offers checked on 7 September 2026 have these limits:
+The estimates below use a Linux VM with 2 vCPUs and 8 GB of memory, running for
+730 hours per month. AWS and Google use Frankfurt prices; Azure uses West Europe.
+Those locations set the price used in the calculation. The quoted prices cover
+VM compute only. Boot storage, public addresses, traffic, and tax can shorten
+the quoted duration. Calculate monthly compute by multiplying the published
+hourly price by 730. Funded time equals the credit divided by that hourly price,
+capped at the offer's expiry date.
 
-| Provider        | Public offer                                                                                                                                               | Fit for this host                                                                                                                                                                                                                  |
-| --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| AWS             | New customers receive $100 and can earn another $100. Credits expire after 12 months; the Free account plan ends after six months or when credits run out. | AWS lists the 2 vCPU, 8 GiB `m7i-flex.large` among Free Tier eligible EC2 types. The credits could fund the pilot temporarily, with standard EC2, EBS, address, and network charges after they expire.                             |
-| Google Cloud    | Eligible new customers receive $300 for 90 days.                                                                                                           | The credit could fund an 8 GB `e2-standard-2` temporarily. The continuing Compute Engine allowance covers an `e2-micro` with 1 GB of memory in selected US regions, which misses both the memory and European-region requirements. |
-| Microsoft Azure | Eligible new customers receive $200 for 30 days. New customers also receive 750 monthly hours of the `B2pts_v2` and `B2ats_v2` VM sizes for 12 months.     | The credit could fund a larger VM for one month. Both included VM sizes have 1 GiB of memory, so the 12-month allowance cannot host this workload.                                                                                 |
-| Oracle Cloud    | New accounts advertise a $300, 30-day trial alongside Always Free resources.                                                                               | The time-limited credit does not solve the capacity and reclamation risks already described above.                                                                                                                                 |
+The offers and on-demand prices checked on 7 September 2026 give these results:
+
+| Provider        | Comparison VM and compute price                                                          | Public offer                                                                                                                              | Time funded for one always-on VM                                                                                                                                                    |
+| --------------- | ---------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| AWS             | `m7i-flex.large`, 2 vCPU and 8 GiB, about $83.74 per month                               | New customers receive $100 and can earn another $100. The Free account plan lasts six months; credits expire after 12 months.             | The initial $100 covers about 36 days. Earning the full $200 raises that to about 73 days. Storage, addresses, and traffic use the same credit and would bring those dates forward. |
+| Google Cloud    | `e2-standard-2`, 2 vCPU and 8 GiB, about $63.00 per month                                | Eligible new customers receive $300 for 90 days.                                                                                          | The 90-day expiry caps the run at 90 days, using about $186 of the credit for compute. The continuing free `e2-micro` has only 1 GB of memory.                                      |
+| Microsoft Azure | `B2as_v2`, 2 vCPU and 8 GiB, about $63.07 per month                                      | Eligible new customers receive $200 for 30 days. New customers also receive 750 monthly hours of `B2pts_v2` and `B2ats_v2` for 12 months. | The 30-day expiry caps the run at 30 days, using about $62 of the credit for compute. Both 12-month VM sizes have only 1 GiB of memory.                                             |
+| Oracle Cloud    | `VM.Standard.A1.Flex`, 2 Arm OCPUs and 8 GB, $23.36 per month at published overage rates | New accounts advertise a $300, 30-day trial. Always Free includes 3,000 A1 OCPU-hours and 18,000 GB-hours of memory each month.           | The VM fits inside the monthly Always Free allocation and can continue past the trial while its capacity remains allocated. Oracle may reclaim an idle instance.                    |
 
 The recipe site's OAuth project proves that a Google Cloud account exists.
 Google determines trial eligibility from the account's billing and trial
@@ -136,12 +146,16 @@ server.
 Sources: [AWS Free Tier](https://docs.aws.amazon.com/awsaccountbilling/latest/aboutv2/free-tier.html),
 [AWS EC2 Free Tier eligibility](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-free-tier-usage.html),
 [AWS M7i Flex specifications](https://aws.amazon.com/ec2/instance-types/general-purpose/),
+[AWS Price List documentation](https://docs.aws.amazon.com/awsaccountbilling/latest/aboutv2/using-the-aws-price-list-bulk-api.html),
 [Google Cloud Free Program](https://cloud.google.com/free/docs/free-cloud-features),
 [Google E2 machine types](https://cloud.google.com/compute/docs/general-purpose-machines#e2_machine_types),
+[Google Compute Engine pricing](https://cloud.google.com/products/compute/pricing),
 [Azure free services](https://azure.microsoft.com/en-gb/pricing/free-services/),
 [Azure Arm B-series sizes](https://learn.microsoft.com/en-us/azure/virtual-machines/sizes/general-purpose/bpsv2-series),
 [Azure AMD B-series sizes](https://learn.microsoft.com/en-us/azure/virtual-machines/sizes/general-purpose/basv2-series),
+[Azure Retail Prices API](https://learn.microsoft.com/en-us/rest/api/cost-management/retail-prices/azure-retail-prices),
 [Oracle Cloud Free Tier](https://www.oracle.com/cloud/free/),
+[Oracle Ampere A1 pricing](https://www.oracle.com/cloud/compute/arm/pricing/),
 [AWS Activate](https://aws.amazon.com/startups/credits/),
 [Google for Startups benefits](https://cloud.google.com/startup/benefits), and
 [Microsoft Investor Network benefits](https://learn.microsoft.com/en-us/startups/microsoft-for-startups/unlock-more-benefits).
@@ -195,8 +209,7 @@ OVHcloud VPS may have a lower list price.
 
 # Review point
 
-Review this decision when the service needs a region Hetzner cannot provide,
-the provider fails a recovery exercise, awarded cloud credits cover the same
-8 GB host for at least 12 months, or another provider passes the complete
-acceptance test with materially better cost or reliability. Record a provider
-change in a new ADR after collecting that evidence.
+Review this decision when the provider fails a recovery exercise, awarded cloud
+credits cover the same 8 GB host for at least 12 months, or another provider
+passes the complete acceptance test with materially better cost or reliability.
+Record a provider change in a new ADR after collecting that evidence.
