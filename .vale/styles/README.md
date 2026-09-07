@@ -28,12 +28,14 @@ and prose linters ignore the whole `.vale` tree.
 
 ## Alert triage
 
-Treat error-level alerts as merge blockers. Rewrite the prose when the rule
-has found a style problem. Preserve deliberate wording, quotations, safety
-warnings, and concise trust boundaries with an exact entry in
-`scripts/prose-exemptions.json`. Each exemption must name one file, line, and
-check. Do not exempt an entire file or rule to hide one false positive.
+Vale reports only error-level rules. These are high-confidence merge blockers.
+Rewrite the prose when a rule has found a style problem. Preserve deliberate
+wording, quotations, safety warnings, and concise trust boundaries with an
+exact entry in `scripts/prose-exemptions.json`. Each exemption must name one
+file, line, and check. Do not exempt an entire file or rule to hide one false
+positive.
 
-Warnings and suggestions are editorial prompts. Review them while changing the
-affected prose, but do not create a baseline of thousands of exemptions for
-the broad `write-good` and `proselint` heuristics.
+Warning and suggestion rules are disabled because their broad heuristics
+produce too many unactionable findings. Promote a rule to `error` only after it
+has proved precise enough to enforce and the repository is clean against it.
+Do not keep advisory findings as a permanent lint backlog.
