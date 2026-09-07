@@ -41,16 +41,16 @@ export function ProjectsPageTabs({
     <Tabs value={currentTab} onValueChange={onTabChange} className="w-full">
       <TabsList className="w-full justify-start h-auto p-1 bg-muted rounded-md flex-wrap sm:inline-flex sm:w-auto sm:flex-nowrap">
         <TabsTrigger
-          value="projects"
-          className="flex-1 sm:flex-none sm:w-[150px]"
-        >
-          All Projects
-        </TabsTrigger>
-        <TabsTrigger
           value="initiatives"
           className="flex-1 sm:flex-none sm:w-[150px]"
         >
           Initiatives
+        </TabsTrigger>
+        <TabsTrigger
+          value="projects"
+          className="flex-1 sm:flex-none sm:w-[150px]"
+        >
+          All Projects
         </TabsTrigger>
         <TabsTrigger
           value="philosophy"

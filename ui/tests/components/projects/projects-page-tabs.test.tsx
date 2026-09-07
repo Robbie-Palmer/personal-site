@@ -21,7 +21,7 @@ describe("ProjectsPageTabs", () => {
     navigation.search = "";
   });
 
-  it("keeps initiatives in the projects tabs", () => {
+  it("puts the default initiatives tab first", () => {
     render(
       <ProjectsPageTabs
         initiatives={<div>Initiative list</div>}
@@ -30,11 +30,11 @@ describe("ProjectsPageTabs", () => {
       />,
     );
 
-    expect(screen.getByRole("tab", { name: "All Projects" })).toBeVisible();
-    expect(
-      screen.getByRole("tab", { name: "Building Philosophy" }),
-    ).toBeVisible();
-    expect(screen.getByRole("tab", { name: "Initiatives" })).toBeVisible();
+    expect(screen.getAllByRole("tab").map((tab) => tab.textContent)).toEqual([
+      "Initiatives",
+      "All Projects",
+      "Building Philosophy",
+    ]);
   });
 
   it("shows initiatives by default", () => {
