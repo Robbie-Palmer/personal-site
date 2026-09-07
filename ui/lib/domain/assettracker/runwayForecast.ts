@@ -79,6 +79,33 @@ function flowIsActive(flow: RecurringFlow, date: string): boolean {
   );
 }
 
+function applyExpectedFlow(
+  byId: Map<string, ProjectedAccount>,
+  flow: RecurringFlow,
+  date: string,
+): void {
+  if (!flowIsActive(flow, date)) return;
+  const source =
+    flow.fromAccountId == null ? null : byId.get(flow.fromAccountId);
+  const destination =
+    flow.toAccountId == null ? null : byId.get(flow.toAccountId);
+
+  if (flow.fromAccountId != null && source == null) return;
+  if (flow.toAccountId != null && destination == null) return;
+
+  // Historical spending already covers regular money leaving the portfolio.
+  // External income still enters here, and owned-account transfers move the
+  // appropriate liquidity pool without changing total net worth.
+  if (source != null && destination == null) return;
+  let amount = monthlyAmount(flow, destination?.balance);
+  if (destination && isLiability(destination.account.assetType)) {
+    amount = Math.min(amount, Math.max(-destination.balance, 0));
+  }
+  if (amount <= 0) return;
+  if (source) source.balance -= amount;
+  if (destination) destination.balance += amount;
+}
+
 function applyExpectedFlows(
   accounts: ProjectedAccount[],
   flows: RecurringFlow[],
@@ -88,26 +115,7 @@ function applyExpectedFlows(
     accounts.map((projected) => [projected.account.id, projected]),
   );
   for (const flow of flows) {
-    if (!flowIsActive(flow, date)) continue;
-    const source =
-      flow.fromAccountId == null ? null : byId.get(flow.fromAccountId);
-    const destination =
-      flow.toAccountId == null ? null : byId.get(flow.toAccountId);
-
-    if (flow.fromAccountId != null && source == null) continue;
-    if (flow.toAccountId != null && destination == null) continue;
-
-    // Historical spending already covers regular money leaving the portfolio.
-    // External income still enters here, and owned-account transfers move the
-    // appropriate liquidity pool without changing total net worth.
-    if (source != null && destination == null) continue;
-    let amount = monthlyAmount(flow, destination?.balance);
-    if (destination && isLiability(destination.account.assetType)) {
-      amount = Math.min(amount, Math.max(-destination.balance, 0));
-    }
-    if (amount <= 0) continue;
-    if (source) source.balance -= amount;
-    if (destination) destination.balance += amount;
+    applyExpectedFlow(byId, flow, date);
   }
 }
 

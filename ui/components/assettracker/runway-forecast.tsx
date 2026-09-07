@@ -2,7 +2,7 @@
 
 import { addDays, addYears, format, parseISO } from "date-fns";
 import { Trash2Icon } from "lucide-react";
-import { type FormEvent, useMemo, useState } from "react";
+import { type SubmitEvent, useMemo, useState } from "react";
 import {
   CartesianGrid,
   Line,
@@ -69,8 +69,10 @@ export function formatRunwayDuration(months: number): string {
   const years = Math.floor(wholeMonths / 12);
   const remainingMonths = wholeMonths % 12;
   const days = Math.round((positiveMonths - wholeMonths) * (365.25 / 12));
-  const unit = (value: number, singular: string) =>
-    `${value} ${value === 1 ? singular : `${singular}s`}`;
+  const unit = (value: number, singular: string) => {
+    const label = value === 1 ? singular : `${singular}s`;
+    return `${value} ${label}`;
+  };
   return [
     unit(years, "year"),
     unit(remainingMonths, "month"),
@@ -116,10 +118,10 @@ type RunwayTooltipPayload = {
 export function RunwayChartTooltip({
   active,
   payload,
-}: {
+}: Readonly<{
   active?: boolean;
   payload?: RunwayTooltipPayload[];
-}) {
+}>) {
   if (!active || !payload?.length) return null;
   const point = payload.find((item) => item.payload != null)?.payload;
   if (point == null) return null;
@@ -267,7 +269,7 @@ export function RunwayForecast() {
     if (end != null && selectedDate > end) setSelectedDate(end);
   }
 
-  async function handleAdd(event: FormEvent<HTMLFormElement>) {
+  async function handleAdd(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
     setSubmitting(true);
     setError(null);
@@ -419,7 +421,7 @@ export function RunwayForecast() {
               <span
                 aria-hidden="true"
                 className="h-3 border-l-2 border-dashed border-amber-500"
-              />
+              />{" "}
               Planned spending is marked on its purchase date. Hover the next
               forecast point for its details.
             </p>
