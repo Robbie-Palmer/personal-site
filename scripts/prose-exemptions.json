@@ -1,1 +1,107 @@
-[]
+[
+  {
+    "file": "ui/content/blog/2020-07-25-why-you-should-not-buy-a-house.mdx",
+    "line": 43,
+    "checks": ["Unslop.ContrastFormula"]
+  },
+  {
+    "file": "ui/content/blog/2020-07-25-why-you-should-not-buy-a-house.mdx",
+    "line": 100,
+    "checks": ["Unslop.ContrastFormula"]
+  },
+  {
+    "file": "ui/content/blog/2020-09-27-how-to-build-wealth.mdx",
+    "line": 3,
+    "checks": ["Unslop.ContrastFormula"]
+  },
+  {
+    "file": "ui/content/blog/2020-09-27-how-to-build-wealth.mdx",
+    "line": 20,
+    "checks": ["Unslop.ContrastFormula"]
+  },
+  {
+    "file": "ui/content/blog/2020-09-27-how-to-build-wealth.mdx",
+    "line": 432,
+    "checks": ["Unslop.ContrastFormula"]
+  },
+  {
+    "file": "ui/content/blog/2022-03-02-the-philosophy-of-data-science.mdx",
+    "line": 240,
+    "checks": ["Unslop.ContrastFormula"]
+  },
+  {
+    "file": "ui/content/blog/2022-03-02-the-philosophy-of-data-science.mdx",
+    "line": 259,
+    "checks": ["Unslop.ContrastFormula"]
+  },
+  {
+    "file": "ui/content/blog/2022-03-02-the-philosophy-of-data-science.mdx",
+    "line": 331,
+    "checks": ["Unslop.ContrastFormula"]
+  },
+  {
+    "file": "ui/content/blog/2022-03-02-the-philosophy-of-data-science.mdx",
+    "line": 364,
+    "checks": ["Unslop.Puffery"]
+  },
+  {
+    "file": "ui/content/blog/2022-03-02-the-philosophy-of-data-science.mdx",
+    "line": 439,
+    "checks": ["Unslop.Puffery"]
+  },
+  {
+    "file": "ui/content/blog/2022-03-02-the-philosophy-of-data-science.mdx",
+    "line": 442,
+    "checks": ["Unslop.Puffery"]
+  },
+  {
+    "file": "ui/content/blog/2022-03-02-the-philosophy-of-data-science.mdx",
+    "line": 446,
+    "checks": ["Unslop.Puffery"]
+  },
+  {
+    "file": "ui/content/blog/2022-03-02-the-philosophy-of-data-science.mdx",
+    "line": 570,
+    "checks": ["Unslop.Puffery"]
+  },
+  {
+    "file": "ui/content/blog/2022-03-02-the-philosophy-of-data-science.mdx",
+    "line": 708,
+    "checks": ["Unslop.ContrastFormula"]
+  },
+  {
+    "file": "ui/content/blog/2022-03-28-quasi-experiments.mdx",
+    "line": 23,
+    "checks": ["Unslop.ContrastFormula"]
+  },
+  {
+    "file": "ui/content/blog/2022-03-28-quasi-experiments.mdx",
+    "line": 36,
+    "checks": ["Unslop.ContrastFormula"]
+  },
+  {
+    "file": "ui/content/blog/2023-03-28-uniting-machine-learning-data-streaming-1.mdx",
+    "line": 92,
+    "checks": ["Unslop.ContrastFormula"]
+  },
+  {
+    "file": "ui/content/blog/2023-03-28-uniting-machine-learning-data-streaming-1.mdx",
+    "line": 104,
+    "checks": ["Unslop.ContrastFormula"]
+  },
+  {
+    "file": "ui/content/blog/2023-04-04-uniting-machine-learning-data-streaming-2.mdx",
+    "line": 49,
+    "checks": ["Unslop.ContrastFormula"]
+  },
+  {
+    "file": "ui/content/blog/2026-08-18-crossing-the-chasm-with-ai-platform-teams.mdx",
+    "line": 26,
+    "checks": ["Unslop.ContrastFormula"]
+  },
+  {
+    "file": "ui/content/blog/2026-08-18-crossing-the-chasm-with-ai-platform-teams.mdx",
+    "line": 45,
+    "checks": ["Unslop.ContrastFormula"]
+  }
+]
