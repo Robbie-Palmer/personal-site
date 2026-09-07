@@ -28,6 +28,7 @@ jobs:
       - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
         with:
           experimental: true
+          minimum_release_age: 24h
 
       # mise (infra/mise.toml) loads .env if present; create it empty so the
       # secrets below reach terraform through the step env: blocks rather than the

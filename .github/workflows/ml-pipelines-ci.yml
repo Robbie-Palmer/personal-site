@@ -26,6 +26,7 @@ jobs:
       - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
         with:
           experimental: true
+          minimum_release_age: 24h
 
       - name: Check AI reviewer evaluation pipeline
         run: mise run //ml-pipelines/ai-review-evaluation:check
@@ -43,6 +44,7 @@ jobs:
       - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
         with:
           experimental: true
+          minimum_release_age: 24h
 
       - name: Check WSI analysis Python project
         run: mise run //ml-pipelines/wsi-analysis:check
@@ -92,6 +94,7 @@ jobs:
         if: matrix.pipeline == 'recipe-parsing'
         with:
           experimental: true
+          minimum_release_age: 24h
 
       - name: Get pnpm store directory
         if: matrix.pipeline == 'recipe-parsing'

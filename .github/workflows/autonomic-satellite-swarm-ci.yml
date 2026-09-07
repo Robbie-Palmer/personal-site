@@ -38,6 +38,7 @@ jobs:
       - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
         with:
           experimental: true
+          minimum_release_age: 24h
 
       - name: Format, lint, test, sanitize, cover, and spell-check
         run: |
@@ -65,6 +66,7 @@ jobs:
       - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
         with:
           experimental: true
+          minimum_release_age: 24h
 
       - name: Compile firmware
         run: mise run //cpp/autonomic-satellite-swarm:firmware:${{ matrix.target }}

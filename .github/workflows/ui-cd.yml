@@ -37,6 +37,7 @@ jobs:
       - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
         with:
           experimental: true
+          minimum_release_age: 24h
 
       # Cache the pnpm content-addressable store so installs restore packages
       # from disk instead of re-downloading them on every run.
