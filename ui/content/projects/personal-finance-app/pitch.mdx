@@ -1,0 +1,338 @@
+---
+title: "Personal Finance App pitch"
+description: "Manual-entry wealth tracking and forecasting for UK households"
+---
+
+# A financial planner for people who still use spreadsheets
+
+Personal Finance App records balances, ownership, currencies, debts, and forecasts in one model.
+
+<PitchNotes>
+  The working title is Asset Tracker. The target user currently chooses between budgeting apps that lack long-term
+  planning, advisor software that costs thousands per year, and a spreadsheet they must maintain themselves.
+
+  \[Sources]
+
+  * [Personal Finance App overview](/projects/personal-finance-app?tab=overview)
+  * [Problem statement](/projects/personal-finance-app?tab=overview#problem)
+    \[/Sources]
+</PitchNotes>
+
+***
+
+## The first user's finances span property, shares, and currencies
+
+* A home owned with a partner, unequal deposits, and a mortgage rate about to reset
+* Old employer stock priced in dollars, sold into sterling, then invested in US-heavy funds
+* Closed accounts that still matter to the historical picture
+* Monthly spending inferred from cash flow, without categorising every coffee
+
+<PitchStep>
+  Each case needs its own formulas, currency assumptions, and history. The spreadsheet owner maintains all of it.
+</PitchStep>
+
+<PitchNotes>
+  These examples come from the finances the product needs to model first. A spreadsheet can calculate the
+  relationships, but its owner must design, test, document, and repair every formula.
+
+  \[Sources]
+
+  * [Personal Finance App problem statement](/projects/personal-finance-app?tab=overview#problem)
+    \[/Sources]
+</PitchNotes>
+
+***
+
+## Budgeting apps and advisor tools solve different parts
+
+<PitchColumns>
+  <PitchColumn>
+    ### Budgeting apps
+
+    Monarch, YNAB, and Emma organise transactions and current-month spending.
+
+    They provide little long-term forecasting.
+  </PitchColumn>
+
+  <PitchColumn>
+    ### Advisor software
+
+    Voyant, eMoney, and RightCapital provide detailed forecasts.
+
+    They cost thousands per year and target financial advisors.
+  </PitchColumn>
+</PitchColumns>
+
+<p className="pitch-slide__statement">The missing product combines flexible data entry with long-term forecasting.</p>
+
+<PitchNotes>
+  The project brief compares data-entry flexibility with forecasting depth. No listed competitor scores highly on
+  both. Personal Finance App targets people who currently build that combination themselves.
+
+  \[Sources]
+
+  * [Competitor analysis](/projects/personal-finance-app?tab=overview#competitor-analysis)
+  * [Positioning map](/projects/personal-finance-app?tab=overview#positioning-map)
+    \[/Sources]
+</PitchNotes>
+
+***
+
+## A balance update should take seconds
+
+<Mermaid
+  chart={`flowchart LR
+A[Record<br/>a balance or change] --> B[Reconcile<br/>assets, debts and transfers]
+B --> C[See<br/>wealth trajectory]
+C --> D[Compare<br/>forecast with reality]
+D --> A`}
+/>
+
+<p className="pitch-slide__statement">Record one material change without re-entering every account balance.</p>
+
+<PitchNotes>
+  Manual data entry is the v1 workflow. It lets a user record a balance or transaction on a phone and correct mistakes
+  directly. Each new entry compares the forecast with actual results. Open Banking can automate this workflow later.
+
+  \[Sources]
+
+  * [Proposal](/projects/personal-finance-app?tab=overview#proposal)
+  * [Core principles](/projects/personal-finance-app?tab=overview#core-principles)
+    \[/Sources]
+</PitchNotes>
+
+***
+
+## Ownership, currencies, and history belong in the data model
+
+<Mermaid
+  chart={`flowchart LR
+U[Users] --> E[Entities<br/>self · partner · household]
+E --> A[Accounts<br/>cash · investments · pensions · debts]
+A --> N[Entries<br/>balances · transactions]
+X[Exchange rates<br/>over time] --> N
+N --> Q[Value of X<br/>on date Y<br/>in currency Z]`}
+/>
+
+<PitchNotes>
+  Multi-entity and multi-currency support belong in the base model. An entity can own a share of a home, a household
+  can carry a joint mortgage, and an investment account can keep its native currency. Stored entries and exchange
+  rates make historical comparisons reproducible.
+
+  \[Sources]
+
+  * [Data model](/projects/personal-finance-app?tab=overview#data-model)
+  * [Architectural focus](/projects/personal-finance-app?tab=overview#architectural-focus)
+    \[/Sources]
+</PitchNotes>
+
+***
+
+## The first release compares the plan with reality
+
+# Are assets and liabilities moving as expected?
+
+<PitchStep>
+  Track assets and liabilities over time, including CAGR.
+</PitchStep>
+
+<PitchStep>
+  Record stock units, recurring transfers, loans, and linked accounts.
+</PitchStep>
+
+<PitchStep>
+  See income trends and the effect of UK tax, ISA, pension, and CGT rules.
+</PitchStep>
+
+<PitchNotes>
+  V1 covers tracking and understanding. Scenario planning, automatic imports, and additional tax jurisdictions come
+  later. Summary charts answer the headline question, and every chart traces back to entries the user can inspect and
+  correct.
+
+  \[Sources]
+
+  * [Key features](/projects/personal-finance-app?tab=overview#key-features)
+  * [Core principles](/projects/personal-finance-app?tab=overview#core-principles)
+    \[/Sources]
+</PitchNotes>
+
+***
+
+## Existing products show people will pay to replace spreadsheets
+
+<PitchColumns>
+  <PitchColumn>
+    # \~40%
+
+    of people who actively budget use spreadsheets.
+  </PitchColumn>
+
+  <PitchColumn>
+    # \~$1m
+
+    annual recurring revenue reached by bootstrapped ProjectionLab in four years.
+  </PitchColumn>
+</PitchColumns>
+
+<p className="pitch-slide__statement">ProjectionLab validates paid planning software. Spreadsheet usage identifies the audience.</p>
+
+<PitchNotes>
+  These users already maintain their own financial models. ProjectionLab shows that people with complex finances pay
+  for planning software. Its model-first workflow does not solve quick, flexible data entry.
+
+  \[Sources]
+
+  * [Spreadsheet users are the market](/projects/personal-finance-app?tab=overview#spreadsheet-users-are-the-market)
+  * [ProjectionLab reached $1M ARR](https://projectionlab.com/blog/we-reached-1m-arr-with-zero-funding)
+  * [Budgeting statistics](https://wallethub.com/edu/budgeting-statistics/146387)
+    \[/Sources]
+</PitchNotes>
+
+***
+
+## Start in the UK
+
+* 15.16 million active Open Banking users by July 2025
+* ISA, SIPP, CGT, dividend allowance, and Scottish income-tax rules
+* GBP defaults with native support for accounts in other currencies
+* The same account and entry model can support tax rules for Canada, Australia, and Europe
+
+<PitchNotes>
+  Most competing products start with US tax rules. The UK has mature Open Banking infrastructure and country-specific
+  rules that generic international presets handle poorly. Manual entry keeps the alpha independent of aggregation
+  providers. A later release can add bank feeds to the same entry workflow.
+
+  \[Sources]
+
+  * [UK structural advantage](/projects/personal-finance-app?tab=overview#uk-structural-advantage)
+  * [Open Banking reaches 15 million users](https://www.openbanking.org.uk/news/open-banking-surges-to-15-million-uk-users-as-july-marks-record-adoption/)
+    \[/Sources]
+</PitchNotes>
+
+***
+
+## Validate with the founder, then add one group at a time
+
+1. **Founder.** The app replaces the original spreadsheet.
+2. **Partner.** Shared finances work without either person maintaining the model.
+3. **Invitees.** Different households and countries expose bad assumptions.
+4. **Public launch.** Invited users return and add more accounts without prompting.
+
+<PitchNotes>
+  Each group introduces new financial structures while the user base remains small enough for direct feedback. The
+  first test is whether the founder can stop maintaining the spreadsheet. Partner and invitee behaviour then tests
+  whether the model works beyond one person's finances.
+
+  \[Sources]
+
+  * [Target persona](/projects/personal-finance-app?tab=overview#target-persona)
+  * [Go-to-market](/projects/personal-finance-app?tab=overview#go-to-market)
+    \[/Sources]
+</PitchNotes>
+
+***
+
+## Measure accounts and history, not daily opens
+
+<PitchColumns>
+  <PitchColumn>
+    ### Usage analytics
+
+    Opens, streaks, and time in app.
+  </PitchColumn>
+
+  <PitchColumn>
+    ### Evidence of product fit
+
+    Accounts tracked, months of history, linked mortgages, recurring transfers, and unprompted return.
+  </PitchColumn>
+</PitchColumns>
+
+<PitchNotes>
+  A user may need the product only a few times each month. Retention should correlate with the amount of financial
+  history and account structure stored in the product. Fifteen accounts, six months of balances, and a linked joint
+  mortgage say more than a daily-open streak.
+
+  \[Sources]
+
+  * [What PMF looks like](/projects/personal-finance-app?tab=overview#what-pmf-looks-like)
+    \[/Sources]
+</PitchNotes>
+
+***
+
+## Charge new users after the free validation period
+
+<PitchColumns>
+  <PitchColumn>
+    ### Before product-market fit
+
+    Full functionality, manual entry, zero aggregation cost, and lifetime-free access for early testers.
+  </PitchColumn>
+
+  <PitchColumn>
+    ### After product-market fit
+
+    New users pay for advanced forecasting, tax modelling, and support.
+  </PitchColumn>
+</PitchColumns>
+
+<PitchStep>
+  Revenue comes from subscriptions. The product does not sell ads or take referral commissions.
+</PitchStep>
+
+<PitchNotes>
+  Feedback and account depth matter more than revenue from the small validation cohort. Manual entry avoids bank-data
+  provider fees. Invited testers keep lifetime-free access. After validation, new users pay for advanced forecasts,
+  tax calculations, and support.
+
+  \[Sources]
+
+  * [Revenue model](/projects/personal-finance-app?tab=overview#revenue-model)
+  * [Lessons from Mint and other failures](/projects/personal-finance-app?tab=overview#lessons-from-mint-and-other-failures)
+    \[/Sources]
+</PitchNotes>
+
+***
+
+## Later releases reuse the entity, account, and entry model
+
+<Mermaid
+  chart={`flowchart LR
+A[Track<br/>wealth today] --> B[Forecast<br/>scenarios]
+B --> C[Automate<br/>Open Banking]
+C --> D[Expand<br/>new tax jurisdictions]
+D --> E[Reuse the engine<br/>for startup runway]`}
+/>
+
+<p className="pitch-slide__statement">Startup runway and equity tracking use the same ownership and time-series records.</p>
+
+<PitchNotes>
+  The entity, account, and entry model can later represent startup burn, founder runway, and equity compensation.
+  Startup finance remains outside v1. Work on it begins only after personal tracking works for real households.
+
+  \[Sources]
+
+  * [Later features](/projects/personal-finance-app?tab=overview#later-automate-and-forecast)
+  * [Future expansion: startup finance](/projects/personal-finance-app?tab=overview#future-expansion-startup-finance)
+    \[/Sources]
+</PitchNotes>
+
+***
+
+## The alpha succeeds when one user stops maintaining two systems
+
+# The founder deletes the spreadsheet.
+
+The app must carry one household's balances, ownership, currencies, debts, and history on its own.
+
+<PitchNotes>
+  This is the first pass-or-fail milestone. If the founder still needs the spreadsheet beside the product, the alpha
+  has not replaced the current workflow. Funding and a public launch come after this test.
+
+  \[Sources]
+
+  * [Target persona](/projects/personal-finance-app?tab=overview#target-persona)
+  * [Funding approach](/projects/personal-finance-app?tab=overview#funding-approach)
+    \[/Sources]
+</PitchNotes>
