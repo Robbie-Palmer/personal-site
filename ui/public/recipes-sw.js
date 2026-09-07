@@ -7,7 +7,7 @@ const SESSION_CACHE = "recipe-session-v1";
 const SESSION_CACHE_KEY = "/recipes/__offline-session";
 const MAX_RECIPE_IMAGES = 60;
 
-const APP_SHELL_PATHS = [
+const APP_SHELL_PATHS = new Set([
   "/recipes",
   "/recipes/add",
   "/recipes/cooks",
@@ -22,7 +22,7 @@ const APP_SHELL_PATHS = [
   "/recipes/settings",
   "/recipes/settings/agents/approve",
   "/recipes/shopping",
-];
+]);
 const REQUIRED_SHELL_PATHS = ["/recipes", "/recipes/saved"];
 
 function isSuccessful(response) {
@@ -240,7 +240,7 @@ async function cacheRecipeImage(request) {
 }
 
 function offlineShellPath(pathname) {
-  if (APP_SHELL_PATHS.includes(pathname)) return pathname;
+  if (APP_SHELL_PATHS.has(pathname)) return pathname;
   if (/^\/recipes\/[^/]+\/?$/.test(pathname)) return "/recipes/saved";
   return "/recipes";
 }
@@ -257,7 +257,7 @@ async function handleNavigation(request) {
   const shell = await caches.open(SHELL_CACHE);
   try {
     const response = await fetch(request);
-    if (response.ok && APP_SHELL_PATHS.includes(url.pathname)) {
+    if (response.ok && APP_SHELL_PATHS.has(url.pathname)) {
       await shell.put(url.pathname, response.clone());
     }
     if (response.status < 500) return response;
@@ -296,6 +296,7 @@ self.addEventListener("activate", (event) => {
 });
 
 self.addEventListener("message", (event) => {
+  if (event.origin !== self.location.origin) return;
   if (event.data?.type === "CLEAR_RECIPE_OFFLINE_DATA") {
     event.waitUntil(deletePrivateCaches());
   }

@@ -72,10 +72,11 @@ function serviceWorkerHarness(fetchMock: typeof fetch) {
       });
       await pending;
     },
-    async message(data: unknown) {
+    async message(data: unknown, origin = "https://recipes.example.test") {
       let pending = Promise.resolve();
       listeners.get("message")?.({
         data,
+        origin,
         waitUntil: (promise: Promise<unknown>) => {
           pending = promise.then(() => undefined);
         },
@@ -169,6 +170,12 @@ describe("recipe service worker", () => {
       .mockRejectedValue(new TypeError("offline"));
     const worker = serviceWorkerHarness(fetchMock);
     await worker.request(sessionRequest);
+
+    await worker.message(
+      { type: "CLEAR_RECIPE_OFFLINE_DATA" },
+      "https://malicious.example.test",
+    );
+    expect([...worker.stores.keys()]).toContain("recipe-session-v1");
 
     await worker.message({ type: "CLEAR_RECIPE_OFFLINE_DATA" });
 
