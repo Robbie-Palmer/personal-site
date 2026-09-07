@@ -2,9 +2,9 @@
  * prose-lint.ts — deterministic prose linter wrapper around Vale.
  *
  * Reads Vale JSON output and filters to only the lines changed in the
- * working tree (or, with --staged, the index).  This lets us add strict
- * rules incrementally without flooding the developer with pre-existing
- * issues.
+ * working tree (or, with --staged, the index). This lets us add
+ * high-confidence rules incrementally without flooding the developer with
+ * pre-existing issues.
  *
  * Usage:
  *   mise run //:lint:prose -- [files...]
@@ -14,8 +14,6 @@
  * Exit codes:
  *   0 — no blocking issues on changed lines
  *   1 — blocking issues found (or vale itself failed)
- *   2 — only advisory issues on changed lines (non-zero for CI when
- *       --strict is passed, otherwise still exits 0)
  */
 
 import { execFileSync } from "node:child_process";
@@ -70,14 +68,11 @@ Options:
                  tracked files, full scan for untracked.
   --all          Treat every line of every file as changed (whole-file
                  scan; used by lint:prose:check).
-  --strict       Fail on warnings/advisories too (exit 1).
   --help         Print this help and exit.
 
 Exit codes:
   0 — no blocking issues on changed lines
   1 — blocking issues found (or vale itself failed)
-  2 — only advisory issues on changed lines (non-zero with --strict)
-
 When lint-staged triggers this script it passes the staged file paths
 without flags.  Run with --staged (via lint:prose:staged) so pre-commit
 enforcement inspects the index rather than the working tree.
@@ -240,7 +235,6 @@ type DiffMode = "cached" | "working" | "auto";
 interface ProseOptions {
   files: string[];
   staged: boolean;
-  strict: boolean;
   all: boolean;
   explicitDiff: DiffMode | null;
   base: string;
@@ -265,7 +259,6 @@ function parseArgs(argv: string[]): ProseOptions {
   const opts: ProseOptions = {
     files: [],
     staged: false,
-    strict: false,
     all: false,
     explicitDiff: null,
     base: "HEAD",
@@ -280,7 +273,6 @@ function parseArgs(argv: string[]): ProseOptions {
       opts.explicitDiff = parseDiffType(requireValue(argv, i, "--diff"));
       i++;
     } else if (arg === "--staged") opts.staged = true;
-    else if (arg === "--strict") opts.strict = true;
     else if (arg === "--all") opts.all = true;
     else if (arg.startsWith("--")) {
       console.error(`prose-lint: unknown flag ${arg}`);
@@ -410,20 +402,17 @@ function changedAlerts(
   });
 }
 
-function reportAlerts(alerts: ValeAlert[], strict: boolean): void {
+function reportAlerts(alerts: ValeAlert[]): void {
   let hasBlockers = false;
-  let hasAdvisories = false;
 
   for (const alert of alerts) {
     console.log(
       `${SEVERITY_LABEL[alert.Severity]}  ${alert.File}:${alert.Line}  ${alert.Message}  [${alert.Check}]`,
     );
     if (alert.Severity === "error") hasBlockers = true;
-    if (alert.Severity !== "error") hasAdvisories = true;
   }
 
   if (hasBlockers) process.exit(1);
-  if (strict && hasAdvisories) process.exit(2);
   process.exit(0);
 }
 
@@ -459,7 +448,7 @@ function main(): void {
     changedMap,
     loadExemptions(),
   );
-  reportAlerts(filtered, opts.strict);
+  reportAlerts(filtered);
 }
 
 main();

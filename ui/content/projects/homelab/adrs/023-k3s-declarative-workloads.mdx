@@ -276,7 +276,8 @@ plan.
 
 ## Secrets
 
-A Kubernetes Secret is an API object. It does not encrypt its source data. Do
+A Kubernetes Secret manifest only base64-encodes its data; it does not encrypt
+it. Configure API-server encryption at rest for Secret objects separately. Do
 not commit plain credentials or generated Secret manifests.
 
 [ADR 024](/projects/homelab/adrs/024-doppler-secrets) makes Doppler the source

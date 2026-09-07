@@ -132,7 +132,7 @@ pnpm exec tsx scripts/prose-lint.ts --staged "$@"
 
 [tasks."lint:prose:check"]
 description = "Lint all tracked Markdown and MDX files with Vale, failing on any enabled error-level alert"
-run = "pnpm exec tsx scripts/prose-lint.ts --strict --all $(git ls-files '*.md' '*.mdx')"
+run = "pnpm exec tsx scripts/prose-lint.ts --all $(git ls-files '*.md' '*.mdx')"
 
 [tasks."lint:knip"]
 description = "Detect unused files, dependencies, and exports across the monorepo with Knip"

@@ -43,10 +43,10 @@ Adopt **OpenSSF Scorecard** via its official GitHub Action:
   digests fresh.
 
 Scorecard is a *meta-check*: it is deliberately **not blocking** on PRs. Its
-findings record posture regressions for weekly triage. Treat them like Trivy's
-scheduled scans in the Security tab. Several checks, including branch protection
-and token permissions, concern settings PRs cannot
-change anyway.
+findings record existing posture weaknesses and regressions for weekly triage.
+Treat them like Trivy's scheduled scans in the Security tab. Workflow permissions
+live in version-controlled YAML and should be fixed promptly through PRs. Branch
+protection is a repository setting and needs separate remediation.
 
 # Why It Adds Something New
 
