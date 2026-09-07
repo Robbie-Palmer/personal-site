@@ -10,13 +10,16 @@
     "./reviewer": "./src/reviewer.ts"
   },
   "scripts": {
-    "test": "node --test tests/*.test.ts",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "zod": "^4.2.1"
   },
   "devDependencies": {
-    "typescript": "^5"
+    "@vitest/coverage-v8": "^4.1.10",
+    "typescript": "^5",
+    "vitest": "^4.0.0"
   }
 }

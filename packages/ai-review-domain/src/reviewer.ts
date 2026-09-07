@@ -348,6 +348,12 @@ function sleep(milliseconds: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, milliseconds));
 }
 
+function retryJitter(milliseconds = 1_000): number {
+  const sample = new Uint32Array(1);
+  crypto.getRandomValues(sample);
+  return ((sample[0] ?? 0) / 2 ** 32) * milliseconds;
+}
+
 export class JsonClient {
   private readonly baseUrl: string;
   private readonly headers: Record<string, string>;
@@ -397,11 +403,11 @@ export class JsonClient {
         }
         const retryAfter = Number.parseInt(response.headers.get("retry-after") ?? "", 10);
         const delay = Number.isFinite(retryAfter) ? retryAfter * 1_000 : 2 ** attempt * 1_000;
-        await sleep(Math.min(delay + Math.random() * 1_000, 15_000));
+        await sleep(Math.min(delay + retryJitter(), 15_000));
       } catch (error) {
         lastError = error instanceof Error ? error : new Error(String(error));
         if (attempt === this.retries - 1 || /failed \(4\d\d\)/.test(lastError.message)) throw lastError;
-        await sleep(2 ** attempt * 1_000 + Math.random() * 1_000);
+        await sleep(2 ** attempt * 1_000 + retryJitter());
       }
     }
     throw lastError ?? new Error(`${method} ${path} failed`);
