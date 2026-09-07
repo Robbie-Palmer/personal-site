@@ -255,15 +255,23 @@ export function RunwayForecast() {
   );
   const horizonIndex = Math.min(horizonYears * 12, runwayForecast.length - 1);
   const horizonEnd = runwayForecast[horizonIndex]?.date;
-  const chartData = buildChartData(
-    runwayForecast.slice(0, horizonIndex + 1),
-    plannedExpenditures,
+  const chartData = useMemo(
+    () =>
+      buildChartData(
+        runwayForecast.slice(0, horizonIndex + 1),
+        plannedExpenditures,
+      ),
+    [horizonIndex, plannedExpenditures, runwayForecast],
   );
-  const visiblePlannedExpenditures = plannedExpenditures.filter(
-    (expenditure) =>
-      chartData[0] != null &&
-      expenditure.date > chartData[0].date &&
-      expenditure.date <= (horizonEnd ?? chartData[0].date),
+  const visiblePlannedExpenditures = useMemo(
+    () =>
+      plannedExpenditures.filter(
+        (expenditure) =>
+          chartData[0] != null &&
+          expenditure.date > chartData[0].date &&
+          expenditure.date <= (horizonEnd ?? chartData[0].date),
+      ),
+    [chartData, horizonEnd, plannedExpenditures],
   );
   const selectedPoint = pointOnOrAfter(chartData, selectedDate);
   const maximumDate =
