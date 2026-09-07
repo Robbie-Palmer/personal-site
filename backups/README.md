@@ -115,8 +115,8 @@ GRANT pg_read_all_data TO database_backup;
 
 `pg_read_all_data` does not bypass row-level security. If RLS is introduced,
 verify that a dump still succeeds rather than silently switching to a partial
-backup. Keep schema migrations and role creation in source control because
-`pg_dump` archives one database, not cluster-global roles.
+backup. Keep schema migrations and role creation in source control. A `pg_dump`
+archive covers one database and omits cluster-global roles.
 
 Create an R2 API token with **Object Read & Write**, scoped only to
 `personal-site-database-backups`. Read access is needed to detect an existing

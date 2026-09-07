@@ -57,7 +57,7 @@ The parse stage now runs as a staged ingestion flow:
 2. structured extraction -> Cooklang artifact
 3. Cooklang artifact -> derived normalized recipe
 
-`predictions.json` is retained as the downstream-compatible derived view, not the canonical
+`predictions.json` remains a downstream-compatible derived view. The canonical
 intermediate artifact.
 
 ### 2. Evaluate Extraction

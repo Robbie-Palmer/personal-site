@@ -38,8 +38,8 @@ Additional requirements:
 * The project uses [GitHub Actions](/projects/recipe-site/adrs/015-github-actions) for CI and
   pull requests as the review mechanism. Experiment comparison must be surfaced there without a
   mandatory separate platform.
-* I want to be able to build pipeline itself is TypeScript (tsx), not Python,
-  to enable code re-use between production and experimentation. The tooling must not impose a Python-only
+* I want to build the pipeline itself in TypeScript (tsx) so production and experimentation can
+  reuse code. The tooling must not impose a Python-only
   runtime constraint on pipeline code.
 
 # Decision
@@ -153,7 +153,7 @@ The workflow this enables:
   and unlimited experiment runs on public repositories, which comfortably covers a recipe image
   dataset growing into the hundreds of images.
 * **Cons**: The 100 experiment run limit on the free plan applies to private repositories. Since
-  this repository is public, it is likely not a blocker in practice, but worth confirming. Private
+  this repository is public, the limit should not block us, though this needs confirmation. Private
   repositories are permitted on the free plan for non-commercial use only; if the project moves
   toward a commercial product and needs to go private, the jump to the Team plan at $99–$119/month
   is steep with no intermediate tier. Switching to DagsHub as the DVC remote would also mean

@@ -33,7 +33,7 @@ public.
 
 Gate all recipe-site preview frontend and API hostnames with Cloudflare Access.
 
-Access is an edge reachability control, not product authentication. Production remains governed by
+Access controls edge reachability. Production authentication remains governed by
 Better Auth, API authorization, CSRF protection, rate limiting, and the application security
 baseline in [ADR 035](/projects/recipe-site/adrs/035-application-security-baseline). Preview
 environments still need least-privilege credentials, isolated data where practical, preview-specific

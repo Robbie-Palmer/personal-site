@@ -341,8 +341,8 @@ recovers the Mac stacks after a reboot.
 
 The model stops at the Mac VM. It cannot declare GPU Jobs on the Asus worker,
 place work on the planned laptop, or use one API for workload status across
-the fleet. Keep Compose as the rollback path during the pilot, not the target
-workload API.
+the fleet. During the pilot, keep Compose only as the rollback path. K3s remains
+the target workload API.
 
 ## Use full Kubernetes
 

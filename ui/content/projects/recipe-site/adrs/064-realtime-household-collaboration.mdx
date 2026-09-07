@@ -20,7 +20,7 @@ snapshot, while the UI replays pending local commands over it. Other connected c
 newer WebSocket snapshot without another database read. Initial connection, reconnection, window
 focus, and a low-frequency active-page poll repair missed publications.
 
-Realtime delivery is therefore a latency optimization, not the data-correctness boundary. A
+Realtime delivery therefore reduces latency while Postgres remains the data-correctness boundary. A
 committed Postgres mutation remains successful even if its subsequent broadcast fails. The UI
 eventually converges by reading the canonical snapshot and revision.
 
@@ -156,7 +156,7 @@ The Durable Object is not directly Internet-addressable. It trusts only identity
 by the outer Worker. Do not place session tokens or durable bearer credentials in a WebSocket query
 string.
 
-A connection is authorized to receive current household data, not permanently entitled to it.
+A connection's authorization to receive household data expires.
 Sockets must have a bounded authorization lifetime. Membership removal, household deletion, or
 session revocation should publish an authorization-change signal that closes affected connections;
 the server must also re-check authorization when a connection is renewed. A later WebSocket command
@@ -286,7 +286,7 @@ response, refetch result, or socket snapshot with a revision lower than the high
 revision must never replace newer cached state. Pending local commands stay separate from that
 confirmed snapshot and are replayed in submission order whenever it changes.
 
-The exact active-page interval is a product measurement, not a protocol guarantee. Start around
+Measure the exact active-page interval in the product instead of guaranteeing it in the protocol. Start around
 30–60 seconds with per-client jitter and no background polling when the page is hidden. WebSockets
 provide normal low-latency updates; socket close/error, browser `online`, and window focus trigger
 immediate reconnection and snapshot recovery. Polling only bounds otherwise silent failure and its
@@ -346,7 +346,7 @@ expressed as commutative operations, or for a future rich-text/document collabor
 
 ## Presence
 
-Presence is ephemeral coordination state, not durable business data.
+Presence provides ephemeral coordination state. Never store it as durable business data.
 
 The Durable Object may derive "viewing this list", "actively shopping", or short-lived edit
 indicators from connected sockets and tagged WebSocket attachments. Presence:
@@ -447,8 +447,8 @@ Realtime transport does not weaken the authorization model:
 * expose connection, rejection, broadcast-failure, and revision-gap metrics without high-cardinality
   ingredient names or user content.
 
-The room identifier is routing, not authorization. Knowing a household ID must never be sufficient
-to subscribe.
+The room identifier only routes messages. Knowing a household ID must never authorize
+a subscription.
 
 # Alternatives Considered
 
@@ -509,7 +509,7 @@ representative hosted alternative with
 * WebSocket auth expiry, household membership removal, mobile network changes, backpressure, and
   deployment behavior expand the security and operational surface.
 * Complete snapshots make events larger than invalidations, though pantry payloads remain bounded.
-* This is reconnect-tolerant, not fully offline-first.
+* The design tolerates reconnection but does not provide full offline-first behaviour.
 * Offline persistence, queued shared mutations, conflict UX, and CRDT-based local-first editing each
   require separate product and architecture decisions.
 * Presence can occasionally be stale and must never be treated as durable fact.

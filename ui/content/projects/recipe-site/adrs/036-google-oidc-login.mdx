@@ -120,7 +120,7 @@ is left to the backend work, but the two halves must stay same-origin: Cloudflar
 `*.pages.dev` / `*.workers.dev` hosts are cross-site and would otherwise force the fragile
 `SameSite=None` path.
 
-# This Is A Default, Not An Exclusive Choice
+# Google remains the default among additive choices
 
 Choosing Google as the primary sign-in method does **not** preclude any other method. Better Auth
 ([ADR 032](/projects/recipe-site/adrs/032-better-auth)) treats sign-in methods as additive
@@ -128,7 +128,7 @@ configuration: each social provider is a few lines, and magic links and passkeys
 a second provider or method later does not require revisiting this ADR. It is expected headroom.
 
 What this ADR fixes is the **default**: the path the sign-in screen leads with, and the one onboarding
-is optimised for. The comparison below is about *what to lead with*, not about ruling the others out.
+is optimised for. The comparison below decides *what to lead with* while leaving the others available.
 
 # How Google Compares To The Alternatives
 
@@ -208,6 +208,6 @@ Revisit this ADR if any of the following become true:
   ADR revisited
 
 This ADR stays **Accepted** for as long as Google is offered as a sign-in option, even if it stops
-being the default. Losing default status is a reason to update this ADR, not to deprecate it. It
-would only move to **Deprecated** if Google sign-in were removed entirely, and Better Auth (ADR 032)
+being the default. Losing default status calls for an ADR update. The ADR moves to **Deprecated**
+only if the site removes Google sign-in entirely, and Better Auth (ADR 032)
 keeps the underlying auth layer stable through any such change.

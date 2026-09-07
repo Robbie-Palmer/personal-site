@@ -36,7 +36,7 @@ Both jobs run on:
 * **Pull requests**: Block new CRITICAL or HIGH severity issues introduced by changes
 * **Weekly schedule**: Detect newly disclosed CVEs in existing configurations and dependencies
 
-Results are uploaded to GitHub Security tab in SARIF format for unified visibility alongside CodeQL findings. PR gating uses GitHub's Code Scanning alert checks (the same mechanism as CodeQL ([ADR 032](/projects/personal-site/adrs/032-codeql))), which distinguish new alerts from pre-existing ones. PRs are only blocked for issues they introduce, not for pre-existing vulnerabilities in the codebase.
+Results are uploaded to GitHub Security tab in SARIF format for unified visibility alongside CodeQL findings. PR gating uses GitHub's Code Scanning alert checks (the same mechanism as CodeQL ([ADR 032](/projects/personal-site/adrs/032-codeql))), which distinguish new alerts from pre-existing ones. Only vulnerabilities introduced by a PR block it.
 
 ## Why Trivy
 
@@ -104,7 +104,7 @@ Trivy is open source and free. CI runs on GitHub Actions within the free tier fo
 * **Gates New Dependencies**: PRs that introduce dependencies with known CRITICAL or HIGH CVEs are blocked before merge. Complements Renovate ([ADR 024](/projects/personal-site/adrs/024-renovate)) which handles updates to existing dependencies.
 * **Future-Proofed for Containers**: When Docker images are introduced for Python ML workloads, Trivy extends to container scanning without adding a new tool or learning curve.
 * **GitHub-Native Integration**: Results appear in the Security tab alongside CodeQL findings. No external dashboards or logins required.
-* **New vs Existing Distinction**: SARIF upload to GitHub Code Scanning means PRs are only blocked for issues they introduce, not pre-existing vulnerabilities. This avoids the common problem of security tools becoming a blanket blocker on all PRs.
+* **New vs Existing Distinction**: SARIF upload to GitHub Code Scanning blocks a PR only for issues it introduces. Pre-existing vulnerabilities remain visible without turning the scanner into a blanket blocker.
 * **Weekly CVE Monitoring**: Scheduled scans detect newly disclosed vulnerabilities in existing configurations and dependencies, enabling proactive remediation.
 * **Compound Learning**: Time spent understanding Trivy for IaC scanning transfers directly to container scanning later ([Build Flywheels](/projects?tab=philosophy#build-flywheels)).
 * **Zero Cost**: Open source, runs on GitHub Actions free tier.

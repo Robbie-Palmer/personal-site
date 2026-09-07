@@ -10,8 +10,8 @@ tech_stack: ["Better Auth"]
 This ADR chooses **[Better Auth](https://better-auth.com)** as the authentication layer for the
 recipe site.
 
-This is a decision about **authentication**, not the full backend or authorization model. It covers
-how users sign in and how account identity is represented. It does **not** decide:
+This decision covers **authentication**, including sign-in and account identity. The full backend
+and authorization model remain separate. It does **not** decide:
 
 * the household / friend-sharing permission model
 * the authorization enforcement strategy
@@ -77,7 +77,7 @@ export const auth = betterAuth({
 ```
 
 Better Auth's hosted **Infrastructure** product is explicitly **out of scope** for MVP. This ADR
-chooses the library, not a hosted control plane. Hosted dashboards, audit logs, or extra abuse
+chooses the library. A hosted control plane, dashboards, audit logs, or extra abuse
 protection can be a later operational decision if usage justifies them.
 
 The authorization model is also outside this ADR's scope. Better Auth gives us stable identity and

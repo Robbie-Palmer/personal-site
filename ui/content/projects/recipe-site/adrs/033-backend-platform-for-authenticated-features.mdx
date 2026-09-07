@@ -54,7 +54,7 @@ Several constraints narrowed the field:
    live in code wherever a Terraform provider or stable API exists. Dashboard-only product
    configuration is a poor fit.
 6. **Short feedback loops matter.** Preview environments should be cheap and easy to create.
-   Database branching is part of the deployment strategy, not a nice-to-have.
+   Database branching forms part of the deployment strategy.
 
 # Decision
 
@@ -177,7 +177,7 @@ primary integration pain points:
 | `createRequire` bundler error ([#6665](https://github.com/better-auth/better-auth/issues/6665))             | Use `better-auth-cloudflare` package                                                                                                    |
 | Per-request auth instance creation                                                                          | Pass Hyperdrive binding to Drizzle per-request (Workers have no persistent process)                                                     |
 
-These are documented workarounds, not blocking issues. The `better-auth-cloudflare` community
+These documented workarounds resolve the current issues. The `better-auth-cloudflare` community
 package consolidates them. If these edge cases accumulate beyond what workarounds address, the
 escape paths below apply.
 
@@ -200,8 +200,8 @@ Recipes are stored with Cooklang syntax preserved as a text column:
 * The `cooklang-rs` WASM parser continues to parse recipe text client-side. No change to the
   parsing pipeline.
 * Structured metadata (title, cuisine, servings, tags, attribution, status) lives in typed columns.
-* Draft/published workflow is a status column, not a git branch.
-* Version history is a future feature tracked via a revisions table or audit log, not git commits.
+* A status column stores the draft/published workflow.
+* A future revisions table or audit log will store version history.
 
 Existing `.cook` files serve as the import source for the initial recipe corpus. New recipes
 created through the UI are born in the database. This revises
@@ -213,7 +213,7 @@ preserving Cooklang as the portable import/export format.
 The Worker is the server-side trust boundary:
 
 * Auth flows, authorization checks, and privileged writes run in the Worker, not the browser.
-* The browser is a user interface, not the enforcement point.
+* The browser provides the user interface. The Worker enforces policy.
 * Session cookies are `HttpOnly`, `Secure`, and server-owned.
 
 A direct client-to-database architecture was rejected. Even Neon with row-level security
@@ -316,8 +316,8 @@ Postgres-compatible wire protocol.
 
 **Why it was rejected:**
 
-* **Postgres-compatible, not Postgres.** ORM and auth library compatibility is not guaranteed.
-  Better Auth and Drizzle are tested against real Postgres, not CockroachDB's distributed SQL
+* **Postgres-compatible.** ORM and auth library compatibility is not guaranteed.
+  Better Auth and Drizzle target Postgres rather than CockroachDB's distributed SQL
   semantics.
 * **Distributed architecture is overkill.** CockroachDB's core differentiator is native
   multi-region with distributed consensus, a single logical database spanning regions. This
@@ -349,7 +349,7 @@ Databricks acquired Neon for approximately $1B in May 2025. Post-acquisition:
 * Databricks launched **Lakebase** (built on Neon's tech) as a managed Postgres product
 
 The long-term trajectory likely trends toward Lakebase integration with the Databricks ecosystem.
-This is a mild concern, not an immediate risk. The mitigation is that Neon runs standard Postgres:
+This mild concern does not pose an immediate risk. Neon runs standard Postgres, which provides the mitigation:
 `pg_dump` and `pg_restore` to any other Postgres provider (Supabase, Railway, RDS, self-hosted) at
 any time. Data portability does not depend on Neon's corporate trajectory.
 

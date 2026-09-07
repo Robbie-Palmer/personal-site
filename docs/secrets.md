@@ -199,7 +199,7 @@ deploy credentials or privileged GCP credentials:
 
 ## GitHub Environments
 
-The GitHub environments are runtime/job boundaries, not provider names:
+Name GitHub environments after runtime or job boundaries:
 
 | GitHub environment | Doppler configs | Used by |
 | --- | --- | --- |

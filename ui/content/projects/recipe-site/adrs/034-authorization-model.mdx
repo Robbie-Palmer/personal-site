@@ -26,7 +26,7 @@ Those features need a clear answer to:
 * who can change it
 * which sharing boundary is first-class
 
-Without an authorization model, authentication only tells us **who** a user is, not **what they are
+Authentication tells us **who** a user is. The authorization model must decide **what they are
 allowed to do**.
 
 # Decision
@@ -50,8 +50,8 @@ Adopt the following authorization baseline:
    runtime is the enforcement point.
 
 [ADR 032](/projects/recipe-site/adrs/032-better-auth) accepts Better Auth. Its
-organization/household primitive should be treated as a membership building block, not as a
-complete authorization system by itself.
+organization/household primitive supplies the membership building block. The application still
+needs its own authorization system.
 
 ## MVP Policy Matrix
 

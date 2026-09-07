@@ -13,11 +13,11 @@ Claude Code remains effective, but I regularly exhaust the usage included with t
 
 Usage-based billing has not been a cost-effective fallback. In my experience, $20 of additional Claude usage can be consumed within a couple of working cycles. Reports that fully using a $200 subscription would correspond to thousands of dollars of API inference are difficult to verify precisely, but they are directionally consistent with my own experience: subscription allowances are heavily subsidized compared with marginal API usage.
 
-I also experienced severe Claude availability problems earlier in 2026. I have repeatedly perceived both availability and output quality declining around major model releases. The timing does not establish that releases cause the degradation, but the operational effect is the same: relying on Claude alone can reduce velocity when demand is highest.
+I also experienced severe Claude availability problems earlier in 2026. I have repeatedly perceived both availability and output quality declining around major model releases. Whether releases cause the degradation remains unproven. The operational effect is the same: relying on Claude alone can reduce velocity when demand is highest.
 
 At the same time, experienced practitioners whose workflows I respect report that Codex and OpenAI's coding models can be at least as effective as Claude when used according to their different interaction model. That is not a claim that one model is universally better. It is sufficient evidence to evaluate Codex as a complementary tool rather than treating Claude Code as the only viable agent.
 
-**[Claude Code on the web](https://code.claude.com/docs/en/claude-code-on-the-web)** supports mobile development in isolated Anthropic-managed environments. This provides a useful security boundary and does not require a personal computer to remain available, but fresh environments can require dependencies, tools, and project context to be prepared again.
+**[Claude Code on the web](https://code.claude.com/docs/en/claude-code-on-the-web)** supports mobile development in isolated Anthropic-managed environments. This provides a useful security boundary and works while a personal computer is unavailable. Fresh environments can require dependencies, tools, and project context to be prepared again.
 
 **[Codex Remote Connections](https://developers.openai.com/codex/remote-connections)** allow the ChatGPT mobile app to control Codex on a connected host. The host supplies its existing projects, files, credentials, plugins, tools, and shell. The existing always-on Mac mini can provide that persistent development environment, avoiding repeated environment bootstrapping and its associated command output and context consumption. However, this workflow requires the Mac mini to remain available.
 
@@ -31,7 +31,7 @@ I will use **[Codex](https://developers.openai.com/codex/)** alongside Claude Co
 
 Codex is included with the **[$20/month ChatGPT Plus plan](https://developers.openai.com/codex/pricing)** across its app, CLI, IDE, and web surfaces. Current limits use a five-hour window for local messages and cloud tasks, with additional weekly limits possible. In my observed use, its allowance appears more generous than Claude Pro, and its reset cadence provides useful capacity when Claude Code is unavailable. This is an operational observation rather than a guaranteed entitlement; both providers can change their limits.
 
-This is a complementary adoption, not a replacement for Claude Code. Using both tools preserves access to their different models, interfaces, and workflows while reducing dependence on one provider's availability, pricing, and usage policy.
+Codex joins Claude Code as a second coding assistant. Using both tools preserves access to their different models, interfaces, and workflows while reducing dependence on one provider's availability, pricing, and usage policy.
 
 # Alternatives
 
@@ -74,7 +74,7 @@ This is a complementary adoption, not a replacement for Claude Code. Using both 
 ## Negative
 
 * **Additional Subscription**: The decision adds $20 per month rather than remaining on Claude Pro alone.
-* **Narrower Mobile Feature Set**: Codex's mobile remote workflow requires the Mac mini, while Claude Code supports both hosted cloud environments and connected-host sessions. This adoption is justified by capacity and resilience, not feature superiority.
+* **Narrower Mobile Feature Set**: Codex's mobile remote workflow requires the Mac mini, while Claude Code supports both hosted cloud environments and connected-host sessions. Added capacity and resilience justify this adoption despite that limitation.
 * **Workflow Adaptation**: Codex needs to be used differently from Claude Code. Applying the same prompting and supervision patterns mechanically may produce worse results.
 * **Configuration Duplication**: Both tools require installation, authentication, and occasional tool-specific configuration, even though `AGENTS.md` provides shared project guidance.
 * **Two Sets of Limits**: Redundancy reduces interruption risk but does not remove usage limits. Codex limits vary with task size, model, and execution surface, and additional weekly limits may apply.

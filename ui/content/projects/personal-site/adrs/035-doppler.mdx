@@ -30,7 +30,7 @@ while publishing the values required by GitHub Actions to GitHub environments.
 
 1. **Doppler as Source of Truth**: Application secrets and deploy-time configuration are stored in Doppler with separate configs for development, staging, production, and deployment boundaries.
 2. **Scripted GitHub Sync**: `scripts/sync-doppler-github-envs.sh` maps Doppler configs to GitHub environments. Masked values become GitHub secrets and unmasked values become GitHub variables; stale values are removed.
-3. **GitHub as Deployment Boundary**: GitHub environment values are a generated mirror used by workflows, not a second source of truth. Changes are made in Doppler and then synchronized.
+3. **GitHub as Deployment Boundary**: GitHub environment values are a generated mirror used by workflows. Make changes in Doppler, then synchronize them to GitHub.
 4. **Scoped Access**: Separate Doppler configs and service tokens are used for different subsections of the system, following the principle of least privilege.
 5. **Local Development**: Use the Doppler CLI, including nested `doppler run` calls where shared values are needed, without storing secrets in `.env` files.
 

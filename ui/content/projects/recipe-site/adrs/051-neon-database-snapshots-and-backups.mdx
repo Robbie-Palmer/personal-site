@@ -74,8 +74,8 @@ recovery design must not assume an application will be accepted or credits will 
 Run PostgreSQL 17.10's `pg_dump` from the official PostgreSQL container image, pinned by digest,
 against a direct unpooled Neon connection. Use PostgreSQL custom format with gzip compression.
 
-Custom format is a PostgreSQL archive, not plain SQL or a general-purpose ZIP file. It contains a
-table of contents that lets `pg_restore` inspect and selectively restore objects, order dependent
+Custom format produces a PostgreSQL archive rather than plain SQL or a general-purpose ZIP file. Its
+table of contents lets `pg_restore` inspect and selectively restore objects, order dependent
 objects correctly, restore in parallel, and apply destination-specific ownership and privilege
 choices. It is compressed but not encrypted.
 

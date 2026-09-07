@@ -151,8 +151,8 @@ Each finding receives one versioned outcome:
 * **superseded**. The affected code disappears or changes for another reason,
   so reviewer impact cannot be inferred; or
 * **no observable response**. The finding is unresolved or silently ignored
-  when the window closes. This is a workflow outcome, not evidence that the
-  finding was correct or incorrect.
+  when the window closes. This workflow outcome provides no evidence about the
+  finding's correctness.
 
 The scorecard is calculated at finding, review-run, Pull Request, model, prompt,
 and originating-agent levels:
@@ -221,8 +221,8 @@ when replaying representative PR histories and then running live PRs shows:
   improvements or adapting public recipes to a user's diet and preferences.
   Each product still requires its own ADR for domain policy, safety, privacy,
   and user experience.
-* **Keep the scope narrow.** This is one repository's review loop, not a
-  general code-review platform. Dashboards, repository-wide semantic indexing,
+* **Keep the scope narrow.** Build only this repository's review loop. A
+  general code-review platform, dashboards, repository-wide semantic indexing,
   content-review features, compliance policy, and team administration remain
   out of scope; the first implementation should only preserve clean reusable
   boundaries.

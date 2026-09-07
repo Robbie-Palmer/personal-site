@@ -60,7 +60,7 @@ Using both keeps Simple Icons as the default source while leaving a fallback for
 
 * **Pros**: Full-color SVGs, categories, direct SVG routes, API search, brand URLs, and support for light/dark routes or wordmarks on some entries. Good fit for logo grids where the full brand asset matters.
 * **Cons**: Smaller and more curated than Simple Icons. It is API-first rather than a first-party npm data package for this stack. The API is open but rate-limited, and SVGL asks contributors to ensure they have the rights to add each SVG. That makes local provenance review important.
-* **Decision**: Rejected as the only source. It is the fallback for missing or unsuitable Simple Icons entries, not the base registry.
+* **Decision**: Rejected as the only source. Use it only when a Simple Icons entry is missing or unsuitable.
 
 ## Iconify
 
@@ -77,7 +77,7 @@ Using both keeps Simple Icons as the default source while leaving a fallback for
 ## React Icons
 
 * **Pros**: Easy React component imports for many popular icon packs, including Simple Icons. Tree-shakeable imports can keep client bundles focused on used icons.
-* **Cons**: It is a React delivery wrapper, not a logo sourcing strategy. It does not solve missing SVGL logos, full-color SVGs, wordmarks, or local provenance. It also couples content assets to the React bundle rather than serving them as static content.
+* **Cons**: It wraps icon delivery in React without addressing logo sourcing. It does not solve missing SVGL logos, full-color SVGs, wordmarks, or local provenance. It also couples content assets to the React bundle rather than serving them as static content.
 * **Decision**: Rejected. Use static SVG assets for logos; keep React icon packages for UI icons only.
 
 ## Logo.dev and Brandfetch

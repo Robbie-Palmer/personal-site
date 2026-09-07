@@ -115,9 +115,9 @@ complexity to every subtype.
 
 For this first slice, the application creates an event, all required subtype rows, and its
 deliveries together through one transactional notification factory. Tests exercise that factory.
-This is a deliberate integrity boundary, not a claim that PostgreSQL cannot enforce cross-table
-rules. If another service or manual writer starts creating notifications, deferred constraint
-triggers should be reconsidered so the database protects itself from every writer.
+This deliberately places the integrity boundary in the application. PostgreSQL could enforce cross-table
+rules instead. If another service or manual writer starts creating notifications, reconsider deferred
+constraint triggers so the database protects itself from every writer.
 
 ## Event Lifetime After Delivery Deletion
 
@@ -130,8 +130,8 @@ parent.
 Normal dismiss and clear operations do not delete deliveries; they set `dismissed_at`, retaining the
 archive record. Hard deletion can still happen through retention work or when a recipient account
 is deleted. If every delivery for an event is eventually hard-deleted, the event and its subtype
-rows remain valid but no longer appear in anyone's archive. "Orphaned" here means delivery-less,
-not referentially broken.
+rows remain valid but no longer appear in anyone's archive. Here, "orphaned" means delivery-less
+while referential integrity remains intact.
 
 For example, a household invitation initially has one delivery to its invitee. If that invitee
 deletes their account, the recipient foreign key cascades away the delivery, but nothing deletes
@@ -192,8 +192,8 @@ Even then, executable handlers and authorization would remain trusted server cod
 arbitrary callback or URL from configuration would be unsafe. This extension is unnecessary while
 product-defined notification types and actions ship with the application. A rules engine would not
 automatically require one row per offered action either: persisted rule definitions could still
-derive the available actions at read time. The diagram is one possible runtime-authored model, not
-a requirement for configurable behaviour.
+derive the available actions at read time. The diagram illustrates one possible runtime-authored model;
+configurable behaviour does not require it.
 
 # Consequences
 

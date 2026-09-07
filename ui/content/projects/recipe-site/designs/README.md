@@ -2,9 +2,9 @@
 
 Vendored design artifacts for the Recipe Site, exported from
 [Claude Design](https://claude.ai/design) (project id
-`019dd0cd-1a77-717c-b0ec-a6e1c969092f`). These are **prototypes, not production
-code**. The source of truth for the intended look and behaviour of the full
-product, kept in version control alongside the PRD (`../index.mdx`) and ADRs
+`019dd0cd-1a77-717c-b0ec-a6e1c969092f`). These **prototypes** document the
+intended look and behaviour of the full product. Keep them in version control
+alongside the PRD (`../index.mdx`) and ADRs
 (`../adrs/`).
 
 The mid-fi pass covers 17 surfaces across desktop + mobile: recipe list,
@@ -42,5 +42,5 @@ source, not part of the app's lint/format/typecheck surface.
 ## Next steps (deferred)
 
 Breaking these designs into prioritised epics/tasks, and recreating individual
-screens pixel-perfectly as native React components, are follow-up steps, not
-done here. This change only vendors and embeds the designs.
+screens pixel-perfectly as native React components remain follow-up steps.
+This change only vendors and embeds the designs.

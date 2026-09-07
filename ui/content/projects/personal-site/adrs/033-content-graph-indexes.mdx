@@ -264,7 +264,7 @@ This is genuinely valuable. CMSes solve the relationship problem elegantly for t
 * **Loss of "content as code"**: Can't grep content, can't use Claude Code to edit blog posts, content diverges from codebase
 * **Type safety gap**: CMS schemas don't generate TypeScript types automatically (some do with plugins, but it's friction)
 
-**Why not now**: The relationship handling is tempting, but we can replicate the key benefits
+**Why not now**: We can replicate the useful relationship handling
 (bidirectional queries, referential integrity) in TypeScript with full type safety.
 The "content as code" principle from [ADR 015](/projects/personal-site/adrs/015-ssg) is more valuable for this project.
 I want content version-controlled alongside code, editable by Claude Code, reviewable in PRs.
