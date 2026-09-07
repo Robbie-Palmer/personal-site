@@ -1,0 +1,39 @@
+---
+inherits_from: "homelab:010-nixos-gpu-worker"
+title: "ADR 001: NixOS workspace hosts"
+---
+
+# Project-specific context
+
+The Home Lab decision established a useful rule for agent-operated machines:
+declare the complete host in a locked flake so an agent can change it through a
+reviewed diff and an operator can roll it back. The remote development service
+needs the same property. Its recovery promise depends on rebuilding a host
+entirely from the repository. A remembered sequence of shell commands cannot
+meet that promise.
+
+The inheritance covers NixOS, flakes, locked inputs, declarative services, and
+reviewable rollback. NVIDIA, CUDA, and old-hardware constraints remain specific
+to the Home Lab GPU worker.
+
+# Application to this project
+
+NixOS owns the host operating system, users, SSH, firewall, Tailscale, storage
+mounts, backup timers, and the service that runs container workloads. Terraform
+creates the Hetzner resources chosen in
+[ADR 000](/projects/agent-friendly-remote-development/adrs/000-hetzner-cloud),
+then the NixOS configuration turns the new server into a workspace host.
+
+The host definition must meet these checks:
+
+1. install on a clean Hetzner server without editing the machine by hand;
+2. pin its NixOS and nixpkgs inputs;
+3. rebuild to the same result after a second apply;
+4. roll back a failed system generation; and
+5. expose no secret in the flake, build output, or normal logs.
+
+Ubuntu with shell provisioning would provide a familiar base. Any unrecorded
+package or service change would weaken recovery. An image-building pipeline
+could also produce immutable hosts, though it would add a separate artifact
+lifecycle before the pilot needs one. NixOS keeps the host definition beside
+the rest of the project and has already proved workable in the Home Lab.

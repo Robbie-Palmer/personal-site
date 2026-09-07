@@ -202,7 +202,11 @@
   {
     "file": ".agents/skills/unslop/SKILL.md",
     "line": 28,
-    "checks": ["proselint.DateCase", "proselint.DateSpacing"]
+    "checks": [
+      "Unslop.ContrastFormula",
+      "proselint.DateCase",
+      "proselint.DateSpacing"
+    ]
   },
   {
     "file": ".agents/skills/unslop/SKILL.md",
@@ -232,12 +236,12 @@
   {
     "file": ".agents/skills/unslop/SKILL.md",
     "line": 45,
-    "checks": ["Unslop.NotJustBut"]
+    "checks": ["Unslop.NotJustBut", "Unslop.ContrastFormula"]
   },
   {
     "file": ".agents/skills/unslop/SKILL.md",
     "line": 55,
-    "checks": ["proselint.Typography"]
+    "checks": ["Unslop.ContrastFormula", "proselint.Typography"]
   },
   {
     "file": ".agents/skills/unslop/SKILL.md",

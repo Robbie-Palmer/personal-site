@@ -1,0 +1,193 @@
+---
+title: "ADR 006: Delegated resource access"
+date: "2026-09-06"
+status: "Proposed"
+tech_stack: ["Better Auth"]
+---
+
+# Context
+
+[ADR 003](/projects/agent-friendly-remote-development/adrs/003-portable-per-user-workspaces)
+isolates each user's files, runtime identity, and provider sessions. Coding
+agents still need authority outside the workspace: repositories, package
+registries, model providers, deployment systems, project knowledge, work
+queues, and sometimes production data.
+
+A copied browser session or broad API key gives every process that can read it
+the same authority. Individual agents then become hard to identify or revoke.
+
+[Recipe Site ADR 061](/projects/recipe-site/adrs/061-agent-auth) applies the
+[Better Auth Agent Auth plugin](https://better-auth.com/docs/plugins/agent-auth)
+to private recipe data. This project adopts the same useful concepts at a wider
+resource boundary:
+
+* a runtime agent has an identity distinct from its user, host, and harness;
+* the agent requests named capabilities;
+* the user approves constraints and expiry;
+* short-lived signed requests identify the agent and intended recipient; and
+* one grant or agent can expire or be revoked without disturbing the rest.
+
+The plugin and protocol remain unstable. Many services currently support only
+OAuth device login, GitHub Apps, service accounts, or static tokens. The
+authorization model must also work through those mechanisms.
+
+# Decision
+
+Make delegated resource access part of the workspace contract. Adopt the Agent
+Auth identity and capability model, with a protocol-neutral first
+implementation.
+
+Model four principals:
+
+1. The **user** owns the workspace and delegates authority.
+2. The **workspace** has the infrastructure identity required for its own
+   lifecycle.
+3. Each **runtime agent** has its own identity, key, grants, and expiry.
+4. The **resource service** remains authoritative for its data and the user's
+   current permissions.
+
+Keep each signing key in a credential filesystem protected by that agent's
+execution identity, or keep the key in the gateway and expose only signing
+operations bound to that agent. Another runtime agent must be unable to read or
+use the key.
+
+An operation is allowed when every term permits it:
+
+```text
+allowed = valid agent proof
+       ∩ active user-approved capability and constraints
+       ∩ user's current permission on the resource
+       ∩ workspace network and execution policy
+       ∩ product budget and side-effect policy
+```
+
+An agent grant can narrow the user's authority. It cannot expand it. Revoking
+repository access, organisation membership, or a user account must take effect
+even when an agent grant has time remaining.
+
+# Capability design
+
+Name capabilities after useful actions and keep their scope explicit.
+
+| Capability              | Typical constraint                                                 | Approval                                 |
+| ----------------------- | ------------------------------------------------------------------ | ---------------------------------------- |
+| `repository.read`       | Named repository and branch set                                    | Durable, expiring grant                  |
+| `repository.write`      | Named repository and generated branch prefix                       | Separate from read                       |
+| `pull_request.create`   | Named repository; merge excluded                                   | Durable, expiring grant                  |
+| `pull_request.merge`    | Named repository; required checks passing                          | Per action or explicit work policy       |
+| `secret.use`            | Named secret and target service; value withheld                    | Durable for low-risk development secrets |
+| `deployment.preview`    | Named project and preview environment                              | Durable with a spending limit            |
+| `deployment.production` | Named project and release evidence                                 | Per action at first                      |
+| `knowledge.read`        | Named project and visibility class                                 | Durable read grant                       |
+| `work.contribute`       | Find and claim ready work; update status while holding the lease   | Durable within the work system           |
+| `work.manage`           | Create, rewrite, reprioritise, cancel, or change task dependencies | Separate elevated grant                  |
+
+Keep model-provider subscriptions user-owned. An interactive login stored in a
+home directory is a broad legacy credential path. Isolate and encrypt that
+state per user, include it in the backup threat model, and show its scope. Any
+process in the user's workspace may be able to use it. Per-agent access claims
+begin only when each agent has a separate credential filesystem and execution
+identity, or when a broker holds the login outside the workspace.
+
+# Resource gateway
+
+Prefer a gateway or connector that holds upstream credentials outside the
+workspace. The agent sends a signed capability request. The gateway checks the
+agent, user grant, live resource permission, constraints, budget, and target
+audience before proxying or exchanging the request. The gateway keeps the
+upstream credential and returns the operation result to the agent.
+
+This follows the useful pattern in Cloudflare OS Gatekeepers and Fly Sprite
+connectors without depending on either runtime. A runtime-supplied connector
+can implement the gateway interface. The product still keeps a portable record
+of the user's grant and revocation intent.
+
+MCP may expose capabilities as tools. REST, OpenAPI, CLIs, and provider SDKs may
+carry the same operations. Agent identity and policy remain consistent across
+those transports.
+
+# Knowledge and work systems
+
+The Semi-autonomous Software Development initiative can connect as another
+resource provider. The workspace runtime remains usable without it.
+
+`knowledge.read` may supply a bounded context package containing relevant ADRs,
+requirements, prior findings, and source links. `work.contribute` may connect
+an executing agent to the Work Graph while `work.manage` remains a separate
+elevated grant. External systems remain authoritative for their records and
+review rules.
+
+A plain repository must work without the knowledge graph, Work Graph, Agent
+Coordinator, or attention analytics. Those systems can improve context and
+coordination when present.
+
+# Pilot implementation
+
+Use the second-user pilot to catalogue every resource and broad credential the
+environment needs. A general credential gateway comes after that inventory.
+
+For the brother pilot:
+
+1. Keep GitHub and model-provider accounts owned by the pilot user.
+2. Give him a separate provider-login home and workspace. Use Doppler's project,
+   user, and temporary-access controls for the secrets already stored there.
+3. Prefer a repository-scoped GitHub App, fine-grained token, or OAuth grant
+   when the chosen platform supports it.
+4. Record the intended capability, resource, expiry, and revocation step for
+   every credential, including manually enforced entries.
+5. Test revoking one repository or agent path without rebuilding the workspace
+   or invalidating another agent.
+6. Add private knowledge or work-system access after the same test passes for
+   ordinary Git access.
+
+Implement the Better Auth Agent Auth adapter when T3 Code can register each
+runtime agent and at least one resource gateway can enforce its grants. Start
+with delegated mode and allowlisted agent hosts. Autonomous registration stays
+disabled during the trusted cohort.
+
+# Audit and user control
+
+Show the user:
+
+* the agent, harness, and workspace requesting access;
+* the named resource, actions, constraints, expiry, and expected cost;
+* recent executions and their outcomes; and
+* controls to revoke one grant, one agent, or the complete workspace.
+
+Record registration, approval, denial, execution, failure, expiry, and
+revocation without logging credential values or sensitive payloads. High-risk
+writes need an idempotency key and a provider-specific recovery path. The audit
+record explains what happened. The recovery procedure handles reversal where
+the provider supports it.
+
+# Validation
+
+Keep this ADR Proposed until one end-to-end flow proves that:
+
+1. a user approves one named repository for one agent;
+2. the agent can create a branch and pull request while merge remains outside
+   its grant;
+3. a second agent in the same workspace cannot read or use the first agent's
+   signing key, inherit its grant, or invoke the resource through that grant;
+4. revocation stops the first agent without ending the user's session;
+5. the audit trail identifies the user, workspace, harness, agent, capability,
+   resource, and outcome; and
+6. the same workspace supports a repository with no knowledge or work system
+   attached.
+
+An interactive provider login passes this validation only when a separate
+execution identity, credential filesystem, or broker prevents the second agent
+from reading its state or invoking the provider through it. Until then, report
+the login as user-wide legacy access.
+
+# Consequences
+
+Users can coordinate external resources without distributing their complete
+identity to every agent process. Actions can identify one user, workspace,
+harness, runtime agent, capability, and resource. A grant can be revoked without
+ending unrelated work.
+
+The product must build approval, inspection, revocation, audit, and gateway
+behaviour. Resource authorization and the narrower delegated grant must remain
+consistent. Existing coding-harness logins often expose wider authority, and
+the Agent Auth protocol may change before broad adoption.

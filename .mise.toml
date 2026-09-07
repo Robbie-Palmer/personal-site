@@ -106,7 +106,7 @@ run = """
 if [ $# -eq 0 ]; then
   pnpm exec yamllint "**/*.{yml,yaml}" --ignore '**/node_modules/**' --ignore '**/.vale/**'
 else
-  pnpm exec yamllint --ignore '**/node_modules/**' --ignore '**/.vale/**' "$@"
+  pnpm exec yamllint --ignore '**/node_modules/**' "$@"
 fi
 """
 

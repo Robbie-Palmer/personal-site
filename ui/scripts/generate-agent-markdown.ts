@@ -279,15 +279,24 @@ function buildAdrPages(
         `${adr.originProjectSlug} (${markdownUrl(routePath("projects", adr.originProjectSlug, "adrs", adr.originAdrSlug))})`,
       ]);
     }
-    const notes = adr.inheritedProjectNotes
-      ? `\n\n## Notes for ${project.title}\n\n${convert(adr.inheritedProjectNotes).trim()}`
-      : "";
+    const content = adr.isInherited
+      ? [
+          adr.inheritedSourceSummary
+            ? `## Source summary\n\n${adr.inheritedSourceSummary}`
+            : "",
+          adr.inheritedProjectNotes
+            ? `## Notes for ${project.title}\n\n${convert(adr.inheritedProjectNotes).trim()}`
+            : "_No project-specific notes have been added._",
+        ]
+          .filter(Boolean)
+          .join("\n\n")
+      : convert(adr.content).trim();
     return {
       htmlPath: `/projects/${project.slug}/adrs/${adr.slug}`,
       filePath: `projects/${project.slug}/adrs/${adr.slug}.md`,
       title: adr.title,
       description: "",
-      content: convert(adr.content).trim() + notes,
+      content,
       facts,
     };
   });

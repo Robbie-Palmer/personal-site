@@ -1,0 +1,5 @@
+message: 'Contrast formulas such as "X, not Y" are an AI tell. State the point directly'
+extends: existence
+level: error
+ignorecase: true
+raw: '(?:\b(?:is|are|was|were|use|uses|used|choose|chooses|chose|means|meant|make|makes|made|keep|keeps|kept|treat|treats|treated)\b[^.!?\n]{0,120},\s*not(?:\s+(?:just|only|merely))?\b|\bnot(?:\s+(?:just|only|merely))?\s+[^.!?\n]{1,120},?\s+but\b)'
