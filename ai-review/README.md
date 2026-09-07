@@ -21,9 +21,10 @@ cannot replay completed paid calls, while deterministic publication and
 storage steps remain retryable. The private `ai-review-data` R2 bucket stores versioned terminal
 records for published, skipped, denied, and failed runs, including raw
 candidates, provider cost, latency, token, cache, availability, and failure
-metrics. The former stateless GitHub Actions orchestrator is retired; its
-prompts, model clients, validation, and rendering code remain as the shared
-review engine imported by this service.
+metrics. We retired the former stateless GitHub Actions orchestrator and Node
+entry point. Their prompts, model clients, validation, and rendering code now
+live in `ai-review-domain`, which this service and the replay tooling import
+directly.
 
 Automatic runs cover non-draft PR opens, ready-for-review transitions, reopens,
 and synchronized heads. After the first completed review, synchronized heads

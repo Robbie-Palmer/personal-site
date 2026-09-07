@@ -15,11 +15,6 @@ description = "Run the stateful AI review tests"
 depends = ["install"]
 run = "pnpm test"
 
-[tasks."test:stateless"]
-description = "Typecheck the stateless reviewer entry point"
-depends = ["install"]
-run = "pnpm exec tsc --project ../.github/scripts/ai-review/tsconfig.json"
-
 [tasks."test:workerd"]
 description = "Run Durable Object integration tests in workerd"
 depends = ["install"]
@@ -32,7 +27,7 @@ run = "pnpm test:coverage"
 
 [tasks.check]
 description = "Run all stateful AI review checks"
-depends = ["//packages/ai-review-domain:check", "typecheck", "test", "test:stateless", "test:workerd", "scorecard:test", "scorecard:report:test", "scorecard:replay:test"]
+depends = ["//packages/ai-review-domain:check", "typecheck", "test", "test:workerd", "scorecard:test", "scorecard:report:test", "scorecard:replay:test"]
 
 [tasks.deploy]
 description = "Deploy the stateful AI review Worker"

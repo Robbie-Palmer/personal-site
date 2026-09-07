@@ -6,7 +6,6 @@
   "type": "module",
   "description": "Personal website mono-repo - root package for repo-wide tooling",
   "dependencies": {
-    "ai-review-domain": "workspace:*",
     "observability": "workspace:*",
     "recipe-domain": "workspace:*",
     "ts-base": "workspace:*"

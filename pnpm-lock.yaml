@@ -120,9 +120,6 @@ importers:
 
   .:
     dependencies:
-      ai-review-domain:
-        specifier: workspace:*
-        version: link:packages/ai-review-domain
       observability:
         specifier: workspace:*
         version: link:packages/observability

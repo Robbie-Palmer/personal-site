@@ -5,7 +5,6 @@
   "workspaces": {
     ".": {
       "entry": [
-        ".github/scripts/ai-review/ai-review.ts",
         "functions/**/*.ts",
         "scripts/prose-lint.ts"
       ],

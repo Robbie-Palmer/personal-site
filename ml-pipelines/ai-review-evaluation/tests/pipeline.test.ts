@@ -483,7 +483,6 @@ test("execute mode blocks underpowered decisions unless an explicit pilot is all
     "src/replay-input.ts",
     "src/replay-runner.ts",
     "src/review-engine.ts",
-    "../.github/scripts/ai-review/ai-review.ts",
     "../packages/ai-review-domain/src/reviewer.ts",
     "../packages/ai-review-domain/src/records.ts",
     "../packages/ai-review-domain/src/pull-request-metadata.ts",
