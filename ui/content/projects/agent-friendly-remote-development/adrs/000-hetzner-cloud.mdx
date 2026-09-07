@@ -98,6 +98,54 @@ Sources: [Hetzner Terraform server resource](https://registry.terraform.io/provi
 [Oracle Terraform provider](https://registry.terraform.io/providers/oracle/oci/latest/docs),
 and [Oracle Always Free limits](https://docs.oracle.com/en-us/iaas/Content/FreeTier/freetier_topic-Always_Free_Resources.htm).
 
+## Promotional credits and free allowances
+
+Public sign-up offers can fund a short proof of concept. Their expiry leaves
+the project paying standard rates or migrating persistent workspaces. Check
+eligibility and the remaining balance in the provider's billing system before
+assigning any value to a credit offer.
+
+The offers checked on 7 September 2026 have these limits:
+
+| Provider        | Public offer                                                                                                                                               | Fit for this host                                                                                                                                                                                                                  |
+| --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| AWS             | New customers receive $100 and can earn another $100. Credits expire after 12 months; the Free account plan ends after six months or when credits run out. | AWS lists the 2 vCPU, 8 GiB `m7i-flex.large` among Free Tier eligible EC2 types. The credits could fund the pilot temporarily, with standard EC2, EBS, address, and network charges after they expire.                             |
+| Google Cloud    | Eligible new customers receive $300 for 90 days.                                                                                                           | The credit could fund an 8 GB `e2-standard-2` temporarily. The continuing Compute Engine allowance covers an `e2-micro` with 1 GB of memory in selected US regions, which misses both the memory and European-region requirements. |
+| Microsoft Azure | Eligible new customers receive $200 for 30 days. New customers also receive 750 monthly hours of the `B2pts_v2` and `B2ats_v2` VM sizes for 12 months.     | The credit could fund a larger VM for one month. Both included VM sizes have 1 GiB of memory, so the 12-month allowance cannot host this workload.                                                                                 |
+| Oracle Cloud    | New accounts advertise a $300, 30-day trial alongside Always Free resources.                                                                               | The time-limited credit does not solve the capacity and reclamation risks already described above.                                                                                                                                 |
+
+The recipe site's OAuth project proves that a Google Cloud account exists.
+Google determines trial eligibility from the account's billing and trial
+history, so the OAuth project alone says nothing about whether the $300 remains
+available. Verify that in Cloud Billing before reconsidering Google Cloud.
+
+Startup programmes offer much larger awards. AWS Activate advertises $1,000 for
+self-funded founders and may award selected applicants up to $5,000.
+Provider-backed companies can apply for as much as $200,000. Google advertises
+$2,000 for qualifying pre-funded startups and $200,000 for qualifying
+venture-backed startups, rising to $350,000 for qualifying AI companies.
+Microsoft's Investor Network advertises up to $150,000 for eligible
+partner-backed startups. Approval, company status, funding, prior credits, and
+expiry determine the usable amount.
+
+Compare providers at their recurring post-credit cost. Record an awarded credit
+balance separately as temporary runway. An award that covers the same host for
+at least 12 months triggers a fresh provider comparison before buying the next
+server.
+
+Sources: [AWS Free Tier](https://docs.aws.amazon.com/awsaccountbilling/latest/aboutv2/free-tier.html),
+[AWS EC2 Free Tier eligibility](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-free-tier-usage.html),
+[AWS M7i Flex specifications](https://aws.amazon.com/ec2/instance-types/general-purpose/),
+[Google Cloud Free Program](https://cloud.google.com/free/docs/free-cloud-features),
+[Google E2 machine types](https://cloud.google.com/compute/docs/general-purpose-machines#e2_machine_types),
+[Azure free services](https://azure.microsoft.com/en-gb/pricing/free-services/),
+[Azure Arm B-series sizes](https://learn.microsoft.com/en-us/azure/virtual-machines/sizes/general-purpose/bpsv2-series),
+[Azure AMD B-series sizes](https://learn.microsoft.com/en-us/azure/virtual-machines/sizes/general-purpose/basv2-series),
+[Oracle Cloud Free Tier](https://www.oracle.com/cloud/free/),
+[AWS Activate](https://aws.amazon.com/startups/credits/),
+[Google for Startups benefits](https://cloud.google.com/startup/benefits), and
+[Microsoft Investor Network benefits](https://learn.microsoft.com/en-us/startups/microsoft-for-startups/unlock-more-benefits).
+
 ## OVHcloud detail
 
 OVHcloud has an official Terraform provider. Its `ovh_vps` resource appeared in
@@ -148,6 +196,7 @@ OVHcloud VPS may have a lower list price.
 # Review point
 
 Review this decision when the service needs a region Hetzner cannot provide,
-the provider fails a recovery exercise, or another provider passes the complete
+the provider fails a recovery exercise, awarded cloud credits cover the same
+8 GB host for at least 12 months, or another provider passes the complete
 acceptance test with materially better cost or reliability. Record a provider
 change in a new ADR after collecting that evidence.
