@@ -14,6 +14,7 @@ export default defineConfig({
     include: ["tests/**/*.test.ts"],
     coverage: {
       provider: "v8",
+      allowExternal: true,
       reporter: [
         "text",
         ["lcovonly", { projectRoot: path.resolve(__dirname, "..") }],

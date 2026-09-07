@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import type { Finding } from "../../.github/scripts/ai-review/ai-review";
+import type { Finding } from "ai-review-domain/reviewer";
 import type {
   IdentifiedReviewArtifacts,
   MergedRun,

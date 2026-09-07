@@ -2,7 +2,7 @@ import {
   JsonClient,
   markdownText,
   type MergedFinding,
-} from "../../.github/scripts/ai-review/ai-review.ts";
+} from "ai-review-domain/reviewer";
 
 export const FINDING_MARKER_PREFIX = "ai-review-finding:";
 const FINDING_MARKER_PATTERN =

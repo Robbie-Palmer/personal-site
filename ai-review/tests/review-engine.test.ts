@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   DEFAULT_OPENROUTER_SCOUTS,
   Reviewer,
-} from "../../.github/scripts/ai-review/ai-review";
+} from "ai-review-domain/reviewer";
 import type { Env, ReviewWorkflowParams } from "../src/env";
 import {
   STATEFUL_REVIEW_MARKER,

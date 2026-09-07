@@ -120,6 +120,9 @@ importers:
 
   .:
     dependencies:
+      ai-review-domain:
+        specifier: workspace:*
+        version: link:packages/ai-review-domain
       observability:
         specifier: workspace:*
         version: link:packages/observability
@@ -130,6 +133,9 @@ importers:
         specifier: workspace:*
         version: link:packages/ts-base
     devDependencies:
+      '@types/node':
+        specifier: ^24
+        version: 24.13.3
       husky:
         specifier: ^9.1.7
         version: 9.1.7
@@ -166,6 +172,9 @@ importers:
       tsx:
         specifier: ^4.23.12
         version: 4.23.13
+      typescript:
+        specifier: ^5
+        version: 5.9.3
       yaml-lint:
         specifier: ^1.7.0
         version: 1.7.0

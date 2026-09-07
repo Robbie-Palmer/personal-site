@@ -15,7 +15,7 @@ import {
   selectFreeScoutModels,
   validateFindings,
   workflowStatusForCoverage,
-} from "./ai-review.ts";
+} from "../src/reviewer.ts";
 
 const finding = {
   severity: "high",
@@ -159,19 +159,23 @@ test("default OpenRouter scouts enforce their model-specific price ceiling", asy
     ["inclusionai/ling-2.6-1t", { prompt: 0.08, completion: 0.65 }],
   ]);
   let attempts = 0;
-  context.mock.method(globalThis, "fetch", async (_input, init) => {
-    const body = JSON.parse(String(init?.body)) as {
-      model?: string;
-      provider?: { max_price?: { prompt?: number; completion?: number } };
-    };
-    assert.ok(body.model && expectedByModel.has(body.model));
-    assert.deepEqual(body.provider?.max_price, expectedByModel.get(body.model));
-    attempts += 1;
-    return Response.json({
-      choices: [{ finish_reason: "stop", message: { content: '{"findings":[]}' } }],
-      usage: { cost: 0 },
-    });
-  });
+  context.mock.method(
+    globalThis,
+    "fetch",
+    async (_input: string | URL | Request, init?: RequestInit) => {
+      const body = JSON.parse(String(init?.body)) as {
+        model?: string;
+        provider?: { max_price?: { prompt?: number; completion?: number } };
+      };
+      assert.ok(body.model && expectedByModel.has(body.model));
+      assert.deepEqual(body.provider?.max_price, expectedByModel.get(body.model));
+      attempts += 1;
+      return Response.json({
+        choices: [{ finish_reason: "stop", message: { content: '{"findings":[]}' } }],
+        usage: { cost: 0 },
+      });
+    },
+  );
   const reviewer = new Reviewer({
     githubToken: "github-token",
     openRouterKey: "openrouter-key",
@@ -191,21 +195,25 @@ test("default OpenRouter scouts enforce their model-specific price ceiling", asy
 });
 
 test("default OpenRouter merger enforces its price ceiling and records top-level cost", async (context) => {
-  context.mock.method(globalThis, "fetch", async (_input, init) => {
-    const body = JSON.parse(String(init?.body)) as {
-      model?: string;
-      max_tokens?: number;
-      provider?: { max_price?: { prompt?: number; completion?: number } };
-    };
-    assert.equal(body.model, DEFAULT_MERGER);
-    assert.equal(body.max_tokens, MERGER_MAX_TOKENS);
-    assert.deepEqual(body.provider?.max_price, { prompt: 0.75, completion: 3.75 });
-    return Response.json({
-      choices: [{ finish_reason: "stop", message: { content: '{"summary":"","findings":[]}' } }],
-      cost: 0.42,
-      usage: {},
-    });
-  });
+  context.mock.method(
+    globalThis,
+    "fetch",
+    async (_input: string | URL | Request, init?: RequestInit) => {
+      const body = JSON.parse(String(init?.body)) as {
+        model?: string;
+        max_tokens?: number;
+        provider?: { max_price?: { prompt?: number; completion?: number } };
+      };
+      assert.equal(body.model, DEFAULT_MERGER);
+      assert.equal(body.max_tokens, MERGER_MAX_TOKENS);
+      assert.deepEqual(body.provider?.max_price, { prompt: 0.75, completion: 3.75 });
+      return Response.json({
+        choices: [{ finish_reason: "stop", message: { content: '{"summary":"","findings":[]}' } }],
+        cost: 0.42,
+        usage: {},
+      });
+    },
+  );
   const reviewer = new Reviewer({
     githubToken: "github-token",
     openRouterKey: "openrouter-key",

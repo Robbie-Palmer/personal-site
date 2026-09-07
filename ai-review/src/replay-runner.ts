@@ -1,7 +1,7 @@
 import {
   MERGER_MAX_TOKENS,
   OPENROUTER_SCOUT_MAX_PRICES,
-} from "../../.github/scripts/ai-review/ai-review";
+} from "ai-review-domain/reviewer";
 import type { Env, ReviewWorkflowParams } from "./env";
 import {
   identifyReviewArtifacts,

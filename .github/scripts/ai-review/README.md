@@ -1,8 +1,11 @@
-# Shared AI review engine
+# Stateless AI review entry point
 
-This directory contains the provider-neutral prompts, model clients,
-validation, filtering, and comment rendering used by the stateful
-[`ai-review`](../../../ai-review) GitHub App. Four paid OpenRouter scouts and the
+This directory contains the Node.js entry point for stateless AI reviews. The
+provider-neutral prompts, model clients, validation, filtering, and comment
+rendering live in
+[`ai-review-domain/reviewer`](../../../packages/ai-review-domain/src/reviewer.ts).
+The stateful [`ai-review`](../../../ai-review) GitHub App imports the same module.
+Four paid OpenRouter scouts and the
 retained free models advertised by OpenCode Zen independently produce structured
 findings. A paid OpenRouter merger only deduplicates those findings and
 reconciles them with resolved GitHub review threads; it does not judge
@@ -11,8 +14,8 @@ telemetry, so their downstream outcomes can inform future performance
 analytics.
 
 The former `.github/workflows/ai-review.yml` orchestrator was retired after the
-GitHub App completed live reviews successfully. Keep this shared implementation:
-the stateful Worker imports it directly.
+GitHub App completed live reviews successfully. This entry point remains the
+stateless reference used by local runs and AI review evaluation inputs.
 
 ## Runtime configuration
 
@@ -104,7 +107,7 @@ characters. Split large PRs when full coverage matters.
 Node.js 24 runs TypeScript directly using native type stripping:
 
 ```sh
-node --test .github/scripts/ai-review/ai-review.test.ts
+mise run //packages/ai-review-domain:test
 node --check .github/scripts/ai-review/ai-review.ts
 mise run //ai-review:check
 ```

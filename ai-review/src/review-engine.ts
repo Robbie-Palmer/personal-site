@@ -26,7 +26,7 @@ import {
   type ReviewState,
   type Scout,
   type Settings,
-} from "../../.github/scripts/ai-review/ai-review.ts";
+} from "ai-review-domain/reviewer";
 import {
   TRUSTED_AUTHOR_ASSOCIATIONS,
   type Env,

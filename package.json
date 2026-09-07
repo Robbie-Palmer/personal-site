@@ -6,6 +6,7 @@
   "type": "module",
   "description": "Personal website mono-repo - root package for repo-wide tooling",
   "dependencies": {
+    "ai-review-domain": "workspace:*",
     "observability": "workspace:*",
     "recipe-domain": "workspace:*",
     "ts-base": "workspace:*"
@@ -14,6 +15,7 @@
     "prepare": "husky"
   },
   "devDependencies": {
+    "@types/node": "^24",
     "husky": "^9.1.7",
     "knip": "6.34.0",
     "lint-staged": "^17.0.0",
@@ -26,6 +28,7 @@
     "remark-mdx": "^3.1.0",
     "remark-preset-lint-recommended": "^7.0.0",
     "tsx": "^4.23.12",
+    "typescript": "^5",
     "yaml-lint": "^1.7.0"
   },
   "lint-staged": {
