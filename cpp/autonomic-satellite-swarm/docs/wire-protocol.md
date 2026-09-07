@@ -40,7 +40,7 @@ mixed assemblies.
 
 ## Security and reliability
 
-CRC is error detection, not authentication. ESP-NOW broadcast and the infrared framing are
+CRC detects transmission errors. It provides no authentication. ESP-NOW broadcast and the infrared framing are
 unauthenticated. The protocol also lacks replay protection, durable sequence state, forward error
 correction, congestion control, and Byzantine behavior handling. Those omissions are acceptable for
 a benchtop research prototype and unacceptable for a real command link.

@@ -5,7 +5,10 @@ Vale loads its rule packages from this directory.
 ## Vendored packages
 
 `proselint/` and `write-good/` are upstream packages imported in
-`e0e9a198` (the deterministic prose linting PR). Treat them as read-only:
+`e0e9a198` (the deterministic prose linting PR). They remain available for
+comparison, but the active configuration does not load them because their
+broad heuristics produced thousands of false positives. Treat them as
+read-only:
 
 - Do not edit, extend, or trim them.
 - To change a rule, do not patch the vendored file. Write a rule in a
@@ -28,12 +31,13 @@ and prose linters ignore the whole `.vale` tree.
 
 ## Alert triage
 
-Vale reports only error-level rules. These are high-confidence merge blockers.
-Rewrite the prose when a rule has found a style problem. Preserve deliberate
-wording, quotations, safety warnings, and concise trust boundaries with an
-exact entry in `scripts/prose-exemptions.json`. Each exemption must name one
-file, line, and check. Do not exempt an entire file or rule to hide one false
-positive.
+Vale reports only error-level rules from the project-owned `Unslop` style.
+These are high-confidence merge blockers. Rewrite the prose when a rule has
+found a style problem. Vale skips blockquote syntax, which covers quotations
+and Markdown callouts whose wording must remain exact. Preserve any other
+deliberate wording with an exact entry in `scripts/prose-exemptions.json`. Each
+exemption must name one file, line, and check. Do not exempt an entire file or
+rule to hide one false positive.
 
 Warning and suggestion rules are disabled because their broad heuristics
 produce too many unactionable findings. Promote a rule to `error` only after it

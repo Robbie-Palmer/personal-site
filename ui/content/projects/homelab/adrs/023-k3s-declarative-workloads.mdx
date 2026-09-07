@@ -276,8 +276,8 @@ plan.
 
 ## Secrets
 
-A Kubernetes Secret is an API object, not an encrypted source of truth. Do not
-commit plain credentials or generated Secret manifests.
+A Kubernetes Secret is an API object. It does not encrypt its source data. Do
+not commit plain credentials or generated Secret manifests.
 
 [ADR 024](/projects/homelab/adrs/024-doppler-secrets) makes Doppler the source
 of truth. The pilot may create its first Secret through a local mise command

@@ -290,17 +290,20 @@ function parseArgs(argv: string[]): ProseOptions {
   return opts;
 }
 
-function isValeStylePath(file: string): boolean {
+function isNonContentPath(file: string): boolean {
   const norm = file.replaceAll("\\", "/");
   return (
     norm.startsWith("./.vale/") ||
     norm.startsWith(".vale/") ||
-    norm.includes("/.vale/")
+    norm.includes("/.vale/") ||
+    norm.startsWith("./.agents/skills/") ||
+    norm.startsWith(".agents/skills/") ||
+    norm.includes("/.agents/skills/")
   );
 }
 
 function contentFilesOnly(files: string[]): string[] {
-  return files.filter((f) => !isValeStylePath(f));
+  return files.filter((f) => !isNonContentPath(f));
 }
 
 function changedLinesFor(
@@ -434,8 +437,8 @@ function main(): void {
     process.exit(1);
   }
 
-  // Vendored Vale styles under .vale/ are style definitions, not site
-  // content — never lint them against their own rules.
+  // Vale styles and agent skills are tooling definitions, not site content.
+  // They contain the phrases that their rules and instructions discuss.
   const contentFiles = contentFilesOnly(opts.files);
   if (contentFiles.length === 0) process.exit(0);
 

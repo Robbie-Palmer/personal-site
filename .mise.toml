@@ -111,7 +111,7 @@ fi
 """
 
 [tasks."lint:prose"]
-description = "Lint changed lines in Markdown and MDX files with Vale (optionally pass files as args; vendored .vale styles are excluded)"
+description = "Lint changed lines in Markdown and MDX content with Vale (optionally pass files as args; tooling definitions are excluded)"
 run = """
 #!/usr/bin/env bash
 if [ $# -eq 0 ]; then

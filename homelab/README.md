@@ -185,8 +185,8 @@ mise run //homelab:media-provision   # re-run wiring; safe to repeat
   Each integration needs a one-time OAuth: in Radarr/Sonarr *Settings →
   Lists*, add "Trakt User", hit "Authenticate with Trakt"; in Jellyfin,
   Plugins → Trakt. Two traps: the list's username must match your profile
-  slug exactly. Copy it from your Trakt profile URL (dashes, not
-  underscores), since a misspelled one returns an empty watchlist instead of
+  slug exactly. Copy it from your Trakt profile URL and preserve its dashes.
+  The `_` variant returns an empty watchlist instead of
   an error; and lists re-fetch at most every 12 hours, with failures
   counting as a sync, so delete + recreate the list to force an immediate
   retry while debugging.
