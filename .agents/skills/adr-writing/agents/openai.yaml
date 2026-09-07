@@ -1,0 +1,4 @@
+interface:
+  display_name: "ADR Writing"
+  short_description: "Write concise, time-correct architecture decisions"
+  default_prompt: "Use $adr-writing to draft or revise a concise architecture decision record."
