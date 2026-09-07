@@ -15,7 +15,22 @@ import {
 } from "react-leaflet";
 import { Card } from "@/components/ui/card";
 
-const TILE_LAYERS = [
+type TileLayerDefinition = {
+  name: string;
+  url: string;
+  attribution: string;
+  crs: L.CRS;
+  minZoom?: number;
+  maxZoom?: number;
+  tileSize?: number;
+  noWrap?: boolean;
+  center?: L.LatLngTuple;
+  zoom?: number;
+  maxBounds?: L.LatLngBoundsExpression;
+  maxBoundsViscosity?: number;
+};
+
+const TILE_LAYERS: readonly TileLayerDefinition[] = [
   {
     name: "CPTAC-COAD Slide",
     url: "https://tiles.robbiepalmer.me/cptac_coad/01CO001/1dd2f639-19f0-4e0f-ae0a-316c8544ee73/{z}/{x}/{y}.png?2026-02",
@@ -26,7 +41,7 @@ const TILE_LAYERS = [
     maxZoom: 8,
     tileSize: 256,
     noWrap: true,
-    center: [-64, 64] as [number, number],
+    center: [-64, 64],
     zoom: 2,
     maxBounds: [
       [64, -128],
@@ -80,8 +95,7 @@ function FullscreenControl() {
   const map = useMap();
 
   useEffect(() => {
-    if (!(L.Control as any).Fullscreen) return;
-    const fullscreenControl = new (L.Control as any).Fullscreen({
+    const fullscreenControl = new L.Control.Fullscreen({
       position: "topleft",
       title: {
         false: "Enter Fullscreen",
@@ -135,23 +149,13 @@ export function LeafletMapDemo() {
         {selectedLayer && (
           <MapContainer
             key={`map-${activeLayer}`} // Force re-mount when switching layers (especially for CRS changes)
-            center={
-              "center" in selectedLayer ? selectedLayer.center : DEFAULT_CENTER
-            }
-            zoom={"zoom" in selectedLayer ? selectedLayer.zoom : DEFAULT_ZOOM}
+            center={selectedLayer.center ?? DEFAULT_CENTER}
+            zoom={selectedLayer.zoom ?? DEFAULT_ZOOM}
             crs={selectedLayer.crs}
             scrollWheelZoom={true}
             className="h-full w-full"
-            maxBounds={
-              "maxBounds" in selectedLayer
-                ? (selectedLayer.maxBounds as any)
-                : undefined
-            }
-            maxBoundsViscosity={
-              "maxBoundsViscosity" in selectedLayer
-                ? selectedLayer.maxBoundsViscosity
-                : 1.0
-            }
+            maxBounds={selectedLayer.maxBounds}
+            maxBoundsViscosity={selectedLayer.maxBoundsViscosity ?? 1.0}
             bounceAtZoomLimits={false}
             attributionControl={false}
           >
@@ -159,12 +163,10 @@ export function LeafletMapDemo() {
               key={selectedLayer.name}
               attribution={selectedLayer.attribution}
               url={selectedLayer.url}
-              maxZoom={"maxZoom" in selectedLayer ? selectedLayer.maxZoom : 18}
-              minZoom={"minZoom" in selectedLayer ? selectedLayer.minZoom : 0}
-              tileSize={
-                "tileSize" in selectedLayer ? selectedLayer.tileSize : 256
-              }
-              noWrap={"noWrap" in selectedLayer ? selectedLayer.noWrap : false}
+              maxZoom={selectedLayer.maxZoom ?? 18}
+              minZoom={selectedLayer.minZoom ?? 0}
+              tileSize={selectedLayer.tileSize ?? 256}
+              noWrap={selectedLayer.noWrap ?? false}
               keepBuffer={8}
               updateInterval={200}
             />

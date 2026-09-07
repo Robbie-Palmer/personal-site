@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
+import type { Db } from "recipe-db";
 import { recipeImportJob } from "recipe-db/schema";
 import type { ImportStage } from "recipe-domain/import-storage";
-import type { Db } from "./db";
 
 export async function markJobRunning(
   db: Db,

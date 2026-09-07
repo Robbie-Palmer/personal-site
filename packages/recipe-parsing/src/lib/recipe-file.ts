@@ -1,10 +1,13 @@
 import { CooklangParser } from "@cooklang/cooklang";
 import { httpUrl } from "ts-base/urls";
+import { z } from "zod";
 import { deriveRecipeFromCooklang } from "./cooklang.js";
 import type { SchemaOrgRecipeFileImport } from "./schema-org.js";
 import { parseSchemaOrgRecipeJson } from "./schema-org.js";
 
-export type RecipeFileFormat = "cooklang" | "schema-org";
+export const RecipeFileFormatSchema = z.enum(["cooklang", "schema-org"]);
+
+export type RecipeFileFormat = z.infer<typeof RecipeFileFormatSchema>;
 
 export type RecipeFileImport = SchemaOrgRecipeFileImport;
 
@@ -12,9 +15,17 @@ const parser = new CooklangParser();
 
 function fileFormat(filename: string): RecipeFileFormat | undefined {
   const extension = filename.toLowerCase().split(".").pop();
-  if (extension === "cook" || extension === "cooklang") return "cooklang";
-  if (extension === "json" || extension === "jsonld") return "schema-org";
+  if (extension === "cook" || extension === "cooklang") {
+    return RecipeFileFormatSchema.enum.cooklang;
+  }
+  if (extension === "json" || extension === "jsonld") {
+    return RecipeFileFormatSchema.enum["schema-org"];
+  }
   return undefined;
+}
+
+function unsupportedRecipeFileFormat(format: never): never {
+  throw new TypeError(`Unsupported recipe file format: ${String(format)}`);
 }
 
 function cooklangBody(source: string): string | undefined {
@@ -131,16 +142,15 @@ export async function parseRecipeFile(
   filename: string,
   source: string,
 ): Promise<RecipeFileImport | null> {
-  try {
-    const format = fileFormat(filename);
-    if (format === "cooklang") {
+  const format = fileFormat(filename);
+  switch (format) {
+    case RecipeFileFormatSchema.enum.cooklang:
       return parseCooklangRecipeFile(source, filename);
-    }
-    if (format === "schema-org") {
+    case RecipeFileFormatSchema.enum["schema-org"]:
       return await parseSchemaOrgRecipeJson(source);
-    }
-    return null;
-  } catch {
-    return null;
+    case undefined:
+      return null;
+    default:
+      return unsupportedRecipeFileFormat(format);
   }
 }

@@ -166,50 +166,35 @@ export async function syncCanonicalUserEmail(
   user: UserEmailIdentity,
 ) {
   const email = normalizeEmail(user.email);
-  const [existing] = await db
-    .select({ userId: schema.userEmail.userId })
-    .from(schema.userEmail)
-    .where(eq(schema.userEmail.email, email))
-    .limit(1);
-  if (existing && existing.userId !== user.id) {
-    throw new Error("Canonical email is already owned by another account");
-  }
+  await db.transaction(async (tx) => {
+    const [registered] = await tx
+      .insert(schema.userEmail)
+      .values({
+        email,
+        userId: user.id,
+        verified: user.emailVerified,
+        isPrimary: true,
+      })
+      .onConflictDoUpdate({
+        target: schema.userEmail.email,
+        set: { verified: user.emailVerified, isPrimary: true },
+        setWhere: eq(schema.userEmail.userId, user.id),
+      })
+      .returning({ userId: schema.userEmail.userId });
+    if (registered?.userId !== user.id) {
+      throw new Error("Canonical email is already owned by another account");
+    }
 
-  await db
-    .update(schema.userEmail)
-    .set({ isPrimary: false })
-    .where(
-      and(
-        eq(schema.userEmail.userId, user.id),
-        ne(schema.userEmail.email, email),
-      ),
-    );
-  await db
-    .update(schema.userEmail)
-    .set({ verified: user.emailVerified, isPrimary: true })
-    .where(
-      and(
-        eq(schema.userEmail.email, email),
-        eq(schema.userEmail.userId, user.id),
-      ),
-    );
-  const [registered] = await db
-    .insert(schema.userEmail)
-    .values({
-      email,
-      userId: user.id,
-      verified: user.emailVerified,
-      isPrimary: true,
-    })
-    .onConflictDoUpdate({
-      target: schema.userEmail.email,
-      set: { verified: user.emailVerified, isPrimary: true },
-      setWhere: eq(schema.userEmail.userId, user.id),
-    })
-    .returning({ userId: schema.userEmail.userId });
-  if (registered?.userId !== user.id) {
-    throw new Error("Canonical email is already owned by another account");
-  }
+    await tx
+      .update(schema.userEmail)
+      .set({ isPrimary: false })
+      .where(
+        and(
+          eq(schema.userEmail.userId, user.id),
+          ne(schema.userEmail.email, email),
+        ),
+      );
+  });
 }
 
 export async function verifiedEmailsForUser(

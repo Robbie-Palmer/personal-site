@@ -63,5 +63,4 @@ export const householdSettingsQuery = (userId: string) =>
     queryKey: recipeQueryKeys.householdSettings(userId),
     queryFn: ({ signal }) => fetchHouseholdSettings(signal),
     staleTime: 5 * 60_000,
-    refetchOnWindowFocus: true,
   });

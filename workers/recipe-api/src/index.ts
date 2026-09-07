@@ -30,7 +30,14 @@ import {
 } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { z } from "zod";
-import { createDb, type Db, type DbClient, schema } from "recipe-db";
+import {
+  closeDbClient,
+  createDb,
+  databaseConnection,
+  type Db,
+  type DbClient,
+  schema,
+} from "recipe-db";
 import { SavedRecipePayloadSchema } from "recipe-domain/serialization";
 import {
   isRecipeAppRouteSlug,
@@ -928,10 +935,6 @@ function isValidAuthURL(value: string): boolean {
   }
 }
 
-function databaseConnection(env: Bindings): string | undefined {
-  return env.HYPERDRIVE?.connectionString ?? env.DATABASE_URL;
-}
-
 const NO_DATABASE_CONNECTION_ERROR =
   "No database connection configured (HYPERDRIVE or DATABASE_URL required)";
 
@@ -941,15 +944,6 @@ function requireDatabaseConnection(c: Context<AppEnv>): string | Response {
     return c.json({ error: NO_DATABASE_CONNECTION_ERROR }, 503);
   }
   return connectionString;
-}
-
-async function closeDbClient(client: DbClient | undefined) {
-  if (!client) return;
-  try {
-    await client.end({ timeout: 5 });
-  } catch (e) {
-    console.error("client.end() cleanup failed", e);
-  }
 }
 
 function recipeResponse(recipe: Recipe) {
@@ -1442,17 +1436,26 @@ async function resolvePantryScope(
   db: Pick<Db, "select">,
   userId: string,
 ): Promise<PantryScope> {
-  const membership = await findUserHouseholdMembership(db, userId);
-  if (!membership) return { type: "personal", userId };
-
-  const household = await findHouseholdById(db, membership.organizationId);
-  if (!household) {
+  const [scope] = await db
+    .select({
+      householdId: schema.organization.id,
+      householdName: schema.organization.name,
+    })
+    .from(schema.member)
+    .leftJoin(
+      schema.organization,
+      eq(schema.member.organizationId, schema.organization.id),
+    )
+    .where(eq(schema.member.userId, userId))
+    .limit(1);
+  if (!scope) return { type: "personal", userId };
+  if (!scope.householdId || !scope.householdName) {
     throw new Error("Household membership has no household");
   }
   return {
     type: "household",
-    householdId: household.id,
-    householdName: household.name,
+    householdId: scope.householdId,
+    householdName: scope.householdName,
   };
 }
 
@@ -2959,10 +2962,12 @@ async function authorizeHouseholdOwnerResponse(
   householdId: string,
   session: AuthenticatedSession,
 ): Promise<Response | undefined> {
-  const household = await findHouseholdById(db, householdId);
+  const [household, owner] = await Promise.all([
+    findHouseholdById(db, householdId),
+    findHouseholdOwner(db, householdId),
+  ]);
   if (!household) return c.notFound();
 
-  const owner = await findHouseholdOwner(db, householdId);
   const decision = owner
     ? authorizeHouseholdMembershipManagement(session.user, {
         ownerId: owner.userId,
@@ -2978,14 +2983,12 @@ async function requireHouseholdMemberResponse(
   householdId: string,
   session: AuthenticatedSession,
 ): Promise<Response | undefined> {
-  const household = await findHouseholdById(db, householdId);
+  const [household, membership] = await Promise.all([
+    findHouseholdById(db, householdId),
+    findHouseholdMembership(db, householdId, session.user.id),
+  ]);
   if (!household) return c.notFound();
 
-  const membership = await findHouseholdMembership(
-    db,
-    householdId,
-    session.user.id,
-  );
   if (!membership) return authorizationResponse(c, forbidden());
   return undefined;
 }

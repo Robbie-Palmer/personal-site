@@ -138,6 +138,49 @@ describe("Visualization browser rendering", () => {
     }
   }, 30_000);
 
+  it("enters and exits fullscreen from the Leaflet map control", async () => {
+    const page = await browser.newPage();
+    const pageErrors: string[] = [];
+    page.on("pageerror", (error) => pageErrors.push(String(error)));
+
+    try {
+      await page.goto(`${BASE_URL}/technologies/leaflet`, {
+        waitUntil: "domcontentloaded",
+      });
+      await page.waitForSelector(".leaflet-control-fullscreen-button", {
+        visible: true,
+      });
+
+      await page.click(".leaflet-control-fullscreen-button");
+      await page.waitForFunction(() =>
+        document
+          .querySelector(".leaflet-container")
+          ?.classList.contains("leaflet-fullscreen-on"),
+      );
+      expect(
+        await page.$eval(".leaflet-control-fullscreen-button", (button) =>
+          button.getAttribute("title"),
+        ),
+      ).toBe("Exit Fullscreen");
+
+      await page.click(".leaflet-control-fullscreen-button");
+      await page.waitForFunction(
+        () =>
+          !document
+            .querySelector(".leaflet-container")
+            ?.classList.contains("leaflet-fullscreen-on"),
+      );
+      expect(
+        await page.$eval(".leaflet-control-fullscreen-button", (button) =>
+          button.getAttribute("title"),
+        ),
+      ).toBe("Enter Fullscreen");
+      expect(pageErrors).toEqual([]);
+    } finally {
+      await page.close();
+    }
+  }, 30_000);
+
   it("renders the initiative operating loop without duplicate actors", async () => {
     const page = await browser.newPage();
     const pageErrors: string[] = [];

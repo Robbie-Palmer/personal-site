@@ -12,7 +12,6 @@ export const publicRecipesQuery = () =>
     queryFn: ({ signal }) =>
       fetchAllSavedRecipes({ signal }).then(recipeRecordsToCards),
     staleTime: 2 * 60_000,
-    refetchOnWindowFocus: true,
   });
 
 export const recipeBoxRecipesQuery = (userId: string) =>
@@ -21,7 +20,6 @@ export const recipeBoxRecipesQuery = (userId: string) =>
     queryFn: ({ signal }) => getRecipeBootstrap(signal),
     select: (bootstrap) => bootstrap.recipeBox,
     staleTime: USER_DATA_STALE_TIME,
-    refetchOnWindowFocus: true,
   });
 
 export const dietProfileQuery = (userId: string) =>
@@ -30,7 +28,6 @@ export const dietProfileQuery = (userId: string) =>
     queryFn: ({ signal }) => getRecipeBootstrap(signal),
     select: (bootstrap) => bootstrap.diet.profile,
     staleTime: USER_DATA_STALE_TIME,
-    refetchOnWindowFocus: true,
   });
 
 export const dietOptionsQuery = (userId: string) =>
@@ -39,7 +36,6 @@ export const dietOptionsQuery = (userId: string) =>
     queryFn: ({ signal }) => getRecipeBootstrap(signal),
     select: (bootstrap) => bootstrap.diet.options,
     staleTime: USER_DATA_STALE_TIME,
-    refetchOnWindowFocus: true,
   });
 
 export const recipeBootstrapQuery = (userId: string) =>
@@ -47,7 +43,6 @@ export const recipeBootstrapQuery = (userId: string) =>
     queryKey: recipeQueryKeys.bootstrap(userId),
     queryFn: ({ signal }) => getRecipeBootstrap(signal),
     staleTime: USER_DATA_STALE_TIME,
-    refetchOnWindowFocus: true,
   });
 
 export const savedRecipeQuery = (userId: string | null, slug: string) =>
@@ -57,5 +52,4 @@ export const savedRecipeQuery = (userId: string | null, slug: string) =>
       : recipeQueryKeys.publicSavedRecipe(slug),
     queryFn: ({ signal }) => getSavedRecipe(slug, signal),
     staleTime: USER_DATA_STALE_TIME,
-    refetchOnWindowFocus: true,
   });

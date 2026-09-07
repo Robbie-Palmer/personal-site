@@ -23,7 +23,7 @@ export function createRecipeQueryClient(): QueryClient {
     defaultOptions: {
       queries: {
         gcTime: 30 * 60_000,
-        refetchOnWindowFocus: false,
+        refetchOnWindowFocus: true,
         retry: shouldRetryRecipeRequest,
         retryDelay: (attempt) => Math.min(500 * 2 ** attempt, 4_000),
         staleTime: 2 * 60_000,

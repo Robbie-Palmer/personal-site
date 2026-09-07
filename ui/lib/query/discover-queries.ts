@@ -12,7 +12,6 @@ export const publicDiscoverFeedQuery = () =>
     initialPageParam: null as string | null,
     getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
     staleTime: FEED_STALE_TIME,
-    refetchOnWindowFocus: true,
   });
 
 export const followingDiscoverFeedQuery = (userId: string) =>
@@ -23,5 +22,4 @@ export const followingDiscoverFeedQuery = (userId: string) =>
     initialPageParam: null as string | null,
     getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
     staleTime: FEED_STALE_TIME,
-    refetchOnWindowFocus: true,
   });

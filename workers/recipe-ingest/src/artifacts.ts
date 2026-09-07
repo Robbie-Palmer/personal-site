@@ -1,6 +1,6 @@
+import type { Db } from "recipe-db";
 import { recipeImportArtifact } from "recipe-db/schema";
 import { artifactKey, type ImportStage } from "recipe-domain/import-storage";
-import type { Db } from "./db";
 import type { Env } from "./env";
 
 export async function sha256Hex(text: string): Promise<string> {

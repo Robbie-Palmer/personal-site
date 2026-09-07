@@ -56,9 +56,16 @@ async function fetchApiJson(url: URL): Promise<unknown> {
       headers: { accept: "application/json" },
       signal: AbortSignal.timeout(API_TIMEOUT_MS),
     });
-    if (!response.ok) return null;
+    if (!response.ok) {
+      console.error("Public recipe list request failed", {
+        status: response.status,
+        url: url.toString(),
+      });
+      return null;
+    }
     return await response.json();
-  } catch {
+  } catch (error) {
+    console.error("Public recipe list request failed", error);
     return null;
   }
 }
@@ -94,16 +101,21 @@ export async function loadPublicRecipe(
 ): Promise<LoadedRecipe | null> {
   if (!env.RECIPE_API_URL) return null;
   try {
-    const response = await fetch(
-      new URL(`/recipes/${slug}`, env.RECIPE_API_URL),
-      {
-        headers: { accept: "application/json" },
-        signal: AbortSignal.timeout(API_TIMEOUT_MS),
-      },
-    );
+    const url = new URL(`/recipes/${slug}`, env.RECIPE_API_URL);
+    const response = await fetch(url, {
+      headers: { accept: "application/json" },
+      signal: AbortSignal.timeout(API_TIMEOUT_MS),
+    });
+    if (!response.ok && response.status !== 404) {
+      console.error("Public recipe request failed", {
+        status: response.status,
+        url: url.toString(),
+      });
+    }
     const loaded = await decodeRecipeResponse(response);
     return loaded?.record.visibility === "public" ? loaded : null;
-  } catch {
+  } catch (error) {
+    console.error("Public recipe request failed", error);
     return null;
   }
 }

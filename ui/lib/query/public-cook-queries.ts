@@ -14,7 +14,6 @@ export const publicCooksQuery = () =>
     queryKey: recipeQueryKeys.publicCooks(),
     queryFn: ({ signal }) => getPublicCooks(signal),
     staleTime: PUBLIC_COOKS_STALE_TIME,
-    refetchOnWindowFocus: true,
   });
 
 export const publicCookQuery = (cookId: string) =>
@@ -22,7 +21,6 @@ export const publicCookQuery = (cookId: string) =>
     queryKey: recipeQueryKeys.publicCook(cookId),
     queryFn: ({ signal }) => getPublicCook(cookId, signal),
     staleTime: PUBLIC_COOKS_STALE_TIME,
-    refetchOnWindowFocus: true,
   });
 
 export const cookFollowStatusQuery = (userId: string, cookId: string) =>
@@ -30,7 +28,6 @@ export const cookFollowStatusQuery = (userId: string, cookId: string) =>
     queryKey: recipeQueryKeys.cookFollowStatus(userId, cookId),
     queryFn: ({ signal }) => getCookFollowStatus(cookId, signal),
     staleTime: PUBLIC_COOKS_STALE_TIME,
-    refetchOnWindowFocus: true,
   });
 
 export const ownCookConnectionsQuery = (userId: string) =>
@@ -38,5 +35,4 @@ export const ownCookConnectionsQuery = (userId: string) =>
     queryKey: recipeQueryKeys.cookConnections(userId),
     queryFn: ({ signal }) => getOwnCookConnections(signal),
     staleTime: PUBLIC_COOKS_STALE_TIME,
-    refetchOnWindowFocus: true,
   });

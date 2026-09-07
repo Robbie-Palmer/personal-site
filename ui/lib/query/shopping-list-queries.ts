@@ -8,5 +8,4 @@ export const shoppingListQuery = (userId: string) =>
     queryFn: ({ signal }) => getCurrentShoppingList(signal),
     staleTime: 15_000,
     refetchInterval: 30_000,
-    refetchOnWindowFocus: true,
   });

@@ -40,9 +40,9 @@ import {
 } from "recipe-parsing/openrouter";
 import type { ExtractionRecipe } from "recipe-parsing/schemas/ground-truth";
 import type { CooklangRecipe } from "recipe-parsing/schemas/stage-artifacts";
+import { withDb } from "recipe-db";
 import { writeArtifact } from "./artifacts";
 import { runLlmCall } from "./attempts";
-import { withDb } from "./db";
 import { buildFinalDraft } from "./draft";
 import type { Env } from "./env";
 import { listSourceImageKeys, loadImageDataUrls } from "./images";
