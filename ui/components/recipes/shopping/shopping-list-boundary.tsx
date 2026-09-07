@@ -265,6 +265,7 @@ export function ShoppingListBoundary({
               baseRevision,
               snapshot,
             );
+            if (installedIdRef.current !== listId) return;
             supersededRevisions.current.add(baseRevision);
             savedSnapshot.current = serialized;
             savedRevision.current = updated.revision;
