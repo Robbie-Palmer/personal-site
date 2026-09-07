@@ -442,21 +442,19 @@ export function ShoppingList({
     aggregated.filter((l) => checkedSet.has(l.ingredient)).length +
     state.extras.filter((e) => e.checked).length;
   const itemCount = aggregated.length + state.extras.length;
-  const shoppingItemCount =
-    aggregated.filter((line) => !inKitchen(line)).length + state.extras.length;
-  const checkedShoppingItemCount =
+  const handledItemCount =
     aggregated.filter(
-      (line) => !inKitchen(line) && checkedSet.has(line.ingredient),
+      (line) => inKitchen(line) || checkedSet.has(line.ingredient),
     ).length + state.extras.filter((extra) => extra.checked).length;
   const recordCompletedShop = async (itemWillBeChecked: boolean) => {
     if (
       itemWillBeChecked &&
-      shoppingItemCount > 0 &&
-      checkedShoppingItemCount + 1 === shoppingItemCount &&
+      itemCount > 0 &&
+      handledItemCount + 1 === itemCount &&
       (await markShoppingTripCompleted())
     ) {
       captureRecipeValue("shopping_trip_completed", {
-        item_count: shoppingItemCount,
+        item_count: itemCount,
         recipe_count: selected.length,
       });
     }
@@ -565,16 +563,6 @@ export function ShoppingList({
         </p>
       )}
 
-      {pantry.error && pantry.data && (
-        <p
-          className="rt-body mt-3 rounded-md border border-[var(--berry)]/35 bg-[var(--berry)]/8 px-3 py-2 text-sm text-[var(--berry)]"
-          role="alert"
-        >
-          Your pantry could not be refreshed. This list is using the last pantry
-          data that loaded.
-        </p>
-      )}
-
       {stockActions.error && (
         <p
           className="rt-body mt-3 rounded-md border border-[var(--berry)]/35 bg-[var(--berry)]/8 px-3 py-2 text-sm text-[var(--berry)]"
@@ -677,6 +665,16 @@ export function ShoppingList({
             );
           })}
       </div>
+
+      {pantry.error && pantry.data && (
+        <p
+          className="rt-body mt-4 rounded-md border border-[var(--berry)]/35 bg-[var(--berry)]/8 px-3 py-2 text-sm text-[var(--berry)]"
+          role="alert"
+        >
+          Your pantry could not be refreshed. This list is using the last pantry
+          data that loaded.
+        </p>
+      )}
 
       {haveLines.length > 0 && (
         <div className="mt-6">
