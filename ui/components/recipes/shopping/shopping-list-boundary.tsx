@@ -1,6 +1,11 @@
 "use client";
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  type QueryClient,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { isApiError } from "@/lib/api/http";
@@ -97,6 +102,18 @@ function parseSavedSnapshot(serialized: string): ShoppingListContents {
   return JSON.parse(serialized) as ShoppingListContents;
 }
 
+function restoreSavedShoppingList(
+  queryClient: QueryClient,
+  userId: string,
+  savedList: StoredShoppingList | undefined,
+): void {
+  if (!savedList) return;
+  queryClient.setQueryData<StoredShoppingList>(
+    recipeQueryKeys.shoppingList(userId),
+    savedList,
+  );
+}
+
 const PLAN_RESOURCE_KEY = "recipe-shopping-plan-resource";
 const pendingShoppingListSaves = new Map<string, Promise<void>>();
 
@@ -130,6 +147,8 @@ export function ShoppingListBoundary({
   const installedIdRef = useRef<string | undefined>(undefined);
   const savedSnapshot = useRef<string | undefined>(undefined);
   const savedRevision = useRef<string | undefined>(undefined);
+  const savedList = useRef<StoredShoppingList | undefined>(undefined);
+  const supersededRevisions = useRef<Set<string>>(new Set());
   const [saveFailed, setSaveFailed] = useState(false);
 
   useEffect(() => {
@@ -144,6 +163,7 @@ export function ShoppingListBoundary({
     if (!installedId) {
       savedSnapshot.current = serialized;
       savedRevision.current = current.data.revision;
+      savedList.current = current.data;
       installedIdRef.current = current.data.id;
       installShoppingListSnapshot(
         {
@@ -162,6 +182,20 @@ export function ShoppingListBoundary({
       return;
     }
 
+    const isInstalledList = current.data.id === installedId;
+    if (
+      isInstalledList &&
+      supersededRevisions.current.has(current.data.revision)
+    ) {
+      restoreSavedShoppingList(queryClient, userId, savedList.current);
+      return;
+    }
+    if (!isInstalledList) {
+      supersededRevisions.current.clear();
+    } else if (savedRevision.current) {
+      supersededRevisions.current.add(savedRevision.current);
+    }
+
     const local = shoppingListContents();
     const baseline = savedSnapshot.current;
     const hasLocalChanges =
@@ -177,6 +211,7 @@ export function ShoppingListBoundary({
     const hasRebasedChanges = JSON.stringify(next) !== serialized;
     savedSnapshot.current = serialized;
     savedRevision.current = current.data.revision;
+    savedList.current = current.data;
     installedIdRef.current = current.data.id;
     installShoppingListSnapshot(
       {
@@ -187,7 +222,7 @@ export function ShoppingListBoundary({
       hasRebasedChanges ? "local" : "install",
     );
     setInstalledId(current.data.id);
-  }, [current.data, installedId]);
+  }, [current.data, installedId, queryClient, userId]);
 
   const hasInstalledList = Boolean(installedId);
   useEffect(() => {
@@ -224,13 +259,17 @@ export function ShoppingListBoundary({
             if (installedIdRef.current !== listId || !savedRevision.current) {
               return;
             }
+            const baseRevision = savedRevision.current;
             const updated = await saveCurrentShoppingList(
               listId,
-              savedRevision.current,
+              baseRevision,
               snapshot,
             );
+            if (installedIdRef.current !== listId) return;
+            supersededRevisions.current.add(baseRevision);
             savedSnapshot.current = serialized;
             savedRevision.current = updated.revision;
+            savedList.current = updated;
             queryClient.setQueryData<StoredShoppingList>(
               recipeQueryKeys.shoppingList(userId),
               updated,
