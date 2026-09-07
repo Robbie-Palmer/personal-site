@@ -25,12 +25,14 @@ Create these before the first plan:
 2. Terraform Cloud workspace `personal-site-remote-development` in the
    `robbie-palmer` organisation, configured for local execution.
 3. Doppler project/config `homelab/prd_remote_development_infra` containing
-   `HCLOUD_TOKEN` and `TF_API_TOKEN`.
+   `HCLOUD_TOKEN` and `TF_API_TOKEN` as masked values, plus
+   `SSH_PUBLIC_KEY`, `BOOTSTRAP_SSH_CIDRS`, and `BOOTSTRAP_MODE_ENABLED` as
+   unmasked values.
 4. GitHub environments `production-remote-development-infra-plan` and
-   `production-remote-development-infra`. Put the same provider tokens in the
-   plan environment can use a read-only Hetzner token; the protected apply
-   environment needs a read/write token. Set `SSH_PUBLIC_KEY` as an environment
-   variable in both.
+   `production-remote-development-infra`. Populate both from Doppler with
+   `scripts/sync-doppler-github-envs.sh`. A dedicated read-only Hetzner token is
+   preferred for the plan environment. The plan workflow skips forked pull
+   requests before it can access provider credentials.
 5. Required reviewers on the apply environment.
 
 `BOOTSTRAP_SSH_CIDRS` is a JSON list held as a GitHub environment variable,
@@ -38,6 +40,13 @@ for example `["203.0.113.10/32"]`. Leave it as `[]` during normal operation.
 Temporarily add the operator's current public address only while installing or
 recovering NixOS, and set `BOOTSTRAP_MODE_ENABLED` to `true`. The mode flag
 defaults to `false`, so CIDRs alone cannot open public SSH.
+
+Sync either environment after changing its source Doppler config:
+
+```bash
+scripts/sync-doppler-github-envs.sh production-remote-development-infra-plan
+scripts/sync-doppler-github-envs.sh production-remote-development-infra
+```
 
 ## Local use
 

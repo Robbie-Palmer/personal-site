@@ -212,6 +212,8 @@ Name GitHub environments after runtime or job boundaries:
 | `production-infra` | `prd_infra` | Terraform CI/CD |
 | `production-infra-bootstrap` | `prd_bootstrap_infra` | Manual bootstrap Terraform |
 | `production-infra-bootstrap-plan` | `prd_bootstrap_plan` | Read-only bootstrap Terraform PR plans |
+| `production-remote-development-infra` | `homelab/prd_remote_development_infra` | Manual remote-development Terraform apply |
+| `production-remote-development-infra-plan` | `homelab/prd_remote_development_infra` | Remote-development Terraform PR plans |
 | `production-database-backup` | `prd_database_backup` | Scheduled encrypted Neon backup |
 | `production-ci` | `prd_ci_repo` | AI review and ML pipeline CI |
 | `production-ai-review` | `ai-review/prd` | Stateful AI reviewer Worker deployment |
@@ -219,6 +221,13 @@ Name GitHub environments after runtime or job boundaries:
 `production-infra-bootstrap-plan` must require environment approval before its
 Terraform Cloud token is released. The Google identity is read-only, but the
 token still permits the local Terraform process to read the bootstrap state.
+
+The remote-development plan workflow runs automatically for same-repository
+pull requests and skips forks before loading environment credentials. Require
+approval on the apply environment. The source config must keep `HCLOUD_TOKEN`
+and `TF_API_TOKEN` masked. Mark `SSH_PUBLIC_KEY`,
+`BOOTSTRAP_SSH_CIDRS`, and `BOOTSTRAP_MODE_ENABLED` unmasked so the sync
+publishes them as GitHub environment variables.
 
 Run `scripts/sync-doppler-github-envs.sh` after any Doppler change that should
 reach GitHub Actions. The script reads Doppler visibility metadata: unmasked
@@ -405,7 +414,10 @@ doppler secrets --project personal-site --config dev_bootstrap_infra --only-name
 doppler secrets --project personal-site --config prd_bootstrap_plan --only-names
 doppler secrets --project personal-site --config prd_database_backup --only-names
 doppler secrets --project ai-review --config prd --only-names
+doppler secrets --project homelab --config prd_remote_development_infra --only-names
 scripts/sync-doppler-github-envs.sh production-infra-bootstrap-plan
+scripts/sync-doppler-github-envs.sh production-remote-development-infra-plan
+scripts/sync-doppler-github-envs.sh production-remote-development-infra
 scripts/sync-doppler-github-envs.sh production-database-backup
 scripts/sync-doppler-github-envs.sh production-ai-review
 
