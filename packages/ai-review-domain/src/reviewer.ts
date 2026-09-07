@@ -727,6 +727,11 @@ export class Reviewer {
         );
         const fallbackPaths = batchPaths.slice(0, remainingFallbacks);
         remainingFallbacks -= fallbackPaths.length;
+        if (fallbackPaths.length < batchPaths.length) {
+          console.error(
+            `::warning::Skipped ${batchPaths.length - fallbackPaths.length} file-context path(s) after the REST fallback limit was exhausted`,
+          );
+        }
         contents = await Promise.all(
           fallbackPaths.map(async (path) => {
             try {
@@ -1080,7 +1085,7 @@ export function renderComment(options: {
     runs,
     total_usd: Number(total.toFixed(6)),
     models: modelStats,
-  });
+  }).replaceAll("--", "\\u002d\\u002d");
   const lines = [
     options.marker ?? MARKER,
     `<!-- ai-review-cost:${state} -->`,

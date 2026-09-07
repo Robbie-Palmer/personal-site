@@ -439,3 +439,25 @@ test("rendered comment reports resolved, omitted, and rejected findings", () => 
   assert.match(body, /Structurally invalid findings dropped: model-a: 2/);
   assert.match(body, /Out-of-diff findings dropped: model-b: 1/);
 });
+
+test("rendered state cannot close its HTML comment", () => {
+  const body = renderComment({
+    result: { summary: "Summary", findings: [] },
+    headSha: "c".repeat(40),
+    models: ["model-->injected-free"],
+    merger: "merger",
+    failed: [],
+    candidateCounts: {},
+    invalidCounts: {},
+    outOfScopeCounts: {},
+    modelCosts: {},
+    mergerCost: 0,
+    omitted: [],
+    runCost: 0,
+    previousState: { runs: 0, total_usd: 0 },
+  });
+  const stateMarker = body.split("\n")[1] ?? "";
+
+  assert.match(stateMarker, /model\\u002d\\u002d>injected-free/);
+  assert.equal(stateMarker.match(/-->/g)?.length, 1);
+});
