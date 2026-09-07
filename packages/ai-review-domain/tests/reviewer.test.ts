@@ -253,8 +253,10 @@ test("workflow skips its stable check when no scout provides coverage", () => {
 test("model payload accepts a single JSON fence but rejects prose", () => {
   assert.deepEqual(parseModelPayload('```json\n{"findings":[]}\n```'), { findings: [] });
   assert.deepEqual(parseModelPayload('```json\n{"findings":[]}```'), { findings: [] });
+  assert.deepEqual(parseModelPayload('```\n{"findings":[]}\n```'), { findings: [] });
   assert.deepEqual(parseModelPayload('{"findings":[]}'), { findings: [] });
   assert.throws(() => parseModelPayload("```json\n```"));
+  assert.throws(() => parseModelPayload('```json\t\t{"findings":[]}```'));
   assert.throws(() => parseModelPayload('Result: {"findings":[]}'), /Unexpected token|Unexpected character/);
 });
 

@@ -472,8 +472,16 @@ export function completionContent(choice: JsonObject, model: string): string {
 
 export function parseModelPayload(content: string): JsonObject {
   const trimmed = content.trim();
-  const fenced = trimmed.match(/^```(?:json)?\s*\n?([\s\S]*?)\n?```$/i);
-  const parsed = JSON.parse(fenced?.[1]?.trim() ?? trimmed) as unknown;
+  const openingFenceEnd = trimmed.indexOf("\n");
+  const openingFence = openingFenceEnd < 0
+    ? ""
+    : trimmed.slice(0, openingFenceEnd).trim().toLowerCase();
+  const payload =
+    trimmed.endsWith("```") &&
+    (openingFence === "```" || openingFence === "```json")
+      ? trimmed.slice(openingFenceEnd + 1, -3).trim()
+      : trimmed;
+  const parsed = JSON.parse(payload) as unknown;
   if (!isObject(parsed)) throw new Error("Model response is not a JSON object");
   return parsed;
 }
