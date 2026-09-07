@@ -1,7 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { parseRecipeFile } from "../../src/lib/recipe-file.js";
+import {
+  parseRecipeFile,
+  RecipeFileFormatSchema,
+} from "../../src/lib/recipe-file.js";
 
 describe("parseRecipeFile", () => {
+  it("defines the supported recipe file formats", () => {
+    expect(RecipeFileFormatSchema.options).toEqual(["cooklang", "schema-org"]);
+    expect(RecipeFileFormatSchema.safeParse("markdown").success).toBe(false);
+  });
+
   it("imports Cooklang frontmatter and body into an editable draft", async () => {
     const source = `---
 title: "Weeknight pasta"
