@@ -1,16 +1,20 @@
+[tasks.install]
+description = "Install AI review domain package dependencies"
+run = "pnpm install --frozen-lockfile --filter ai-review-domain..."
+
 [tasks.typecheck]
 description = "Typecheck the shared AI review domain package"
-depends = ["//:install"]
+depends = ["install"]
 run = "pnpm typecheck"
 
 [tasks.test]
 description = "Test the shared AI review domain package"
-depends = ["//:install"]
+depends = ["install"]
 run = "pnpm test"
 
 [tasks."test:coverage"]
 description = "Test the shared AI review domain package with LCOV coverage"
-depends = ["//:install"]
+depends = ["install"]
 run = "pnpm test:coverage"
 
 [tasks.check]
