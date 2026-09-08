@@ -17,9 +17,11 @@ import {
   formatCurrency,
 } from "@/lib/domain/assettracker";
 import { useAssetTracker } from "./asset-tracker-provider";
+import { FinancialRunwayChart } from "./financial-runway-chart";
 import { IncomeExpenditureChart } from "./income-expenditure-chart";
 import { IncomeHistoryImportDrawer } from "./income-history-import-drawer";
 import { PortfolioFiProjectionChart } from "./portfolio-fi-projection-chart";
+import { RunwayForecast } from "./runway-forecast";
 
 function signedCurrency(value: number): string {
   if (value === 0) return formatCurrency(0);
@@ -113,6 +115,7 @@ export function PortfolioGoal() {
     currentCompensation,
     emergencyFund,
     emergencyFundMonths,
+    runway,
     target,
     progress,
     expectedRealReturn,
@@ -274,6 +277,10 @@ export function PortfolioGoal() {
             className="h-2 w-full overflow-hidden rounded-full bg-muted [appearance:none] [&::-moz-progress-bar]:rounded-full [&::-moz-progress-bar]:bg-primary [&::-webkit-progress-bar]:rounded-full [&::-webkit-progress-bar]:bg-muted [&::-webkit-progress-value]:rounded-full [&::-webkit-progress-value]:bg-primary"
           />
         )}
+
+        <FinancialRunwayChart runway={runway} />
+
+        <RunwayForecast />
 
         <IncomeExpenditureChart
           incomeHistory={incomeHistory}

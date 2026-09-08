@@ -1,12 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
   AssetTrackerCommandError,
+  applyAddPlannedExpenditure,
   applyAddRecurringFlow,
   applyClearAccountHistory,
   applyClearIncomeHistory,
   applyCloseAccount,
   applyCreateAccount,
   applyDeleteCapitalFlow,
+  applyDeletePlannedExpenditure,
   applyDeleteRecurringFlow,
   applyDeleteSnapshot,
   applyImportAccountHistory,
@@ -14,12 +16,16 @@ import {
   applyMaterializeFlow,
   applyRecordBalance,
   applyRecordTransfer,
+  applySetAccountLiquidity,
   applySetExpectedReturn,
   applySetNetWorthTarget,
   applySetWithdrawalRate,
   formatAssetTrackerError,
 } from "@/lib/domain/assettracker/assetTrackerCommands";
-import type { AssetTrackerData } from "@/lib/domain/assettracker/assetTrackerData";
+import {
+  type AssetTrackerData,
+  AssetTrackerDataError,
+} from "@/lib/domain/assettracker/assetTrackerData";
 import { flowOccurrenceDates } from "@/lib/domain/assettracker/recurringFlow";
 
 function baseData(): AssetTrackerData {
@@ -74,6 +80,7 @@ function baseData(): AssetTrackerData {
     incomeHistory: [],
     transfers: [],
     recurringFlows: [],
+    plannedExpenditures: [],
     settings: { expectedAnnualInflation: 0.025, withdrawalRate: 0.04 },
   };
 }
@@ -507,6 +514,14 @@ describe("portfolio income settings", () => {
 });
 
 describe("formatAssetTrackerError", () => {
+  it("surfaces safe imported-data validation messages", () => {
+    expect(
+      formatAssetTrackerError(
+        new AssetTrackerDataError("Imported account reference is invalid"),
+      ),
+    ).toBe("Imported account reference is invalid");
+  });
+
   it("does not expose unexpected internal error messages", () => {
     expect(formatAssetTrackerError(new Error("internal storage detail"))).toBe(
       "Something went wrong",
@@ -782,6 +797,22 @@ describe("applyCloseAccount", () => {
     ).toThrow(/recorded after/);
   });
 
+  it("rejects closing an account that funds planned spending", () => {
+    const data = applyAddPlannedExpenditure(baseData(), {
+      name: "New car",
+      amount: 20_000,
+      date: "2099-06-01",
+      fromAccountId: "savings",
+    });
+
+    expect(() =>
+      applyCloseAccount(data, {
+        accountId: "savings",
+        closedAt: "2025-01-01",
+      }),
+    ).toThrow(/funds planned spending/);
+  });
+
   it("does not overwrite a balance already recorded on the close date", () => {
     // User logs £5,000 on 2024-06-01, then closes that same day
     const next = applyCloseAccount(baseData(), {
@@ -915,6 +946,86 @@ describe("applyAddRecurringFlow / applyDeleteRecurringFlow", () => {
   });
 });
 
+describe("planned expenditures", () => {
+  it("adds and removes a dated expenditure", () => {
+    const added = applyAddPlannedExpenditure(baseData(), {
+      name: "Kitchen repair",
+      amount: 4_500,
+      date: "2099-06-01",
+      fromAccountId: "savings",
+    });
+
+    expect(added.plannedExpenditures[0]).toMatchObject({
+      id: "kitchen-repair",
+      amount: 4_500,
+      fromAccountId: "savings",
+    });
+    const removed = applyDeletePlannedExpenditure(added, {
+      id: "kitchen-repair",
+    });
+    expect(removed.plannedExpenditures).toEqual([]);
+  });
+
+  it("rejects spending from an unknown account", () => {
+    expect(() =>
+      applyAddPlannedExpenditure(baseData(), {
+        name: "Car",
+        amount: 20_000,
+        date: "2099-06-01",
+        fromAccountId: "missing",
+      }),
+    ).toThrow(/Account not found/);
+  });
+
+  it("rejects spending directly from an illiquid account", () => {
+    const data = baseData();
+    const isa = data.accounts.find((account) => account.id === "stocks-isa");
+    if (isa) isa.liquidity = "illiquid";
+    try {
+      applyAddPlannedExpenditure(data, {
+        name: "Car",
+        amount: 20_000,
+        date: "2099-06-01",
+        fromAccountId: "stocks-isa",
+      });
+      throw new Error("Expected planned expenditure validation to fail");
+    } catch (error) {
+      expect(error).toBeInstanceOf(AssetTrackerCommandError);
+      expect(formatAssetTrackerError(error)).toBe(
+        "Planned expenditure must come from cash or a liquid investment",
+      );
+    }
+  });
+
+  it("rejects spending from an account that is already closed", () => {
+    expect(() =>
+      applyAddPlannedExpenditure(baseData(), {
+        name: "Car",
+        amount: 20_000,
+        date: "2023-01-01",
+        fromAccountId: "old-pension",
+      }),
+    ).toThrow("Planned expenditure must come from an open account");
+  });
+
+  it("rejects expenditure dates that have already passed", () => {
+    try {
+      applyAddPlannedExpenditure(baseData(), {
+        name: "Old plan",
+        amount: 100,
+        date: "2000-01-01",
+        fromAccountId: "savings",
+      });
+      throw new Error("Expected planned expenditure validation to fail");
+    } catch (error) {
+      expect(error).toBeInstanceOf(AssetTrackerCommandError);
+      expect(formatAssetTrackerError(error)).toBe(
+        "Planned expenditure must have a future date",
+      );
+    }
+  });
+});
+
 describe("applySetNetWorthTarget", () => {
   it("sets and clears the target while preserving other settings", () => {
     const withTarget = applySetNetWorthTarget(baseData(), { target: 500000 });
@@ -982,6 +1093,35 @@ describe("applySetExpectedReturn", () => {
       { date: "2024-02-01", rate: 0.03 },
       { date: "2024-08-01", rate: 0.045 },
     ]);
+  });
+});
+
+describe("applySetAccountLiquidity", () => {
+  it("updates the access tier without changing the asset type", () => {
+    const next = applySetAccountLiquidity(baseData(), {
+      accountId: "stocks-isa",
+      liquidity: "illiquid",
+    });
+
+    const account = next.accounts.find((item) => item.id === "stocks-isa");
+    expect(account?.liquidity).toBe("illiquid");
+    expect(account?.assetType).toBe("stocks");
+  });
+
+  it("rejects making an account illiquid while it funds planned spending", () => {
+    const data = applyAddPlannedExpenditure(baseData(), {
+      name: "New car",
+      amount: 20_000,
+      date: "2099-06-01",
+      fromAccountId: "stocks-isa",
+    });
+
+    expect(() =>
+      applySetAccountLiquidity(data, {
+        accountId: "stocks-isa",
+        liquidity: "illiquid",
+      }),
+    ).toThrow(/funds planned spending/);
   });
 });
 

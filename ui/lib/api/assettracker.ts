@@ -1,13 +1,16 @@
 import {
+  type AddPlannedExpenditureInput,
   type AddRecurringFlowInput,
   type AssetTrackerData,
   AssetTrackerDataSchema,
+  applyAddPlannedExpenditure,
   applyAddRecurringFlow,
   applyClearAccountHistory,
   applyClearIncomeHistory,
   applyCloseAccount,
   applyCreateAccount,
   applyDeleteCapitalFlow,
+  applyDeletePlannedExpenditure,
   applyDeleteRecurringFlow,
   applyDeleteSnapshot,
   applyImportAccountHistory,
@@ -15,6 +18,7 @@ import {
   applyMaterializeFlow,
   applyRecordBalance,
   applyRecordTransfer,
+  applySetAccountLiquidity,
   applySetExpectedReturn,
   applySetInflation,
   applySetNetWorthTarget,
@@ -24,6 +28,7 @@ import {
   type CloseAccountInput,
   type CreateAccountInput,
   type DeleteCapitalFlowInput,
+  type DeletePlannedExpenditureInput,
   type DeleteRecurringFlowInput,
   type DeleteSnapshotInput,
   getEmptyData,
@@ -33,6 +38,7 @@ import {
   type MaterializeFlowInput,
   type RecordBalanceInput,
   type RecordTransferInput,
+  type SetAccountLiquidityInput,
   type SetExpectedReturnInput,
   type SetInflationInput,
   type SetNetWorthTargetInput,
@@ -65,11 +71,20 @@ export interface AssetTrackerApi {
   ): Promise<AssetTrackerData>;
   clearIncomeHistory(): Promise<AssetTrackerData>;
   addRecurringFlow(input: AddRecurringFlowInput): Promise<AssetTrackerData>;
+  addPlannedExpenditure(
+    input: AddPlannedExpenditureInput,
+  ): Promise<AssetTrackerData>;
   deleteRecurringFlow(
     input: DeleteRecurringFlowInput,
   ): Promise<AssetTrackerData>;
+  deletePlannedExpenditure(
+    input: DeletePlannedExpenditureInput,
+  ): Promise<AssetTrackerData>;
   materializeFlow(input: MaterializeFlowInput): Promise<AssetTrackerData>;
   setExpectedReturn(input: SetExpectedReturnInput): Promise<AssetTrackerData>;
+  setAccountLiquidity(
+    input: SetAccountLiquidityInput,
+  ): Promise<AssetTrackerData>;
   setInflation(input: SetInflationInput): Promise<AssetTrackerData>;
   setNetWorthTarget(input: SetNetWorthTargetInput): Promise<AssetTrackerData>;
   setWithdrawalRate(input: SetWithdrawalRateInput): Promise<AssetTrackerData>;
@@ -166,14 +181,23 @@ export function createLocalAssetTrackerApi(storage: Storage): AssetTrackerApi {
     async addRecurringFlow(input) {
       return write(applyAddRecurringFlow(current(), input));
     },
+    async addPlannedExpenditure(input) {
+      return write(applyAddPlannedExpenditure(current(), input));
+    },
     async deleteRecurringFlow(input) {
       return write(applyDeleteRecurringFlow(current(), input));
+    },
+    async deletePlannedExpenditure(input) {
+      return write(applyDeletePlannedExpenditure(current(), input));
     },
     async materializeFlow(input) {
       return write(applyMaterializeFlow(current(), input));
     },
     async setExpectedReturn(input) {
       return write(applySetExpectedReturn(current(), input));
+    },
+    async setAccountLiquidity(input) {
+      return write(applySetAccountLiquidity(current(), input));
     },
     async setInflation(input) {
       return write(applySetInflation(current(), input));

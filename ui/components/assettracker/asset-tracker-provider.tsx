@@ -18,6 +18,7 @@ import {
   type AccountDetailView,
   type AccountId,
   type AccountSummaryView,
+  type AddPlannedExpenditureInput,
   type AddRecurringFlowInput,
   type AssetAllocationDataPoint,
   type AssetTrackerData,
@@ -41,11 +42,13 @@ import {
   type ImportIncomeHistoryInput,
   type IncomeRecord,
   type NetWorthDataPoint,
+  type PlannedExpenditure,
   type PortfolioContributionDataPoint,
   type PortfolioFinancialIndependence,
   type RecordBalanceInput,
   type RecordTransferInput,
   type RecurringFlow,
+  type SetAccountLiquidityInput,
   type SetExpectedReturnInput,
   type Transfer,
   toBalancesCsv,
@@ -61,6 +64,7 @@ interface AssetTrackerContextValue {
   assetAllocationHistory: AssetAllocationDataPoint[];
   transfers: Transfer[];
   recurringFlows: RecurringFlow[];
+  plannedExpenditures: PlannedExpenditure[];
   incomeHistory: IncomeRecord[];
   financialIndependence: PortfolioFinancialIndependence;
   /** Annualised portfolio growth, excluding recorded external money in/out */
@@ -89,9 +93,12 @@ interface AssetTrackerContextValue {
   importIncomeHistory(input: ImportIncomeHistoryInput): Promise<void>;
   clearIncomeHistory(): Promise<void>;
   addRecurringFlow(input: AddRecurringFlowInput): Promise<void>;
+  addPlannedExpenditure(input: AddPlannedExpenditureInput): Promise<void>;
   deleteRecurringFlow(id: string): Promise<void>;
+  deletePlannedExpenditure(id: string): Promise<void>;
   materializeFlow(flowId: string): Promise<void>;
   setExpectedReturn(input: SetExpectedReturnInput): Promise<void>;
+  setAccountLiquidity(input: SetAccountLiquidityInput): Promise<void>;
   setInflation(rate: number): Promise<void>;
   setWithdrawalRate(rate: number): Promise<void>;
   setNetWorthTarget(
@@ -176,6 +183,7 @@ export function AssetTrackerProvider({
       assetAllocationHistory: getAssetAllocationTimeSeries(repository),
       transfers: repository.transfers,
       recurringFlows: repository.recurringFlows,
+      plannedExpenditures: repository.plannedExpenditures,
       incomeHistory: repository.incomeHistory,
       financialIndependence: getPortfolioFinancialIndependence(repository),
       portfolioReturn: getPortfolioAnnualReturn(repository),
@@ -213,14 +221,20 @@ export function AssetTrackerProvider({
         mutate((api) => api.importIncomeHistory(input)),
       clearIncomeHistory: () => mutate((api) => api.clearIncomeHistory()),
       addRecurringFlow: (input) => mutate((api) => api.addRecurringFlow(input)),
+      addPlannedExpenditure: (input) =>
+        mutate((api) => api.addPlannedExpenditure(input)),
       deleteRecurringFlow: (id) =>
         mutate((api) => api.deleteRecurringFlow({ id })),
+      deletePlannedExpenditure: (id) =>
+        mutate((api) => api.deletePlannedExpenditure({ id })),
       materializeFlow: (flowId) =>
         mutate((api) =>
           api.materializeFlow({ flowId, throughDate: todayIsoDate() }),
         ),
       setExpectedReturn: (input) =>
         mutate((api) => api.setExpectedReturn(input)),
+      setAccountLiquidity: (input) =>
+        mutate((api) => api.setAccountLiquidity(input)),
       setInflation: (rate) => mutate((api) => api.setInflation({ rate })),
       setWithdrawalRate: (rate) =>
         mutate((api) => api.setWithdrawalRate({ rate })),

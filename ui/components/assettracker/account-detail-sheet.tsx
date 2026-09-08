@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/sheet";
 import {
   type AccountDetailView,
+  accountLiquidity,
   type CapitalFlowKind,
   capitalFlowKind,
   computeEquitySummary,
@@ -22,11 +23,13 @@ import {
   formatAnnualRate,
   formatAssetTrackerError,
   isLiability,
+  LIQUIDITY_TIER_LABELS,
   realRate,
   todayIsoDate,
 } from "@/lib/domain/assettracker";
 import { AccountFlows } from "./account-flows";
 import { AccountHistoryImportDrawer } from "./account-history-import-drawer";
+import { AccountLiquidityEditor } from "./account-liquidity-editor";
 import { AccountProjection } from "./account-projection";
 import { AccountTrajectoryChart } from "./account-trajectory-chart";
 import { useAssetTracker } from "./asset-tracker-provider";
@@ -104,6 +107,9 @@ export function AccountDetailSheet({
                   />
                 )}
               <AccountFlows account={account} />
+              {!isLiability(account.assetType) && (
+                <AccountLiquidityEditor account={account} />
+              )}
               <ExpectedReturnEditor account={account} />
               <div className="flex items-center justify-between gap-2">
                 <h3 className="text-sm font-medium">Recorded history</h3>
@@ -173,6 +179,11 @@ function AccountSheetHeader({
       </SheetDescription>
       <div className="flex gap-2">
         <Badge variant="secondary">{account.assetType}</Badge>
+        {!isLiability(account.assetType) && (
+          <Badge variant="outline">
+            {LIQUIDITY_TIER_LABELS[accountLiquidity(account)]}
+          </Badge>
+        )}
         <Badge variant={account.isOpen ? "default" : "secondary"}>
           {account.isOpen ? "Open" : "Closed"}
         </Badge>

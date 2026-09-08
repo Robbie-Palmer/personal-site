@@ -146,6 +146,20 @@ describe("createLocalAssetTrackerApi", () => {
     expect(data.incomeHistory).toEqual([]);
   });
 
+  it("loads older saved data with no planned expenditures", async () => {
+    const { plannedExpenditures: _plannedExpenditures, ...legacy } =
+      getSeedData();
+    window.localStorage.setItem(
+      ASSET_TRACKER_STORAGE_KEY,
+      JSON.stringify(legacy),
+    );
+
+    const { data, persisted } = await createApi().load();
+
+    expect(persisted).toBe(true);
+    expect(data.plannedExpenditures).toEqual([]);
+  });
+
   it("defaults the withdrawal rate in older saved settings", async () => {
     const seed = getSeedData();
     const legacy = {
@@ -195,6 +209,30 @@ describe("createLocalAssetTrackerApi", () => {
     const { data } = await createApi().load();
     expect(data.incomeHistory).toEqual([{ date: "2025-01-31", amount: 4_500 }]);
     expect(data.settings.withdrawalRate).toBe(0.035);
+  });
+
+  it("persists planned expenditures", async () => {
+    const api = createApi();
+    const source = getSeedData().accounts.find(
+      (account) => account.id === "nationwide-current",
+    );
+    if (!source) throw new Error("seed data has no current account");
+
+    await api.addPlannedExpenditure({
+      name: "Wedding",
+      amount: 15_000,
+      date: "2099-08-01",
+      fromAccountId: source.id,
+    });
+
+    const { data } = await createApi().load();
+    expect(data.plannedExpenditures).toContainEqual({
+      id: "wedding",
+      name: "Wedding",
+      amount: 15_000,
+      date: "2099-08-01",
+      fromAccountId: source.id,
+    });
   });
 
   it("rejects importing data that fails validation", async () => {
