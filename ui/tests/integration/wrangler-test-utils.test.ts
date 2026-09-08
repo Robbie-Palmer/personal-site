@@ -70,13 +70,13 @@ describe("Wrangler test process management", () => {
   });
 
   it("reports child process errors without waiting for timeout", async () => {
-    child = spawn("missing-wrangler-test-executable", [], {
+    child = spawn("/missing/wrangler-test-executable", [], {
       detached: true,
       stdio: ["ignore", "pipe", "pipe"],
     });
 
     await expect(waitForServer(child, 5_000)).rejects.toThrow(
-      "Wrangler process failed before startup: spawn missing-wrangler-test-executable ENOENT",
+      "Wrangler process failed before startup: spawn /missing/wrangler-test-executable ENOENT",
     );
   });
 });
