@@ -79,6 +79,7 @@ export async function waitForServer(
     };
 
     const timer = setTimeout(() => {
+      if (settled) return;
       killProcessGroup(proc);
       fail(`Server did not start within ${timeout}ms`);
     }, timeout);
@@ -99,8 +100,10 @@ export async function waitForServer(
       recordOutput(data, stderrDecoder),
     );
 
-    proc.once("close", (code) => {
-      fail(`Wrangler process closed before startup with code ${code}`);
+    proc.once("close", (code, signal) => {
+      const exitReason =
+        code === null ? `signal ${signal ?? "unknown"}` : `code ${code}`;
+      fail(`Wrangler process closed before startup with ${exitReason}`);
     });
   });
 }

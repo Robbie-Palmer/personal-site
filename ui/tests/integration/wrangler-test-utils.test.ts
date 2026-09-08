@@ -38,4 +38,18 @@ describe("Wrangler test process management", () => {
 
     await expect(waitForServer(child, 5_000)).rejects.toThrow("diagnostic 🙂");
   });
+
+  it("reports the signal when the server exits before startup", async () => {
+    child = spawn(process.execPath, ["--eval", "setInterval(() => {}, 1000)"], {
+      detached: true,
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+
+    const startup = waitForServer(child, 5_000);
+    child.kill("SIGTERM");
+
+    await expect(startup).rejects.toThrow(
+      "Wrangler process closed before startup with signal SIGTERM",
+    );
+  });
 });
