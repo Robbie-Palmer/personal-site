@@ -111,13 +111,13 @@ function serviceWorkerHarness(fetchMock: typeof fetch) {
 describe("recipe service worker", () => {
   it("removes the previous shell caches when the worker updates", async () => {
     const worker = serviceWorkerHarness(vi.fn<typeof fetch>());
-    worker.stores.set("recipe-shell-v2", new MemoryCache());
-    worker.stores.set("recipe-assets-v2", new MemoryCache());
     worker.stores.set("recipe-shell-v3", new MemoryCache());
+    worker.stores.set("recipe-assets-v3", new MemoryCache());
+    worker.stores.set("recipe-shell-v4", new MemoryCache());
 
     await worker.activate();
 
-    expect([...worker.stores.keys()]).toEqual(["recipe-shell-v3"]);
+    expect([...worker.stores.keys()]).toEqual(["recipe-shell-v4"]);
   });
 
   it("precaches the recipe shells and WebAssembly needed to render them", async () => {
@@ -147,8 +147,8 @@ describe("recipe service worker", () => {
 
     await worker.install();
 
-    const shellKeys = await worker.stores.get("recipe-shell-v3")?.keys();
-    const assetKeys = await worker.stores.get("recipe-assets-v3")?.keys();
+    const shellKeys = await worker.stores.get("recipe-shell-v4")?.keys();
+    const assetKeys = await worker.stores.get("recipe-assets-v4")?.keys();
     expect(shellKeys?.map((key) => new URL(key.url).pathname)).toEqual([
       "/recipes",
       "/recipes/saved",
@@ -157,6 +157,21 @@ describe("recipe service worker", () => {
     expect(assetKeys?.map((key) => new URL(key.url).pathname)).toContain(
       `/_next/static/wasm/${wasmHash}.wasm`,
     );
+  });
+
+  it("refuses to precache a React Server Components payload as a shell", async () => {
+    const fetchMock = vi.fn<typeof fetch>(
+      async () =>
+        new Response('1:"$Sreact.fragment"', {
+          headers: { "content-type": "text/x-component" },
+        }),
+    );
+    const worker = serviceWorkerHarness(fetchMock);
+
+    await expect(worker.install()).rejects.toThrow(
+      "Could not cache HTML for /recipes",
+    );
+    expect(worker.stores.has("recipe-shell-v4")).toBe(false);
   });
 
   it("shows the offline page for unavailable tabs without treating them as recipes", async () => {
@@ -308,7 +323,7 @@ describe("recipe service worker", () => {
     expect([...worker.stores.keys()]).not.toContain("recipe-images-v1");
   });
 
-  it("does not replace an offline shell with a non-HTML response", async () => {
+  it("never serves a React Server Components payload as a document", async () => {
     let navigationResponse = "install";
     const fetchMock = vi.fn<typeof fetch>(async (request) => {
       const value =
@@ -322,10 +337,18 @@ describe("recipe service worker", () => {
         url.pathname === "/recipes/saved" ||
         url.pathname === "/recipes/offline"
       ) {
-        if (navigationResponse === "json") {
-          return Response.json({ error: "temporarily unavailable" });
+        if (
+          navigationResponse === "rsc" &&
+          request instanceof Request &&
+          request.headers.get("rsc") === "1"
+        ) {
+          return new Response('1:"$Sreact.fragment"', {
+            headers: { "content-type": "text/x-component" },
+          });
         }
-        return new Response(`<main>${url.pathname}</main>`, {
+        const label =
+          navigationResponse === "rsc" ? "fresh HTML" : url.pathname;
+        return new Response(`<main>${label}</main>`, {
           headers: { "content-type": "text/html" },
         });
       }
@@ -333,18 +356,23 @@ describe("recipe service worker", () => {
     });
     const worker = serviceWorkerHarness(fetchMock);
     await worker.install();
-    const navigation = new Request("https://recipes.example.test/recipes");
+    const navigation = new Request("https://recipes.example.test/recipes", {
+      headers: { accept: "text/x-component", rsc: "1" },
+    });
     Object.defineProperty(navigation, "mode", { value: "navigate" });
 
-    navigationResponse = "json";
-    await expect(worker.request(navigation)).resolves.toHaveProperty(
-      "status",
-      200,
+    navigationResponse = "rsc";
+    expect(await (await worker.request(navigation)).text()).toContain(
+      "fresh HTML",
     );
+    const retryRequest = fetchMock.mock.calls.at(-1)?.[0];
+    expect(retryRequest).toBeInstanceOf(Request);
+    expect((retryRequest as Request).headers.get("accept")).toBe("text/html");
+    expect((retryRequest as Request).headers.has("rsc")).toBe(false);
     navigationResponse = "offline";
 
     expect(await (await worker.request(navigation)).text()).toContain(
-      "<main>/recipes</main>",
+      "fresh HTML",
     );
   });
 

@@ -1,7 +1,7 @@
 /* Robbie's Recipes service worker. Keep cache version changes explicit so an
  * update never mixes incompatible application shells or private data. */
-const SHELL_CACHE = "recipe-shell-v3";
-const ASSET_CACHE = "recipe-assets-v3";
+const SHELL_CACHE = "recipe-shell-v4";
+const ASSET_CACHE = "recipe-assets-v4";
 const IMAGE_CACHE = "recipe-images-v1";
 const SESSION_CACHE = "recipe-session-v1";
 const SESSION_CACHE_KEY = "/recipes/__offline-session";
@@ -40,6 +40,14 @@ function isHtmlResponse(response) {
     response.headers.get("content-type")?.split(";", 1)[0]?.trim() ===
     "text/html"
   );
+}
+
+function documentRequest(url) {
+  return new Request(new URL(url, self.location.origin), {
+    cache: "reload",
+    credentials: "same-origin",
+    headers: { accept: "text/html" },
+  });
 }
 
 function isSessionRequest(url, request) {
@@ -225,8 +233,10 @@ async function cacheShellAsset(url, cache) {
 }
 
 async function cacheShellDocument(path) {
-  const response = await fetch(path, { cache: "reload" });
-  if (!response.ok) throw new Error(`Could not cache ${path}`);
+  const response = await fetch(documentRequest(path));
+  if (!response.ok || !isHtmlResponse(response)) {
+    throw new Error(`Could not cache HTML for ${path}`);
+  }
   const shell = await caches.open(SHELL_CACHE);
   await shell.put(path, response.clone());
   const html = await response.text();
@@ -302,11 +312,24 @@ async function offlineShellResponse(cache, pathname) {
   );
 }
 
+function unavailableDocumentResponse() {
+  return new Response(
+    "<!doctype html><title>Recipes unavailable</title><p>This page could not be loaded.</p>",
+    {
+      status: 503,
+      headers: { "content-type": "text/html; charset=utf-8" },
+    },
+  );
+}
+
 async function handleNavigation(request) {
   const url = new URL(request.url);
   const shell = await caches.open(SHELL_CACHE);
   try {
-    const response = await fetch(request);
+    let response = await fetch(request);
+    if (response.status < 500 && !isHtmlResponse(response)) {
+      response = await fetch(documentRequest(url));
+    }
     if (
       response.ok &&
       isHtmlResponse(response) &&
@@ -314,10 +337,16 @@ async function handleNavigation(request) {
     ) {
       await shell.put(url.pathname, response.clone());
     }
-    if (response.status < 500) return response;
-    return (await offlineShellResponse(shell, url.pathname)) ?? response;
-  } catch (error) {
-    return (await offlineShellResponse(shell, url.pathname)) ?? Promise.reject(error);
+    if (response.status < 500 && isHtmlResponse(response)) return response;
+    return (
+      (await offlineShellResponse(shell, url.pathname)) ??
+      (isHtmlResponse(response) ? response : unavailableDocumentResponse())
+    );
+  } catch {
+    return (
+      (await offlineShellResponse(shell, url.pathname)) ??
+      unavailableDocumentResponse()
+    );
   }
 }
 
