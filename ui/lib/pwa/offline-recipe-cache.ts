@@ -4,6 +4,7 @@ const DATABASE_NAME = "robbies-recipes";
 const DATABASE_VERSION = 1;
 const SNAPSHOT_STORE = "recipe-snapshots";
 const SNAPSHOT_VERSION = 1;
+let snapshotMutationQueue = Promise.resolve();
 
 export type OfflineRecipeSnapshot = {
   version: typeof SNAPSHOT_VERSION;
@@ -72,30 +73,38 @@ export async function saveOfflineRecipeSnapshot(
   userId: string,
   bootstrap: RecipeBootstrap,
 ): Promise<void> {
-  if (typeof indexedDB === "undefined") return;
-  const database = await openDatabase();
-  try {
-    const transaction = database.transaction(SNAPSHOT_STORE, "readwrite");
-    await requestResult(
-      transaction.objectStore(SNAPSHOT_STORE).put({
-        version: SNAPSHOT_VERSION,
-        userId,
-        savedAt: Date.now(),
-        bootstrap,
-      } satisfies OfflineRecipeSnapshot),
-    );
-  } finally {
-    database.close();
-  }
+  const write = snapshotMutationQueue.then(async () => {
+    if (typeof indexedDB === "undefined") return;
+    const database = await openDatabase();
+    try {
+      const transaction = database.transaction(SNAPSHOT_STORE, "readwrite");
+      await requestResult(
+        transaction.objectStore(SNAPSHOT_STORE).put({
+          version: SNAPSHOT_VERSION,
+          userId,
+          savedAt: Date.now(),
+          bootstrap,
+        } satisfies OfflineRecipeSnapshot),
+      );
+    } finally {
+      database.close();
+    }
+  });
+  snapshotMutationQueue = write.catch(() => undefined);
+  await write;
 }
 
 export async function clearOfflineRecipeSnapshots(): Promise<void> {
-  if (typeof indexedDB === "undefined") return;
-  const database = await openDatabase();
-  try {
-    const transaction = database.transaction(SNAPSHOT_STORE, "readwrite");
-    await requestResult(transaction.objectStore(SNAPSHOT_STORE).clear());
-  } finally {
-    database.close();
-  }
+  const clear = snapshotMutationQueue.then(async () => {
+    if (typeof indexedDB === "undefined") return;
+    const database = await openDatabase();
+    try {
+      const transaction = database.transaction(SNAPSHOT_STORE, "readwrite");
+      await requestResult(transaction.objectStore(SNAPSHOT_STORE).clear());
+    } finally {
+      database.close();
+    }
+  });
+  snapshotMutationQueue = clear.catch(() => undefined);
+  await clear;
 }

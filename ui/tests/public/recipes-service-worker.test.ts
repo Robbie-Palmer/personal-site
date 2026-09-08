@@ -200,6 +200,126 @@ describe("recipe service worker", () => {
     });
   });
 
+  it("does not cache malformed sessions", async () => {
+    const sessionRequest = new Request(
+      "https://recipes.example.test/api/auth/get-session",
+    );
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(
+        Response.json({ session: null, user: { id: "user-1" } }),
+      )
+      .mockRejectedValue(new TypeError("offline"));
+    const worker = serviceWorkerHarness(fetchMock);
+
+    await worker.request(sessionRequest);
+
+    await expect(worker.request(sessionRequest)).rejects.toThrow("offline");
+  });
+
+  it("shares one network request between concurrent session checks", async () => {
+    const sessionRequest = new Request(
+      "https://recipes.example.test/api/auth/get-session",
+    );
+    let resolveSession: ((response: Response) => void) | undefined;
+    const fetchMock = vi.fn<typeof fetch>(
+      () =>
+        new Promise<Response>((resolve) => {
+          resolveSession = resolve;
+        }),
+    );
+    const worker = serviceWorkerHarness(fetchMock);
+
+    const first = worker.request(sessionRequest);
+    const second = worker.request(sessionRequest);
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledOnce());
+
+    resolveSession?.(
+      Response.json({
+        session: { expiresAt: "2099-01-01T00:00:00.000Z" },
+        user: { id: "user-1" },
+      }),
+    );
+
+    await expect(first).resolves.toHaveProperty("status", 200);
+    await expect(second).resolves.toHaveProperty("status", 200);
+  });
+
+  it("clears private caches when the server rejects the session", async () => {
+    const sessionRequest = new Request(
+      "https://recipes.example.test/api/auth/get-session",
+    );
+    const imageRequest = {
+      destination: "image",
+      method: "GET",
+      url: "https://images.example.test/recipe.jpg",
+    } as Request;
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(
+        Response.json({
+          session: { expiresAt: "2099-01-01T00:00:00.000Z" },
+          user: { id: "user-1" },
+        }),
+      )
+      .mockResolvedValueOnce(new Response("image"))
+      .mockResolvedValueOnce(new Response("Unauthorized", { status: 401 }));
+    const worker = serviceWorkerHarness(fetchMock);
+
+    await worker.request(sessionRequest);
+    await worker.request(imageRequest);
+    expect([...worker.stores.keys()]).toEqual(
+      expect.arrayContaining(["recipe-session-v1", "recipe-images-v1"]),
+    );
+
+    await expect(worker.request(sessionRequest)).resolves.toHaveProperty(
+      "status",
+      401,
+    );
+    expect([...worker.stores.keys()]).not.toContain("recipe-session-v1");
+    expect([...worker.stores.keys()]).not.toContain("recipe-images-v1");
+  });
+
+  it("does not replace an offline shell with a non-HTML response", async () => {
+    let navigationResponse = "install";
+    const fetchMock = vi.fn<typeof fetch>(async (request) => {
+      const value =
+        typeof request === "string" || request instanceof URL
+          ? String(request)
+          : request.url;
+      const url = new URL(value, "https://recipes.example.test");
+      if (navigationResponse === "offline") throw new TypeError("offline");
+      if (
+        url.pathname === "/recipes" ||
+        url.pathname === "/recipes/saved" ||
+        url.pathname === "/recipes/offline"
+      ) {
+        if (navigationResponse === "json") {
+          return Response.json({ error: "temporarily unavailable" });
+        }
+        return new Response(`<main>${url.pathname}</main>`, {
+          headers: { "content-type": "text/html" },
+        });
+      }
+      return new Response("Not found", { status: 404 });
+    });
+    const worker = serviceWorkerHarness(fetchMock);
+    await worker.install();
+    const navigation = new Request("https://recipes.example.test/recipes");
+    Object.defineProperty(navigation, "mode", { value: "navigate" });
+
+    navigationResponse = "json";
+    await expect(worker.request(navigation)).resolves.toHaveProperty(
+      "status",
+      200,
+    );
+    navigationResponse = "offline";
+
+    expect(await (await worker.request(navigation)).text()).toContain(
+      "<main>/recipes</main>",
+    );
+  });
+
   it("removes the cached session when private offline data is cleared", async () => {
     const sessionRequest = new Request(
       "https://recipes.example.test/api/auth/get-session",

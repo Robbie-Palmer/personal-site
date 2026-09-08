@@ -29,9 +29,17 @@ const REQUIRED_SHELL_PATHS = [
   "/recipes/saved",
   "/recipes/offline",
 ];
+let inFlightSessionRequest;
 
 function isSuccessful(response) {
   return response.ok || response.type === "opaque";
+}
+
+function isHtmlResponse(response) {
+  return (
+    response.headers.get("content-type")?.split(";", 1)[0]?.trim() ===
+    "text/html"
+  );
 }
 
 function isSessionRequest(url, request) {
@@ -99,7 +107,13 @@ async function activateSession(response) {
   try {
     const value = await response.clone().json();
     const userId = sessionUserId(value);
-    if (!userId || sessionIsExpired(value)) {
+    if (
+      !userId ||
+      !value.session ||
+      typeof value.session !== "object" ||
+      Array.isArray(value.session) ||
+      sessionIsExpired(value)
+    ) {
       await deletePrivateCaches();
       return false;
     }
@@ -109,7 +123,7 @@ async function activateSession(response) {
   }
 }
 
-async function handleSessionRequest(request) {
+async function fetchSession(request) {
   const cache = await caches.open(SESSION_CACHE);
   const cacheKey = new Request(
     new URL(SESSION_CACHE_KEY, self.location.origin),
@@ -122,6 +136,10 @@ async function handleSessionRequest(request) {
       }
       return response;
     }
+    if (response.status === 401 || response.status === 403) {
+      await deletePrivateCaches();
+      return response;
+    }
     if (response.status < 500) return response;
     const cached = await cache.match(cacheKey);
     if (!cached || !(await activateSession(cached))) return response;
@@ -131,6 +149,26 @@ async function handleSessionRequest(request) {
     if (!cached || !(await activateSession(cached))) throw error;
     return cached;
   }
+}
+
+async function handleSessionRequest(request) {
+  if (!inFlightSessionRequest) {
+    const pendingRequest = fetchSession(request);
+    inFlightSessionRequest = pendingRequest;
+    void pendingRequest.then(
+      () => {
+        if (inFlightSessionRequest === pendingRequest) {
+          inFlightSessionRequest = undefined;
+        }
+      },
+      () => {
+        if (inFlightSessionRequest === pendingRequest) {
+          inFlightSessionRequest = undefined;
+        }
+      },
+    );
+  }
+  return (await inFlightSessionRequest).clone();
 }
 
 async function handleSignOut(request) {
@@ -245,8 +283,9 @@ async function cacheRecipeImage(request) {
 }
 
 function offlineShellPath(pathname) {
-  const normalizedPathname =
-    pathname.length > 1 ? pathname.replace(/\/+$/, "") : pathname;
+  let pathEnd = pathname.length;
+  while (pathEnd > 1 && pathname[pathEnd - 1] === "/") pathEnd -= 1;
+  const normalizedPathname = pathname.slice(0, pathEnd);
   if (normalizedPathname === "/recipes") return "/recipes";
   if (normalizedPathname === "/recipes/saved") return "/recipes/saved";
   if (APP_SHELL_PATHS.has(normalizedPathname)) return "/recipes/offline";
@@ -268,7 +307,11 @@ async function handleNavigation(request) {
   const shell = await caches.open(SHELL_CACHE);
   try {
     const response = await fetch(request);
-    if (response.ok && APP_SHELL_PATHS.has(url.pathname)) {
+    if (
+      response.ok &&
+      isHtmlResponse(response) &&
+      APP_SHELL_PATHS.has(url.pathname)
+    ) {
       await shell.put(url.pathname, response.clone());
     }
     if (response.status < 500) return response;

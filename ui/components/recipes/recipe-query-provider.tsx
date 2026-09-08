@@ -109,7 +109,14 @@ export function OfflineRecipeCacheBoundary() {
         return;
       }
       const data = queryClient.getQueryData<RecipeBootstrap>(queryKey);
-      if (!data) return;
+      if (
+        !data ||
+        disposed ||
+        activeAccount.current.isPending ||
+        activeAccount.current.userId !== userId
+      ) {
+        return;
+      }
       void saveOfflineRecipeSnapshot(userId, data).catch(() => {
         // A failed persistence write must not affect the live recipe query.
       });

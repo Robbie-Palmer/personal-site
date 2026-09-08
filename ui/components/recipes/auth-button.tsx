@@ -215,7 +215,9 @@ export function AuthButton({
             try {
               await clearPrivateRecipeQueries(queryClient);
             } finally {
-              await clearOfflineRecipeData();
+              await clearOfflineRecipeData().catch(() => {
+                // Local cleanup is best-effort; the signed-out user must leave.
+              });
               signOutRedirect();
             }
           },

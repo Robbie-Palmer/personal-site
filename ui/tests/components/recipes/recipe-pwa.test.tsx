@@ -1,18 +1,30 @@
 import { act, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+const pwaMocks = vi.hoisted(() => ({
+  clearOfflineRecipeSnapshots: vi.fn(),
+}));
+
 vi.mock("@/lib/auth-client", () => ({
   authClient: {
     useSession: () => ({ data: null, isPending: false }),
   },
 }));
 
+vi.mock("@/lib/pwa/offline-recipe-cache", () => ({
+  clearOfflineRecipeSnapshots: pwaMocks.clearOfflineRecipeSnapshots,
+}));
+
 import { QueryClientProvider } from "@tanstack/react-query";
-import { RecipePwa } from "@/components/recipes/recipe-pwa";
+import {
+  clearOfflineRecipeData,
+  RecipePwa,
+} from "@/components/recipes/recipe-pwa";
 import { createRecipeQueryClient } from "@/lib/query/recipe-query-client";
 
 describe("RecipePwa", () => {
   beforeEach(() => {
+    pwaMocks.clearOfflineRecipeSnapshots.mockResolvedValue(undefined);
     Object.defineProperty(navigator, "onLine", {
       configurable: true,
       value: true,
@@ -23,7 +35,11 @@ describe("RecipePwa", () => {
     );
   });
 
-  afterEach(() => vi.unstubAllGlobals());
+  afterEach(() => {
+    vi.clearAllMocks();
+    vi.unstubAllGlobals();
+    Reflect.deleteProperty(navigator, "serviceWorker");
+  });
 
   function renderPwa() {
     return render(
@@ -69,5 +85,24 @@ describe("RecipePwa", () => {
       );
     });
     expect(screen.queryByRole("status")).not.toBeInTheDocument();
+  });
+
+  it("notifies the service worker when IndexedDB cleanup fails", async () => {
+    const postMessage = vi.fn();
+    Object.defineProperty(navigator, "serviceWorker", {
+      configurable: true,
+      value: {
+        controller: { postMessage },
+        ready: Promise.resolve({ active: { postMessage } }),
+      },
+    });
+    pwaMocks.clearOfflineRecipeSnapshots.mockRejectedValue(
+      new Error("IndexedDB unavailable"),
+    );
+
+    await expect(clearOfflineRecipeData()).rejects.toThrow(
+      "IndexedDB unavailable",
+    );
+    await waitFor(() => expect(postMessage).toHaveBeenCalledTimes(2));
   });
 });

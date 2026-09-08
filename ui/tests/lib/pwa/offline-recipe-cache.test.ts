@@ -38,8 +38,29 @@ function failingRequest<T>(): IDBRequest<T> {
   return request;
 }
 
+function delayedSuccessfulRequest<T>(
+  action: () => T,
+  waitFor: Promise<void>,
+): IDBRequest<T> {
+  const request = {
+    error: null,
+    onerror: null,
+    onsuccess: null,
+    result: undefined,
+  } as unknown as MutableRequest<T>;
+  void waitFor.then(() => {
+    request.result = action();
+    request.onsuccess?.call(request, new Event("success"));
+  });
+  return request;
+}
+
 function fakeIndexedDb(
-  options: { failOpen?: boolean; failRead?: boolean } = {},
+  options: {
+    failOpen?: boolean;
+    failRead?: boolean;
+    writeGate?: Promise<void>;
+  } = {},
 ) {
   const records = new Map<string, unknown>();
   let storeCreated = false;
@@ -56,11 +77,15 @@ function fakeIndexedDb(
       options.failRead
         ? failingRequest()
         : successfulRequest(() => records.get(String(key))),
-    put: (value: { userId: string }) =>
-      successfulRequest(() => {
+    put: (value: { userId: string }) => {
+      const write = () => {
         records.set(value.userId, value);
         return value.userId;
-      }),
+      };
+      return options.writeGate
+        ? delayedSuccessfulRequest(write, options.writeGate)
+        : successfulRequest(write);
+    },
   } as unknown as IDBObjectStore;
   const database = {
     close: vi.fn(),
@@ -147,6 +172,22 @@ describe("offline recipe cache", () => {
 
     await clearOfflineRecipeSnapshots();
     expect(harness.records).toHaveLength(0);
+  });
+
+  it("waits for an in-flight snapshot write before clearing", async () => {
+    let releaseWrite: (() => void) | undefined;
+    const writeGate = new Promise<void>((resolve) => {
+      releaseWrite = resolve;
+    });
+    harness = fakeIndexedDb({ writeGate });
+    vi.stubGlobal("indexedDB", harness.indexedDb);
+
+    const save = saveOfflineRecipeSnapshot("user-1", bootstrap);
+    const clear = clearOfflineRecipeSnapshots();
+    releaseWrite?.();
+
+    await Promise.all([save, clear]);
+    expect(harness.records.size).toBe(0);
   });
 
   it("deletes an incompatible snapshot", async () => {

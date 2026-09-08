@@ -23,13 +23,25 @@ async function connectionIsUnavailable(): Promise<boolean> {
 }
 
 export async function clearOfflineRecipeData(): Promise<void> {
-  await clearOfflineRecipeSnapshots();
-  if (!("serviceWorker" in navigator)) return;
-  const message = { type: "CLEAR_RECIPE_OFFLINE_DATA" };
-  navigator.serviceWorker.controller?.postMessage(message);
-  void navigator.serviceWorker.ready.then((registration) => {
-    registration.active?.postMessage(message);
-  });
+  try {
+    await clearOfflineRecipeSnapshots();
+  } finally {
+    if ("serviceWorker" in navigator) {
+      const message = { type: "CLEAR_RECIPE_OFFLINE_DATA" };
+      try {
+        navigator.serviceWorker.controller?.postMessage(message);
+      } catch {
+        // The active registration below may still receive the cleanup request.
+      }
+      void navigator.serviceWorker.ready
+        .then((registration) => {
+          registration.active?.postMessage(message);
+        })
+        .catch(() => {
+          // The signed-out user must not be held on this page for SW cleanup.
+        });
+    }
+  }
 }
 
 export function RecipePwa() {
@@ -64,6 +76,7 @@ export function RecipePwa() {
   }, []);
 
   useEffect(() => {
+    let disposed = false;
     if (
       process.env.NODE_ENV !== "production" ||
       !("serviceWorker" in navigator)
@@ -76,9 +89,9 @@ export function RecipePwa() {
       .register("/recipes-sw.js", { scope: "/recipes" })
       .then(() => navigator.serviceWorker.ready)
       .then(async () => {
-        if (!userId) return;
-        if (offline) return;
+        if (disposed || !userId || offline) return;
         await fetch("/api/auth/get-session", { credentials: "same-origin" });
+        if (disposed) return;
         await queryClient.invalidateQueries({
           queryKey: recipeQueryKeys.bootstrap(userId),
         });
@@ -86,6 +99,10 @@ export function RecipePwa() {
       .catch(() => {
         // The web app remains usable online when registration or priming fails.
       });
+
+    return () => {
+      disposed = true;
+    };
   }, [offline, queryClient, session?.user.id]);
 
   if (!offline) return null;

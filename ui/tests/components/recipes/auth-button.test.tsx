@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
   listAccounts: vi.fn(),
   getLastUsedLoginMethod: vi.fn(),
   isPreviewDeployment: vi.fn(),
+  clearOfflineRecipeData: vi.fn(),
 }));
 
 vi.mock("@/lib/auth-client", () => ({
@@ -23,6 +24,10 @@ vi.mock("@/lib/auth-client", () => ({
 
 vi.mock("@/lib/preview-environment", () => ({
   isPreviewDeployment: mocks.isPreviewDeployment,
+}));
+
+vi.mock("@/components/recipes/recipe-pwa", () => ({
+  clearOfflineRecipeData: mocks.clearOfflineRecipeData,
 }));
 
 import {
@@ -40,6 +45,7 @@ describe("AuthButton", () => {
     mocks.listAccounts.mockResolvedValue({ data: [], error: null });
     mocks.getLastUsedLoginMethod.mockReturnValue(null);
     mocks.isPreviewDeployment.mockReturnValue(false);
+    mocks.clearOfflineRecipeData.mockResolvedValue(undefined);
     vi.unstubAllGlobals();
     vi.unstubAllEnvs();
   });
@@ -242,7 +248,7 @@ describe("AuthButton", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it("opens an account menu linking to settings and supports sign out", async () => {
+  it("clears private data and redirects even when local cleanup fails", async () => {
     const user = userEvent.setup();
     const replace = vi.fn();
     mocks.useSession.mockReturnValue({
@@ -279,12 +285,16 @@ describe("AuthButton", () => {
     vi.spyOn(queryClient, "cancelQueries").mockRejectedValueOnce(
       new Error("cancellation failed"),
     );
+    mocks.clearOfflineRecipeData.mockRejectedValueOnce(
+      new Error("IndexedDB unavailable"),
+    );
     await signOutOptions?.fetchOptions?.onSuccess();
 
     expect(queryClient.getQueryData(privateKey)).toBeUndefined();
     expect(queryClient.getQueryData(publicKey)).toEqual({
       recipes: ["public"],
     });
+    expect(mocks.clearOfflineRecipeData).toHaveBeenCalledOnce();
     expect(replace).toHaveBeenCalledWith("/recipes");
   });
 
