@@ -7,6 +7,8 @@ import { authClient } from "@/lib/auth-client";
 import { clearOfflineRecipeSnapshots } from "@/lib/pwa/offline-recipe-cache";
 import { recipeQueryKeys } from "@/lib/query/recipe-query-keys";
 
+const PRIVATE_RECIPE_CACHE_NAMES = ["recipe-session-v1", "recipe-images-v1"];
+
 async function connectionIsUnavailable(): Promise<boolean> {
   if (navigator.onLine) return false;
 
@@ -22,10 +24,20 @@ async function connectionIsUnavailable(): Promise<boolean> {
   }
 }
 
+async function clearPrivateRecipeCaches(): Promise<void> {
+  if (!("caches" in window)) return;
+  await Promise.allSettled(
+    PRIVATE_RECIPE_CACHE_NAMES.map((cacheName) =>
+      window.caches.delete(cacheName),
+    ),
+  );
+}
+
 export async function clearOfflineRecipeData(): Promise<void> {
   try {
     await clearOfflineRecipeSnapshots();
   } finally {
+    await clearPrivateRecipeCaches();
     if ("serviceWorker" in navigator) {
       const message = { type: "CLEAR_RECIPE_OFFLINE_DATA" };
       try {

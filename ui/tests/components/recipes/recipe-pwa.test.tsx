@@ -116,4 +116,14 @@ describe("RecipePwa", () => {
     );
     await waitFor(() => expect(postMessage).toHaveBeenCalledTimes(2));
   });
+
+  it("clears private caches directly when no service worker is available", async () => {
+    const deleteCache = vi.fn().mockResolvedValue(true);
+    vi.stubGlobal("caches", { delete: deleteCache });
+
+    await clearOfflineRecipeData();
+
+    expect(deleteCache).toHaveBeenCalledWith("recipe-session-v1");
+    expect(deleteCache).toHaveBeenCalledWith("recipe-images-v1");
+  });
 });
