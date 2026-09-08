@@ -7,6 +7,21 @@ import { authClient } from "@/lib/auth-client";
 import { clearOfflineRecipeSnapshots } from "@/lib/pwa/offline-recipe-cache";
 import { recipeQueryKeys } from "@/lib/query/recipe-query-keys";
 
+async function connectionIsUnavailable(): Promise<boolean> {
+  if (navigator.onLine) return false;
+
+  try {
+    await fetch(`/robots.txt?online-check=${Date.now()}`, {
+      cache: "no-store",
+      credentials: "same-origin",
+      method: "HEAD",
+    });
+    return false;
+  } catch {
+    return true;
+  }
+}
+
 export async function clearOfflineRecipeData(): Promise<void> {
   await clearOfflineRecipeSnapshots();
   if (!("serviceWorker" in navigator)) return;
@@ -23,14 +38,28 @@ export function RecipePwa() {
   const queryClient = useQueryClient();
 
   useEffect(() => {
-    const updateConnection = () => setOffline(!navigator.onLine);
-    updateConnection();
-    window.addEventListener("online", updateConnection);
-    window.addEventListener("offline", updateConnection);
+    let disposed = false;
+    let latestCheck = 0;
+
+    const checkConnection = async () => {
+      const check = ++latestCheck;
+      const unavailable = await connectionIsUnavailable();
+      if (!disposed && check === latestCheck) setOffline(unavailable);
+    };
+    const handleOnline = () => {
+      latestCheck += 1;
+      setOffline(false);
+    };
+    const handleOffline = () => void checkConnection();
+
+    void checkConnection();
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
 
     return () => {
-      window.removeEventListener("online", updateConnection);
-      window.removeEventListener("offline", updateConnection);
+      disposed = true;
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
     };
   }, []);
 
@@ -48,7 +77,7 @@ export function RecipePwa() {
       .then(() => navigator.serviceWorker.ready)
       .then(async () => {
         if (!userId) return;
-        if (!navigator.onLine) return;
+        if (offline) return;
         await fetch("/api/auth/get-session", { credentials: "same-origin" });
         await queryClient.invalidateQueries({
           queryKey: recipeQueryKeys.bootstrap(userId),
@@ -57,7 +86,7 @@ export function RecipePwa() {
       .catch(() => {
         // The web app remains usable online when registration or priming fails.
       });
-  }, [queryClient, session?.user.id]);
+  }, [offline, queryClient, session?.user.id]);
 
   if (!offline) return null;
 

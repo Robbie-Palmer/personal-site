@@ -1,5 +1,5 @@
-import { act, render, screen } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { act, render, screen, waitFor } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/auth-client", () => ({
   authClient: {
@@ -17,7 +17,13 @@ describe("RecipePwa", () => {
       configurable: true,
       value: true,
     });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(new Response(null, { status: 204 })),
+    );
   });
+
+  afterEach(() => vi.unstubAllGlobals());
 
   function renderPwa() {
     return render(
@@ -27,7 +33,8 @@ describe("RecipePwa", () => {
     );
   }
 
-  it("explains that saved recipes remain readable while offline", () => {
+  it("explains that saved recipes remain readable while offline", async () => {
+    vi.mocked(fetch).mockRejectedValue(new TypeError("offline"));
     renderPwa();
 
     act(() => {
@@ -38,8 +45,29 @@ describe("RecipePwa", () => {
       window.dispatchEvent(new Event("offline"));
     });
 
-    expect(screen.getByRole("status")).toHaveTextContent(
+    expect(await screen.findByRole("status")).toHaveTextContent(
       "Offline. Saved recipes are read-only until you reconnect.",
     );
+  });
+
+  it("does not show the offline banner when requests still work", async () => {
+    Object.defineProperty(navigator, "onLine", {
+      configurable: true,
+      value: false,
+    });
+
+    renderPwa();
+
+    await waitFor(() => {
+      expect(fetch).toHaveBeenCalledWith(
+        expect.stringMatching(/^\/robots\.txt\?online-check=/),
+        {
+          cache: "no-store",
+          credentials: "same-origin",
+          method: "HEAD",
+        },
+      );
+    });
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
   });
 });
