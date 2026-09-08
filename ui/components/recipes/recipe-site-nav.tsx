@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { RecipeNavTabs } from "@/components/recipes/recipe-nav-tabs";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -34,7 +33,7 @@ export function RecipeSiteNav() {
   return (
     <div className="flex items-baseline gap-3 sm:gap-4">
       {publicTabs.map((tab) => (
-        <Link
+        <a
           key={tab.label}
           href={tab.href}
           className="rt-tab whitespace-nowrap text-base lg:text-lg"
@@ -43,7 +42,7 @@ export function RecipeSiteNav() {
           }
         >
           {tab.label}
-        </Link>
+        </a>
       ))}
     </div>
   );

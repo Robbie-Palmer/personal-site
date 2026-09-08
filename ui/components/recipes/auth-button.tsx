@@ -12,7 +12,6 @@ import {
   UserPlus,
   UserRound,
 } from "lucide-react";
-import Link from "next/link";
 import { useEffect, useState } from "react";
 import {
   type Provider,
@@ -304,10 +303,10 @@ export function AuthButton({
                 asChild
                 onClick={() => setOpen(false)}
               >
-                <Link href="/recipes/profile">
+                <a href="/recipes/profile">
                   <UserRound />
                   Profile
-                </Link>
+                </a>
               </Button>
               <Button
                 variant="ghost"
@@ -315,10 +314,10 @@ export function AuthButton({
                 asChild
                 onClick={() => setOpen(false)}
               >
-                <Link href="/recipes/settings">
+                <a href="/recipes/settings">
                   <Settings />
                   Settings
-                </Link>
+                </a>
               </Button>
             </div>
 

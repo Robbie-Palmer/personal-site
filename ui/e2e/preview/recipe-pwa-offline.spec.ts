@@ -165,7 +165,7 @@ async function clearOfflineRecipeSnapshots(page: Page): Promise<void> {
 test.describe.configure({ mode: "serial" });
 
 test.describe("deployed recipe PWA offline navigation", () => {
-  test("returns from an unavailable tab to the cached recipe box", async ({
+  test("routes unavailable app navigation through the offline page", async ({
     browser,
   }) => {
     const { context, page } = await openOwnerRecipeSession(browser);
@@ -173,19 +173,50 @@ test.describe("deployed recipe PWA offline navigation", () => {
       await waitForOfflineRecipeData(page);
       await context.setOffline(true);
 
-      await page.getByRole("link", { name: "Kitchen", exact: true }).click();
-      await expect(
-        page.getByRole("heading", { name: "You're offline" }),
-      ).toBeVisible();
+      const destinations = [
+        { name: "Discover", path: "/recipes/discover" },
+        { name: "Kitchen", path: "/recipes/kitchen" },
+        { name: "Log", path: "/recipes/log" },
+        { name: "Shopping", path: "/recipes/shopping" },
+      ];
 
-      await page.getByRole("link", { name: "Back to recipes" }).click();
-      await expect(page).toHaveURL(`${previewSiteURL.origin}/recipes`);
-      await expect(
-        page.getByText("Your recipe box", { exact: true }),
-      ).toBeVisible();
-      await expect(
-        page.getByRole("heading", { name: "Recipe not found" }),
-      ).toHaveCount(0);
+      const expectOfflineDestination = async (path: string) => {
+        await expect(page).toHaveURL(`${previewSiteURL.origin}${path}`);
+        await expect(
+          page.getByRole("heading", { name: "You're offline" }),
+        ).toBeVisible();
+        await expect(
+          page.getByRole("heading", { name: "Recipe not found" }),
+        ).toHaveCount(0);
+
+        await page.getByRole("link", { name: "Back to recipes" }).click();
+        await expect(page).toHaveURL(`${previewSiteURL.origin}/recipes`);
+        await expect(
+          page.getByText("Your recipe box", { exact: true }),
+        ).toBeVisible();
+      };
+
+      for (const destination of destinations) {
+        await page
+          .getByRole("link", { name: destination.name, exact: true })
+          .click();
+        await expectOfflineDestination(destination.path);
+      }
+
+      await page.getByRole("link", { name: /^Notifications/ }).click();
+      await expectOfflineDestination("/recipes/notifications");
+
+      await page
+        .getByRole("button", { name: "Account for Household owner" })
+        .click();
+      await page.getByRole("link", { name: "Profile", exact: true }).click();
+      await expectOfflineDestination("/recipes/profile");
+
+      await page
+        .getByRole("button", { name: "Account for Household owner" })
+        .click();
+      await page.getByRole("link", { name: "Settings", exact: true }).click();
+      await expectOfflineDestination("/recipes/settings");
     } finally {
       await context.close();
     }

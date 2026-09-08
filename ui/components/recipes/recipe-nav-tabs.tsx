@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSelectedRecipeCount } from "@/hooks/use-shopping-list";
 
@@ -27,35 +26,35 @@ export function RecipeNavTabs() {
 
   return (
     <div className="flex items-baseline gap-2 md:gap-4">
-      <Link
+      <a
         href="/recipes"
         className="rt-tab text-base lg:text-lg"
         data-active={onRecipes || undefined}
       >
         Recipes
-      </Link>
-      <Link
+      </a>
+      <a
         href="/recipes/discover"
         className="rt-tab text-base lg:text-lg"
         data-active={onDiscover || undefined}
       >
         Discover
-      </Link>
-      <Link
+      </a>
+      <a
         href="/recipes/kitchen"
         className="rt-tab text-base lg:text-lg"
         data-active={onKitchen || undefined}
       >
         Kitchen
-      </Link>
-      <Link
+      </a>
+      <a
         href="/recipes/log"
         className="rt-tab text-base lg:text-lg"
         data-active={onLog || undefined}
       >
         Log
-      </Link>
-      <Link
+      </a>
+      <a
         href="/recipes/shopping"
         className="rt-tab text-base lg:text-lg inline-flex items-center gap-1.5"
         data-active={onShopping || undefined}
@@ -70,7 +69,7 @@ export function RecipeNavTabs() {
             {count}
           </span>
         )}
-      </Link>
+      </a>
     </div>
   );
 }

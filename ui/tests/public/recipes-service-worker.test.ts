@@ -111,13 +111,13 @@ function serviceWorkerHarness(fetchMock: typeof fetch) {
 describe("recipe service worker", () => {
   it("removes the previous shell caches when the worker updates", async () => {
     const worker = serviceWorkerHarness(vi.fn<typeof fetch>());
-    worker.stores.set("recipe-shell-v3", new MemoryCache());
-    worker.stores.set("recipe-assets-v3", new MemoryCache());
     worker.stores.set("recipe-shell-v4", new MemoryCache());
+    worker.stores.set("recipe-assets-v4", new MemoryCache());
+    worker.stores.set("recipe-shell-v5", new MemoryCache());
 
     await worker.activate();
 
-    expect([...worker.stores.keys()]).toEqual(["recipe-shell-v4"]);
+    expect([...worker.stores.keys()]).toEqual(["recipe-shell-v5"]);
   });
 
   it("precaches the recipe shells and WebAssembly needed to render them", async () => {
@@ -147,8 +147,8 @@ describe("recipe service worker", () => {
 
     await worker.install();
 
-    const shellKeys = await worker.stores.get("recipe-shell-v4")?.keys();
-    const assetKeys = await worker.stores.get("recipe-assets-v4")?.keys();
+    const shellKeys = await worker.stores.get("recipe-shell-v5")?.keys();
+    const assetKeys = await worker.stores.get("recipe-assets-v5")?.keys();
     expect(shellKeys?.map((key) => new URL(key.url).pathname)).toEqual([
       "/recipes",
       "/recipes/saved",
@@ -171,7 +171,7 @@ describe("recipe service worker", () => {
     await expect(worker.install()).rejects.toThrow(
       "Could not cache HTML for /recipes",
     );
-    expect(worker.stores.has("recipe-shell-v4")).toBe(false);
+    expect(worker.stores.has("recipe-shell-v5")).toBe(false);
   });
 
   it("shows the offline page for unavailable tabs without treating them as recipes", async () => {

@@ -1,7 +1,7 @@
 /* Robbie's Recipes service worker. Keep cache version changes explicit so an
  * update never mixes incompatible application shells or private data. */
-const SHELL_CACHE = "recipe-shell-v4";
-const ASSET_CACHE = "recipe-assets-v4";
+const SHELL_CACHE = "recipe-shell-v5";
+const ASSET_CACHE = "recipe-assets-v5";
 const IMAGE_CACHE = "recipe-images-v1";
 const SESSION_CACHE = "recipe-session-v1";
 const SESSION_CACHE_KEY = "/recipes/__offline-session";

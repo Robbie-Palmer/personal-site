@@ -1,7 +1,6 @@
 "use client";
 
 import { Leaf, TriangleAlert } from "lucide-react";
-import Link from "next/link";
 import type { DietMatch } from "@/lib/domain/diet";
 import { cn } from "@/lib/generic/styles";
 
@@ -49,12 +48,12 @@ export function DietListNotice({
         <b className="text-[var(--ink)]">Your diet</b> · {summary}.{" "}
         <span className="text-[var(--ink-3)]">{statusText}</span>
       </p>
-      <Link
+      <a
         href="/recipes/settings?section=diet"
         className="rt-mono text-[var(--sage)] hover:underline"
       >
         edit diet →
-      </Link>
+      </a>
       {mode === "hide" && hiddenCount > 0 && onToggleHidden && (
         <button
           type="button"
