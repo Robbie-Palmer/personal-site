@@ -44,14 +44,26 @@ initiation, fault settings, node state, position, scores, messages, and events. 
 schedule work and display returned snapshots. It must not reimplement candidate selection, health
 transitions, retry behavior, or message handling.
 
+Define a versioned `SimulationTrace` as the replay contract. Each ordered input frame will contain
+the exact `uint32_t now_ms` passed to `SwarmController`, followed by its health updates,
+environmental snapshot updates, fault transitions, and inbound messages in delivery order. The
+trace will also fix initial node configuration and mission commands. The seed may control only
+named stochastic adapter policies, such as simulated packet loss or delivery delay. Materialize
+those choices into the trace before comparison; neither the controller nor renderer may draw
+additional randomness. Native and WebAssembly runs will consume the same serialized trace and
+compare their ordered outputs.
+
 Use CesiumJS only for presentation and interaction. It will draw the Earth, satellite positions,
 orbit or scenario tracks, mission objectives, communication events, and selected agent. React will
 own the surrounding controls and event log. Load both CesiumJS and the WebAssembly worker only when
 the simulation enters the viewport, and stop rendering when it leaves.
 
-Self-host CesiumJS's required static files and Natural Earth II imagery with the site's static
-export. Do not make Cesium ion, Google imagery, or another metered service a requirement. A hosted
-imagery source may be considered later under its own usage and attribution terms.
+Self-host CesiumJS's workers, widgets, and other required static files with the site's static export.
+Configure the viewer with a `TileMapServiceImageryProvider` pointed at the locally bundled Natural
+Earth II tiles and an `EllipsoidTerrainProvider` or another self-hosted terrain provider. Disable
+the base-layer picker and geocoder, or replace them with exact local equivalents. Do not rely on
+CesiumJS provider defaults, an ion token, Google imagery, or another hosted service. A later ADR may
+adopt hosted imagery under its usage and attribution terms.
 
 Before displaying moving orbital positions, add a core boundary for refreshing each node's
 `SatelliteSnapshot`. One source of simulated position must feed both candidacy scoring and Cesium.
