@@ -1,338 +1,482 @@
 ---
 title: "Personal Finance App pitch"
-description: "Manual-entry wealth tracking and forecasting for UK households"
+description: "An open-source financial twin emerging from personal use and agent-first development"
 ---
 
-# A financial planner for people who still use spreadsheets
+# My financial life is not a list of accounts
 
-Personal Finance App records balances, ownership, currencies, debts, and forecasts in one model.
-
-<PitchNotes>
-  The working title is Asset Tracker. The target user currently chooses between budgeting apps that lack long-term
-  planning, advisor software that costs thousands per year, and a spreadsheet they must maintain themselves.
-
-  \[Sources]
-
-  * [Personal Finance App overview](/projects/personal-finance-app?tab=overview)
-  * [Problem statement](/projects/personal-finance-app?tab=overview#problem)
-    \[/Sources]
-</PitchNotes>
-
-***
-
-## The first user's finances span property, shares, and currencies
-
-* A home owned with a partner, unequal deposits, and a mortgage rate about to reset
-* Old employer stock priced in dollars, sold into sterling, then invested in US-heavy funds
-* Closed accounts that still matter to the historical picture
-* Monthly spending inferred from cash flow, without categorising every coffee
+A jointly owned home with unequal deposits. A mortgage approaching renewal. Pensions, investments and old employer shares across GBP and USD.
 
 <PitchStep>
-  Each case needs its own formulas, currency assumptions, and history. The spreadsheet owner maintains all of it.
+  I built Asset Tracker because no product held those relationships and the decisions they create.
 </PitchStep>
 
 <PitchNotes>
-  These examples come from the finances the product needs to model first. A spreadsheet can calculate the
-  relationships, but its owner must design, test, document, and repair every formula.
+  This deck records an opportunity thesis for a working piece of personalised software built for its first user. No
+  fundraising ask is attached. The question is whether the model proves useful enough to warrant a wider product.
+
+  The opening details are the actual conditions the first version needs to represent: shared property with unequal
+  ownership, a linked mortgage, multi-currency assets and financial history spread across providers.
 
   \[Sources]
 
   * [Personal Finance App problem statement](/projects/personal-finance-app?tab=overview#problem)
+  * [Live Asset Tracker](/assettracker)
     \[/Sources]
 </PitchNotes>
 
 ***
 
-## Budgeting apps and advisor tools solve different parts
+## My spreadsheet is doing four jobs
 
-<PitchColumns>
-  <PitchColumn>
-    ### Budgeting apps
+<div className="pitch-value-ledger">
+  <div><span>01</span><strong>Ledger</strong><p>What existed, changed or closed?</p></div>
+  <div><span>02</span><strong>Ownership graph</strong><p>Who owns the asset, and what debt is linked to it?</p></div>
+  <div><span>03</span><strong>Planning model</strong><p>What changes if rates, work or contributions change?</p></div>
+  <div><span>04</span><strong>Reconciliation</strong><p>Did reality follow the plan?</p></div>
+</div>
 
-    Monarch, YNAB, and Emma organise transactions and current-month spending.
-
-    They provide little long-term forecasting.
-  </PitchColumn>
-
-  <PitchColumn>
-    ### Advisor software
-
-    Voyant, eMoney, and RightCapital provide detailed forecasts.
-
-    They cost thousands per year and target financial advisors.
-  </PitchColumn>
-</PitchColumns>
-
-<p className="pitch-slide__statement">The missing product combines flexible data entry with long-term forecasting.</p>
+<p className="pitch-slide__statement">Every exception becomes another tab, formula and assumption to maintain.</p>
 
 <PitchNotes>
-  The project brief compares data-entry flexibility with forecasting depth. No listed competitor scores highly on
-  both. Personal Finance App targets people who currently build that combination themselves.
+  The problem is not that spreadsheets cannot calculate these answers. It is that their owner must also design the
+  schema, preserve history, distinguish transfers from spending, manage currencies, test formulas and remember why
+  each exception exists.
+
+  A large purchase should not require rechecking every balance. Moving cash into an investment should not appear as
+  expenditure. Closing an account should not erase its history. These are modelling problems. A chart cannot solve
+  them.
 
   \[Sources]
 
-  * [Competitor analysis](/projects/personal-finance-app?tab=overview#competitor-analysis)
-  * [Positioning map](/projects/personal-finance-app?tab=overview#positioning-map)
-    \[/Sources]
-</PitchNotes>
-
-***
-
-## A balance update should take seconds
-
-<Mermaid
-  chart={`flowchart LR
-A[Record<br/>a balance or change] --> B[Reconcile<br/>assets, debts and transfers]
-B --> C[See<br/>wealth trajectory]
-C --> D[Compare<br/>forecast with reality]
-D --> A`}
-/>
-
-<p className="pitch-slide__statement">Record one material change without re-entering every account balance.</p>
-
-<PitchNotes>
-  Manual data entry is the v1 workflow. It lets a user record a balance or transaction on a phone and correct mistakes
-  directly. Each new entry compares the forecast with actual results. Open Banking can automate this workflow later.
-
-  \[Sources]
-
-  * [Proposal](/projects/personal-finance-app?tab=overview#proposal)
+  * [Personal Finance App problem statement](/projects/personal-finance-app?tab=overview#problem)
   * [Core principles](/projects/personal-finance-app?tab=overview#core-principles)
     \[/Sources]
 </PitchNotes>
 
 ***
 
-## Ownership, currencies, and history belong in the data model
+## The prototype already helps me
+
+<div className="pitch-value-ledger">
+  <div><span>Record</span><strong>Financial history</strong><p>Balances, holdings, closures and imports</p></div>
+  <div><span>Flows</span><strong>Money moving</strong><p>Transfers, capital flows and currencies</p></div>
+  <div><span>History</span><strong>Position over time</strong><p>Net worth, expenditure and FI progress</p></div>
+  <div><span>Decide</span><strong>What is possible</strong><p>Portfolio projections and liquid runway</p></div>
+</div>
+
+<p className="pitch-slide__statement">It is a client-side prototype in active personal use. Product-market fit remains unproved.</p>
+
+<PitchNotes>
+  The current application imports and exports data, records balances and transfers, derives historical cash flow,
+  separates capital movements from expenditure, links account histories and plots net worth, allocation, financial
+  independence, projections and liquidity-aware runway.
+
+  The prototype is still local and personal. It has not yet proved durable onboarding, shared household use, a
+  backend, bank connections or a business model.
+
+  \[Sources]
+
+  * [Live Asset Tracker](/assettracker)
+  * [Asset Tracker source](https://github.com/Robbie-Palmer/personal-site/tree/main/ui/components/assettracker)
+    \[/Sources]
+</PitchNotes>
+
+***
+
+## The model should match the household
 
 <Mermaid
-  chart={`flowchart LR
-U[Users] --> E[Entities<br/>self · partner · household]
-E --> A[Accounts<br/>cash · investments · pensions · debts]
-A --> N[Entries<br/>balances · transactions]
-X[Exchange rates<br/>over time] --> N
-N --> Q[Value of X<br/>on date Y<br/>in currency Z]`}
+  chart={`flowchart TB
+People["People and household"] --> Own["Ownership and responsibility"]
+Own --> State["Assets · liabilities · accounts · currencies"]
+State --> History["Balances · holdings · transfers · income · spending"]
+History --> Decision["Runway · mortgage · work · investing decisions"]
+Plan["Plans and assumptions"] --> Decision
+Decision --> Outcome["What happened next"]
+Outcome --> History
+`}
 />
 
+<p className="pitch-slide__statement">The plan and the actual financial history should update the same source of truth.</p>
+
 <PitchNotes>
-  Multi-entity and multi-currency support belong in the base model. An entity can own a share of a home, a household
-  can carry a joint mortgage, and an investment account can keep its native currency. Stored entries and exchange
-  rates make historical comparisons reproducible.
+  "Digital twin" is useful only if it changes the data model. Here it means an owner-controlled representation of the
+  people, household, ownership, accounts, currencies, obligations, transfers and plans that make a financial decision
+  legible.
+
+  Provider accounts supply inputs. The household is the organising principle. The model must remain inspectable, correctable,
+  exportable and useful without complete automation.
 
   \[Sources]
 
-  * [Data model](/projects/personal-finance-app?tab=overview#data-model)
-  * [Architectural focus](/projects/personal-finance-app?tab=overview#architectural-focus)
+  * [Digital Twins for Everyday Life](/initiatives/digital-twins-for-everyday-life)
+  * [Personal Finance App data model](/projects/personal-finance-app?tab=overview#data-model)
     \[/Sources]
 </PitchNotes>
 
 ***
 
-## The first release compares the plan with reality
+## Three products hide inside "personal finance"
 
-# Are assets and liabilities moving as expected?
+<div className="pitch-value-ledger">
+  <div><span>01</span><strong>Account app</strong><p>Where is the money now?</p></div>
+  <div><span>02</span><strong>Planning tool</strong><p>Does this scenario work?</p></div>
+  <div><span>03</span><strong>Financial twin</strong><p>What changed, and what happened next?</p></div>
+</div>
 
-<PitchStep>
-  Track assets and liabilities over time, including CAGR.
-</PitchStep>
-
-<PitchStep>
-  Record stock units, recurring transfers, loans, and linked accounts.
-</PitchStep>
-
-<PitchStep>
-  See income trends and the effect of UK tax, ISA, pension, and CGT rules.
-</PitchStep>
+<p className="pitch-slide__statement">The twin keeps household state and decisions on one timeline.</p>
 
 <PitchNotes>
-  V1 covers tracking and understanding. Scenario planning, automatic imports, and additional tax jurisdictions come
-  later. Summary charts answer the headline question, and every chart traces back to entries the user can inspect and
-  correct.
+  This third category is the hypothesis. It is not enough to put a forecast beside connected accounts. The same model
+  needs to preserve relationships, accept imperfect observations, support a decision and learn from the result.
+
+  A dedicated product can still lose. An account app can deepen its planning, and a planner can improve its data
+  capture. Only a materially better integrated model warrants continuing.
 
   \[Sources]
 
-  * [Key features](/projects/personal-finance-app?tab=overview#key-features)
-  * [Core principles](/projects/personal-finance-app?tab=overview#core-principles)
+  * [Digital twin shared loop](/initiatives/digital-twins-for-everyday-life#the-shared-loop)
     \[/Sources]
 </PitchNotes>
 
 ***
 
-## Existing products show people will pay to replace spreadsheets
+## The category is occupied
 
-<PitchColumns>
-  <PitchColumn>
-    # \~40%
+<div className="pitch-value-ledger">
+  <div><img src="/images/pitches/personal-finance-app/competitors/monzo.svg" alt="Monzo logo" className="pitch-competitor-row__logo" /><strong>Monzo</strong><p>Distribution and live financial data</p></div>
+  <div><img src="/images/pitches/personal-finance-app/competitors/projectionlab.svg" alt="ProjectionLab logo" className="pitch-competitor-row__logo" /><strong>ProjectionLab</strong><p>Planning, tax and optimisation depth</p></div>
+  <div><img src="/images/pitches/personal-finance-app/competitors/kubera.svg" alt="Kubera logo" className="pitch-competitor-row__logo" /><strong>Kubera</strong><p>Multi-entity, multi-currency wealth state</p></div>
+  <div><img src="/images/pitches/personal-finance-app/competitors/shackademy.svg" alt="Shackademy logo" className="pitch-competitor-row__logo" /><strong>Shackademy</strong><p>Creator distribution around Voyant</p></div>
+</div>
 
-    of people who actively budget use spreadsheets.
-  </PitchColumn>
-
-  <PitchColumn>
-    # \~$1m
-
-    annual recurring revenue reached by bootstrapped ProjectionLab in four years.
-  </PitchColumn>
-</PitchColumns>
-
-<p className="pitch-slide__statement">ProjectionLab validates paid planning software. Spreadsheet usage identifies the audience.</p>
+<p className="pitch-slide__statement">Differentiation has to come from the model and the rate of learning.</p>
 
 <PitchNotes>
-  These users already maintain their own financial models. ProjectionLab shows that people with complex finances pay
-  for planning software. Its model-first workflow does not solve quick, flexible data entry.
+  These are strong products. Monzo has extraordinary UK distribution and increasingly broad account coverage.
+  ProjectionLab is a serious planning product with far more capability than Monte Carlo simulation. Kubera directly challenges any
+  claim that multi-entity or multi-currency wealth tracking is an empty market.
+
+  These numbers describe the market. Asset Tracker has no external traction yet.
 
   \[Sources]
 
-  * [Spreadsheet users are the market](/projects/personal-finance-app?tab=overview#spreadsheet-users-are-the-market)
+  * [Monzo FY2026 annual report](https://monzo.com/annual-report/2026)
+  * [Monzo FY2025 annual report](https://monzo.com/annual-report/2025/Monzo%20Bank%20Group%20FY2025%20Annual%20Report.pdf)
   * [ProjectionLab reached $1M ARR](https://projectionlab.com/blog/we-reached-1m-arr-with-zero-funding)
-  * [Budgeting statistics](https://wallethub.com/edu/budgeting-statistics/146387)
+  * [ProjectionLab product](https://projectionlab.com/)
+  * [Kubera wealth tracker](https://www.kubera.com/wealth-tracker)
     \[/Sources]
 </PitchNotes>
 
 ***
 
-## Start in the UK
-
-* 15.16 million active Open Banking users by July 2025
-* ISA, SIPP, CGT, dividend allowance, and Scottish income-tax rules
-* GBP defaults with native support for accounts in other currencies
-* The same account and entry model can support tax rules for Canada, Australia, and Europe
-
-<PitchNotes>
-  Most competing products start with US tax rules. The UK has mature Open Banking infrastructure and country-specific
-  rules that generic international presets handle poorly. Manual entry keeps the alpha independent of aggregation
-  providers. A later release can add bank feeds to the same entry workflow.
-
-  \[Sources]
-
-  * [UK structural advantage](/projects/personal-finance-app?tab=overview#uk-structural-advantage)
-  * [Open Banking reaches 15 million users](https://www.openbanking.org.uk/news/open-banking-surges-to-15-million-uk-users-as-july-marks-record-adoption/)
-    \[/Sources]
-</PitchNotes>
-
-***
-
-## Validate with the founder, then add one group at a time
-
-1. **Founder.** The app replaces the original spreadsheet.
-2. **Partner.** Shared finances work without either person maintaining the model.
-3. **Invitees.** Different households and countries expose bad assumptions.
-4. **Public launch.** Invited users return and add more accounts without prompting.
-
-<PitchNotes>
-  Each group introduces new financial structures while the user base remains small enough for direct feedback. The
-  first test is whether the founder can stop maintaining the spreadsheet. Partner and invitee behaviour then tests
-  whether the model works beyond one person's finances.
-
-  \[Sources]
-
-  * [Target persona](/projects/personal-finance-app?tab=overview#target-persona)
-  * [Go-to-market](/projects/personal-finance-app?tab=overview#go-to-market)
-    \[/Sources]
-</PitchNotes>
-
-***
-
-## Measure accounts and history, not daily opens
-
-<PitchColumns>
-  <PitchColumn>
-    ### Usage analytics
-
-    Opens, streaks, and time in app.
-  </PitchColumn>
-
-  <PitchColumn>
-    ### Evidence of product fit
-
-    Accounts tracked, months of history, linked mortgages, recurring transfers, and unprompted return.
-  </PitchColumn>
-</PitchColumns>
-
-<PitchNotes>
-  A user may need the product only a few times each month. Retention should correlate with the amount of financial
-  history and account structure stored in the product. Fifteen accounts, six months of balances, and a linked joint
-  mortgage say more than a daily-open streak.
-
-  \[Sources]
-
-  * [What PMF looks like](/projects/personal-finance-app?tab=overview#what-pmf-looks-like)
-    \[/Sources]
-</PitchNotes>
-
-***
-
-## Charge new users after the free validation period
-
-<PitchColumns>
-  <PitchColumn>
-    ### Before product-market fit
-
-    Full functionality, manual entry, zero aggregation cost, and lifetime-free access for early testers.
-  </PitchColumn>
-
-  <PitchColumn>
-    ### After product-market fit
-
-    New users pay for advanced forecasting, tax modelling, and support.
-  </PitchColumn>
-</PitchColumns>
-
-<PitchStep>
-  Revenue comes from subscriptions. The product does not sell ads or take referral commissions.
-</PitchStep>
-
-<PitchNotes>
-  Feedback and account depth matter more than revenue from the small validation cohort. Manual entry avoids bank-data
-  provider fees. Invited testers keep lifetime-free access. After validation, new users pay for advanced forecasts,
-  tax calculations, and support.
-
-  \[Sources]
-
-  * [Revenue model](/projects/personal-finance-app?tab=overview#revenue-model)
-  * [Lessons from Mint and other failures](/projects/personal-finance-app?tab=overview#lessons-from-mint-and-other-failures)
-    \[/Sources]
-</PitchNotes>
-
-***
-
-## Later releases reuse the entity, account, and entry model
+## The target sits in contested territory
 
 <Mermaid
-  chart={`flowchart LR
-A[Track<br/>wealth today] --> B[Forecast<br/>scenarios]
-B --> C[Automate<br/>Open Banking]
-C --> D[Expand<br/>new tax jurisdictions]
-D --> E[Reuse the engine<br/>for startup runway]`}
+  chart={`quadrantChart
+title Current product emphasis
+x-axis Plan maintenance --> Continuous capture
+y-axis Tracking and reporting --> Decision-model depth
+quadrant-1 Integrated model
+quadrant-2 Planning-led
+quadrant-3 Point tools
+quadrant-4 Tracking-led
+ProjectionLab: [0.34, 0.88]
+Voyant: [0.18, 0.94]
+Monzo: [0.91, 0.27]
+Kubera: [0.76, 0.53]
+Asset Tracker target: [0.88, 0.90]
+`}
 />
 
-<p className="pitch-slide__statement">Startup runway and equity tracking use the same ownership and time-series records.</p>
-
 <PitchNotes>
-  The entity, account, and entry model can later represent startup burn, founder runway, and equity compensation.
-  Startup finance remains outside v1. Work on it begins only after personal tracking works for real households.
+  The map gives a directional hypothesis. Scored comparisons will require structured product testing. ProjectionLab
+  and Voyant lead on decision modelling. Monzo leads on routine capture and distribution. Kubera has much richer
+  wealth structures than a bank. Asset Tracker is aiming for the top-right; the prototype has yet to earn that position.
+
+  "Limited causal planning" means these products expose balances, trends and goals but do not currently present the
+  household's actual state as the same inspectable model used to test and reconcile consequential decisions.
 
   \[Sources]
 
-  * [Later features](/projects/personal-finance-app?tab=overview#later-automate-and-forecast)
-  * [Future expansion: startup finance](/projects/personal-finance-app?tab=overview#future-expansion-startup-finance)
+  * [ProjectionLab product](https://projectionlab.com/)
+  * [Monzo connected accounts](https://monzo.com/help/app-help/connected-bank-accounts-monzo-enabled)
+  * [Kubera wealth tracker](https://www.kubera.com/wealth-tracker)
+  * [Shackademy and Voyant](https://shackademy.com/signup)
     \[/Sources]
 </PitchNotes>
 
 ***
 
-## The alpha succeeds when one user stops maintaining two systems
+## Monzo is the benchmark
 
-# The founder deletes the spreadsheet.
+<PitchColumns>
+  <PitchColumn>
+    # 15.2m
 
-The app must carry one household's balances, ownership, currencies, debts, and history on its own.
+    customers, with 10.4m using Monzo monthly.
+
+    More than 300k customers were investing through Monzo by FY2025.
+  </PitchColumn>
+
+  <PitchColumn>
+    ### Its current boundary
+
+    External balances and transactions feed Trends. Investments, pensions and mortgages extend the product surface.
+
+    The provider account still anchors the model.
+  </PitchColumn>
+</PitchColumns>
+
+<p className="pitch-slide__statement">More account coverage still leaves the household model undefined.</p>
 
 <PitchNotes>
-  This is the first pass-or-fail milestone. If the founder still needs the spreadsheet beside the product, the alpha
-  has not replaced the current workflow. Funding and a public launch come after this test.
+  Monzo could build much of this. It could also buy a product or hire the people behind one. That is a real competitive
+  risk. Testing the problem still makes sense while its current product leaves the household model unresolved.
+
+  The narrower observation is about Monzo's product today. Connected external accounts supply balances and
+  transactions to Monzo surfaces. Investment products use ready-made funds, and investments are currently unavailable
+  on joint accounts. This breadth is valuable, but it is different from letting a user define arbitrary ownership,
+  obligations, relationships and plans across a household.
 
   \[Sources]
 
-  * [Target persona](/projects/personal-finance-app?tab=overview#target-persona)
-  * [Funding approach](/projects/personal-finance-app?tab=overview#funding-approach)
+  * [Monzo FY2026 annual report](https://monzo.com/annual-report/2026)
+  * [Monzo FY2025 annual report](https://monzo.com/annual-report/2025/Monzo%20Bank%20Group%20FY2025%20Annual%20Report.pdf)
+  * [Monzo connected accounts](https://monzo.com/help/app-help/connected-bank-accounts-monzo-enabled)
+  * [Monzo investments](https://monzo.com/blog/monzo-investments-is-here-leave-the-hard-work-to-us)
+  * [Investments and joint accounts](https://monzo.com/help/investments/investments-on-joint-account)
+    \[/Sources]
+</PitchNotes>
+
+***
+
+<h2 className="pitch-slide__long-title">Shackademy packages financial decision support for £595</h2>
+
+<div className="pitch-value-ledger">
+  <div><span>Reach</span><strong>UK finance education</strong><p>Creator-led distribution</p></div>
+  <div><span>Offer</span><strong>Voyant + courses</strong><p>Community and professional access</p></div>
+  <div><span>Signal</span><strong>£595 · 100 places</strong><p>A priced, limited cohort</p></div>
+  <div><span>Setup</span><strong>Manual licence</strong><p>Issued within 48h; entering financial details takes time</p></div>
+</div>
+
+<p className="pitch-slide__statement">Its advantage is distribution. Its friction shows what motivated users will tolerate.</p>
+
+<PitchNotes>
+  Shackademy packages Voyant with more than 20 hours of education, a community and access to financial professionals.
+  That is a coherent product with a strong creator-led channel. It demonstrates willingness to pay for better
+  decisions among UK users who already have spreadsheets and investments.
+
+  Asset Tracker has a different intended customer and business model. The goal is software its owner needs. Selling
+  infrastructure to hundreds of education businesses would pull the product away from that purpose. The relevant
+  signals are demand, price and tolerated setup cost.
+
+  \[Sources]
+
+  * [Shackademy signup and offer](https://shackademy.com/signup)
+    \[/Sources]
+</PitchNotes>
+
+***
+
+## ProjectionLab has moved; the thesis has to move too
+
+<PitchColumns>
+  <PitchColumn>
+    ### Founder test · spring 2026
+
+    The product foregrounded plan setup and simulation.
+
+    It did not replace my workflow for importing history, modelling financial reality and reading the resulting plots.
+
+    Monarch served the United States and Canada, which stopped the UK test.
+  </PitchColumn>
+
+  <PitchColumn>
+    ### Product now
+
+    Actual-progress overlays, balance updates, UK tax presets and import plugins narrow that gap.
+
+    It remains the benchmark for planning depth.
+  </PitchColumn>
+</PitchColumns>
+
+<p className="pitch-slide__statement">Planning tools now track reality. The question is whether reality remains secondary to the plan.</p>
+
+<PitchNotes>
+  The first column records a personal product experience from one point in time. ProjectionLab has progressed since
+  then. It now journals actual progress against an initial plan, supports account-balance updates, has detailed UK
+  presets and can import data through plugins.
+
+  It does not directly link financial institutions. Plugins can sync from services including Lunch Money, YNAB and
+  Monarch. That architecture may be entirely adequate for many users. Asset Tracker must show that a reality-first,
+  user-correctable model produces better ongoing decisions for its first household.
+
+  \[Sources]
+
+  * [ProjectionLab actual-progress tracking](https://projectionlab.com/help/overlay-actual-progress)
+  * [Updating account balances](https://projectionlab.com/help/update-account-balances)
+  * [ProjectionLab plugins](https://projectionlab.com/help/plugins)
+  * [ProjectionLab changelog](https://projectionlab.com/changelog)
+  * [Monarch availability](https://partners.monarchmoney.com/download)
+    \[/Sources]
+</PitchNotes>
+
+***
+
+## Coding agents make one-user software worth testing
+
+<div className="pitch-recipe-roadmap">
+  <div className="is-live"><span>3 Jul</span><strong>Interactive prototype</strong><small>Client-side accounts, history and charts</small></div>
+  <div className="is-live"><span>7 Jul</span><strong>Money flows</strong><small>Mobile cards and Sankey view</small></div>
+  <div className="is-live"><span>11 Aug</span><strong>History imports</strong><small>Manual capital-flow records</small></div>
+  <div className="is-live"><span>30 Aug</span><strong>FI progress</strong><small>Derived expenditure and trajectory</small></div>
+  <div className="is-next"><span>5–7 Sep</span><strong>Decisions</strong><small>Historical projections and liquid runway</small></div>
+</div>
+
+<p className="pitch-slide__statement">Seven useful increments shipped in 66 days.</p>
+
+<PitchNotes>
+  The development history is the first evidence for an agent-first speed advantage. Between 3 July and 7 September
+  2026, seven material increments moved the product from an interactive client-side prototype through flows, imports,
+  derived expenditure, financial-independence tracking, historical projections and liquidity-aware runway.
+
+  This does not prove defensibility. It changes the threshold for continuing: a niche product can return enough value
+  to one user while it gathers evidence, because experiments that once needed a team can be attempted and reviewed by
+  one owner working with coding agents.
+
+  \[Sources]
+
+  * [Asset Tracker commit history](https://github.com/Robbie-Palmer/personal-site/commits/main/ui/components/assettracker)
+  * [Semi-autonomous Software Development](/initiatives/semi-autonomous-software-development)
+    \[/Sources]
+</PitchNotes>
+
+***
+
+## Four things can compound if they work in practice
+
+<div className="pitch-capability-stack">
+  <div><span>Code</span><strong>Open source</strong><p>AGPL code can be inspected, corrected, exported and forked</p></div>
+  <div><span>Platform</span><strong>Shared monorepo</strong><p>Components, deployment, tests and review are reused</p></div>
+  <div><span>Delivery</span><strong>Agent-first loop</strong><p>Context, implementation, preview QA and review stay connected</p></div>
+  <div className="pitch-capability-stack__proposed"><span>Context</span><strong>Broader digital twin</strong><p>Finance, commerce and household data connect only where useful</p></div>
+</div>
+
+<p className="pitch-slide__statement">These are execution hypotheses. Defensibility depends on more than speed, and distribution depends on more than open source.</p>
+
+<PitchNotes>
+  Open source can earn trust and make unusual use cases extensible, but only if the code and data are genuinely
+  portable. The monorepo and agentic workflow can increase delivery speed, but only if quality and maintenance costs
+  remain controlled.
+
+  The wider twin remains optional. A purchase might eventually update financial history and household
+  stock; a financial plan might constrain a shopping or food decision. Those connections should exist only after each
+  domain solves a useful problem independently.
+
+  \[Sources]
+
+  * [Repository licence](https://github.com/Robbie-Palmer/personal-site/blob/main/LICENSE)
+  * [Digital Twins for Everyday Life](/initiatives/digital-twins-for-everyday-life)
+  * [Semi-autonomous Software Development](/initiatives/semi-autonomous-software-development)
+    \[/Sources]
+</PitchNotes>
+
+***
+
+## The project earns its next stage through evidence
+
+<div className="pitch-value-ledger">
+  <div><span>Utility</span><strong>One live decision</strong><p>The model changes what I do</p></div>
+  <div><span>Replace</span><strong>Spreadsheet retired</strong><p>History stays current in one system</p></div>
+  <div><span>Share</span><strong>Household use</strong><p>My partner understands it; another household onboards</p></div>
+  <div><span>Velocity</span><strong>Fast and safe</strong><p>Useful changes land without growing rework</p></div>
+</div>
+
+<p className="pitch-slide__statement">External users matter later. The first test is whether the product removes its own spreadsheet.</p>
+
+<PitchNotes>
+  This is deliberately earlier than pre-seed. The next evidence comes from product use: apply the model to a real
+  mortgage, runway or work decision; keep it current without excessive administration; and retire the spreadsheet.
+
+  Partner use tests whether the model is legible to somebody who did not design it. A second household tests whether
+  the abstractions transfer. Sustained delivery without regressions tests whether the agent-first advantage is real.
+
+  \[Sources]
+
+  * [Personal Finance App target persona](/projects/personal-finance-app?tab=overview#target-persona)
+  * [What product-market fit looks like](/projects/personal-finance-app?tab=overview#what-pmf-looks-like)
+    \[/Sources]
+</PitchNotes>
+
+***
+
+## The thesis needs stop conditions
+
+<div className="pitch-risk-map">
+  <div className="pitch-risk-map__hub">
+    <span>Decision</span>
+    <strong>Keep building?</strong>
+    <p>Review the evidence from use</p>
+  </div>
+
+  <div className="pitch-risk-map__risk pitch-risk-map__risk--outage">
+    <span>Administration</span>
+    <strong>The model costs more effort than the decisions are worth</strong>
+  </div>
+
+  <div className="pitch-risk-map__risk pitch-risk-map__risk--permissions">
+    <span>Convergence</span>
+    <strong>ProjectionLab, Kubera or Monzo serves the use case better</strong>
+  </div>
+
+  <div className="pitch-risk-map__risk pitch-risk-map__risk--backup">
+    <span>False velocity</span>
+    <strong>Agent output creates rework faster than product value</strong>
+  </div>
+</div>
+
+<PitchNotes>
+  A one-person product can still be valuable personalised software. The stronger reasons to stop or narrow the work
+  are that maintaining the model becomes another burden, a competitor solves the real use case better, or apparent
+  development velocity turns into accumulated defects and rework.
+
+  A fourth warning is conceptual: a "financial twin" that cannot produce a better decision than an account dashboard
+  plus a planning tool is branding rather than product architecture.
+
+  \[Sources]
+
+  * [Digital twin principles](/initiatives/digital-twins-for-everyday-life#principles)
+  * [Semi-autonomous development success criteria](/initiatives/semi-autonomous-software-development#success)
+    \[/Sources]
+</PitchNotes>
+
+***
+
+## Current direction
+
+1. Use Asset Tracker for consequential personal decisions.
+2. Replace the spreadsheet and reduce the cost of keeping history current.
+3. Publish the code, model and evidence as the product changes.
+4. Add household users, automation or commercial intent only when use justifies them.
+
+# Build the thing I need.
+
+<p className="pitch-slide__statement">Keep enough evidence to learn whether other people need it too.</p>
+
+<PitchNotes>
+  This deck contains no invented market-size slide, revenue forecast or financing ask. The current commitment follows
+  the problem and allows the eventual company shape to emerge from evidence.
+
+  The project can become a durable personal tool, an open-source product, an independent business, a capability that
+  strengthens the wider digital twin, or something an incumbent values. The next step is the same in each case: make
+  the product meaningfully better for real financial decisions and record what that teaches.
+
+  \[Sources]
+
+  * [Personal Finance App overview](/projects/personal-finance-app)
+  * [Live Asset Tracker](/assettracker)
     \[/Sources]
 </PitchNotes>
