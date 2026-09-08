@@ -67,6 +67,13 @@ describe("RecipePwa", () => {
   });
 
   it("does not show the offline banner when requests still work", async () => {
+    let resolveProbe: ((response: Response) => void) | undefined;
+    vi.mocked(fetch).mockImplementationOnce(
+      () =>
+        new Promise<Response>((resolve) => {
+          resolveProbe = resolve;
+        }),
+    );
     Object.defineProperty(navigator, "onLine", {
       configurable: true,
       value: false,
@@ -83,6 +90,9 @@ describe("RecipePwa", () => {
           method: "HEAD",
         },
       );
+    });
+    await act(async () => {
+      resolveProbe?.(new Response(null, { status: 204 }));
     });
     expect(screen.queryByRole("status")).not.toBeInTheDocument();
   });
