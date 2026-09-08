@@ -1,0 +1,122 @@
+---
+title: "ADR 013: Browser Simulation with CesiumJS and C++ WebAssembly"
+status: "Proposed"
+date: "2026-09-08"
+tech_stack: ["CesiumJS", "Emscripten", "WebAssembly"]
+---
+
+# Context
+
+The host simulation proves the three-node negotiation path, but its terminal output does not show
+where the agents are, which messages changed their state, or why one candidate won. A reader must
+understand the paper and source code before the behavior makes sense.
+
+The portfolio needs an interactive Earth view that runs the coordination code rather than copying
+its decisions into TypeScript. [ADR 007](/projects/autonomic-satellite-swarm/adrs/007-portable-core-and-hardware-adapters)
+already keeps that code independent of Arduino and operating-system APIs. The Uno, ESP32, and host
+builds differ at their adapter boundaries, so a browser adapter fits the existing design.
+
+A globe alone would not make the simulation physically credible. The controller currently scores a
+fixed `SatelliteSnapshot`, and `HistoricalOrbitalScorer` remains a documented heuristic. The
+proposed [orbit-propagation experiment](/projects/autonomic-satellite-swarm/adrs/012-qrptracker-embedded-orbit-propagation)
+may later provide changing positions, but it has not passed its acceptance criteria.
+
+[CesiumJS](https://cesium.com/platform/cesiumjs/) is an Apache-2.0 browser library with a WGS84
+globe, altitude-aware entities, glTF models, and time-dynamic visualization. Its
+[offline guide](https://github.com/CesiumGS/cesium/blob/main/Documentation/OfflineGuide/README.md)
+documents bundled Natural Earth II imagery, so the first version does not need a hosted map account
+or runtime token. [Emscripten](https://emscripten.org/docs/compiling/Building-Projects.html) can use
+the existing CMake project to compile C++ into WebAssembly.
+
+# Decision, proposed
+
+Build the browser simulation as one C++ WebAssembly module rendered by CesiumJS.
+
+Link the existing `satellite_swarm` coordination library into an Emscripten target. The target will
+add a browser simulation adapter for deterministic time, in-memory message delivery, health inputs,
+and simulated environmental state. It will not compile the infrared or ESP-NOW adapters because a
+browser has neither device. The same coordination, score, message, and codec sources used by the
+firmware remain authoritative.
+
+Run the module in a Web Worker. Advance it with fixed simulation steps and a caller-supplied seed,
+not animation-frame timing. Expose a small command and snapshot boundary for reset, step, mission
+initiation, fault settings, node state, position, scores, messages, and events. TypeScript may
+schedule work and display returned snapshots. It must not reimplement candidate selection, health
+transitions, retry behavior, or message handling.
+
+Use CesiumJS only for presentation and interaction. It will draw the Earth, satellite positions,
+orbit or scenario tracks, mission objectives, communication events, and selected agent. React will
+own the surrounding controls and event log. Load both CesiumJS and the WebAssembly worker only when
+the simulation enters the viewport, and stop rendering when it leaves.
+
+Self-host CesiumJS's required static files and Natural Earth II imagery with the site's static
+export. Do not make Cesium ion, Google imagery, or another metered service a requirement. A hosted
+imagery source may be considered later under its own usage and attribution terms.
+
+Before displaying moving orbital positions, add a core boundary for refreshing each node's
+`SatelliteSnapshot`. One source of simulated position must feed both candidacy scoring and Cesium.
+The first scenario may use deterministic recorded or scripted inputs if it labels them as simulation
+data. Do not describe a trajectory as propagated or physically validated until the orbit-propagation
+experiment supplies that evidence.
+
+# Alternatives
+
+## Reimplement the demonstration in TypeScript
+
+This would integrate with React quickly, but the visible result could drift from the embedded state
+machine. It would weaken the main reason for building the demonstration, which is to let a reader
+interact with the same coordination code used by the firmware.
+
+## Use react-globe.gl
+
+[`react-globe.gl`](https://github.com/vasturiano/react-globe.gl) offers a smaller React-facing API
+for paths, altitude, and custom Three.js objects. It is a good choice for a decorative or generic
+spherical visualization. CesiumJS fits this project better because positions, reference frames,
+simulation time, and later orbital analysis are part of the domain rather than visual effects.
+
+## Extend Leaflet or adopt MapLibre globe mode
+
+Leaflet fits projected surface maps. It does not provide an Earth-centered scene for orbiting
+objects. [MapLibre's globe](https://maplibre.org/maplibre-gl-js/docs/examples/display-a-globe-with-an-atmosphere/)
+can place data above the surface, but satellite models and tracks would require custom rendering and
+projection code that CesiumJS already owns.
+
+## Use hosted photorealistic Earth data
+
+Google 3D Maps and Cesium ion can provide richer terrain and imagery. They require accounts, tokens,
+quotas, or billing, and detailed ground geometry adds little while viewing low-Earth orbit. The
+self-hosted globe keeps the first version free and available with the rest of the static site.
+
+# Acceptance criteria
+
+Keep this ADR Proposed until a vertical slice satisfies all of the following:
+
+* Build the existing coordination library for native tests, both firmware targets, and WebAssembly
+  without copying its algorithms into TypeScript.
+* Run one deterministic mission trace with the same inputs through the native and WebAssembly
+  simulations and compare their ordered messages, state transitions, scores, and assignment.
+* Place a mission objective on the globe and show the request, candidacy, acknowledgement, and
+  assignment events alongside each node's state.
+* Feed each displayed node position and the corresponding candidacy calculation from the same
+  simulation snapshot.
+* Complete the site's static production build with no Cesium ion token and verify that the demo does
+  not request ion, Google, or public OpenStreetMap tile services.
+* Record transferred JavaScript, WebAssembly, and imagery sizes plus desktop and mobile rendering
+  measurements before deciding whether the initial scene is small enough to load automatically.
+* Provide a state table and event log when WebGL is unavailable or reduced motion is requested.
+* Display the source revision used to build the WebAssembly module and retain the research-prototype,
+  historical-score, and safe-disabled-state caveats next to the simulation.
+
+# Consequences
+
+Readers can observe the real coordination state machine instead of trusting a transcript or a
+JavaScript reconstruction. The simulation remains deterministic and can grow into packet-loss,
+partition, health, and replay experiments without placing those concerns in the firmware core.
+
+The site gains a large client-only renderer, a second C++ build target, a worker protocol, and static
+Cesium assets. Lazy loading, lifecycle cleanup, and a non-WebGL fallback become required rather than
+optional polish.
+
+WebAssembly proves that the browser and firmware compile common source. It does not prove identical
+machine code, hardware timing, radio behavior, orbital validity, or flight readiness. CesiumJS also
+draws supplied positions; it does not validate them. Those limits must remain visible in the demo.

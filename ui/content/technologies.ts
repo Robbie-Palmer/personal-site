@@ -509,6 +509,29 @@ export const technologies: TechnologyContent[] = [
     type: "language",
   },
   {
+    name: "WebAssembly",
+    added: "2026-09-08",
+    description:
+      "Portable binary instruction format for code running in web browsers",
+    website: "https://webassembly.org",
+    type: "platform",
+  },
+  {
+    name: "Emscripten",
+    added: "2026-09-08",
+    description: "LLVM toolchain for compiling C and C++ to WebAssembly",
+    website: "https://emscripten.org",
+    type: "tool",
+  },
+  {
+    name: "CesiumJS",
+    added: "2026-09-08",
+    description:
+      "WebGL library for time-dynamic 3D globes and geospatial scenes",
+    website: "https://cesium.com/platform/cesiumjs/",
+    type: "library",
+  },
+  {
     name: "CMake",
     added: "2026-09-04",
     description: "Cross-platform build-system generator for native software",
