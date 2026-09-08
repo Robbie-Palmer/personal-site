@@ -33,6 +33,7 @@ export function killProcessGroup(proc: ChildProcess | undefined): void {
 export async function waitForServer(
   proc: ChildProcess,
   timeout: number,
+  readyText = "Ready on",
 ): Promise<void> {
   return new Promise((resolve, reject) => {
     let outputTail = "";
@@ -63,7 +64,7 @@ export async function waitForServer(
 
     proc.stdout?.on("data", (data: Buffer) => {
       recordOutput(data);
-      if (!settled && outputTail.includes("Ready on")) {
+      if (!settled && outputTail.includes(readyText)) {
         settled = true;
         clearTimeout(timer);
         resolve();

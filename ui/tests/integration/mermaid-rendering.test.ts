@@ -6,7 +6,6 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
   getWranglerTestRepoRoot,
   killProcessGroup,
-  WRANGLER_TEST_COMPATIBILITY_DATE,
   waitForServer,
 } from "./wrangler-test-utils";
 
@@ -38,16 +37,13 @@ describe("Visualization browser rendering", () => {
       "pnpm",
       [
         "exec",
-        "wrangler",
-        "pages",
-        "dev",
+        "serve",
         "out",
-        "--port",
-        String(SERVER_PORT),
-        "--ip",
-        "127.0.0.1",
-        "--compatibility-date",
-        WRANGLER_TEST_COMPATIBILITY_DATE,
+        "--listen",
+        `tcp://127.0.0.1:${SERVER_PORT}`,
+        "--no-clipboard",
+        "--no-port-switching",
+        "--no-request-logging",
       ],
       {
         cwd: UI_ROOT,
@@ -56,7 +52,7 @@ describe("Visualization browser rendering", () => {
       },
     );
 
-    await waitForServer(serverProcess, 30_000);
+    await waitForServer(serverProcess, 30_000, "Accepting connections at");
     browser = await puppeteer.launch({
       headless: true,
       args: ["--disable-setuid-sandbox", "--no-sandbox"],
@@ -69,7 +65,7 @@ describe("Visualization browser rendering", () => {
     killProcessGroup(serverProcess);
   });
 
-  it("serves the exported HTML byte-for-byte through Wrangler", async () => {
+  it("serves the exported HTML byte-for-byte through the static server", async () => {
     const relativePath = "projects/recipe-site/deck.html";
     const response = await fetch(`${BASE_URL}/projects/recipe-site/deck`);
 
