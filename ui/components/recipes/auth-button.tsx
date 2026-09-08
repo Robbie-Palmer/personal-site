@@ -12,7 +12,6 @@ import {
   UserPlus,
   UserRound,
 } from "lucide-react";
-import Link from "next/link";
 import { useEffect, useState } from "react";
 import {
   type Provider,
@@ -20,6 +19,7 @@ import {
   AUTH_PROVIDERS as providers,
 } from "@/components/recipes/auth-providers";
 import { RecipeAvatar } from "@/components/recipes/recipe-avatar";
+import { clearOfflineRecipeData } from "@/components/recipes/recipe-pwa";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ApiError, apiRequest } from "@/lib/api/http";
@@ -214,6 +214,9 @@ export function AuthButton({
             try {
               await clearPrivateRecipeQueries(queryClient);
             } finally {
+              await clearOfflineRecipeData().catch(() => {
+                // Local cleanup is best-effort; the signed-out user must leave.
+              });
               signOutRedirect();
             }
           },
@@ -300,10 +303,10 @@ export function AuthButton({
                 asChild
                 onClick={() => setOpen(false)}
               >
-                <Link href="/recipes/profile">
+                <a href="/recipes/profile">
                   <UserRound />
                   Profile
-                </Link>
+                </a>
               </Button>
               <Button
                 variant="ghost"
@@ -311,10 +314,10 @@ export function AuthButton({
                 asChild
                 onClick={() => setOpen(false)}
               >
-                <Link href="/recipes/settings">
+                <a href="/recipes/settings">
                   <Settings />
                   Settings
-                </Link>
+                </a>
               </Button>
             </div>
 

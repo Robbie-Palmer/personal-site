@@ -1,12 +1,12 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Caveat, JetBrains_Mono, Kalam } from "next/font/google";
-import Link from "next/link";
 import { AuthButton } from "@/components/recipes/auth-button";
 import { CookingCompletionOutbox } from "@/components/recipes/cooking-completion-outbox";
 import { DietProvider } from "@/components/recipes/diet-provider";
 import { NotificationBell } from "@/components/recipes/notifications/notification-bell";
 import { RecipeAnalyticsIdentity } from "@/components/recipes/recipe-analytics-identity";
 import { RecipeNavigationProvider } from "@/components/recipes/recipe-page-link";
+import { RecipePwa } from "@/components/recipes/recipe-pwa";
 import { RecipeQueryProvider } from "@/components/recipes/recipe-query-provider";
 import { RecipeSiteNav } from "@/components/recipes/recipe-site-nav";
 import { RecipeThemeBody } from "@/components/recipes/recipe-theme-body";
@@ -42,6 +42,19 @@ export const metadata: Metadata = {
     template: "%s | Robbie's Recipes",
   },
   description: "A collection of my favorite recipes",
+  manifest: "/recipes/manifest.webmanifest",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Recipes",
+  },
+  icons: {
+    apple: "/recipes/icons/recipe-app-180.png",
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#c8693c",
 };
 
 export default function RecipesLayout({
@@ -66,13 +79,13 @@ export default function RecipesLayout({
           >
             <header className="sticky top-0 z-50 border-b border-[var(--line)] bg-[var(--paper)]/95 backdrop-blur supports-[backdrop-filter]:bg-[var(--paper)]/75">
               <nav className="container mx-auto px-4 py-3 max-w-7xl flex flex-wrap items-center gap-x-4 gap-y-2">
-                <Link
+                <a
                   href="/recipes"
                   className="order-1 min-w-0 shrink whitespace-nowrap rt-display text-2xl leading-none text-foreground min-[360px]:text-3xl"
                 >
                   <span>Robbie's</span>{" "}
                   <span className="rt-logo-accent">recipes</span>
-                </Link>
+                </a>
                 <div className="order-2 ms-auto flex shrink-0 items-center gap-2 sm:order-3">
                   <NotificationBell />
                   <AuthButton intent="signup" compactOnMobile />
@@ -83,6 +96,8 @@ export default function RecipesLayout({
                 </div>
               </nav>
             </header>
+
+            <RecipePwa />
 
             <DietProvider>
               <main className="relative z-0 flex-1 flex flex-col">

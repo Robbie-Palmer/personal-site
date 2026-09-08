@@ -1,18 +1,19 @@
 # Authenticated preview tests
 
-These Playwright tests run against a deployed pull-request preview. They use
-two isolated browser contexts so the household owner and household member have
-separate application sessions while sharing the same seeded pantry. Their
-scope is the browser boundary: visible UI convergence and recovery after
-reconnecting.
+These Playwright tests run against a deployed pull-request preview. The pantry
+tests use two isolated browser contexts so the household owner and household
+member have separate sessions while sharing the same seeded pantry. The recipe
+PWA tests sign in as the household owner, wait for the offline caches, disable
+the network, and follow the same recovery links available to a user.
 
 The preview deployment pipeline separately runs a direct Worker smoke test for
 the realtime protocol, including the event resource, revision, operation ID,
 and change kind. Keeping those checks out of this suite avoids making browser
 QA the only evidence that the backend fan-out works.
 
-The tests intentionally mutate the seeded `Garlic` pantry item and restore it
-during cleanup. Do not point them at production.
+The pantry tests intentionally mutate the seeded `Garlic` item and restore it
+during cleanup. The PWA tests only change browser-local storage and network
+emulation. Do not point this suite at production.
 
 ## Run
 
