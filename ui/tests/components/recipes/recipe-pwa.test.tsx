@@ -38,6 +38,7 @@ describe("RecipePwa", () => {
   afterEach(() => {
     vi.clearAllMocks();
     vi.unstubAllGlobals();
+    Reflect.deleteProperty(navigator, "onLine");
     Reflect.deleteProperty(navigator, "serviceWorker");
   });
 
@@ -53,7 +54,7 @@ describe("RecipePwa", () => {
     vi.mocked(fetch).mockRejectedValue(new TypeError("offline"));
     renderPwa();
 
-    act(() => {
+    await act(async () => {
       Object.defineProperty(navigator, "onLine", {
         configurable: true,
         value: false,
