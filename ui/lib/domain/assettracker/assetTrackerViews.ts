@@ -4,6 +4,7 @@ import {
   type Currency,
   type ExpectedReturnChange,
   isLiability,
+  type LiquidityTier,
 } from "./account";
 import {
   type BalanceEstimatePoint,
@@ -55,6 +56,7 @@ export type AccountSummaryView = {
   provider: string;
   currency: Currency;
   assetType: AssetType;
+  liquidity?: LiquidityTier;
   expectedAnnualReturn: number;
   isOpen: boolean;
   latestBalance: number | null;
@@ -183,6 +185,7 @@ export function toAccountSummaryView(
     provider: account.provider,
     currency: account.currency,
     assetType: account.assetType,
+    liquidity: account.liquidity,
     expectedAnnualReturn: account.expectedAnnualReturn,
     isOpen: !account.closedAt,
     latestBalance: latest?.balance ?? null,
@@ -225,6 +228,7 @@ export function toAccountDetailView(
     provider: account.provider,
     currency: account.currency,
     assetType: account.assetType,
+    liquidity: account.liquidity,
     expectedAnnualReturn: account.expectedAnnualReturn,
     isOpen: !account.closedAt,
     latestBalance: latest?.balance ?? null,

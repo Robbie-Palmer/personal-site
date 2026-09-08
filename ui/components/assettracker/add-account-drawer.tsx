@@ -24,8 +24,11 @@ import {
   ASSET_TYPE_LABELS,
   type AssetType,
   type Currency,
+  defaultLiquidityForAssetType,
   formatAssetTrackerError,
   isLiability,
+  LIQUIDITY_TIER_LABELS,
+  type LiquidityTier,
   todayIsoDate,
 } from "@/lib/domain/assettracker";
 import { useAssetTracker } from "./asset-tracker-provider";
@@ -36,6 +39,10 @@ const ASSET_TYPE_OPTIONS = Object.entries(ASSET_TYPE_LABELS) as [
 ][];
 
 const CURRENCY_OPTIONS: Currency[] = ["GBP", "USD"];
+const LIQUIDITY_OPTIONS = Object.entries(LIQUIDITY_TIER_LABELS) as [
+  LiquidityTier,
+  string,
+][];
 
 const NO_LINK = "none";
 
@@ -49,6 +56,7 @@ export function AddAccountDrawer() {
   const [name, setName] = useState("");
   const [provider, setProvider] = useState("");
   const [assetType, setAssetType] = useState<AssetType>("cash");
+  const [liquidity, setLiquidity] = useState<LiquidityTier>("cash");
   const [currency, setCurrency] = useState<Currency>("GBP");
   const [expectedReturnPercent, setExpectedReturnPercent] = useState("");
   const [linkedId, setLinkedId] = useState(NO_LINK);
@@ -61,6 +69,7 @@ export function AddAccountDrawer() {
     setName("");
     setProvider("");
     setAssetType("cash");
+    setLiquidity("cash");
     setCurrency("GBP");
     setExpectedReturnPercent("");
     setLinkedId(NO_LINK);
@@ -78,6 +87,7 @@ export function AddAccountDrawer() {
         name,
         provider,
         assetType,
+        liquidity,
         currency,
         expectedAnnualReturn: Number(expectedReturnPercent) / 100,
         linkedAccountId:
@@ -151,7 +161,11 @@ export function AddAccountDrawer() {
               </label>
               <Select
                 value={assetType}
-                onValueChange={(value) => setAssetType(value as AssetType)}
+                onValueChange={(value) => {
+                  const nextAssetType = value as AssetType;
+                  setAssetType(nextAssetType);
+                  setLiquidity(defaultLiquidityForAssetType(nextAssetType));
+                }}
               >
                 <SelectTrigger id="add-account-type" className="w-full">
                   <SelectValue />
@@ -189,6 +203,35 @@ export function AddAccountDrawer() {
               </Select>
             </div>
           </div>
+          {!isLiability(assetType) && (
+            <div className="flex flex-col gap-1.5">
+              <label
+                htmlFor="add-account-liquidity"
+                className="text-sm font-medium"
+              >
+                Access to funds
+              </label>
+              <Select
+                value={liquidity}
+                onValueChange={(value) => setLiquidity(value as LiquidityTier)}
+              >
+                <SelectTrigger id="add-account-liquidity" className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {LIQUIDITY_OPTIONS.map(([value, label]) => (
+                    <SelectItem key={value} value={value}>
+                      {label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Use illiquid for pensions, property, or anything you cannot
+                readily sell to cover spending.
+              </p>
+            </div>
+          )}
           <div className="flex flex-col gap-1.5">
             <label htmlFor="add-account-return" className="text-sm font-medium">
               {isLiability(assetType)

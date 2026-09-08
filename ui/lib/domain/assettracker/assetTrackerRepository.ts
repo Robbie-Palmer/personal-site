@@ -1,14 +1,21 @@
 import { accounts as definedAccounts } from "../../../content/assettracker/accounts";
 import { recurringFlows as definedRecurringFlows } from "../../../content/assettracker/recurringFlows";
 import { snapshots as definedSnapshots } from "../../../content/assettracker/snapshots";
-import type { Account, AccountId } from "./account";
+import {
+  type Account,
+  type AccountId,
+  accountLiquidity,
+  isLiability,
+} from "./account";
 import {
   type AssetTrackerData,
+  AssetTrackerDataError,
   AssetTrackerDataSchema,
 } from "./assetTrackerData";
 import type { BalanceSnapshot } from "./balanceSnapshot";
 import { type CapitalFlow, capitalFlowKind } from "./capitalFlow";
 import type { IncomeRecord } from "./incomeRecord";
+import type { PlannedExpenditure } from "./plannedExpenditure";
 import type { RecurringFlow } from "./recurringFlow";
 import type { Transfer } from "./transfer";
 
@@ -19,6 +26,7 @@ export interface AssetTrackerRepository {
   incomeHistory: IncomeRecord[];
   transfers: Transfer[];
   recurringFlows: RecurringFlow[];
+  plannedExpenditures: PlannedExpenditure[];
   settings: AssetTrackerData["settings"];
 }
 
@@ -45,7 +53,7 @@ function indexAccounts(accounts: Account[]): Map<AccountId, Account> {
   for (const account of accounts) {
     const existing = byId.get(account.id);
     if (existing) {
-      throw new Error(
+      throw new AssetTrackerDataError(
         `Duplicate account ID "${account.id}": "${existing.name}" and "${account.name}" both use the same ID`,
       );
     }
@@ -60,7 +68,9 @@ function assertKnownAccount(
   referrer: string,
 ): void {
   if (accountId != null && !accounts.has(accountId)) {
-    throw new Error(`${referrer} references unknown account "${accountId}"`);
+    throw new AssetTrackerDataError(
+      `${referrer} references unknown account "${accountId}"`,
+    );
   }
 }
 
@@ -72,7 +82,7 @@ function assertUniqueAccountDates(
   for (const record of records) {
     const key = `${record.accountId}\0${record.date}`;
     if (seen.has(key)) {
-      throw new Error(
+      throw new AssetTrackerDataError(
         `Duplicate ${label} for account "${record.accountId}" on ${record.date}`,
       );
     }
@@ -89,7 +99,7 @@ function assertUniqueCapitalFlows(records: readonly CapitalFlow[]): void {
         capitalFlowKind(record) === "personalSaving"
           ? "capital flow"
           : `${capitalFlowKind(record)} capital flow`;
-      throw new Error(
+      throw new AssetTrackerDataError(
         `Duplicate ${label} for account "${record.accountId}" on ${record.date}`,
       );
     }
@@ -106,7 +116,9 @@ function validateReferences(
   const incomeDates = new Set<string>();
   for (const income of data.incomeHistory) {
     if (incomeDates.has(income.date)) {
-      throw new Error(`Duplicate income record on ${income.date}`);
+      throw new AssetTrackerDataError(
+        `Duplicate income record on ${income.date}`,
+      );
     }
     incomeDates.add(income.date);
   }
@@ -155,6 +167,24 @@ function validateReferences(
       `Recurring flow "${flow.name}"`,
     );
   }
+  for (const expenditure of data.plannedExpenditures) {
+    assertKnownAccount(
+      accounts,
+      expenditure.fromAccountId,
+      `Planned expenditure "${expenditure.name}"`,
+    );
+    const source = accounts.get(expenditure.fromAccountId);
+    if (
+      source != null &&
+      (source.closedAt != null ||
+        isLiability(source.assetType) ||
+        accountLiquidity(source) === "illiquid")
+    ) {
+      throw new AssetTrackerDataError(
+        `Planned expenditure "${expenditure.name}" references ineligible account "${expenditure.fromAccountId}"`,
+      );
+    }
+  }
 }
 
 export function buildRepository(
@@ -177,6 +207,9 @@ export function buildRepository(
     ),
     transfers: data.transfers,
     recurringFlows: data.recurringFlows,
+    plannedExpenditures: [...data.plannedExpenditures].sort((a, b) =>
+      a.date.localeCompare(b.date),
+    ),
     settings: data.settings,
   };
 }

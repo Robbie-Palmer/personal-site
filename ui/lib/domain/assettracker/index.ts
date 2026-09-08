@@ -12,6 +12,8 @@ export * from "./constants";
 export * from "./flowSankeyData";
 export * from "./incomeRecord";
 export * from "./pastedHistory";
+export * from "./plannedExpenditure";
 export * from "./portfolioReconciliation";
 export * from "./recurringFlow";
+export * from "./runwayForecast";
 export * from "./transfer";

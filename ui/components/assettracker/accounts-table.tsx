@@ -7,17 +7,19 @@ import {
   type AccountDetailView,
   ASSET_TYPE_LABELS,
   type AssetType,
+  accountLiquidity,
   type BalanceSnapshotView,
   formatAccountCurrency,
   formatAnnualRate,
   formatTotalBalances,
   isLiability,
+  LIQUIDITY_TIER_LABELS,
   todayIsoDate,
 } from "@/lib/domain/assettracker";
 import { LogBalanceDrawer } from "./log-balance-drawer";
 
 const STALE_AFTER_DAYS = 30;
-const COLUMN_COUNT = 8;
+const COLUMN_COUNT = 9;
 
 const ASSET_TYPE_VARIANT: Record<
   AssetType,
@@ -74,6 +76,7 @@ export function AccountsTable({
                 <th className="text-left p-3 font-medium">Account</th>
                 <th className="text-left p-3 font-medium">Provider</th>
                 <th className="text-left p-3 font-medium">Type</th>
+                <th className="text-left p-3 font-medium">Access</th>
                 <th className="text-left p-3 font-medium">Trend</th>
                 <th className="text-right p-3 font-medium">Balance</th>
                 <th className="text-right p-3 font-medium">CAGR</th>
@@ -95,7 +98,7 @@ export function AccountsTable({
             </tbody>
             <tfoot>
               <tr className="bg-muted/50">
-                <td colSpan={4} className="p-3 font-semibold">
+                <td colSpan={5} className="p-3 font-semibold">
                   {showClosed ? "Open-account net worth" : "Net worth"}
                 </td>
                 <td className="p-3 text-right font-mono font-semibold">
@@ -139,7 +142,7 @@ function AccountsSection({
         />
       ))}
       <tr className="border-b">
-        <td colSpan={4} className="p-3 text-sm text-muted-foreground">
+        <td colSpan={5} className="p-3 text-sm text-muted-foreground">
           {label} total
         </td>
         <td className="p-3 text-right font-mono text-muted-foreground">
@@ -179,6 +182,11 @@ function AccountRow({
         <Badge variant={ASSET_TYPE_VARIANT[account.assetType]}>
           {ASSET_TYPE_LABELS[account.assetType]}
         </Badge>
+      </td>
+      <td className="p-3 text-muted-foreground">
+        {isLiability(account.assetType)
+          ? "—"
+          : LIQUIDITY_TIER_LABELS[accountLiquidity(account)]}
       </td>
       <td className="p-3">
         <Sparkline snapshots={account.snapshots} />
