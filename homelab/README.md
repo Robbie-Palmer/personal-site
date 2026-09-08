@@ -30,6 +30,16 @@ under `k3s/base/t3-code/` contains shared workload policy. The `home` and
 resource limits, Doppler configs, and tailnet ports. Deployment tasks verify
 the exact Kubernetes context and every node's location label before applying.
 
+The remote workspace definitions live under
+`k3s/overlays/remote-development/workspaces/`. The default overlay applies only
+the existing `operator` workspace. It keeps namespace `t3-code`, volume path
+`/srv/remote-development/t3-code`, and tailnet HTTPS port 443. The pilot overlay
+adds namespace `t3-code-pilot`, a separate volume path, a separate Doppler
+config, and tailnet HTTPS port 8443. The operator workspace keeps its existing
+network behavior. The pilot namespace denies ingress from other pods. Pilot
+egress is limited to DNS and public SSH, HTTP, and HTTPS, while private,
+link-local, and tailnet destinations remain blocked.
+
 ### First commissioning
 
 Create two Doppler configs before installation:
@@ -117,6 +127,95 @@ access should use a fine-grained repository token or GitHub App held in the
 remote workload Doppler config. Other interactive coding-harness sessions
 belong under `/data/home`, not in an image layer.
 
+### First pilot workspace
+
+Create Doppler config `homelab/prd_remote_development_pilot` before deploying
+the pilot. Give it only secrets owned by the pilot. Interactive GitHub and
+model-provider sessions still belong in the pilot's encrypted home directory,
+not in Doppler.
+
+The [tailnet policy](https://tailscale.com/docs/reference/syntax/policy-file)
+must deny broad member access to
+`tag:remote-development`. Add a grant for the pilot's exact Tailscale login and
+port 8443. Keep operator access on port 443 in a separate grant. For example,
+merge rules shaped like these into the existing policy after replacing the
+email address:
+
+```json
+{
+  "grants": [
+    {
+      "src": ["autogroup:admin"],
+      "dst": ["tag:remote-development"],
+      "ip": ["tcp:443", "tcp:8443"]
+    },
+    {
+      "src": ["pilot@example.com"],
+      "dst": ["tag:remote-development"],
+      "ip": ["tcp:8443"]
+    }
+  ]
+}
+```
+
+Do not add the pilot while an allow-all grant can still reach the tagged host.
+[Tailscale combines matching grants](https://tailscale.com/docs/reference/syntax/grants),
+so a narrower rule does not override a broader one.
+
+Build and apply the host definition first. This creates the pilot data
+directory and publishes the second private endpoint:
+
+```bash
+mise run //homelab:remote-build
+mise run //homelab:remote-rebuild
+```
+
+Create the namespace-scoped Doppler token, check the rendered definitions,
+and deploy both workspaces:
+
+```bash
+mise run //homelab:remote-pilot-secret-install
+mise run //homelab:k3s-test-remote
+mise run //homelab:k3s-dry-run-remote-pilot
+mise run //homelab:k3s-deploy-remote-pilot
+mise run //homelab:remote-health
+mise run //homelab:remote-pilot-acceptance
+```
+
+The pilot can then open
+`https://remote-development.<tailnet-name>.ts.net:8443`. Complete GitHub and
+model-provider device login from a terminal in that workspace. Never complete
+those logins in the operator workspace on the pilot's behalf.
+
+Before treating onboarding as complete, verify all of the following:
+
+- the pilot can reach port 8443 and cannot reach port 443;
+- the operator can reach both ports;
+- each namespace has its own bound persistent volume;
+- a file written in one workspace is absent from the other;
+- both workspaces can run a representative build at the same time; and
+- deleting the pilot pod preserves a test file after Kubernetes recreates it.
+
+The acceptance task automates the volume, cross-namespace service, and pilot
+restart checks. It deletes and recreates the pilot pod, so run it before giving
+the workspace to the pilot. Tailnet access and simultaneous representative
+builds still need checks from the two users' devices.
+
+The operator workspace keeps its existing 3 CPU and 6 GiB limits, with no new
+namespace resource quota or network policy. The pilot starts with a limit of 1
+CPU and 1 GiB. This leaves the operator's declared limits unchanged and caps
+the pilot's additional pressure, but it cannot guarantee zero contention on a
+shared 4 CPU, 8 GiB host. The pilot also has a lower, non-preempting pod
+priority. When both pods exceed their requests, Kubernetes considers the pilot
+for node-pressure eviction first. If the pilot is disruptive or needs more
+capacity, resize the host before raising its limits. Do not take capacity from
+the operator workspace to make the pilot fit.
+
+The 10 GiB persistent-volume claim records the pilot allocation but does not
+enforce a filesystem quota on the shared ext4 volume. Monitor the host volume
+during the pilot. Directory-level disk enforcement remains required before an
+untrusted or paid cohort.
+
 ### Updates, rollback, and backups
 
 Build every NixOS change first, then switch it over the tailnet:
@@ -138,10 +237,10 @@ image reference from Git and reapplies the cloud overlay.
 Hetzner server backups are disabled because they cover the reproducible root
 disk and exclude the attached volume. They would speed up root recovery, but
 they would not protect the data that matters here. LUKS encryption and Hetzner
-volume replication are also not backups. An encrypted, versioned copy of
-`/srv/remote-development/t3-code` in a separate provider or failure domain is
-still required. Do not claim backup coverage until that destination and a
-tested restore procedure exist.
+volume replication are also not backups. An encrypted, versioned copy of the
+workspace directories under `/srv/remote-development/` in a separate provider
+or failure domain is still required. Do not claim backup coverage until that
+destination and a tested restore procedure exist.
 
 ## Fleet inventory and checks
 

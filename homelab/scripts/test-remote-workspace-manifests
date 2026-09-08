@@ -1,0 +1,72 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+homelab_dir=$(cd -- "${script_dir}/.." && pwd)
+rendered=$(mktemp)
+default_rendered=$(mktemp)
+host_definition=${homelab_dir}/hosts/remote-development/default.nix
+trap 'rm -f "${rendered}" "${default_rendered}"' EXIT
+
+kubectl kustomize "${homelab_dir}/k3s/overlays/remote-development-pilot" >"${rendered}"
+kubectl kustomize "${homelab_dir}/k3s/overlays/remote-development" >"${default_rendered}"
+
+assert_count() {
+  local pattern=$1
+  local expected=$2
+  local actual
+
+  actual=$(grep --count --extended-regexp "${pattern}" "${rendered}" || true)
+  if [ "${actual}" -ne "${expected}" ]; then
+    echo "expected ${expected} matches for ${pattern}, found ${actual}" >&2
+    exit 1
+  fi
+}
+
+assert_default_count() {
+  local pattern=$1
+  local expected=$2
+  local actual
+
+  actual=$(grep --count --extended-regexp "${pattern}" "${default_rendered}" || true)
+  if [ "${actual}" -ne "${expected}" ]; then
+    echo "expected ${expected} default-overlay matches for ${pattern}, found ${actual}" >&2
+    exit 1
+  fi
+}
+
+assert_count '^kind: Namespace$' 2
+assert_count '^kind: Deployment$' 2
+assert_count '^kind: NetworkPolicy$' 3
+assert_count '^kind: PriorityClass$' 1
+assert_count '^kind: ResourceQuota$' 1
+assert_count '^  name: t3-code-pilot$' 1
+assert_count '^    nodePort: 30773$' 1
+assert_count '^    nodePort: 30774$' 1
+assert_count '^            optional: false$' 1
+assert_count '^  volumeName: t3-code-remote-development$' 1
+assert_count '^  volumeName: t3-code-remote-development-pilot$' 1
+assert_count '^            cpu: "3"$' 1
+assert_count '^            memory: 6Gi$' 1
+assert_count '^            cpu: "1"$' 1
+assert_count '^            memory: 1Gi$' 2
+assert_count '^    limits.memory: 1Gi$' 1
+assert_count '^      priorityClassName: pilot-workspace$' 1
+assert_count '^preemptionPolicy: Never$' 1
+assert_count '^value: -10$' 1
+assert_default_count '^kind: NetworkPolicy$' 0
+assert_default_count '^kind: PriorityClass$' 0
+assert_default_count '^kind: ResourceQuota$' 0
+assert_default_count '^            cpu: "3"$' 1
+assert_default_count '^            memory: 6Gi$' 1
+
+if grep --quiet --fixed-strings 't3-code-pilot' "${default_rendered}"; then
+  echo "default remote overlay must not provision the pilot workspace" >&2
+  exit 1
+fi
+
+grep --fixed-strings 'tailscale serve --bg --https=443 http://127.0.0.1:30773' "${host_definition}" >/dev/null
+grep --fixed-strings 'tailscale serve --bg --https=8443 http://127.0.0.1:30774' "${host_definition}" >/dev/null
+grep --fixed-strings '${dataMount}/t3-code-pilot/workspaces' "${host_definition}" >/dev/null
+
+echo "remote workspace manifests define two isolated, resource-bounded workspaces"

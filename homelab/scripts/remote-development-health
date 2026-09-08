@@ -24,9 +24,27 @@ k3s kubectl get node remote-development \
   | grep -Fx agent-workspace >/dev/null
 echo "host, encrypted volume, Tailscale, and independent K3s server are healthy"
 
-if k3s kubectl --namespace t3-code get deployment t3-code >/dev/null 2>&1; then
-  k3s kubectl --namespace t3-code rollout status deployment/t3-code --timeout=120s
-  curl --fail --silent --show-error http://127.0.0.1:30773/ >/dev/null
-  echo "t3-code workload is healthy"
+check_workspace() {
+  local namespace=$1
+  local node_port=$2
+  local volume=$3
+  local policy_count=$4
+
+  if ! k3s kubectl --namespace "${namespace}" get deployment t3-code >/dev/null 2>&1; then
+    return
+  fi
+
+  k3s kubectl --namespace "${namespace}" rollout status deployment/t3-code --timeout=120s
+  test "$(k3s kubectl --namespace "${namespace}" get networkpolicy --no-headers | wc -l)" -eq "${policy_count}"
+  test "$(k3s kubectl --namespace "${namespace}" get persistentvolumeclaim t3-code-data --output=jsonpath='{.spec.volumeName}')" = "${volume}"
+  curl --fail --silent --show-error "http://127.0.0.1:${node_port}/" >/dev/null
+  echo "${namespace} workspace is healthy"
+}
+
+check_workspace t3-code 30773 t3-code-remote-development 0
+check_workspace t3-code-pilot 30774 t3-code-remote-development-pilot 3
+
+if k3s kubectl --namespace t3-code-pilot get deployment t3-code >/dev/null 2>&1; then
+  test "$(k3s kubectl --namespace t3-code-pilot get resourcequota workspace --output=jsonpath='{.spec.hard.pods}')" = 1
 fi
 REMOTE

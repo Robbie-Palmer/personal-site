@@ -1,6 +1,5 @@
 {
   config,
-  lib,
   pkgs,
   ...
 }:
@@ -155,6 +154,9 @@ in
       install -d -m 0700 -o t3code -g t3code ${dataMount}/t3-code/home/.codex
       install -d -m 0700 -o t3code -g t3code ${dataMount}/t3-code/home/.codex-personal
       install -d -m 0750 -o t3code -g t3code ${dataMount}/t3-code/workspaces
+      install -d -m 0750 -o t3code -g t3code ${dataMount}/t3-code-pilot
+      install -d -m 0750 -o t3code -g t3code ${dataMount}/t3-code-pilot/home
+      install -d -m 0750 -o t3code -g t3code ${dataMount}/t3-code-pilot/workspaces
     '';
   };
 
@@ -187,6 +189,7 @@ in
     script = ''
       if tailscale status --json | jq --exit-status '.BackendState == "Running"' >/dev/null; then
         tailscale serve --bg --https=443 http://127.0.0.1:30773
+        tailscale serve --bg --https=8443 http://127.0.0.1:30774
       else
         echo "Tailscale is not enrolled; Serve will be configured after enrollment"
       fi

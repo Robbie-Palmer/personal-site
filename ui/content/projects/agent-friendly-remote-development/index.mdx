@@ -82,6 +82,25 @@ The pilot can use a trusted-user container boundary. Any move beyond a small
 trusted cohort requires a separate isolation decision based on virtual machines
 or microVMs.
 
+# Current milestone
+
+The repository now defines the operator and first pilot as separate K3s
+workspaces. The operator keeps the existing namespace, volume, and private URL.
+The pilot has a separate namespace, persistent-volume binding, Doppler config,
+and tailnet port. Policy on the pilot blocks cross-workspace traffic. The
+operator keeps its existing network behavior and its 3 CPU and 6 GiB limits.
+The pilot starts with a 1 CPU and 1 GiB limit. That caps its additional pressure
+without changing the operator's declared capacity, though both still share one
+4 CPU, 8 GiB host and can contend for it. The pilot also runs at a lower,
+non-preempting pod priority, making it the earlier eviction candidate when both
+workspaces exceed their requests during node pressure.
+
+The next step is live onboarding. It needs the pilot's Tailscale identity and
+provider logins, followed by the concurrent-build, restart, access-revocation,
+and file-isolation checks. The shared ext4 volume still lacks enforced
+directory quotas. Encrypted backup and replacement-host restore also remain
+open before the pilot can meet the full success test.
+
 # Success measures
 
 The pilot succeeds when:
