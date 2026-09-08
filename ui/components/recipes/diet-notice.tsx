@@ -111,7 +111,7 @@ export function DietLoadErrorNotice() {
           <a href="/recipes/settings?section=diet" className="underline">
             diet settings
           </a>
-          .
+          {"."}
         </p>
       </div>
     </div>
