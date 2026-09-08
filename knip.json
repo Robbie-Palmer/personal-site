@@ -22,8 +22,7 @@
     },
     "packages/ai-review-domain": {},
     "ui": {
-      "ignore": ["content/**"],
-      "ignoreDependencies": ["serve"]
+      "ignore": ["content/**"]
     },
     "workers/recipe-api": {
       "entry": [
