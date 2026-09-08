@@ -105,7 +105,11 @@ describe("recipe service worker", () => {
     const fetchMock = vi.fn<typeof fetch>(async (request) => {
       const value = request instanceof Request ? request.url : String(request);
       const url = new URL(value, "https://recipes.example.test");
-      if (url.pathname === "/recipes" || url.pathname === "/recipes/saved") {
+      if (
+        url.pathname === "/recipes" ||
+        url.pathname === "/recipes/saved" ||
+        url.pathname === "/recipes/offline"
+      ) {
         return new Response(
           '<script src="/_next/static/chunks/recipes.js"></script>',
           { headers: { "content-type": "text/html" } },
@@ -123,15 +127,56 @@ describe("recipe service worker", () => {
 
     await worker.install();
 
-    const shellKeys = await worker.stores.get("recipe-shell-v1")?.keys();
-    const assetKeys = await worker.stores.get("recipe-assets-v1")?.keys();
+    const shellKeys = await worker.stores.get("recipe-shell-v2")?.keys();
+    const assetKeys = await worker.stores.get("recipe-assets-v2")?.keys();
     expect(shellKeys?.map((key) => new URL(key.url).pathname)).toEqual([
       "/recipes",
       "/recipes/saved",
+      "/recipes/offline",
     ]);
     expect(assetKeys?.map((key) => new URL(key.url).pathname)).toContain(
       `/_next/static/wasm/${wasmHash}.wasm`,
     );
+  });
+
+  it("shows the offline page for unavailable tabs without treating them as recipes", async () => {
+    let offline = false;
+    const fetchMock = vi.fn<typeof fetch>(async (request) => {
+      const value = request instanceof Request ? request.url : String(request);
+      const url = new URL(value, "https://recipes.example.test");
+      if (offline) throw new TypeError("offline");
+      if (
+        url.pathname === "/recipes" ||
+        url.pathname === "/recipes/saved" ||
+        url.pathname === "/recipes/offline"
+      ) {
+        return new Response(`<main>${url.pathname}</main>`, {
+          headers: { "content-type": "text/html" },
+        });
+      }
+      return new Response("Not found", { status: 404 });
+    });
+    const worker = serviceWorkerHarness(fetchMock);
+    await worker.install();
+    offline = true;
+
+    const navigation = (pathname: string) =>
+      ({
+        destination: "document",
+        method: "GET",
+        mode: "navigate",
+        url: `https://recipes.example.test${pathname}`,
+      }) as Request;
+
+    await expect(
+      worker.request(navigation("/recipes/kitchen/")),
+    ).resolves.toHaveProperty("status", 200);
+    expect(
+      await (await worker.request(navigation("/recipes/kitchen/"))).text(),
+    ).toContain("/recipes/offline");
+    expect(
+      await (await worker.request(navigation("/recipes/lentil-soup/"))).text(),
+    ).toContain("/recipes/saved");
   });
 
   it("uses an unexpired cached session to reopen the app offline", async () => {

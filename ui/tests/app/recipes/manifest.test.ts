@@ -14,6 +14,7 @@ describe("recipe web app manifest", () => {
     expect(value).toMatchObject({
       display: "standalone",
       id: "/recipes",
+      orientation: "portrait",
       scope: "/recipes",
       start_url: "/recipes",
     });

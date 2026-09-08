@@ -1,7 +1,7 @@
 /* Robbie's Recipes service worker. Keep cache version changes explicit so an
  * update never mixes incompatible application shells or private data. */
-const SHELL_CACHE = "recipe-shell-v1";
-const ASSET_CACHE = "recipe-assets-v1";
+const SHELL_CACHE = "recipe-shell-v2";
+const ASSET_CACHE = "recipe-assets-v2";
 const IMAGE_CACHE = "recipe-images-v1";
 const SESSION_CACHE = "recipe-session-v1";
 const SESSION_CACHE_KEY = "/recipes/__offline-session";
@@ -16,6 +16,7 @@ const APP_SHELL_PATHS = new Set([
   "/recipes/kitchen",
   "/recipes/log",
   "/recipes/notifications",
+  "/recipes/offline",
   "/recipes/onboarding",
   "/recipes/profile",
   "/recipes/saved",
@@ -23,7 +24,11 @@ const APP_SHELL_PATHS = new Set([
   "/recipes/settings/agents/approve",
   "/recipes/shopping",
 ]);
-const REQUIRED_SHELL_PATHS = ["/recipes", "/recipes/saved"];
+const REQUIRED_SHELL_PATHS = [
+  "/recipes",
+  "/recipes/saved",
+  "/recipes/offline",
+];
 
 function isSuccessful(response) {
   return response.ok || response.type === "opaque";
@@ -240,9 +245,15 @@ async function cacheRecipeImage(request) {
 }
 
 function offlineShellPath(pathname) {
-  if (APP_SHELL_PATHS.has(pathname)) return pathname;
-  if (/^\/recipes\/[^/]+\/?$/.test(pathname)) return "/recipes/saved";
-  return "/recipes";
+  const normalizedPathname =
+    pathname.length > 1 ? pathname.replace(/\/+$/, "") : pathname;
+  if (normalizedPathname === "/recipes") return "/recipes";
+  if (normalizedPathname === "/recipes/saved") return "/recipes/saved";
+  if (APP_SHELL_PATHS.has(normalizedPathname)) return "/recipes/offline";
+  if (/^\/recipes\/[^/]+$/.test(normalizedPathname)) {
+    return "/recipes/saved";
+  }
+  return "/recipes/offline";
 }
 
 async function offlineShellResponse(cache, pathname) {
