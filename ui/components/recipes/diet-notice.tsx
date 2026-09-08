@@ -108,9 +108,9 @@ export function DietLoadErrorNotice() {
         <p className="rt-body text-sm">
           <b>Diet preferences are unavailable.</b> Refresh before relying on
           recipe filtering, or check your{" "}
-          <Link href="/recipes/settings?section=diet" className="underline">
+          <a href="/recipes/settings?section=diet" className="underline">
             diet settings
-          </Link>
+          </a>
           .
         </p>
       </div>

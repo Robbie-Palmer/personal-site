@@ -1,6 +1,19 @@
 import { describe, expect, it } from "vitest";
-import { RecipeQueryStatus } from "@/components/recipes/recipe-load-state";
+import {
+  RecipeLoadError,
+  RecipeQueryStatus,
+} from "@/components/recipes/recipe-load-state";
 import { render, screen } from "@/tests/test-utils";
+
+describe("RecipeLoadError", () => {
+  it("uses a document navigation so the service worker can restore recipes", () => {
+    render(<RecipeLoadError title="You're offline" message="Unavailable" />);
+
+    expect(
+      screen.getByRole("link", { name: /back to recipes/i }),
+    ).toHaveAttribute("href", "/recipes");
+  });
+});
 
 describe("RecipeQueryStatus", () => {
   it("reports an initial load error without presenting it as empty data", () => {

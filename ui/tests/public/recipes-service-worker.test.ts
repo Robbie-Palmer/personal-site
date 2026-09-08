@@ -63,6 +63,15 @@ function serviceWorkerHarness(fetchMock: typeof fetch) {
   loadWorker(workerSelf, cacheStorage, fetchMock);
 
   return {
+    async activate() {
+      let pending = Promise.resolve();
+      listeners.get("activate")?.({
+        waitUntil: (promise: Promise<unknown>) => {
+          pending = promise.then(() => undefined);
+        },
+      });
+      await pending;
+    },
     async install() {
       let pending = Promise.resolve();
       listeners.get("install")?.({
@@ -100,6 +109,17 @@ function serviceWorkerHarness(fetchMock: typeof fetch) {
 }
 
 describe("recipe service worker", () => {
+  it("removes the previous shell caches when the worker updates", async () => {
+    const worker = serviceWorkerHarness(vi.fn<typeof fetch>());
+    worker.stores.set("recipe-shell-v2", new MemoryCache());
+    worker.stores.set("recipe-assets-v2", new MemoryCache());
+    worker.stores.set("recipe-shell-v3", new MemoryCache());
+
+    await worker.activate();
+
+    expect([...worker.stores.keys()]).toEqual(["recipe-shell-v3"]);
+  });
+
   it("precaches the recipe shells and WebAssembly needed to render them", async () => {
     const wasmHash = "0123456789abcdef";
     const fetchMock = vi.fn<typeof fetch>(async (request) => {
@@ -127,8 +147,8 @@ describe("recipe service worker", () => {
 
     await worker.install();
 
-    const shellKeys = await worker.stores.get("recipe-shell-v2")?.keys();
-    const assetKeys = await worker.stores.get("recipe-assets-v2")?.keys();
+    const shellKeys = await worker.stores.get("recipe-shell-v3")?.keys();
+    const assetKeys = await worker.stores.get("recipe-assets-v3")?.keys();
     expect(shellKeys?.map((key) => new URL(key.url).pathname)).toEqual([
       "/recipes",
       "/recipes/saved",
@@ -177,6 +197,14 @@ describe("recipe service worker", () => {
     expect(
       await (await worker.request(navigation("/recipes/lentil-soup/"))).text(),
     ).toContain("/recipes/saved");
+    expect(
+      await (
+        await worker.request(navigation("/recipes/settings?section=diet"))
+      ).text(),
+    ).toContain("/recipes/offline");
+    expect(
+      await (await worker.request(navigation("/recipes"))).text(),
+    ).toContain("/recipes");
   });
 
   it("uses an unexpired cached session to reopen the app offline", async () => {
