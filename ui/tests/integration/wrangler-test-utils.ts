@@ -92,6 +92,7 @@ export async function waitForServer(
         resolve();
       }
     });
+    proc.stdout?.once("end", () => appendOutput(stdoutDecoder.end()));
 
     // Keep both pipes flowing after startup. Wrangler and workerd can emit a
     // large stack trace when a browser closes with requests in flight. An
@@ -99,6 +100,11 @@ export async function waitForServer(
     proc.stderr?.on("data", (data: Buffer) =>
       recordOutput(data, stderrDecoder),
     );
+    proc.stderr?.once("end", () => appendOutput(stderrDecoder.end()));
+
+    proc.once("error", (error) => {
+      fail(`Wrangler process failed before startup: ${error.message}`);
+    });
 
     proc.once("close", (code, signal) => {
       const exitReason =

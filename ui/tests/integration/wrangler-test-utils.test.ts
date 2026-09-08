@@ -52,4 +52,31 @@ describe("Wrangler test process management", () => {
       "Wrangler process closed before startup with signal SIGTERM",
     );
   });
+
+  it("flushes incomplete UTF-8 diagnostics when a stream ends", async () => {
+    child = spawn(
+      process.execPath,
+      [
+        "--eval",
+        "process.stderr.write(Buffer.from([0xf0, 0x9f]), () => process.exit(1))",
+      ],
+      {
+        detached: true,
+        stdio: ["ignore", "pipe", "pipe"],
+      },
+    );
+
+    await expect(waitForServer(child, 5_000)).rejects.toThrow("�");
+  });
+
+  it("reports child process errors without waiting for timeout", async () => {
+    child = spawn("missing-wrangler-test-executable", [], {
+      detached: true,
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+
+    await expect(waitForServer(child, 5_000)).rejects.toThrow(
+      "Wrangler process failed before startup: spawn missing-wrangler-test-executable ENOENT",
+    );
+  });
 });
