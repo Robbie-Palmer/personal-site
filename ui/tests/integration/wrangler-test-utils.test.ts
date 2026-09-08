@@ -22,4 +22,20 @@ describe("Wrangler test process management", () => {
 
     await expect(waitForServer(child, 5_000)).resolves.toBeUndefined();
   });
+
+  it("preserves UTF-8 diagnostics split across output chunks", async () => {
+    child = spawn(
+      process.execPath,
+      [
+        "--eval",
+        'const output = Buffer.from("diagnostic 🙂"); process.stderr.write(output.subarray(0, -1)); setTimeout(() => process.stderr.write(output.subarray(-1), () => process.exit(1)), 10);',
+      ],
+      {
+        detached: true,
+        stdio: ["ignore", "pipe", "pipe"],
+      },
+    );
+
+    await expect(waitForServer(child, 5_000)).rejects.toThrow("diagnostic 🙂");
+  });
 });

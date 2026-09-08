@@ -1,5 +1,6 @@
 import type { ChildProcess } from "node:child_process";
 import { dirname, resolve } from "node:path";
+import { StringDecoder } from "node:string_decoder";
 import { fileURLToPath } from "node:url";
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
@@ -36,13 +37,33 @@ export async function waitForServer(
   readyText = "Ready on",
 ): Promise<void> {
   return new Promise((resolve, reject) => {
+    const stderrDecoder = new StringDecoder("utf8");
+    const stdoutDecoder = new StringDecoder("utf8");
     let outputTail = "";
+    let readinessTail = "";
     let settled = false;
 
-    const recordOutput = (data: Buffer) => {
-      outputTail = `${outputTail}${data.toString()}`.slice(
-        -SERVER_OUTPUT_TAIL_LENGTH,
-      );
+    const appendOutput = (chunk: string) => {
+      outputTail =
+        chunk.length >= SERVER_OUTPUT_TAIL_LENGTH
+          ? chunk.slice(-SERVER_OUTPUT_TAIL_LENGTH)
+          : `${outputTail}${chunk}`.slice(-SERVER_OUTPUT_TAIL_LENGTH);
+    };
+
+    const recordOutput = (data: Buffer, decoder: StringDecoder) => {
+      appendOutput(decoder.write(data));
+    };
+
+    const recordStdout = (data: Buffer) => {
+      const chunk = stdoutDecoder.write(data);
+      const readinessCandidate = `${readinessTail}${chunk}`;
+      readinessTail =
+        readyText.length > 1
+          ? readinessCandidate.slice(-(readyText.length - 1))
+          : "";
+
+      appendOutput(chunk);
+      return readinessCandidate.includes(readyText);
     };
 
     const fail = (message: string) => {
@@ -63,8 +84,8 @@ export async function waitForServer(
     }, timeout);
 
     proc.stdout?.on("data", (data: Buffer) => {
-      recordOutput(data);
-      if (!settled && outputTail.includes(readyText)) {
+      const isReady = recordStdout(data);
+      if (!settled && isReady) {
         settled = true;
         clearTimeout(timer);
         resolve();
@@ -74,10 +95,12 @@ export async function waitForServer(
     // Keep both pipes flowing after startup. Wrangler and workerd can emit a
     // large stack trace when a browser closes with requests in flight. An
     // unread pipe eventually blocks the dev server and changes page timing.
-    proc.stderr?.on("data", recordOutput);
+    proc.stderr?.on("data", (data: Buffer) =>
+      recordOutput(data, stderrDecoder),
+    );
 
-    proc.on("exit", (code) => {
-      fail(`Wrangler process exited before startup with code ${code}`);
+    proc.once("close", (code) => {
+      fail(`Wrangler process closed before startup with code ${code}`);
     });
   });
 }
