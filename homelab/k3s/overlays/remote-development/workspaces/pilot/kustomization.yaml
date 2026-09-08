@@ -19,8 +19,20 @@ patches:
         path: /metadata/name
         value: t3-code-pilot
   - path: deployment-patch.yaml
+    target:
+      kind: Deployment
+      name: t3-code
+      namespace: t3-code
   - path: persistent-volume-claim-patch.yaml
+    target:
+      kind: PersistentVolumeClaim
+      name: t3-code-data
+      namespace: t3-code
   - path: service-patch.yaml
+    target:
+      kind: Service
+      name: t3-code
+      namespace: t3-code
 labels:
   - pairs:
       homelab.dev/environment: remote-development

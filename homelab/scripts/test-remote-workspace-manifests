@@ -67,6 +67,7 @@ fi
 
 grep --fixed-strings 'tailscale serve --bg --https=443 http://127.0.0.1:30773' "${host_definition}" >/dev/null
 grep --fixed-strings 'tailscale serve --bg --https=8443 http://127.0.0.1:30774' "${host_definition}" >/dev/null
-grep --fixed-strings '${dataMount}/t3-code-pilot/workspaces' "${host_definition}" >/dev/null
+grep --fixed-strings 'install -d -m 0700 -o t3code -g t3code ${dataMount}/t3-code-pilot/home/.codex' "${host_definition}" >/dev/null
+grep --fixed-strings 'install -d -m 0700 -o t3code -g t3code ${dataMount}/t3-code-pilot/workspaces' "${host_definition}" >/dev/null
 
 echo "remote workspace manifests define two isolated, resource-bounded workspaces"

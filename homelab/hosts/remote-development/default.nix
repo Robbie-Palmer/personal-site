@@ -154,9 +154,12 @@ in
       install -d -m 0700 -o t3code -g t3code ${dataMount}/t3-code/home/.codex
       install -d -m 0700 -o t3code -g t3code ${dataMount}/t3-code/home/.codex-personal
       install -d -m 0750 -o t3code -g t3code ${dataMount}/t3-code/workspaces
-      install -d -m 0750 -o t3code -g t3code ${dataMount}/t3-code-pilot
-      install -d -m 0750 -o t3code -g t3code ${dataMount}/t3-code-pilot/home
-      install -d -m 0750 -o t3code -g t3code ${dataMount}/t3-code-pilot/workspaces
+      install -d -m 0700 -o t3code -g t3code ${dataMount}/t3-code-pilot
+      install -d -m 0700 -o t3code -g t3code ${dataMount}/t3-code-pilot/home
+      install -d -m 0700 -o t3code -g t3code ${dataMount}/t3-code-pilot/home/.t3
+      install -d -m 0700 -o t3code -g t3code ${dataMount}/t3-code-pilot/home/.codex
+      install -d -m 0700 -o t3code -g t3code ${dataMount}/t3-code-pilot/home/.codex-personal
+      install -d -m 0700 -o t3code -g t3code ${dataMount}/t3-code-pilot/workspaces
     '';
   };
 

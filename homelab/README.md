@@ -136,10 +136,10 @@ not in Doppler.
 
 The [tailnet policy](https://tailscale.com/docs/reference/syntax/policy-file)
 must deny broad member access to
-`tag:remote-development`. Add a grant for the pilot's exact Tailscale login and
-port 8443. Keep operator access on port 443 in a separate grant. For example,
-merge rules shaped like these into the existing policy after replacing the
-email address:
+`tag:remote-development`. Give administrators access to both workspace ports
+for support and recovery. Give the pilot's exact Tailscale login access only to
+port 8443. For example, merge rules shaped like these into the existing policy
+after replacing the email address:
 
 ```json
 {
