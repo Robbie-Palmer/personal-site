@@ -35,6 +35,8 @@ struct SatelliteSnapshot {
   SatelliteSnapshot() = default;
 };
 
+bool isValid(const SatelliteSnapshot& satellite);
+
 enum class MessageType : uint8_t {
   MissionRequest = 1,
   Candidacy = 2,

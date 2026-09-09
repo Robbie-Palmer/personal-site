@@ -66,11 +66,7 @@ uint8_t pathScore(const SatelliteSnapshot& satellite, const Coordinate& objectiv
 
 uint8_t HistoricalOrbitalScorer::score(const SatelliteSnapshot& satellite,
                                        const Coordinate& objective) const {
-  if (!isValid(satellite.coordinate) || !isValid(objective) ||
-      !isfinite(satellite.orbital_radius_metres) || !isfinite(satellite.mass_kilograms) ||
-      !isfinite(satellite.available_propulsion_energy_joules) ||
-      satellite.orbital_radius_metres <= 0.0F || satellite.mass_kilograms <= 0.0F ||
-      satellite.available_propulsion_energy_joules <= 0.0F) {
+  if (!isValid(satellite) || !isValid(objective)) {
     return 0U;
   }
   if (satellite.coordinate.longitude_degrees == objective.longitude_degrees &&

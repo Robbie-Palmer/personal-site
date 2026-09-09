@@ -1,4 +1,9 @@
 [tools]
+"conda:gxx" = "16.2.0"
+"conda:gcc" = "16.2.0"
+"conda:binutils" = "2.46.1"
+# Espressif's Arduino build tools invoke python3 during ESP32 firmware compilation.
+python = "3.12.14"
 cmake = "4.4.3"
 ninja = "1.13.2"
 "pipx:clang-format" = "23.1.0"
