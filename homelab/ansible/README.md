@@ -71,10 +71,11 @@ that default VM.
 
 The pilot profile pins Colima 0.10.3, Lima 2.2.0, and K3s
 `v1.36.4+k3s1`. It has 2 CPUs, 4 GiB of memory, and a 60 GiB VM disk. It
-mounts `~/.local/share/homelab/k3s/t3-code` at `/srv/t3-code` and mounts
-`/Volumes` at the same path inside the VM. Both mounts are writable. K3s
-encrypts Secret data at rest and registers the node with the `home` location
-and `agent-workspace` capability labels.
+mounts `~/.local/share/homelab/k3s/t3-code` at `/srv/t3-code`. The mount is
+writable. Add narrower host-volume mounts with the workload that needs them;
+the pilot does not expose `/Volumes` to every pod. K3s encrypts Secret data at
+rest and registers the node with the `home` location and `agent-workspace`
+capability labels.
 
 The profile does not activate its Docker or Kubernetes context globally.
 Repository commands address the `colima-homelab-k3s` context explicitly. A

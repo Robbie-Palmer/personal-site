@@ -54,7 +54,9 @@
 - name: Require the mise-pinned Colima release
   ansible.builtin.assert:
     that:
-      - colima_k3s_required_colima_version in colima_k3s_colima_version.stdout
+      - >-
+        colima_k3s_colima_version.stdout_lines[0]
+        == 'colima version v' ~ colima_k3s_required_colima_version
     fail_msg: >-
       Run this play through mise so Colima {{ colima_k3s_required_colima_version }} is first on PATH.
 
@@ -70,7 +72,9 @@
 - name: Require the mise-pinned Lima release
   ansible.builtin.assert:
     that:
-      - colima_k3s_required_lima_version in colima_k3s_lima_version.stdout
+      - >-
+        colima_k3s_lima_version.stdout_lines[0]
+        == 'limactl version ' ~ colima_k3s_required_lima_version
     fail_msg: >-
       Run this play through mise so Lima {{ colima_k3s_required_lima_version }} is first on PATH.
 

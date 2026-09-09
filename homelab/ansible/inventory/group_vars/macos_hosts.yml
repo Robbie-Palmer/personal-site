@@ -16,7 +16,6 @@ colima_k3s_version: v1.36.4+k3s1
 colima_k3s_context: colima-homelab-k3s
 colima_k3s_data_path: "{{ ansible_facts.env.HOME }}/.local/share/homelab/k3s/t3-code"
 colima_k3s_mount_path: /srv/t3-code
-colima_k3s_volume_root: /Volumes
 colima_k3s_node_labels:
   homelab.dev/capability: agent-workspace
   homelab.dev/location: home
