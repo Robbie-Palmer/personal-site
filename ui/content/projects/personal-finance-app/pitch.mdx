@@ -3,12 +3,13 @@ title: "Personal Finance App pitch"
 description: "An open-source financial twin emerging from personal use and agent-first development"
 ---
 
-# My financial life is not a list of accounts
+# A financial twin for the whole household
 
-A jointly owned home with unequal deposits. A mortgage approaching renewal. Pensions, investments and old employer shares across GBP and USD.
+Asset Tracker keeps assets, debts, ownership, currencies, plans and outcomes in one inspectable model.
 
 <PitchStep>
-  I built Asset Tracker because no product held those relationships and the decisions they create.
+  It began with a jointly owned home, unequal deposits, a mortgage approaching renewal, and investments spread across
+  GBP and USD.
 </PitchStep>
 
 <PitchNotes>
@@ -88,11 +89,10 @@ A jointly owned home with unequal deposits. A mortgage approaching renewal. Pens
 
 <Mermaid
   chart={`flowchart TB
-People["People and household"] --> Own["Ownership and responsibility"]
-Own --> State["Assets · liabilities · accounts · currencies"]
-State --> History["Balances · holdings · transfers · income · spending"]
-History --> Decision["Runway · mortgage · work · investing decisions"]
-Plan["Plans and assumptions"] --> Decision
+Household["People · ownership<br/>responsibility"] --> State["Assets · debts · accounts<br/>currencies"]
+State --> History["Balances · holdings<br/>transfers · income · spending"]
+History --> Decision["Runway · mortgage · work<br/>investing"]
+Plan["Plans · assumptions"] --> Decision
 Decision --> Outcome["What happened next"]
 Outcome --> History
 `}
@@ -336,12 +336,12 @@ Asset Tracker target: [0.88, 0.90]
   <div className="is-next"><span>5–7 Sep</span><strong>Decisions</strong><small>Historical projections and liquid runway</small></div>
 </div>
 
-<p className="pitch-slide__statement">Seven useful increments shipped in 66 days.</p>
+<p className="pitch-slide__statement">Five useful releases shipped in 66 days.</p>
 
 <PitchNotes>
   The development history is the first evidence for an agent-first speed advantage. Between 3 July and 7 September
-  2026, seven material increments moved the product from an interactive client-side prototype through flows, imports,
-  derived expenditure, financial-independence tracking, historical projections and liquidity-aware runway.
+  2026, five dated releases moved the product from an interactive client-side prototype through flows, imports,
+  financial-independence tracking, historical projections and liquidity-aware runway.
 
   This does not prove defensibility. It changes the threshold for continuing: a niche product can return enough value
   to one user while it gathers evidence, because experiments that once needed a team can be attempted and reviewed by
