@@ -1,0 +1,254 @@
+import { execFileSync } from "node:child_process";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+
+import { describe, expect, it } from "vitest";
+
+import { extractDataset } from "../src/extract-dataset";
+import { freezeCohort } from "../src/freeze-cohort";
+import { readJson } from "../src/files";
+import {
+  CorpusSourceManifestSchema,
+  FrozenCohortSchema,
+  ReadinessSchema,
+} from "../src/schemas";
+
+const ARTIFACTS = [
+  ["adr-alpha", "adr", "docs/adrs/alpha.md"],
+  ["adr-beta", "adr", "docs/adrs/beta.md"],
+  ["adr-gamma", "adr", "docs/adrs/gamma.md"],
+  ["project-alpha", "project-page", "docs/projects/alpha.md"],
+  ["project-beta", "project-page", "docs/projects/beta.md"],
+  ["project-gamma", "project-page", "docs/projects/gamma.md"],
+] as const;
+
+function git(repository: string, ...args: string[]): string {
+  return execFileSync("git", ["-C", repository, ...args], { encoding: "utf8" }).trim();
+}
+
+function writeJson(file: string, value: unknown): void {
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(file, `${JSON.stringify(value, null, 2)}\n`);
+}
+
+function createRepository(root: string): {
+  sourceRevision: string;
+  publishedRevision: string;
+} {
+  fs.mkdirSync(root, { recursive: true });
+  git(root, "init", "--quiet");
+  git(root, "config", "user.name", "Writing Fixture");
+  git(root, "config", "user.email", "writing@example.test");
+  for (const [artifactId, , file] of ARTIFACTS) {
+    const absolute = path.join(root, file);
+    fs.mkdirSync(path.dirname(absolute), { recursive: true });
+    fs.writeFileSync(absolute, `# ${artifactId}\n\nThis is not just useful, but important.\n`);
+  }
+  git(root, "add", ".");
+  git(root, "commit", "--quiet", "-m", "Add drafts");
+  const sourceRevision = git(root, "rev-parse", "HEAD");
+
+  for (const [artifactId, , file] of ARTIFACTS) {
+    fs.writeFileSync(
+      path.join(root, file),
+      `# ${artifactId}\n\nThis matters because readers can act on it.\n`,
+    );
+  }
+  git(root, "add", ".");
+  git(root, "commit", "--quiet", "-m", "Publish edits");
+  return { sourceRevision, publishedRevision: git(root, "rev-parse", "HEAD") };
+}
+
+function writeManifest(
+  file: string,
+  revisions: { sourceRevision: string; publishedRevision: string },
+): void {
+  writeJson(file, {
+    schemaVersion: 1,
+    recordType: "writing-editor-corpus-source-manifest",
+    entries: ARTIFACTS.map(([artifactId, artifactType, artifactPath]) => ({
+      artifactId,
+      artifactType,
+      path: artifactPath,
+      ...revisions,
+      outcomeStatus: "unrecorded",
+    })),
+  });
+}
+
+function writeParams(file: string, seed = "fixture-seed"): void {
+  writeJson(file, {
+    cohort: {
+      frozenAt: "2026-09-09T00:00:00Z",
+      seed,
+      split: { train: 0.34, development: 0.33, holdout: 0.33 },
+      requiredArtifactTypes: ["adr", "project-page"],
+    },
+  });
+}
+
+describe("writing editor evaluation pipeline", () => {
+  it("extracts exact content from immutable Git revisions", () => {
+    const temporary = fs.mkdtempSync(path.join(os.tmpdir(), "writing-extract-"));
+    const repository = path.join(temporary, "repository");
+    const revisions = createRepository(repository);
+    const manifestFile = path.join(temporary, "corpus-manifest.json");
+    const output = path.join(temporary, "corpus");
+    writeManifest(manifestFile, revisions);
+
+    const dataset = extractDataset({ manifestFile, repository, output });
+
+    expect(dataset.entries).toHaveLength(6);
+    expect(dataset.entries.map(({ artifactId }) => artifactId)).toEqual(
+      [...dataset.entries.map(({ artifactId }) => artifactId)].sort(),
+    );
+    expect(dataset.datasetId).toMatch(/^dataset:v1:[a-f0-9]{64}$/);
+    expect(dataset.entries[0]?.source.contentHash).not.toBe(
+      dataset.entries[0]?.published.contentHash,
+    );
+    expect(fs.readFileSync(path.join(output, "artifacts/adr-alpha/source.md"), "utf8"))
+      .toContain("not just useful");
+    expect(fs.readFileSync(path.join(output, "artifacts/adr-alpha/published.md"), "utf8"))
+      .toContain("readers can act");
+    expect(readJson(path.join(output, "manifest.json"))).toEqual(dataset);
+
+    const second = extractDataset({
+      manifestFile,
+      repository,
+      output: path.join(temporary, "second-corpus"),
+    });
+    expect(second).toEqual(dataset);
+  });
+
+  it("validates every revision before replacing an existing output", () => {
+    const temporary = fs.mkdtempSync(path.join(os.tmpdir(), "writing-invalid-"));
+    const repository = path.join(temporary, "repository");
+    const revisions = createRepository(repository);
+    const manifestFile = path.join(temporary, "corpus-manifest.json");
+    const output = path.join(temporary, "corpus");
+    writeManifest(manifestFile, revisions);
+    const manifest = CorpusSourceManifestSchema.parse(readJson(manifestFile));
+    writeJson(manifestFile, {
+      ...manifest,
+      entries: manifest.entries.map((entry, index) => index === 5
+        ? { ...entry, publishedRevision: "f".repeat(40) }
+        : entry),
+    });
+    fs.mkdirSync(output, { recursive: true });
+    fs.writeFileSync(path.join(output, "sentinel"), "keep");
+
+    expect(() => extractDataset({ manifestFile, repository, output })).toThrow(/cat-file/);
+    expect(fs.readFileSync(path.join(output, "sentinel"), "utf8")).toBe("keep");
+  });
+
+  it("rejects unsafe paths, duplicate IDs, and unchanged revision pairs", () => {
+    const commit = "a".repeat(40);
+    const base = {
+      artifactId: "safe-id",
+      artifactType: "adr",
+      path: "docs/adr.md",
+      sourceRevision: commit,
+      publishedRevision: "b".repeat(40),
+      outcomeStatus: "unrecorded",
+    };
+    const record = (entries: unknown[]) => ({
+      schemaVersion: 1,
+      recordType: "writing-editor-corpus-source-manifest",
+      entries,
+    });
+
+    expect(CorpusSourceManifestSchema.safeParse(record([{ ...base, path: "../secret" }])).success)
+      .toBe(false);
+    expect(CorpusSourceManifestSchema.safeParse(record([base, base])).success).toBe(false);
+    expect(
+      CorpusSourceManifestSchema.safeParse(record([{
+        ...base,
+        publishedRevision: commit,
+      }])).success,
+    ).toBe(false);
+  });
+
+  it("freezes stratified splits and reports missing decision evidence", () => {
+    const temporary = fs.mkdtempSync(path.join(os.tmpdir(), "writing-freeze-"));
+    const repository = path.join(temporary, "repository");
+    const revisions = createRepository(repository);
+    const manifestFile = path.join(temporary, "corpus-manifest.json");
+    const corpus = path.join(temporary, "corpus");
+    const paramsFile = path.join(temporary, "params.yaml");
+    const output = path.join(temporary, "frozen");
+    writeManifest(manifestFile, revisions);
+    writeParams(paramsFile);
+    const dataset = extractDataset({ manifestFile, repository, output: corpus });
+
+    const result = freezeCohort({
+      datasetFile: path.join(corpus, "manifest.json"),
+      paramsFile,
+      output,
+    });
+
+    expect(FrozenCohortSchema.parse(readJson(path.join(output, "cohort.json"))))
+      .toEqual(result.cohort);
+    expect(ReadinessSchema.parse(readJson(path.join(output, "readiness.json"))))
+      .toEqual(result.readiness);
+    expect(result.cohort.datasetId).toBe(dataset.datasetId);
+    expect(result.cohort.entries).toHaveLength(6);
+    for (const split of ["train", "development", "holdout"] as const) {
+      const entries = result.cohort.entries.filter((entry) => entry.split === split);
+      expect(entries).toHaveLength(2);
+      expect(new Set(entries.map(({ artifactType }) => artifactType))).toEqual(
+        new Set(["adr", "project-page"]),
+      );
+    }
+    expect(result.readiness).toMatchObject({
+      ready: false,
+      revisions: { complete: true, extractedPairs: 6, missingArtifactIds: [] },
+      outcomes: { complete: false, recorded: 0 },
+      coverage: {
+        total: 6,
+        requiredArtifactTypesPresent: true,
+        byArtifactType: { adr: 3, "project-page": 3 },
+      },
+    });
+    expect(result.readiness.outcomes.missingArtifactIds).toHaveLength(6);
+    expect(fs.readFileSync(path.join(output, "readiness.md"), "utf8"))
+      .toContain("Status: not ready");
+
+    const repeated = freezeCohort({
+      datasetFile: path.join(corpus, "manifest.json"),
+      paramsFile,
+      output: path.join(temporary, "repeated-frozen"),
+    });
+    expect(repeated).toEqual(result);
+
+    writeParams(paramsFile, "another-seed");
+    const changed = freezeCohort({
+      datasetFile: path.join(corpus, "manifest.json"),
+      paramsFile,
+      output: path.join(temporary, "changed-frozen"),
+    });
+    expect(changed.cohort.cohortId).not.toBe(result.cohort.cohortId);
+  });
+
+  it("rejects split ratios that do not sum to one", () => {
+    const temporary = fs.mkdtempSync(path.join(os.tmpdir(), "writing-ratios-"));
+    const paramsFile = path.join(temporary, "params.yaml");
+    writeParams(paramsFile);
+    const params = JSON.parse(fs.readFileSync(paramsFile, "utf8"));
+    params.cohort.split.holdout = 0.4;
+    writeJson(paramsFile, params);
+
+    const repository = path.join(temporary, "repository");
+    const revisions = createRepository(repository);
+    const manifestFile = path.join(temporary, "manifest.json");
+    const corpus = path.join(temporary, "corpus");
+    writeManifest(manifestFile, revisions);
+    extractDataset({ manifestFile, repository, output: corpus });
+
+    expect(() => freezeCohort({
+      datasetFile: path.join(corpus, "manifest.json"),
+      paramsFile,
+      output: path.join(temporary, "frozen"),
+    })).toThrow(/sum to 1/);
+  });
+});

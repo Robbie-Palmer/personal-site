@@ -58,6 +58,18 @@ corrections and did not close the gap between a technically correct draft and
 something I wanted to publish. That negative result narrows the problem. Generic
 grammatical error correction is not enough.
 
+Version 1 of the suggestion contract now lives in the shared
+`writing-editor-domain` package. It hashes exact source bytes, uses half-open
+UTF-8 spans, groups suggestions under stable proposal IDs, and keeps the full
+proposal beside each accepted, rejected, or changed decision.
+
+The evaluation pipeline now extracts nine public before-and-after pairs from
+pinned Git commits and freezes a 5/2/2 train, development, and holdout cohort.
+Its readiness check still fails by design. Git shows the published edit, but it
+does not reveal whether the author accepted, rejected, or changed an editor
+proposal. Recorded outcomes and the GECToR baseline must enter private DVC
+storage before scoring can start.
+
 Grammarly remains the practical baseline for the final mile, but it does not
 provide the API needed for an agentic publishing system. Its published research
 and descriptions of its correction approach provide useful prior work without

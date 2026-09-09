@@ -1,0 +1,39 @@
+stages:
+  extract_dataset:
+    cmd: bash scripts/extract.sh
+    deps:
+      - ../../packages/writing-editor-domain/src/canonical-json.ts
+      - ../../packages/writing-editor-domain/package.json
+      - ../../packages/writing-editor-domain/src/suggestions.ts
+      - ../../pnpm-lock.yaml
+      - corpus-manifest.json
+      - package.json
+      - scripts/extract.sh
+      - src/cli-arguments.ts
+      - src/files.ts
+      - src/git-revisions.ts
+      - src/schemas.ts
+      - src/extract-dataset.ts
+    outs:
+      - data/corpus
+
+  freeze_cohort:
+    cmd: bash scripts/freeze.sh
+    params:
+      - cohort
+    deps:
+      - ../../packages/writing-editor-domain/src/canonical-json.ts
+      - ../../packages/writing-editor-domain/package.json
+      - ../../packages/writing-editor-domain/src/suggestions.ts
+      - ../../pnpm-lock.yaml
+      - data/corpus/manifest.json
+      - package.json
+      - scripts/freeze.sh
+      - src/cli-arguments.ts
+      - src/files.ts
+      - src/schemas.ts
+      - src/freeze-cohort.ts
+    outs:
+      - outputs/frozen/cohort.json
+      - outputs/frozen/readiness.json
+      - outputs/frozen/readiness.md

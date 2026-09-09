@@ -1,0 +1,133 @@
+schema: '2.0'
+stages:
+  extract_dataset:
+    cmd: bash scripts/extract.sh
+    deps:
+    - path: ../../packages/writing-editor-domain/package.json
+      hash: md5
+      md5: bd37123edaa1f4a52ecb578c5ce07486
+      size: 728
+    - path: ../../packages/writing-editor-domain/src/canonical-json.ts
+      hash: md5
+      md5: 528d1ee0b157bccd8199d3fe111dcc54
+      size: 1488
+    - path: ../../packages/writing-editor-domain/src/suggestions.ts
+      hash: md5
+      md5: 4c01eedc43c8938ce071eb6269b44766
+      size: 6522
+    - path: ../../pnpm-lock.yaml
+      hash: md5
+      md5: 27bddcdda954cb3dc29a12b36e63910d
+      size: 525183
+    - path: corpus-manifest.json
+      hash: md5
+      md5: ee9a5210e9de02e1aad874cb1153aa48
+      size: 3310
+    - path: package.json
+      hash: md5
+      md5: 9e7c9f8d9fb3f8ac0b2c96e79a06df6e
+      size: 491
+    - path: scripts/extract.sh
+      hash: md5
+      md5: 511691310e70457553ae2dc270e1b4b1
+      size: 160
+      isexec: true
+    - path: src/cli-arguments.ts
+      hash: md5
+      md5: 2fb9bc61625d7752bd7e9cd331386458
+      size: 745
+    - path: src/extract-dataset.ts
+      hash: md5
+      md5: 4ee7f53cdb8234ad7533a19f1f9b719a
+      size: 4344
+    - path: src/files.ts
+      hash: md5
+      md5: 53cab9e5ffceca8b85cff9927e70aaae
+      size: 1008
+    - path: src/git-revisions.ts
+      hash: md5
+      md5: 97015952d5a19a9012ca11b3e48ae470
+      size: 1563
+    - path: src/schemas.ts
+      hash: md5
+      md5: 8a483d82692f1a1e56c54285494bb439
+      size: 5524
+    outs:
+    - path: data/corpus
+      hash: md5
+      md5: fcf34283092033752f464264434c0174.dir
+      size: 450418
+      nfiles: 19
+  freeze_cohort:
+    cmd: bash scripts/freeze.sh
+    deps:
+    - path: ../../packages/writing-editor-domain/package.json
+      hash: md5
+      md5: bd37123edaa1f4a52ecb578c5ce07486
+      size: 728
+    - path: ../../packages/writing-editor-domain/src/canonical-json.ts
+      hash: md5
+      md5: 528d1ee0b157bccd8199d3fe111dcc54
+      size: 1488
+    - path: ../../packages/writing-editor-domain/src/suggestions.ts
+      hash: md5
+      md5: 4c01eedc43c8938ce071eb6269b44766
+      size: 6522
+    - path: ../../pnpm-lock.yaml
+      hash: md5
+      md5: 27bddcdda954cb3dc29a12b36e63910d
+      size: 525183
+    - path: data/corpus/manifest.json
+      hash: md5
+      md5: 82a6c5d9fc9c80a25c9e2e29cdfb73a9
+      size: 6763
+    - path: package.json
+      hash: md5
+      md5: 9e7c9f8d9fb3f8ac0b2c96e79a06df6e
+      size: 491
+    - path: scripts/freeze.sh
+      hash: md5
+      md5: a25cbd5f2aaac5c55bd6fbb71e515ad6
+      size: 167
+      isexec: true
+    - path: src/cli-arguments.ts
+      hash: md5
+      md5: 2fb9bc61625d7752bd7e9cd331386458
+      size: 745
+    - path: src/files.ts
+      hash: md5
+      md5: 53cab9e5ffceca8b85cff9927e70aaae
+      size: 1008
+    - path: src/freeze-cohort.ts
+      hash: md5
+      md5: a184ce5dac5e22308ea6f6b0bfc6d8b4
+      size: 7115
+    - path: src/schemas.ts
+      hash: md5
+      md5: 8a483d82692f1a1e56c54285494bb439
+      size: 5524
+    params:
+      params.yaml:
+        cohort:
+          frozenAt: '2026-09-09T00:00:00Z'
+          seed: writing-editor-v1
+          split:
+            train: 0.6
+            development: 0.2
+            holdout: 0.2
+          requiredArtifactTypes:
+          - adr
+          - project-page
+    outs:
+    - path: outputs/frozen/cohort.json
+      hash: md5
+      md5: 778ff5c06b21ed06c2068b058fd213d6
+      size: 7043
+    - path: outputs/frozen/readiness.json
+      hash: md5
+      md5: 7431fa1b457ec6d757610a1c0d4a20c2
+      size: 845
+    - path: outputs/frozen/readiness.md
+      hash: md5
+      md5: 024977ca75a56383135cd82cf4c14c80
+      size: 625
