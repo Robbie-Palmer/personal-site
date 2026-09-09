@@ -53,6 +53,9 @@ jobs:
       - name: Install dependencies
         run: mise run //:install
 
+      - name: Test Kubernetes manifests
+        run: mise run //homelab:k3s-test-remote
+
       - name: Generate coverage reports
         run: mise run //:sonar:coverage
 

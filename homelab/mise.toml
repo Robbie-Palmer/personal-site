@@ -6,6 +6,7 @@
 "pipx:ansible-lint" = "26.8.0"
 "aqua:kubernetes/kubernetes/kubectl" = "1.37.0"
 "aqua:kubernetes-sigs/kustomize" = "5.8.1"
+"aqua:yannh/kubeconform" = "0.8.0"
 
 # ---------------------------------------------------------------------------
 # Ansible migration bridge
@@ -243,8 +244,12 @@ description = "Render the operator and first-pilot remote workspaces"
 run = "kubectl kustomize k3s/overlays/remote-development-pilot"
 
 [tasks.k3s-test-remote]
-description = "Check the two remote workspace definitions and their isolation controls"
-run = "bash scripts/test-remote-workspace-manifests"
+description = "Test rendered workspace structure, isolation controls, and Kubernetes schemas"
+depends = ["//:install"]
+run = '''
+pnpm exec tsc --project tsconfig.json
+pnpm exec tsx --test tests/remote-workspace-manifests.test.ts
+'''
 
 [tasks.k3s-dry-run-home]
 description = "Server-side dry run of the home overlay after an exact context check"
