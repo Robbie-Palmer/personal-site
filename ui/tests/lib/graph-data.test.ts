@@ -6,7 +6,10 @@ describe("extractGraphData", () => {
   it("skips ADR nodes when project mapping is missing", () => {
     const repository = {
       technologies: new Map(),
-      ideas: new Map(),
+      ideas: new Map([
+        ["conways-law", { title: "Conway's Law" }],
+        ["reverse-conway-maneuver", { title: "Reverse Conway Maneuver" }],
+      ]),
       initiatives: new Map([
         ["software-development", { title: "Software Development" }],
       ]),
@@ -29,8 +32,17 @@ describe("extractGraphData", () => {
           hasTag: new Map(),
           createdAtRole: new Map(),
           writtenAtRole: new Map(),
-          referencesIdea: new Map(),
-          relatedIdea: new Map(),
+          referencesIdea: new Map([
+            ["project:site", new Set(["conways-law", "missing-idea"])],
+            ["blog:missing", new Set(["conways-law"])],
+          ]),
+          relatedIdea: new Map([
+            [
+              "conways-law",
+              new Set(["reverse-conway-maneuver", "missing-idea"]),
+            ],
+            ["missing-idea", new Set(["reverse-conway-maneuver"])],
+          ]),
         },
         reverse: {
           technologyUsedBy: new Map(),
@@ -66,5 +78,25 @@ describe("extractGraphData", () => {
       target: "initiative:software-development",
       type: "CONTRIBUTES_TO_INITIATIVE",
     });
+    expect(data.nodes).toContainEqual(
+      expect.objectContaining({
+        id: "idea:conways-law",
+        href: "/ideas/conways-law",
+        connections: 2,
+      }),
+    );
+    expect(data.edges).toContainEqual({
+      source: "project:site",
+      target: "idea:conways-law",
+      type: "REFERENCES_IDEA",
+    });
+    expect(data.edges).toContainEqual({
+      source: "idea:conways-law",
+      target: "idea:reverse-conway-maneuver",
+      type: "RELATED_IDEA",
+    });
+    expect(data.edges).not.toContainEqual(
+      expect.objectContaining({ target: "idea:missing-idea" }),
+    );
   });
 });

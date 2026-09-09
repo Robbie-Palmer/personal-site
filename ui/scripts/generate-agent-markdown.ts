@@ -585,8 +585,10 @@ function buildIdeaPages(
       references.blogs.length > 0 ||
       references.adrs.length > 0
     ) {
-      sections.push("", "## Where it appears", "");
       sections.push(
+        "",
+        "## Where it appears",
+        "",
         ...references.projects.map(
           (project) =>
             `- Project: [${project.title}](${markdownUrl(routePath("projects", project.slug))})`,

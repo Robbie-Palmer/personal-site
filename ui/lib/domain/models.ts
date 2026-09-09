@@ -29,7 +29,7 @@ export const IdeaSchema = z.object({
   slug: IdeaSlugSchema,
   title: z.string().min(1),
   description: z.string().min(1),
-  sourceUrl: z.string().url().optional(),
+  sourceUrl: z.url().optional(),
   content: z.string().min(1),
   relations: z
     .object({

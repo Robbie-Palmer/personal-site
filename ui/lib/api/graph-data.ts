@@ -177,6 +177,30 @@ function addMappedEdges(
   }
 }
 
+function addIdeaEdges(
+  repository: DomainRepository,
+  state: GraphBuildState,
+): void {
+  const nodeIds = new Set(state.nodes.map((node) => node.id));
+  for (const [nodeId, ideaSlugs] of repository.graph.edges.referencesIdea) {
+    for (const ideaSlug of ideaSlugs) {
+      const target = `idea:${ideaSlug}`;
+      if (nodeIds.has(nodeId) && nodeIds.has(target)) {
+        addEdge(state, nodeId, target, "REFERENCES_IDEA");
+      }
+    }
+  }
+  for (const [ideaSlug, relatedSlugs] of repository.graph.edges.relatedIdea) {
+    for (const relatedSlug of relatedSlugs) {
+      const source = `idea:${ideaSlug}`;
+      const target = `idea:${relatedSlug}`;
+      if (nodeIds.has(source) && nodeIds.has(target)) {
+        addEdge(state, source, target, "RELATED_IDEA");
+      }
+    }
+  }
+}
+
 function addRelationshipEdges(
   repository: DomainRepository,
   state: GraphBuildState,
@@ -228,23 +252,7 @@ function addRelationshipEdges(
     "WRITTEN_AT_ROLE",
   );
 
-  for (const [nodeId, ideaSlugs] of repository.graph.edges.referencesIdea) {
-    for (const ideaSlug of ideaSlugs) {
-      const target = `idea:${ideaSlug}`;
-      if (nodeIds.has(nodeId) && nodeIds.has(target)) {
-        addEdge(state, nodeId, target, "REFERENCES_IDEA");
-      }
-    }
-  }
-  for (const [ideaSlug, relatedSlugs] of repository.graph.edges.relatedIdea) {
-    for (const relatedSlug of relatedSlugs) {
-      const source = `idea:${ideaSlug}`;
-      const target = `idea:${relatedSlug}`;
-      if (nodeIds.has(source) && nodeIds.has(target)) {
-        addEdge(state, source, target, "RELATED_IDEA");
-      }
-    }
-  }
+  addIdeaEdges(repository, state);
 }
 
 function addTagEdges(
