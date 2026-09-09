@@ -72,7 +72,11 @@ case "${device_type}" in
     fi
     cryptsetup luksFormat --type luks2 --batch-mode --key-file "${key_file}" "${device}"
     cryptsetup open --key-file "${key_file}" "${device}" "${mapper}"
-    mkfs.ext4 -L remote-dev-data "/dev/mapper/${mapper}"
+    mkfs.ext4 \
+      -O project,quota \
+      -E quotatype=prjquota \
+      -L remote-dev-data \
+      "/dev/mapper/${mapper}"
     sync
     udevadm settle
     cryptsetup close "${mapper}"

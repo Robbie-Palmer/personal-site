@@ -418,7 +418,7 @@ test("the default remote overlay contains only the operator workspace", () => {
   );
 });
 
-test("the NixOS host publishes and prepares both workspace paths", () => {
+test("the NixOS host publishes, prepares, and limits both workspace paths", () => {
   const hostDefinition = readFileSync(
     new URL("../hosts/remote-development/default.nix", import.meta.url),
     "utf8",
@@ -436,12 +436,37 @@ test("the NixOS host publishes and prepares both workspace paths", () => {
   );
   assert.ok(
     hostDefinition.includes(
-      "install -d -m 0700 -o t3code -g t3code ${dataMount}/t3-code-pilot/home/.codex",
+      "install -d -m 0700 -o t3code -g t3code ${pilotDataPath}/home/.codex",
     ),
   );
   assert.ok(
     hostDefinition.includes(
-      "install -d -m 0700 -o t3code -g t3code ${dataMount}/t3-code-pilot/workspaces",
+      "install -d -m 0700 -o t3code -g t3code ${pilotDataPath}/workspaces",
     ),
   );
+  assert.ok(hostDefinition.includes('"prjquota"'));
+  assert.ok(hostDefinition.includes('pilotProjectId = "2001"'));
+  assert.ok(hostDefinition.includes('pilotBlockHardLimit = "10G"'));
+  assert.ok(hostDefinition.includes('pilotInodeHardLimit = "1000000"'));
+  assert.ok(
+    hostDefinition.includes(
+      "chattr -R -p ${pilotProjectId} ${pilotDataPath}",
+    ),
+  );
+  assert.ok(hostDefinition.includes("chattr +P ${pilotDataPath}"));
+  assert.ok(
+    hostDefinition.includes(
+      "setquota --project ${pilotProjectId} 0 ${pilotBlockHardLimit} 0 ${pilotInodeHardLimit} ${dataMount}",
+    ),
+  );
+  assert.ok(
+    hostDefinition.includes('"remote-development-project-quotas.service"'),
+  );
+
+  const volumePreparation = readFileSync(
+    new URL("../scripts/prepare-remote-development-volume", import.meta.url),
+    "utf8",
+  );
+  assert.ok(volumePreparation.includes("-O project,quota"));
+  assert.ok(volumePreparation.includes("-E quotatype=prjquota"));
 });

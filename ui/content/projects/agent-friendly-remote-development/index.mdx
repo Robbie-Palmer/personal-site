@@ -95,11 +95,13 @@ without changing the operator's declared capacity, though both still share one
 non-preempting pod priority, making it the earlier eviction candidate when both
 workspaces exceed their requests during node pressure.
 
-The next step is live onboarding. It needs the pilot's Tailscale identity and
+The repository now declares a 10 GiB and 1,000,000-inode ext4 project quota for
+the pilot without capping the operator workspace. The existing live volume
+still needs the documented one-time filesystem maintenance before that quota
+can take effect. Live onboarding then needs the pilot's Tailscale identity and
 provider logins, followed by the concurrent-build, restart, access-revocation,
-and file-isolation checks. The shared ext4 volume still lacks enforced
-directory quotas. Encrypted backup and replacement-host restore also remain
-open before the pilot can meet the full success test.
+and file-isolation checks. Encrypted backup and replacement-host restore also
+remain open before the pilot can meet the full success test.
 
 # Success measures
 

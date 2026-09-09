@@ -13,6 +13,21 @@ test "$(hostname)" = remote-development
 test "$(id -u t3code)" = 2000
 test "$(id -g t3code)" = 2000
 test "$(findmnt --noheadings --output SOURCE /srv/remote-development)" = /dev/mapper/remote-development-data
+test "$(findmnt --noheadings --output FSTYPE /srv/remote-development)" = ext4
+findmnt --noheadings --output OPTIONS /srv/remote-development \
+  | tr ',' '\n' \
+  | grep -Fx prjquota >/dev/null
+quotaon --project --print-state /srv/remote-development | grep -F ' is on' >/dev/null
+test "$(lsattr -dp /srv/remote-development/t3-code-pilot | awk '{ print $1 }')" = 2001
+lsattr -d /srv/remote-development/t3-code-pilot \
+  | awk '{ print $1 }' \
+  | grep -F P >/dev/null
+repquota --project --verbose --no-names --output=csv /srv/remote-development \
+  | awk -F, '$1 == "#2001" {
+      found = 1
+      if ($6 != "10485760" || $10 != "1000000") exit 1
+    }
+    END { if (!found) exit 1 }'
 systemctl is-active --quiet tailscaled.service
 systemctl is-active --quiet k3s.service
 tailscale status --json | jq -e '.BackendState == "Running"' >/dev/null
@@ -22,7 +37,7 @@ k3s kubectl get node remote-development \
 k3s kubectl get node remote-development \
   --output=jsonpath='{.metadata.labels.homelab\.dev/capability}{"\n"}' \
   | grep -Fx agent-workspace >/dev/null
-echo "host, encrypted volume, Tailscale, and independent K3s server are healthy"
+echo "host, encrypted volume, pilot disk quota, Tailscale, and independent K3s server are healthy"
 
 check_workspace() {
   local namespace=$1

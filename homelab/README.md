@@ -162,8 +162,104 @@ Do not add the pilot while an allow-all grant can still reach the tagged host.
 [Tailscale combines matching grants](https://tailscale.com/docs/reference/syntax/grants),
 so a narrower rule does not override a broader one.
 
-Build and apply the host definition first. This creates the pilot data
-directory and publishes the second private endpoint:
+#### Enable project quotas on the existing volume
+
+The NixOS definition mounts the data filesystem with project quotas and gives
+`/srv/remote-development/t3-code-pilot` project ID 2001. A systemd oneshot
+assigns that ID to existing files, makes new descendants inherit it, and sets
+hard limits of 10 GiB and 1,000,000 inodes before K3s starts. The operator
+workspace has no new disk limit.
+
+Fresh volumes created by `remote-volume-prepare` have the required ext4
+features from the start. The current volume predates that change. Enabling the
+features changes filesystem metadata and needs a short outage. Do not switch
+to the new NixOS generation first because its `prjquota` mount option expects
+those features to exist.
+
+Do not run this operation until `/srv/remote-development` has a verified,
+encrypted backup outside this Hetzner volume. The e2fsprogs undo file below is
+useful for an operator mistake, but it cannot recover from a power loss and is
+not a backup.
+
+Build the new generation before the maintenance window:
+
+```bash
+mise run //homelab:remote-build
+```
+
+Open a root shell over Tailscale. Confirm the source, filesystem type, inode
+size, and current feature list. Stop if the source is not the expected mapper,
+the type is not ext4, or the inode size is below 256 bytes.
+
+```bash
+ssh root@remote-development
+cd /root
+findmnt --noheadings --output SOURCE,FSTYPE,OPTIONS /srv/remote-development
+tune2fs -l /dev/mapper/remote-development-data \
+  | grep -E '^(Filesystem features|Inode size):'
+```
+
+Stop K3s, check for remaining users of the mount, and unmount it. If `umount`
+reports that the filesystem is busy, investigate the processes shown by
+`fuser`. Do not use a forced unmount.
+
+```bash
+systemctl stop t3-code-tailscale-serve.service k3s.service
+fuser --mount --verbose /srv/remote-development || true
+umount /srv/remote-development
+```
+
+Run a filesystem check, enable project tracking and the internal project quota
+inode, then check the filesystem again. Exit status 1 from `e2fsck` means it
+fixed errors; any higher status needs investigation before mounting the
+volume.
+
+```bash
+e2fsck -f /dev/mapper/remote-development-data
+tune2fs \
+  -z /root/remote-development-before-project-quota.e2undo \
+  -O project \
+  -Q prjquota \
+  /dev/mapper/remote-development-data
+e2fsck -f /dev/mapper/remote-development-data
+```
+
+Mount the volume with the option expected by the new definition, verify it,
+then leave the remote shell:
+
+```bash
+mount \
+  -o noatime,prjquota \
+  /dev/mapper/remote-development-data \
+  /srv/remote-development
+findmnt --noheadings --output SOURCE,FSTYPE,OPTIONS /srv/remote-development
+exit
+```
+
+Switch without the automatic health check because K3s was deliberately
+stopped. Start the quota unit and workloads, then run the full check:
+
+```bash
+REMOTE_DEVELOPMENT_SKIP_HEALTH=1 mise run //homelab:remote-rebuild
+ssh root@remote-development \
+  'systemctl start remote-development-project-quotas.service k3s.service t3-code-tailscale-serve.service'
+mise run //homelab:remote-health
+ssh root@remote-development \
+  'repquota --project --verbose --no-names --output=csv /srv/remote-development'
+```
+
+The report must contain project 2001 with a block hard limit of 10,485,760 KiB
+and a file hard limit of 1,000,000. Keep the undo file until the host has
+rebooted and the health check has passed again. If the NixOS switch fails,
+leave the volume mounted with `prjquota`, start the old `k3s.service` and
+`t3-code-tailscale-serve.service`, and investigate before retrying.
+
+#### Deploy the pilot workspace
+
+The maintenance sequence above already applies the host definition on the
+existing server. On a fresh server, build and apply it now. This creates the
+pilot data directory, applies its quota, and publishes the second private
+endpoint:
 
 ```bash
 mise run //homelab:remote-build
@@ -217,10 +313,11 @@ for node-pressure eviction first. If the pilot is disruptive or needs more
 capacity, resize the host before raising its limits. Do not take capacity from
 the operator workspace to make the pilot fit.
 
-The 10 GiB persistent-volume claim records the pilot allocation but does not
-enforce a filesystem quota on the shared ext4 volume. Monitor the host volume
-during the pilot. Directory-level disk enforcement remains required before an
-untrusted or paid cohort.
+The 10 GiB persistent-volume claim records the pilot allocation. The matching
+ext4 project quota enforces it against the whole pilot directory, independent
+of the shared `t3code` Unix account. The inode limit also prevents exhaustion
+through millions of tiny files. The NixOS service must pass before K3s starts,
+and `remote-health` checks both limits on the live host.
 
 ### Updates, rollback, and backups
 
