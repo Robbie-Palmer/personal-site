@@ -15,6 +15,7 @@ import {
   cookingLogResponse,
   decodeCookingLogCursor,
 } from "./cooking-reads";
+import { readPantry } from "./pantry";
 
 const READ_GRANT_TTL_SECONDS = 30 * 24 * 60 * 60;
 const MAX_AGENT_LIFETIME_SECONDS = 30 * 24 * 60 * 60;
@@ -170,6 +171,27 @@ const completedCookingSessionSchema = {
   },
 } as const;
 
+const pantrySnapshotSchema = {
+  type: "object",
+  additionalProperties: false,
+  required: ["resourceId", "scope", "revision", "stock", "itemVersions"],
+  properties: {
+    resourceId: { type: "string" },
+    scope: { enum: ["personal", "household"] },
+    revision: { type: "string", pattern: "^[0-9]+$" },
+    stock: {
+      type: "object",
+      maxProperties: 500,
+      additionalProperties: { enum: schema.pantryLocationEnum.enumValues },
+    },
+    itemVersions: {
+      type: "object",
+      maxProperties: 500,
+      additionalProperties: { type: "string", pattern: "^[0-9]+$" },
+    },
+  },
+} as const;
+
 const shoppingListSnapshotSchema = {
   type: "object",
   additionalProperties: false,
@@ -274,6 +296,19 @@ export const RECIPE_SITE_AGENT_CAPABILITIES = [
         },
       },
     },
+  },
+  {
+    name: "pantry.read",
+    description:
+      "Read the current pantry belonging to the delegated user or their household, including item versions for conflict detection.",
+    approvalStrength: "session",
+    grantTTL: READ_GRANT_TTL_SECONDS,
+    input: {
+      type: "object",
+      additionalProperties: false,
+      properties: {},
+    },
+    output: pantrySnapshotSchema,
   },
   {
     name: "shopping_list.read",
@@ -498,6 +533,12 @@ export async function executeRecipeAgentCapability(
         ? { ...recipeSummary(recipe, userId), body: recipe.body }
         : null,
     };
+  }
+
+  if (capability === "pantry.read") {
+    noArgumentsInput.parse(args ?? {});
+    const pantry = await readPantry(db, userId);
+    return { ...pantry, scope: pantry.scope.type };
   }
 
   if (capability === "shopping_list.read") {

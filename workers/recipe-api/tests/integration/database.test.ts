@@ -1,3 +1,4 @@
+import type { AgentSession } from "@better-auth/agent-auth";
 import { and, eq } from "drizzle-orm";
 import { createDb, schema } from "recipe-db";
 import { artifactKey, sourceImageKey } from "recipe-domain/import-storage";
@@ -11,6 +12,7 @@ import {
   vi,
 } from "vitest";
 import { createAuth } from "../../src/auth";
+import { executeRecipeAgentCapability } from "../../src/agent-auth";
 import { betterAuthSessionCookie } from "../../src/better-auth-session-cookie";
 import {
   cookingLogResponse,
@@ -131,6 +133,34 @@ function authenticatedRequest(
     { method, headers, body },
     options.env ?? baseEnv,
   );
+}
+
+function delegatedAgentSession(user: TestUser): AgentSession {
+  return {
+    type: "delegated",
+    agentId: "integration-agent",
+    userId: user.id,
+    agent: {
+      id: "integration-agent",
+      name: "Integration recipe helper",
+      mode: "delegated",
+      capabilityGrants: [],
+      hostId: "integration-host",
+      createdAt: new Date("2026-09-09T00:00:00.000Z"),
+      activatedAt: new Date("2026-09-09T00:01:00.000Z"),
+      metadata: null,
+    },
+    host: {
+      id: "integration-host",
+      userId: user.id,
+      status: "active",
+    },
+    user: {
+      id: user.id,
+      name: "Integration cook",
+      email: user.email,
+    },
+  };
 }
 
 async function json<T>(response: Response): Promise<T> {
@@ -270,6 +300,50 @@ describe("recipe API PostgreSQL integration", () => {
       scope: { type: "personal" },
       stock: { onion: "fresh" },
       itemVersions: { onion: "2" },
+    });
+  });
+
+  it("resolves pantry ownership again when an agent reads it", async () => {
+    const cook = await createUser(
+      "Delegated Pantry Cook",
+      "delegated-pantry@example.test",
+    );
+    const session = delegatedAgentSession(cook);
+    const personalWrite = await authenticatedRequest(
+      cook,
+      "/pantry/items/onion",
+      {
+        method: "PUT",
+        body: { location: "fresh" },
+      },
+    );
+    expect(personalWrite.status).toBe(200);
+
+    await expect(
+      executeRecipeAgentCapability(db, "pantry.read", {}, session),
+    ).resolves.toEqual({
+      resourceId: cook.id,
+      scope: "personal",
+      revision: "1",
+      stock: { onion: "fresh" },
+      itemVersions: { onion: "1" },
+    });
+
+    const householdResponse = await authenticatedRequest(cook, "/households", {
+      method: "POST",
+      body: { name: "Delegated Pantry Household" },
+    });
+    expect(householdResponse.status).toBe(201);
+    const household = await json<{ id: string }>(householdResponse);
+
+    await expect(
+      executeRecipeAgentCapability(db, "pantry.read", {}, session),
+    ).resolves.toEqual({
+      resourceId: household.id,
+      scope: "household",
+      revision: "1",
+      stock: { onion: "fresh" },
+      itemVersions: { onion: "1" },
     });
   });
 

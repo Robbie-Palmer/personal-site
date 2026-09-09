@@ -12,11 +12,12 @@ import { createAuth, isPreviewAuthEnabled } from "../src/auth";
 
 function queryDb(...results: unknown[][]): Db {
   let resultIndex = 0;
-  return {
+  const db = {
     select: () => {
       const result = results[resultIndex++] ?? [];
       const query = {
         from: () => query,
+        leftJoin: () => query,
         where: () => query,
         orderBy: () => query,
         limit: () => Promise.resolve(result),
@@ -28,7 +29,12 @@ function queryDb(...results: unknown[][]): Db {
       };
       return query;
     },
-  } as unknown as Db;
+    transaction: (
+      callback: (tx: Db) => Promise<unknown>,
+      _options?: unknown,
+    ) => callback(db as unknown as Db),
+  };
+  return db as unknown as Db;
 }
 
 function secondaryStorageDb(
@@ -348,12 +354,13 @@ describe("recipe Agent Auth capabilities", () => {
     expect(state.updateCount).toBe(1);
   });
 
-  it("exposes recipe, shopping-list, and committed cooking-history reads", () => {
+  it("exposes recipe, pantry, shopping-list, and committed cooking-history reads", () => {
     expect(
       RECIPE_SITE_AGENT_CAPABILITIES.map((capability) => capability.name),
     ).toEqual([
       "recipes.search",
       "recipes.read",
+      "pantry.read",
       "shopping_list.read",
       "cook_log.read",
       "cooking_insights.read",
@@ -482,6 +489,52 @@ describe("recipe Agent Auth capabilities", () => {
         agentSession(),
       ),
     ).resolves.toEqual({ recipe: null });
+  });
+
+  it("reads a repeatable household pantry snapshot with item versions", async () => {
+    const result = await executeRecipeAgentCapability(
+      queryDb(
+        [
+          {
+            householdId: "household-1",
+            householdName: "Test household",
+          },
+        ],
+        [
+          { ingredientSlug: "onion", location: "fresh", version: 3n },
+          { ingredientSlug: "milk", location: "fridge", version: 1n },
+        ],
+        [{ revision: 7n }],
+      ),
+      "pantry.read",
+      {},
+      agentSession(),
+    );
+
+    expect(result).toEqual({
+      resourceId: "household-1",
+      scope: "household",
+      revision: "7",
+      stock: { onion: "fresh", milk: "fridge" },
+      itemVersions: { onion: "3", milk: "1" },
+    });
+  });
+
+  it("returns an empty personal pantry when no aggregate exists", async () => {
+    await expect(
+      executeRecipeAgentCapability(
+        queryDb([], [], []),
+        "pantry.read",
+        {},
+        agentSession(),
+      ),
+    ).resolves.toEqual({
+      resourceId: "delegating-user",
+      scope: "personal",
+      revision: "0",
+      stock: {},
+      itemVersions: {},
+    });
   });
 
   it("reads the current household shopping list", async () => {
