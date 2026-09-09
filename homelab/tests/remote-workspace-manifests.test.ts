@@ -542,4 +542,15 @@ test("the NixOS host publishes, prepares, and limits both workspace paths", () =
   );
   assert.ok(volumePreparation.includes("-O project,quota"));
   assert.ok(volumePreparation.includes("-E quotatype=prjquota"));
+
+  const healthCheck = readFileSync(
+    new URL("../scripts/remote-development-health", import.meta.url),
+    "utf8",
+  );
+  assert.ok(
+    healthCheck.includes(
+      `pilot_project_id=$(awk -F: '$1 == "t3-code-pilot" { print $2 }' /etc/projid)`,
+    ),
+  );
+  assert.ok(!healthCheck.includes('project_id="#2001"'));
 });
