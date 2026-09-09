@@ -3,12 +3,12 @@ set -euo pipefail
 
 export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
 
-ENTE_BIN="/opt/homebrew/bin/ente"
+ENTE_BIN="{{ ente_cli_binary_path }}"
 CONFIG_PATH="{{ ente_cli_config_path }}"
 MOUNT_PATH="{{ ente_export_mount_path }}"
 EXPECTED_VOLUME_UUID="{{ ente_export_mount_uuid }}"
 EXPORT_PATH="{{ ente_export_path }}"
-STATE_DIR="{{ ansible_facts.env.HOME }}/Library/Application Support/homelab/ente-export"
+STATE_DIR="{{ ente_export_state_dir }}"
 LOCK_FILE="${STATE_DIR}/run.lock"
 SUCCESS_MARKER="${STATE_DIR}/last-success"
 FAILURE_MARKER="${STATE_DIR}/last-failure"

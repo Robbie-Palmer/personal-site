@@ -1,0 +1,71 @@
+---
+- name: Verify that Ente export fails before execution without its expected volume
+  hosts: mac-mini
+  gather_facts: true
+  tasks:
+    - name: Exercise the Ente mount guard with disposable state
+      block:
+        - name: Create a disposable Ente verification directory
+          ansible.builtin.tempfile:
+            state: directory
+            prefix: homelab-ente-fail-closed.
+          register: ente_fail_closed_directory
+
+        - name: Create disposable Ente inputs
+          ansible.builtin.file:
+            path: "{{ item.path }}"
+            state: "{{ item.state }}"
+            mode: "{{ item.mode }}"
+          loop:
+            - path: "{{ ente_fail_closed_directory.path }}/export"
+              state: directory
+              mode: "0700"
+            - path: "{{ ente_fail_closed_directory.path }}/ente-cli.db"
+              state: touch
+              mode: "0600"
+          loop_control:
+            label: "{{ item.path }}"
+
+        - name: Render the production wrapper with an absent-volume fixture
+          ansible.builtin.template:
+            src: "{{ playbook_dir }}/../roles/ente_export/templates/ente-export.sh.j2"
+            dest: "{{ ente_fail_closed_directory.path }}/ente-export.sh"
+            mode: "0700"
+            validate: /bin/bash -n %s
+          vars:
+            ente_cli_binary_path: /usr/bin/false
+            ente_cli_config_path: "{{ ente_fail_closed_directory.path }}/ente-cli.db"
+            ente_export_mount_path: /
+            ente_export_mount_uuid: 00000000-0000-0000-0000-000000000000
+            ente_export_path: "{{ ente_fail_closed_directory.path }}/export"
+            ente_export_state_dir: "{{ ente_fail_closed_directory.path }}/state"
+            ente_export_max_runtime_seconds: 1
+
+        - name: Run the wrapper against the absent-volume fixture
+          ansible.builtin.command:
+            argv:
+              - "{{ ente_fail_closed_directory.path }}/ente-export.sh"
+          changed_when: false
+          failed_when: false
+          register: ente_fail_closed_result
+
+        - name: Inspect the disposable success marker
+          ansible.builtin.stat:
+            path: "{{ ente_fail_closed_directory.path }}/state/last-success"
+          register: ente_fail_closed_success_marker
+
+        - name: Require the wrapper to fail before invoking Ente
+          ansible.builtin.assert:
+            that:
+              - ente_fail_closed_result.rc != 0
+              - "'expected export volume is not mounted' in ente_fail_closed_result.stderr"
+              - not ente_fail_closed_success_marker.stat.exists
+            fail_msg: The Ente wrapper did not fail closed when its expected volume was absent.
+      always:
+        - name: Remove disposable Ente verification state
+          ansible.builtin.file:
+            path: "{{ ente_fail_closed_directory.path }}"
+            state: absent
+          when:
+            - ente_fail_closed_directory is defined
+            - ente_fail_closed_directory.path is defined

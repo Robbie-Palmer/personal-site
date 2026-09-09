@@ -8,7 +8,7 @@
 
 - name: Inspect installed Ente CLI
   ansible.builtin.stat:
-    path: /opt/homebrew/bin/ente
+    path: "{{ ente_cli_binary_path }}"
     checksum_algorithm: sha256
   register: ente_export_cli_binary
 
@@ -34,7 +34,7 @@
     src: >-
       {{ ansible_facts.env.HOME }}/Library/Caches/homelab/
       ente-cli-v{{ ente_cli_version }}-darwin-arm64.tar.gz
-    dest: /opt/homebrew/bin
+    dest: "{{ ente_cli_binary_path | dirname }}"
     remote_src: true
     include:
       - ente
@@ -43,7 +43,7 @@
 
 - name: Restrict access to the Ente CLI
   ansible.builtin.file:
-    path: /opt/homebrew/bin/ente
+    path: "{{ ente_cli_binary_path }}"
     state: file
     mode: "0700"
 
@@ -57,7 +57,7 @@
       mode: "0755"
     - path: "{{ ansible_facts.env.HOME }}/Library/Logs"
       mode: "0700"
-    - path: "{{ ansible_facts.env.HOME }}/Library/Application Support/homelab/ente-export"
+    - path: "{{ ente_export_state_dir }}"
       mode: "0700"
   loop_control:
     label: "{{ item.path }}"

@@ -1,0 +1,54 @@
+---
+- name: Inspect the managed Colima K3s profile
+  ansible.builtin.command:
+    argv:
+      - "{{ colima_k3s_colima_binary.stdout }}"
+      - status
+      - "{{ colima_k3s_profile }}"
+  check_mode: false
+  changed_when: false
+  failed_when: false
+  register: colima_k3s_profile_before_restart
+  listen: Restart the managed Colima K3s profile
+
+- name: Inspect the managed Colima K3s launchd job
+  ansible.builtin.command:
+    argv:
+      - launchctl
+      - print
+      - "gui/{{ ansible_facts.user_uid }}/{{ colima_k3s_launchd_label }}"
+  check_mode: false
+  changed_when: false
+  failed_when: false
+  register: colima_k3s_launchd_before_restart
+  listen: Restart the managed Colima K3s profile
+
+- name: Unload the managed Colima K3s launchd job
+  ansible.builtin.command:
+    argv:
+      - launchctl
+      - bootout
+      - "gui/{{ ansible_facts.user_uid }}/{{ colima_k3s_launchd_label }}"
+  changed_when: true
+  when: colima_k3s_launchd_before_restart.rc == 0
+  listen: Restart the managed Colima K3s profile
+
+- name: Stop the managed Colima K3s profile
+  ansible.builtin.command:
+    argv:
+      - "{{ colima_k3s_colima_binary.stdout }}"
+      - stop
+      - "{{ colima_k3s_profile }}"
+  changed_when: true
+  when: colima_k3s_profile_before_restart.rc == 0
+  listen: Restart the managed Colima K3s profile
+
+- name: Load the managed Colima K3s launchd job
+  ansible.builtin.command:
+    argv:
+      - launchctl
+      - bootstrap
+      - "gui/{{ ansible_facts.user_uid }}"
+      - "{{ ansible_facts.env.HOME }}/Library/LaunchAgents/{{ colima_k3s_launchd_label }}.plist"
+  changed_when: true
+  listen: Restart the managed Colima K3s profile

@@ -1,9 +1,10 @@
 # Ansible migration bridge
 
-This directory implements the first stage of
+This directory implements the host-side bridge from
 [ADR 022](../../ui/content/projects/homelab/adrs/022-ansible-k3s-migration-bridge.mdx).
-It inventories the three live hosts, gathers facts, and checks fleet health.
-It does not configure workloads.
+It inventories the three live hosts, gathers facts, configures native Mac
+services, prepares an isolated K3s server, deploys the Asus NixOS flake, and
+checks fleet health. It does not configure workloads.
 
 Ansible Core is pinned in `homelab/mise.toml`. Run every command through mise
 from the repository root:
@@ -19,6 +20,7 @@ mise run //homelab:asus-deploy
 mise run //homelab:ansible-verify
 mise run //homelab:ansible-check-mac
 mise run //homelab:ansible-configure-mac
+mise run //homelab:ansible-verify-ente-fail-closed
 ```
 
 The facts and verification playbooks only read remote state. They connect to
@@ -60,3 +62,60 @@ last-run gauges to Netdata once per minute.
 
 The verification playbook reads marker metadata only. Normal and verbose
 Ansible output does not print the launchd job, mount table, or marker path.
+
+## Isolated K3s profile
+
+The Mac role owns the `homelab-k3s` Colima profile. The existing Compose
+services remain on Colima's `default` profile. The role never stops or edits
+that default VM.
+
+The pilot profile pins Colima 0.10.3, Lima 2.2.0, and K3s
+`v1.36.4+k3s1`. It has 2 CPUs, 4 GiB of memory, and a 60 GiB VM disk. It
+mounts `~/.local/share/homelab/k3s/t3-code` at `/srv/t3-code` and mounts
+`/Volumes` at the same path inside the VM. Both mounts are writable. K3s
+encrypts Secret data at rest and registers the node with the `home` location
+and `agent-workspace` capability labels.
+
+The profile does not activate its Docker or Kubernetes context globally.
+Repository commands address the `colima-homelab-k3s` context explicitly. A
+LaunchAgent runs Colima in foreground mode and restarts it if it exits. The
+agent starts when the Mac user session starts. A Mac reboot test remains part
+of ADR 023 because a LaunchAgent cannot run before login.
+
+Changing the profile config, wrapper, or plist restarts only the isolated
+pilot. The role is temporary. Delete it after nix-darwin or another checked-in
+host configuration owns this profile, or if the K3s pilot is abandoned.
+
+Colima documents named profiles and its YAML paths in its
+[configuration reference](https://github.com/abiosoft/colima/blob/main/skills/references/configuration.md).
+K3s documents that server nodes accept
+[`--node-label`](https://docs.k3s.io/cli/agent#node-labels-and-taints-for-agents)
+at registration.
+
+## ADR 022 acceptance run
+
+Run these commands from a clean checkout on the Mac mini:
+
+```bash
+mise run //homelab:ansible-check-mac
+mise run //homelab:ansible-configure-mac
+mise run //homelab:ansible-configure-mac
+mise run //homelab:ansible-verify-ente-fail-closed
+mise run //homelab:ansible-verify
+```
+
+The second configuration run must report `changed=0`. The fail-closed test
+uses a disposable directory, dummy configuration, `/usr/bin/false` in place
+of Ente, and an impossible volume UUID. It neither unmounts the photo disk nor
+starts an export.
+
+Before changing ADR 022 to Accepted, run the two verification playbooks in
+verbose mode and inspect the output for account identifiers, tokens, and
+credentials:
+
+```bash
+mise run //homelab:ansible-verify-ente-fail-closed -- -vvv
+mise run //homelab:ansible-verify -- -vvv
+```
+
+Do not save that verbose output in the repository.

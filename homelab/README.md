@@ -373,12 +373,15 @@ mise run //homelab:ansible-discover-pi
 mise run //homelab:asus-deploy
 mise run //homelab:ansible-verify
 mise run //homelab:ansible-check-mac
+mise run //homelab:ansible-configure-mac
+mise run //homelab:ansible-verify-ente-fail-closed
 ```
 
-The last two commands connect to each live host in turn. They gather facts and
-report health without changing remote state. See
+The facts and verification commands connect to each live host in turn without
+changing remote state. The Mac configuration command owns the native Ente job
+and a separate `homelab-k3s` Colima profile. See
 [`ansible/README.md`](ansible/README.md) for first-connection setup and the
-reviewed apply command for the Mac host configuration.
+reviewed apply command, profile boundaries, and ADR 022 acceptance run.
 
 [ADR 024](/projects/homelab/adrs/024-doppler-secrets) assigns homelab secrets
 to the separate Doppler `homelab` project. Check access without printing values
