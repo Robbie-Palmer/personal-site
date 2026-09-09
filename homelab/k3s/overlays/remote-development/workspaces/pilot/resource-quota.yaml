@@ -5,7 +5,7 @@ metadata:
 spec:
   hard:
     limits.cpu: "1"
-    limits.memory: 1Gi
+    limits.memory: "1Gi"
     persistentvolumeclaims: "1"
     pods: "1"
-    requests.storage: 10Gi
+    requests.storage: "10Gi"

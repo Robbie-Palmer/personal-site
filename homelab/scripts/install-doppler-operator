@@ -7,6 +7,7 @@ operator_url=https://github.com/DopplerHQ/kubernetes-operator/releases/download/
 operator_sha256=ef448ad54b37c122fff753fa3dfc5a218c13be9b67ff6866dc25dacea82b5f8c
 operator_file=$(mktemp)
 token_file=$(mktemp)
+chmod 600 "${token_file}"
 
 cleanup() {
   rm -f "${operator_file}"
@@ -53,7 +54,6 @@ for target in "$@"; do
     --config "${doppler_config}" \
     --access read \
     --plain >"${token_file}"
-  chmod 600 "${token_file}"
 
   kubectl --namespace "${namespace}" create secret generic doppler-token \
     --from-file="serviceToken=${token_file}" \

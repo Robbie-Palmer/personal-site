@@ -117,9 +117,10 @@ function kindCounts(resources: KubernetesResource[]): Record<string, number> {
 }
 
 test("every rendered overlay passes the Kubernetes 1.37 schema", () => {
-  const expectedSkipped = { home: 1, remote: 1, pilot: 2 } as const;
-
-  for (const [name, overlay] of Object.entries(overlays)) {
+  for (const overlay of Object.values(overlays)) {
+    const expectedSkipped = parseResources(overlay).filter(
+      ({ kind }) => kind === "DopplerSecret",
+    ).length;
     const result = run(
       "kubeconform",
       [
@@ -134,9 +135,7 @@ test("every rendered overlay passes the Kubernetes 1.37 schema", () => {
     assert.match(result.stdout, /Invalid: 0, Errors: 0/);
     assert.match(
       result.stdout.trim(),
-      new RegExp(
-        `Skipped: ${expectedSkipped[name as keyof typeof expectedSkipped]}$`,
-      ),
+      new RegExp(`Skipped: ${expectedSkipped}$`),
     );
   }
 });
@@ -284,6 +283,17 @@ test("the pilot overlay renders two distinct workspaces", () => {
       "automountServiceAccountToken",
     ]),
     false,
+  );
+  assert.deepEqual(
+    valueAt(pilotDeployment, ["spec", "template", "spec", "securityContext"]),
+    {
+      fsGroup: 2000,
+      fsGroupChangePolicy: "OnRootMismatch",
+      runAsGroup: 2000,
+      runAsNonRoot: true,
+      runAsUser: 2000,
+      seccompProfile: { type: "RuntimeDefault" },
+    },
   );
   assert.deepEqual(
     valueAt(pilotDeployment, [
