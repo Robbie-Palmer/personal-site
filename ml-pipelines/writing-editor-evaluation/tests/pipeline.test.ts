@@ -3,7 +3,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 
 import { extractDataset } from "../src/extract-dataset";
 import { freezeCohort } from "../src/freeze-cohort";
@@ -24,8 +24,26 @@ const ARTIFACTS = [
   ["project-gamma", "project-page", "docs/projects/gamma.md"],
 ] as const;
 
+const temporaryDirectories = new Set<string>();
+
+afterEach(() => {
+  for (const directory of temporaryDirectories) {
+    fs.rmSync(directory, { recursive: true, force: true });
+  }
+  temporaryDirectories.clear();
+});
+
+function temporaryDirectory(prefix: string): string {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), prefix));
+  temporaryDirectories.add(directory);
+  return directory;
+}
+
 function git(repository: string, ...args: string[]): string {
-  return execFileSync("git", ["-C", repository, ...args], { encoding: "utf8" }).trim();
+  return execFileSync("git", ["-C", repository, ...args], {
+    encoding: "utf8",
+    maxBuffer: 20 * 1024 * 1024,
+  }).trim();
 }
 
 function writeJson(file: string, value: unknown): void {
@@ -91,7 +109,7 @@ function writeParams(file: string, seed = "fixture-seed"): void {
 
 describe("writing editor evaluation pipeline", () => {
   it("extracts exact content from immutable Git revisions", () => {
-    const temporary = fs.mkdtempSync(path.join(os.tmpdir(), "writing-extract-"));
+    const temporary = temporaryDirectory("writing-extract-");
     const repository = path.join(temporary, "repository");
     const revisions = createRepository(repository);
     const manifestFile = path.join(temporary, "corpus-manifest.json");
@@ -123,7 +141,7 @@ describe("writing editor evaluation pipeline", () => {
   });
 
   it("validates every revision before replacing an existing output", () => {
-    const temporary = fs.mkdtempSync(path.join(os.tmpdir(), "writing-invalid-"));
+    const temporary = temporaryDirectory("writing-invalid-");
     const repository = path.join(temporary, "repository");
     const revisions = createRepository(repository);
     const manifestFile = path.join(temporary, "corpus-manifest.json");
@@ -171,7 +189,7 @@ describe("writing editor evaluation pipeline", () => {
   });
 
   it("reports the revision and path for invalid UTF-8 blobs", () => {
-    const temporary = fs.mkdtempSync(path.join(os.tmpdir(), "writing-utf8-"));
+    const temporary = temporaryDirectory("writing-utf8-");
     const repository = path.join(temporary, "repository");
     fs.mkdirSync(path.join(repository, "docs"), { recursive: true });
     git(repository, "init", "--quiet");
@@ -187,7 +205,7 @@ describe("writing editor evaluation pipeline", () => {
   });
 
   it("freezes stratified splits and reports missing decision evidence", () => {
-    const temporary = fs.mkdtempSync(path.join(os.tmpdir(), "writing-freeze-"));
+    const temporary = temporaryDirectory("writing-freeze-");
     const repository = path.join(temporary, "repository");
     const revisions = createRepository(repository);
     const manifestFile = path.join(temporary, "corpus-manifest.json");
@@ -248,7 +266,7 @@ describe("writing editor evaluation pipeline", () => {
   });
 
   it("rejects split ratios that do not sum to one", () => {
-    const temporary = fs.mkdtempSync(path.join(os.tmpdir(), "writing-ratios-"));
+    const temporary = temporaryDirectory("writing-ratios-");
     const paramsFile = path.join(temporary, "params.yaml");
     writeParams(paramsFile);
     const params = JSON.parse(fs.readFileSync(paramsFile, "utf8"));
