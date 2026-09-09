@@ -76,10 +76,13 @@ The choice belongs to the operation, not to the transport.
 ### Byzantine behavior and hostile traffic are later fault models
 
 Crash and omission faults cover silent or unreachable nodes. Byzantine faults cover nodes that send
-conflicting or fabricated state. Authentication can identify a sender and reject modification or
-replay, but it does not make a compromised, correctly authenticated node truthful. Byzantine fault
-tolerance also adds replicas, messages, state, and membership assumptions that do not fit the first
-three-node experiment.
+conflicting or fabricated state. Message authentication can identify a sender and detect
+modification, but it cannot reject a captured, previously valid message on its own. Replay protection
+requires an authenticated epoch or sequence number plus receiver-side replay state. The current
+`WireCodec::decode` checks packet fields and a checksum; it provides neither sender authentication
+nor replay protection. None of these controls makes a compromised, correctly authenticated node
+truthful. Byzantine fault tolerance also adds replicas, messages, state, and membership assumptions
+that do not fit the first three-node experiment.
 
 An outsider does not need command authority to cause trouble. It may jam the radio, flood the link
 with packets that still cost energy to receive and reject, fill reassembly queues, or repeatedly
@@ -296,7 +299,19 @@ latency, time without a decision, duplicate work, convergence after healing, del
 expiry, bytes transmitted, buffer occupancy, and estimated energy per delivered useful byte.
 Run algorithms against paired scenarios and seeds so their mission-success estimates are comparable.
 
-### 3. Add identity, epochs, and local journals
+### 3. Define the wire and state evolution contract
+
+Before nodes exchange journal data, define a versioned envelope that can carry a boot epoch, sender
+sequence number, record type, and bounded payload. Specify record types for journal summaries,
+missing-record requests, and journal entries, including how a receiver handles an unknown type or
+version. Give durable journal state its own version and define migration and rollback rules.
+
+Add a second wire and state version with one small, observable capability difference. Simulate an
+interrupted rollout, mixed-version planning, rollback, and a long-isolated old node rejoining. Define
+the compatibility corridor and prove that unsupported work is rejected without corrupting durable
+state.
+
+### 4. Add identity, epochs, and local journals
 
 Give each node a persistent identity and boot epoch. Give missions and commands stable identifiers.
 Persist the minimum state needed to reject stale ownership and replay after reset. Record a bounded
@@ -304,13 +319,6 @@ event journal with sender sequence numbers, then exchange summaries and missing 
 contact.
 
 This phase can borrow Kafka's identifiers and replay discipline without inventing a global log.
-
-### 4. Exercise rolling evolution
-
-Add a second wire and state version with one small, observable capability difference. Simulate an
-interrupted rollout, mixed-version planning, rollback, and a long-isolated old node rejoining. Define
-the compatibility corridor and prove that unsupported work is rejected without corrupting durable
-state.
 
 ### 5. Compare one strategy per job
 
