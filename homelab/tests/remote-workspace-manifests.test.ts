@@ -200,6 +200,35 @@ test("the pilot overlay renders two distinct workspaces", () => {
     valueAt(pilotVolume, ["spec", "local", "path"]),
     "/srv/remote-development/t3-code-pilot",
   );
+  for (const volume of [operatorVolume, pilotVolume]) {
+    assert.deepEqual(
+      valueAt(volume, [
+        "spec",
+        "nodeAffinity",
+        "required",
+        "nodeSelectorTerms",
+        0,
+        "matchExpressions",
+      ]),
+      [
+        {
+          key: "homelab.dev/location",
+          operator: "In",
+          values: ["cloud"],
+        },
+        {
+          key: "homelab.dev/capability",
+          operator: "In",
+          values: ["agent-workspace"],
+        },
+        {
+          key: "kubernetes.io/hostname",
+          operator: "In",
+          values: ["remote-development"],
+        },
+      ],
+    );
+  }
 
   const operatorClaim = resource(
     resources,
@@ -234,6 +263,7 @@ test("the pilot overlay renders two distinct workspaces", () => {
     "t3-code",
     "t3-code-pilot",
   );
+  assert.equal(valueAt(pilotDeployment, ["spec", "strategy", "type"]), "Recreate");
   assert.deepEqual(
     valueAt(operatorDeployment, [
       "spec",

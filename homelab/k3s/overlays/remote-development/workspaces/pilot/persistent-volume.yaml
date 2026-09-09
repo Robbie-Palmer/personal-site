@@ -21,6 +21,10 @@ spec:
               operator: In
               values:
                 - agent-workspace
+            - key: kubernetes.io/hostname
+              operator: In
+              values:
+                - remote-development
   persistentVolumeReclaimPolicy: Retain
   storageClassName: t3-code-local
   volumeMode: Filesystem

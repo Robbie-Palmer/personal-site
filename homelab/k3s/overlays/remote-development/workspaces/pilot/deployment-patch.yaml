@@ -3,6 +3,8 @@ kind: Deployment
 metadata:
   name: t3-code
 spec:
+  strategy:
+    type: Recreate
   template:
     metadata:
       annotations:
