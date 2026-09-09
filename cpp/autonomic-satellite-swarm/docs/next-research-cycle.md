@@ -6,6 +6,11 @@ This document records research directions, not flight-software claims. The next 
 autonomy observable and governable without making local coordination depend on a continuously
 available ground link.
 
+The separate [distributed-coordination research note](distributed-coordination-research.md) examines
+the failure model behind that work. It connects the coordinated attack problem, FLP, Kafka's useful
+limits, Delay-Tolerant Networking, protocol evolution, flown swarm experiments, and simulation
+software to a staged test-bed plan.
+
 ## Observable autonomy
 
 Each node should emit bounded, typed telemetry for:
