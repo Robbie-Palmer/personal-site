@@ -45,6 +45,13 @@ export function ScrollNavbar() {
           <Button variant="ghost" className="px-2 md:px-4" asChild>
             <Link href="/projects">Projects</Link>
           </Button>
+          <Button
+            variant="ghost"
+            className="hidden px-2 md:inline-flex md:px-4"
+            asChild
+          >
+            <Link href="/ideas">Ideas</Link>
+          </Button>
           <Button variant="ghost" className="px-2 md:px-4" asChild>
             <Link href="/experience">
               {hasActions ? (

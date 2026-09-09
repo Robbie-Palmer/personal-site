@@ -15,6 +15,7 @@ import {
 } from "react";
 import type {
   FilterOption,
+  PaletteIdea,
   PaletteTechnology,
 } from "@/components/command-palette-types";
 import { Button } from "@/components/ui/button";
@@ -29,6 +30,7 @@ const CommandPaletteDialog = lazy(() =>
 
 export type {
   FilterOption,
+  PaletteIdea,
   PaletteTechnology,
 } from "@/components/command-palette-types";
 
@@ -80,11 +82,13 @@ export function HotkeyHint({ className }: Readonly<{ className?: string }>) {
 interface CommandPaletteProviderProps {
   children: ReactNode;
   technologies?: PaletteTechnology[];
+  ideas?: PaletteIdea[];
 }
 
 export function CommandPaletteProvider({
   children,
   technologies = [],
+  ideas = [],
 }: Readonly<CommandPaletteProviderProps>) {
   const [open, setOpen] = useState(false);
   const [pageFilters, setPageFilters] = useState<FilterOption[]>([]);
@@ -136,6 +140,7 @@ export function CommandPaletteProvider({
             onOpenChange={setOpen}
             pageFilters={pageFilters}
             technologies={technologies}
+            ideas={ideas}
           />
         </Suspense>
       )}

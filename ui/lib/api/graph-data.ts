@@ -84,6 +84,15 @@ function addContentNodes(
       connections: 0,
     });
   }
+  for (const [slug, idea] of repository.ideas) {
+    state.nodes.push({
+      id: `idea:${slug}`,
+      name: idea.title,
+      type: "idea",
+      href: `/ideas/${slug}`,
+      connections: 0,
+    });
+  }
 }
 
 function addAdrNodes(
@@ -218,6 +227,24 @@ function addRelationshipEdges(
     (slug) => `role:${slug}`,
     "WRITTEN_AT_ROLE",
   );
+
+  for (const [nodeId, ideaSlugs] of repository.graph.edges.referencesIdea) {
+    for (const ideaSlug of ideaSlugs) {
+      const target = `idea:${ideaSlug}`;
+      if (nodeIds.has(nodeId) && nodeIds.has(target)) {
+        addEdge(state, nodeId, target, "REFERENCES_IDEA");
+      }
+    }
+  }
+  for (const [ideaSlug, relatedSlugs] of repository.graph.edges.relatedIdea) {
+    for (const relatedSlug of relatedSlugs) {
+      const source = `idea:${ideaSlug}`;
+      const target = `idea:${relatedSlug}`;
+      if (nodeIds.has(source) && nodeIds.has(target)) {
+        addEdge(state, source, target, "RELATED_IDEA");
+      }
+    }
+  }
 }
 
 function addTagEdges(

@@ -22,3 +22,6 @@ export type InitiativeSlug = z.infer<typeof InitiativeSlugSchema>;
 
 export const RoleSlugSchema = z.string().min(1);
 export type RoleSlug = z.infer<typeof RoleSlugSchema>;
+
+export const IdeaSlugSchema = z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/);
+export type IdeaSlug = z.infer<typeof IdeaSlugSchema>;

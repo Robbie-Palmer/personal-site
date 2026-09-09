@@ -14,3 +14,8 @@ export interface PaletteTechnology {
   iconSlug?: string;
   hasIcon: boolean;
 }
+
+export interface PaletteIdea {
+  slug: string;
+  title: string;
+}

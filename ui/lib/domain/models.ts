@@ -14,6 +14,7 @@ export const ADRRefSchema = CanonicalADRRefSchema;
 export const ProjectSlugSchema = z.string().min(1);
 export const InitiativeSlugSchema = z.string().min(1);
 export const RoleSlugSchema = z.string().min(1);
+export const IdeaSlugSchema = z.string().min(1);
 
 export type TechnologySlug = z.infer<typeof TechnologySlugSchema>;
 export type BlogSlug = z.infer<typeof BlogSlugSchema>;
@@ -22,6 +23,22 @@ export type ADRRef = z.infer<typeof ADRRefSchema>;
 export type ProjectSlug = z.infer<typeof ProjectSlugSchema>;
 export type InitiativeSlug = z.infer<typeof InitiativeSlugSchema>;
 export type RoleSlug = z.infer<typeof RoleSlugSchema>;
+export type IdeaSlug = z.infer<typeof IdeaSlugSchema>;
+
+export const IdeaSchema = z.object({
+  slug: IdeaSlugSchema,
+  title: z.string().min(1),
+  description: z.string().min(1),
+  sourceUrl: z.string().url().optional(),
+  content: z.string().min(1),
+  relations: z
+    .object({
+      relatedIdeas: z.array(IdeaSlugSchema).default([]),
+    })
+    .default({ relatedIdeas: [] }),
+});
+
+export type Idea = z.infer<typeof IdeaSchema>;
 
 export const TechnologySchema = z.object({
   name: z.string().min(1),
@@ -66,9 +83,11 @@ export const BlogPostSchema = z.object({
   relations: z
     .object({
       technologies: z.array(TechnologySlugSchema).default([]),
+      ideas: z.array(IdeaSlugSchema).default([]),
     })
     .default({
       technologies: [],
+      ideas: [],
     }),
 });
 
@@ -84,7 +103,9 @@ export { ADRStatusSchema };
 export type ADRStatus = z.infer<typeof ADRStatusSchema>;
 
 export const ADRSchema = BaseADRSchema.extend({
-  relations: ADRRelationsSchema,
+  relations: ADRRelationsSchema.extend({
+    ideas: z.array(IdeaSlugSchema).default([]),
+  }),
 });
 
 export type ADR = z.infer<typeof ADRSchema>;
@@ -111,11 +132,13 @@ export const ProjectSchema = z.object({
   relations: z
     .object({
       technologies: z.array(TechnologySlugSchema).default([]),
+      ideas: z.array(IdeaSlugSchema).default([]),
       adrs: z.array(ADRRefSchema).default([]),
       initiatives: z.array(InitiativeSlugSchema).default([]),
     })
     .default({
       technologies: [],
+      ideas: [],
       adrs: [],
       initiatives: [],
     }),

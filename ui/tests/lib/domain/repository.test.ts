@@ -704,6 +704,7 @@ Content`;
             "test-project",
             {
               technologies: ["react"],
+              ideas: [],
               adrs: [],
               initiatives: [],
               tags: [],
@@ -746,6 +747,7 @@ Content`;
             "test-project",
             {
               technologies: ["react"], // react doesn't exist
+              ideas: [],
               adrs: [],
               initiatives: [],
               tags: [],
@@ -790,6 +792,7 @@ Content`;
             "test-project",
             {
               technologies: [],
+              ideas: [],
               adrs: ["001-missing"], // ADR doesn't exist
               initiatives: [],
               tags: [],
@@ -832,6 +835,7 @@ Content`;
             "test-project",
             {
               technologies: [],
+              ideas: [],
               adrs: [],
               initiatives: ["missing-initiative"],
               tags: [],
@@ -919,6 +923,7 @@ Content`;
             "recipe-site",
             {
               technologies: [],
+              ideas: [],
               adrs: ["recipe-site:001-react", "personal-site:001-react"],
               initiatives: [],
               tags: [],
@@ -972,6 +977,7 @@ Content`;
             {
               project: "missing-project", // Project doesn't exist
               technologies: [],
+              ideas: [],
             },
           ],
         ]);

@@ -1,0 +1,25 @@
+---
+title: "DORA Metrics"
+description: "A research-backed set of software delivery measures that keeps throughput and instability in view together."
+source_url: "https://dora.dev/guides/dora-metrics/"
+---
+
+DORA's current software delivery performance model uses five measures. Three describe throughput:
+
+* change lead time;
+* deployment frequency; and
+* failed deployment recovery time.
+
+Two describe instability:
+
+* change fail rate; and
+* deployment rework rate.
+
+The combination is more valuable than any single number. Delivery frequency without failure data
+can reward churn. Failure rates without lead time can reward avoiding change. The tension makes it
+harder to improve a dashboard while making delivery worse.
+
+These are system measures, best applied to one application or service over time. They are not a fair
+league table for teams working in different contexts, and they do not explain which local practice
+caused a change. I use them as outcomes and pair them with narrower evidence when testing a specific
+intervention.

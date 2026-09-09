@@ -6,6 +6,7 @@ describe("extractGraphData", () => {
   it("skips ADR nodes when project mapping is missing", () => {
     const repository = {
       technologies: new Map(),
+      ideas: new Map(),
       initiatives: new Map([
         ["software-development", { title: "Software Development" }],
       ]),
@@ -28,6 +29,8 @@ describe("extractGraphData", () => {
           hasTag: new Map(),
           createdAtRole: new Map(),
           writtenAtRole: new Map(),
+          referencesIdea: new Map(),
+          relatedIdea: new Map(),
         },
         reverse: {
           technologyUsedBy: new Map(),
@@ -38,6 +41,7 @@ describe("extractGraphData", () => {
           tagUsedBy: new Map(),
           roleProjects: new Map(),
           roleBlogs: new Map(),
+          ideaReferencedBy: new Map(),
         },
       },
       buildingPhilosophy: "",
