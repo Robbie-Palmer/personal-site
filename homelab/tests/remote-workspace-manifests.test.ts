@@ -32,12 +32,13 @@ function run(
     cwd: homelabDirectory,
     encoding: "utf8",
     input,
+    timeout: 30_000,
   });
 
   assert.equal(
     result.status,
     0,
-    `${command} ${args.join(" ")} failed\n${result.stderr || result.stdout}`,
+    `${command} ${args.join(" ")} failed\n${result.error?.message || result.stderr || result.stdout}`,
   );
   return { stdout: result.stdout, stderr: result.stderr };
 }
@@ -132,11 +133,13 @@ test("every rendered overlay passes the Kubernetes 1.37 schema", () => {
       ],
       renderOverlay(overlay),
     );
-    assert.match(result.stdout, /Invalid: 0, Errors: 0/);
-    assert.match(
-      result.stdout.trim(),
-      new RegExp(`Skipped: ${expectedSkipped}$`),
+    const summary = result.stdout.trim().match(
+      /^Summary: (\d+) resources found parsing stdin - Valid: (\d+), Invalid: (\d+), Errors: (\d+), Skipped: (\d+)$/,
     );
+    assert.ok(summary, `unexpected kubeconform summary: ${result.stdout}`);
+    assert.equal(Number(summary[3]), 0, "kubeconform found invalid resources");
+    assert.equal(Number(summary[4]), 0, "kubeconform reported errors");
+    assert.equal(Number(summary[5]), expectedSkipped);
   }
 });
 

@@ -5,17 +5,23 @@ expected_context=${REMOTE_DEVELOPMENT_KUBE_CONTEXT:-remote-development}
 script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 operator_url=https://github.com/DopplerHQ/kubernetes-operator/releases/download/v1.7.1/recommended.yaml
 operator_sha256=ef448ad54b37c122fff753fa3dfc5a218c13be9b67ff6866dc25dacea82b5f8c
-operator_file=$(mktemp)
-token_file=$(mktemp)
-chmod 600 "${token_file}"
+operator_file=
+token_file=
 
 cleanup() {
-  rm -f "${operator_file}"
-  if [ -f "${token_file}" ]; then
+  if [ -n "${operator_file}" ]; then
+    rm -f "${operator_file}"
+  fi
+  if [ -n "${token_file}" ] && [ -f "${token_file}" ]; then
     shred --remove "${token_file}" 2>/dev/null || rm -f "${token_file}"
   fi
 }
 trap cleanup EXIT
+
+umask 077
+operator_file=$(mktemp)
+token_file=$(mktemp)
+chmod 600 "${token_file}"
 
 "${script_dir}/require-kube-context" "${expected_context}" cloud
 curl --fail --location --silent --show-error "${operator_url}" --output "${operator_file}"
