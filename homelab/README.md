@@ -215,13 +215,23 @@ fixed errors; any higher status needs investigation before mounting the
 volume.
 
 ```bash
-e2fsck -f /dev/mapper/remote-development-data
+check_ext4() {
+  e2fsck -f /dev/mapper/remote-development-data
+  check_status=$?
+  if [ "${check_status}" -gt 1 ]; then
+    echo "e2fsck failed with status ${check_status}; stopping maintenance" >&2
+    return "${check_status}"
+  fi
+  return 0
+}
+
+check_ext4 || exit $?
 tune2fs \
   -z /root/remote-development-before-project-quota.e2undo \
   -O project \
   -Q prjquota \
   /dev/mapper/remote-development-data
-e2fsck -f /dev/mapper/remote-development-data
+check_ext4 || exit $?
 ```
 
 Mount the volume with the option expected by the new definition, verify it,
