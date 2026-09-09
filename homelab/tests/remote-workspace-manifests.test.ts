@@ -15,6 +15,22 @@ interface KubernetesResource {
   [key: string]: unknown;
 }
 
+interface FluxSchemaReport {
+  report: {
+    summary: {
+      total: number;
+      valid: number;
+      invalid: number;
+      skipped: number;
+    };
+    results: Array<{
+      status: string;
+      reason?: string;
+      violations?: Array<{ message: string; path: string }>;
+    }>;
+  };
+}
+
 const homelabDirectory = fileURLToPath(new URL("..", import.meta.url));
 const overlays = {
   home: "k3s/overlays/home",
@@ -117,40 +133,89 @@ function kindCounts(resources: KubernetesResource[]): Record<string, number> {
   );
 }
 
-test("every rendered overlay passes the Kubernetes 1.37 schema", () => {
+const fluxSchemaArguments = [
+  "validate",
+  "--config",
+  ".fluxschema.yml",
+  "--output",
+  "json",
+] as const;
+
+test("every rendered overlay passes the pinned Kubernetes and Doppler schemas", () => {
   for (const overlay of Object.values(overlays)) {
     const resources = parseResources(overlay);
-    const expectedSkipped = resources.filter(
-      ({ kind }) => kind === "DopplerSecret",
-    ).length;
     const result = run(
-      "kubeconform",
-      [
-        "-strict",
-        "-summary",
-        "-ignore-missing-schemas",
-        "-kubernetes-version",
-        "1.37.0",
-        "-output",
-        "json",
-      ],
+      "flux-schema",
+      fluxSchemaArguments,
       renderOverlay(overlay),
     );
-    const report = JSON.parse(result.stdout) as {
-      summary: {
-        valid: number;
-        invalid: number;
-        errors: number;
-        skipped: number;
-      };
-    };
-    assert.deepEqual(report.summary, {
-      valid: resources.length - expectedSkipped,
+    const report = JSON.parse(result.stdout) as FluxSchemaReport;
+    assert.deepEqual(report.report.summary, {
+      total: resources.length,
+      valid: resources.length,
       invalid: 0,
-      errors: 0,
-      skipped: expectedSkipped,
+      skipped: 0,
     });
   }
+});
+
+test("Flux Schema evaluates the DopplerSecret CEL authentication rule", () => {
+  const invalidDopplerSecret = `
+apiVersion: secrets.doppler.com/v1alpha1
+kind: DopplerSecret
+metadata:
+  name: invalid-authentication
+spec:
+  identity: 00000000-0000-0000-0000-000000000000
+  tokenSecret:
+    name: doppler-token
+  managedSecret:
+    name: t3-code-runtime
+`;
+  const result = spawnSync("flux-schema", fluxSchemaArguments, {
+    cwd: homelabDirectory,
+    encoding: "utf8",
+    input: invalidDopplerSecret,
+    timeout: 30_000,
+  });
+
+  assert.equal(result.status, 1, result.error?.message || result.stderr);
+  const report = JSON.parse(result.stdout) as FluxSchemaReport;
+  assert.deepEqual(report.report.summary, {
+    total: 1,
+    valid: 0,
+    invalid: 1,
+    skipped: 0,
+  });
+  assert.equal(report.report.results[0]?.reason, "cel-violation");
+  assert.deepEqual(report.report.results[0]?.violations, [
+    {
+      path: "/spec",
+      message:
+        "Invalid value: Must specify either tokenSecret or identity, but not both",
+    },
+  ]);
+});
+
+test("the Doppler validation catalog matches the installed operator version", () => {
+  const installer = readFileSync(
+    new URL("../scripts/install-doppler-operator", import.meta.url),
+    "utf8",
+  );
+  const validationConfig = readFileSync(
+    new URL("../.fluxschema.yml", import.meta.url),
+    "utf8",
+  );
+  const installedVersion = installer.match(
+    /kubernetes-operator\/releases\/download\/(v\d+\.\d+\.\d+)\//,
+  );
+  const schemaVersion = validationConfig.match(
+    /k3s\/schemas\/doppler-operator-(v\d+\.\d+\.\d+)/,
+  );
+
+  assert.ok(installedVersion, "the Doppler Operator URL must pin a version");
+  assert.ok(schemaVersion, "the Doppler schema catalog must pin a version");
+  assert.equal(schemaVersion[1], installedVersion[1]);
 });
 
 test("the pilot overlay renders two distinct workspaces", () => {

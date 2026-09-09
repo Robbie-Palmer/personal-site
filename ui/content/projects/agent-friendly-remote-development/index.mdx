@@ -103,6 +103,11 @@ provider logins, followed by the concurrent-build, restart, access-revocation,
 and file-isolation checks. Encrypted backup and replacement-host restore also
 remain open before the pilot can meet the full success test.
 
+Rendered workspace definitions now pass Flux Schema validation against pinned
+Kubernetes 1.37 and Doppler Operator schemas. The check rejects missing schemas
+and evaluates the Doppler custom resource's CEL admission rule before a live
+cluster dry run.
+
 # Success measures
 
 The pilot succeeds when:
@@ -140,6 +145,9 @@ The implementation choices and their trade-offs live in ADRs:
 * [ADR 004: Coder Community trial](/projects/agent-friendly-remote-development/adrs/004-coder-community)
 * [ADR 005: Early-cohort pricing](/projects/agent-friendly-remote-development/adrs/005-small-cohort-pricing)
 * [ADR 006: Delegated resource access](/projects/agent-friendly-remote-development/adrs/006-delegated-resource-access)
+* [ADR 007: Per-workspace Doppler secrets](/projects/agent-friendly-remote-development/adrs/007-doppler-secrets)
+* [ADR 008: Shared-host resource containment](/projects/agent-friendly-remote-development/adrs/008-shared-host-resource-containment)
+* [ADR 009: Pre-apply manifest validation with Flux Schema](/projects/agent-friendly-remote-development/adrs/009-flux-schema-validation)
 
 # Open questions
 

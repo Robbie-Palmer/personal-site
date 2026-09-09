@@ -1,0 +1,80 @@
+---
+title: "ADR 009: Pre-apply manifest validation with Flux Schema"
+date: "2026-09-09"
+status: "Accepted"
+tech_stack: ["Flux Schema"]
+---
+
+# Context
+
+The project composes each workspace with Kustomize and tests the rendered
+objects before applying them. Kubernetes built-in schemas catch misspelled
+fields and invalid types. The workspace definitions also contain
+`DopplerSecret` custom resources from the pinned Doppler Operator release.
+
+Kubeconform validated the Kubernetes 1.37 objects but skipped those custom
+resources. Its JSON Schema checks also do not evaluate
+`x-kubernetes-validations` CEL rules. The Doppler CRD uses such a rule to
+require exactly one of `tokenSecret` or `identity`, as shown in the
+[pinned v1.7.1 CRD](https://github.com/DopplerHQ/kubernetes-operator/blob/v1.7.1/config/crd/bases/secrets.doppler.com_dopplersecrets.yaml).
+A server-side `kubectl` dry run checks the installed CRD, but it needs the live
+cluster and cannot give every pull request the same pre-apply check.
+
+# Decision
+
+Use the standalone Flux Schema CLI for rendered Kubernetes manifest validation.
+Pin its version through mise. This adoption does not install Flux controllers,
+Flux custom resources, or Helm. Flux Schema accepts the existing Kustomize
+output directly, following its
+[documented validation pipeline](https://fluxcd.io/flux/cli-plugins/flux-schema/manifests-validation/).
+
+Keep validation settings in `.fluxschema.yml`. Missing schemas fail. Resolve
+the checked-in Doppler schema first, then resolve built-in resources from a
+Flux Schema catalog commit that documents Kubernetes 1.37. Pinning the commit
+prevents a catalog refresh from changing an existing CI run. The
+[pinned catalog metadata](https://github.com/fluxcd/flux-schema/blob/aa377b2ae9512c371ce34bc5b4c88e67b106a011/catalog/README.md)
+records Kubernetes v1.37.0 as its source.
+
+Generate the local `DopplerSecret` schema from the same Doppler Operator
+release installed by the project. Review and regenerate it whenever that
+operator pin changes. The manifest test must include a failing example that
+proves Flux Schema evaluates the Doppler authentication CEL rule.
+
+Retain the TypeScript assertions over final object names, namespaces, resource
+limits, storage paths, and security fields. Schema validation cannot express
+all project policy. Retain the server-side dry run as the final comparison
+with the CRD and admission behavior installed on the target cluster.
+
+# Alternatives
+
+Kubeconform could validate a generated Doppler JSON Schema supplied through an
+extra catalog. It would still miss the CRD's CEL rule, so replacing it avoids
+maintaining two validators for this project.
+
+Using only `kubectl apply --dry-run=server` would validate the live API but
+make the test dependent on cluster access and whatever CRD version happens to
+be installed. Keep it as a deployment check rather than the only test.
+
+The hosted Flux ecosystem catalog removes local schema maintenance for covered
+projects. It did not include `secrets.doppler.com` when this decision was made,
+as recorded by its [generated index](https://schemas.fluxoperator.dev/index.json).
+Its daily rebuilds also do not provide the pinned operator-version boundary
+this project needs.
+
+# Consequences
+
+Every rendered object now needs a schema, and Doppler CEL admission failures
+appear in the ordinary repository test. The standalone binary adds no Flux
+runtime to the host.
+
+The Kubernetes catalog still comes from GitHub during validation, though its
+immutable commit keeps content stable. CI therefore depends on that endpoint
+being available. Vendor the required catalog if network availability becomes
+a recurring failure. The checked-in Doppler schema is generated code and must
+move with the operator version.
+
+Flux Schema remains in its 0.x release series. Keep the version pinned and
+review release notes before upgrades, especially changes to CEL evaluation,
+schema extraction, and report structure. Its
+[release history](https://github.com/fluxcd/flux-schema/releases) is the
+upgrade source.

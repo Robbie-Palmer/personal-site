@@ -288,11 +288,14 @@ mise run //homelab:remote-health
 mise run //homelab:remote-pilot-acceptance
 ```
 
-The manifest test renders every Kustomize overlay, validates built-in objects
-against the Kubernetes 1.37 schemas, and checks the final workspace objects by
-kind, name, namespace, and field value. Kubeconform skips the Doppler custom
-resources because their schema comes from the operator. The server-side dry
-run validates those resources against the installed CRD.
+The manifest test renders every Kustomize overlay, validates every object with
+Flux Schema, and checks the final workspace objects by kind, name, namespace,
+and field value. Its configuration pins the Kubernetes 1.37 catalog to an
+immutable upstream commit. The repository also keeps a `DopplerSecret` schema
+generated from the same Doppler Operator release that installation uses, so
+the test evaluates its CEL admission rules without a cluster. Missing schemas
+fail the test. The server-side dry run remains the final check against the CRD
+and admission behavior installed on the live cluster.
 
 The pilot can then open
 `https://remote-development.<tailnet-name>.ts.net:8443`. Complete GitHub and

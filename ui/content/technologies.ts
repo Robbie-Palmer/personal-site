@@ -1258,6 +1258,14 @@ export const technologies: TechnologyContent[] = [
     type: "platform",
   },
   {
+    name: "Flux Schema",
+    added: "2026-09-09",
+    description:
+      "Kubernetes manifest validator for JSON Schema and CEL admission rules",
+    website: "https://fluxcd.io/flux/cli-plugins/flux-schema/",
+    type: "tool",
+  },
+  {
     name: "Recyclarr",
     added: "2026-08-23",
     description:
