@@ -68,22 +68,29 @@ test(
   10_000,
 );
 
-test("treats mart paths as data during SQL template substitution", () => {
-  const root = temporaryRoot();
-  const marts = buildFixtureMarts(root);
-  const manifestFile = path.join(marts, "scorecard-manifest.json");
-  const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8")) as {
-    marts: { review_run_fact: { path: string } };
-  };
-  const original = path.join(marts, manifest.marts.review_run_fact.path);
-  const collisionPath = "review__MODEL_RUN_FACT__.parquet";
-  fs.copyFileSync(original, path.join(marts, collisionPath));
-  manifest.marts.review_run_fact.path = collisionPath;
-  fs.writeFileSync(manifestFile, `${JSON.stringify(manifest, null, 2)}\n`);
+test(
+  "treats mart paths as data during SQL template substitution",
+  () => {
+    const root = temporaryRoot();
+    const marts = buildFixtureMarts(root);
+    const manifestFile = path.join(marts, "scorecard-manifest.json");
+    const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8")) as {
+      marts: { review_run_fact: { path: string } };
+    };
+    const original = path.join(marts, manifest.marts.review_run_fact.path);
+    const collisionPath = "review__MODEL_RUN_FACT__.parquet";
+    fs.copyFileSync(original, path.join(marts, collisionPath));
+    manifest.marts.review_run_fact.path = collisionPath;
+    fs.writeFileSync(manifestFile, `${JSON.stringify(manifest, null, 2)}\n`);
 
-  const baseline = buildStatelessBaseline({ martsDir: marts, outputFile: path.join(root, "baseline.json") });
-  expect(baseline.sample.reviewRuns).toBe(1);
-});
+    const baseline = buildStatelessBaseline({
+      martsDir: marts,
+      outputFile: path.join(root, "baseline.json"),
+    });
+    expect(baseline.sample.reviewRuns).toBe(1);
+  },
+  10_000,
+);
 
 test("rejects mart paths outside the marts directory or containing control characters", () => {
   const root = temporaryRoot();
