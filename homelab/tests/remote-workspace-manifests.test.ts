@@ -119,7 +119,8 @@ function kindCounts(resources: KubernetesResource[]): Record<string, number> {
 
 test("every rendered overlay passes the Kubernetes 1.37 schema", () => {
   for (const overlay of Object.values(overlays)) {
-    const expectedSkipped = parseResources(overlay).filter(
+    const resources = parseResources(overlay);
+    const expectedSkipped = resources.filter(
       ({ kind }) => kind === "DopplerSecret",
     ).length;
     const result = run(
@@ -130,16 +131,25 @@ test("every rendered overlay passes the Kubernetes 1.37 schema", () => {
         "-ignore-missing-schemas",
         "-kubernetes-version",
         "1.37.0",
+        "-output",
+        "json",
       ],
       renderOverlay(overlay),
     );
-    const summary = result.stdout.trim().match(
-      /^Summary: (\d+) resources found parsing stdin - Valid: (\d+), Invalid: (\d+), Errors: (\d+), Skipped: (\d+)$/,
-    );
-    assert.ok(summary, `unexpected kubeconform summary: ${result.stdout}`);
-    assert.equal(Number(summary[3]), 0, "kubeconform found invalid resources");
-    assert.equal(Number(summary[4]), 0, "kubeconform reported errors");
-    assert.equal(Number(summary[5]), expectedSkipped);
+    const report = JSON.parse(result.stdout) as {
+      summary: {
+        valid: number;
+        invalid: number;
+        errors: number;
+        skipped: number;
+      };
+    };
+    assert.deepEqual(report.summary, {
+      valid: resources.length - expectedSkipped,
+      invalid: 0,
+      errors: 0,
+      skipped: expectedSkipped,
+    });
   }
 });
 
