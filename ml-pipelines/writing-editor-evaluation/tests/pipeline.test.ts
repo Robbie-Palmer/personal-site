@@ -8,6 +8,7 @@ import { describe, expect, it } from "vitest";
 import { extractDataset } from "../src/extract-dataset";
 import { freezeCohort } from "../src/freeze-cohort";
 import { readJson } from "../src/files";
+import { fileAtRevision } from "../src/git-revisions";
 import {
   CorpusSourceManifestSchema,
   FrozenCohortSchema,
@@ -167,6 +168,22 @@ describe("writing editor evaluation pipeline", () => {
         publishedRevision: commit,
       }])).success,
     ).toBe(false);
+  });
+
+  it("reports the revision and path for invalid UTF-8 blobs", () => {
+    const temporary = fs.mkdtempSync(path.join(os.tmpdir(), "writing-utf8-"));
+    const repository = path.join(temporary, "repository");
+    fs.mkdirSync(path.join(repository, "docs"), { recursive: true });
+    git(repository, "init", "--quiet");
+    git(repository, "config", "user.name", "Writing Fixture");
+    git(repository, "config", "user.email", "writing@example.test");
+    fs.writeFileSync(path.join(repository, "docs/invalid.md"), Buffer.from([0xc3, 0x28]));
+    git(repository, "add", ".");
+    git(repository, "commit", "--quiet", "-m", "Add invalid UTF-8 fixture");
+    const revision = git(repository, "rev-parse", "HEAD");
+
+    expect(() => fileAtRevision(repository, revision, "docs/invalid.md"))
+      .toThrow(`${revision}:docs/invalid.md is not valid UTF-8`);
   });
 
   it("freezes stratified splits and reports missing decision evidence", () => {

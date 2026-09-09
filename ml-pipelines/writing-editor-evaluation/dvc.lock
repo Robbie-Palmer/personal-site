@@ -46,8 +46,8 @@ stages:
       size: 1008
     - path: src/git-revisions.ts
       hash: md5
-      md5: 97015952d5a19a9012ca11b3e48ae470
-      size: 1563
+      md5: 1bc9c69107afca3955ed1e82db0d9695
+      size: 1652
     - path: src/schemas.ts
       hash: md5
       md5: 8a483d82692f1a1e56c54285494bb439

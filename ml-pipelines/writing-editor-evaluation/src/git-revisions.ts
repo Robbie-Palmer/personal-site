@@ -42,6 +42,10 @@ export function fileAtRevision(
   file: string,
 ): Buffer {
   const content = git(repository, ["show", `${revision}:${file}`]);
-  new TextDecoder("utf-8", { fatal: true }).decode(content);
+  try {
+    new TextDecoder("utf-8", { fatal: true }).decode(content);
+  } catch {
+    throw new Error(`${revision}:${file} is not valid UTF-8`);
+  }
   return content;
 }
