@@ -471,6 +471,30 @@ export const technologies: TechnologyContent[] = [
     type: "platform",
   },
   {
+    name: "Amazon ECS",
+    added: "2026-09-09",
+    description: "AWS service for deploying and managing container workloads",
+    website: "https://aws.amazon.com/ecs/",
+    iconSlug: "aws",
+    type: "platform",
+  },
+  {
+    name: "Amazon SNS",
+    added: "2026-09-09",
+    description: "AWS publish-and-subscribe messaging service",
+    website: "https://aws.amazon.com/sns/",
+    iconSlug: "aws",
+    type: "platform",
+  },
+  {
+    name: "Amazon SQS",
+    added: "2026-09-09",
+    description: "AWS managed message queue service",
+    website: "https://aws.amazon.com/sqs/",
+    iconSlug: "aws",
+    type: "platform",
+  },
+  {
     name: "dbt",
     added: "2026-09-05",
     description:
