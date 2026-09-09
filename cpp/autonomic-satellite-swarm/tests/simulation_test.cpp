@@ -98,6 +98,12 @@ TEST_CASE("malformed simulation traces fail before a controller runs") {
     CHECK_THROWS_AS(runSimulationTrace(trace), std::invalid_argument);
   }
 
+  SECTION("backward frame time") {
+    SimulationTrace trace = demonstrationTrace();
+    trace.frames[2].now_ms = 5U;
+    CHECK_THROWS_AS(runSimulationTrace(trace), std::invalid_argument);
+  }
+
   SECTION("unknown node") {
     SimulationTrace trace = demonstrationTrace();
     trace.frames[0].health_updates.push_back({9U, HealthStatus::Fatal});

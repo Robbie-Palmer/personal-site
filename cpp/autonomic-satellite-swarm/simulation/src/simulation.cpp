@@ -4,6 +4,7 @@
 
 #include <cstddef>
 #include <deque>
+#include <limits>
 #include <memory>
 #include <stdexcept>
 #include <utility>
@@ -135,8 +136,11 @@ void validateTrace(const SimulationTrace& trace) {
   uint32_t previous_time = 0U;
   bool first_frame = true;
   for (const SimulationFrame& frame : trace.frames) {
-    if (!first_frame && frame.now_ms == previous_time) {
-      throw std::invalid_argument("consecutive simulation frames must not repeat a time");
+    const uint32_t elapsed = frame.now_ms - previous_time;
+    const auto maximum_unambiguous_step =
+        static_cast<uint32_t>(std::numeric_limits<int32_t>::max());
+    if (!first_frame && (elapsed == 0U || elapsed > maximum_unambiguous_step)) {
+      throw std::invalid_argument("simulation frame time must advance monotonically");
     }
     first_frame = false;
     previous_time = frame.now_ms;
@@ -203,10 +207,11 @@ SimulationResult runSimulationTrace(const SimulationTrace& trace) {
     bus.setTime(frame.now_ms);
 
     for (const HealthUpdate& update : frame.health_updates) {
-      health_monitors[update.node_id]->set(update.health);
+      health_monitors.at(static_cast<std::size_t>(update.node_id))->set(update.health);
     }
     for (const SatelliteUpdate& update : frame.satellite_updates) {
-      if (!controllers[update.node_id]->updateSatelliteSnapshot(update.satellite)) {
+      if (!controllers.at(static_cast<std::size_t>(update.node_id))
+               ->updateSatelliteSnapshot(update.satellite)) {
         throw std::invalid_argument("validated satellite update was rejected");
       }
     }
@@ -218,11 +223,11 @@ SimulationResult runSimulationTrace(const SimulationTrace& trace) {
       event.objective = command.objective;
       result.events.push_back(event);
       const std::size_t event_index = result.events.size() - 1U;
-      const ControllerState previous = controllers[command.leader]->state();
+      SwarmController& controller = *controllers.at(static_cast<std::size_t>(command.leader));
+      const ControllerState previous = controller.state();
       result.events[event_index].accepted =
-          controllers[command.leader]->initiateMission(command.objective, frame.now_ms);
-      recordStateChange(result.events, frame.now_ms, command.leader, previous,
-                        controllers[command.leader]->state());
+          controller.initiateMission(command.objective, frame.now_ms);
+      recordStateChange(result.events, frame.now_ms, command.leader, previous, controller.state());
     }
 
     for (const std::unique_ptr<SwarmController>& controller : controllers) {

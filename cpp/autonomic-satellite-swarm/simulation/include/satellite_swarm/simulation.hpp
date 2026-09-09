@@ -40,7 +40,9 @@ struct SimulationFrame {
 struct SimulationTrace {
   uint8_t version = kSimulationTraceVersion;
   ControllerConfig controller{};
+  // Nodes must be non-empty, contiguous, and ordered by node_id.
   std::vector<NodeConfiguration> nodes;
+  // Frames may be empty. Each time must advance by at most INT32_MAX ticks modulo 2^32.
   std::vector<SimulationFrame> frames;
 };
 
