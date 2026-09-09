@@ -197,6 +197,28 @@
   changed_when: false
   when: not ansible_check_mode
 
+- name: Inspect the ready K3s node
+  ansible.builtin.command:
+    argv:
+      - "{{ colima_k3s_kubectl_binary.stdout }}"
+      - --context
+      - "{{ colima_k3s_context }}"
+      - get
+      - nodes
+      - --selector=node-role.kubernetes.io/control-plane
+      - --output=json
+  check_mode: false
+  changed_when: false
+  register: colima_k3s_ready_nodes
+  when: not ansible_check_mode
+
+- name: Require one ready K3s control-plane node
+  ansible.builtin.assert:
+    that:
+      - (colima_k3s_ready_nodes.stdout | from_json).items | length == 1
+    fail_msg: The isolated Colima profile must have exactly one K3s control-plane node.
+  when: not ansible_check_mode
+
 - name: Reconcile K3s node placement labels
   ansible.builtin.command:
     argv:
@@ -205,7 +227,7 @@
       - "{{ colima_k3s_context }}"
       - label
       - node
-      - "{{ (colima_k3s_nodes.stdout | from_json).items[0].metadata.name }}"
+      - "{{ (colima_k3s_ready_nodes.stdout | from_json).items[0].metadata.name }}"
       - "{{ item.key }}={{ item.value }}"
       - --overwrite
   changed_when: true
@@ -215,7 +237,7 @@
   when:
     - not ansible_check_mode
     - >-
-      (colima_k3s_nodes.stdout | from_json).items[0].metadata.labels[item.key]
+      (colima_k3s_ready_nodes.stdout | from_json).items[0].metadata.labels[item.key]
       | default('') != item.value
 
 - name: Inspect the reconciled K3s node
