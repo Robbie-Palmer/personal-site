@@ -10,6 +10,16 @@ bool isValid(const Coordinate& coordinate) {
          coordinate.latitude_degrees >= -90.0F && coordinate.latitude_degrees <= 90.0F;
 }
 
+bool isValid(const SatelliteSnapshot& satellite) {
+  const bool valid_direction = satellite.travel_direction == TravelDirection::Northbound ||
+                               satellite.travel_direction == TravelDirection::Southbound;
+  return isValid(satellite.coordinate) && isfinite(satellite.orbital_radius_metres) &&
+         isfinite(satellite.mass_kilograms) &&
+         isfinite(satellite.available_propulsion_energy_joules) &&
+         satellite.orbital_radius_metres > 0.0F && satellite.mass_kilograms > 0.0F &&
+         satellite.available_propulsion_energy_joules > 0.0F && valid_direction;
+}
+
 Message Message::missionRequest(NodeId origin, MissionId mission_id, Coordinate objective) {
   Message message;
   message.type = MessageType::MissionRequest;

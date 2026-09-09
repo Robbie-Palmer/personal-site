@@ -108,6 +108,14 @@ void SwarmController::completeMission() {
   }
 }
 
+bool SwarmController::updateSatelliteSnapshot(const SatelliteSnapshot& satellite) {
+  if (!isValid(satellite)) {
+    return false;
+  }
+  satellite_ = satellite;
+  return true;
+}
+
 void SwarmController::resetCandidates() {
   for (uint8_t index = 0; index < kMaximumNodes; ++index) {
     candidates_[index].received = false;

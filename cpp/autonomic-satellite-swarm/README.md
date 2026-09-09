@@ -57,6 +57,7 @@ its JavaScript and Python coverage.
 
 ```text
 src/satellite_swarm/       portable state machine, policies, types, and wire codec
+simulation/                 deterministic trace runner and observable simulation state
 examples/simulation/       deterministic host-side three-node demonstration
 firmware/uno_ir/           legacy Arduino Uno + infrared reference adapter
 firmware/esp32_espnow/     modern ESP32 + ESP-NOW reference adapter
