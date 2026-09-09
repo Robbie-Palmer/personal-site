@@ -3,7 +3,8 @@ set -euo pipefail
 
 expected_context=${REMOTE_DEVELOPMENT_KUBE_CONTEXT:-remote-development}
 script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
-marker="workspace-acceptance-$(date +%s)-${RANDOM}"
+marker_suffix=$(od --address-radix=n --format=x1 --read-bytes=16 /dev/urandom | tr -d ' \n')
+marker="workspace-acceptance-${marker_suffix}"
 
 "${script_dir}/require-kube-context" "${expected_context}" cloud
 
