@@ -1,6 +1,6 @@
 [tasks.install]
 description = "Install writing editor evaluation dependencies"
-run = "pnpm install --frozen-lockfile --filter writing-editor-evaluation-pipeline..."
+depends = ["//:install"]
 
 [tasks.extract]
 description = "Extract the writing corpus from pinned Git revisions"

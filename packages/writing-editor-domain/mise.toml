@@ -1,6 +1,6 @@
 [tasks.install]
 description = "Install writing editor domain dependencies"
-run = "pnpm install --frozen-lockfile --filter writing-editor-domain..."
+depends = ["//:install"]
 
 [tasks.typecheck]
 description = "Typecheck the writing editor domain package"
