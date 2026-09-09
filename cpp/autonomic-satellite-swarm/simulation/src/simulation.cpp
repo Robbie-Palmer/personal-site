@@ -94,6 +94,27 @@ void validateNodeId(NodeId node_id, std::size_t node_count) {
   }
 }
 
+void validateFrame(const SimulationFrame& frame, std::size_t node_count) {
+  for (const SatelliteUpdate& update : frame.satellite_updates) {
+    validateNodeId(update.node_id, node_count);
+    if (!isValid(update.satellite)) {
+      throw std::invalid_argument("simulation frame has an invalid satellite snapshot");
+    }
+  }
+  for (const HealthUpdate& update : frame.health_updates) {
+    validateNodeId(update.node_id, node_count);
+    if (!isKnown(update.health)) {
+      throw std::invalid_argument("simulation frame has an invalid health state");
+    }
+  }
+  for (const MissionCommand& command : frame.mission_commands) {
+    validateNodeId(command.leader, node_count);
+    if (!isValid(command.objective)) {
+      throw std::invalid_argument("simulation frame has an invalid mission objective");
+    }
+  }
+}
+
 void validateTrace(const SimulationTrace& trace) {
   if (trace.version != kSimulationTraceVersion) {
     throw std::invalid_argument("unsupported simulation trace version");
@@ -119,25 +140,7 @@ void validateTrace(const SimulationTrace& trace) {
     }
     first_frame = false;
     previous_time = frame.now_ms;
-
-    for (const SatelliteUpdate& update : frame.satellite_updates) {
-      validateNodeId(update.node_id, trace.nodes.size());
-      if (!isValid(update.satellite)) {
-        throw std::invalid_argument("simulation frame has an invalid satellite snapshot");
-      }
-    }
-    for (const HealthUpdate& update : frame.health_updates) {
-      validateNodeId(update.node_id, trace.nodes.size());
-      if (!isKnown(update.health)) {
-        throw std::invalid_argument("simulation frame has an invalid health state");
-      }
-    }
-    for (const MissionCommand& command : frame.mission_commands) {
-      validateNodeId(command.leader, trace.nodes.size());
-      if (!isValid(command.objective)) {
-        throw std::invalid_argument("simulation frame has an invalid mission objective");
-      }
-    }
+    validateFrame(frame, trace.nodes.size());
   }
 }
 
@@ -190,7 +193,7 @@ SimulationResult runSimulationTrace(const SimulationTrace& trace) {
     health_monitors.push_back(std::make_unique<SimulationHealth>());
   }
   for (const NodeConfiguration& node : trace.nodes) {
-    const std::size_t index = static_cast<std::size_t>(node.node_id);
+    const auto index = static_cast<std::size_t>(node.node_id);
     controllers.push_back(
         std::make_unique<SwarmController>(node.node_id, node.satellite, *transports[index],
                                           *health_monitors[index], scorer, controller_config));
