@@ -2,7 +2,7 @@
 title: "Autonomic Satellite Swarm"
 description: "A revived C++ research prototype for fail-safe coordination across hardware-independent satellite-swarm agents"
 date: "2019-07-30"
-updated: "2026-09-08"
+updated: "2026-09-09"
 tech_stack:
   - "C++"
   - "CMake"
@@ -112,13 +112,65 @@ The next research cycle would add bounded telemetry for mission-control observat
 adversarially reviewed improvement loop, fair resource-aware allocation, and a platform safe-state
 action hook. These research directions remain outside the current implementation.
 
+# Coordination under unreliable links
+
+The hard part is not removing a central service. It is deciding what each node may do when no node
+can know whether its last message arrived. The
+[coordinated attack problem](https://www.cs.cornell.edu/home/halpern/papers/common_knowledge.pdf)
+shows why another acknowledgement cannot create certainty over a lossy link. The
+[FLP result](https://groups.csail.mit.edu/tds/papers/Lynch/pods83-flp-scanned.pdf) goes further: even
+with reliable messages, a deterministic protocol in a fully asynchronous system cannot guarantee
+that consensus terminates if one process may crash.
+
+Those results do not make the project futile. They force the guarantee to match the operation:
+
+* A node must enter a local safe state without waiting for the swarm.
+* A repeatable observation may continue through a partition and reconcile duplicate work later.
+* An exclusive assignment must prefer safety and become unavailable when it lacks enough current
+  evidence.
+* Telemetry and science payloads need eventual, verifiable delivery rather than global ordering.
+
+Kafka offers useful techniques without offering a deployable architecture for this setting. Stable
+producer identities, sequence numbers, idempotent handlers, append-only journals, and deterministic
+replay all transfer. A continuously available partition leader, in-sync replica set, and one global
+order do not. The swarm should begin with a bounded journal per node and admit that it has several
+partial histories.
+
+Software rollout is another distributed protocol. The current codec rejects every layout except its
+single 12-byte version, so a future swarm must define how mixed software versions advertise
+capabilities, interpret old messages, migrate durable state, stage activation, and roll back. NASA's
+Starling experience shows why this matters: one spacecraft could not receive the autonomy software
+update, leaving the experiment to run with three nodes.
+
+Data transfer is a separate problem from mission agreement. The IETF
+[Bundle Protocol](https://www.rfc-editor.org/rfc/rfc9171.html) provides store-carry-forward delivery
+for disrupted links, while
+[CCSDS schedule-aware routing](https://ccsds.org/Pubs/734x3b1.pdf) uses predicted contact windows.
+The [CCSDS File Delivery Protocol](https://ccsds.org/Pubs/727x0b5e1.pdf) covers transfers to and from
+spacecraft storage over intermittent, asymmetric, or one-way contacts. Flooding or epidemic routing
+may improve delivery, but every extra copy consumes scarce radio time, storage, and energy.
+
+NASA's [Starling flight results](https://ntrs.nasa.gov/citations/20240006994) make this concrete. Four
+CubeSats demonstrated decentralized B.A.T.M.A.N. routing and inter-satellite file transfer. A radio
+anomaly kept one craft out of the autonomy experiment, so its distributed planners ran as a
+three-node network and tolerated periods in which they did not hold the same plan. That is a better
+model for the next simulation than an always-connected cluster.
+
+The [full research note](https://github.com/Robbie-Palmer/personal-site/blob/main/cpp/autonomic-satellite-swarm/docs/distributed-coordination-research.md)
+turns these results into a sequence of experiments. The first slice adds duplicate, reordering,
+asymmetric-partition, and node-reset faults to the deterministic simulator, then tests stable mission
+identities and explicit safety invariants against the current protocol. A consensus algorithm comes
+later, if an operation's evidence requirements justify one. The note also compares TLA+, OMNeT++,
+DTNSim, Basilisk, and NASA NOS3, then defines how the CesiumJS prototype can become a deterministic
+test-bed console with headless batch runs and comparable mission-success measures.
+
 # Non-goals
 
 * Flight qualification, radiation tolerance, or safety certification
 * A physically valid deorbit or self-destruction mechanism
 * Validated orbit propagation, collision avoidance, or guidance/navigation/control
 * Secure command and control; the prototype lacks authentication and replay protection
-* Multi-hop topology, consensus, Byzantine fault tolerance, or unbounded swarms
+* Implemented multi-hop topology, consensus, Byzantine fault tolerance, or unbounded swarms
 * Claims that compile-tested adapters have been verified on absent hardware
 
 # Verification

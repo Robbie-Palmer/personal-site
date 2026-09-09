@@ -105,4 +105,5 @@ protection, mission persistence, and a genuine guidance/navigation/control imple
 - [Wire protocol](docs/wire-protocol.md)
 - [Revival notes and corrected defects](docs/revival-notes.md)
 - [Next research cycle](docs/next-research-cycle.md)
+- [Distributed coordination over intermittent links](docs/distributed-coordination-research.md)
 - [Contributing](CONTRIBUTING.md)
