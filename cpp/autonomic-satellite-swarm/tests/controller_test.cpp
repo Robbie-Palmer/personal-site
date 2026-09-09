@@ -20,7 +20,48 @@ ControllerConfig fastConfig() {
   return config;
 }
 
+class LongitudeScorer : public CandidacyScorer {
+public:
+  uint8_t score(const SatelliteSnapshot& satellite, const Coordinate&) const override {
+    return satellite.coordinate.longitude_degrees == 25.0F ? 80U : 20U;
+  }
+};
+
 } // namespace
+
+TEST_CASE("a validated satellite snapshot feeds later candidacy scoring") {
+  FakeTransport transport;
+  FakeHealthMonitor health;
+  LongitudeScorer scorer;
+  SwarmController controller(2, SatelliteSnapshot(), transport, health, scorer, fastConfig());
+  SatelliteSnapshot refreshed;
+  refreshed.coordinate = Coordinate(25.0F, 40.0F);
+
+  REQUIRE(controller.updateSatelliteSnapshot(refreshed));
+  CHECK(controller.satelliteSnapshot().coordinate.longitude_degrees == 25.0F);
+  CHECK(controller.satelliteSnapshot().coordinate.latitude_degrees == 40.0F);
+
+  transport.deliver(Message::missionRequest(0, 17, Coordinate()));
+  controller.update(0U);
+
+  REQUIRE(transport.sent.size() == 1U);
+  CHECK(transport.sent.front().score == 80U);
+}
+
+TEST_CASE("an invalid satellite snapshot does not replace the last valid observation") {
+  FakeTransport transport;
+  FakeHealthMonitor health;
+  FixedScorer scorer(50U);
+  SatelliteSnapshot initial;
+  initial.coordinate = Coordinate(25.0F, 40.0F);
+  SwarmController controller(0, initial, transport, health, scorer, fastConfig());
+  SatelliteSnapshot invalid = initial;
+  invalid.coordinate.latitude_degrees = 91.0F;
+
+  CHECK_FALSE(controller.updateSatelliteSnapshot(invalid));
+  CHECK(controller.satelliteSnapshot().coordinate.longitude_degrees == 25.0F);
+  CHECK(controller.satelliteSnapshot().coordinate.latitude_degrees == 40.0F);
+}
 
 TEST_CASE("a leader collects scores and deterministically assigns the strongest candidate") {
   FakeTransport transport;

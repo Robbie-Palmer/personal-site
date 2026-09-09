@@ -14,6 +14,11 @@ radios, clocks, batteries, or orbital propagation.
 32-bit monotonic time to `update`. Every timeout uses unsigned elapsed-time arithmetic, so the
 calculation remains correct when Arduino `millis()` wraps.
 
+Callers may replace the controller's latest validated `SatelliteSnapshot` before a simulation step
+or navigation update. The controller exposes that same snapshot for observation and uses it when it
+next calculates candidacy. Invalid coordinates, non-positive or non-finite radius, mass, or energy,
+and unknown travel directions leave the last valid snapshot unchanged.
+
 The controller can be:
 
 - idle;
@@ -44,6 +49,14 @@ model can replace it behind the same interface.
 coordinate quantization, versioning, and error detection. Adapters never send in-memory C++ object
 layouts.
 
+### Deterministic simulation
+
+The simulation layer runs the portable controllers from a versioned sequence of fixed-time frames.
+Each frame applies health and satellite updates before mission commands and controller updates. The
+runner records messages and state changes in order, then captures every node's state, score, and
+satellite snapshot. The command-line demonstration uses this runner. A browser worker can bind the
+same entry point without moving coordination rules into TypeScript.
+
 ### Hardware adapters
 
 The Arduino Uno adapter fragments one packet into four NEC infrared frames. It is the closest
@@ -60,7 +73,7 @@ for a benchtop swarm demonstration; it is not proposed as a spacecraft communica
 - One controller negotiates one mission at a time.
 - Mission IDs are local 16-bit counters and are not globally unique.
 - The reference transport is unauthenticated and unencrypted.
-- The controller holds a satellite snapshot; live navigation updates are future work.
+- The controller accepts snapshot updates but does not calculate or schedule them.
 - Multi-hop discovery and forwarding are out of scope for this revival.
 
 These limits keep memory use and behavior deterministic. Changing one should begin with a requirement

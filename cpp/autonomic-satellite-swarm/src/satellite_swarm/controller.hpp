@@ -29,11 +29,17 @@ public:
   bool initiateMission(const Coordinate& objective, uint32_t now_ms);
   void update(uint32_t now_ms);
   void completeMission();
+  // Invalid observations return false and leave the previous snapshot unchanged.
+  bool updateSatelliteSnapshot(const SatelliteSnapshot& satellite);
 
   ControllerState state() const { return state_; }
   NodeId nodeId() const { return node_id_; }
+  const SatelliteSnapshot& satelliteSnapshot() const { return satellite_; }
   MissionId currentMissionId() const { return current_mission_.mission_id; }
   NodeId assignedNode() const { return assigned_node_; }
+  uint8_t currentCandidacyScore() const {
+    return node_id_ < kMaximumNodes ? candidates_[node_id_].score : 0U;
+  }
   uint8_t consecutiveCommunicationFailures() const { return communication_failures_; }
 
 private:

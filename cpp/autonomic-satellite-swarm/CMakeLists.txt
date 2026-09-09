@@ -49,10 +49,26 @@ if(SATELLITE_SWARM_ENABLE_COVERAGE)
 endif()
 
 if(SATELLITE_SWARM_BUILD_SIMULATION)
+  add_library(satellite_swarm_simulation simulation/src/simulation.cpp)
+  add_library(satellite_swarm::simulation ALIAS satellite_swarm_simulation)
+  target_include_directories(
+    satellite_swarm_simulation
+    PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/simulation/include>)
+  target_link_libraries(satellite_swarm_simulation PUBLIC satellite_swarm::coordination)
+  target_compile_features(satellite_swarm_simulation PUBLIC cxx_std_20)
+
+  if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
+    target_compile_options(
+      satellite_swarm_simulation
+      PRIVATE -Wall -Wextra -Wpedantic -Wconversion -Wsign-conversion -Wshadow
+              -Wnon-virtual-dtor -Wold-style-cast -Woverloaded-virtual)
+  endif()
+
   add_executable(autonomic-satellite-swarm-simulation examples/simulation/main.cpp)
-  target_link_libraries(autonomic-satellite-swarm-simulation PRIVATE satellite_swarm::coordination)
+  target_link_libraries(autonomic-satellite-swarm-simulation PRIVATE satellite_swarm::simulation)
 
   if(SATELLITE_SWARM_ENABLE_COVERAGE)
+    target_compile_options(satellite_swarm_simulation PRIVATE --coverage -O0 -g)
     target_compile_options(autonomic-satellite-swarm-simulation PRIVATE --coverage -O0 -g)
   endif()
 
@@ -74,9 +90,15 @@ if(BUILD_TESTING)
     tests/controller_test.cpp
     tests/historical_orbital_scorer_test.cpp
     tests/wire_codec_test.cpp)
+  if(SATELLITE_SWARM_BUILD_SIMULATION)
+    target_sources(satellite_swarm_tests PRIVATE tests/simulation_test.cpp)
+  endif()
   target_link_libraries(
     satellite_swarm_tests
     PRIVATE satellite_swarm::coordination Catch2::Catch2WithMain)
+  if(SATELLITE_SWARM_BUILD_SIMULATION)
+    target_link_libraries(satellite_swarm_tests PRIVATE satellite_swarm::simulation)
+  endif()
 
   if(SATELLITE_SWARM_ENABLE_COVERAGE)
     target_compile_options(satellite_swarm_tests PRIVATE --coverage -O0 -g)

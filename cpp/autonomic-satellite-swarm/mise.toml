@@ -29,8 +29,12 @@ description = "Run clang-tidy with warnings promoted to errors"
 depends = ["configure"]
 run = '''
 gcc_install_dir=$(dirname "$(c++ -print-libgcc-file-name)")
-find src examples -type f -name '*.cpp' -print0 |
-  xargs -0 clang-tidy -p build/dev --extra-arg-before="--gcc-install-dir=$gcc_install_dir"
+compiler_root=$(dirname "$(dirname "$(readlink -f "$(command -v c++)")")")
+compiler_sysroot="$compiler_root/$(c++ -dumpmachine)/sysroot"
+find src simulation/src examples -type f -name '*.cpp' -print0 |
+  xargs -0 clang-tidy -p build/dev \
+    --extra-arg-before="--gcc-install-dir=$gcc_install_dir" \
+    --extra-arg-before="--sysroot=$compiler_sysroot"
 '''
 
 [tasks.sanitize]
@@ -49,7 +53,7 @@ run = [
   "cmake --build --preset coverage",
   "ctest --preset coverage",
   "cmake -E make_directory coverage",
-  "gcovr --root ../.. --filter 'src/satellite_swarm/' --filter 'examples/simulation/' --sonarqube coverage/sonarqube.xml --print-summary --fail-under-line 80 --fail-under-branch 70 build/coverage",
+  "gcovr --root ../.. --filter 'src/satellite_swarm/' --filter 'simulation/' --filter 'examples/simulation/' --sonarqube coverage/sonarqube.xml --print-summary --fail-under-line 80 --fail-under-branch 70 build/coverage",
 ]
 
 [tasks."firmware:uno"]
