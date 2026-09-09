@@ -76,8 +76,10 @@ jobs:
             packages/observability/coverage/lcov.info
             packages/recipe-parsing/coverage/lcov.info
             packages/ts-base/coverage/lcov.info
+            packages/writing-editor-domain/coverage/lcov.info
             ml-pipelines/ai-review-evaluation/coverage/lcov.info
             ml-pipelines/recipe-parsing/coverage/lcov.info
+            ml-pipelines/writing-editor-evaluation/coverage/lcov.info
             ml-pipelines/wsi-analysis/coverage.xml
             workers/recipe-api/coverage/lcov.info
             workers/recipe-ingest/coverage/lcov.info

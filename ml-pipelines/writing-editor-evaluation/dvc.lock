@@ -9,12 +9,12 @@ stages:
       size: 728
     - path: ../../packages/writing-editor-domain/src/canonical-json.ts
       hash: md5
-      md5: 528d1ee0b157bccd8199d3fe111dcc54
-      size: 1488
+      md5: 77dda0b3cd459f4eb1d9b2d6285877a6
+      size: 1628
     - path: ../../packages/writing-editor-domain/src/suggestions.ts
       hash: md5
-      md5: 4c01eedc43c8938ce071eb6269b44766
-      size: 6522
+      md5: 24206055c774463c1e66c058b615a316
+      size: 6564
     - path: ../../pnpm-lock.yaml
       hash: md5
       md5: 27bddcdda954cb3dc29a12b36e63910d
@@ -38,8 +38,8 @@ stages:
       size: 745
     - path: src/extract-dataset.ts
       hash: md5
-      md5: 4ee7f53cdb8234ad7533a19f1f9b719a
-      size: 4344
+      md5: 1df312257a00732afd13ad8a011c7415
+      size: 4386
     - path: src/files.ts
       hash: md5
       md5: 53cab9e5ffceca8b85cff9927e70aaae
@@ -67,12 +67,12 @@ stages:
       size: 728
     - path: ../../packages/writing-editor-domain/src/canonical-json.ts
       hash: md5
-      md5: 528d1ee0b157bccd8199d3fe111dcc54
-      size: 1488
+      md5: 77dda0b3cd459f4eb1d9b2d6285877a6
+      size: 1628
     - path: ../../packages/writing-editor-domain/src/suggestions.ts
       hash: md5
-      md5: 4c01eedc43c8938ce071eb6269b44766
-      size: 6522
+      md5: 24206055c774463c1e66c058b615a316
+      size: 6564
     - path: ../../pnpm-lock.yaml
       hash: md5
       md5: 27bddcdda954cb3dc29a12b36e63910d
@@ -100,8 +100,8 @@ stages:
       size: 1008
     - path: src/freeze-cohort.ts
       hash: md5
-      md5: a184ce5dac5e22308ea6f6b0bfc6d8b4
-      size: 7115
+      md5: 0ecb3b7b2f26063a6a7f0ac8fce515da
+      size: 7157
     - path: src/schemas.ts
       hash: md5
       md5: 8a483d82692f1a1e56c54285494bb439
