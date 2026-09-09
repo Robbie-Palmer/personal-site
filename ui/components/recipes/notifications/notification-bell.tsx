@@ -2,7 +2,6 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { Bell } from "lucide-react";
-import Link from "next/link";
 import { useEffect, useState } from "react";
 import { getUnreadNotificationCount } from "@/lib/api/notifications";
 import { authClient } from "@/lib/auth-client";
@@ -51,7 +50,7 @@ export function NotificationBell() {
 
   if (!session) return null;
   return (
-    <Link
+    <a
       href="/recipes/notifications"
       aria-label={count ? `Notifications, ${count} unread` : "Notifications"}
       className="relative inline-flex size-9 items-center justify-center rounded-full text-[var(--ink-2)] transition-colors hover:bg-[var(--paper-warm)] hover:text-[var(--ink)]"
@@ -62,6 +61,6 @@ export function NotificationBell() {
           {count > 9 ? "9+" : count}
         </span>
       )}
-    </Link>
+    </a>
   );
 }

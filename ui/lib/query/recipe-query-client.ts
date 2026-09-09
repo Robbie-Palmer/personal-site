@@ -1,6 +1,8 @@
 import { QueryClient, type QueryKey } from "@tanstack/react-query";
 import { isAbortError } from "browser-base/errors";
 import { isApiError } from "@/lib/api/http";
+import type { RecipeBootstrap } from "@/lib/api/recipe-bootstrap";
+import type { SavedRecipeApiRecord } from "@/lib/domain/recipe/recipeDraft";
 import { recipeQueryKeys } from "@/lib/query/recipe-query-keys";
 
 const MAX_TRANSIENT_FAILURES = 2;
@@ -33,6 +35,17 @@ export function createRecipeQueryClient(): QueryClient {
       },
     },
   });
+}
+
+export function cachedRecipeFromBootstrap(
+  queryClient: QueryClient,
+  userId: string,
+  slug: string,
+): SavedRecipeApiRecord | undefined {
+  const bootstrap = queryClient.getQueryData<RecipeBootstrap>(
+    recipeQueryKeys.bootstrap(userId),
+  );
+  return bootstrap?.recipeBox.recipes.find((recipe) => recipe.slug === slug);
 }
 
 function startsWith(queryKey: QueryKey, prefix: QueryKey): boolean {

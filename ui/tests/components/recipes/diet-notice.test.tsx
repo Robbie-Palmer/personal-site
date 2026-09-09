@@ -105,5 +105,9 @@ describe("DietLoadErrorNotice", () => {
     expect(screen.getByRole("alert")).toHaveTextContent(
       /Diet preferences are unavailable/,
     );
+    expect(screen.getByRole("link", { name: "diet settings" })).toHaveAttribute(
+      "href",
+      "/recipes/settings?section=diet",
+    );
   });
 });

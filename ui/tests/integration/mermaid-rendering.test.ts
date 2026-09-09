@@ -1,11 +1,12 @@
 import { type ChildProcess, spawn } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import puppeteer, { type Browser } from "puppeteer";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
   getWranglerTestRepoRoot,
   killProcessGroup,
+  waitForServer,
 } from "./wrangler-test-utils";
 
 const SERVER_PORT = 8792;
@@ -27,23 +28,6 @@ function findSystemChrome(): string | undefined {
   );
 }
 
-async function waitForPage(url: string, timeout: number): Promise<void> {
-  const deadline = Date.now() + timeout;
-
-  while (Date.now() < deadline) {
-    try {
-      const response = await fetch(url);
-      if (response.ok) return;
-    } catch {
-      // The server may not have bound its port yet.
-    }
-
-    await new Promise((resolveDelay) => setTimeout(resolveDelay, 100));
-  }
-
-  throw new Error(`Static server did not serve ${url} within ${timeout}ms`);
-}
-
 describe("Visualization browser rendering", () => {
   let browser: Browser;
   let serverProcess: ChildProcess;
@@ -53,14 +37,13 @@ describe("Visualization browser rendering", () => {
       "pnpm",
       [
         "exec",
-        "wrangler",
-        "pages",
-        "dev",
+        "serve",
         "out",
-        "--port",
-        String(SERVER_PORT),
-        "--ip",
-        "127.0.0.1",
+        "--listen",
+        `tcp://127.0.0.1:${SERVER_PORT}`,
+        "--no-clipboard",
+        "--no-port-switching",
+        "--no-request-logging",
       ],
       {
         cwd: UI_ROOT,
@@ -69,7 +52,7 @@ describe("Visualization browser rendering", () => {
       },
     );
 
-    await waitForPage(`${BASE_URL}/technologies/mermaid`, 30_000);
+    await waitForServer(serverProcess, 30_000, "Accepting connections at");
     browser = await puppeteer.launch({
       headless: true,
       args: ["--disable-setuid-sandbox", "--no-sandbox"],
@@ -80,6 +63,16 @@ describe("Visualization browser rendering", () => {
   afterAll(async () => {
     await browser?.close();
     killProcessGroup(serverProcess);
+  });
+
+  it("serves the exported HTML byte-for-byte through the static server", async () => {
+    const relativePath = "projects/recipe-site/deck.html";
+    const response = await fetch(`${BASE_URL}/projects/recipe-site/deck`);
+
+    expect(response.ok).toBe(true);
+    expect(await response.text()).toBe(
+      readFileSync(resolve(UI_ROOT, "out", relativePath), "utf8"),
+    );
   });
 
   it("renders the technology demos as visible SVG diagrams", async () => {

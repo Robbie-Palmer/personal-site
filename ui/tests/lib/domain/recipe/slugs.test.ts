@@ -1,4 +1,5 @@
 import {
+  isRecipeAppRouteSlug,
   isRecipeSlug,
   RECIPE_SLUG_MAX_LENGTH,
   recipeSlugFromPathname,
@@ -29,6 +30,15 @@ describe("isRecipeSlug", () => {
   });
 });
 
+describe("isRecipeAppRouteSlug", () => {
+  it.each(["kitchen", "log", "offline", "saved", "shopping"])(
+    "reserves the app route: %s",
+    (slug) => {
+      expect(isRecipeAppRouteSlug(slug)).toBe(true);
+    },
+  );
+});
+
 describe("recipeSlugFromPathname", () => {
   it("extracts a recipe slug with or without a trailing slash", () => {
     expect(recipeSlugFromPathname("/recipes/lentil-soup")).toBe("lentil-soup");
@@ -39,6 +49,9 @@ describe("recipeSlugFromPathname", () => {
     "/recipes",
     "/recipes/",
     "/recipes/Lentil-Soup",
+    "/recipes/kitchen/",
+    "/recipes/log",
+    "/recipes/offline",
     "/recipes/lentil-soup/edit",
     "/projects/lentil-soup",
   ])("rejects a non-recipe pathname: %s", (pathname) => {

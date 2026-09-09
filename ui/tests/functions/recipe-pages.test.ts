@@ -61,6 +61,16 @@ afterEach(() => {
 });
 
 describe("dynamic recipe pages", () => {
+  it.each(["log", "offline"])(
+    "leaves the %s app route to the static site",
+    async (route) => {
+      const appContext = context(`https://robbiepalmer.me/recipes/${route}`);
+
+      expect(await (await onRequest(appContext)).text()).toBe("next");
+      expect(appContext.next).toHaveBeenCalledOnce();
+    },
+  );
+
   it("serves the canonical recipe URL as Markdown when negotiated", async () => {
     globalThis.fetch = vi.fn(async () =>
       Response.json({

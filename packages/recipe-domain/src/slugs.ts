@@ -4,7 +4,9 @@ const RECIPE_APP_ROUTE_SLUGS = new Set([
   "discover",
   "edit",
   "kitchen",
+  "log",
   "notifications",
+  "offline",
   "onboarding",
   "profile",
   "saved",
@@ -32,7 +34,7 @@ export function isRecipeSlug(value: unknown): value is string {
 export function recipeSlugFromPathname(pathname: string): string | null {
   const match = /^\/recipes\/([^/]+)\/?$/.exec(pathname);
   const slug = match?.[1];
-  return isRecipeSlug(slug) ? slug : null;
+  return isRecipeSlug(slug) && !isRecipeAppRouteSlug(slug) ? slug : null;
 }
 
 export function normalizeSlug(text: string): string {

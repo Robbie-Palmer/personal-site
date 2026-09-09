@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, LockKeyhole, Pencil } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
@@ -21,8 +21,11 @@ import {
   recipePageHref,
 } from "@/lib/domain/recipe/recipeDraft";
 import { savedRecipeQuery } from "@/lib/query/recipe-queries";
+import { cachedRecipeFromBootstrap } from "@/lib/query/recipe-query-client";
+import { recipeQueryKeys } from "@/lib/query/recipe-query-keys";
 
 export function SavedRecipeView() {
+  const queryClient = useQueryClient();
   const pathname = usePathname();
   const searchSlug = useSearchParams().get("slug");
   const { data: session, isPending: sessionPending } = authClient.useSession();
@@ -33,6 +36,15 @@ export function SavedRecipeView() {
   const result = useQuery({
     ...savedRecipeQuery(session?.user.id ?? null, slug ?? "invalid"),
     enabled: !sessionPending && validSlug,
+    initialData: () =>
+      session?.user.id && slug
+        ? cachedRecipeFromBootstrap(queryClient, session.user.id, slug)
+        : undefined,
+    initialDataUpdatedAt: () =>
+      session?.user.id
+        ? queryClient.getQueryState(recipeQueryKeys.bootstrap(session.user.id))
+            ?.dataUpdatedAt
+        : undefined,
   });
 
   useEffect(() => {

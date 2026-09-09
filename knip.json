@@ -22,7 +22,7 @@
     },
     "packages/ai-review-domain": {},
     "ui": {
-      "ignore": ["content/**"],
+      "ignore": ["content/**", "public/recipes-sw.js"],
       "ignoreDependencies": ["serve"]
     },
     "workers/recipe-api": {

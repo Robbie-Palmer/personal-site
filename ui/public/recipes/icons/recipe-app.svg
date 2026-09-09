@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <title>Robbie's Recipes</title>
+  <rect width="512" height="512" rx="112" fill="#faf3e2"/>
+  <circle cx="256" cy="256" r="164" fill="#f4ecd6" stroke="#c8693c" stroke-width="20"/>
+  <path d="M154 286c8 67 50 108 102 108s94-41 102-108H154Z" fill="#c8693c"/>
+  <path d="M135 271h242" fill="none" stroke="#1f1a14" stroke-linecap="round" stroke-width="24"/>
+  <path d="M205 242c-35-41 30-56-4-99M267 242c-35-41 30-56-4-99M329 242c-35-41 30-56-4-99" fill="none" stroke="#8fa677" stroke-linecap="round" stroke-width="18"/>
+  <path d="M199 402h114" fill="none" stroke="#1f1a14" stroke-linecap="round" stroke-width="18"/>
+</svg>

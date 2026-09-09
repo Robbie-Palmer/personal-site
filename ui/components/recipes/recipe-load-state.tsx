@@ -1,5 +1,4 @@
 import { ArrowLeft, Loader2 } from "lucide-react";
-import Link from "next/link";
 import { Button } from "@/components/ui/button";
 
 export function RecipeLoading() {
@@ -19,9 +18,9 @@ export function RecipeLoadError({
       <h1 className="rt-display text-5xl">{title}</h1>
       <p className="rt-body mt-3 text-[var(--ink-2)]">{message}</p>
       <Button asChild variant="outline" className="mt-6 rounded-full">
-        <Link href="/recipes">
+        <a href="/recipes">
           <ArrowLeft /> Back to recipes
-        </Link>
+        </a>
       </Button>
     </div>
   );
