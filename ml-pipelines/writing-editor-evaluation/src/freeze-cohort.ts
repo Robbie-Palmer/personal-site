@@ -26,6 +26,7 @@ export interface FreezeCohortOptions {
   datasetFile: string;
   paramsFile: string;
   output: string;
+  outputRoot: string;
 }
 
 function compareText(left: string, right: string): number {
@@ -212,7 +213,7 @@ export function freezeCohort(options: FreezeCohortOptions): {
     params.cohort.requiredArtifactTypes,
   );
 
-  resetDirectory(options.output);
+  resetDirectory(options.output, options.outputRoot);
   writeJson(path.join(options.output, "cohort.json"), cohort);
   writeJson(path.join(options.output, "readiness.json"), report);
   fs.writeFileSync(path.join(options.output, "readiness.md"), readinessMarkdown(report));
@@ -225,6 +226,7 @@ function main(): void {
     datasetFile: args.dataset,
     paramsFile: args.params,
     output: args.output,
+    outputRoot: path.resolve("."),
   });
   console.log(
     `Froze ${result.cohort.entries.length} artifacts as ${result.cohort.cohortId}; readiness: ${result.readiness.ready ? "ready" : "not ready"}`,

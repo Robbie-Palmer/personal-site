@@ -38,12 +38,12 @@ stages:
       size: 745
     - path: src/extract-dataset.ts
       hash: md5
-      md5: 1df312257a00732afd13ad8a011c7415
-      size: 4386
+      md5: 1b8535a4859c02a7a92d18b98ce333d9
+      size: 4463
     - path: src/files.ts
       hash: md5
-      md5: 53cab9e5ffceca8b85cff9927e70aaae
-      size: 1008
+      md5: 939752f48d098e2f5e196eea6f35709e
+      size: 1174
     - path: src/git-revisions.ts
       hash: md5
       md5: 1bc9c69107afca3955ed1e82db0d9695
@@ -96,12 +96,12 @@ stages:
       size: 745
     - path: src/files.ts
       hash: md5
-      md5: 53cab9e5ffceca8b85cff9927e70aaae
-      size: 1008
+      md5: 939752f48d098e2f5e196eea6f35709e
+      size: 1174
     - path: src/freeze-cohort.ts
       hash: md5
-      md5: e11d280d9ffeaeb8325c67a34e57451b
-      size: 7513
+      md5: b5fa9720a9dc451bfc4e52b728546815
+      size: 7590
     - path: src/schemas.ts
       hash: md5
       md5: 8a483d82692f1a1e56c54285494bb439

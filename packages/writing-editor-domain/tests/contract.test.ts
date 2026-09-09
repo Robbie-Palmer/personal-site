@@ -259,5 +259,10 @@ describe("decisions", () => {
         outcome: "accepted",
       }).success,
     ).toBe(false);
+    expect(() => Reflect.apply(
+      createDecision,
+      undefined,
+      [proposal, "accepted", "other"],
+    )).toThrow(/cannot include a replacement/);
   });
 });

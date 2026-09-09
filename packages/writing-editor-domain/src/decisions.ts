@@ -56,6 +56,9 @@ export function createDecision(
   outcome: DecisionOutcome,
   replacement?: string,
 ): Decision {
+  if (outcome !== "changed" && replacement !== undefined) {
+    throw new Error(`${outcome} decisions cannot include a replacement`);
+  }
   const parsedProposal = ProposalSchema.parse(proposal);
   const candidate = {
     schemaVersion: WRITING_EDITOR_SCHEMA_VERSION,

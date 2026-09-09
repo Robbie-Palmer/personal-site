@@ -16,9 +16,16 @@ export function writeJson(file: string, value: unknown): void {
   fs.writeFileSync(file, `${canonicalJson(value)}\n`);
 }
 
-export function resetDirectory(directory: string): void {
+export function resetDirectory(directory: string, allowedRoot: string): void {
   const resolved = path.resolve(directory);
-  if (resolved === path.parse(resolved).root || resolved === path.resolve(".")) {
+  const root = path.resolve(allowedRoot);
+  const relative = path.relative(root, resolved);
+  if (
+    relative === "" ||
+    relative === ".." ||
+    relative.startsWith(`..${path.sep}`) ||
+    path.isAbsolute(relative)
+  ) {
     throw new Error(`refusing to reset unsafe output directory: ${resolved}`);
   }
   fs.rmSync(resolved, { recursive: true, force: true });

@@ -24,6 +24,7 @@ export interface ExtractDatasetOptions {
   manifestFile: string;
   repository: string;
   output: string;
+  outputRoot: string;
 }
 
 interface PreparedArtifact {
@@ -93,7 +94,7 @@ export function extractDataset(options: ExtractDatasetOptions): DatasetManifest 
     entries,
   });
 
-  resetDirectory(options.output);
+  resetDirectory(options.output, options.outputRoot);
   for (const artifact of artifacts) {
     const sourceFile = path.join(options.output, artifact.entry.source.file);
     const publishedFile = path.join(options.output, artifact.entry.published.file);
@@ -121,6 +122,7 @@ function main(): void {
     manifestFile: args.manifest,
     repository: args.repository,
     output: args.output,
+    outputRoot: path.resolve("."),
   });
   console.log(`Extracted ${dataset.entries.length} writing pairs as ${dataset.datasetId}`);
 }

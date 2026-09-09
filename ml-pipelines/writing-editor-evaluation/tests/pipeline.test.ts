@@ -7,7 +7,7 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import { extractDataset } from "../src/extract-dataset";
 import { freezeCohort } from "../src/freeze-cohort";
-import { readJson } from "../src/files";
+import { readJson, resetDirectory } from "../src/files";
 import { fileAtRevision } from "../src/git-revisions";
 import {
   CorpusSourceManifestSchema,
@@ -116,7 +116,7 @@ describe("writing editor evaluation pipeline", () => {
     const output = path.join(temporary, "corpus");
     writeManifest(manifestFile, revisions);
 
-    const dataset = extractDataset({ manifestFile, repository, output });
+    const dataset = extractDataset({ manifestFile, repository, output, outputRoot: temporary });
 
     expect(dataset.entries).toHaveLength(6);
     expect(dataset.entries.map(({ artifactId }) => artifactId)).toEqual(
@@ -136,6 +136,7 @@ describe("writing editor evaluation pipeline", () => {
       manifestFile,
       repository,
       output: path.join(temporary, "second-corpus"),
+      outputRoot: temporary,
     });
     expect(second).toEqual(dataset);
   });
@@ -157,7 +158,8 @@ describe("writing editor evaluation pipeline", () => {
     fs.mkdirSync(output, { recursive: true });
     fs.writeFileSync(path.join(output, "sentinel"), "keep");
 
-    expect(() => extractDataset({ manifestFile, repository, output })).toThrow(/cat-file/);
+    expect(() => extractDataset({ manifestFile, repository, output, outputRoot: temporary }))
+      .toThrow(/cat-file/);
     expect(fs.readFileSync(path.join(output, "sentinel"), "utf8")).toBe("keep");
   });
 
@@ -204,6 +206,17 @@ describe("writing editor evaluation pipeline", () => {
       .toThrow(`${revision}:docs/invalid.md is not valid UTF-8`);
   });
 
+  it("refuses to reset the allowed output root or a directory outside it", () => {
+    const allowed = temporaryDirectory("writing-allowed-output-");
+    const outside = temporaryDirectory("writing-outside-output-");
+    const sentinel = path.join(outside, "sentinel");
+    fs.writeFileSync(sentinel, "keep");
+
+    expect(() => resetDirectory(allowed, allowed)).toThrow(/unsafe output directory/);
+    expect(() => resetDirectory(outside, allowed)).toThrow(/unsafe output directory/);
+    expect(fs.readFileSync(sentinel, "utf8")).toBe("keep");
+  });
+
   it("freezes stratified splits and reports missing decision evidence", () => {
     const temporary = temporaryDirectory("writing-freeze-");
     const repository = path.join(temporary, "repository");
@@ -214,12 +227,18 @@ describe("writing editor evaluation pipeline", () => {
     const output = path.join(temporary, "frozen");
     writeManifest(manifestFile, revisions);
     writeParams(paramsFile);
-    const dataset = extractDataset({ manifestFile, repository, output: corpus });
+    const dataset = extractDataset({
+      manifestFile,
+      repository,
+      output: corpus,
+      outputRoot: temporary,
+    });
 
     const result = freezeCohort({
       datasetFile: path.join(corpus, "manifest.json"),
       paramsFile,
       output,
+      outputRoot: temporary,
     });
 
     expect(FrozenCohortSchema.parse(readJson(path.join(output, "cohort.json"))))
@@ -253,6 +272,7 @@ describe("writing editor evaluation pipeline", () => {
       datasetFile: path.join(corpus, "manifest.json"),
       paramsFile,
       output: path.join(temporary, "repeated-frozen"),
+      outputRoot: temporary,
     });
     expect(repeated).toEqual(result);
 
@@ -261,6 +281,7 @@ describe("writing editor evaluation pipeline", () => {
       datasetFile: path.join(corpus, "manifest.json"),
       paramsFile,
       output: path.join(temporary, "changed-frozen"),
+      outputRoot: temporary,
     });
     expect(changed.cohort.cohortId).not.toBe(result.cohort.cohortId);
   });
@@ -276,7 +297,12 @@ describe("writing editor evaluation pipeline", () => {
     const output = path.join(temporary, "frozen");
     writeManifest(manifestFile, revisions);
     writeParams(paramsFile);
-    const dataset = extractDataset({ manifestFile, repository, output: corpus });
+    const dataset = extractDataset({
+      manifestFile,
+      repository,
+      output: corpus,
+      outputRoot: temporary,
+    });
     const [first, ...rest] = dataset.entries;
     if (!first) throw new Error("expected a fixture entry");
     writeJson(datasetFile, {
@@ -287,7 +313,7 @@ describe("writing editor evaluation pipeline", () => {
       ],
     });
 
-    const result = freezeCohort({ datasetFile, paramsFile, output });
+    const result = freezeCohort({ datasetFile, paramsFile, output, outputRoot: temporary });
 
     expect(result.readiness.revisions).toEqual({
       complete: false,
@@ -312,12 +338,13 @@ describe("writing editor evaluation pipeline", () => {
     const manifestFile = path.join(temporary, "manifest.json");
     const corpus = path.join(temporary, "corpus");
     writeManifest(manifestFile, revisions);
-    extractDataset({ manifestFile, repository, output: corpus });
+    extractDataset({ manifestFile, repository, output: corpus, outputRoot: temporary });
 
     expect(() => freezeCohort({
       datasetFile: path.join(corpus, "manifest.json"),
       paramsFile,
       output: path.join(temporary, "frozen"),
+      outputRoot: temporary,
     })).toThrow(/sum to 1/);
   });
 });
