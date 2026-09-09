@@ -265,6 +265,40 @@ describe("writing editor evaluation pipeline", () => {
     expect(changed.cohort.cohortId).not.toBe(result.cohort.cohortId);
   });
 
+  it("identifies artifacts without a usable revision pair", () => {
+    const temporary = temporaryDirectory("writing-missing-revision-");
+    const repository = path.join(temporary, "repository");
+    const revisions = createRepository(repository);
+    const manifestFile = path.join(temporary, "corpus-manifest.json");
+    const corpus = path.join(temporary, "corpus");
+    const datasetFile = path.join(temporary, "dataset.json");
+    const paramsFile = path.join(temporary, "params.yaml");
+    const output = path.join(temporary, "frozen");
+    writeManifest(manifestFile, revisions);
+    writeParams(paramsFile);
+    const dataset = extractDataset({ manifestFile, repository, output: corpus });
+    const [first, ...rest] = dataset.entries;
+    if (!first) throw new Error("expected a fixture entry");
+    writeJson(datasetFile, {
+      ...dataset,
+      entries: [
+        { ...first, published: { ...first.published, contentHash: first.source.contentHash } },
+        ...rest,
+      ],
+    });
+
+    const result = freezeCohort({ datasetFile, paramsFile, output });
+
+    expect(result.readiness.revisions).toEqual({
+      complete: false,
+      extractedPairs: 6,
+      missingArtifactIds: [first.artifactId],
+    });
+    expect(result.readiness.ready).toBe(false);
+    expect(fs.readFileSync(path.join(output, "readiness.md"), "utf8"))
+      .toContain(`## Missing revision pairs\n\n- ${first.artifactId}`);
+  });
+
   it("rejects split ratios that do not sum to one", () => {
     const temporary = temporaryDirectory("writing-ratios-");
     const paramsFile = path.join(temporary, "params.yaml");

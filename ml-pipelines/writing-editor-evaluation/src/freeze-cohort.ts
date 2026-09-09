@@ -111,9 +111,11 @@ function readiness(
   const requiredArtifactTypesPresent = requiredArtifactTypes.every(
     (artifactType) => byArtifactType[artifactType] > 0,
   );
-  const revisionsComplete = entries.every(
-    ({ source, published }) => source.contentHash !== published.contentHash,
-  );
+  const missingRevisions = entries
+    .filter(({ source, published }) => source.contentHash === published.contentHash)
+    .map(({ artifactId }) => artifactId)
+    .sort(compareText);
+  const revisionsComplete = missingRevisions.length === 0;
   const outcomesComplete = false;
   return ReadinessSchema.parse({
     schemaVersion: 1,
@@ -123,7 +125,7 @@ function readiness(
     revisions: {
       complete: revisionsComplete,
       extractedPairs: entries.length,
-      missingArtifactIds: [],
+      missingArtifactIds: missingRevisions,
     },
     outcomes: {
       complete: outcomesComplete,
@@ -159,6 +161,14 @@ function readinessMarkdown(report: Readiness): string {
     const counts = report.coverage.bySplit[split];
     lines.push(
       `| ${split} | ${counts.adr} | ${counts["project-page"]} | ${counts.adr + counts["project-page"]} |`,
+    );
+  }
+  if (report.revisions.missingArtifactIds.length > 0) {
+    lines.push(
+      "",
+      "## Missing revision pairs",
+      "",
+      ...report.revisions.missingArtifactIds.map((artifactId) => `- ${artifactId}`),
     );
   }
   if (report.outcomes.missingArtifactIds.length > 0) {
