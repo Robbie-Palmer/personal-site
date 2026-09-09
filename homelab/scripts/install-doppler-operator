@@ -3,19 +3,25 @@ set -euo pipefail
 
 expected_context=${REMOTE_DEVELOPMENT_KUBE_CONTEXT:-remote-development}
 script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
-homelab_dir=$(cd -- "${script_dir}/.." && pwd)
 operator_url=https://github.com/DopplerHQ/kubernetes-operator/releases/download/v1.7.1/recommended.yaml
 operator_sha256=ef448ad54b37c122fff753fa3dfc5a218c13be9b67ff6866dc25dacea82b5f8c
-operator_file=$(mktemp)
-token_file=$(mktemp)
+operator_file=
+token_file=
 
 cleanup() {
-  rm -f "${operator_file}"
-  if [ -f "${token_file}" ]; then
+  if [ -n "${operator_file}" ]; then
+    rm -f "${operator_file}"
+  fi
+  if [ -n "${token_file}" ] && [ -f "${token_file}" ]; then
     shred --remove "${token_file}" 2>/dev/null || rm -f "${token_file}"
   fi
 }
 trap cleanup EXIT
+
+umask 077
+operator_file=$(mktemp)
+token_file=$(mktemp)
+chmod 600 "${token_file}"
 
 "${script_dir}/require-kube-context" "${expected_context}" cloud
 curl --fail --location --silent --show-error "${operator_url}" --output "${operator_file}"
@@ -27,24 +33,41 @@ kubectl wait \
   --timeout=180s \
   deployment/doppler-operator-controller-manager
 
-kubectl apply --filename "${homelab_dir}/k3s/base/t3-code/namespace.yaml"
-if kubectl --namespace t3-code get secret doppler-token >/dev/null 2>&1 \
-  && [ "${ROTATE_DOPPLER_TOKEN:-0}" != "1" ]; then
-  echo "Doppler service token already exists; set ROTATE_DOPPLER_TOKEN=1 to replace it"
-  exit 0
+if [ "$#" -eq 0 ]; then
+  set -- "t3-code:prd_remote_development"
 fi
 
-doppler configs tokens create remote-development-k3s \
-  --project homelab \
-  --config prd_remote_development \
-  --access read \
-  --plain >"${token_file}"
-chmod 600 "${token_file}"
+for target in "$@"; do
+  if [[ ! ${target} =~ ^([a-z0-9]([-a-z0-9]*[a-z0-9])?):([a-z0-9_]+)$ ]]; then
+    echo "workspace secret target must be NAMESPACE:DOPPLER_CONFIG" >&2
+    exit 1
+  fi
 
-kubectl --namespace t3-code create secret generic doppler-token \
-  --from-file="serviceToken=${token_file}" \
-  --dry-run=client \
-  --output=yaml \
-  | kubectl apply --filename -
+  namespace=${target%%:*}
+  doppler_config=${target#*:}
+  if ! kubectl get namespace "${namespace}" >/dev/null 2>&1; then
+    kubectl create namespace "${namespace}"
+  fi
 
-echo "Doppler operator and namespace-scoped service token are ready"
+  if kubectl --namespace "${namespace}" get secret doppler-token >/dev/null 2>&1 \
+    && [ "${ROTATE_DOPPLER_TOKEN:-0}" != "1" ]; then
+    echo "Doppler service token already exists in ${namespace}"
+    continue
+  fi
+
+  doppler configs tokens create "remote-development-k3s-${namespace}" \
+    --project homelab \
+    --config "${doppler_config}" \
+    --access read \
+    --plain >"${token_file}"
+
+  kubectl --namespace "${namespace}" create secret generic doppler-token \
+    --from-file="serviceToken=${token_file}" \
+    --dry-run=client \
+    --output=yaml \
+    | kubectl apply --filename -
+
+  echo "Doppler service token is ready in ${namespace}"
+done
+
+echo "Doppler operator and requested namespace-scoped service tokens are ready"

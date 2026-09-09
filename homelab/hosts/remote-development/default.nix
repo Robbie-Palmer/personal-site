@@ -1,6 +1,5 @@
 {
   config,
-  lib,
   pkgs,
   ...
 }:
@@ -10,6 +9,11 @@ let
   dataMapper = "remote-development-data";
   dataMount = "/srv/remote-development";
   dataKeyFile = "/var/lib/remote-development-secrets/data-volume.key";
+  pilotDataPath = "${dataMount}/t3-code-pilot";
+  pilotProjectId = "2001";
+  pilotBlockHardLimit = "10G";
+  pilotBlockHardLimitKiB = "10485760";
+  pilotInodeHardLimit = "1000000";
   operatorKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIIj4+tNshoonWcOZFnSV0YcXgKuGqfcmn5HyIvLCfdQe robbiepalmer@live.co.uk";
 in
 {
@@ -43,9 +47,17 @@ in
     tmp.cleanOnBoot = true;
   };
 
-  environment.etc.crypttab.text = ''
-    ${dataMapper} ${dataDevice} ${dataKeyFile} luks,nofail
-  '';
+  environment.etc = {
+    crypttab.text = ''
+      ${dataMapper} ${dataDevice} ${dataKeyFile} luks,nofail
+    '';
+    projects.text = ''
+      ${pilotProjectId}:${pilotDataPath}
+    '';
+    projid.text = ''
+      t3-code-pilot:${pilotProjectId}
+    '';
+  };
 
   fileSystems.${dataMount} = {
     device = "/dev/mapper/${dataMapper}";
@@ -53,6 +65,7 @@ in
     options = [
       "nofail"
       "noatime"
+      "prjquota"
       "x-systemd.device-timeout=30s"
     ];
   };
@@ -155,6 +168,52 @@ in
       install -d -m 0700 -o t3code -g t3code ${dataMount}/t3-code/home/.codex
       install -d -m 0700 -o t3code -g t3code ${dataMount}/t3-code/home/.codex-personal
       install -d -m 0750 -o t3code -g t3code ${dataMount}/t3-code/workspaces
+      install -d -m 0700 -o t3code -g t3code ${pilotDataPath}
+      install -d -m 0700 -o t3code -g t3code ${pilotDataPath}/home
+      install -d -m 0700 -o t3code -g t3code ${pilotDataPath}/home/.t3
+      install -d -m 0700 -o t3code -g t3code ${pilotDataPath}/home/.codex
+      install -d -m 0700 -o t3code -g t3code ${pilotDataPath}/home/.codex-personal
+      install -d -m 0700 -o t3code -g t3code ${pilotDataPath}/workspaces
+    '';
+  };
+
+  systemd.services.remote-development-project-quotas = {
+    description = "Apply remote-development project quotas";
+    after = [ "remote-development-data-layout.service" ];
+    requires = [ "remote-development-data-layout.service" ];
+    before = [ "k3s.service" ];
+    wantedBy = [ "multi-user.target" ];
+    path = [
+      pkgs.e2fsprogs
+      pkgs.quota
+      pkgs.util-linux
+    ];
+    serviceConfig = {
+      Type = "oneshot";
+      RemainAfterExit = true;
+    };
+    script = ''
+      test "$(findmnt --noheadings --output FSTYPE --target ${dataMount})" = ext4
+      findmnt --noheadings --output OPTIONS --target ${dataMount} \
+        | tr ',' '\n' \
+        | grep -Fx prjquota >/dev/null
+
+      if ! quotaon --project --print-state ${dataMount} | grep -F ' is on' >/dev/null; then
+        quotaon --project ${dataMount}
+      fi
+
+      chattr -R -p ${pilotProjectId} ${pilotDataPath}
+      chattr +P ${pilotDataPath}
+      setquota --project ${pilotProjectId} 0 ${pilotBlockHardLimit} 0 ${pilotInodeHardLimit} ${dataMount}
+
+      test "$(lsattr -dp ${pilotDataPath} | awk '{ print $1 }')" = ${pilotProjectId}
+      lsattr -d ${pilotDataPath} | awk '{ print $1 }' | grep -F P >/dev/null
+      repquota --project --verbose --no-names --output=csv ${dataMount} \
+        | awk -F, '$1 == "#${pilotProjectId}" {
+            found = 1
+            if ($6 != "${pilotBlockHardLimitKiB}" || $10 != "${pilotInodeHardLimit}") exit 1
+          }
+          END { if (!found) exit 1 }'
     '';
   };
 
@@ -162,10 +221,12 @@ in
     after = [
       "srv-remote\\x2ddevelopment.mount"
       "remote-development-data-layout.service"
+      "remote-development-project-quotas.service"
     ];
     requires = [
       "srv-remote\\x2ddevelopment.mount"
       "remote-development-data-layout.service"
+      "remote-development-project-quotas.service"
     ];
   };
 
@@ -187,6 +248,7 @@ in
     script = ''
       if tailscale status --json | jq --exit-status '.BackendState == "Running"' >/dev/null; then
         tailscale serve --bg --https=443 http://127.0.0.1:30773
+        tailscale serve --bg --https=8443 http://127.0.0.1:30774
       else
         echo "Tailscale is not enrolled; Serve will be configured after enrollment"
       fi
@@ -203,6 +265,7 @@ in
     bind
     cryptsetup
     curl
+    e2fsprogs
     git
     gh
     htop
@@ -215,6 +278,7 @@ in
     lsof
     mtr
     neovim
+    quota
     ripgrep
     rsync
     tmux

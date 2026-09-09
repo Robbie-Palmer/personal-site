@@ -1,0 +1,8 @@
+apiVersion: schema.plugin.fluxcd.io/v1beta1
+kind: Config
+validate:
+  schemaLocation:
+    - k3s/schemas/doppler-operator-v1.7.1
+    - https://raw.githubusercontent.com/fluxcd/flux-schema/aa377b2ae9512c371ce34bc5b4c88e67b106a011/catalog/latest
+  skipCELRules: false
+  skipMissingSchemas: false

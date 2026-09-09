@@ -1,0 +1,76 @@
+---
+title: "ADR 008: Shared-host resource containment"
+date: "2026-09-09"
+status: "Accepted"
+---
+
+# Context
+
+[ADR 003](/projects/agent-friendly-remote-development/adrs/003-portable-per-user-workspaces)
+requires per-workspace compute limits and durable storage. The first pilot adds
+a second workspace to one Hetzner CX33 with 4 shared vCPUs and 8 GiB of memory.
+The operator workspace already has limits of 3 CPUs and 6 GiB. Reducing those
+limits to make room for the pilot could disrupt the machine's existing use.
+
+Both workspace directories live on one ext4 filesystem and use the same Unix
+UID. A 10 GiB Kubernetes persistent-volume claim records intended capacity for
+a statically provisioned local volume, but it does not stop that directory from
+filling the underlying filesystem. Disk exhaustion could stop both workspaces,
+K3s, and backups.
+
+# Decision
+
+Keep the operator workspace's existing CPU and memory settings. Give the pilot
+a request of 250 millicpu and 512 MiB, with limits of 1 CPU and 1 GiB. Its
+namespace quota permits one pod and one persistent-volume claim and repeats
+those compute and storage ceilings.
+
+Assign the pilot a negative-priority, non-preempting `PriorityClass`. This
+makes it the earlier eviction candidate during node pressure without allowing
+it to evict another workload. Resize the host before raising pilot limits when
+the operator still needs its current capacity.
+
+Enforce the pilot's storage allocation with an ext4 project quota on its whole
+directory. NixOS mounts the encrypted data filesystem with `prjquota`, assigns
+project ID 2001 with inheritance, and sets hard limits of 10 GiB and 1,000,000
+inodes before K3s starts. The inode limit covers the small-file exhaustion case
+that a byte limit alone misses. The operator workspace remains uncapped.
+
+This separates the Kubernetes allocation from filesystem enforcement. The
+[Kubernetes local-volume documentation](https://kubernetes.io/docs/concepts/storage/volumes/#local)
+describes the volume's capacity and scheduling contract. The
+[Linux quota subsystem](https://docs.kernel.org/filesystems/quota.html)
+enforces block and inode hard limits that a local volume lacks.
+
+Fresh volumes enable ext4 project-quota metadata when formatted. An existing
+volume needs the documented offline filesystem check and feature-enable
+operation before switching to the new NixOS generation.
+
+# Alternatives
+
+A directory without a filesystem quota would keep provisioning simple but
+would leave the shared filesystem exposed to accidental exhaustion. The claim
+size alone does not enforce this local-volume boundary.
+
+A separate cloud volume or virtual machine per user would give storage a
+clearer failure and billing boundary. It adds provider resources and per-user
+host overhead that the trusted two-person pilot does not need. Reconsider it
+for mutually hostile users or when independent volume lifecycle becomes worth
+the cost.
+
+Capping the operator workspace to reserve pilot capacity would protect the
+pilot at the expense of the existing user. That reverses the pilot's purpose,
+so the new workspace receives the tighter limit and lower priority.
+
+# Consequences
+
+The pilot cannot consume more than its declared CPU, memory, byte, or inode
+limits. Its lower priority makes it an earlier node-pressure eviction
+candidate. These controls reduce accidental disruption while preserving the
+operator's declared compute capacity.
+
+The two workspaces still share a kernel, physical CPU, memory, storage device,
+and network. Limits do not create a hostile-tenant security boundary or
+guarantee latency. The uncapped operator directory can still fill the volume,
+so storage monitoring and backups remain required. Project-quota maintenance
+also adds a short outage when enabling the feature on an existing filesystem.

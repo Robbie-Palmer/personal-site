@@ -13,6 +13,23 @@ test "$(hostname)" = remote-development
 test "$(id -u t3code)" = 2000
 test "$(id -g t3code)" = 2000
 test "$(findmnt --noheadings --output SOURCE /srv/remote-development)" = /dev/mapper/remote-development-data
+test "$(findmnt --noheadings --output FSTYPE /srv/remote-development)" = ext4
+findmnt --noheadings --output OPTIONS /srv/remote-development \
+  | tr ',' '\n' \
+  | grep -Fx prjquota >/dev/null
+quotaon --project --print-state /srv/remote-development | grep -F ' is on' >/dev/null
+pilot_project_id=$(awk -F: '$1 == "t3-code-pilot" { print $2 }' /etc/projid)
+test -n "${pilot_project_id}"
+test "$(lsattr -dp /srv/remote-development/t3-code-pilot | awk '{ print $1 }')" = "${pilot_project_id}"
+lsattr -d /srv/remote-development/t3-code-pilot \
+  | awk '{ print $1 }' \
+  | grep -F P >/dev/null
+repquota --project --verbose --no-names --output=csv /srv/remote-development \
+  | awk -F, -v project_id="#${pilot_project_id}" '$1 == project_id {
+      found = 1
+      if ($6 != "10485760" || $10 != "1000000") exit 1
+    }
+    END { if (!found) exit 1 }'
 systemctl is-active --quiet tailscaled.service
 systemctl is-active --quiet k3s.service
 tailscale status --json | jq -e '.BackendState == "Running"' >/dev/null
@@ -22,11 +39,42 @@ k3s kubectl get node remote-development \
 k3s kubectl get node remote-development \
   --output=jsonpath='{.metadata.labels.homelab\.dev/capability}{"\n"}' \
   | grep -Fx agent-workspace >/dev/null
-echo "host, encrypted volume, Tailscale, and independent K3s server are healthy"
+echo "host, encrypted volume, pilot disk quota, Tailscale, and independent K3s server are healthy"
 
-if k3s kubectl --namespace t3-code get deployment t3-code >/dev/null 2>&1; then
-  k3s kubectl --namespace t3-code rollout status deployment/t3-code --timeout=120s
-  curl --fail --silent --show-error http://127.0.0.1:30773/ >/dev/null
-  echo "t3-code workload is healthy"
+check_workspace() {
+  local namespace=$1
+  local node_port=$2
+  local volume=$3
+  local actual_policy_names expected_policy_names
+  shift 3
+
+  if ! k3s kubectl --namespace "${namespace}" get deployment t3-code >/dev/null 2>&1; then
+    return
+  fi
+
+  k3s kubectl --namespace "${namespace}" rollout status deployment/t3-code --timeout=120s
+  actual_policy_names=$(
+    k3s kubectl --namespace "${namespace}" get networkpolicy \
+      --output=jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' \
+      | sort
+  )
+  expected_policy_names=$(printf '%s\n' "$@" | sort)
+  test "${actual_policy_names}" = "${expected_policy_names}"
+  test "$(k3s kubectl --namespace "${namespace}" get persistentvolumeclaim t3-code-data --output=jsonpath='{.spec.volumeName}')" = "${volume}"
+  curl --fail --silent --show-error "http://127.0.0.1:${node_port}/" >/dev/null
+  echo "${namespace} workspace is healthy"
+}
+
+check_workspace t3-code 30773 t3-code-remote-development
+check_workspace \
+  t3-code-pilot \
+  30774 \
+  t3-code-remote-development-pilot \
+  workspace-default-deny-ingress \
+  workspace-dns \
+  workspace-public-egress
+
+if k3s kubectl --namespace t3-code-pilot get deployment t3-code >/dev/null 2>&1; then
+  test "$(k3s kubectl --namespace t3-code-pilot get resourcequota workspace --output=jsonpath='{.spec.hard.pods}')" = 1
 fi
 REMOTE

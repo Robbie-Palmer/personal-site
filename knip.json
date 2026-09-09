@@ -1,12 +1,13 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
   "exclude": ["exports", "types", "nsExports", "nsTypes", "enumMembers"],
-  "ignoreBinaries": ["mise", "typecheck", "wrangler", "duckdb"],
+  "ignoreBinaries": ["mise", "typecheck", "wrangler", "duckdb", "flux-schema"],
   "workspaces": {
     ".": {
       "entry": [
         "functions/**/*.ts",
         "homelab/images/t3-code/bootstrap-settings.mjs",
+        "homelab/tests/**/*.test.ts",
         "scripts/prose-lint.ts"
       ],
       "ignoreDependencies": ["lint-staged", "markdownlint-cli", "remark-cli", "remark-lint", "tsx", "yaml-lint"]

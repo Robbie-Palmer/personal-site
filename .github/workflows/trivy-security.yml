@@ -45,6 +45,22 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Setup mise
+        uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
+        with:
+          version: "2026.9.1"
+          experimental: true
+          minimum_release_age: 24h
+
+      # Trivy treats each Kustomize patch as a complete Kubernetes object. Scan
+      # the deployed form so inherited security settings remain visible.
+      - name: Render Kubernetes manifests
+        run: |
+          mkdir -p trivy-rendered-kubernetes
+          mise run //homelab:k3s-render-home > trivy-rendered-kubernetes/home.yaml
+          mise run //homelab:k3s-render-remote > trivy-rendered-kubernetes/remote.yaml
+          mise run //homelab:k3s-render-remote-pilot > trivy-rendered-kubernetes/remote-pilot.yaml
+
       # Whole workspace: never pin to a single Terraform root.
       - name: Run Trivy IaC scan
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
@@ -55,7 +71,7 @@ jobs:
           output: "trivy-iac-results.sarif"
           severity: "CRITICAL,HIGH"
           timeout: "10m"
-          skip-dirs: "node_modules,.pnpm-store,.terraform"
+          skip-dirs: "node_modules,.pnpm-store,.terraform,homelab/k3s"
 
       - name: Upload Trivy results to GitHub Security
         uses: github/codeql-action/upload-sarif@cdf488f595d80d6e07e03d4674febd5ab45fa938 # v4.37.9

@@ -1,14 +1,14 @@
 apiVersion: v1
 kind: PersistentVolume
 metadata:
-  name: t3-code-remote-development
+  name: t3-code-remote-development-pilot
 spec:
   accessModes:
     - ReadWriteOnce
   capacity:
-    storage: 90Gi
+    storage: 10Gi
   local:
-    path: /srv/remote-development/t3-code
+    path: /srv/remote-development/t3-code-pilot
   nodeAffinity:
     required:
       nodeSelectorTerms:
@@ -21,6 +21,10 @@ spec:
               operator: In
               values:
                 - agent-workspace
+            - key: kubernetes.io/hostname
+              operator: In
+              values:
+                - remote-development
   persistentVolumeReclaimPolicy: Retain
   storageClassName: t3-code-local
   volumeMode: Filesystem

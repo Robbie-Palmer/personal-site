@@ -24,6 +24,7 @@ lighthouse-reports/
 playwright-report/
 test-results/
 .pnpm-approved-builds.json
+trivy-rendered-kubernetes/
 
 # Environment variables
 .env

@@ -30,6 +30,16 @@ under `k3s/base/t3-code/` contains shared workload policy. The `home` and
 resource limits, Doppler configs, and tailnet ports. Deployment tasks verify
 the exact Kubernetes context and every node's location label before applying.
 
+The remote workspace definitions live under
+`k3s/overlays/remote-development/workspaces/`. The default overlay applies only
+the existing `operator` workspace. It keeps namespace `t3-code`, volume path
+`/srv/remote-development/t3-code`, and tailnet HTTPS port 443. The pilot overlay
+adds namespace `t3-code-pilot`, a separate volume path, a separate Doppler
+config, and tailnet HTTPS port 8443. The operator workspace keeps its existing
+network behavior. The pilot namespace denies ingress from other pods. Pilot
+egress is limited to DNS and public SSH, HTTP, and HTTPS, while private,
+link-local, and tailnet destinations remain blocked.
+
 ### First commissioning
 
 Create two Doppler configs before installation:
@@ -117,6 +127,211 @@ access should use a fine-grained repository token or GitHub App held in the
 remote workload Doppler config. Other interactive coding-harness sessions
 belong under `/data/home`, not in an image layer.
 
+### First pilot workspace
+
+Create Doppler config `homelab/prd_remote_development_pilot` before deploying
+the pilot. Give it only secrets owned by the pilot. Interactive GitHub and
+model-provider sessions still belong in the pilot's encrypted home directory,
+not in Doppler.
+
+The [tailnet policy](https://tailscale.com/docs/reference/syntax/policy-file)
+must deny broad member access to
+`tag:remote-development`. Give administrators access to both workspace ports
+for support and recovery. Give the pilot's exact Tailscale login access only to
+port 8443. For example, merge rules shaped like these into the existing policy
+after replacing the email address:
+
+```json
+{
+  "grants": [
+    {
+      "src": ["autogroup:admin"],
+      "dst": ["tag:remote-development"],
+      "ip": ["tcp:443", "tcp:8443"]
+    },
+    {
+      "src": ["pilot@example.com"],
+      "dst": ["tag:remote-development"],
+      "ip": ["tcp:8443"]
+    }
+  ]
+}
+```
+
+Do not add the pilot while an allow-all grant can still reach the tagged host.
+[Tailscale combines matching grants](https://tailscale.com/docs/reference/syntax/grants),
+so a narrower rule does not override a broader one.
+
+#### Enable project quotas on the existing volume
+
+The NixOS definition mounts the data filesystem with project quotas and gives
+`/srv/remote-development/t3-code-pilot` project ID 2001. A systemd oneshot
+assigns that ID to existing files, makes new descendants inherit it, and sets
+hard limits of 10 GiB and 1,000,000 inodes before K3s starts. The operator
+workspace has no new disk limit.
+
+Fresh volumes created by `remote-volume-prepare` have the required ext4
+features from the start. The current volume predates that change. Enabling the
+features changes filesystem metadata and needs a short outage. Do not switch
+to the new NixOS generation first because its `prjquota` mount option expects
+those features to exist.
+
+Do not run this operation until `/srv/remote-development` has a verified,
+encrypted backup outside this Hetzner volume. The e2fsprogs undo file below is
+useful for an operator mistake, but it cannot recover from a power loss and is
+not a backup.
+
+Build the new generation before the maintenance window:
+
+```bash
+mise run //homelab:remote-build
+```
+
+Open a root shell over Tailscale. Confirm the source, filesystem type, inode
+size, and current feature list. Stop if the source is not the expected mapper,
+the type is not ext4, or the inode size is below 256 bytes.
+
+```bash
+ssh root@remote-development
+cd /root
+findmnt --noheadings --output SOURCE,FSTYPE,OPTIONS /srv/remote-development
+tune2fs -l /dev/mapper/remote-development-data \
+  | grep -E '^(Filesystem features|Inode size):'
+```
+
+Stop K3s, check for remaining users of the mount, and unmount it. If `umount`
+reports that the filesystem is busy, investigate the processes shown by
+`fuser`. Do not use a forced unmount.
+
+```bash
+systemctl stop t3-code-tailscale-serve.service k3s.service
+fuser --mount --verbose /srv/remote-development || true
+umount /srv/remote-development
+```
+
+Run a filesystem check, enable project tracking and the internal project quota
+inode, then check the filesystem again. Exit status 1 from `e2fsck` means it
+fixed errors; any higher status needs investigation before mounting the
+volume.
+
+```bash
+check_ext4() {
+  e2fsck -f /dev/mapper/remote-development-data
+  check_status=$?
+  if [ "${check_status}" -gt 1 ]; then
+    echo "e2fsck failed with status ${check_status}; stopping maintenance" >&2
+    return "${check_status}"
+  fi
+  return 0
+}
+
+check_ext4 || exit $?
+tune2fs \
+  -z /root/remote-development-before-project-quota.e2undo \
+  -O project \
+  -Q prjquota \
+  /dev/mapper/remote-development-data
+check_ext4 || exit $?
+```
+
+Mount the volume with the option expected by the new definition, verify it,
+then leave the remote shell:
+
+```bash
+mount \
+  -o noatime,prjquota \
+  /dev/mapper/remote-development-data \
+  /srv/remote-development
+findmnt --noheadings --output SOURCE,FSTYPE,OPTIONS /srv/remote-development
+exit
+```
+
+Switch without the automatic health check because K3s was deliberately
+stopped. Start the quota unit and workloads, then run the full check:
+
+```bash
+REMOTE_DEVELOPMENT_SKIP_HEALTH=1 mise run //homelab:remote-rebuild
+ssh root@remote-development \
+  'systemctl start remote-development-project-quotas.service k3s.service t3-code-tailscale-serve.service'
+mise run //homelab:remote-health
+ssh root@remote-development \
+  'repquota --project --verbose --no-names --output=csv /srv/remote-development'
+```
+
+The report must contain project 2001 with a block hard limit of 10,485,760 KiB
+and a file hard limit of 1,000,000. Keep the undo file until the host has
+rebooted and the health check has passed again. If the NixOS switch fails,
+leave the volume mounted with `prjquota`, start the old `k3s.service` and
+`t3-code-tailscale-serve.service`, and investigate before retrying.
+
+#### Deploy the pilot workspace
+
+The maintenance sequence above already applies the host definition on the
+existing server. On a fresh server, build and apply it now. This creates the
+pilot data directory, applies its quota, and publishes the second private
+endpoint:
+
+```bash
+mise run //homelab:remote-build
+mise run //homelab:remote-rebuild
+```
+
+Create the namespace-scoped Doppler token, check the rendered definitions,
+and deploy both workspaces:
+
+```bash
+mise run //homelab:remote-pilot-secret-install
+mise run //homelab:k3s-test-remote
+mise run //homelab:k3s-dry-run-remote-pilot
+mise run //homelab:k3s-deploy-remote-pilot
+mise run //homelab:remote-health
+mise run //homelab:remote-pilot-acceptance
+```
+
+The manifest test renders every Kustomize overlay, validates every object with
+Flux Schema, and checks the final workspace objects by kind, name, namespace,
+and field value. Its configuration pins the Kubernetes 1.37 catalog to an
+immutable upstream commit. The repository also keeps a `DopplerSecret` schema
+generated from the same Doppler Operator release that installation uses, so
+the test evaluates its CEL admission rules without a cluster. Missing schemas
+fail the test. The server-side dry run remains the final check against the CRD
+and admission behavior installed on the live cluster.
+
+The pilot can then open
+`https://remote-development.<tailnet-name>.ts.net:8443`. Complete GitHub and
+model-provider device login from a terminal in that workspace. Never complete
+those logins in the operator workspace on the pilot's behalf.
+
+Before treating onboarding as complete, verify all of the following:
+
+- the pilot can reach port 8443 and cannot reach port 443;
+- the operator can reach both ports;
+- each namespace has its own bound persistent volume;
+- a file written in one workspace is absent from the other;
+- both workspaces can run a representative build at the same time; and
+- deleting the pilot pod preserves a test file after Kubernetes recreates it.
+
+The acceptance task automates the volume, cross-namespace service, and pilot
+restart checks. It deletes and recreates the pilot pod, so run it before giving
+the workspace to the pilot. Tailnet access and simultaneous representative
+builds still need checks from the two users' devices.
+
+The operator workspace keeps its existing 3 CPU and 6 GiB limits, with no new
+namespace resource quota or network policy. The pilot starts with a limit of 1
+CPU and 1 GiB. This leaves the operator's declared limits unchanged and caps
+the pilot's additional pressure, but it cannot guarantee zero contention on a
+shared 4 CPU, 8 GiB host. The pilot also has a lower, non-preempting pod
+priority. When both pods exceed their requests, Kubernetes considers the pilot
+for node-pressure eviction first. If the pilot is disruptive or needs more
+capacity, resize the host before raising its limits. Do not take capacity from
+the operator workspace to make the pilot fit.
+
+The 10 GiB persistent-volume claim records the pilot allocation. The matching
+ext4 project quota enforces it against the whole pilot directory, independent
+of the shared `t3code` Unix account. The inode limit also prevents exhaustion
+through millions of tiny files. The NixOS service must pass before K3s starts,
+and `remote-health` checks both limits on the live host.
+
 ### Updates, rollback, and backups
 
 Build every NixOS change first, then switch it over the tailnet:
@@ -138,10 +353,10 @@ image reference from Git and reapplies the cloud overlay.
 Hetzner server backups are disabled because they cover the reproducible root
 disk and exclude the attached volume. They would speed up root recovery, but
 they would not protect the data that matters here. LUKS encryption and Hetzner
-volume replication are also not backups. An encrypted, versioned copy of
-`/srv/remote-development/t3-code` in a separate provider or failure domain is
-still required. Do not claim backup coverage until that destination and a
-tested restore procedure exist.
+volume replication are also not backups. An encrypted, versioned copy of the
+workspace directories under `/srv/remote-development/` in a separate provider
+or failure domain is still required. Do not claim backup coverage until that
+destination and a tested restore procedure exist.
 
 ## Fleet inventory and checks
 
