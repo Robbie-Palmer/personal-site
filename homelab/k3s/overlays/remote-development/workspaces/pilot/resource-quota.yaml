@@ -9,4 +9,6 @@ spec:
     persistentvolumeclaims: "1"
     # The pilot Deployment uses Recreate, so updates never require a surge pod.
     pods: "1"
+    requests.cpu: "1"
+    requests.memory: "1Gi"
     requests.storage: "10Gi"

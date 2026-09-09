@@ -418,6 +418,10 @@ test("the pilot overlay renders two distinct workspaces", () => {
       readOnlyRootFilesystem: true,
     },
   );
+  assert.deepEqual(
+    valueAt(pilotDeployment, ["spec", "template", "spec", "volumes", 1]),
+    { emptyDir: { sizeLimit: "1Gi" }, name: "tmp" },
+  );
 
   const quota = resource(
     resources,
@@ -430,6 +434,8 @@ test("the pilot overlay renders two distinct workspaces", () => {
     "limits.memory": "1Gi",
     persistentvolumeclaims: "1",
     pods: "1",
+    "requests.cpu": "1",
+    "requests.memory": "1Gi",
     "requests.storage": "10Gi",
   });
 
@@ -513,6 +519,8 @@ test("the NixOS host publishes, prepares, and limits both workspace paths", () =
   assert.ok(hostDefinition.includes('pilotProjectId = "2001"'));
   assert.ok(hostDefinition.includes('pilotBlockHardLimit = "10G"'));
   assert.ok(hostDefinition.includes('pilotInodeHardLimit = "1000000"'));
+  assert.ok(hostDefinition.includes('containerLogMaxFiles = 3'));
+  assert.ok(hostDefinition.includes('containerLogMaxSize = "20Mi"'));
   assert.ok(
     hostDefinition.includes(
       "chattr -R -p ${pilotProjectId} ${pilotDataPath}",
