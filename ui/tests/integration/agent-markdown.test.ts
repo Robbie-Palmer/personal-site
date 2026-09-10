@@ -55,7 +55,7 @@ describe("agent markdown generation", () => {
       .filter((file) => file.endsWith(".html"));
     expect(htmlPages).toContain("human-in-the-loop.html");
     expect(htmlPages).toContain("human-on-the-loop.html");
-    expect(htmlPages).toHaveLength(13);
+    expect(htmlPages).toHaveLength(19);
     for (const htmlPage of htmlPages) {
       const mdPage = htmlPage.replace(/\.html$/, ".md");
       expect(fs.existsSync(path.join(OUT_DIR, "ideas", mdPage))).toBe(true);

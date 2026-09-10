@@ -1,0 +1,34 @@
+---
+title: "Ontology Engineering"
+description: "The practice of defining the concepts, relationships, constraints, and shared vocabulary needed to represent a domain."
+source_url: "https://protege.stanford.edu/publications/ontology_development/ontology101.pdf"
+related_ideas:
+  - "bounded-context"
+  - "domain-driven-design"
+  - "intelligent-document-processing"
+  - "ner"
+---
+
+Ontology engineering defines what kinds of things exist in a domain, how they relate, and which
+distinctions a system must preserve. An ontology may include classes, properties, constraints,
+identifiers, and mappings to other vocabularies.
+
+A taxonomy only arranges concepts into broader and narrower groups. An ontology can also express
+relations such as composition, location, ownership, or participation in a process. Those relations
+should reflect the domain rather than reuse one convenient hierarchy for every question.
+
+[Domain-Driven Design](/ideas/domain-driven-design) and ontology engineering both take language
+seriously. Domain-Driven Design allows different [bounded contexts](/ideas/bounded-context) to use
+different models. Ontology engineering can document those meanings and map between them without
+pretending that one universal model fits every context.
+
+This work has a cost. A small operational vocabulary is often more useful than importing a large
+formal ontology wholesale. External terms should be reused when their meaning fits, with the source
+and version recorded. Local concepts should remain local when a forced match would be false.
+
+## Questions it prompts
+
+* Which distinctions change the system's behaviour?
+* Are two terms synonyms, narrower concepts, or different kinds of thing?
+* Which relationships are safe to treat as transitive?
+* What happens when an external ontology renames, splits, or removes a concept?

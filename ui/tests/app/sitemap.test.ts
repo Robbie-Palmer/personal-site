@@ -18,6 +18,6 @@ describe("sitemap", () => {
     expect(ideaUrls).toContain(
       "https://robbiepalmer.me/ideas/human-on-the-loop",
     );
-    expect(ideaUrls).toHaveLength(14);
+    expect(ideaUrls).toHaveLength(20);
   });
 });
