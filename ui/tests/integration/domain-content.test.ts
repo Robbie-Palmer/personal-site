@@ -46,6 +46,11 @@ describe("Domain Content Validation (Integration)", () => {
         );
       }
     }
+    for (const [ideaSlug, nodeIds] of repo.graph.reverse.ideaReferencedBy) {
+      for (const nodeId of nodeIds) {
+        expect(repo.graph.edges.referencesIdea.get(nodeId)).toContain(ideaSlug);
+      }
+    }
     expect(
       repo.graph.reverse.ideaReferencedBy.get("goodharts-law")?.size,
     ).toBeGreaterThan(0);
