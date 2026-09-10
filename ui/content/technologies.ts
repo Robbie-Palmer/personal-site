@@ -614,6 +614,13 @@ export const technologies: TechnologyContent[] = [
     type: "tool",
   },
   {
+    name: "Encord",
+    added: "2026-09-10",
+    description: "Data annotation and management for computer vision and AI",
+    website: "https://encord.com",
+    type: "platform",
+  },
+  {
     name: "FastAPI",
     added: "2026-01-04",
     description: "Modern, fast web framework for building APIs with Python",
@@ -634,6 +641,14 @@ export const technologies: TechnologyContent[] = [
       "A distributed system for stateful, high-throughput, low-latency data processing",
     website: "https://flink.apache.org",
     iconSlug: "apacheflink",
+    type: "platform",
+  },
+  {
+    name: "GCP",
+    added: "2026-09-10",
+    description: "Google Cloud computing platform",
+    website: "https://cloud.google.com",
+    iconSlug: "googlecloud",
     type: "platform",
   },
   {
