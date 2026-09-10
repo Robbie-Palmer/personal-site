@@ -5,13 +5,9 @@ import {
   ADRSchema as BaseADRSchema,
 } from "./adr/adr";
 import { PreviousTitleSchema } from "./role/jobRole";
-import {
-  ADRRefSchema as CanonicalADRRefSchema,
-  type IdeaSlug,
-  IdeaSlugSchema,
-} from "./slugs";
+import { ADRRefSchema as CanonicalADRRefSchema, IdeaSlugSchema } from "./slugs";
 
-export type { IdeaSlug };
+export type { IdeaSlug } from "./slugs";
 export { IdeaSlugSchema };
 
 export const TechnologySlugSchema = z.string().min(1);

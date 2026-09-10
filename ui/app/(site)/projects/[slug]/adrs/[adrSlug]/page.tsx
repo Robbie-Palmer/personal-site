@@ -155,6 +155,8 @@ export default async function ADRPage({ params }: Readonly<PageProps>) {
           </h1>
 
           <div className="flex flex-wrap items-center gap-4">
+            <IdeaBadges ideas={ideas} />
+
             {adr.technologies && adr.technologies.length > 0 && (
               <div className="flex flex-wrap gap-2">
                 {adr.technologies.map((tech) => (
@@ -199,8 +201,6 @@ export default async function ADRPage({ params }: Readonly<PageProps>) {
               className={PAGINATION_CONTAINER_CLASSES}
             />
           </div>
-
-          <IdeaBadges ideas={ideas} />
 
           {adr.isInherited && (
             <div className="bg-sky-50 dark:bg-sky-950/30 border border-sky-200 dark:border-sky-900 rounded-lg p-4">

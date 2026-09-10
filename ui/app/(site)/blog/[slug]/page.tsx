@@ -126,6 +126,8 @@ export default async function BlogPostPage(props: Readonly<PageProps>) {
             ))}
           </div>
 
+          <IdeaBadges ideas={ideas} />
+
           <div className="sm:ml-auto">
             <ShareButtons
               slug={slug}
@@ -133,9 +135,6 @@ export default async function BlogPostPage(props: Readonly<PageProps>) {
               url={`${siteConfig.url}/blog/${slug}`}
             />
           </div>
-        </div>
-        <div className="mt-4">
-          <IdeaBadges ideas={ideas} />
         </div>
       </header>
 

@@ -9,6 +9,9 @@ describe("sitemap", () => {
 
     expect(ideaUrls).toContain("https://robbiepalmer.me/ideas");
     expect(ideaUrls).toContain("https://robbiepalmer.me/ideas/goodharts-law");
-    expect(ideaUrls).toHaveLength(10);
+    expect(ideaUrls).toContain(
+      "https://robbiepalmer.me/ideas/flp-impossibility",
+    );
+    expect(ideaUrls).toHaveLength(12);
   });
 });

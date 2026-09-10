@@ -108,6 +108,7 @@ export default async function ProjectPage({ params }: Readonly<PageProps>) {
               projectSlug={project.slug}
             />
             <div className="flex flex-wrap gap-2 pt-2">
+              <IdeaBadges ideas={ideas} />
               <ProjectTechStack
                 techStack={project.technologies.map((t) => ({
                   name: t.name,
@@ -115,7 +116,6 @@ export default async function ProjectPage({ params }: Readonly<PageProps>) {
                   iconSlug: t.iconSlug,
                 }))}
               />
-              <IdeaBadges ideas={ideas} />
             </div>
           </div>
 

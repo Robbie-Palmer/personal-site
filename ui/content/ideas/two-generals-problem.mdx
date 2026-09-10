@@ -1,0 +1,25 @@
+---
+title: "The Two Generals Problem"
+description: "No finite exchange of messages can guarantee agreement when any message or acknowledgement may be lost."
+source_url: "https://www.cs.yale.edu/homes/aspnes/pinewiki/TwoGenerals.html"
+related_ideas:
+  - "flp-impossibility"
+---
+
+The Two Generals Problem asks two separated armies to coordinate an attack using messengers who may
+never arrive. One general can send the plan, but cannot know whether the other received it. An
+acknowledgement helps the first general and leaves the second unsure whether the acknowledgement
+arrived. Every reply creates the need for one more reply.
+
+No finite exchange gives both sides certainty. This does not make retries useless. Retries,
+idempotency, and reconciliation can make agreement more likely or make disagreement safe, but they
+cannot turn an unreliable channel into a guarantee.
+
+For a satellite swarm, silence could mean a lost message, a slow peer, or a failed peer. A protocol
+therefore needs a safe default when the agents cannot establish common knowledge.
+
+## Questions it prompts
+
+* What does each agent know, and what does it merely assume the others know?
+* What happens if the final acknowledgement disappears?
+* Can disagreement be made safe instead of pretending it cannot occur?
