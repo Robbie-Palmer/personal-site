@@ -1,0 +1,51 @@
+---
+title: "Mobile Asset Identification"
+description: "Phone-based asset identification and location capture for yard check-in, check-out, and inventory"
+date: "2024-05-01"
+tech_stack:
+  - "Python"
+  - "OpenCV"
+  - "Terraform"
+  - "AWS"
+  - "Amazon ECS"
+  - "Amazon SNS"
+  - "Amazon SQS"
+tags:
+  - "machine-learning"
+  - "computer-vision"
+  - "mlops"
+status: "live"
+role: "terminal-industries"
+---
+
+# Vision
+
+Yard operators need a reliable record of which vehicles and trailers are on site, where they are, and when they move. Dedicated camera installations are not always available or practical. This project lets operators create that record with a phone they already carry.
+
+A user takes a photo of an asset in the web app. The image-analysis service reads its identifier, while the phone's GPS supplies the location. The same workflow supports checking vehicles into and out of a yard and carrying out inventory checks.
+
+# A different image-analysis problem
+
+The [Real-Time Multi-Camera Video Analytics](/projects/real-time-multi-camera-video-analytics) project processes event-driven video from known camera types and fixed viewpoints. This project works from individual photos taken on different phones, by different users, at changing distances and angles.
+
+That removes the temporal and cross-camera context available in video. Each image has to provide enough evidence on its own, despite inconsistent framing, lighting, resolution, and asset condition. The product also has to return a useful answer within a mobile workflow rather than a continuous stream-processing pipeline.
+
+# Building the dataset and evaluation loop
+
+I created a large, manually annotated dataset from images collected across customer sites. I also built the annotation tooling needed to label asset identifiers consistently and turn new field examples into usable evaluation data.
+
+I built the evaluation benchmark and ML pipeline around Terminal's existing models. The benchmark made model changes comparable against a fixed dataset rather than relying on a handful of successful examples. I used it to find failure cases, iterate on the image-processing and recognition algorithm, and measure whether each change improved results across sites.
+
+# Production service
+
+I built the Python and OpenCV image-analysis service and deployed it to AWS ECS. SNS and SQS connected the service to the wider application workflow, while Terraform defined the cloud infrastructure and made deployments repeatable.
+
+The service joins the identifier inferred from each photo with the location supplied by the phone. This gives the web app the information it needs for three day-to-day yard operations:
+
+* Record an asset and its location from a photo
+* Check a vehicle into or out of the yard
+* Verify yard inventory against the assets found on site
+
+# Result
+
+The project turned Terminal's existing computer-vision models into a mobile product for sites and workflows that do not depend on fixed cameras. My work covered the labelled dataset, annotation tools, ML pipeline, benchmark, algorithm iteration, web service, and infrastructure as code.
