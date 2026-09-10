@@ -12,6 +12,12 @@ describe("sitemap", () => {
     expect(ideaUrls).toContain(
       "https://robbiepalmer.me/ideas/flp-impossibility",
     );
-    expect(ideaUrls).toHaveLength(12);
+    expect(ideaUrls).toContain(
+      "https://robbiepalmer.me/ideas/human-in-the-loop",
+    );
+    expect(ideaUrls).toContain(
+      "https://robbiepalmer.me/ideas/human-on-the-loop",
+    );
+    expect(ideaUrls).toHaveLength(14);
   });
 });
