@@ -4,6 +4,7 @@ import {
   ExternalLink,
   FileText,
   FolderKanban,
+  Globe2,
   type LucideIcon,
   Map as MapIcon,
   Play,
@@ -14,6 +15,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
+import { CesiumDemo } from "@/components/technology/cesium/cesium-demo";
 import { EmblaDemoCarousel } from "@/components/technology/embla-demo-carousel";
 import { KnowledgeGraph } from "@/components/technology/knowledge-graph";
 import { LazyLeafletMapDemo } from "@/components/technology/lazy-leaflet-map-demo";
@@ -134,6 +136,7 @@ const TECHNOLOGY_DEMOS: Record<
   string,
   { icon: LucideIcon; component: ReactNode }
 > = {
+  cesiumjs: { icon: Globe2, component: <CesiumDemo /> },
   sigmadotjs: { icon: Play, component: <KnowledgeGraph /> },
   leaflet: { icon: MapIcon, component: <LazyLeafletMapDemo /> },
   "embla-carousel": { icon: Play, component: <EmblaDemoCarousel /> },

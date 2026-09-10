@@ -3,7 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "predev": "tsx scripts/generate-typos-dictionary.ts",
+    "predev": "tsx scripts/generate-typos-dictionary.ts && node scripts/copy-cesium-assets.mjs",
+    "prebuild": "node scripts/copy-cesium-assets.mjs",
     "dev": "next dev --turbopack",
     "dev:qr": "node scripts/qr-dev.mjs && pnpm run dev",
     "build": "next build && tsx scripts/generate-typos-dictionary.ts --out out/recipes && tsx scripts/generate-agent-markdown.ts && tsx scripts/generate-rss.ts",
@@ -40,6 +41,7 @@
     "@tailwindcss/typography": "^0.5.19",
     "@tanstack/react-query": "^5.90.21",
     "better-auth": "^1.6.19",
+    "cesium": "^1.145.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",

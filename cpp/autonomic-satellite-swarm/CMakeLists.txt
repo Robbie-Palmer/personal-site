@@ -74,6 +74,17 @@ if(SATELLITE_SWARM_BUILD_SIMULATION)
 
   if(BUILD_TESTING)
     add_test(NAME satellite_swarm_simulation COMMAND autonomic-satellite-swarm-simulation)
+    add_test(
+      NAME satellite_swarm_browser_fixture
+      COMMAND autonomic-satellite-swarm-simulation --json)
+    add_test(
+      NAME satellite_swarm_invalid_arguments
+      COMMAND autonomic-satellite-swarm-simulation --unsupported)
+    set_tests_properties(
+      satellite_swarm_browser_fixture
+      PROPERTIES PASS_REGULAR_EXPRESSION
+                 "\"source\": \"native C\\+\\+ SimulationTrace\".*\"events\"")
+    set_tests_properties(satellite_swarm_invalid_arguments PROPERTIES WILL_FAIL TRUE)
   endif()
 endif()
 
