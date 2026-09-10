@@ -2,6 +2,7 @@ import { BlogCollectionTabs } from "@/components/blog/blog-collection-tabs";
 import { HomeExperienceCard } from "@/components/experience/home-experience-card";
 import { HomeCTAButtons } from "@/components/home-cta-buttons";
 import { HomeKnowledgeGraph } from "@/components/home-knowledge-graph";
+import { HomeInitiatives } from "@/components/initiatives/home-initiatives";
 import { ADRCarousel } from "@/components/projects/adr-carousel";
 import { LightRays } from "@/components/ui/light-rays";
 import { TechOrbit } from "@/components/ui/tech-icon-orbit";
@@ -10,6 +11,7 @@ import {
   getCollectionsWithIds,
 } from "@/lib/api/blog-collections";
 import { getAllExperience } from "@/lib/api/experience";
+import { getAllInitiatives } from "@/lib/api/initiatives";
 import { getAllADRs } from "@/lib/api/projects";
 import { siteConfig } from "@/lib/config/site-config";
 import { loadDomainRepository } from "@/lib/domain";
@@ -27,6 +29,7 @@ export default function Home() {
     collections.map((c) => [c.id, getCollectionPosts(c.id)]),
   );
   const adrs = getAllADRs();
+  const initiatives = getAllInitiatives();
   const repository = loadDomainRepository();
   const allTechnologies = Array.from(repository.technologies.values());
   const technologies = getTechnologiesWithConnectionWeights(
@@ -98,6 +101,12 @@ export default function Home() {
           <HomeCTAButtons />
         </div>
       </section>
+
+      {initiatives.length > 0 && (
+        <div className="py-16 pb-0">
+          <HomeInitiatives initiatives={initiatives} />
+        </div>
+      )}
 
       <section className="py-16 pb-0">
         <BlogCollectionTabs
