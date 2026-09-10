@@ -1,5 +1,6 @@
 import type { MetadataRoute } from "next";
 import { getAllPosts } from "@/lib/api/blog";
+import { getAllIdeas } from "@/lib/api/ideas";
 import { getAllInitiatives } from "@/lib/api/initiatives";
 import { getAllProjects } from "@/lib/api/projects";
 import { siteConfig } from "@/lib/config/site-config";
@@ -10,6 +11,7 @@ export const dynamic = "force-static";
 export default function sitemap(): MetadataRoute.Sitemap {
   const posts = getAllPosts();
   const initiatives = getAllInitiatives();
+  const ideas = getAllIdeas();
   const projects = getAllProjects();
   const repository = loadDomainRepository();
   const technologySlugs = getAllTechnologySlugs(repository);
@@ -58,6 +60,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
     priority: 0.6,
   }));
 
+  const ideaPages = ideas.map((idea) => ({
+    url: `${siteConfig.url}/ideas/${idea.slug}`,
+    lastModified: new Date().toISOString(),
+    priority: 0.7,
+  }));
+
   const latestPostDate = posts.reduce((latest, post) => {
     const postDate = new Date(post.updated || post.date);
     return postDate > latest ? postDate : latest;
@@ -90,6 +98,11 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: 0.7,
     },
     {
+      url: `${siteConfig.url}/ideas`,
+      lastModified: new Date().toISOString(),
+      priority: 0.7,
+    },
+    {
       url: `${siteConfig.url}/recipes`,
       lastModified: new Date().toISOString(),
       priority: 0.4,
@@ -99,6 +112,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     ...projectPages,
     ...pitchDeckPages,
     ...adrPages,
+    ...ideaPages,
     ...technologyPages,
     {
       url: `${siteConfig.url}/technologies/revealdotjs/deck`,

@@ -1,6 +1,11 @@
 import { z } from "zod";
 import type { BlogSlug } from "../slugs";
-import { BlogSlugSchema, RoleSlugSchema, TechnologySlugSchema } from "../slugs";
+import {
+  BlogSlugSchema,
+  IdeaSlugSchema,
+  RoleSlugSchema,
+  TechnologySlugSchema,
+} from "../slugs";
 
 export type { BlogSlug };
 
@@ -24,6 +29,7 @@ export type BlogPost = z.infer<typeof BlogPostSchema>;
 
 export const BlogRelationsSchema = z.object({
   technologies: z.array(TechnologySlugSchema).default([]),
+  ideas: z.array(IdeaSlugSchema).default([]),
   tags: z.array(z.string()).default([]),
   role: RoleSlugSchema.optional(),
 });

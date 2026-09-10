@@ -212,6 +212,28 @@ describe("CommandPalette", () => {
     expect(initiativesItem).not.toHaveTextContent("Current");
   });
 
+  it("searches ideas and navigates to the selected idea", async () => {
+    const user = userEvent.setup();
+    render(
+      <CommandPaletteProvider
+        ideas={[{ slug: "goodharts-law", title: "Goodhart's Law" }]}
+      >
+        <CommandPaletteTrigger />
+      </CommandPaletteProvider>,
+    );
+
+    const trigger = screen.getAllByRole("button", { name: "Search" })[0];
+    if (!trigger) throw new Error("Expected a command-palette trigger");
+    await user.click(trigger);
+    await user.type(
+      screen.getByPlaceholderText("Search or type a command..."),
+      "goodhart",
+    );
+    await user.click(screen.getByText("Goodhart's Law"));
+
+    expect(pushMock).toHaveBeenCalledWith("/ideas/goodharts-law");
+  });
+
   it("rejects hooks outside the provider", () => {
     expect(() => render(<PaletteState />)).toThrow(
       "useCommandPalette must be used within CommandPaletteProvider",

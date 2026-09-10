@@ -1,0 +1,26 @@
+---
+title: "Conway's Law"
+description: "The structure of a system tends to reproduce the communication structure of the organisation that built it."
+source_url: "https://martinfowler.com/bliki/ConwaysLaw.html"
+related_ideas:
+  - "reverse-conway-maneuver"
+---
+
+Conway's Law says that an organisation designs systems which resemble its own communication
+structures. If separate teams must negotiate every change, their software usually acquires a
+boundary in the same place. If nobody owns an end-to-end outcome, the system rarely gains clean
+end-to-end ownership by accident.
+
+I use the law to diagnose how communication shapes architecture. It does not mean an org chart
+mechanically determines the result. Look at where decisions wait, where vocabulary changes, and where work is handed off. Those seams
+often explain the seams in the software better than a component diagram does.
+
+The effect also runs in both directions. Existing technical boundaries constrain how teams can
+work, which can then reinforce the organisation that produced them. That feedback loop is why a
+reorganisation with no architectural work often changes very little.
+
+## Questions it prompts
+
+* Which teams need to coordinate before this system can deliver one customer outcome?
+* Does each important boundary have a team able to change and operate it?
+* Are repeated integration problems really communication problems in disguise?

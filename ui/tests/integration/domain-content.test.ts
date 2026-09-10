@@ -34,7 +34,29 @@ describe("Domain Content Validation (Integration)", () => {
     expect(repo.adrs.size).toBeGreaterThan(0);
     expect(repo.roles.size).toBeGreaterThan(0);
     expect(repo.technologies.size).toBeGreaterThan(0);
+    expect(repo.ideas.size).toBe(11);
     expect(repo.referentialIntegrityErrors).toEqual([]);
+  });
+
+  it("should have bidirectional idea references in the graph", () => {
+    for (const [nodeId, ideaSlugs] of repo.graph.edges.referencesIdea) {
+      for (const ideaSlug of ideaSlugs) {
+        expect(repo.graph.reverse.ideaReferencedBy.get(ideaSlug)).toContain(
+          nodeId,
+        );
+      }
+    }
+    for (const [ideaSlug, nodeIds] of repo.graph.reverse.ideaReferencedBy) {
+      for (const nodeId of nodeIds) {
+        expect(repo.graph.edges.referencesIdea.get(nodeId)).toContain(ideaSlug);
+      }
+    }
+    expect(
+      repo.graph.reverse.ideaReferencedBy.get("goodharts-law")?.size,
+    ).toBeGreaterThan(0);
+    expect(repo.graph.reverse.ideaReferencedBy.get("eventstorming")?.size).toBe(
+      0,
+    );
   });
 
   it("should connect personalized medicine projects across roles", () => {

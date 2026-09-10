@@ -4,8 +4,12 @@ import {
   ADRStatusSchema,
   ADRSchema as BaseADRSchema,
 } from "./adr/adr";
+import { IdeaSchema as BaseIdeaSchema, IdeaRelationsSchema } from "./idea/idea";
 import { PreviousTitleSchema } from "./role/jobRole";
-import { ADRRefSchema as CanonicalADRRefSchema } from "./slugs";
+import { ADRRefSchema as CanonicalADRRefSchema, IdeaSlugSchema } from "./slugs";
+
+export type { IdeaSlug } from "./slugs";
+export { IdeaSlugSchema };
 
 export const TechnologySlugSchema = z.string().min(1);
 export const BlogSlugSchema = z.string().min(1);
@@ -22,6 +26,12 @@ export type ADRRef = z.infer<typeof ADRRefSchema>;
 export type ProjectSlug = z.infer<typeof ProjectSlugSchema>;
 export type InitiativeSlug = z.infer<typeof InitiativeSlugSchema>;
 export type RoleSlug = z.infer<typeof RoleSlugSchema>;
+
+export const IdeaSchema = BaseIdeaSchema.extend({
+  relations: IdeaRelationsSchema.default({ relatedIdeas: [] }),
+});
+
+export type Idea = z.infer<typeof IdeaSchema>;
 
 export const TechnologySchema = z.object({
   name: z.string().min(1),
@@ -66,9 +76,11 @@ export const BlogPostSchema = z.object({
   relations: z
     .object({
       technologies: z.array(TechnologySlugSchema).default([]),
+      ideas: z.array(IdeaSlugSchema).default([]),
     })
     .default({
       technologies: [],
+      ideas: [],
     }),
 });
 
@@ -84,7 +96,9 @@ export { ADRStatusSchema };
 export type ADRStatus = z.infer<typeof ADRStatusSchema>;
 
 export const ADRSchema = BaseADRSchema.extend({
-  relations: ADRRelationsSchema,
+  relations: ADRRelationsSchema.extend({
+    ideas: z.array(IdeaSlugSchema).default([]),
+  }),
 });
 
 export type ADR = z.infer<typeof ADRSchema>;
@@ -111,11 +125,13 @@ export const ProjectSchema = z.object({
   relations: z
     .object({
       technologies: z.array(TechnologySlugSchema).default([]),
+      ideas: z.array(IdeaSlugSchema).default([]),
       adrs: z.array(ADRRefSchema).default([]),
       initiatives: z.array(InitiativeSlugSchema).default([]),
     })
     .default({
       technologies: [],
+      ideas: [],
       adrs: [],
       initiatives: [],
     }),

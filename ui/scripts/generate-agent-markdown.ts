@@ -24,6 +24,13 @@ import {
   type InitiativeWithProjects,
 } from "@/lib/api/initiatives";
 import {
+  getAllIdeas,
+  getIdea,
+  getIdeasForADR,
+  getIdeasForBlog,
+  getIdeasForProject,
+} from "@/lib/api/ideas";
+import {
   getAllProjects,
   getBuildingPhilosophy,
   getProjectADR,
@@ -90,6 +97,15 @@ function projectFacts(project: ProjectWithADRs): [string, string][] {
     facts.push([
       "Technologies",
       project.technologies.map((tech) => tech.name).join(", "),
+    ]);
+  }
+  const ideas = getIdeasForProject(project.slug);
+  if (ideas.length > 0) {
+    facts.push([
+      "Ideas",
+      ideas
+        .map((idea) => `${idea.title} (${markdownUrl(routePath("ideas", idea.slug))})`)
+        .join(", "),
     ]);
   }
   return facts;
@@ -262,6 +278,15 @@ function buildAdrPages(
       ["Date", adr.date],
     ];
     if (adr.supersedes) facts.push(["Supersedes", adr.supersedes]);
+    const ideas = getIdeasForADR(adr.adrRef);
+    if (ideas.length > 0) {
+      facts.push([
+        "Ideas",
+        ideas
+          .map((idea) => `${idea.title} (${markdownUrl(routePath("ideas", idea.slug))})`)
+          .join(", "),
+      ]);
+    }
     if (relatedInitiatives.length > 0) {
       facts.push([
         "Initiatives",
@@ -338,6 +363,15 @@ function buildBlogPostPages(
     if (post.updated) facts.push(["Updated", post.updated]);
     if (post.tags.length > 0) facts.push(["Tags", post.tags.join(", ")]);
     if (post.canonicalUrl) facts.push(["Canonical URL", post.canonicalUrl]);
+    const ideas = getIdeasForBlog(post.slug);
+    if (ideas.length > 0) {
+      facts.push([
+        "Ideas",
+        ideas
+          .map((idea) => `${idea.title} (${markdownUrl(routePath("ideas", idea.slug))})`)
+          .join(", "),
+      ]);
+    }
     return {
       htmlPath: `/blog/${post.slug}`,
       filePath: `blog/${post.slug}.md`,
@@ -507,6 +541,79 @@ function buildTechnologyPages(projects: ProjectWithADRs[]): GeneratedPage[] {
   });
 }
 
+function buildIdeasIndexPage(
+  ideas: ReturnType<typeof getAllIdeas>,
+): GeneratedPage {
+  return {
+    htmlPath: "/ideas",
+    filePath: "ideas.md",
+    title: "Ideas",
+    description:
+      "Laws, methods, and mental models that recur across my projects, decisions, and writing.",
+    content: ideas
+      .flatMap((idea) => [
+        `### [${idea.title}](${markdownUrl(routePath("ideas", idea.slug))})`,
+        "",
+        idea.description,
+        "",
+      ])
+      .join("\n"),
+  };
+}
+
+function buildIdeaPages(
+  ideas: ReturnType<typeof getAllIdeas>,
+): GeneratedPage[] {
+  return ideas.map((idea) => {
+    const detail = getIdea(idea.slug);
+    if (!detail) throw new Error(`Idea not found: ${idea.slug}`);
+    const sections: string[] = [convert(detail.content).trim()];
+    if (detail.relatedIdeas.length > 0) {
+      sections.push(
+        "",
+        "## Related ideas",
+        "",
+        ...detail.relatedIdeas.map(
+          (related) =>
+            `- [${related.title}](${markdownUrl(routePath("ideas", related.slug))}): ${related.description}`,
+        ),
+      );
+    }
+    const references = detail.relatedContent;
+    if (
+      references.projects.length > 0 ||
+      references.blogs.length > 0 ||
+      references.adrs.length > 0
+    ) {
+      sections.push(
+        "",
+        "## Where it appears",
+        "",
+        ...references.projects.map(
+          (project) =>
+            `- Project: [${project.title}](${markdownUrl(routePath("projects", project.slug))})`,
+        ),
+        ...references.blogs.map(
+          (post) =>
+            `- Blog post: [${post.title}](${markdownUrl(routePath("blog", post.slug))})`,
+        ),
+        ...references.adrs.map(
+          (adr) =>
+            `- ADR: [${adr.title}](${markdownUrl(routePath("projects", adr.projectSlug, "adrs", adr.slug))})`,
+        ),
+      );
+    }
+    return {
+      htmlPath: `/ideas/${idea.slug}`,
+      filePath: `ideas/${idea.slug}.md`,
+      title: idea.title,
+      description: idea.description,
+      content: sections.join("\n"),
+      facts: detail.sourceUrl ? [["Source", detail.sourceUrl]] : undefined,
+    };
+  });
+}
+
 function buildHomePage(): GeneratedPage {
   return {
     htmlPath: "/",
@@ -520,6 +627,7 @@ function buildHomePage(): GeneratedPage {
       "",
       `- [Experience](${markdownUrl("/experience")}): career history, roles, and technologies`,
       `- [Projects](${markdownUrl("/projects")}): projects, ADRs, and building philosophy`,
+      `- [Ideas](${markdownUrl("/ideas")}): recurring laws, methods, and mental models`,
       `- [Blog](${markdownUrl("/blog")}): ${siteConfig.blog.description}`,
       `- [Recipes](${markdownUrl("/recipes")}): a digital recipe book`,
       "",
@@ -538,6 +646,7 @@ function buildLlmsTxt(
   posts: ReturnType<typeof getAllPosts>,
   recipes: RecipeCardView[],
   technologyPages: GeneratedPage[],
+  ideaPages: GeneratedPage[],
 ): string {
   const lines = [
     `# ${siteConfig.name}`,
@@ -551,6 +660,7 @@ function buildLlmsTxt(
     `- [About](${markdownUrl("/")}): site overview and contact links`,
     `- [Experience](${markdownUrl("/experience")}): career history, roles, responsibilities, and technologies`,
     `- [Projects](${markdownUrl("/projects")}): all projects plus the building philosophy that guides them`,
+    `- [Ideas](${markdownUrl("/ideas")}): recurring laws, methods, and mental models`,
     "",
     "## Initiatives",
     "",
@@ -600,6 +710,14 @@ function buildLlmsTxt(
       const descriptionSuffix = page.description ? `: ${page.description}` : "";
       return `- [${page.title}](${markdownUrl(page.htmlPath)})${descriptionSuffix}`;
     }),
+    "",
+    "## Ideas",
+    "",
+    "Each page defines an idea and links to the projects, ADRs, and posts that use it.",
+    "",
+    ...ideaPages.map(
+      (page) => `- [${page.title}](${markdownUrl(page.htmlPath)}): ${page.description}`,
+    ),
     "",
     "## Recipes",
     "",
@@ -653,6 +771,8 @@ function buildRoutesJson(): string {
         "/recipes",
         "/recipes/*",
         "/technologies/*",
+        "/ideas",
+        "/ideas/*",
       ],
       exclude: ["/_next/*", "/company-logos/*", "/tech-icons/*"],
     },
@@ -700,12 +820,14 @@ function main(): void {
   }
 
   const projects = getAllProjects();
+  const ideas = getAllIdeas();
   const initiatives = getAllInitiatives();
   const posts = getAllPosts();
   const philosophy = getBuildingPhilosophy();
   // Recipes are database-backed and served dynamically by the Pages Function.
   const recipes: RecipeCardView[] = [];
   const technologyPages = buildTechnologyPages(projects);
+  const ideaPages = buildIdeaPages(ideas);
   const pitchDeckPages = projects
     .map(buildPitchDeckPage)
     .filter((page): page is GeneratedPage => page !== null);
@@ -714,6 +836,8 @@ function main(): void {
     buildHomePage(),
     buildExperiencePage(),
     buildProjectsIndexPage(projects, initiatives, philosophy),
+    buildIdeasIndexPage(ideas),
+    ...ideaPages,
     ...buildInitiativePages(initiatives),
     ...projects.map((project) => buildProjectPage(project, initiatives)),
     ...pitchDeckPages,
@@ -741,7 +865,14 @@ function main(): void {
 
   writeFile(
     "llms.txt",
-    buildLlmsTxt(projects, initiatives, posts, recipes, technologyPages),
+    buildLlmsTxt(
+      projects,
+      initiatives,
+      posts,
+      recipes,
+      technologyPages,
+      ideaPages,
+    ),
   );
 
   // The llms.txt index is deliberately not prepended: its navigation links

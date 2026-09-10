@@ -1,0 +1,23 @@
+---
+title: "Amdahl's Law"
+description: "The serial part of a system sets the ceiling on the speedup available from parallel work."
+source_url: "https://en.wikipedia.org/wiki/Amdahl%27s_law"
+---
+
+Amdahl's Law puts a hard limit on gains from parallelism. If a fraction `s` of a task must remain
+serial, the maximum speedup with `N` workers is:
+
+`1 / (s + (1 - s) / N)`
+
+As `N` grows, the parallel portion gets cheap and the serial portion dominates. Additional workers
+add coordination without moving the finish line much.
+
+The law comes from parallel computing, but it is a useful model for teams and coding agents. Ten
+agents can produce changes at once. If one person must specify, review, integrate, and release all
+of them, those steps become the real system. Faster generation makes the bottleneck more visible.
+
+## Questions it prompts
+
+* Which part of this workflow cannot run concurrently?
+* Can we remove that step, split its ownership, or make its evidence cheaper to review?
+* Are we adding parallel capacity after the useful speedup has already flattened?

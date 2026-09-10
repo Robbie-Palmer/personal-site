@@ -37,6 +37,7 @@ describe("agent markdown generation", () => {
       "index.md",
       "experience.md",
       "projects.md",
+      "ideas.md",
       "blog.md",
       "recipes.md",
       "llms.txt",
@@ -45,6 +46,17 @@ describe("agent markdown generation", () => {
       "_routes.json",
     ]) {
       expect(fs.existsSync(path.join(OUT_DIR, file)), file).toBe(true);
+    }
+  });
+
+  it("generates a markdown twin for every idea page", () => {
+    const htmlPages = fs
+      .readdirSync(path.join(OUT_DIR, "ideas"))
+      .filter((file) => file.endsWith(".html"));
+    expect(htmlPages).toHaveLength(11);
+    for (const htmlPage of htmlPages) {
+      const mdPage = htmlPage.replace(/\.html$/, ".md");
+      expect(fs.existsSync(path.join(OUT_DIR, "ideas", mdPage))).toBe(true);
     }
   });
 
@@ -148,6 +160,7 @@ describe("agent markdown generation", () => {
     expect(routes.include).toContain("/sitemap.xml");
     expect(routes.include).toContain("/projects/*");
     expect(routes.include).toContain("/initiatives/*");
+    expect(routes.include).toContain("/ideas/*");
     expect(routes.exclude).toContain("/_next/*");
     expect(routes.include.length + routes.exclude.length).toBeLessThanOrEqual(
       100,

@@ -2,6 +2,7 @@ import { ExternalLink, Github, Globe } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
+import { IdeaBadges } from "@/components/ideas/idea-badges";
 import { Markdown } from "@/components/markdown";
 import { Mermaid } from "@/components/mermaid";
 import { ADRList } from "@/components/projects/adr-list";
@@ -19,6 +20,7 @@ import { ProjectTabsSkeleton } from "@/components/projects/project-tabs-skeleton
 import { ProjectTechStack } from "@/components/projects/project-tech-stack";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import { getIdeasForProject } from "@/lib/api/ideas";
 import { getInitiativesForProject } from "@/lib/api/initiatives";
 import {
   getAllProjectSlugs,
@@ -63,6 +65,7 @@ export default async function ProjectPage({ params }: Readonly<PageProps>) {
   }
 
   const initiatives = getInitiativesForProject(project.slug);
+  const ideas = getIdeasForProject(project.slug);
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-5xl">
@@ -105,6 +108,7 @@ export default async function ProjectPage({ params }: Readonly<PageProps>) {
               projectSlug={project.slug}
             />
             <div className="flex flex-wrap gap-2 pt-2">
+              <IdeaBadges ideas={ideas} />
               <ProjectTechStack
                 techStack={project.technologies.map((t) => ({
                   name: t.name,

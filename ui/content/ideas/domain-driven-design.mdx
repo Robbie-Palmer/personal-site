@@ -1,0 +1,26 @@
+---
+title: "Domain-Driven Design"
+description: "Model software around the language, rules, and boundaries of the problem domain."
+source_url: "https://www.domainlanguage.com/ddd/"
+related_ideas:
+  - "data-mesh"
+  - "eventstorming"
+---
+
+Domain-Driven Design treats the domain model as a product of sustained collaboration between domain
+experts and software builders. The model lives in code and language, not in a diagram handed over
+before development begins.
+
+Its most useful move is admitting that one universal model is often worse than several explicit
+ones. A term can mean different things in different bounded contexts. A context map then describes
+how those models meet and where translation belongs.
+
+I care less about reproducing every named tactical pattern than about keeping language honest. If
+the team, interface, database, and user all use the same word for different concepts, the design is
+already accumulating ambiguity.
+
+## Questions it prompts
+
+* What language do the people doing the work already use?
+* Where does the meaning of a term change?
+* Which rules belong together and which should stay behind a translation boundary?

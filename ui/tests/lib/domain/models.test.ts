@@ -3,6 +3,7 @@ import {
   ADRSchema,
   ADRStatusSchema,
   BlogPostSchema,
+  IdeaSchema,
   InitiativeSchema,
   InitiativeStatusSchema,
   JobRoleSchema,
@@ -12,6 +13,21 @@ import {
 } from "@/lib/domain/models";
 
 describe("Domain Model Schemas", () => {
+  describe("IdeaSchema", () => {
+    it("validates an idea with related ideas", () => {
+      const result = IdeaSchema.safeParse({
+        slug: "conways-law",
+        title: "Conway's Law",
+        description: "Systems reflect communication structures.",
+        sourceUrl: "https://example.com/conways-law",
+        content: "A useful diagnostic.",
+        relations: { relatedIdeas: ["reverse-conway-maneuver"] },
+      });
+
+      expect(result.success).toBe(true);
+    });
+  });
+
   describe("TechnologySchema", () => {
     it("should validate a complete technology object", () => {
       const validTech = {
@@ -324,6 +340,7 @@ describe("Domain Model Schemas", () => {
       if (result.success) {
         expect(result.data.relations).toEqual({
           technologies: [],
+          ideas: [],
           adrs: [],
           initiatives: [],
         });
@@ -346,6 +363,7 @@ describe("Domain Model Schemas", () => {
       if (result.success) {
         expect(result.data.relations).toEqual({
           technologies: [],
+          ideas: [],
           adrs: [],
           initiatives: [],
         });
