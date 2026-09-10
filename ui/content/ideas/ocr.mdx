@@ -1,0 +1,28 @@
+---
+title: "OCR"
+description: "Optical character recognition converts text in images and scanned documents into machine-readable characters."
+source_url: "https://en.wikipedia.org/wiki/Optical_character_recognition"
+related_ideas:
+  - "intelligent-document-processing"
+---
+
+Optical character recognition converts pixels that depict writing into machine-readable text. It
+may also return word positions, reading order, and confidence scores. Those details matter when the
+text sits in a table, form, receipt, or multi-column page.
+
+OCR answers "what characters are present?" It does not, by itself, decide what those characters
+mean. Reading `01/04/26` does not establish whether it is a date, which date convention applies, or
+how a downstream system should use it. [Intelligent Document Processing](/ideas/intelligent-document-processing)
+adds document classification, layout and language understanding, field extraction, validation, and
+workflow decisions around the recognised text.
+
+Image quality, handwriting, unfamiliar typefaces, page geometry, and mixed languages all affect
+recognition. Aggregate character accuracy can hide the errors that matter most, so evaluation
+should include the fields and document types used by the product.
+
+## Questions it prompts
+
+* Does the task need plain text, or must it preserve location, reading order, and table structure?
+* Which document conditions produce the costly errors?
+* Can preprocessing improve the image without deleting useful marks or changing evidence?
+* How will low-confidence text reach a person or a later validation stage?
