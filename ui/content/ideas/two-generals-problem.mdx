@@ -15,11 +15,11 @@ No finite exchange gives both sides certainty. This does not make retries useles
 idempotency, and reconciliation can make agreement more likely or make disagreement safe, but they
 cannot turn an unreliable channel into a guarantee.
 
-For a satellite swarm, silence could mean a lost message, a slow peer, or a failed peer. A protocol
-therefore needs a safe default when the agents cannot establish common knowledge.
+Silence could mean a lost message, a slow peer, or a failed peer. A protocol needs a safe default
+when participants cannot establish common knowledge.
 
 ## Questions it prompts
 
-* What does each agent know, and what does it merely assume the others know?
+* What does each participant know, and what does it merely assume the others know?
 * What happens if the final acknowledgement disappears?
 * Can disagreement be made safe instead of pretending it cannot occur?

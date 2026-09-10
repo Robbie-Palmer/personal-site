@@ -15,8 +15,9 @@ This is not a claim that practical consensus is impossible. Real protocols chang
 They use partial synchrony, failure detectors, randomised choices, or accept that progress can stop
 under some conditions. A design should state which changed assumption it relies on.
 
-For a satellite swarm, a timeout is a policy for making progress. It cannot prove that another
-agent has failed. Leader negotiation and fail-safe withdrawal should state that assumption plainly.
+A timeout is a policy for making progress. It cannot prove that another participant has failed,
+because delay and failure are indistinguishable under these assumptions. Protocol documentation
+should say what a timeout permits and which safety property still holds.
 
 ## Questions it prompts
 
