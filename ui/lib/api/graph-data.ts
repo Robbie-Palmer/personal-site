@@ -177,12 +177,11 @@ function addMappedEdges(
   }
 }
 
-function addIdeaEdges(
+function addIdeaReferenceEdges(
   repository: DomainRepository,
   state: GraphBuildState,
+  nodeIds: ReadonlySet<string>,
 ): void {
-  const nodeIds = new Set(state.nodes.map((node) => node.id));
-  const relatedIdeaPairs = new Set<string>();
   for (const [nodeId, ideaSlugs] of repository.graph.edges.referencesIdea) {
     for (const ideaSlug of ideaSlugs) {
       const target = `idea:${ideaSlug}`;
@@ -191,18 +190,41 @@ function addIdeaEdges(
       }
     }
   }
+}
+
+function relatedIdeaPairKey(source: string, target: string): string {
+  return source.localeCompare(target) <= 0
+    ? `${source}|${target}`
+    : `${target}|${source}`;
+}
+
+function addRelatedIdeaEdges(
+  repository: DomainRepository,
+  state: GraphBuildState,
+  nodeIds: ReadonlySet<string>,
+): void {
+  const relatedIdeaPairs = new Set<string>();
   for (const [ideaSlug, relatedSlugs] of repository.graph.edges.relatedIdea) {
     for (const relatedSlug of relatedSlugs) {
       const source = `idea:${ideaSlug}`;
       const target = `idea:${relatedSlug}`;
       if (nodeIds.has(source) && nodeIds.has(target)) {
-        const pairKey = [source, target].sort().join("|");
+        const pairKey = relatedIdeaPairKey(source, target);
         if (relatedIdeaPairs.has(pairKey)) continue;
         relatedIdeaPairs.add(pairKey);
         addEdge(state, source, target, "RELATED_IDEA");
       }
     }
   }
+}
+
+function addIdeaEdges(
+  repository: DomainRepository,
+  state: GraphBuildState,
+): void {
+  const nodeIds = new Set(state.nodes.map((node) => node.id));
+  addIdeaReferenceEdges(repository, state, nodeIds);
+  addRelatedIdeaEdges(repository, state, nodeIds);
 }
 
 function addRelationshipEdges(
