@@ -86,6 +86,10 @@ describe("HomeInitiatives", () => {
     expect(screen.getByText("1 project")).toBeInTheDocument();
     expect(screen.getByText("2017 to 2021")).toBeInTheDocument();
     expect(screen.getByText("Project path")).toBeInTheDocument();
+    expect(screen.getByText("2019").closest("time")).toHaveAttribute(
+      "datetime",
+      "2019-01-01",
+    );
     expect(screen.queryByText("Project timeline")).not.toBeInTheDocument();
   });
 
@@ -105,6 +109,33 @@ describe("HomeInitiatives", () => {
         .getAllByRole("heading", { level: 3 })
         .map((heading) => heading.textContent?.trim()),
     ).toEqual(["Digital Twins", "Personalized Medicine"]);
+  });
+
+  it("uses the slug as a stable tiebreaker for otherwise equal initiatives", () => {
+    const second = initiativeFixture();
+    const first = {
+      ...initiativeFixture(),
+      slug: "accessible-care",
+      title: "Accessible Care",
+    };
+
+    render(<HomeInitiatives initiatives={[second, first]} />);
+
+    expect(
+      screen
+        .getAllByRole("heading", { level: 3 })
+        .map((heading) => heading.textContent?.trim()),
+    ).toEqual(["Accessible Care", "Personalized Medicine"]);
+  });
+
+  it("does not render an empty project path", () => {
+    const initiative = initiativeFixture();
+    initiative.projects = [];
+
+    render(<HomeInitiatives initiatives={[initiative]} />);
+
+    expect(screen.queryByText("Project path")).not.toBeInTheDocument();
+    expect(screen.queryByText("0 projects")).not.toBeInTheDocument();
   });
 
   it("shows each related company once", () => {

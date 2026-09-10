@@ -63,7 +63,8 @@ export function HomeInitiatives({
   const orderedInitiatives = [...initiatives].sort(
     (a, b) =>
       STATUS_ORDER[a.status] - STATUS_ORDER[b.status] ||
-      (b.updated ?? b.date).localeCompare(a.updated ?? a.date),
+      (b.updated ?? b.date).localeCompare(a.updated ?? a.date) ||
+      a.slug.localeCompare(b.slug),
   );
 
   return (
@@ -104,7 +105,11 @@ export function HomeInitiatives({
           return (
             <article
               key={initiative.slug}
-              className="relative grid gap-8 py-8 lg:grid-cols-[20rem_minmax(0,1fr)] lg:items-center lg:gap-12 xl:grid-cols-[22rem_minmax(0,1fr)]"
+              className={
+                projectCount > 0
+                  ? "relative grid gap-8 py-8 lg:grid-cols-[20rem_minmax(0,1fr)] lg:items-center lg:gap-12 xl:grid-cols-[22rem_minmax(0,1fr)]"
+                  : "relative py-8"
+              }
             >
               <div>
                 <div className="mb-4 flex items-center gap-3">
@@ -156,48 +161,54 @@ export function HomeInitiatives({
                 )}
               </div>
 
-              <div>
-                <div className="mb-5 flex items-center justify-between gap-4 text-xs text-muted-foreground">
-                  <span className="font-medium uppercase tracking-wider">
-                    Project path
-                  </span>
-                  <span className="inline-flex items-center gap-1.5">
-                    <Network className="size-3.5" />
-                    {projectCount} {projectCount === 1 ? "project" : "projects"}
-                  </span>
-                </div>
+              {projectCount > 0 && (
+                <div>
+                  <div className="mb-5 flex items-center justify-between gap-4 text-xs text-muted-foreground">
+                    <span className="font-medium uppercase tracking-wider">
+                      Project path
+                    </span>
+                    <span className="inline-flex items-center gap-1.5">
+                      <Network className="size-3.5" />
+                      {projectCount}{" "}
+                      {projectCount === 1 ? "project" : "projects"}
+                    </span>
+                  </div>
 
-                <ol className="grid gap-5 sm:grid-cols-3">
-                  {projectPath.map((project, index) => (
-                    <li
-                      key={project.slug}
-                      className="relative grid grid-cols-[12px_minmax(0,1fr)] gap-3 sm:block"
-                    >
-                      {index < projectPath.length - 1 && (
+                  <ol className="grid gap-5 sm:grid-cols-3">
+                    {projectPath.map((project, index) => (
+                      <li
+                        key={project.slug}
+                        className="relative grid grid-cols-[12px_minmax(0,1fr)] gap-3 sm:block"
+                      >
+                        {index < projectPath.length - 1 && (
+                          <span
+                            aria-hidden="true"
+                            className="absolute bottom-[-1.25rem] left-[5px] top-3 w-px bg-border sm:bottom-auto sm:left-3 sm:right-[-1.25rem] sm:top-[5px] sm:h-px sm:w-auto"
+                          />
+                        )}
                         <span
                           aria-hidden="true"
-                          className="absolute bottom-[-1.25rem] left-[5px] top-3 w-px bg-border sm:bottom-auto sm:left-3 sm:right-[-1.25rem] sm:top-[5px] sm:h-px sm:w-auto"
+                          className="relative z-10 mt-px size-3 rounded-full border-2 border-primary bg-background ring-4 ring-background sm:mb-3 sm:block"
                         />
-                      )}
-                      <span
-                        aria-hidden="true"
-                        className="relative z-10 mt-px size-3 rounded-full border-2 border-primary bg-background ring-4 ring-background sm:mb-3 sm:block"
-                      />
-                      <div className="min-w-0">
-                        <time className="font-mono text-[0.6875rem] tabular-nums text-muted-foreground">
-                          {project.date.slice(0, 4)}
-                        </time>
-                        <Link
-                          href={`/projects/${project.slug}`}
-                          className="mt-1 block text-sm font-medium leading-5 underline-offset-4 hover:text-primary hover:underline"
-                        >
-                          {project.title}
-                        </Link>
-                      </div>
-                    </li>
-                  ))}
-                </ol>
-              </div>
+                        <div className="min-w-0">
+                          <time
+                            dateTime={project.date}
+                            className="font-mono text-[0.6875rem] tabular-nums text-muted-foreground"
+                          >
+                            {project.date.slice(0, 4)}
+                          </time>
+                          <Link
+                            href={`/projects/${project.slug}`}
+                            className="mt-1 block text-sm font-medium leading-5 underline-offset-4 hover:text-primary hover:underline"
+                          >
+                            {project.title}
+                          </Link>
+                        </div>
+                      </li>
+                    ))}
+                  </ol>
+                </div>
+              )}
             </article>
           );
         })}
