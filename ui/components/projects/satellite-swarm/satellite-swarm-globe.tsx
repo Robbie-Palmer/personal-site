@@ -1,20 +1,12 @@
 "use client";
 
-import {
-  ArcType,
-  Cartesian2,
-  Cartesian3,
-  Color,
-  Ellipsoid,
-  HeightReference,
-  HorizontalOrigin,
-  LabelStyle,
-  NearFarScalar,
-  VerticalOrigin,
-  type Viewer,
-} from "cesium";
+import type { Cartesian3, Viewer } from "cesium";
 import "cesium/Build/Cesium/Widgets/widgets.css";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import {
+  type CesiumRuntime,
+  loadCesiumRuntime,
+} from "@/components/technology/cesium/cesium-runtime";
 import { createOfflineCesiumViewer } from "@/components/technology/cesium/offline-viewer";
 import type {
   SatelliteSwarmEvent,
@@ -22,47 +14,54 @@ import type {
   SatelliteSwarmSimulation,
 } from "@/lib/api/satellite-swarm-simulation";
 
-const STATE_COLORS: Record<string, Color> = {
-  active: Color.fromCssColorString("#22c55e"),
-  "awaiting acknowledgement": Color.fromCssColorString("#f59e0b"),
-  "awaiting assignment": Color.fromCssColorString("#eab308"),
-  idle: Color.fromCssColorString("#94a3b8"),
-  leading: Color.fromCssColorString("#38bdf8"),
-  quiescent: Color.fromCssColorString("#a78bfa"),
-  "safe-disabled": Color.fromCssColorString("#ef4444"),
+const STATE_COLOR_VALUES: Record<string, string> = {
+  active: "#22c55e",
+  "awaiting acknowledgement": "#f59e0b",
+  "awaiting assignment": "#eab308",
+  idle: "#94a3b8",
+  leading: "#38bdf8",
+  quiescent: "#a78bfa",
+  "safe-disabled": "#ef4444",
 };
 
-const EARTH_RADIUS_METRES = Ellipsoid.WGS84.maximumRadius;
-
-function altitude(frame: SatelliteSwarmFrame, nodeId: number): number {
+function altitude(
+  frame: SatelliteSwarmFrame,
+  nodeId: number,
+  earthRadiusMetres: number,
+): number {
   const node = frame.nodes.find((candidate) => candidate.id === nodeId);
   return Math.max(
     100_000,
-    (node?.orbitalRadiusMetres ?? 0) - EARTH_RADIUS_METRES,
+    (node?.orbitalRadiusMetres ?? 0) - earthRadiusMetres,
   );
 }
 
 function position(
+  cesium: CesiumRuntime,
   frame: SatelliteSwarmFrame,
   nodeId: number,
+  earthRadiusMetres: number,
 ): Cartesian3 | null {
   const node = frame.nodes.find((candidate) => candidate.id === nodeId);
   if (!node) return null;
-  return Cartesian3.fromDegrees(
+  return cesium.Cartesian3.fromDegrees(
     node.position.longitudeDegrees,
     node.position.latitudeDegrees,
-    altitude(frame, nodeId),
+    altitude(frame, nodeId, earthRadiusMetres),
   );
 }
 
 function addMessageLinks(
+  cesium: CesiumRuntime,
   viewer: Viewer,
   frame: SatelliteSwarmFrame,
   events: readonly SatelliteSwarmEvent[],
+  earthRadiusMetres: number,
 ) {
+  const { ArcType, Cartesian3, Color } = cesium;
   for (const event of events) {
     if (event.type !== "message-sent") continue;
-    const sender = position(frame, event.nodeId);
+    const sender = position(cesium, frame, event.nodeId, earthRadiusMetres);
     if (!sender) continue;
     const targets =
       event.message.target === null
@@ -72,7 +71,7 @@ function addMessageLinks(
         : [event.message.target];
 
     for (const targetId of targets) {
-      const target = position(frame, targetId);
+      const target = position(cesium, frame, targetId, earthRadiusMetres);
       const targetNode = frame.nodes.find((node) => node.id === targetId);
       const senderNode = frame.nodes.find((node) => node.id === event.nodeId);
       if (!target || !targetNode || !senderNode) continue;
@@ -83,8 +82,10 @@ function addMessageLinks(
         (senderNode.position.latitudeDegrees +
           targetNode.position.latitudeDegrees) /
           2,
-        Math.max(altitude(frame, event.nodeId), altitude(frame, targetId)) +
-          350_000,
+        Math.max(
+          altitude(frame, event.nodeId, earthRadiusMetres),
+          altitude(frame, targetId, earthRadiusMetres),
+        ) + 350_000,
       );
       viewer.entities.add({
         polyline: {
@@ -115,34 +116,58 @@ export function SatelliteSwarmGlobe({
 }: Readonly<SatelliteSwarmGlobeProps>) {
   const containerRef = useRef<HTMLDivElement>(null);
   const viewerRef = useRef<Viewer | null>(null);
+  const cesiumRef = useRef<CesiumRuntime | null>(null);
+  const [viewerReady, setViewerReady] = useState(false);
 
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
 
-    let viewer: Viewer;
-    try {
-      viewer = createOfflineCesiumViewer(container);
-    } catch {
-      onFailure();
-      return;
-    }
+    let active = true;
+    let viewer: Viewer | undefined;
+    loadCesiumRuntime()
+      .then((cesium) => {
+        if (!active) return;
+        viewer = createOfflineCesiumViewer(container, cesium);
+        cesiumRef.current = cesium;
+        viewerRef.current = viewer;
+        setViewerReady(true);
+      })
+      .catch(() => {
+        if (active) onFailure();
+      });
 
-    viewerRef.current = viewer;
     return () => {
+      active = false;
+      cesiumRef.current = null;
       viewerRef.current = null;
-      if (!viewer.isDestroyed()) viewer.destroy();
+      if (viewer && !viewer.isDestroyed()) viewer.destroy();
     };
   }, [onFailure]);
 
   useEffect(() => {
     const viewer = viewerRef.current;
+    const cesium = cesiumRef.current;
     const frame = data.frames[currentFrameIndex];
-    if (!viewer || !frame) return;
+    if (!viewerReady || !viewer || !cesium || !frame) return;
+    const {
+      Cartesian2,
+      Cartesian3,
+      Color,
+      Ellipsoid,
+      HeightReference,
+      HorizontalOrigin,
+      LabelStyle,
+      NearFarScalar,
+      VerticalOrigin,
+    } = cesium;
+    const earthRadiusMetres = Ellipsoid.WGS84.maximumRadius;
 
     viewer.entities.removeAll();
     for (const node of frame.nodes) {
-      const nodeColor = STATE_COLORS[node.state] ?? Color.WHITE;
+      const nodeColor = Color.fromCssColorString(
+        STATE_COLOR_VALUES[node.state] ?? "#ffffff",
+      );
       const selected = node.id === selectedNodeId;
       viewer.entities.add({
         id: `node-${node.id}`,
@@ -168,7 +193,7 @@ export function SatelliteSwarmGlobe({
         position: Cartesian3.fromDegrees(
           node.position.longitudeDegrees,
           node.position.latitudeDegrees,
-          Math.max(100_000, node.orbitalRadiusMetres - EARTH_RADIUS_METRES),
+          Math.max(100_000, node.orbitalRadiusMetres - earthRadiusMetres),
         ),
       });
 
@@ -184,7 +209,7 @@ export function SatelliteSwarmGlobe({
                 candidate.position.latitudeDegrees,
                 Math.max(
                   100_000,
-                  candidate.orbitalRadiusMetres - EARTH_RADIUS_METRES,
+                  candidate.orbitalRadiusMetres - earthRadiusMetres,
                 ),
               ]
             : [];
@@ -224,9 +249,9 @@ export function SatelliteSwarmGlobe({
         data.objective.latitudeDegrees,
       ),
     });
-    addMessageLinks(viewer, frame, events);
+    addMessageLinks(cesium, viewer, frame, events, earthRadiusMetres);
     viewer.scene.requestRender();
-  }, [currentFrameIndex, data, events, selectedNodeId]);
+  }, [currentFrameIndex, data, events, selectedNodeId, viewerReady]);
 
   return (
     <div ref={containerRef} className="h-full w-full" aria-hidden="true" />

@@ -1,13 +1,18 @@
-import {
-  buildModuleUrl,
-  Cartesian3,
-  EllipsoidTerrainProvider,
-  ImageryLayer,
-  TileMapServiceImageryProvider,
-  Viewer,
-} from "cesium";
+import type { Viewer } from "cesium";
+import type { CesiumRuntime } from "./cesium-runtime";
 
-export function createOfflineCesiumViewer(container: HTMLElement): Viewer {
+export function createOfflineCesiumViewer(
+  container: HTMLElement,
+  cesium: CesiumRuntime,
+): Viewer {
+  const {
+    buildModuleUrl,
+    Cartesian3,
+    EllipsoidTerrainProvider,
+    ImageryLayer,
+    TileMapServiceImageryProvider,
+    Viewer,
+  } = cesium;
   const viewer = new Viewer(container, {
     animation: false,
     baseLayer: ImageryLayer.fromProviderAsync(
