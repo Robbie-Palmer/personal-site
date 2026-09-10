@@ -4,6 +4,7 @@ import {
   ADRStatusSchema,
   ADRSchema as BaseADRSchema,
 } from "./adr/adr";
+import { IdeaSchema as BaseIdeaSchema, IdeaRelationsSchema } from "./idea/idea";
 import { PreviousTitleSchema } from "./role/jobRole";
 import { ADRRefSchema as CanonicalADRRefSchema, IdeaSlugSchema } from "./slugs";
 
@@ -26,17 +27,8 @@ export type ProjectSlug = z.infer<typeof ProjectSlugSchema>;
 export type InitiativeSlug = z.infer<typeof InitiativeSlugSchema>;
 export type RoleSlug = z.infer<typeof RoleSlugSchema>;
 
-export const IdeaSchema = z.object({
-  slug: IdeaSlugSchema,
-  title: z.string().min(1),
-  description: z.string().min(1),
-  sourceUrl: z.url().optional(),
-  content: z.string().min(1),
-  relations: z
-    .object({
-      relatedIdeas: z.array(IdeaSlugSchema).default([]),
-    })
-    .default({ relatedIdeas: [] }),
+export const IdeaSchema = BaseIdeaSchema.extend({
+  relations: IdeaRelationsSchema.default({ relatedIdeas: [] }),
 });
 
 export type Idea = z.infer<typeof IdeaSchema>;
