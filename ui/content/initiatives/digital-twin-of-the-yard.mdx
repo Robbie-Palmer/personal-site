@@ -34,24 +34,30 @@ The twin needs an ontology, not only a map. Terminal's public account of [digita
 Without that shared meaning, a licence plate read, a shipment number on a bill of lading, and an expected arrival remain unrelated strings in different systems. With it, they become evidence about the same physical activity. The model should record the time, source, and confidence of each observation so that late, incomplete, or contradictory data stays visible.
 
 <Mermaid
-  chart={`flowchart LR
+  chart={`flowchart TB
 Yard["Physical yard"] --> Fixed["Fixed-camera events"]
-Yard --> Mobile["Mobile observations"]
+Yard --> Mobile["Mobile operator<br/>observations"]
 Documents["Bills of lading"] --> Extraction["Document extraction"]
-Fixed --> Events["Shared events and identifiers"]
+Fixed --> Events["Shared events<br/>and identifiers"]
 Mobile --> Events
-Extraction --> Events
+Extraction -->|confident| Events
+Extraction -->|uncertain| InLoop["Human-in-the-loop<br/>verify or correct"]:::person
+InLoop -->|human decisions| Events
 Systems["TMS, YMS and WMS"] <--> Events
-Events --> Twin["Yard ontology and live twin"]
-Twin --> Operations["Real-time decisions"]
+Events --> Twin["Yard ontology<br/>and live twin"]
+Twin --> Operations["Recommendations<br/>and automated actions"]
 Twin --> History["Historical analysis"]
 Operations --> Yard
-History --> Improvements["Workflow and capacity changes"]
+Operations --> OnLoop["Human-on-the-loop<br/>monitor or override"]:::person
+OnLoop -->|oversight events| Events
+History --> Improvements["Workflow and<br/>capacity changes"]
 Improvements --> Yard
 `}
 />
 
 [Real-time data streaming](/blog/2023-03-28-uniting-machine-learning-data-streaming-1) keeps the model aligned with activity as it happens. The event history supports a different kind of work. It allows data mining across dwell times, queues, asset searches, document mismatches, lane use, and movement patterns. The same underlying events support both immediate action and slower operational analysis.
+
+People contribute to that history rather than sitting outside the model. A gate guard or dispatcher can verify an uncertain extraction or correct a mismatched record before the workflow continues. For automated decisions, a supervisor can monitor outcomes, override an action, or change the operating policy. Those decisions return to the shared event stream with their source and time, so the twin records what people knew, changed, and approved alongside system observations.
 
 # How the projects fit
 
