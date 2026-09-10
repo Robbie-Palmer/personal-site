@@ -79,7 +79,7 @@ describe("home page", () => {
       postsHeading,
     );
     expect(
-      screen.getByRole("link", { name: "View Personalized Medicine" }),
+      screen.getByRole("link", { name: "Personalized Medicine" }),
     ).toHaveAttribute("href", "/initiatives/personalized-medicine");
   });
 });

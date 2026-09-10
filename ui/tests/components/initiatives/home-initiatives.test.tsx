@@ -62,8 +62,11 @@ describe("HomeInitiatives", () => {
       screen.getByRole("heading", { name: "What I'm building toward" }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("link", { name: "View Personalized Medicine" }),
+      screen.getByRole("link", { name: "Personalized Medicine" }),
     ).toHaveAttribute("href", "/initiatives/personalized-medicine");
+    expect(
+      screen.getByRole("link", { name: "Pathology Viewer" }),
+    ).toHaveAttribute("href", "/projects/pathology-viewer");
     expect(
       screen.getByRole("link", { name: "View experience at Sonrai Analytics" }),
     ).toHaveAttribute("href", "/experience#sonrai-analytics");
@@ -77,6 +80,7 @@ describe("HomeInitiatives", () => {
     ).not.toBeInTheDocument();
     expect(screen.getByText("1 project")).toBeInTheDocument();
     expect(screen.getByText("2017 to 2021")).toBeInTheDocument();
+    expect(screen.getByText("Project path")).toBeInTheDocument();
     expect(screen.queryByText("Project timeline")).not.toBeInTheDocument();
   });
 
@@ -115,5 +119,26 @@ describe("HomeInitiatives", () => {
         name: "View experience at Sonrai Analytics",
       }),
     ).toHaveLength(1);
+  });
+
+  it("samples the beginning, middle, and end of a longer project path", () => {
+    const initiative = initiativeFixture();
+    const project = initiative.projects[0];
+    if (!project) throw new Error("Expected an initiative project fixture");
+    initiative.projects = [
+      { ...project, slug: "first", title: "First", date: "2017-01-01" },
+      { ...project, slug: "second", title: "Second", date: "2018-01-01" },
+      { ...project, slug: "middle", title: "Middle", date: "2019-01-01" },
+      { ...project, slug: "fourth", title: "Fourth", date: "2020-01-01" },
+      { ...project, slug: "last", title: "Last", date: "2021-01-01" },
+    ];
+
+    render(<HomeInitiatives initiatives={[initiative]} />);
+
+    expect(screen.getByRole("link", { name: "First" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Middle" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Last" })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Second" })).toBeNull();
+    expect(screen.queryByRole("link", { name: "Fourth" })).toBeNull();
   });
 });

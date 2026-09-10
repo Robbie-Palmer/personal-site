@@ -1,18 +1,13 @@
 import { ArrowRight, Network } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import {
-  Card,
-  CardContent,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import type { InitiativeWithProjects } from "@/lib/api/initiatives";
+import type { ProjectWithADRsView } from "@/lib/domain";
 import type { RoleListItemView } from "@/lib/domain/role/roleViews";
 import { InitiativeStatusBadge } from "./initiative-status-badge";
 
 const STATUS_ORDER = { active: 0, idea: 1, inactive: 2 } as const;
+const PROJECT_PATH_LIMIT = 3;
 
 function getInitiativeCompanies(
   initiative: InitiativeWithProjects,
@@ -29,6 +24,23 @@ function getInitiativeCompanies(
   }
 
   return Array.from(companies.values());
+}
+
+function getProjectPath(
+  initiative: InitiativeWithProjects,
+): ProjectWithADRsView[] {
+  const projects = [...initiative.projects].sort((a, b) =>
+    a.date.localeCompare(b.date),
+  );
+  if (projects.length <= PROJECT_PATH_LIMIT) return projects;
+
+  const first = projects[0];
+  const middle = projects[Math.floor((projects.length - 1) / 2)];
+  const last = projects.at(-1);
+
+  return [first, middle, last].filter(
+    (project): project is ProjectWithADRsView => project !== undefined,
+  );
 }
 
 function getInitiativeYears(initiative: InitiativeWithProjects): string {
@@ -80,36 +92,52 @@ export function HomeInitiatives({
         </Link>
       </div>
 
-      <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+      <div className="divide-y divide-border/80 border-y border-border/80">
         {orderedInitiatives.map((initiative) => {
           const companies = getInitiativeCompanies(initiative);
-          const initiativeHref = `/initiatives/${initiative.slug}`;
+          const projectPath = getProjectPath(initiative);
           const projectCount = initiative.projects.length;
 
           return (
-            <Card
+            <article
               key={initiative.slug}
-              className="group relative h-full gap-5 overflow-hidden transition-all hover:border-primary/50 hover:shadow-lg"
+              className="group/initiative relative grid gap-8 py-8 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] lg:items-center lg:gap-12"
             >
-              <Link href={initiativeHref} className="absolute inset-0 z-0">
-                <span className="sr-only">View {initiative.title}</span>
-              </Link>
+              <div>
+                <div className="mb-4 flex items-center gap-3">
+                  <InitiativeStatusBadge status={initiative.status} />
+                  <span className="text-xs text-muted-foreground">
+                    {getInitiativeYears(initiative)}
+                  </span>
+                </div>
 
-              <CardHeader className="gap-5">
-                <div className="flex min-h-9 items-start justify-between gap-4">
-                  <InitiativeStatusBadge
-                    status={initiative.status}
-                    className="pointer-events-none relative z-10"
-                  />
-                  {companies.length > 0 && (
-                    <div className="relative z-10 flex -space-x-2">
+                <h3 className="text-2xl font-semibold leading-tight">
+                  <Link
+                    href={`/initiatives/${initiative.slug}`}
+                    className="group/title inline-flex items-center gap-2 underline-offset-4 hover:text-primary hover:underline"
+                  >
+                    {initiative.title}
+                    <ArrowRight className="size-5 shrink-0 transition-transform group-hover/title:translate-x-1" />
+                  </Link>
+                </h3>
+
+                <p className="mt-3 line-clamp-2 max-w-xl text-sm leading-6 text-muted-foreground">
+                  {initiative.description}
+                </p>
+
+                {companies.length > 0 && (
+                  <div className="mt-5 flex items-center gap-3">
+                    <span className="text-[0.6875rem] font-medium uppercase tracking-wider text-muted-foreground">
+                      Work at
+                    </span>
+                    <div className="flex -space-x-2">
                       {companies.map((company) => (
                         <Link
                           key={company.slug}
                           href={`/experience#${company.slug}`}
                           aria-label={`View experience at ${company.company}`}
                           title={company.company}
-                          className="relative flex size-9 items-center justify-center rounded-md border bg-background p-1 ring-2 ring-card transition-transform hover:z-10 hover:-translate-y-0.5"
+                          className="relative flex size-9 items-center justify-center rounded-md border bg-background p-1 ring-2 ring-background transition-transform hover:z-10 hover:-translate-y-0.5"
                         >
                           <Image
                             src={company.logoPath}
@@ -121,28 +149,53 @@ export function HomeInitiatives({
                         </Link>
                       ))}
                     </div>
-                  )}
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <div className="mb-5 flex items-center justify-between gap-4 text-xs text-muted-foreground">
+                  <span className="font-medium uppercase tracking-wider">
+                    Project path
+                  </span>
+                  <span className="inline-flex items-center gap-1.5">
+                    <Network className="size-3.5" />
+                    {projectCount} {projectCount === 1 ? "project" : "projects"}
+                  </span>
                 </div>
 
-                <CardTitle className="text-xl leading-snug transition-colors group-hover:text-primary">
-                  <h3>{initiative.title}</h3>
-                </CardTitle>
-              </CardHeader>
-
-              <CardContent className="flex-1">
-                <p className="line-clamp-3 text-sm leading-6 text-muted-foreground">
-                  {initiative.description}
-                </p>
-              </CardContent>
-
-              <CardFooter className="justify-between gap-3 border-t text-xs text-muted-foreground">
-                <span className="inline-flex items-center gap-1.5">
-                  <Network className="size-3.5" />
-                  {projectCount} {projectCount === 1 ? "project" : "projects"}
-                </span>
-                <span>{getInitiativeYears(initiative)}</span>
-              </CardFooter>
-            </Card>
+                <ol className="grid gap-5 sm:grid-cols-3">
+                  {projectPath.map((project, index) => (
+                    <li
+                      key={project.slug}
+                      className="relative grid grid-cols-[12px_minmax(0,1fr)] gap-3 sm:block"
+                    >
+                      {index < projectPath.length - 1 && (
+                        <span
+                          aria-hidden="true"
+                          className="absolute bottom-[-1.25rem] left-[5px] top-3 w-px bg-border sm:bottom-auto sm:left-3 sm:right-[-1.25rem] sm:top-[5px] sm:h-px sm:w-auto"
+                        />
+                      )}
+                      <span
+                        aria-hidden="true"
+                        className="relative z-10 mt-px size-3 rounded-full border-2 border-primary bg-background ring-4 ring-background sm:mb-3 sm:block"
+                      />
+                      <div className="min-w-0">
+                        <time className="font-mono text-[0.6875rem] tabular-nums text-muted-foreground">
+                          {project.date.slice(0, 4)}
+                        </time>
+                        <Link
+                          href={`/projects/${project.slug}`}
+                          className="mt-1 block text-sm font-medium leading-5 underline-offset-4 hover:text-primary hover:underline"
+                        >
+                          {project.title}
+                        </Link>
+                      </div>
+                    </li>
+                  ))}
+                </ol>
+              </div>
+            </article>
           );
         })}
       </div>
