@@ -1,0 +1,47 @@
+---
+title: "Intelligent Document Processing"
+description: "Digitizing bills of lading for automated gate verification"
+date: "2025-09-01"
+tech_stack:
+  - "Python"
+  - "DVC"
+  - "Encord"
+  - "OpenRouter"
+  - "GCP"
+tags:
+  - "machine-learning"
+  - "document-processing"
+  - "mlops"
+initiatives:
+  - "digital-twin-of-the-yard"
+status: "live"
+role: "terminal-industries"
+---
+
+# Vision
+
+Gate guards use bills of lading to check that the freight arriving at a site matches the expected shipment. Reading and cross-referencing those documents by hand slows down gate processing and leaves room for missed or mistyped details.
+
+This solution lets a guard photograph a bill of lading, digitizes the document, and extracts the fields needed to verify it against other operational data sources.
+
+# Why bills of lading resist automation
+
+Bills of lading vary widely and have little industry-wide standardization. Each carrier, shipper, and facility may use a different layout or vocabulary. The documents arriving at a single site can include printed forms, handwriting, ambiguous table structures, stamps, folds, tears, stains, and poor-quality copies.
+
+That variation makes extraction more than an OCR problem. The system has to work out what a field means, locate it in an unfamiliar document, and return a value that downstream services can compare with their own records.
+
+# Building the solution
+
+I owned the project end to end, from the initial research to its production integration. I began with a literature review and market analysis, then tested candidate solutions against real bills of lading rather than relying on vendor examples.
+
+The documents did not arrive with a ready-made schema, so I discovered the domain and defined an ontology for the entities and relationships the product needed. I created the annotated dataset and set up the Encord annotation process, including the guidance needed to label inconsistent layouts and ambiguous fields consistently.
+
+I built a Python evaluation pipeline and used DVC to version the data and results. The pipeline made competing models and services comparable on the same documents and field-level criteria.
+
+# Production integration
+
+I integrated the selected approach into Terminal's production services. A gate guard can submit a photo through the existing workflow, the document-processing service extracts the required fields, and the application cross-references them with other data sources used for gate verification.
+
+# Result
+
+The production workflow turns a photographed, sometimes damaged bill of lading into structured data that Terminal's gate services can verify. My work covered research, domain modelling, ontology design, data collection, annotation operations, evaluation, solution selection, ML engineering, and production integration.

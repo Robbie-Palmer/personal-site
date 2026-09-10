@@ -1,0 +1,81 @@
+---
+title: "Digital Twin of the Yard"
+description: "Building a live model of yard assets, documents, movements, and workflows to improve throughput and expose operational waste"
+date: "2024-05-01"
+status: "active"
+project_contributions:
+  real-time-multi-camera-video-analytics: "Creates a live record of assets and movements from fixed cameras, forming the twin's continuous observation layer."
+  mobile-asset-identification: "Extends asset and location capture to phones, filling gaps where fixed cameras are unavailable or impractical."
+  intelligent-document-processing: "Turns photographed bills of lading into structured shipment data that can be checked against gate and asset records."
+---
+
+# Vision
+
+> Build a live digital twin of the yard that joins physical activity, operational records, and documents into one model, then use that model to improve throughput and remove wasted work.
+
+Companies have spent decades digitizing work inside the warehouse and transport between sites. The yard between them often remains a buffer zone managed through partial records, radio calls, visual checks, spreadsheets, and the local knowledge of the people working there. Terminal describes the same gap as a supply-chain blind spot between modern TMS and WMS infrastructure in its overview of [AI computer vision for the yard](https://terminal-industries.com/terminal-ai-computer-vision).
+
+Digitized records only provide raw material. The useful outcome is a current, queryable account of what occupies the yard, its location and purpose, what should happen next, and how long each step takes. That account can help operators make immediate decisions and give analysts enough history to find recurring delays, underused capacity, and avoidable manual work.
+
+# The gap between systems and responsibilities
+
+A transportation management system knows about journeys, carriers, and expected arrivals. A warehouse management system knows about inventory, orders, docks, and work inside the building. A yard management system may cover the space between them. In practice, responsibility also crosses gate guards, dispatchers, spotters, dock teams, carriers, and drivers.
+
+This creates a practical form of [Conway's law](/projects?tab=philosophy#respect-goodharts-and-conways-laws). System boundaries follow organisational boundaries. Each team can hold an accurate view of its part while nobody has the complete operational picture.
+
+The TMS may expect a truck. A guard checks it against a paper document, a spotter knows its parking location, and the WMS records a dock change. Optimizing any one step in isolation can move the queue rather than remove it. Yard throughput depends on the whole sequence.
+
+The answer is not to erase those domains or force every team into one application. [Data-mesh thinking](/blog/2022-02-28-enabling-multi-omic-data-management) offers a better model. Each domain can own its data and workflows while publishing usable facts through shared identifiers, definitions, and event contracts. The digital twin joins those facts without pretending their origins no longer matter.
+
+# A model of the physical yard
+
+The twin needs an ontology, not only a map. Terminal's public account of [digital twin yard mapping](https://terminal-industries.com/all-resources/digital-twin-yard-mapping-creating-a-real-time-nerve-center) makes the same distinction. A live twin follows asset location and status as yard activity changes rather than rendering a static plan. It must represent trucks, trailers, containers, drivers, shipments, documents, gates, lanes, parking locations, docks, appointments, and movements. It also needs the relationships and state changes that connect them over time.
+
+Without that shared meaning, a licence plate read, a shipment number on a bill of lading, and an expected arrival remain unrelated strings in different systems. With it, they become evidence about the same physical activity. The model should record the time, source, and confidence of each observation so that late, incomplete, or contradictory data stays visible.
+
+<Mermaid
+  chart={`flowchart LR
+Yard["Physical yard"] --> Fixed["Fixed-camera events"]
+Yard --> Mobile["Mobile observations"]
+Documents["Bills of lading"] --> Extraction["Document extraction"]
+Fixed --> Events["Shared events and identifiers"]
+Mobile --> Events
+Extraction --> Events
+Systems["TMS, YMS and WMS"] <--> Events
+Events --> Twin["Yard ontology and live twin"]
+Twin --> Operations["Real-time decisions"]
+Twin --> History["Historical analysis"]
+Operations --> Yard
+History --> Improvements["Workflow and capacity changes"]
+Improvements --> Yard
+`}
+/>
+
+[Real-time data streaming](/blog/2023-03-28-uniting-machine-learning-data-streaming-1) keeps the model aligned with activity as it happens. The event history supports a different kind of work. It allows data mining across dwell times, queues, asset searches, document mismatches, lane use, and movement patterns. The same underlying events support both immediate action and slower operational analysis.
+
+# How the projects fit
+
+The [Real-Time Multi-Camera Video Analytics](/projects/real-time-multi-camera-video-analytics) project observes the yard continuously. It detects assets, reads identifiers, follows movement through time and across cameras, and turns separate observations into a live activity record.
+
+[Mobile Asset Identification](/projects/mobile-asset-identification) makes capture flexible. An operator can identify and locate an asset with a phone when a fixed camera does not cover the location or when the workflow calls for an intentional inventory check.
+
+[Intelligent Document Processing](/projects/intelligent-document-processing) adds the shipment record. It converts photographed bills of lading into structured fields that gate workflows can compare with other operational data.
+
+Together, the projects capture what moved, its location, and what the paperwork says should be happening. They solve separate product and engineering problems, but each adds evidence to the same model of the yard.
+
+# From visibility to action
+
+A live map can still become a dashboard that people glance at and then work around. The twin becomes useful when it closes the loop:
+
+1. Observe physical activity and digitize the records attached to it.
+2. Reconcile those observations against expected arrivals, inventory, appointments, and workflow state.
+3. Give the right person enough context to act on a mismatch, delay, or constraint.
+4. Measure the outcome and use the event history to improve the process.
+
+An actionable insight should point to a decision. It may show that a gate needs a different workflow at a specific time, that trailers wait because arrivals and docks fall out of sync, or that a repeated document exception creates avoidable manual work. The value comes from changing yard flow, not collecting another metric.
+
+This is the industrial counterpart to [Digital Twins for Everyday Life](/initiatives/digital-twins-for-everyday-life). Both depend on low-friction capture, a model that preserves relationships and history, and a feedback loop that makes the next decision better. The yard adds harder real-time constraints, many independent actors, and a physical environment that never matches its records perfectly.
+
+# Success
+
+The initiative succeeds when operators share a current picture of the yard, exceptions reach the people who can resolve them, and historical analysis produces changes that improve throughput or reduce wasted work. The digital twin is the means. A yard that moves more predictably, with less searching, waiting, re-entry, and reconciliation, is the result.
