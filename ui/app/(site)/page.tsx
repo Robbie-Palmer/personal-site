@@ -102,9 +102,11 @@ export default function Home() {
         </div>
       </section>
 
-      <div className="py-16 pb-0">
-        <HomeInitiatives initiatives={initiatives} />
-      </div>
+      {initiatives.length > 0 && (
+        <div className="py-16 pb-0">
+          <HomeInitiatives initiatives={initiatives} />
+        </div>
+      )}
 
       <section className="py-16 pb-0">
         <BlogCollectionTabs

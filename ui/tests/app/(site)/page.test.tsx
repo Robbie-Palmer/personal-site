@@ -1,6 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import Home from "@/app/(site)/page";
+import { getAllInitiatives } from "@/lib/api/initiatives";
 
 vi.mock("@/lib/api/blog-collections", () => ({
   getCollectionsWithIds: () => [{ id: "all", title: "All" }],
@@ -12,7 +13,7 @@ vi.mock("@/lib/api/experience", () => ({
 }));
 
 vi.mock("@/lib/api/initiatives", () => ({
-  getAllInitiatives: () => [
+  getAllInitiatives: vi.fn(() => [
     {
       slug: "personalized-medicine",
       title: "Personalized Medicine",
@@ -23,7 +24,7 @@ vi.mock("@/lib/api/initiatives", () => ({
       projectContributions: {},
       projects: [],
     },
-  ],
+  ]),
 }));
 
 vi.mock("@/lib/api/projects", () => ({
@@ -81,5 +82,21 @@ describe("home page", () => {
     expect(
       screen.getByRole("link", { name: "Personalized Medicine" }),
     ).toHaveAttribute("href", "/initiatives/personalized-medicine");
+  });
+
+  it("does not leave initiative spacing when no initiatives exist", () => {
+    vi.mocked(getAllInitiatives).mockReturnValueOnce([]);
+
+    render(<Home />);
+
+    const postsSection = screen
+      .getByRole("heading", { name: "Explore Posts" })
+      .closest("section");
+    expect(
+      screen.queryByRole("heading", { name: "What I'm building toward" }),
+    ).not.toBeInTheDocument();
+    expect(postsSection?.previousElementSibling).toContainElement(
+      screen.getByRole("heading", { level: 1 }),
+    );
   });
 });
