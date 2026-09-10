@@ -56,11 +56,16 @@ function initiativeFixture(): InitiativeWithProjects {
 
 describe("HomeInitiatives", () => {
   it("presents a compact initiative summary with related company logos", () => {
-    render(<HomeInitiatives initiatives={[initiativeFixture()]} />);
+    const { container } = render(
+      <HomeInitiatives initiatives={[initiativeFixture()]} />,
+    );
 
-    expect(
-      screen.getByRole("heading", { name: "What I'm building toward" }),
-    ).toBeInTheDocument();
+    const heading = screen.getByRole("heading", {
+      name: "What I'm building toward",
+    });
+    expect(heading).toBeInTheDocument();
+    expect(heading.closest("section")).toHaveClass("mx-auto", "max-w-5xl");
+    expect(container.querySelector("[data-slot='card']")).toBeNull();
     expect(
       screen.getByRole("link", { name: "Personalized Medicine" }),
     ).toHaveAttribute("href", "/initiatives/personalized-medicine");

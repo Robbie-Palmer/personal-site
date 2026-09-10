@@ -67,7 +67,10 @@ export function HomeInitiatives({
   );
 
   return (
-    <section aria-labelledby="home-initiatives-heading">
+    <section
+      aria-labelledby="home-initiatives-heading"
+      className="mx-auto max-w-5xl"
+    >
       <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div className="max-w-2xl">
           <p className="mb-2 text-xs font-semibold uppercase tracking-[0.2em] text-primary">
@@ -101,7 +104,7 @@ export function HomeInitiatives({
           return (
             <article
               key={initiative.slug}
-              className="group/initiative relative grid gap-8 py-8 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] lg:items-center lg:gap-12"
+              className="relative grid gap-8 py-8 lg:grid-cols-[20rem_minmax(0,1fr)] lg:items-center lg:gap-12 xl:grid-cols-[22rem_minmax(0,1fr)]"
             >
               <div>
                 <div className="mb-4 flex items-center gap-3">
