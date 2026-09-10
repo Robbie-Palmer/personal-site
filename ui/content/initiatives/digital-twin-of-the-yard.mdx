@@ -21,11 +21,13 @@ Digitized records only provide raw material. The useful outcome is a current, qu
 
 A transportation management system knows about journeys, carriers, and expected arrivals. A warehouse management system knows about inventory, orders, docks, and work inside the building. A yard management system may cover the space between them. In practice, responsibility also crosses gate guards, dispatchers, spotters, dock teams, carriers, and drivers.
 
-This creates a practical form of [Conway's law](/projects?tab=philosophy#respect-goodharts-and-conways-laws). System boundaries follow organisational boundaries. Each team can hold an accurate view of its part while nobody has the complete operational picture.
+This creates a practical form of [Conway's law](/ideas/conways-law). System boundaries follow organisational boundaries. Each team can hold an accurate view of its part while nobody has the complete operational picture.
 
 The TMS may expect a truck. A guard checks it against a paper document, a spotter knows its parking location, and the WMS records a dock change. Optimizing any one step in isolation can move the queue rather than remove it. Yard throughput depends on the whole sequence.
 
-The answer is not to erase those domains or force every team into one application. [Data-mesh thinking](/blog/2022-02-28-enabling-multi-omic-data-management) offers a better model. Each domain can own its data and workflows while publishing usable facts through shared identifiers, definitions, and event contracts. The digital twin joins those facts without pretending their origins no longer matter.
+The architecture will keep reproducing those seams unless ownership changes too. A [reverse Conway maneuver](/ideas/reverse-conway-maneuver) would organize teams and communication around end-to-end yard outcomes rather than the boundary of one application.
+
+The answer is not to erase the domains or force every team into one system. [Data Mesh](/ideas/data-mesh) offers a better model. Each domain can own its data and workflows while publishing usable facts through shared identifiers, definitions, and event contracts. The digital twin joins those facts without pretending their origins no longer matter.
 
 # A model of the physical yard
 
@@ -59,7 +61,7 @@ Improvements --> Yard
 
 [Real-time data streaming](/blog/2023-03-28-uniting-machine-learning-data-streaming-1) keeps the model aligned with activity as it happens. The event history supports a different kind of work. It allows data mining across dwell times, queues, asset searches, document mismatches, lane use, and movement patterns. The same underlying events support both immediate action and slower operational analysis.
 
-Human-in-the-loop and human-on-the-loop describe interaction models, not job titles. The same person can work in either mode. In the loop, they take part in a decision before the workflow continues, such as verifying an uncertain extraction. On the loop, they supervise an automated process and can intervene, override an action, or change its operating policy. Both modes publish decisions to the shared event stream with their source and time, so the twin records what people knew, changed, and approved alongside system observations.
+[Human in the loop](/ideas/human-in-the-loop) and [human on the loop](/ideas/human-on-the-loop) describe two interaction models. The same person can work in either mode. In the loop, they take part in a decision before the workflow continues, such as verifying an uncertain extraction. On the loop, they supervise an automated process and can intervene, override an action, or change its operating policy. Both modes publish decisions to the shared event stream with their source and time, so the twin records what people knew, changed, and approved alongside system observations.
 
 # How the projects fit
 

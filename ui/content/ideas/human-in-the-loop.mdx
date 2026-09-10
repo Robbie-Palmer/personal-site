@@ -1,0 +1,26 @@
+---
+title: "Human in the Loop"
+description: "An interaction model in which a person contributes to a decision before the system can continue."
+related_ideas:
+  - "human-on-the-loop"
+---
+
+Human in the loop puts human judgment on the critical path. A system may prepare a
+recommendation, extract information, or propose an action, but the workflow waits for a person to
+confirm, correct, choose, or reject it.
+
+The phrase names an interaction model. The same operator may work in the loop for an ambiguous
+case while routine cases proceed automatically. That distinction affects capacity and latency. If
+every case waits for review, automation may only rearrange the manual work. If none do, the system
+can turn uncertain output into action without judgment.
+
+The model fits decisions where ambiguity needs expert interpretation or the cost of a wrong action
+requires approval. The interface must show the evidence behind the proposed decision, record what
+the person decided, and return that decision to the system as data.
+
+## Questions it prompts
+
+* Which conditions require a person to decide before work continues?
+* What evidence and context do they need?
+* What happens if nobody responds?
+* How will corrections feed later evaluation and improvement?

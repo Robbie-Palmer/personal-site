@@ -10,7 +10,7 @@ import {
 
 describe("ideas API", () => {
   it("lists every idea with canonical reference counts", () => {
-    expect(getAllIdeaSlugs()).toHaveLength(11);
+    expect(getAllIdeaSlugs()).toHaveLength(13);
 
     const ideas = getAllIdeas();
     expect(ideas.map((idea) => idea.title)).toEqual(
@@ -54,6 +54,16 @@ describe("ideas API", () => {
     expect(
       getIdeasForProject("autonomic-satellite-swarm").map((idea) => idea.slug),
     ).toEqual(["flp-impossibility", "two-generals-problem"]);
+    expect(
+      getIdeasForProject("intelligent-document-processing").map(
+        (idea) => idea.slug,
+      ),
+    ).toEqual(["domain-driven-design", "human-in-the-loop"]);
+    expect(
+      getIdeasForProject("real-time-multi-camera-video-analytics").map(
+        (idea) => idea.slug,
+      ),
+    ).toEqual(["data-mesh", "human-on-the-loop"]);
     expect(
       getIdeasForBlog(
         "2026-08-18-crossing-the-chasm-with-ai-platform-teams",
