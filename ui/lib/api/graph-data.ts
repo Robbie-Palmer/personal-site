@@ -182,6 +182,7 @@ function addIdeaEdges(
   state: GraphBuildState,
 ): void {
   const nodeIds = new Set(state.nodes.map((node) => node.id));
+  const relatedIdeaPairs = new Set<string>();
   for (const [nodeId, ideaSlugs] of repository.graph.edges.referencesIdea) {
     for (const ideaSlug of ideaSlugs) {
       const target = `idea:${ideaSlug}`;
@@ -195,6 +196,9 @@ function addIdeaEdges(
       const source = `idea:${ideaSlug}`;
       const target = `idea:${relatedSlug}`;
       if (nodeIds.has(source) && nodeIds.has(target)) {
+        const pairKey = [source, target].sort().join("|");
+        if (relatedIdeaPairs.has(pairKey)) continue;
+        relatedIdeaPairs.add(pairKey);
         addEdge(state, source, target, "RELATED_IDEA");
       }
     }

@@ -41,6 +41,7 @@ describe("extractGraphData", () => {
               "conways-law",
               new Set(["reverse-conway-maneuver", "missing-idea"]),
             ],
+            ["reverse-conway-maneuver", new Set(["conways-law"])],
             ["missing-idea", new Set(["reverse-conway-maneuver"])],
           ]),
         },
@@ -95,6 +96,9 @@ describe("extractGraphData", () => {
       target: "idea:reverse-conway-maneuver",
       type: "RELATED_IDEA",
     });
+    expect(
+      data.edges.filter((edge) => edge.type === "RELATED_IDEA"),
+    ).toHaveLength(1);
     expect(data.edges).not.toContainEqual(
       expect.objectContaining({ target: "idea:missing-idea" }),
     );
