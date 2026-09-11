@@ -23,13 +23,18 @@ function isCoordinate(value) {
   );
 }
 
-function loadModule() {
+async function loadModule() {
   modulePromise ??= createSatelliteSwarmModule({
     locateFile(path) {
       return new URL(`./wasm/${path}`, import.meta.url).href;
     },
   });
-  return modulePromise;
+  try {
+    return await modulePromise;
+  } catch (error) {
+    modulePromise = undefined;
+    throw error;
+  }
 }
 
 function reply(requestId, message) {
@@ -77,7 +82,6 @@ self.addEventListener("message", async (event) => {
       type: "result",
     });
   } catch (error) {
-    modulePromise = undefined;
     reply(requestId, { error: errorMessage(error), type: "error" });
   }
 });

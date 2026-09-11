@@ -186,7 +186,7 @@ export function DeferredSatelliteSwarmSimulation() {
         const result = await runSatelliteSwarmSimulation(objective, {
           signal: controller.signal,
         });
-        if (!controller.signal.aborted) {
+        if (activeRequestRef.current === controller) {
           setSimulation((current) => ({
             data: result,
             runId: (current?.runId ?? 0) + 1,
@@ -195,14 +195,17 @@ export function DeferredSatelliteSwarmSimulation() {
         }
       } catch (runError) {
         if (
-          !controller.signal.aborted &&
+          activeRequestRef.current === controller &&
           (!(runError instanceof DOMException) ||
             runError.name !== "AbortError")
         ) {
           setError(messageFrom(runError));
         }
       } finally {
-        if (!controller.signal.aborted) setRunning(false);
+        if (activeRequestRef.current === controller) {
+          activeRequestRef.current = null;
+          setRunning(false);
+        }
       }
     },
     [],
@@ -221,7 +224,11 @@ export function DeferredSatelliteSwarmSimulation() {
 
     if (typeof IntersectionObserver === "undefined") {
       load();
-      return () => activeRequestRef.current?.abort();
+      return () => {
+        const controller = activeRequestRef.current;
+        activeRequestRef.current = null;
+        controller?.abort();
+      };
     }
 
     const observer = new IntersectionObserver(
@@ -234,7 +241,9 @@ export function DeferredSatelliteSwarmSimulation() {
     );
     observer.observe(container);
     return () => {
-      activeRequestRef.current?.abort();
+      const controller = activeRequestRef.current;
+      activeRequestRef.current = null;
+      controller?.abort();
       observer.disconnect();
     };
   }, [run]);

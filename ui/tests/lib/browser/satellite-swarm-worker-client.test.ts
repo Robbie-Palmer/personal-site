@@ -53,6 +53,15 @@ class MockWorker {
     this.listeners.set(type, listeners);
   }
 
+  removeEventListener(type: string, listener: WorkerListener) {
+    this.listeners.set(
+      type,
+      (this.listeners.get(type) ?? []).filter(
+        (candidate) => candidate !== listener,
+      ),
+    );
+  }
+
   postMessage(value: unknown) {
     this.posted = value;
   }
@@ -117,6 +126,8 @@ describe("satellite swarm worker client", () => {
       objective: { latitudeDegrees: -90, longitudeDegrees: 0 },
     });
     expect(worker.terminated).toBe(true);
+    expect(worker.listeners.get("message")).toEqual([]);
+    expect(worker.listeners.get("error")).toEqual([]);
   });
 
   it("surfaces a worker error response", async () => {
@@ -137,6 +148,8 @@ describe("satellite swarm worker client", () => {
 
     await expect(resultPromise).rejects.toThrow("C++ rejected the mission");
     expect(worker.terminated).toBe(true);
+    expect(worker.listeners.get("message")).toEqual([]);
+    expect(worker.listeners.get("error")).toEqual([]);
   });
 
   it("terminates the worker when the caller aborts", async () => {
@@ -152,6 +165,8 @@ describe("satellite swarm worker client", () => {
 
     await expect(resultPromise).rejects.toMatchObject({ name: "AbortError" });
     expect(worker.terminated).toBe(true);
+    expect(worker.listeners.get("message")).toEqual([]);
+    expect(worker.listeners.get("error")).toEqual([]);
   });
 
   it("rejects invalid coordinates before creating a worker", () => {

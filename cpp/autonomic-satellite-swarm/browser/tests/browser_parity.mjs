@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
+import { once } from "node:events";
 import { readFile } from "node:fs/promises";
+import { Worker } from "node:worker_threads";
 import createSatelliteSwarmModule from "../../build/browser/browser/satellite-swarm.mjs";
 
 const module = await createSatelliteSwarmModule();
@@ -37,4 +39,27 @@ assert.throws(
   /mission objective is outside the coordinate bounds/,
 );
 
-console.log("Native fixture and WebAssembly output match.");
+const productionWorker = new Worker(
+  new URL("./browser_worker_harness.mjs", import.meta.url),
+);
+try {
+  const [readyMessage] = await once(productionWorker, "message");
+  assert.deepEqual(readyMessage, { type: "ready" });
+
+  const requestId = "browser-parity";
+  productionWorker.postMessage({
+    objective: { latitudeDegrees: -90, longitudeDegrees: 0 },
+    protocolVersion: 1,
+    requestId,
+    type: "run",
+  });
+  const [workerResponse] = await once(productionWorker, "message");
+  assert.equal(workerResponse.protocolVersion, 1);
+  assert.equal(workerResponse.requestId, requestId);
+  assert.equal(workerResponse.type, "result");
+  assert.deepEqual(workerResponse.result, JSON.parse(nativeFixture));
+} finally {
+  await productionWorker.terminate();
+}
+
+console.log("Native fixture, WebAssembly output, and production worker match.");

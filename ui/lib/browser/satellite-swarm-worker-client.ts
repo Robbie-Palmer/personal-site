@@ -86,41 +86,45 @@ export function runSatelliteSwarmSimulation(
 
   return new Promise((resolve, reject) => {
     let settled = false;
-    const finish = (value: SatelliteSwarmSimulation) => {
-      if (settled) return;
-      settled = true;
+    let timeout = 0;
+
+    function cleanUp() {
       window.clearTimeout(timeout);
       options.signal?.removeEventListener("abort", handleAbort);
+      worker.removeEventListener("error", handleError);
+      worker.removeEventListener("message", handleMessage);
       worker.terminate();
+    }
+
+    function finish(value: SatelliteSwarmSimulation) {
+      if (settled) return;
+      settled = true;
+      cleanUp();
       resolve(value);
-    };
-    const fail = (error: unknown) => {
+    }
+
+    function fail(error: unknown) {
       if (settled) return;
       settled = true;
-      window.clearTimeout(timeout);
-      options.signal?.removeEventListener("abort", handleAbort);
-      worker.terminate();
+      cleanUp();
       reject(
         error instanceof Error || error instanceof DOMException
           ? error
           : new Error(String(error)),
       );
-    };
-    const handleAbort = () => fail(abortError());
+    }
 
-    const timeout = window.setTimeout(
-      () =>
-        fail(new Error("The WebAssembly simulation did not respond in time.")),
-      options.timeoutMs ?? WORKER_TIMEOUT_MS,
-    );
+    function handleAbort() {
+      fail(abortError());
+    }
 
-    options.signal?.addEventListener("abort", handleAbort, { once: true });
-    worker.addEventListener("error", (event) => {
+    function handleError(event: ErrorEvent) {
       fail(
         new Error(event.message || "The simulation worker could not start."),
       );
-    });
-    worker.addEventListener("message", (event: MessageEvent<unknown>) => {
+    }
+
+    function handleMessage(event: MessageEvent<unknown>) {
       const parsed = responseMessageSchema.safeParse(event.data);
       if (!parsed.success || parsed.data.requestId !== requestId) return;
       if (parsed.data.type === "error") {
@@ -132,7 +136,17 @@ export function runSatelliteSwarmSimulation(
       } catch (error) {
         fail(error);
       }
-    });
+    }
+
+    timeout = window.setTimeout(
+      () =>
+        fail(new Error("The WebAssembly simulation did not respond in time.")),
+      options.timeoutMs ?? WORKER_TIMEOUT_MS,
+    );
+
+    options.signal?.addEventListener("abort", handleAbort, { once: true });
+    worker.addEventListener("error", handleError);
+    worker.addEventListener("message", handleMessage);
 
     try {
       worker.postMessage({

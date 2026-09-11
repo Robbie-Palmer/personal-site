@@ -235,6 +235,42 @@ describe("SatelliteSwarmSimulation", () => {
     expect(screen.getByRole("button", { name: "Pause replay" })).toBeEnabled();
   });
 
+  it("keeps the latest mission running when an earlier request settles", async () => {
+    const user = userEvent.setup();
+    vi.stubGlobal("IntersectionObserver", undefined);
+    render(<DeferredSatelliteSwarmSimulation />);
+    expect(await screen.findByText("trace v1 · 0 ms")).toBeVisible();
+
+    let rejectEarlier: ((error: unknown) => void) | undefined;
+    let resolveLatest: ((value: typeof data) => void) | undefined;
+    workerClient.run
+      .mockImplementationOnce(
+        () =>
+          new Promise((_resolve, reject) => {
+            rejectEarlier = reject;
+          }),
+      )
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            resolveLatest = resolve;
+          }),
+      );
+
+    await user.click(screen.getByRole("button", { name: "South Pole" }));
+    await user.click(screen.getByRole("button", { name: "South Pole" }));
+    act(() => rejectEarlier?.(new DOMException("Cancelled", "AbortError")));
+
+    await waitFor(() =>
+      expect(document.querySelector('[aria-busy="true"]')).toBeInTheDocument(),
+    );
+
+    act(() => resolveLatest?.(data));
+    await waitFor(() =>
+      expect(document.querySelector('[aria-busy="false"]')).toBeInTheDocument(),
+    );
+  });
+
   it("steps through the native state and event record", async () => {
     const user = userEvent.setup();
     render(<SatelliteSwarmSimulation data={data} />);

@@ -29,8 +29,8 @@ mise run browser:parity
 
 The task pins Emscripten, configures the CMake browser target, copies its `.mjs` and `.wasm` outputs
 to the site's public simulation directory, and runs the Node parity test. The test requires the
-South Pole result to match the native fixture byte for byte. It also exercises a custom coordinate
-and the error path.
+South Pole result to match the native fixture byte for byte. It also exercises a custom coordinate,
+the error path, and the deployed worker's protocol and module paths through a worker-thread bridge.
 
 The generated files are committed because the site's normal static build does not install a C++
 toolchain. CI rebuilds them and fails when the checked artifacts drift.
