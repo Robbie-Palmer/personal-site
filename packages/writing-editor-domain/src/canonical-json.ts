@@ -28,7 +28,7 @@ export function canonicalJson(value: unknown): string {
     }
 
     const entries = Object.entries(value as Record<string, unknown>)
-      .sort(([left], [right]) => compareStrings(left, right))
+      .sort(([left], [right]) => compareAscending(left, right))
       .map(([key, entry]) => {
         if (entry === undefined) {
           throw new TypeError("canonical JSON cannot encode undefined");
@@ -41,7 +41,7 @@ export function canonicalJson(value: unknown): string {
   throw new TypeError(`canonical JSON cannot encode ${typeof value}`);
 }
 
-function compareStrings(left: string, right: string): number {
+function compareAscending(left: string, right: string): number {
   if (left < right) {
     return -1;
   }

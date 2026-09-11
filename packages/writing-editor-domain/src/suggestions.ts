@@ -156,11 +156,11 @@ export function createSuggestion(input: SuggestionInput): Suggestion {
 export function compareSuggestions(left: Suggestion, right: Suggestion): number {
   return left.span.startByte - right.span.startByte ||
     left.span.endByte - right.span.endByte ||
-    compareStrings(left.producer.id, right.producer.id) ||
-    compareStrings(left.suggestionId, right.suggestionId);
+    compareAscending(left.producer.id, right.producer.id) ||
+    compareAscending(left.suggestionId, right.suggestionId);
 }
 
-function compareStrings(left: string, right: string): number {
+function compareAscending(left: string, right: string): number {
   if (left < right) {
     return -1;
   }

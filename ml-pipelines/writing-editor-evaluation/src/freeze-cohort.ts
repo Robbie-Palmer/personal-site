@@ -35,7 +35,7 @@ export interface FreezeCohortOptions {
   outputRoot: string;
 }
 
-function compareStrings(left: string, right: string): number {
+function compareAscending(left: string, right: string): number {
   if (left < right) {
     return -1;
   }
@@ -79,7 +79,7 @@ function freezeEntries(
         entry,
         rank: sha256(`${seed}\0${artifactType}\0${entry.artifactId}`),
       }))
-      .sort((left, right) => compareStrings(left.rank, right.rank));
+      .sort((left, right) => compareAscending(left.rank, right.rank));
     const counts = allocation(ranked.length, ratios);
     let offset = 0;
     for (const split of SPLITS) {
@@ -91,7 +91,7 @@ function freezeEntries(
   }
   return frozen.sort((left, right) =>
     SPLITS.indexOf(left.split) - SPLITS.indexOf(right.split) ||
-    compareStrings(left.artifactId, right.artifactId)
+    compareAscending(left.artifactId, right.artifactId)
   );
 }
 
@@ -114,14 +114,14 @@ function readiness(
     byArtifactType[entry.artifactType] += 1;
     bySplit[entry.split][entry.artifactType] += 1;
   }
-  const missingOutcomes = entries.map(({ artifactId }) => artifactId).sort(compareStrings);
+  const missingOutcomes = entries.map(({ artifactId }) => artifactId).sort(compareAscending);
   const requiredArtifactTypesPresent = requiredArtifactTypes.every(
     (artifactType) => byArtifactType[artifactType] > 0,
   );
   const missingRevisions = entries
     .filter(({ source, published }) => source.contentHash === published.contentHash)
     .map(({ artifactId }) => artifactId)
-    .sort(compareStrings);
+    .sort(compareAscending);
   const revisionsComplete = missingRevisions.length === 0;
   const outcomesComplete = false;
   return ReadinessSchema.parse({

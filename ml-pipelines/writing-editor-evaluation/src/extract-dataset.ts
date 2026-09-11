@@ -83,7 +83,7 @@ function prepareArtifacts(options: ExtractDatasetOptions): {
         },
       },
     };
-  }).sort((left, right) => compareStrings(left.entry.artifactId, right.entry.artifactId));
+  }).sort((left, right) => compareAscending(left.entry.artifactId, right.entry.artifactId));
 
   return { artifacts, sourceManifestHash: sha256(manifestBytes) };
 }
@@ -113,7 +113,7 @@ export function extractDataset(options: ExtractDatasetOptions): DatasetManifest 
   return dataset;
 }
 
-function compareStrings(left: string, right: string): number {
+function compareAscending(left: string, right: string): number {
   if (left < right) {
     return -1;
   }
