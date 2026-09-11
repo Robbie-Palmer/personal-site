@@ -2,7 +2,7 @@
 # e.g. `mise run //homelab:status`. Must be run on the hosting machine.
 
 [tools]
-"pipx:ansible-core" = "2.21.3"
+"pipx:ansible-core" = "2.21.4"
 "pipx:ansible-lint" = "26.8.0"
 "aqua:kubernetes/kubernetes/kubectl" = "1.37.0"
 "aqua:kubernetes-sigs/kustomize" = "5.8.1"
