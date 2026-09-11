@@ -19,7 +19,7 @@ describe("ideas API", () => {
     expect(ideas).toContainEqual(
       expect.objectContaining({
         slug: "goodharts-law",
-        referenceCount: 9,
+        referenceCount: 11,
       }),
     );
   });

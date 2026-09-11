@@ -21,10 +21,12 @@ export function getAllIdeas() {
       repository,
       idea.slug,
     );
+    const relatedIdeas = getRelatedIdeaLinks(repository, idea.slug);
     return {
       ...idea,
-      relatedIdeas: getRelatedIdeaLinks(repository, idea.slug),
+      relatedIdeas,
       referenceCount:
+        relatedIdeas.length +
         relatedContent.technologies.length +
         relatedContent.projects.length +
         relatedContent.blogs.length +

@@ -731,7 +731,7 @@ function buildLlmsTxt(
     "",
     "## Ideas",
     "",
-    "Each page defines an idea and links to the projects, ADRs, and posts that use it.",
+    "Each page defines an idea and links to related ideas, technologies, projects, ADRs, and posts.",
     "",
     ...ideaPages.map(
       (page) => `- [${page.title}](${markdownUrl(page.htmlPath)}): ${page.description}`,

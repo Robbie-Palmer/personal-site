@@ -70,6 +70,10 @@ describe("agent markdown generation", () => {
     expect(wal).toContain(
       "Technology: [Kafka](https://robbiepalmer.me/technologies/kafka.md)",
     );
+
+    expect(read("llms.txt")).toContain(
+      "links to related ideas, technologies, projects, ADRs, and posts",
+    );
   });
 
   it("keeps technology-specific explanations on technology pages", () => {
