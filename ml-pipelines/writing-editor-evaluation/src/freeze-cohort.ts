@@ -1,12 +1,12 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { parseArgs } from "node:util";
 
 import { canonicalJson } from "writing-editor-domain/canonical-json";
 import { sha256 } from "writing-editor-domain/suggestions";
 import { z } from "zod";
 
-import { parseArgs } from "./cli-arguments";
 import { readJson, resetDirectory, writeJson } from "./files";
 import {
   type ArtifactType,
@@ -19,8 +19,14 @@ import {
   type Split,
 } from "./schemas";
 
-const SPLITS: Split[] = ["train", "development", "holdout"];
+const SPLITS: Split[] = ["train", "validation", "holdout"];
 const ARTIFACT_TYPES: ArtifactType[] = ["adr", "project-page"];
+
+const FreezeCliOptionsSchema = z.object({
+  dataset: z.string().trim().min(1),
+  params: z.string().trim().min(1),
+  output: z.string().trim().min(1),
+}).strict();
 
 export interface FreezeCohortOptions {
   datasetFile: string;
@@ -29,7 +35,7 @@ export interface FreezeCohortOptions {
   outputRoot: string;
 }
 
-function compareText(left: string, right: string): number {
+function compareStrings(left: string, right: string): number {
   if (left < right) {
     return -1;
   }
@@ -73,7 +79,7 @@ function freezeEntries(
         entry,
         rank: sha256(`${seed}\0${artifactType}\0${entry.artifactId}`),
       }))
-      .sort((left, right) => compareText(left.rank, right.rank));
+      .sort((left, right) => compareStrings(left.rank, right.rank));
     const counts = allocation(ranked.length, ratios);
     let offset = 0;
     for (const split of SPLITS) {
@@ -85,7 +91,7 @@ function freezeEntries(
   }
   return frozen.sort((left, right) =>
     SPLITS.indexOf(left.split) - SPLITS.indexOf(right.split) ||
-    compareText(left.artifactId, right.artifactId)
+    compareStrings(left.artifactId, right.artifactId)
   );
 }
 
@@ -101,21 +107,21 @@ function readiness(
   const byArtifactType = emptyCounts();
   const bySplit: Record<Split, Record<ArtifactType, number>> = {
     train: emptyCounts(),
-    development: emptyCounts(),
+    validation: emptyCounts(),
     holdout: emptyCounts(),
   };
   for (const entry of entries) {
     byArtifactType[entry.artifactType] += 1;
     bySplit[entry.split][entry.artifactType] += 1;
   }
-  const missingOutcomes = entries.map(({ artifactId }) => artifactId).sort(compareText);
+  const missingOutcomes = entries.map(({ artifactId }) => artifactId).sort(compareStrings);
   const requiredArtifactTypesPresent = requiredArtifactTypes.every(
     (artifactType) => byArtifactType[artifactType] > 0,
   );
   const missingRevisions = entries
     .filter(({ source, published }) => source.contentHash === published.contentHash)
     .map(({ artifactId }) => artifactId)
-    .sort(compareText);
+    .sort(compareStrings);
   const revisionsComplete = missingRevisions.length === 0;
   const outcomesComplete = false;
   return ReadinessSchema.parse({
@@ -221,7 +227,14 @@ export function freezeCohort(options: FreezeCohortOptions): {
 }
 
 function main(): void {
-  const args = parseArgs(process.argv.slice(2), ["dataset", "params", "output"] as const);
+  const { values } = parseArgs({
+    options: {
+      dataset: { type: "string" },
+      params: { type: "string" },
+      output: { type: "string" },
+    },
+  });
+  const args = FreezeCliOptionsSchema.parse(values);
   const result = freezeCohort({
     datasetFile: args.dataset,
     paramsFile: args.params,

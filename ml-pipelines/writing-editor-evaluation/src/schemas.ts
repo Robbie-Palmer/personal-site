@@ -5,7 +5,7 @@ import { ContentHashSchema } from "writing-editor-domain/suggestions";
 export const ArtifactTypeSchema = z.enum(["adr", "project-page"]);
 export type ArtifactType = z.infer<typeof ArtifactTypeSchema>;
 
-export const SplitSchema = z.enum(["train", "development", "holdout"]);
+export const SplitSchema = z.enum(["train", "validation", "holdout"]);
 export type Split = z.infer<typeof SplitSchema>;
 
 const ArtifactIdSchema = z.string().regex(
@@ -83,10 +83,10 @@ export type DatasetManifest = z.infer<typeof DatasetManifestSchema>;
 
 const SplitRatiosSchema = z.object({
   train: z.number().positive().lt(1),
-  development: z.number().positive().lt(1),
+  validation: z.number().positive().lt(1),
   holdout: z.number().positive().lt(1),
 }).strict().superRefine((ratios, context) => {
-  const sum = ratios.train + ratios.development + ratios.holdout;
+  const sum = ratios.train + ratios.validation + ratios.holdout;
   if (Math.abs(sum - 1) > Number.EPSILON * 10) {
     context.addIssue({ code: "custom", message: "split ratios must sum to 1" });
   }
@@ -148,7 +148,7 @@ export const ReadinessSchema = z.object({
     byArtifactType: ArtifactCountsSchema,
     bySplit: z.object({
       train: ArtifactCountsSchema,
-      development: ArtifactCountsSchema,
+      validation: ArtifactCountsSchema,
       holdout: ArtifactCountsSchema,
     }).strict(),
   }).strict(),

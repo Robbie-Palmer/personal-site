@@ -9,12 +9,12 @@ stages:
       size: 728
     - path: ../../packages/writing-editor-domain/src/canonical-json.ts
       hash: md5
-      md5: 77dda0b3cd459f4eb1d9b2d6285877a6
-      size: 1628
+      md5: 08faeb59cda9cf6c70f4fcc83a404628
+      size: 1634
     - path: ../../packages/writing-editor-domain/src/suggestions.ts
       hash: md5
-      md5: 24206055c774463c1e66c058b615a316
-      size: 6564
+      md5: fa246ec27b9f0ad3dcf5b23a41b6fa33
+      size: 6573
     - path: ../../pnpm-lock.yaml
       hash: md5
       md5: e47c1aa1335e4876644732e1b9e655c2
@@ -32,14 +32,10 @@ stages:
       md5: 511691310e70457553ae2dc270e1b4b1
       size: 160
       isexec: true
-    - path: src/cli-arguments.ts
-      hash: md5
-      md5: 2fb9bc61625d7752bd7e9cd331386458
-      size: 745
     - path: src/extract-dataset.ts
       hash: md5
-      md5: 1b8535a4859c02a7a92d18b98ce333d9
-      size: 4463
+      md5: 534d3f1a0810fe3b9e222c078bf29cf6
+      size: 4786
     - path: src/files.ts
       hash: md5
       md5: 939752f48d098e2f5e196eea6f35709e
@@ -50,8 +46,8 @@ stages:
       size: 1652
     - path: src/schemas.ts
       hash: md5
-      md5: 8a483d82692f1a1e56c54285494bb439
-      size: 5524
+      md5: 7a2f220aa84f90c988789b58252afdb8
+      size: 5520
     outs:
     - path: data/corpus
       hash: md5
@@ -67,12 +63,12 @@ stages:
       size: 728
     - path: ../../packages/writing-editor-domain/src/canonical-json.ts
       hash: md5
-      md5: 77dda0b3cd459f4eb1d9b2d6285877a6
-      size: 1628
+      md5: 08faeb59cda9cf6c70f4fcc83a404628
+      size: 1634
     - path: ../../packages/writing-editor-domain/src/suggestions.ts
       hash: md5
-      md5: 24206055c774463c1e66c058b615a316
-      size: 6564
+      md5: fa246ec27b9f0ad3dcf5b23a41b6fa33
+      size: 6573
     - path: ../../pnpm-lock.yaml
       hash: md5
       md5: e47c1aa1335e4876644732e1b9e655c2
@@ -90,22 +86,18 @@ stages:
       md5: a25cbd5f2aaac5c55bd6fbb71e515ad6
       size: 167
       isexec: true
-    - path: src/cli-arguments.ts
-      hash: md5
-      md5: 2fb9bc61625d7752bd7e9cd331386458
-      size: 745
     - path: src/files.ts
       hash: md5
       md5: 939752f48d098e2f5e196eea6f35709e
       size: 1174
     - path: src/freeze-cohort.ts
       hash: md5
-      md5: b5fa9720a9dc451bfc4e52b728546815
-      size: 7590
+      md5: f3d099404888ef9bd95d7636c8f36092
+      size: 7888
     - path: src/schemas.ts
       hash: md5
-      md5: 8a483d82692f1a1e56c54285494bb439
-      size: 5524
+      md5: 7a2f220aa84f90c988789b58252afdb8
+      size: 5520
     params:
       params.yaml:
         cohort:
@@ -113,7 +105,7 @@ stages:
           seed: writing-editor-v1
           split:
             train: 0.6
-            development: 0.2
+            validation: 0.2
             holdout: 0.2
           requiredArtifactTypes:
           - adr
@@ -121,13 +113,13 @@ stages:
     outs:
     - path: outputs/frozen/cohort.json
       hash: md5
-      md5: 778ff5c06b21ed06c2068b058fd213d6
-      size: 7043
+      md5: 93ffa2cb3c14d709261afad2e3e56490
+      size: 7040
     - path: outputs/frozen/readiness.json
       hash: md5
-      md5: 7431fa1b457ec6d757610a1c0d4a20c2
-      size: 845
+      md5: 30d9de4c794473e633d5dd0c06a8bb61
+      size: 844
     - path: outputs/frozen/readiness.md
       hash: md5
-      md5: 024977ca75a56383135cd82cf4c14c80
-      size: 625
+      md5: e139cf817f13d3f47355f91b16a31781
+      size: 624

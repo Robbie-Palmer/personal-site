@@ -1,11 +1,12 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { parseArgs } from "node:util";
 
 import { canonicalJson } from "writing-editor-domain/canonical-json";
 import { sha256 } from "writing-editor-domain/suggestions";
+import { z } from "zod";
 
-import { parseArgs } from "./cli-arguments";
 import { resetDirectory, writeJson } from "./files";
 import {
   assertRevisionPair,
@@ -19,6 +20,12 @@ import {
   type DatasetEntry,
   type DatasetManifest,
 } from "./schemas";
+
+const ExtractCliOptionsSchema = z.object({
+  manifest: z.string().trim().min(1),
+  repository: z.string().trim().min(1),
+  output: z.string().trim().min(1),
+}).strict();
 
 export interface ExtractDatasetOptions {
   manifestFile: string;
@@ -76,7 +83,7 @@ function prepareArtifacts(options: ExtractDatasetOptions): {
         },
       },
     };
-  }).sort((left, right) => compareText(left.entry.artifactId, right.entry.artifactId));
+  }).sort((left, right) => compareStrings(left.entry.artifactId, right.entry.artifactId));
 
   return { artifacts, sourceManifestHash: sha256(manifestBytes) };
 }
@@ -106,7 +113,7 @@ export function extractDataset(options: ExtractDatasetOptions): DatasetManifest 
   return dataset;
 }
 
-function compareText(left: string, right: string): number {
+function compareStrings(left: string, right: string): number {
   if (left < right) {
     return -1;
   }
@@ -117,7 +124,14 @@ function compareText(left: string, right: string): number {
 }
 
 function main(): void {
-  const args = parseArgs(process.argv.slice(2), ["manifest", "repository", "output"] as const);
+  const { values } = parseArgs({
+    options: {
+      manifest: { type: "string" },
+      repository: { type: "string" },
+      output: { type: "string" },
+    },
+  });
+  const args = ExtractCliOptionsSchema.parse(values);
   const dataset = extractDataset({
     manifestFile: args.manifest,
     repository: args.repository,

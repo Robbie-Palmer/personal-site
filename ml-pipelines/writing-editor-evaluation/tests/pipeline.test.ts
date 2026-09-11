@@ -101,7 +101,7 @@ function writeParams(file: string, seed = "fixture-seed"): void {
     cohort: {
       frozenAt: "2026-09-09T00:00:00Z",
       seed,
-      split: { train: 0.34, development: 0.33, holdout: 0.33 },
+      split: { train: 0.34, validation: 0.33, holdout: 0.33 },
       requiredArtifactTypes: ["adr", "project-page"],
     },
   });
@@ -247,7 +247,7 @@ describe("writing editor evaluation pipeline", () => {
       .toEqual(result.readiness);
     expect(result.cohort.datasetId).toBe(dataset.datasetId);
     expect(result.cohort.entries).toHaveLength(6);
-    for (const split of ["train", "development", "holdout"] as const) {
+    for (const split of ["train", "validation", "holdout"] as const) {
       const entries = result.cohort.entries.filter((entry) => entry.split === split);
       expect(entries).toHaveLength(2);
       expect(new Set(entries.map(({ artifactType }) => artifactType))).toEqual(

@@ -9,7 +9,6 @@ stages:
       - corpus-manifest.json
       - package.json
       - scripts/extract.sh
-      - src/cli-arguments.ts
       - src/files.ts
       - src/git-revisions.ts
       - src/schemas.ts
@@ -29,7 +28,6 @@ stages:
       - data/corpus/manifest.json
       - package.json
       - scripts/freeze.sh
-      - src/cli-arguments.ts
       - src/files.ts
       - src/schemas.ts
       - src/freeze-cohort.ts

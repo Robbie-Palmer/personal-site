@@ -13,9 +13,9 @@ The committed seed has nine public examples from the repository's Vale cleanup:
 five ADRs and four project pages. The extracted text lives in DVC, not Git.
 Private drafts can join later without changing that storage boundary.
 
-`freeze_cohort` assigns each artifact to train, development, or holdout using a
+`freeze_cohort` assigns each artifact to train, validation, or holdout using a
 seeded hash. It allocates each artifact type separately, so the current
-development and holdout sets both contain an ADR and a project page. The frozen
+validation and holdout sets both contain an ADR and a project page. The frozen
 cohort ID covers the dataset, parameters, and exact membership.
 
 The readiness report stays red until every artifact has a recorded edit
