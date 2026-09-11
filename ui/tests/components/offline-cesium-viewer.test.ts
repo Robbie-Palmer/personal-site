@@ -23,6 +23,10 @@ describe("offline Cesium viewer", () => {
     const cesium = {
       buildModuleUrl: vi.fn((path: string) => `/cesium/${path}`),
       Cartesian3: { fromDegrees: vi.fn(() => "camera-position") },
+      Credit: class {
+        constructor(readonly html: string) {}
+      },
+      CreditDisplay: { cesiumCredit: { html: "default" } },
       EllipsoidTerrainProvider: class {},
       ImageryLayer: { fromProviderAsync: vi.fn(() => "base-layer") },
       TileMapServiceImageryProvider: {
@@ -47,6 +51,7 @@ describe("offline Cesium viewer", () => {
       }),
     );
     expect(setView).toHaveBeenCalledWith({ destination: "camera-position" });
+    expect(cesium.CreditDisplay.cesiumCredit).toEqual({ html: "" });
   });
 
   it("retries with WebGL 1 when WebGL 2 initialization fails", () => {
@@ -72,6 +77,10 @@ describe("offline Cesium viewer", () => {
     const cesium = {
       buildModuleUrl: vi.fn((path: string) => `/cesium/${path}`),
       Cartesian3: { fromDegrees: vi.fn(() => "camera-position") },
+      Credit: class {
+        constructor(readonly html: string) {}
+      },
+      CreditDisplay: { cesiumCredit: { html: "default" } },
       EllipsoidTerrainProvider: class {},
       ImageryLayer: { fromProviderAsync: vi.fn(() => "base-layer") },
       TileMapServiceImageryProvider: {

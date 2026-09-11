@@ -51,7 +51,8 @@ export function createOfflineCesiumViewer(
   container: HTMLElement,
   cesium: CesiumRuntime,
 ): Viewer {
-  const { Cartesian3 } = cesium;
+  const { Cartesian3, Credit, CreditDisplay } = cesium;
+  CreditDisplay.cesiumCredit = new Credit("");
   let viewer: Viewer;
   try {
     viewer = createViewer(container, cesium, false);
