@@ -1,3 +1,4 @@
+import { spawnSync } from "node:child_process";
 import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import vm from "node:vm";
@@ -19,13 +20,23 @@ async function javascriptFiles(directory) {
   return nested.flat();
 }
 
-const files = [
-  ...(await javascriptFiles(nextChunks)),
-  path.join(outputRoot, "cesium", "Cesium.js"),
-];
+const files = await javascriptFiles(nextChunks);
 for (const file of files) {
   const source = await readFile(file, "utf8");
   new vm.Script(source, { filename: path.relative(uiRoot, file) });
 }
 
-console.log(`Parsed ${files.length} exported JavaScript files.`);
+const cesiumModule = path.join(outputRoot, "cesium", "index.js");
+const cesiumSource = await readFile(cesiumModule, "utf8");
+const moduleCheck = spawnSync(
+  process.execPath,
+  ["--input-type=module", "--check"],
+  { encoding: "utf8", input: cesiumSource },
+);
+if (moduleCheck.status !== 0) {
+  throw new Error(
+    `Failed to parse ${path.relative(uiRoot, cesiumModule)}:\n${moduleCheck.stderr}`,
+  );
+}
+
+console.log(`Parsed ${files.length + 1} exported JavaScript files.`);

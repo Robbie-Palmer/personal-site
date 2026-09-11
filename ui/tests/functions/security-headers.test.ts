@@ -53,4 +53,18 @@ describe("Cloudflare Pages security headers", () => {
       expect(rule).not.toContain("frame-ancestors 'none'");
     }
   });
+
+  it("allows Cesium runtime evaluation and workers only on the demo route", () => {
+    const baselinePolicy = header("Content-Security-Policy");
+    expect(baselinePolicy).not.toContain("'unsafe-eval'");
+    expect(baselinePolicy).not.toContain("worker-src");
+
+    const rule = headersFile
+      .split("/technologies/cesiumjs")[1]
+      ?.split("\n\n")[0];
+    expect(rule).toContain("! Content-Security-Policy");
+    expect(rule).toContain("'unsafe-eval'");
+    expect(rule).toContain("worker-src 'self' blob:");
+    expect(rule).toContain("frame-ancestors 'none'");
+  });
 });

@@ -1,39 +1,48 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+const importCesiumRuntime = vi.fn();
+
+vi.mock("@/components/technology/cesium/import-cesium-runtime", () => ({
+  importCesiumRuntime,
+}));
+
 describe("Cesium browser runtime", () => {
   beforeEach(() => {
     vi.resetModules();
-    delete window.Cesium;
     delete window.CESIUM_BASE_URL;
-    document.querySelector("script[data-cesium-runtime]")?.remove();
+    importCesiumRuntime.mockReset();
   });
 
   afterEach(() => {
-    delete window.Cesium;
     delete window.CESIUM_BASE_URL;
-    document.querySelector("script[data-cesium-runtime]")?.remove();
   });
 
-  it("loads the prebuilt API from the self-hosted Cesium path", async () => {
+  it("loads and caches the self-hosted module API", async () => {
     const { loadCesiumRuntime } = await import(
       "@/components/technology/cesium/cesium-runtime"
     );
-    const runtime = { VERSION: "test" } as unknown as NonNullable<
-      Window["Cesium"]
-    >;
+    const runtime = { VERSION: "test" };
+    importCesiumRuntime.mockResolvedValue(runtime);
 
-    const loading = loadCesiumRuntime();
-    const script = document.querySelector<HTMLScriptElement>(
-      "script[data-cesium-runtime]",
-    );
-    if (!script) throw new Error("Expected the Cesium runtime script");
-
-    expect(script.src).toBe(`${window.location.origin}/cesium/Cesium.js`);
+    await expect(loadCesiumRuntime()).resolves.toBe(runtime);
+    await expect(loadCesiumRuntime()).resolves.toBe(runtime);
+    expect(importCesiumRuntime).toHaveBeenCalledTimes(1);
     expect(window.CESIUM_BASE_URL).toBe("/cesium/");
+  });
 
-    window.Cesium = runtime;
-    script.dispatchEvent(new Event("load"));
+  it("retries after the module import fails", async () => {
+    const { loadCesiumRuntime } = await import(
+      "@/components/technology/cesium/cesium-runtime"
+    );
+    const runtime = { VERSION: "test" };
+    importCesiumRuntime
+      .mockRejectedValueOnce(new SyntaxError("Unexpected token"))
+      .mockResolvedValueOnce(runtime);
 
-    await expect(loading).resolves.toBe(runtime);
+    await expect(loadCesiumRuntime()).rejects.toThrow(
+      "The self-hosted Cesium runtime failed to load: Unexpected token",
+    );
+    await expect(loadCesiumRuntime()).resolves.toBe(runtime);
+    expect(importCesiumRuntime).toHaveBeenCalledTimes(2);
   });
 });

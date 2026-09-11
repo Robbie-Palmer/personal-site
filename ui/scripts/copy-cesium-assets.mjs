@@ -7,7 +7,7 @@ const cesiumBuild = path.join(uiRoot, "node_modules", "cesium", "Build", "Cesium
 const destination = path.join(uiRoot, "public", "cesium");
 const runtimeEntries = [
   "Assets",
-  "Cesium.js",
+  "index.js",
   "ThirdParty",
   "Widgets",
   "Workers",
