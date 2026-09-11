@@ -138,8 +138,12 @@ function MissionControls({
             aria-hidden="true"
           />
         )}
-        {running ? "Running" : "Run C++ simulation"}
+        {running ? "Running mission" : "Run mission"}
       </Button>
+      <p className="text-xs text-muted-foreground sm:col-span-4">
+        Run mission recalculates the C++ trace. The controls below play, pause,
+        or inspect that result.
+      </p>
       {error && (
         <p
           id="satellite-swarm-run-error"
@@ -156,7 +160,11 @@ function MissionControls({
 export function DeferredSatelliteSwarmSimulation() {
   const containerRef = useRef<HTMLDivElement>(null);
   const activeRequestRef = useRef<AbortController | null>(null);
-  const [data, setData] = useState<SimulationData | null>(null);
+  const [simulation, setSimulation] = useState<{
+    data: SimulationData;
+    runId: number;
+    startPlaying: boolean;
+  } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [latitude, setLatitude] = useState(
     String(SOUTH_POLE_OBJECTIVE.latitudeDegrees),
@@ -167,28 +175,38 @@ export function DeferredSatelliteSwarmSimulation() {
   const [running, setRunning] = useState(false);
   const [visible, setVisible] = useState(false);
 
-  const run = useCallback(async (objective: SatelliteSwarmObjective) => {
-    activeRequestRef.current?.abort();
-    const controller = new AbortController();
-    activeRequestRef.current = controller;
-    setError(null);
-    setRunning(true);
-    try {
-      const result = await runSatelliteSwarmSimulation(objective, {
-        signal: controller.signal,
-      });
-      if (!controller.signal.aborted) setData(result);
-    } catch (runError) {
-      if (
-        !controller.signal.aborted &&
-        (!(runError instanceof DOMException) || runError.name !== "AbortError")
-      ) {
-        setError(messageFrom(runError));
+  const run = useCallback(
+    async (objective: SatelliteSwarmObjective, startPlaying = false) => {
+      activeRequestRef.current?.abort();
+      const controller = new AbortController();
+      activeRequestRef.current = controller;
+      setError(null);
+      setRunning(true);
+      try {
+        const result = await runSatelliteSwarmSimulation(objective, {
+          signal: controller.signal,
+        });
+        if (!controller.signal.aborted) {
+          setSimulation((current) => ({
+            data: result,
+            runId: (current?.runId ?? 0) + 1,
+            startPlaying,
+          }));
+        }
+      } catch (runError) {
+        if (
+          !controller.signal.aborted &&
+          (!(runError instanceof DOMException) ||
+            runError.name !== "AbortError")
+        ) {
+          setError(messageFrom(runError));
+        }
+      } finally {
+        if (!controller.signal.aborted) setRunning(false);
       }
-    } finally {
-      if (!controller.signal.aborted) setRunning(false);
-    }
-  }, []);
+    },
+    [],
+  );
 
   useEffect(() => {
     const container = containerRef.current;
@@ -224,23 +242,26 @@ export function DeferredSatelliteSwarmSimulation() {
   const resetObjective = () => {
     setLongitude(String(SOUTH_POLE_OBJECTIVE.longitudeDegrees));
     setLatitude(String(SOUTH_POLE_OBJECTIVE.latitudeDegrees));
-    void run(SOUTH_POLE_OBJECTIVE);
+    void run(SOUTH_POLE_OBJECTIVE, true);
   };
 
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    void run({
-      latitudeDegrees: Number(latitude),
-      longitudeDegrees: Number(longitude),
-    });
+    void run(
+      {
+        latitudeDegrees: Number(latitude),
+        longitudeDegrees: Number(longitude),
+      },
+      true,
+    );
   };
 
   return (
     <div ref={containerRef} aria-busy={running}>
-      {data && visible ? (
+      {simulation && visible ? (
         <SatelliteSwarmSimulation
-          key={`${data.objective.longitudeDegrees}:${data.objective.latitudeDegrees}`}
-          data={data}
+          key={simulation.runId}
+          data={simulation.data}
           executionMode="webassembly"
           missionControls={
             <MissionControls
@@ -254,6 +275,7 @@ export function DeferredSatelliteSwarmSimulation() {
               running={running}
             />
           }
+          startPlaying={simulation.startPlaying}
         />
       ) : (
         <Placeholder

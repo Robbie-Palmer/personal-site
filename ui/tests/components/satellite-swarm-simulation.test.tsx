@@ -209,9 +209,7 @@ describe("SatelliteSwarmSimulation", () => {
     await user.type(longitude, "14.25");
     await user.clear(latitude);
     await user.type(latitude, "-37.5");
-    await user.click(
-      screen.getByRole("button", { name: "Run C++ simulation" }),
-    );
+    await user.click(screen.getByRole("button", { name: "Run mission" }));
 
     await waitFor(() =>
       expect(workerClient.run).toHaveBeenLastCalledWith(
@@ -219,6 +217,22 @@ describe("SatelliteSwarmSimulation", () => {
         { signal: expect.any(AbortSignal) },
       ),
     );
+    expect(screen.getByRole("button", { name: "Pause replay" })).toBeEnabled();
+  });
+
+  it("restarts playback when rerunning the same objective", async () => {
+    const user = userEvent.setup();
+    vi.stubGlobal("IntersectionObserver", undefined);
+    render(<DeferredSatelliteSwarmSimulation />);
+    expect(await screen.findByText("trace v1 · 0 ms")).toBeVisible();
+
+    await user.click(screen.getByRole("button", { name: "Next frame" }));
+    expect(screen.getByText("trace v1 · 100 ms")).toBeVisible();
+
+    await user.click(screen.getByRole("button", { name: "Run mission" }));
+
+    expect(await screen.findByText("trace v1 · 0 ms")).toBeVisible();
+    expect(screen.getByRole("button", { name: "Pause replay" })).toBeEnabled();
   });
 
   it("steps through the native state and event record", async () => {
@@ -241,6 +255,9 @@ describe("SatelliteSwarmSimulation", () => {
     expect(screen.getByText("active")).toBeVisible();
     expect(screen.getByText(/assigned mission 1 to node 1/i)).toBeVisible();
     expect(screen.getByText("trace v1 · 100 ms")).toBeVisible();
+    expect(
+      screen.getByRole("button", { name: "Replay mission" }),
+    ).toBeEnabled();
   });
 
   it("disables autoplay when reduced motion is requested", () => {

@@ -38,15 +38,17 @@ export interface SatelliteSwarmSimulationProps {
   data: SimulationData;
   executionMode?: "recorded" | "webassembly";
   missionControls?: ReactNode;
+  startPlaying?: boolean;
 }
 
 export function SatelliteSwarmSimulation({
   data,
   executionMode = "recorded",
   missionControls,
+  startPlaying = false,
 }: Readonly<SatelliteSwarmSimulationProps>) {
   const [frameIndex, setFrameIndex] = useState(0);
-  const [playing, setPlaying] = useState(false);
+  const [playing, setPlaying] = useState(startPlaying);
   const [selectedNodeId, setSelectedNodeId] = useState(0);
   const [startupFailure, setStartupFailure] = useState<string | null>(null);
   const reducedMotion = useReducedMotion();
@@ -61,6 +63,13 @@ export function SatelliteSwarmSimulation({
   );
   const stopAt = data.frames.length - 1;
   const isSouthPoleMission = data.objective.latitudeDegrees === -90;
+  const replayAction = playing
+    ? { accessibleName: "Pause replay", label: "Pause" }
+    : frameIndex >= stopAt
+      ? { accessibleName: "Replay mission", label: "Replay" }
+      : frameIndex > 0
+        ? { accessibleName: "Resume replay", label: "Resume" }
+        : { accessibleName: "Play replay", label: "Play" };
 
   useEffect(() => {
     if (reducedMotion) {
@@ -173,7 +182,7 @@ export function SatelliteSwarmSimulation({
               </Button>
               <Button
                 type="button"
-                aria-label={playing ? "Pause replay" : "Play replay"}
+                aria-label={replayAction.accessibleName}
                 disabled={reducedMotion}
                 onClick={() => {
                   if (frameIndex >= stopAt) setFrameIndex(0);
@@ -185,7 +194,7 @@ export function SatelliteSwarmSimulation({
                 ) : (
                   <Play className="h-4 w-4" />
                 )}
-                <span className="ml-2">{playing ? "Pause" : "Play"}</span>
+                <span className="ml-2">{replayAction.label}</span>
               </Button>
               <Button
                 type="button"
