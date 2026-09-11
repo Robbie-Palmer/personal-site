@@ -1,7 +1,6 @@
 "use client";
 
 import type { Viewer } from "cesium";
-import "cesium/Build/Cesium/Widgets/widgets.css";
 import { useEffect, useRef, useState } from "react";
 import {
   CESIUM_REFERENCE_POINTS,

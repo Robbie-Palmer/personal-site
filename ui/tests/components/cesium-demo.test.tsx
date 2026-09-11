@@ -34,6 +34,11 @@ describe("CesiumDemo", () => {
     render(<CesiumDemo />);
 
     expect(screen.getByText("Cesium canvas")).toBeVisible();
+    expect(
+      document.querySelector(
+        'link[href="/cesium/Widgets/widgets.css"][rel="stylesheet"]',
+      ),
+    ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Global" })).toHaveAttribute(
       "aria-pressed",
       "true",

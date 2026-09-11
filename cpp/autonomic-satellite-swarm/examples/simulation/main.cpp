@@ -75,7 +75,7 @@ SimulationTrace demonstrationTrace() {
   for (uint32_t now_ms = 0U; now_ms <= 120U; now_ms += 10U) {
     SimulationFrame frame;
     frame.now_ms = now_ms;
-    const uint32_t step_index = now_ms / 10U;
+    const auto step_index = now_ms / 10U;
     const float step = static_cast<float>(step_index);
     frame.satellite_updates = {
         {0U, satelliteAt(-0.5F + step * 0.06F, 60.0F - step * 0.25F)},
@@ -91,78 +91,91 @@ SimulationTrace demonstrationTrace() {
 }
 
 void writeCoordinate(const Coordinate& coordinate) {
-  std::cout << "{\"longitudeDegrees\":" << coordinate.longitude_degrees
-            << ",\"latitudeDegrees\":" << coordinate.latitude_degrees << '}';
+  std::cout << R"({"longitudeDegrees":)" << coordinate.longitude_degrees << R"(,"latitudeDegrees":)"
+            << coordinate.latitude_degrees << '}';
 }
 
 // The fixture drift check validates this output byte for byte. Exclude the
 // allocator and exception branches attributed to these stream expressions.
 // GCOVR_EXCL_BR_START
+void writeBrowserNode(const NodeObservation& node) {
+  std::cout << R"({"id":)" << static_cast<unsigned int>(node.node_id) << R"(,"state":")"
+            << stateName(node.state) << R"(","position":)";
+  writeCoordinate(node.satellite.coordinate);
+  std::cout << R"(,"orbitalRadiusMetres":)" << node.satellite.orbital_radius_metres
+            << R"(,"candidacyScore":)" << static_cast<unsigned int>(node.candidacy_score)
+            << R"(,"missionId":)" << node.mission_id << R"(,"assignedNode":)";
+  if (node.assigned_node == kBroadcastNode) {
+    std::cout << "null";
+  } else {
+    std::cout << static_cast<unsigned int>(node.assigned_node);
+  }
+  std::cout << '}';
+}
+
+void writeBrowserFrame(const FrameObservation& frame) {
+  std::cout << R"(    {"timeMs":)" << frame.now_ms << R"(,"nodes":[)";
+  for (std::size_t node_index = 0; node_index < frame.nodes.size(); ++node_index) {
+    writeBrowserNode(frame.nodes[node_index]);
+    if (node_index + 1U != frame.nodes.size()) {
+      std::cout << ',';
+    }
+  }
+  std::cout << "]}";
+}
+
+void writeBrowserEvent(const SimulationEvent& event) {
+  std::cout << R"(    {"type":")" << eventName(event.type) << R"(","timeMs":)" << event.now_ms
+            << R"(,"nodeId":)" << static_cast<unsigned int>(event.node_id);
+  if (event.type == SimulationEventType::MissionCommand) {
+    std::cout << R"(,"accepted":)" << (event.accepted ? "true" : "false") << R"(,"objective":)";
+    writeCoordinate(event.objective);
+  } else if (event.type == SimulationEventType::MessageSent) {
+    std::cout << R"(,"message":{"type":")" << messageName(event.message.type) << R"(","origin":)"
+              << static_cast<unsigned int>(event.message.origin) << R"(,"target":)";
+    if (event.message.target == kBroadcastNode) {
+      std::cout << "null";
+    } else {
+      std::cout << static_cast<unsigned int>(event.message.target);
+    }
+    std::cout << R"(,"missionId":)" << event.message.mission_id << R"(,"score":)"
+              << static_cast<unsigned int>(event.message.score) << '}';
+  } else {
+    std::cout << R"(,"previousState":")" << stateName(event.previous_state)
+              << R"(","currentState":")" << stateName(event.current_state) << '"';
+  }
+  std::cout << '}';
+}
+
 void writeBrowserSimulation(const SimulationTrace& trace, const SimulationResult& result) {
-  const Coordinate objective = trace.frames.front().mission_commands.front().objective;
-  std::cout << "{\n  \"schemaVersion\": 1,\n"
-               "  \"traceVersion\": "
-            << static_cast<unsigned int>(trace.version)
-            << ",\n  \"scenario\": \"three-node-scripted-pass\",\n"
-               "  \"source\": \"native C++ SimulationTrace\",\n"
-               "  \"positionModel\": \"scripted simulation data; not orbit propagation\",\n"
-               "  \"objective\": ";
+  const auto objective = trace.frames.front().mission_commands.front().objective;
+  std::cout << R"({
+  "schemaVersion": 1,
+  "traceVersion": )"
+            << static_cast<unsigned int>(trace.version) << R"(,
+  "scenario": "three-node-scripted-pass",
+  "source": "native C++ SimulationTrace",
+  "positionModel": "scripted simulation data; not orbit propagation",
+  "objective": )";
   writeCoordinate(objective);
-  std::cout << ",\n  \"frames\": [\n";
+  std::cout << R"(,
+  "frames": [
+)";
 
   constexpr std::array<std::size_t, 4> kBrowserFrameIndices = {0U, 1U, 10U, 12U};
   for (std::size_t output_index = 0; output_index < kBrowserFrameIndices.size(); ++output_index) {
-    const FrameObservation& frame = result.frames.at(kBrowserFrameIndices[output_index]);
-    std::cout << "    {\"timeMs\":" << frame.now_ms << ",\"nodes\":[";
-    for (std::size_t node_index = 0; node_index < frame.nodes.size(); ++node_index) {
-      const NodeObservation& node = frame.nodes[node_index];
-      std::cout << "{\"id\":" << static_cast<unsigned int>(node.node_id) << ",\"state\":\""
-                << stateName(node.state) << "\",\"position\":";
-      writeCoordinate(node.satellite.coordinate);
-      std::cout << ",\"orbitalRadiusMetres\":" << node.satellite.orbital_radius_metres
-                << ",\"candidacyScore\":" << static_cast<unsigned int>(node.candidacy_score)
-                << ",\"missionId\":" << node.mission_id << ",\"assignedNode\":";
-      if (node.assigned_node == kBroadcastNode) {
-        std::cout << "null";
-      } else {
-        std::cout << static_cast<unsigned int>(node.assigned_node);
-      }
-      std::cout << '}';
-      if (node_index + 1U != frame.nodes.size()) {
-        std::cout << ',';
-      }
-    }
-    std::cout << "]}";
+    writeBrowserFrame(result.frames.at(kBrowserFrameIndices[output_index]));
     if (output_index + 1U != kBrowserFrameIndices.size()) {
       std::cout << ',';
     }
     std::cout << '\n';
   }
 
-  std::cout << "  ],\n  \"events\": [\n";
+  std::cout << R"(  ],
+  "events": [
+)";
   for (std::size_t event_index = 0; event_index < result.events.size(); ++event_index) {
-    const SimulationEvent& event = result.events[event_index];
-    std::cout << "    {\"type\":\"" << eventName(event.type) << "\",\"timeMs\":" << event.now_ms
-              << ",\"nodeId\":" << static_cast<unsigned int>(event.node_id);
-    if (event.type == SimulationEventType::MissionCommand) {
-      std::cout << ",\"accepted\":" << (event.accepted ? "true" : "false") << ",\"objective\":";
-      writeCoordinate(event.objective);
-    } else if (event.type == SimulationEventType::MessageSent) {
-      std::cout << ",\"message\":{\"type\":\"" << messageName(event.message.type)
-                << "\",\"origin\":" << static_cast<unsigned int>(event.message.origin)
-                << ",\"target\":";
-      if (event.message.target == kBroadcastNode) {
-        std::cout << "null";
-      } else {
-        std::cout << static_cast<unsigned int>(event.message.target);
-      }
-      std::cout << ",\"missionId\":" << event.message.mission_id
-                << ",\"score\":" << static_cast<unsigned int>(event.message.score) << '}';
-    } else {
-      std::cout << ",\"previousState\":\"" << stateName(event.previous_state)
-                << "\",\"currentState\":\"" << stateName(event.current_state) << '"';
-    }
-    std::cout << '}';
+    writeBrowserEvent(result.events[event_index]);
     if (event_index + 1U != result.events.size()) {
       std::cout << ',';
     }

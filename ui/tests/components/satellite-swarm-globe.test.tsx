@@ -1,0 +1,225 @@
+import { render, waitFor } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { SatelliteSwarmGlobe } from "@/components/projects/satellite-swarm/satellite-swarm-globe";
+import { parseSatelliteSwarmSimulation } from "@/lib/api/satellite-swarm-simulation";
+
+const runtimeMocks = vi.hoisted(() => ({
+  createViewer: vi.fn(),
+  load: vi.fn(),
+}));
+
+vi.mock("@/components/technology/cesium/cesium-runtime", () => ({
+  loadCesiumRuntime: runtimeMocks.load,
+}));
+
+vi.mock("@/components/technology/cesium/offline-viewer", () => ({
+  createOfflineCesiumViewer: runtimeMocks.createViewer,
+}));
+
+const data = parseSatelliteSwarmSimulation({
+  schemaVersion: 1,
+  traceVersion: 1,
+  scenario: "test",
+  source: "native C++ SimulationTrace",
+  positionModel: "scripted",
+  objective: { longitudeDegrees: 4, latitudeDegrees: -55 },
+  frames: [
+    {
+      timeMs: 0,
+      nodes: [
+        {
+          id: 0,
+          state: "leading",
+          position: { longitudeDegrees: 0, latitudeDegrees: 10 },
+          orbitalRadiusMetres: 6_750_000,
+          candidacyScore: 60,
+          missionId: 1,
+          assignedNode: null,
+        },
+        {
+          id: 1,
+          state: "awaiting assignment",
+          position: { longitudeDegrees: 2, latitudeDegrees: 0 },
+          orbitalRadiusMetres: 6_750_000,
+          candidacyScore: 81,
+          missionId: 1,
+          assignedNode: null,
+        },
+      ],
+    },
+    {
+      timeMs: 100,
+      nodes: [
+        {
+          id: 0,
+          state: "idle",
+          position: { longitudeDegrees: 1, latitudeDegrees: 9 },
+          orbitalRadiusMetres: 6_750_000,
+          candidacyScore: 60,
+          missionId: 1,
+          assignedNode: 1,
+        },
+        {
+          id: 1,
+          state: "active",
+          position: { longitudeDegrees: 3, latitudeDegrees: -1 },
+          orbitalRadiusMetres: 6_750_000,
+          candidacyScore: 81,
+          missionId: 1,
+          assignedNode: 1,
+        },
+      ],
+    },
+  ],
+  events: [],
+});
+
+function createHarness(supportsLabels = true) {
+  const add = vi.fn();
+  const destroy = vi.fn();
+  const removeAll = vi.fn();
+  const requestRender = vi.fn();
+  const fromDegrees = vi.fn((...coordinates: number[]) => coordinates);
+  const fromDegreesArrayHeights = vi.fn((coordinates: number[]) => coordinates);
+  const color = { withAlpha: vi.fn((alpha: number) => ({ alpha })) };
+  const viewer = {
+    destroy,
+    entities: { add, removeAll },
+    isDestroyed: vi.fn(() => false),
+    scene: { requestRender },
+  };
+  const runtime = {
+    ArcType: { NONE: "none" },
+    Cartesian2: class {
+      constructor(
+        readonly x: number,
+        readonly y: number,
+      ) {}
+    },
+    Cartesian3: { fromDegrees, fromDegreesArrayHeights },
+    Color: {
+      BLACK: "black",
+      WHITE: { withAlpha: vi.fn((alpha: number) => ({ alpha })) },
+      fromCssColorString: vi.fn(() => color),
+    },
+    Ellipsoid: { WGS84: { maximumRadius: 6_378_137 } },
+    FeatureDetection: { supportsWebgl2: vi.fn(() => supportsLabels) },
+    HeightReference: { CLAMP_TO_GROUND: "ground" },
+    HorizontalOrigin: { LEFT: "left" },
+    LabelStyle: { FILL_AND_OUTLINE: "fill-and-outline" },
+    NearFarScalar: class {
+      constructor(
+        readonly near: number,
+        readonly nearValue: number,
+        readonly far: number,
+        readonly farValue: number,
+      ) {}
+    },
+    VerticalOrigin: { CENTER: "center" },
+  };
+  runtimeMocks.load.mockResolvedValue(runtime);
+  runtimeMocks.createViewer.mockReturnValue(viewer);
+  return {
+    add,
+    destroy,
+    fromDegreesArrayHeights,
+    removeAll,
+    requestRender,
+  };
+}
+
+describe("SatelliteSwarmGlobe", () => {
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("renders nodes, tracks, the mission objective, and message links", async () => {
+    const harness = createHarness();
+    const onFailure = vi.fn();
+    const { rerender, unmount } = render(
+      <SatelliteSwarmGlobe
+        currentFrameIndex={0}
+        data={data}
+        events={[]}
+        onFailure={onFailure}
+        selectedNodeId={0}
+      />,
+    );
+
+    await waitFor(() => expect(harness.requestRender).toHaveBeenCalledOnce());
+    expect(harness.add).toHaveBeenCalledTimes(3);
+    expect(harness.add.mock.calls[0]?.[0]).toEqual(
+      expect.objectContaining({ id: "node-0", label: expect.any(Object) }),
+    );
+
+    const events = [
+      {
+        type: "message-sent" as const,
+        timeMs: 100,
+        nodeId: 0,
+        message: {
+          type: "mission-assignment" as const,
+          origin: 0,
+          target: 1,
+          missionId: 1,
+          score: 0,
+        },
+      },
+    ];
+    rerender(
+      <SatelliteSwarmGlobe
+        currentFrameIndex={1}
+        data={data}
+        events={events}
+        onFailure={onFailure}
+        selectedNodeId={1}
+      />,
+    );
+
+    await waitFor(() => expect(harness.requestRender).toHaveBeenCalledTimes(2));
+    expect(harness.removeAll).toHaveBeenCalledTimes(2);
+    expect(harness.fromDegreesArrayHeights).toHaveBeenCalledTimes(2);
+    expect(harness.add).toHaveBeenCalledTimes(9);
+
+    unmount();
+    expect(harness.destroy).toHaveBeenCalledOnce();
+    expect(onFailure).not.toHaveBeenCalled();
+  });
+
+  it("omits labels when WebGL 2 is unavailable", async () => {
+    const harness = createHarness(false);
+    render(
+      <SatelliteSwarmGlobe
+        currentFrameIndex={0}
+        data={data}
+        events={[]}
+        onFailure={vi.fn()}
+        selectedNodeId={0}
+      />,
+    );
+
+    await waitFor(() => expect(harness.requestRender).toHaveBeenCalledOnce());
+    expect(harness.add.mock.calls[0]?.[0]).toEqual(
+      expect.objectContaining({ label: undefined }),
+    );
+  });
+
+  it("reports runtime startup failures", async () => {
+    const error = new Error("runtime unavailable");
+    runtimeMocks.load.mockRejectedValue(error);
+    const onFailure = vi.fn();
+
+    render(
+      <SatelliteSwarmGlobe
+        currentFrameIndex={0}
+        data={data}
+        events={[]}
+        onFailure={onFailure}
+        selectedNodeId={0}
+      />,
+    );
+
+    await waitFor(() => expect(onFailure).toHaveBeenCalledWith(error));
+    expect(runtimeMocks.createViewer).not.toHaveBeenCalled();
+  });
+});

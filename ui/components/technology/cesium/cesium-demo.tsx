@@ -33,6 +33,7 @@ export function CesiumDemo() {
 
   return (
     <Card className="gap-0 overflow-hidden p-0">
+      <link rel="stylesheet" href="/cesium/Widgets/widgets.css" />
       <div className="space-y-1 border-b p-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h3 className="text-lg font-semibold">Offline WGS84 globe</h3>

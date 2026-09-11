@@ -1,7 +1,6 @@
 "use client";
 
 import type { Cartesian3, Viewer } from "cesium";
-import "cesium/Build/Cesium/Widgets/widgets.css";
 import { useEffect, useRef, useState } from "react";
 import {
   type CesiumRuntime,
@@ -99,6 +98,171 @@ function addMessageLinks(
   }
 }
 
+function trackPositions(
+  data: SatelliteSwarmSimulation,
+  currentFrameIndex: number,
+  nodeId: number,
+  earthRadiusMetres: number,
+): number[] {
+  return data.frames.slice(0, currentFrameIndex + 1).flatMap((frame) => {
+    const node = frame.nodes.find((candidate) => candidate.id === nodeId);
+    return node
+      ? [
+          node.position.longitudeDegrees,
+          node.position.latitudeDegrees,
+          Math.max(100_000, node.orbitalRadiusMetres - earthRadiusMetres),
+        ]
+      : [];
+  });
+}
+
+interface FrameRenderContext {
+  cesium: CesiumRuntime;
+  currentFrameIndex: number;
+  data: SatelliteSwarmSimulation;
+  earthRadiusMetres: number;
+  selectedNodeId: number;
+  supportsLabels: boolean;
+  viewer: Viewer;
+}
+
+function addFrameNode(
+  context: FrameRenderContext,
+  node: SatelliteSwarmFrame["nodes"][number],
+) {
+  const {
+    cesium,
+    currentFrameIndex,
+    data,
+    earthRadiusMetres,
+    selectedNodeId,
+    supportsLabels,
+    viewer,
+  } = context;
+  const {
+    Cartesian2,
+    Cartesian3,
+    Color,
+    HorizontalOrigin,
+    LabelStyle,
+    NearFarScalar,
+    VerticalOrigin,
+  } = cesium;
+  const nodeColor = Color.fromCssColorString(
+    STATE_COLOR_VALUES[node.state] ?? "#ffffff",
+  );
+  const selected = node.id === selectedNodeId;
+  viewer.entities.add({
+    id: `node-${node.id}`,
+    label: supportsLabels
+      ? {
+          distanceDisplayCondition: undefined,
+          fillColor: Color.WHITE,
+          font: selected ? "600 16px sans-serif" : "500 14px sans-serif",
+          horizontalOrigin: HorizontalOrigin.LEFT,
+          outlineColor: Color.BLACK,
+          outlineWidth: 3,
+          pixelOffset: new Cartesian2(14, 0),
+          scaleByDistance: new NearFarScalar(1_000_000, 1, 30_000_000, 0.7),
+          style: LabelStyle.FILL_AND_OUTLINE,
+          text: `Node ${node.id} · ${node.state}`,
+          verticalOrigin: VerticalOrigin.CENTER,
+        }
+      : undefined,
+    point: {
+      color: nodeColor,
+      outlineColor: selected ? Color.WHITE : Color.BLACK,
+      outlineWidth: selected ? 3 : 1,
+      pixelSize: selected ? 15 : 11,
+    },
+    position: Cartesian3.fromDegrees(
+      node.position.longitudeDegrees,
+      node.position.latitudeDegrees,
+      Math.max(100_000, node.orbitalRadiusMetres - earthRadiusMetres),
+    ),
+  });
+
+  const positions = trackPositions(
+    data,
+    currentFrameIndex,
+    node.id,
+    earthRadiusMetres,
+  );
+  if (positions.length < 6) return;
+  viewer.entities.add({
+    polyline: {
+      material: nodeColor.withAlpha(0.55),
+      positions: Cartesian3.fromDegreesArrayHeights(positions),
+      width: selected ? 3 : 1.5,
+    },
+  });
+}
+
+function addMissionObjective(
+  cesium: CesiumRuntime,
+  viewer: Viewer,
+  data: SatelliteSwarmSimulation,
+  supportsLabels: boolean,
+) {
+  const { Cartesian2, Cartesian3, Color, HeightReference, LabelStyle } = cesium;
+  viewer.entities.add({
+    ellipse: {
+      height: 0,
+      heightReference: HeightReference.CLAMP_TO_GROUND,
+      material: Color.fromCssColorString("#f43f5e").withAlpha(0.32),
+      outline: true,
+      outlineColor: Color.fromCssColorString("#fb7185"),
+      semiMajorAxis: 250_000,
+      semiMinorAxis: 250_000,
+    },
+    label: supportsLabels
+      ? {
+          fillColor: Color.WHITE,
+          font: "600 14px sans-serif",
+          outlineColor: Color.BLACK,
+          outlineWidth: 3,
+          pixelOffset: new Cartesian2(0, -22),
+          style: LabelStyle.FILL_AND_OUTLINE,
+          text: "Mission objective",
+        }
+      : undefined,
+    position: Cartesian3.fromDegrees(
+      data.objective.longitudeDegrees,
+      data.objective.latitudeDegrees,
+    ),
+  });
+}
+
+function renderFrame(
+  cesium: CesiumRuntime,
+  viewer: Viewer,
+  data: SatelliteSwarmSimulation,
+  frame: SatelliteSwarmFrame,
+  events: readonly SatelliteSwarmEvent[],
+  currentFrameIndex: number,
+  selectedNodeId: number,
+) {
+  const earthRadiusMetres = cesium.Ellipsoid.WGS84.maximumRadius;
+  const supportsLabels = cesium.FeatureDetection.supportsWebgl2(viewer.scene);
+  const context = {
+    cesium,
+    currentFrameIndex,
+    data,
+    earthRadiusMetres,
+    selectedNodeId,
+    supportsLabels,
+    viewer,
+  };
+
+  viewer.entities.removeAll();
+  for (const node of frame.nodes) {
+    addFrameNode(context, node);
+  }
+  addMissionObjective(cesium, viewer, data, supportsLabels);
+  addMessageLinks(cesium, viewer, frame, events, earthRadiusMetres);
+  viewer.scene.requestRender();
+}
+
 export interface SatelliteSwarmGlobeProps {
   currentFrameIndex: number;
   data: SatelliteSwarmSimulation;
@@ -150,113 +314,15 @@ export function SatelliteSwarmGlobe({
     const cesium = cesiumRef.current;
     const frame = data.frames[currentFrameIndex];
     if (!viewerReady || !viewer || !cesium || !frame) return;
-    const {
-      Cartesian2,
-      Cartesian3,
-      Color,
-      Ellipsoid,
-      FeatureDetection,
-      HeightReference,
-      HorizontalOrigin,
-      LabelStyle,
-      NearFarScalar,
-      VerticalOrigin,
-    } = cesium;
-    const earthRadiusMetres = Ellipsoid.WGS84.maximumRadius;
-    const supportsLabels = FeatureDetection.supportsWebgl2(viewer.scene);
-
-    viewer.entities.removeAll();
-    for (const node of frame.nodes) {
-      const nodeColor = Color.fromCssColorString(
-        STATE_COLOR_VALUES[node.state] ?? "#ffffff",
-      );
-      const selected = node.id === selectedNodeId;
-      viewer.entities.add({
-        id: `node-${node.id}`,
-        label: supportsLabels
-          ? {
-              distanceDisplayCondition: undefined,
-              fillColor: Color.WHITE,
-              font: selected ? "600 16px sans-serif" : "500 14px sans-serif",
-              horizontalOrigin: HorizontalOrigin.LEFT,
-              outlineColor: Color.BLACK,
-              outlineWidth: 3,
-              pixelOffset: new Cartesian2(14, 0),
-              scaleByDistance: new NearFarScalar(1_000_000, 1, 30_000_000, 0.7),
-              style: LabelStyle.FILL_AND_OUTLINE,
-              text: `Node ${node.id} · ${node.state}`,
-              verticalOrigin: VerticalOrigin.CENTER,
-            }
-          : undefined,
-        point: {
-          color: nodeColor,
-          outlineColor: selected ? Color.WHITE : Color.BLACK,
-          outlineWidth: selected ? 3 : 1,
-          pixelSize: selected ? 15 : 11,
-        },
-        position: Cartesian3.fromDegrees(
-          node.position.longitudeDegrees,
-          node.position.latitudeDegrees,
-          Math.max(100_000, node.orbitalRadiusMetres - earthRadiusMetres),
-        ),
-      });
-
-      const trackPositions = data.frames
-        .slice(0, currentFrameIndex + 1)
-        .flatMap((candidateFrame) => {
-          const candidate = candidateFrame.nodes.find(
-            (candidateNode) => candidateNode.id === node.id,
-          );
-          return candidate
-            ? [
-                candidate.position.longitudeDegrees,
-                candidate.position.latitudeDegrees,
-                Math.max(
-                  100_000,
-                  candidate.orbitalRadiusMetres - earthRadiusMetres,
-                ),
-              ]
-            : [];
-        });
-      if (trackPositions.length >= 6) {
-        viewer.entities.add({
-          polyline: {
-            material: nodeColor.withAlpha(0.55),
-            positions: Cartesian3.fromDegreesArrayHeights(trackPositions),
-            width: selected ? 3 : 1.5,
-          },
-        });
-      }
-    }
-
-    viewer.entities.add({
-      ellipse: {
-        height: 0,
-        heightReference: HeightReference.CLAMP_TO_GROUND,
-        material: Color.fromCssColorString("#f43f5e").withAlpha(0.32),
-        outline: true,
-        outlineColor: Color.fromCssColorString("#fb7185"),
-        semiMajorAxis: 250_000,
-        semiMinorAxis: 250_000,
-      },
-      label: supportsLabels
-        ? {
-            fillColor: Color.WHITE,
-            font: "600 14px sans-serif",
-            outlineColor: Color.BLACK,
-            outlineWidth: 3,
-            pixelOffset: new Cartesian2(0, -22),
-            style: LabelStyle.FILL_AND_OUTLINE,
-            text: "Mission objective",
-          }
-        : undefined,
-      position: Cartesian3.fromDegrees(
-        data.objective.longitudeDegrees,
-        data.objective.latitudeDegrees,
-      ),
-    });
-    addMessageLinks(cesium, viewer, frame, events, earthRadiusMetres);
-    viewer.scene.requestRender();
+    renderFrame(
+      cesium,
+      viewer,
+      data,
+      frame,
+      events,
+      currentFrameIndex,
+      selectedNodeId,
+    );
   }, [currentFrameIndex, data, events, selectedNodeId, viewerReady]);
 
   return (

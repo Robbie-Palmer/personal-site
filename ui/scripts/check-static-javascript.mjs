@@ -1,7 +1,6 @@
 import { spawnSync } from "node:child_process";
 import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
-import vm from "node:vm";
 import { fileURLToPath } from "node:url";
 
 const uiRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -22,8 +21,14 @@ async function javascriptFiles(directory) {
 
 const files = await javascriptFiles(nextChunks);
 for (const file of files) {
-  const source = await readFile(file, "utf8");
-  new vm.Script(source, { filename: path.relative(uiRoot, file) });
+  const check = spawnSync(process.execPath, ["--check", file], {
+    encoding: "utf8",
+  });
+  if (check.status !== 0) {
+    throw new Error(
+      `Failed to parse ${path.relative(uiRoot, file)}:\n${check.stderr}`,
+    );
+  }
 }
 
 const cesiumModule = path.join(outputRoot, "cesium", "index.js");

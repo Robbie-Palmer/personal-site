@@ -134,6 +134,11 @@ describe("SatelliteSwarmSimulation", () => {
     render(<SatelliteSwarmSimulation data={data} />);
 
     expect(screen.getByText("Cesium globe")).toBeVisible();
+    expect(
+      document.querySelector(
+        'link[href="/cesium/Widgets/widgets.css"][rel="stylesheet"]',
+      ),
+    ).toBeInTheDocument();
     expect(screen.getByText("awaiting assignment")).toBeVisible();
     expect(screen.queryByText(/assigned mission 1/i)).toBeNull();
 
