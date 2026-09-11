@@ -90,7 +90,7 @@ TEST_CASE("a frame snapshot feeds both candidacy scoring and node observation") 
 TEST_CASE("malformed simulation traces fail before a controller runs") {
   SECTION("unsupported version") {
     SimulationTrace trace = demonstrationTrace();
-    trace.version = 2U;
+    trace.version = 1U;
     CHECK_THROWS_AS(runSimulationTrace(trace), std::invalid_argument);
   }
 
@@ -233,4 +233,162 @@ TEST_CASE("browser serialization rejects incomplete traces and results") {
 
 TEST_CASE("the browser demonstration rejects an invalid objective") {
   CHECK_THROWS_AS(makeBrowserDemonstrationTrace(Coordinate(0.0F, 91.0F)), std::invalid_argument);
+}
+
+TEST_CASE("a scripted assignment loss preserves each node's conflicting knowledge") {
+  SimulationTrace trace = demonstrationTrace();
+  trace.frames[10].delivery_faults.push_back(
+      {0U, 1U, MessageType::MissionAssignment, DeliveryFaultType::Drop, 0U});
+
+  const SimulationResult result = runSimulationTrace(trace);
+
+  const FrameObservation& final_frame = result.frames.back();
+  CHECK(final_frame.nodes[0].assigned_node == 1U);
+  CHECK(final_frame.nodes[0].state == ControllerState::Idle);
+  CHECK(final_frame.nodes[1].assigned_node == kBroadcastNode);
+  CHECK(final_frame.nodes[1].state == ControllerState::AwaitingAssignment);
+  CHECK(final_frame.nodes[2].assigned_node == 1U);
+
+  bool found_drop = false;
+  for (const SimulationEvent& event : result.events) {
+    if (event.type == SimulationEventType::MessageDropped && event.node_id == 0U &&
+        event.recipient_node == 1U && event.message.type == MessageType::MissionAssignment) {
+      CHECK(event.drop_reason == MessageDropReason::Scripted);
+      found_drop = true;
+    }
+  }
+  CHECK(found_drop);
+}
+
+TEST_CASE("delayed messages are released on a later frame in replay order") {
+  SimulationTrace trace = demonstrationTrace();
+  trace.frames[0].delivery_faults.push_back(
+      {1U, 0U, MessageType::Candidacy, DeliveryFaultType::Delay, 50U});
+
+  const SimulationResult result = runSimulationTrace(trace);
+
+  std::size_t delayed_index = result.events.size();
+  std::size_t delivered_index = result.events.size();
+  for (std::size_t index = 0; index < result.events.size(); ++index) {
+    const SimulationEvent& event = result.events[index];
+    if (event.node_id != 1U || event.recipient_node != 0U) {
+      continue;
+    }
+    if (event.type == SimulationEventType::MessageDelayed) {
+      delayed_index = index;
+      CHECK(event.now_ms == 0U);
+      CHECK(event.deliver_at_ms == 50U);
+    } else if (event.type == SimulationEventType::DelayedMessageDelivered) {
+      delivered_index = index;
+      CHECK(event.now_ms == 50U);
+    }
+  }
+  CHECK(delayed_index < delivered_index);
+  CHECK(result.frames.back().nodes[1].state == ControllerState::Active);
+}
+
+TEST_CASE("a duplicated delivery is replayable without duplicating the send") {
+  SimulationTrace trace = demonstrationTrace();
+  trace.frames[0].delivery_faults.push_back(
+      {1U, 0U, MessageType::Candidacy, DeliveryFaultType::Duplicate, 0U});
+
+  const SimulationResult result = runSimulationTrace(trace);
+
+  std::size_t candidate_sends = 0U;
+  std::size_t acknowledgements_to_node_one = 0U;
+  std::size_t duplicate_events = 0U;
+  for (const SimulationEvent& event : result.events) {
+    if (event.type == SimulationEventType::MessageSent && event.node_id == 1U &&
+        event.message.type == MessageType::Candidacy) {
+      ++candidate_sends;
+    }
+    if (event.type == SimulationEventType::MessageSent && event.node_id == 0U &&
+        event.message.type == MessageType::Acknowledgement && event.message.target == 1U) {
+      ++acknowledgements_to_node_one;
+    }
+    if (event.type == SimulationEventType::MessageDuplicated && event.node_id == 1U &&
+        event.recipient_node == 0U) {
+      ++duplicate_events;
+    }
+  }
+  CHECK(candidate_sends == 1U);
+  CHECK(acknowledgements_to_node_one == 2U);
+  CHECK(duplicate_events == 1U);
+}
+
+TEST_CASE("directed link changes model an asymmetric partition") {
+  SimulationTrace trace = demonstrationTrace();
+  trace.frames[0].link_updates.push_back({0U, 1U, false});
+
+  const SimulationResult result = runSimulationTrace(trace);
+
+  CHECK(result.frames.back().nodes[0].assigned_node == 2U);
+  CHECK(result.frames.back().nodes[1].mission_id == 0U);
+  CHECK(result.frames.back().nodes[2].state == ControllerState::Active);
+
+  bool found_link_drop = false;
+  for (const SimulationEvent& event : result.events) {
+    if (event.type == SimulationEventType::MessageDropped && event.node_id == 0U &&
+        event.recipient_node == 1U) {
+      CHECK(event.drop_reason == MessageDropReason::LinkUnavailable);
+      found_link_drop = true;
+    }
+  }
+  CHECK(found_link_drop);
+}
+
+TEST_CASE("node reset records the current protocol's loss of latched state") {
+  SimulationTrace trace = demonstrationTrace();
+  trace.frames[0].health_updates.push_back({1U, HealthStatus::Fatal});
+  trace.frames[1].health_updates.push_back({1U, HealthStatus::Nominal});
+  trace.frames[1].node_resets.push_back({1U});
+
+  const SimulationResult result = runSimulationTrace(trace);
+
+  CHECK(result.frames[0].nodes[1].state == ControllerState::SafeDisabled);
+  CHECK(result.frames[1].nodes[1].state == ControllerState::Idle);
+  bool found_reset = false;
+  for (const SimulationEvent& event : result.events) {
+    if (event.type == SimulationEventType::NodeReset && event.node_id == 1U) {
+      CHECK(event.previous_state == ControllerState::SafeDisabled);
+      CHECK(event.current_state == ControllerState::Idle);
+      found_reset = true;
+    }
+  }
+  CHECK(found_reset);
+}
+
+TEST_CASE("invalid network fault inputs fail deterministically") {
+  SECTION("self-directed link update") {
+    SimulationTrace trace = demonstrationTrace();
+    trace.frames[0].link_updates.push_back({1U, 1U, false});
+    CHECK_THROWS_AS(runSimulationTrace(trace), std::invalid_argument);
+  }
+
+  SECTION("zero-length delay") {
+    SimulationTrace trace = demonstrationTrace();
+    trace.frames[0].delivery_faults.push_back(
+        {1U, 0U, MessageType::Candidacy, DeliveryFaultType::Delay, 0U});
+    CHECK_THROWS_AS(runSimulationTrace(trace), std::invalid_argument);
+  }
+
+  SECTION("unmatched delivery fault") {
+    SimulationTrace trace = demonstrationTrace();
+    trace.frames[0].delivery_faults.push_back(
+        {2U, 1U, MessageType::MissionAssignment, DeliveryFaultType::Drop, 0U});
+    CHECK_THROWS_AS(runSimulationTrace(trace), std::invalid_argument);
+  }
+}
+
+TEST_CASE("the browser assignment-loss scenario records the dropped delivery") {
+  const SimulationTrace trace =
+      makeBrowserDemonstrationTrace(Coordinate(0.0F, -90.0F), BrowserScenario::LostAssignment);
+  const SimulationResult result = runSimulationTrace(trace);
+  const std::string json =
+      serializeBrowserSimulation(trace, result, BrowserScenario::LostAssignment);
+
+  CHECK(json.find(R"("scenario": "three-node-assignment-loss")") != std::string::npos);
+  CHECK(json.find(R"("type":"message-dropped")") != std::string::npos);
+  CHECK(json.find(R"("recipientNode":1,"reason":"scripted-drop")") != std::string::npos);
+  CHECK(result.frames.back().nodes[1].state == ControllerState::Idle);
 }

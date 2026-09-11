@@ -2,6 +2,7 @@
 
 #include "satellite_swarm/historical_orbital_scorer.hpp"
 
+#include <array>
 #include <cstddef>
 #include <deque>
 #include <limits>
@@ -17,15 +18,38 @@ class SimulationTransport;
 
 class SimulationBus {
 public:
-  explicit SimulationBus(std::vector<SimulationEvent>& events) : events_(events) {}
+  explicit SimulationBus(std::vector<SimulationEvent>& events) : events_(events) {
+    for (auto& sender_links : links_) {
+      sender_links.fill(true);
+    }
+  }
 
   void attach(SimulationTransport& transport);
-  void setTime(uint32_t now_ms) { now_ms_ = now_ms; }
+  void beginFrame(const SimulationFrame& frame);
+  void endFrame() const;
   void broadcast(NodeId sender, const Message& message);
+  void reset(NodeId node_id);
 
 private:
+  struct PendingDelivery {
+    uint32_t deliver_at_ms = 0U;
+    NodeId sender = 0U;
+    NodeId recipient = 0U;
+    Message message{};
+  };
+
+  void deliver(NodeId sender, NodeId recipient, const Message& message);
+  void deliverPending();
+  void recordDeliveryEvent(SimulationEventType type, NodeId sender, NodeId recipient,
+                           const Message& message, uint32_t deliver_at_ms = 0U,
+                           MessageDropReason drop_reason = MessageDropReason::Scripted);
+  DeliveryFault* matchingFault(NodeId sender, NodeId recipient, MessageType message_type);
+
   std::vector<SimulationTransport*> transports_;
   std::vector<SimulationEvent>& events_;
+  std::array<std::array<bool, kMaximumNodes>, kMaximumNodes> links_{};
+  std::vector<DeliveryFault> delivery_faults_;
+  std::vector<PendingDelivery> pending_deliveries_;
   uint32_t now_ms_ = 0U;
 };
 
@@ -51,6 +75,7 @@ public:
 
   NodeId nodeId() const { return node_id_; }
   void deliver(const Message& message) { inbox_.push_back(message); }
+  void reset() { inbox_.clear(); }
 
 private:
   NodeId node_id_;
@@ -59,6 +84,114 @@ private:
 };
 
 void SimulationBus::attach(SimulationTransport& transport) { transports_.push_back(&transport); }
+
+void SimulationBus::beginFrame(const SimulationFrame& frame) {
+  now_ms_ = frame.now_ms;
+  delivery_faults_ = frame.delivery_faults;
+  for (const LinkUpdate& update : frame.link_updates) {
+    links_[update.sender][update.recipient] = update.connected;
+    SimulationEvent event;
+    event.type = SimulationEventType::LinkChanged;
+    event.now_ms = now_ms_;
+    event.node_id = update.sender;
+    event.recipient_node = update.recipient;
+    event.connected = update.connected;
+    events_.push_back(event);
+  }
+  deliverPending();
+}
+
+void SimulationBus::endFrame() const {
+  if (!delivery_faults_.empty()) {
+    throw std::invalid_argument("simulation delivery fault did not match a message");
+  }
+}
+
+void SimulationBus::reset(NodeId node_id) {
+  transports_.at(static_cast<std::size_t>(node_id))->reset();
+}
+
+void SimulationBus::recordDeliveryEvent(SimulationEventType type, NodeId sender, NodeId recipient,
+                                        const Message& message, uint32_t deliver_at_ms,
+                                        MessageDropReason drop_reason) {
+  SimulationEvent event;
+  event.type = type;
+  event.now_ms = now_ms_;
+  event.node_id = sender;
+  event.recipient_node = recipient;
+  event.message = message;
+  event.deliver_at_ms = deliver_at_ms;
+  event.drop_reason = drop_reason;
+  events_.push_back(event);
+}
+
+DeliveryFault* SimulationBus::matchingFault(NodeId sender, NodeId recipient,
+                                            MessageType message_type) {
+  for (DeliveryFault& fault : delivery_faults_) {
+    if (fault.sender == sender && fault.recipient == recipient &&
+        fault.message_type == message_type) {
+      return &fault;
+    }
+  }
+  return nullptr;
+}
+
+void SimulationBus::deliver(NodeId sender, NodeId recipient, const Message& message) {
+  if (!links_[sender][recipient]) {
+    recordDeliveryEvent(SimulationEventType::MessageDropped, sender, recipient, message, 0U,
+                        MessageDropReason::LinkUnavailable);
+    return;
+  }
+
+  DeliveryFault* fault = matchingFault(sender, recipient, message.type);
+  if (fault == nullptr) {
+    transports_.at(static_cast<std::size_t>(recipient))->deliver(message);
+    return;
+  }
+
+  const DeliveryFault selected = *fault;
+  delivery_faults_.erase(delivery_faults_.begin() + (fault - delivery_faults_.data()));
+  switch (selected.type) {
+  case DeliveryFaultType::Drop:
+    recordDeliveryEvent(SimulationEventType::MessageDropped, sender, recipient, message);
+    break;
+  case DeliveryFaultType::Delay: {
+    const uint32_t deliver_at_ms = now_ms_ + selected.delay_ms;
+    pending_deliveries_.push_back({deliver_at_ms, sender, recipient, message});
+    recordDeliveryEvent(SimulationEventType::MessageDelayed, sender, recipient, message,
+                        deliver_at_ms);
+    break;
+  }
+  case DeliveryFaultType::Duplicate:
+    transports_.at(static_cast<std::size_t>(recipient))->deliver(message);
+    transports_.at(static_cast<std::size_t>(recipient))->deliver(message);
+    recordDeliveryEvent(SimulationEventType::MessageDuplicated, sender, recipient, message);
+    break;
+  }
+}
+
+void SimulationBus::deliverPending() {
+  auto pending = pending_deliveries_.begin();
+  while (pending != pending_deliveries_.end()) {
+    const uint32_t elapsed_since_delivery = now_ms_ - pending->deliver_at_ms;
+    const auto maximum_unambiguous_step =
+        static_cast<uint32_t>(std::numeric_limits<int32_t>::max());
+    if (elapsed_since_delivery > maximum_unambiguous_step) {
+      ++pending;
+      continue;
+    }
+
+    if (links_[pending->sender][pending->recipient]) {
+      transports_.at(static_cast<std::size_t>(pending->recipient))->deliver(pending->message);
+      recordDeliveryEvent(SimulationEventType::DelayedMessageDelivered, pending->sender,
+                          pending->recipient, pending->message);
+    } else {
+      recordDeliveryEvent(SimulationEventType::MessageDropped, pending->sender, pending->recipient,
+                          pending->message, 0U, MessageDropReason::LinkUnavailable);
+    }
+    pending = pending_deliveries_.erase(pending);
+  }
+}
 
 void SimulationBus::broadcast(NodeId sender, const Message& message) {
   SimulationEvent event;
@@ -70,7 +203,7 @@ void SimulationBus::broadcast(NodeId sender, const Message& message) {
 
   for (SimulationTransport* transport : transports_) {
     if (transport->nodeId() != sender) {
-      transport->deliver(message);
+      deliver(sender, transport->nodeId(), message);
     }
   }
 }
@@ -87,6 +220,16 @@ private:
 bool isKnown(HealthStatus health) {
   return health == HealthStatus::Nominal || health == HealthStatus::Quiescent ||
          health == HealthStatus::Fatal;
+}
+
+bool isKnown(MessageType type) {
+  return type == MessageType::MissionRequest || type == MessageType::Candidacy ||
+         type == MessageType::Acknowledgement || type == MessageType::MissionAssignment;
+}
+
+bool isKnown(DeliveryFaultType type) {
+  return type == DeliveryFaultType::Drop || type == DeliveryFaultType::Delay ||
+         type == DeliveryFaultType::Duplicate;
 }
 
 void validateNodeId(NodeId node_id, std::size_t node_count) {
@@ -107,6 +250,30 @@ void validateFrame(const SimulationFrame& frame, std::size_t node_count) {
     if (!isKnown(update.health)) {
       throw std::invalid_argument("simulation frame has an invalid health state");
     }
+  }
+  for (const LinkUpdate& update : frame.link_updates) {
+    validateNodeId(update.sender, node_count);
+    validateNodeId(update.recipient, node_count);
+    if (update.sender == update.recipient) {
+      throw std::invalid_argument("simulation link update cannot target its sender");
+    }
+  }
+  for (const DeliveryFault& fault : frame.delivery_faults) {
+    validateNodeId(fault.sender, node_count);
+    validateNodeId(fault.recipient, node_count);
+    if (fault.sender == fault.recipient || !isKnown(fault.message_type) || !isKnown(fault.type)) {
+      throw std::invalid_argument("simulation frame has an invalid delivery fault");
+    }
+    const auto maximum_unambiguous_delay =
+        static_cast<uint32_t>(std::numeric_limits<int32_t>::max());
+    if ((fault.type == DeliveryFaultType::Delay &&
+         (fault.delay_ms == 0U || fault.delay_ms > maximum_unambiguous_delay)) ||
+        (fault.type != DeliveryFaultType::Delay && fault.delay_ms != 0U)) {
+      throw std::invalid_argument("simulation delivery fault has an invalid delay");
+    }
+  }
+  for (const NodeReset& reset : frame.node_resets) {
+    validateNodeId(reset.node_id, node_count);
   }
   for (const MissionCommand& command : frame.mission_commands) {
     validateNodeId(command.leader, node_count);
@@ -204,7 +371,7 @@ SimulationResult runSimulationTrace(const SimulationTrace& trace) {
   }
 
   for (const SimulationFrame& frame : trace.frames) {
-    bus.setTime(frame.now_ms);
+    bus.beginFrame(frame);
 
     for (const HealthUpdate& update : frame.health_updates) {
       health_monitors.at(static_cast<std::size_t>(update.node_id))->set(update.health);
@@ -214,6 +381,23 @@ SimulationResult runSimulationTrace(const SimulationTrace& trace) {
                ->updateSatelliteSnapshot(update.satellite)) {
         throw std::invalid_argument("validated satellite update was rejected");
       }
+    }
+    for (const NodeReset& reset : frame.node_resets) {
+      const std::size_t index = static_cast<std::size_t>(reset.node_id);
+      const ControllerState previous = controllers[index]->state();
+      const SatelliteSnapshot satellite = controllers[index]->satelliteSnapshot();
+      bus.reset(reset.node_id);
+      controllers[index] =
+          std::make_unique<SwarmController>(reset.node_id, satellite, *transports[index],
+                                            *health_monitors[index], scorer, controller_config);
+
+      SimulationEvent event;
+      event.type = SimulationEventType::NodeReset;
+      event.now_ms = frame.now_ms;
+      event.node_id = reset.node_id;
+      event.previous_state = previous;
+      event.current_state = controllers[index]->state();
+      result.events.push_back(event);
     }
     for (const MissionCommand& command : frame.mission_commands) {
       SimulationEvent event;
@@ -236,6 +420,7 @@ SimulationResult runSimulationTrace(const SimulationTrace& trace) {
       recordStateChange(result.events, frame.now_ms, controller->nodeId(), previous,
                         controller->state());
     }
+    bus.endFrame();
 
     FrameObservation observation;
     observation.now_ms = frame.now_ms;

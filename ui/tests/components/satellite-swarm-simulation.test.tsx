@@ -52,8 +52,8 @@ vi.mock("@/lib/browser/satellite-swarm-worker-client", () => ({
 }));
 
 const data = parseSatelliteSwarmSimulation({
-  schemaVersion: 1,
-  traceVersion: 1,
+  schemaVersion: 2,
+  traceVersion: 2,
   scenario: "test",
   source: "portable C++ SimulationTrace",
   positionModel: "scripted simulation data; not orbit propagation",
@@ -153,10 +153,10 @@ describe("SatelliteSwarmSimulation", () => {
 
     render(<DeferredSatelliteSwarmSimulation />);
 
-    expect(await screen.findByText("trace v1 · 0 ms")).toBeVisible();
+    expect(await screen.findByText("trace v2 · 0 ms")).toBeVisible();
     expect(workerClient.run).toHaveBeenCalledWith(
       { latitudeDegrees: -90, longitudeDegrees: 0 },
-      { signal: expect.any(AbortSignal) },
+      { scenario: "nominal", signal: expect.any(AbortSignal) },
     );
     expect(screen.getByText(/ran as WebAssembly/i)).toBeVisible();
   });
@@ -188,7 +188,7 @@ describe("SatelliteSwarmSimulation", () => {
       );
     });
 
-    expect(await screen.findByText("trace v1 · 0 ms")).toBeVisible();
+    expect(await screen.findByText("trace v2 · 0 ms")).toBeVisible();
     expect(disconnect).toHaveBeenCalledOnce();
 
     act(() => {
@@ -198,7 +198,7 @@ describe("SatelliteSwarmSimulation", () => {
       );
     });
 
-    expect(screen.getByText("trace v1 · 0 ms")).toBeVisible();
+    expect(screen.getByText("trace v2 · 0 ms")).toBeVisible();
   });
 
   it("ignores an intersection notification queued before unmount", () => {
@@ -221,7 +221,7 @@ describe("SatelliteSwarmSimulation", () => {
     const user = userEvent.setup();
     vi.stubGlobal("IntersectionObserver", undefined);
     render(<DeferredSatelliteSwarmSimulation />);
-    expect(await screen.findByText("trace v1 · 0 ms")).toBeVisible();
+    expect(await screen.findByText("trace v2 · 0 ms")).toBeVisible();
 
     const longitude = screen.getByRole("spinbutton", { name: "Longitude" });
     const latitude = screen.getByRole("spinbutton", { name: "Latitude" });
@@ -234,24 +234,47 @@ describe("SatelliteSwarmSimulation", () => {
     await waitFor(() =>
       expect(workerClient.run).toHaveBeenLastCalledWith(
         { latitudeDegrees: -37.5, longitudeDegrees: 14.25 },
-        { signal: expect.any(AbortSignal) },
+        { scenario: "nominal", signal: expect.any(AbortSignal) },
       ),
     );
     expect(screen.getByRole("button", { name: "Pause replay" })).toBeEnabled();
+  });
+
+  it("runs the deterministic assignment-loss scenario", async () => {
+    const user = userEvent.setup();
+    vi.stubGlobal("IntersectionObserver", undefined);
+    render(<DeferredSatelliteSwarmSimulation />);
+    expect(await screen.findByText("trace v2 · 0 ms")).toBeVisible();
+
+    await user.selectOptions(
+      screen.getByRole("combobox", { name: "Network scenario" }),
+      "lost-assignment",
+    );
+    await user.click(screen.getByRole("button", { name: "Run mission" }));
+
+    await waitFor(() =>
+      expect(workerClient.run).toHaveBeenLastCalledWith(
+        { latitudeDegrees: -90, longitudeDegrees: 0 },
+        {
+          scenario: "lost-assignment",
+          signal: expect.any(AbortSignal),
+        },
+      ),
+    );
   });
 
   it("restarts playback when rerunning the same objective", async () => {
     const user = userEvent.setup();
     vi.stubGlobal("IntersectionObserver", undefined);
     render(<DeferredSatelliteSwarmSimulation />);
-    expect(await screen.findByText("trace v1 · 0 ms")).toBeVisible();
+    expect(await screen.findByText("trace v2 · 0 ms")).toBeVisible();
 
     await user.click(screen.getByRole("button", { name: "Next frame" }));
-    expect(screen.getByText("trace v1 · 100 ms")).toBeVisible();
+    expect(screen.getByText("trace v2 · 100 ms")).toBeVisible();
 
     await user.click(screen.getByRole("button", { name: "Run mission" }));
 
-    expect(await screen.findByText("trace v1 · 0 ms")).toBeVisible();
+    expect(await screen.findByText("trace v2 · 0 ms")).toBeVisible();
     expect(screen.getByRole("button", { name: "Pause replay" })).toBeEnabled();
   });
 
@@ -259,7 +282,7 @@ describe("SatelliteSwarmSimulation", () => {
     const user = userEvent.setup();
     vi.stubGlobal("IntersectionObserver", undefined);
     render(<DeferredSatelliteSwarmSimulation />);
-    expect(await screen.findByText("trace v1 · 0 ms")).toBeVisible();
+    expect(await screen.findByText("trace v2 · 0 ms")).toBeVisible();
 
     let rejectEarlier: ((error: unknown) => void) | undefined;
     let resolveLatest: ((value: typeof data) => void) | undefined;
@@ -310,7 +333,7 @@ describe("SatelliteSwarmSimulation", () => {
 
     expect(screen.getByText("active")).toBeVisible();
     expect(screen.getByText(/assigned mission 1 to node 1/i)).toBeVisible();
-    expect(screen.getByText("trace v1 · 100 ms")).toBeVisible();
+    expect(screen.getByText("trace v2 · 100 ms")).toBeVisible();
     expect(
       screen.getByRole("button", { name: "Replay mission" }),
     ).toBeEnabled();

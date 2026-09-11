@@ -69,6 +69,43 @@ const messageSentEventSchema = z.object({
   type: z.literal("message-sent"),
 });
 
+const deliveryEventFields = {
+  message: messageSchema,
+  nodeId: z.number().int().min(0).max(15),
+  recipientNode: z.number().int().min(0).max(15),
+  timeMs: z.number().int().nonnegative(),
+};
+
+const messageDroppedEventSchema = z.object({
+  ...deliveryEventFields,
+  reason: z.enum(["link-unavailable", "scripted-drop"]),
+  type: z.literal("message-dropped"),
+});
+
+const messageDelayedEventSchema = z.object({
+  ...deliveryEventFields,
+  deliverAtMs: z.number().int().nonnegative(),
+  type: z.literal("message-delayed"),
+});
+
+const messageDuplicatedEventSchema = z.object({
+  ...deliveryEventFields,
+  type: z.literal("message-duplicated"),
+});
+
+const delayedMessageDeliveredEventSchema = z.object({
+  ...deliveryEventFields,
+  type: z.literal("delayed-message-delivered"),
+});
+
+const linkChangedEventSchema = z.object({
+  connected: z.boolean(),
+  nodeId: z.number().int().min(0).max(15),
+  recipientNode: z.number().int().min(0).max(15),
+  timeMs: z.number().int().nonnegative(),
+  type: z.literal("link-changed"),
+});
+
 const stateChangedEventSchema = z.object({
   currentState: controllerStateSchema,
   nodeId: z.number().int().min(0).max(15),
@@ -77,11 +114,25 @@ const stateChangedEventSchema = z.object({
   type: z.literal("state-changed"),
 });
 
+const nodeResetEventSchema = z.object({
+  currentState: controllerStateSchema,
+  nodeId: z.number().int().min(0).max(15),
+  previousState: controllerStateSchema,
+  timeMs: z.number().int().nonnegative(),
+  type: z.literal("node-reset"),
+});
+
 const simulationSchema = z.object({
   events: z.array(
     z.discriminatedUnion("type", [
       missionCommandEventSchema,
       messageSentEventSchema,
+      messageDroppedEventSchema,
+      messageDelayedEventSchema,
+      messageDuplicatedEventSchema,
+      delayedMessageDeliveredEventSchema,
+      linkChangedEventSchema,
+      nodeResetEventSchema,
       stateChangedEventSchema,
     ]),
   ),
@@ -96,9 +147,9 @@ const simulationSchema = z.object({
   objective: coordinateSchema,
   positionModel: z.string().min(1),
   scenario: z.string().min(1),
-  schemaVersion: z.literal(1),
+  schemaVersion: z.literal(2),
   source: z.literal("portable C++ SimulationTrace"),
-  traceVersion: z.literal(1),
+  traceVersion: z.literal(2),
 });
 
 export type SatelliteSwarmSimulation = z.infer<typeof simulationSchema>;
@@ -119,6 +170,28 @@ export function describeSatelliteSwarmEvent(
   }
   if (event.type === "state-changed") {
     return `Node ${event.nodeId} changed from ${event.previousState} to ${event.currentState}.`;
+  }
+  if (event.type === "node-reset") {
+    return `Node ${event.nodeId} reset from ${event.previousState} to ${event.currentState}.`;
+  }
+  if (event.type === "link-changed") {
+    return `Link ${event.nodeId} to node ${event.recipientNode} ${event.connected ? "connected" : "disconnected"}.`;
+  }
+  if (event.type === "message-dropped") {
+    const reason =
+      event.reason === "link-unavailable"
+        ? "because the link was unavailable"
+        : "by the fault schedule";
+    return `Node ${event.nodeId}'s ${event.message.type} to node ${event.recipientNode} was dropped ${reason}.`;
+  }
+  if (event.type === "message-delayed") {
+    return `Node ${event.nodeId}'s ${event.message.type} to node ${event.recipientNode} was delayed until ${event.deliverAtMs} ms.`;
+  }
+  if (event.type === "message-duplicated") {
+    return `Node ${event.nodeId}'s ${event.message.type} was delivered twice to node ${event.recipientNode}.`;
+  }
+  if (event.type === "delayed-message-delivered") {
+    return `Node ${event.nodeId}'s delayed ${event.message.type} reached node ${event.recipientNode}.`;
   }
 
   const { message } = event;

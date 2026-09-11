@@ -4,9 +4,9 @@
 #include <string>
 
 TEST_CASE("the browser bridge exposes a versioned JSON result") {
-  CHECK(satellite_swarm_browser_api_version() == 1U);
+  CHECK(satellite_swarm_browser_api_version() == 2U);
 
-  const char* result = satellite_swarm_run_demonstration(12.5F, -45.25F);
+  const char* result = satellite_swarm_run_demonstration(12.5F, -45.25F, 0U);
   REQUIRE(result != nullptr);
   const std::string json(result);
   CHECK(json.find(R"("source": "portable C++ SimulationTrace")") != std::string::npos);
@@ -16,10 +16,13 @@ TEST_CASE("the browser bridge exposes a versioned JSON result") {
 }
 
 TEST_CASE("the browser bridge reports invalid input without unwinding across C") {
-  CHECK(satellite_swarm_run_demonstration(181.0F, 0.0F) == nullptr);
+  CHECK(satellite_swarm_run_demonstration(181.0F, 0.0F, 0U) == nullptr);
   CHECK(std::string(satellite_swarm_last_error()) ==
         "mission objective is outside the coordinate bounds");
 
-  CHECK(satellite_swarm_run_demonstration(0.0F, -90.0F) != nullptr);
+  CHECK(satellite_swarm_run_demonstration(0.0F, -90.0F, 0U) != nullptr);
   CHECK(std::string(satellite_swarm_last_error()).empty());
+
+  CHECK(satellite_swarm_run_demonstration(0.0F, -90.0F, 99U) == nullptr);
+  CHECK(std::string(satellite_swarm_last_error()) == "unknown browser simulation scenario");
 }

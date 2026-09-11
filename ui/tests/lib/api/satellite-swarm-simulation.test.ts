@@ -5,8 +5,8 @@ import {
 } from "@/lib/api/satellite-swarm-simulation";
 
 const validRecord = {
-  schemaVersion: 1,
-  traceVersion: 1,
+  schemaVersion: 2,
+  traceVersion: 2,
   scenario: "test",
   source: "portable C++ SimulationTrace",
   positionModel: "scripted",
@@ -57,7 +57,7 @@ describe("satellite swarm simulation records", () => {
 
   it("rejects unknown versions and invalid coordinates", () => {
     expect(() =>
-      parseSatelliteSwarmSimulation({ ...validRecord, schemaVersion: 2 }),
+      parseSatelliteSwarmSimulation({ ...validRecord, schemaVersion: 1 }),
     ).toThrow();
     expect(() =>
       parseSatelliteSwarmSimulation({
@@ -65,6 +65,34 @@ describe("satellite swarm simulation records", () => {
         objective: { longitudeDegrees: 0, latitudeDegrees: -91 },
       }),
     ).toThrow();
+  });
+
+  it("describes deterministic network fault evidence", () => {
+    const record = parseSatelliteSwarmSimulation({
+      ...validRecord,
+      events: [
+        {
+          message: {
+            missionId: 1,
+            origin: 0,
+            score: 0,
+            target: 1,
+            type: "mission-assignment",
+          },
+          nodeId: 0,
+          reason: "scripted-drop",
+          recipientNode: 1,
+          timeMs: 100,
+          type: "message-dropped",
+        },
+      ],
+    });
+    const [event] = record.events;
+    if (!event) throw new Error("Expected one simulation event");
+
+    expect(describeSatelliteSwarmEvent(event)).toBe(
+      "Node 0's mission-assignment to node 1 was dropped by the fault schedule.",
+    );
   });
 
   it("accepts only mission requests as broadcasts", () => {

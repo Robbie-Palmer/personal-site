@@ -1,6 +1,6 @@
 {
-  "schemaVersion": 1,
-  "traceVersion": 1,
+  "schemaVersion": 2,
+  "traceVersion": 2,
   "scenario": "three-node-objective-pass",
   "source": "portable C++ SimulationTrace",
   "positionModel": "scripted simulation data; not orbit propagation",
