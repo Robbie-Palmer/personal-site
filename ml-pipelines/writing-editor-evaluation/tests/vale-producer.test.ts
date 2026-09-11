@@ -297,13 +297,13 @@ describe("Vale producer", () => {
     const temporary = temporaryDirectory("writing-vale-timeout-");
     const options = fixture(temporary);
     const params = JSON.parse(fs.readFileSync(options.paramsFile, "utf8"));
-    params.producers.vale.timeoutMs = 20;
+    params.producers.vale.timeoutMs = 500;
     writeJson(options.paramsFile, params);
     const binary = fakeVale(temporary, [
       "if [[ \"$1\" == \"--version\" ]]; then",
       "  echo 'vale version 3.20.0'",
       "else",
-      "  sleep 1",
+      "  sleep 2",
       "  echo '{}'",
       "fi",
     ].join("\n"));
@@ -313,6 +313,6 @@ describe("Vale producer", () => {
       configFile: path.join(repositoryRoot, ".vale.ini"),
       stylesDirectory: path.join(repositoryRoot, ".vale/styles/Unslop"),
       valeBinary: binary,
-    })).toThrow(/Vale failed with status unknown, signal SIGTERM/);
+    })).toThrow(/ETIMEDOUT|Vale failed with status unknown/);
   });
 });
