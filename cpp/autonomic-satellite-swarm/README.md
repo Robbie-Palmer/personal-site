@@ -44,10 +44,13 @@ node 1: active
 node 2: idle
 ```
 
-`simulate:json` prints a versioned state, position, message, and transition record prepared for the
-project's future CesiumJS replay. The paths come from scripted simulation inputs. Orbit propagation
-remains outside this demo. The prepared browser adapter replays native output. WebAssembly execution
-remains a later integration.
+The [browser demonstration](https://robbiepalmer.me/satellite-swarm) draws the checked native trace
+on a self-hosted CesiumJS globe.
+
+`simulate:json` prints the versioned state, position, message, and transition record consumed by the
+CesiumJS replay. The paths come from scripted simulation inputs. Orbit propagation remains outside
+this demo. The browser adapter replays native output. WebAssembly execution remains a later
+integration.
 
 Run every host, firmware, formatting, lint, and spelling check with:
 
