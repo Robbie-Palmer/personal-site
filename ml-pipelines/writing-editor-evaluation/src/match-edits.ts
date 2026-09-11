@@ -23,9 +23,9 @@ import {
 } from "./schemas";
 
 const require = createRequire(import.meta.url);
-const DiffPackageSchema = z.object({
+const DiffPackageSchema = z.looseObject({
   version: z.string().regex(/^\d+\.\d+\.\d+$/),
-}).passthrough();
+});
 const JSDIFF_VERSION = DiffPackageSchema.parse(require("diff/package.json")).version;
 const MATCHER_REVISION = 1;
 const ALGORITHM_VERSION = `jsdiff@${JSDIFF_VERSION}+matcher.${MATCHER_REVISION}`;
@@ -186,21 +186,30 @@ function ambiguityReason(
 function mapSourceBoundary(position: number, hunks: EditHunk[]): number {
   let byteDelta = 0;
   for (const hunk of hunks) {
-    if (position < hunk.source.startByte) return position + byteDelta;
-    if (hunk.source.startByte === hunk.source.endByte) {
-      if (position === hunk.source.startByte) {
-        throw new Error(`cannot map source boundary ${position} across an insertion`);
-      }
-    } else {
-      if (position === hunk.source.startByte) return hunk.published.startByte;
-      if (position < hunk.source.endByte) {
-        throw new Error(`cannot map source boundary ${position} inside an edit hunk`);
-      }
-      if (position === hunk.source.endByte) return hunk.published.endByte;
-    }
+    const mapped = mapSourceBoundaryAtHunk(position, hunk, byteDelta);
+    if (mapped !== null) return mapped;
     byteDelta = hunk.published.endByte - hunk.source.endByte;
   }
   return position + byteDelta;
+}
+
+function mapSourceBoundaryAtHunk(
+  position: number,
+  hunk: EditHunk,
+  byteDelta: number,
+): number | null {
+  if (position < hunk.source.startByte) return position + byteDelta;
+  if (hunk.source.startByte === hunk.source.endByte) {
+    if (position === hunk.source.startByte) {
+      throw new Error(`cannot map source boundary ${position} across an insertion`);
+    }
+    return null;
+  }
+  if (position === hunk.source.startByte) return hunk.published.startByte;
+  if (position < hunk.source.endByte) {
+    throw new Error(`cannot map source boundary ${position} inside an edit hunk`);
+  }
+  return position === hunk.source.endByte ? hunk.published.endByte : null;
 }
 
 function utf8Slice(value: string, startByte: number, endByte: number): string {
@@ -213,12 +222,13 @@ export function matchFindingToEdits(
   published: string,
 ): FindingEditMatch {
   const relevant = hunks.filter((hunk) => sourceRangeOverlapsFinding(hunk, finding));
-  const reasons = relevant.map((hunk) => ambiguityReason(hunk, finding));
-  const reason = reasons.includes("edit-crosses-finding-boundary")
-    ? "edit-crosses-finding-boundary"
-    : reasons.includes("edit-touches-finding-boundary")
-      ? "edit-touches-finding-boundary"
-      : null;
+  const reasons = new Set(relevant.map((hunk) => ambiguityReason(hunk, finding)));
+  let reason: FindingEditMatch["reason"] = null;
+  if (reasons.has("edit-crosses-finding-boundary")) {
+    reason = "edit-crosses-finding-boundary";
+  } else if (reasons.has("edit-touches-finding-boundary")) {
+    reason = "edit-touches-finding-boundary";
+  }
 
   if (reason !== null) {
     return {

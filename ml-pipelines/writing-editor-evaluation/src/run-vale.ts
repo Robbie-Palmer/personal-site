@@ -37,14 +37,14 @@ const ValeCliOptionsSchema = z.object({
   vale: z.string().trim().min(1).default("vale"),
 }).strict();
 
-const ValeAlertSchema = z.object({
+const ValeAlertSchema = z.looseObject({
   Span: z.tuple([z.number().int().positive(), z.number().int().positive()]),
   Check: z.string().trim().min(1),
   Message: z.string().trim().min(1),
   Severity: ValeSeveritySchema,
   Match: z.string().min(1),
   Line: z.number().int().positive(),
-}).passthrough().superRefine((alert, context) => {
+}).superRefine((alert, context) => {
   if (alert.Span[1] < alert.Span[0]) {
     context.addIssue({
       code: "custom",
@@ -114,11 +114,26 @@ function sourcePosition(source: string, alert: ValeAlert): SourcePosition {
   };
 }
 
+function kebabCase(value: string): string {
+  const characters = Array.from(value);
+  return characters.map((character, index) => {
+    if (index === 0 || character.toLowerCase() === character) return character;
+    const previous = characters[index - 1];
+    const next = characters[index + 1];
+    const previousIsLowercaseOrDigit = previous !== undefined &&
+      (previous.toUpperCase() !== previous || /\d/.test(previous));
+    const previousIsUppercase = previous !== undefined &&
+      previous.toLowerCase() !== previous;
+    const nextIsLowercase = next !== undefined && next.toUpperCase() !== next;
+    const startsWordAfterInitialism = previousIsUppercase && nextIsLowercase;
+    return previousIsLowercaseOrDigit || startsWordAfterInitialism
+      ? `-${character}`
+      : character;
+  }).join("").toLowerCase();
+}
+
 function category(check: string): string {
-  return `style/${check.split(".").map((part) => part
-    .replace(/([A-Z]+)([A-Z][a-z])/g, "$1-$2")
-    .replace(/([a-z0-9])([A-Z])/g, "$1-$2")
-    .toLowerCase()).join("/")}`;
+  return `style/${check.split(".").map(kebabCase).join("/")}`;
 }
 
 export function valeAlertToFinding(

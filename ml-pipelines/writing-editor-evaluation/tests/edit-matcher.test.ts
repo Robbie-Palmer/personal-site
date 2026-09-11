@@ -281,4 +281,44 @@ describe("published edit matcher", () => {
     writeJson(mismatched.findingsFile, producer);
     expect(() => matchPublishedEdits(mismatched)).toThrow(/producer cohort mismatch/);
   });
+
+  it("rejects incomplete or mismatched producer artifacts", () => {
+    const incomplete = fixture(temporaryDirectory("writing-match-incomplete-"));
+    const incompleteCohort = JSON.parse(fs.readFileSync(incomplete.cohortFile, "utf8"));
+    incompleteCohort.entries.push({
+      ...incompleteCohort.entries[0],
+      artifactId: "other",
+      path: "docs/other.md",
+    });
+    writeJson(incomplete.cohortFile, incompleteCohort);
+    expect(() => matchPublishedEdits(incomplete)).toThrow(
+      "producer output must contain each frozen artifact exactly once",
+    );
+
+    const missing = fixture(temporaryDirectory("writing-match-missing-"));
+    const missingProducer = JSON.parse(fs.readFileSync(missing.findingsFile, "utf8"));
+    missingProducer.artifacts[0].artifactId = "other";
+    writeJson(missing.findingsFile, missingProducer);
+    expect(() => matchPublishedEdits(missing)).toThrow(
+      "producer output is missing artifact example",
+    );
+
+    const metadata = fixture(temporaryDirectory("writing-match-metadata-"));
+    const metadataProducer = JSON.parse(fs.readFileSync(metadata.findingsFile, "utf8"));
+    metadataProducer.artifacts[0].artifactType = "project-page";
+    writeJson(metadata.findingsFile, metadataProducer);
+    expect(() => matchPublishedEdits(metadata)).toThrow(
+      "producer metadata mismatch for example",
+    );
+  });
+
+  it("rejects a finding whose recorded source text is stale", () => {
+    const options = fixture(temporaryDirectory("writing-match-finding-"));
+    const producer = JSON.parse(fs.readFileSync(options.findingsFile, "utf8"));
+    producer.artifacts[0].findings[0].finding.span.sourceText = "target old";
+    writeJson(options.findingsFile, producer);
+
+    expect(() => matchPublishedEdits(options)).toThrow(/invalid finding source/);
+    expect(fs.existsSync(options.outputFile)).toBe(false);
+  });
 });

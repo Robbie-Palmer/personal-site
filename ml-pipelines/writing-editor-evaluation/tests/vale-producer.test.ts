@@ -29,6 +29,13 @@ function writeJson(file: string, value: unknown): void {
   fs.writeFileSync(file, `${JSON.stringify(value, null, 2)}\n`);
 }
 
+function fakeVale(temporary: string, body: string): string {
+  const binary = path.join(temporary, "vale-fixture");
+  fs.writeFileSync(binary, `#!/usr/bin/env bash\n${body}\n`);
+  fs.chmodSync(binary, 0o755);
+  return binary;
+}
+
 function fixture(temporary: string): {
   cohortFile: string;
   corpusRoot: string;
@@ -153,6 +160,51 @@ describe("Vale producer", () => {
     expect(record.finding.span.sourceText).toBe("is the **content format**, not");
   });
 
+  it("normalizes initialisms and word boundaries in rule categories", () => {
+    const record = valeAlertToFinding(
+      "Direct text.\n",
+      "docs/example.md",
+      "a".repeat(40),
+      "vale@3.20.0+rules.fixture",
+      {
+        Span: [1, 6],
+        Check: "NASAReadability.URLRule2",
+        Message: "Example",
+        Severity: "warning",
+        Match: "Direct",
+        Line: 1,
+      },
+    );
+
+    expect(record.finding.category).toBe("style/nasa-readability/url-rule2");
+  });
+
+  it("rejects reversed, multiline, and missing-line alerts", () => {
+    const alert = {
+      Span: [1, 6],
+      Check: "Unslop.Example",
+      Message: "Example",
+      Severity: "error",
+      Match: "Direct",
+      Line: 1,
+    };
+    const convert = (overrides: Record<string, unknown>) => valeAlertToFinding(
+      "Direct text.\n",
+      "docs/example.md",
+      "a".repeat(40),
+      "vale@3.20.0+rules.fixture",
+      { ...alert, ...overrides },
+    );
+
+    expect(() => convert({ Span: [6, 1] })).toThrow(
+      "Vale span end must be greater than or equal to its start",
+    );
+    expect(() => convert({ Match: "Direct\ntext" })).toThrow(
+      "multiline Vale matches are not supported",
+    );
+    expect(() => convert({ Line: 3 })).toThrow("Vale reported missing line 3");
+  });
+
   it("runs the pinned Vale binary and writes validated producer output", () => {
     const temporary = temporaryDirectory("writing-vale-");
     const options = fixture(temporary);
@@ -191,5 +243,52 @@ describe("Vale producer", () => {
       valeBinary: "vale",
     })).toThrow("Vale version mismatch: expected 9.9.9, got 3.20.0");
     expect(fs.existsSync(options.outputFile)).toBe(false);
+  });
+
+  it("rejects malformed version output and unexpected Vale result paths", () => {
+    const invalidVersion = temporaryDirectory("writing-vale-invalid-version-");
+    const invalidOptions = fixture(invalidVersion);
+    expect(() => runValeProducer({
+      ...invalidOptions,
+      configFile: path.join(repositoryRoot, ".vale.ini"),
+      stylesDirectory: path.join(repositoryRoot, ".vale/styles/Unslop"),
+      valeBinary: fakeVale(invalidVersion, "echo 'not a Vale version'"),
+    })).toThrow("cannot parse Vale version");
+
+    const unexpected = temporaryDirectory("writing-vale-unexpected-");
+    const unexpectedOptions = fixture(unexpected);
+    const unexpectedBinary = fakeVale(unexpected, [
+      "if [[ \"$1\" == \"--version\" ]]; then",
+      "  echo 'vale version 3.20.0'",
+      "else",
+      "  echo '{\"unexpected.md\":[]}'",
+      "fi",
+    ].join("\n"));
+    expect(() => runValeProducer({
+      ...unexpectedOptions,
+      configFile: path.join(repositoryRoot, ".vale.ini"),
+      stylesDirectory: path.join(repositoryRoot, ".vale/styles/Unslop"),
+      valeBinary: unexpectedBinary,
+    })).toThrow("Vale reported an unexpected file: unexpected.md");
+  });
+
+  it("surfaces a Vale process failure that has no JSON output", () => {
+    const temporary = temporaryDirectory("writing-vale-failure-");
+    const options = fixture(temporary);
+    const binary = fakeVale(temporary, [
+      "if [[ \"$1\" == \"--version\" ]]; then",
+      "  echo 'vale version 3.20.0'",
+      "else",
+      "  echo 'fixture failure' >&2",
+      "  exit 2",
+      "fi",
+    ].join("\n"));
+
+    expect(() => runValeProducer({
+      ...options,
+      configFile: path.join(repositoryRoot, ".vale.ini"),
+      stylesDirectory: path.join(repositoryRoot, ".vale/styles/Unslop"),
+      valeBinary: binary,
+    })).toThrow("Vale failed with status 2: fixture failure");
   });
 });
