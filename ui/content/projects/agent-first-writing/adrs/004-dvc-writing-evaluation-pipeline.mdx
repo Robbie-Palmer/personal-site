@@ -35,11 +35,10 @@ metrics to Git. DVC will track the corpus, producer output, matched edits, and
 larger reports. Do not commit raw private writing or generated passages to the
 public repository.
 
-This proposal depends on accepting
-[ADR 003](/projects/agent-first-writing/adrs/003-versioned-suggestion-contract).
-Do not build `run_producers` against a provisional contract. If ADR 003
-changes during review, update this stage design before accepting either the DVC
-pipeline or its locked outputs.
+This proposal uses the accepted record contract from
+[ADR 003](/projects/agent-first-writing/adrs/003-versioned-editor-record-contract).
+Producer stages validate their findings, suggestions, proposals, and decisions
+against that shared contract before writing DVC outputs.
 
 Define these initial stages:
 
