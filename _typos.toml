@@ -18,6 +18,9 @@ extend-exclude = [
     "ui/content/projects/personal-site/adrs/055-typos.mdx",
     # Standalone design artifact full of encoded SVG/data strings
     "ui/public/recipe-site-design/",
+    # Generated and minified Emscripten loader contains ABI symbol names that
+    # resemble misspellings.
+    "ui/public/simulations/autonomic-satellite-swarm/wasm/satellite-swarm.mjs",
     # Generated correction dictionary for the recipe editor spell-checker: it is
     # a list of typos by construction, so typos must not scan it (see
     # ui/scripts/generate-typos-dictionary.ts).
