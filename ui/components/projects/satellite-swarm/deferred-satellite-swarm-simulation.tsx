@@ -214,9 +214,10 @@ export function DeferredSatelliteSwarmSimulation() {
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
+    let disposed = false;
     let requested = false;
     const load = () => {
-      if (requested) return;
+      if (disposed || requested) return;
       requested = true;
       setVisible(true);
       void run(SOUTH_POLE_OBJECTIVE);
@@ -225,6 +226,7 @@ export function DeferredSatelliteSwarmSimulation() {
     if (typeof IntersectionObserver === "undefined") {
       load();
       return () => {
+        disposed = true;
         const controller = activeRequestRef.current;
         activeRequestRef.current = null;
         controller?.abort();
@@ -233,7 +235,7 @@ export function DeferredSatelliteSwarmSimulation() {
 
     const observer = new IntersectionObserver(
       ([entry]) => {
-        if (!entry?.isIntersecting) return;
+        if (disposed || !entry?.isIntersecting) return;
         load();
         observer.disconnect();
       },
@@ -241,6 +243,7 @@ export function DeferredSatelliteSwarmSimulation() {
     );
     observer.observe(container);
     return () => {
+      disposed = true;
       const controller = activeRequestRef.current;
       activeRequestRef.current = null;
       controller?.abort();

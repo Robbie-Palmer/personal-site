@@ -16,6 +16,23 @@ let intersectionCallback: IntersectionObserverCallback;
 const disconnect = vi.fn();
 const observe = vi.fn();
 
+function stubIntersectionObserver() {
+  class MockIntersectionObserver {
+    constructor(callback: IntersectionObserverCallback) {
+      intersectionCallback = callback;
+    }
+
+    disconnect() {
+      disconnect();
+    }
+
+    observe(target: Element) {
+      observe(target);
+    }
+  }
+  vi.stubGlobal("IntersectionObserver", MockIntersectionObserver);
+}
+
 vi.mock(
   "@/components/projects/satellite-swarm/lazy-satellite-swarm-globe",
   () => ({
@@ -161,20 +178,7 @@ describe("SatelliteSwarmSimulation", () => {
   });
 
   it("keeps the replay mounted after its first intersection", async () => {
-    class MockIntersectionObserver {
-      constructor(callback: IntersectionObserverCallback) {
-        intersectionCallback = callback;
-      }
-
-      disconnect() {
-        disconnect();
-      }
-
-      observe(target: Element) {
-        observe(target);
-      }
-    }
-    vi.stubGlobal("IntersectionObserver", MockIntersectionObserver);
+    stubIntersectionObserver();
     render(<DeferredSatelliteSwarmSimulation />);
 
     act(() => {
@@ -195,6 +199,22 @@ describe("SatelliteSwarmSimulation", () => {
     });
 
     expect(screen.getByText("trace v1 · 0 ms")).toBeVisible();
+  });
+
+  it("ignores an intersection notification queued before unmount", () => {
+    stubIntersectionObserver();
+    const { unmount } = render(<DeferredSatelliteSwarmSimulation />);
+
+    unmount();
+    act(() => {
+      intersectionCallback(
+        [{ isIntersecting: true } as IntersectionObserverEntry],
+        {} as IntersectionObserver,
+      );
+    });
+
+    expect(disconnect).toHaveBeenCalledOnce();
+    expect(workerClient.run).not.toHaveBeenCalled();
   });
 
   it("runs a caller-provided mission objective", async () => {
