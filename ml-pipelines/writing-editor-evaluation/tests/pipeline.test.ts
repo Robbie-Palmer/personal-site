@@ -217,6 +217,22 @@ describe("writing editor evaluation pipeline", () => {
     expect(fs.readFileSync(sentinel, "utf8")).toBe("keep");
   });
 
+  it("refuses to reset an output directory through a symbolic link", () => {
+    const allowed = temporaryDirectory("writing-allowed-output-");
+    const outside = temporaryDirectory("writing-outside-output-");
+    const externalOutput = path.join(outside, "output");
+    const sentinel = path.join(externalOutput, "sentinel");
+    fs.mkdirSync(externalOutput);
+    fs.writeFileSync(sentinel, "keep");
+
+    const linked = path.join(allowed, "linked");
+    fs.symlinkSync(outside, linked, process.platform === "win32" ? "junction" : "dir");
+
+    expect(() => resetDirectory(path.join(linked, "output"), allowed))
+      .toThrow(/symbolic link/);
+    expect(fs.readFileSync(sentinel, "utf8")).toBe("keep");
+  });
+
   it("freezes stratified splits and reports missing decision evidence", () => {
     const temporary = temporaryDirectory("writing-freeze-");
     const repository = path.join(temporary, "repository");

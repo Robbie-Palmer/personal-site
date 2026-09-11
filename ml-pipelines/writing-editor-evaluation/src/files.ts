@@ -28,8 +28,28 @@ export function resetDirectory(directory: string, allowedRoot: string): void {
   ) {
     throw new Error(`refusing to reset unsafe output directory: ${resolved}`);
   }
+  assertNoSymlinkComponents(root, relative);
   fs.rmSync(resolved, { recursive: true, force: true });
   fs.mkdirSync(resolved, { recursive: true });
+}
+
+function assertNoSymlinkComponents(root: string, relative: string): void {
+  let current = root;
+  for (const segment of ["", ...relative.split(path.sep)]) {
+    current = path.join(current, segment);
+    let stats: fs.Stats;
+    try {
+      stats = fs.lstatSync(current);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+        return;
+      }
+      throw error;
+    }
+    if (stats.isSymbolicLink()) {
+      throw new Error(`refusing to reset output through symbolic link: ${current}`);
+    }
+  }
 }
 
 function errorMessage(error: unknown): string {

@@ -38,8 +38,8 @@ stages:
       size: 4790
     - path: src/files.ts
       hash: md5
-      md5: 939752f48d098e2f5e196eea6f35709e
-      size: 1174
+      md5: c37f764483386db1371ef118837e2a88
+      size: 1759
     - path: src/git-revisions.ts
       hash: md5
       md5: 1bc9c69107afca3955ed1e82db0d9695
@@ -88,8 +88,8 @@ stages:
       isexec: true
     - path: src/files.ts
       hash: md5
-      md5: 939752f48d098e2f5e196eea6f35709e
-      size: 1174
+      md5: c37f764483386db1371ef118837e2a88
+      size: 1759
     - path: src/freeze-cohort.ts
       hash: md5
       md5: 85905c8bcf9ee66051efb3a2f1a01796
