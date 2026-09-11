@@ -15,10 +15,9 @@ export function SatelliteSwarmApp() {
             Autonomic Satellite Swarm
           </h1>
           <p className="max-w-2xl text-lg leading-8 text-muted-foreground sm:text-xl">
-            Replay a deterministic three-node mission on a self-hosted CesiumJS
-            globe. The browser currently reads a trace produced by the native
-            C++ simulation. A later pass will run that same coordination code
-            through WebAssembly.
+            Run a deterministic three-node mission on a self-hosted CesiumJS
+            globe. The existing C++ coordination code executes as WebAssembly in
+            a browser worker, with no JavaScript copy of its decisions.
           </p>
           <div className="flex flex-wrap gap-3">
             <Button asChild>
@@ -52,12 +51,13 @@ export function SatelliteSwarmApp() {
               id="simulation-heading"
               className="text-2xl font-semibold tracking-tight sm:text-3xl"
             >
-              Native mission replay
+              C++ mission simulation
             </h2>
             <p className="leading-7 text-muted-foreground">
-              Step through the mission request, candidate scores, messages, and
-              final assignment. The positions are scripted inputs for this
-              demonstration, not propagated orbits.
+              Choose a geographic objective, run the portable C++ controller,
+              and step through its request, candidate scores, messages, and
+              final assignment. Positions remain scripted inputs, not propagated
+              orbits.
             </p>
           </div>
           <DeferredSatelliteSwarmSimulation />
@@ -67,26 +67,24 @@ export function SatelliteSwarmApp() {
       <section className="container mx-auto grid max-w-7xl gap-6 px-4 py-12 sm:py-16 md:grid-cols-2">
         <div className="rounded-xl border bg-card/60 p-6">
           <p className="mb-2 font-mono text-xs uppercase tracking-[0.16em] text-muted-foreground">
-            Running now
+            Execution
           </p>
-          <h2 className="mb-3 text-xl font-semibold">CesiumJS presentation</h2>
+          <h2 className="mb-3 text-xl font-semibold">C++ in a Web Worker</h2>
           <p className="leading-7 text-muted-foreground">
-            Cesium draws the Earth, node positions, message links, and mission
-            objective from a checked native trace. Its imagery and runtime
-            assets are served by this site, with no Cesium ion token.
+            Emscripten compiles the same controller and deterministic trace
+            runner used by native tests. A versioned worker API returns the
+            result to React without blocking the page.
           </p>
         </div>
         <div className="rounded-xl border bg-card/60 p-6">
           <p className="mb-2 font-mono text-xs uppercase tracking-[0.16em] text-muted-foreground">
-            Next integration
+            Presentation
           </p>
-          <h2 className="mb-3 text-xl font-semibold">
-            C++ through WebAssembly
-          </h2>
+          <h2 className="mb-3 text-xl font-semibold">Self-hosted CesiumJS</h2>
           <p className="leading-7 text-muted-foreground">
-            Emscripten will compile the portable coordination core for a Web
-            Worker. React will control and display it without copying mission
-            selection or health-state logic into TypeScript.
+            Cesium draws the Earth, scripted node positions, message links, and
+            selected objective. Its imagery, runtime assets, and WebAssembly
+            module are served by this site without a Cesium ion token.
           </p>
         </div>
       </section>

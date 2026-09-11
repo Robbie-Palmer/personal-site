@@ -13,6 +13,8 @@ tech_stack:
   - "ESP32"
   - "Catch2"
   - "CesiumJS"
+  - "Emscripten"
+  - "WebAssembly"
   - "GitHub Actions"
 repo_url: "https://github.com/Robbie-Palmer/personal-site/tree/main/cpp/autonomic-satellite-swarm"
 demo_url: "https://robbiepalmer.me/satellite-swarm"
@@ -183,7 +185,9 @@ test-bed console with headless batch runs and comparable mission-success measure
 Host tests cover the published score examples, invalid inputs, exact-arrival behavior, message
 corruption, mission negotiation, retries, deterministic ties, busy nodes, health transitions, and
 32-bit clock rollover. A three-node in-memory simulation reconstructs the central demonstration
-without hardware. CI compiles both firmware targets from pinned profiles.
+without hardware. The same runner builds with Emscripten, executes in a browser worker, and has a
+byte-for-byte parity check against the native fixture. CI also compiles both firmware targets from
+pinned profiles.
 
 Physical timing, sensor calibration, radio behavior under load, real propulsion, and orbital
 validity remain outside the current evidence boundary.

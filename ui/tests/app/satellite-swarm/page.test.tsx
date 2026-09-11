@@ -11,17 +11,15 @@ vi.mock(
 );
 
 describe("satellite swarm project space", () => {
-  it("introduces the native replay and the planned WebAssembly boundary", () => {
+  it("introduces the C++ WebAssembly simulation and Cesium view", () => {
     render(<SatelliteSwarmPage />);
 
     expect(
       screen.getByRole("heading", { name: "Autonomic Satellite Swarm" }),
     ).toBeVisible();
     expect(screen.getByText("Cesium mission replay")).toBeVisible();
-    expect(
-      screen.getByText(/trace produced by the native C\+\+/i),
-    ).toBeVisible();
-    expect(screen.getByText(/Emscripten will compile/i)).toBeVisible();
+    expect(screen.getByText(/executes as WebAssembly/i)).toBeVisible();
+    expect(screen.getByText(/Emscripten compiles/i)).toBeVisible();
     expect(
       screen.getByRole("link", { name: /Open simulation/i }),
     ).toHaveAttribute("href", "#simulation");

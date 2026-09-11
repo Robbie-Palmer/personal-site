@@ -10,6 +10,8 @@ on:
       - "cpp/.editorconfig"
       - "cpp/mise.toml"
       - "cpp/autonomic-satellite-swarm/**"
+      - "ui/lib/browser/satellite-swarm-worker-client.ts"
+      - "ui/public/simulations/autonomic-satellite-swarm/**"
   push:
     branches:
       - main
@@ -21,6 +23,8 @@ on:
       - "cpp/.editorconfig"
       - "cpp/mise.toml"
       - "cpp/autonomic-satellite-swarm/**"
+      - "ui/lib/browser/satellite-swarm-worker-client.ts"
+      - "ui/public/simulations/autonomic-satellite-swarm/**"
   workflow_dispatch:
 
 permissions:
@@ -72,3 +76,23 @@ jobs:
 
       - name: Compile firmware
         run: mise run //cpp/autonomic-satellite-swarm:firmware:${{ matrix.target }}
+
+  browser:
+    name: Browser WebAssembly parity
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
+        with:
+          version: "2026.9.1"
+          experimental: true
+          minimum_release_age: 24h
+
+      - name: Build WebAssembly and check native parity
+        run: mise run //cpp/autonomic-satellite-swarm:browser:parity
+
+      - name: Check generated browser artifacts
+        run: git diff --exit-code -- ui/public/simulations/autonomic-satellite-swarm/wasm

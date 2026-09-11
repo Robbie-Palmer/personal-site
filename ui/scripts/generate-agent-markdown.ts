@@ -468,15 +468,15 @@ function buildSatelliteSwarmPage(): GeneratedPage {
       ],
     ],
     content: [
-      "## Native mission replay",
+      "## C++ mission simulation",
       "",
-      "The browser view steps through a checked trace from the native C++ simulation. CesiumJS draws the Earth, scripted node positions, message links, and mission objective. It does not calculate the coordination result.",
+      "Choose a geographic objective and run the portable C++ coordination code as WebAssembly in a module worker. React validates the versioned result, while CesiumJS draws the Earth, scripted node positions, message links, and objective.",
       "",
       "The positions are simulation inputs, not propagated or validated orbits. The historical candidacy score is not validated astrodynamics, and the safe-disabled state is software state rather than physical deorbiting.",
       "",
-      "## Next integration",
+      "## Execution boundary",
       "",
-      "A later pass will use Emscripten to compile the portable C++ coordination core to WebAssembly and run it in a Web Worker. React will control and display the module without copying mission selection or health-state logic into TypeScript.",
+      "Emscripten builds the same controller and deterministic trace runner exercised by native tests. A byte-for-byte parity check protects the default result, and the worker keeps C++ execution off the browser's main thread.",
     ].join("\n"),
   };
 }
@@ -708,7 +708,7 @@ function buildLlmsTxt(
     `- [Experience](${markdownUrl("/experience")}): career history, roles, responsibilities, and technologies`,
     `- [Projects](${markdownUrl("/projects")}): all projects plus the building philosophy that guides them`,
     `- [Ideas](${markdownUrl("/ideas")}): recurring laws, methods, and mental models`,
-    `- [Satellite swarm](${markdownUrl("/satellite-swarm")}): a deterministic native mission replay on a CesiumJS globe`,
+    `- [Satellite swarm](${markdownUrl("/satellite-swarm")}): a deterministic C++ WebAssembly mission on a CesiumJS globe`,
     "",
     "## Initiatives",
     "",

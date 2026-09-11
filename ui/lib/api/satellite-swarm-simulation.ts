@@ -97,7 +97,7 @@ const simulationSchema = z.object({
   positionModel: z.string().min(1),
   scenario: z.string().min(1),
   schemaVersion: z.literal(1),
-  source: z.literal("native C++ SimulationTrace"),
+  source: z.literal("portable C++ SimulationTrace"),
   traceVersion: z.literal(1),
 });
 

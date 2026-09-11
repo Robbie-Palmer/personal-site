@@ -10,6 +10,7 @@ include(CTest)
 include(FetchContent)
 
 option(SATELLITE_SWARM_BUILD_SIMULATION "Build the deterministic host simulation" ON)
+option(SATELLITE_SWARM_BUILD_BROWSER "Build the Emscripten browser adapter" OFF)
 option(SATELLITE_SWARM_ENABLE_COVERAGE "Enable GCC coverage instrumentation" OFF)
 option(SATELLITE_SWARM_ENABLE_SANITIZERS "Enable address and undefined-behavior sanitizers" OFF)
 
@@ -49,7 +50,10 @@ if(SATELLITE_SWARM_ENABLE_COVERAGE)
 endif()
 
 if(SATELLITE_SWARM_BUILD_SIMULATION)
-  add_library(satellite_swarm_simulation simulation/src/simulation.cpp)
+  add_library(
+    satellite_swarm_simulation
+    simulation/src/browser_simulation.cpp
+    simulation/src/simulation.cpp)
   add_library(satellite_swarm::simulation ALIAS satellite_swarm_simulation)
   target_include_directories(
     satellite_swarm_simulation
@@ -83,9 +87,46 @@ if(SATELLITE_SWARM_BUILD_SIMULATION)
     set_tests_properties(
       satellite_swarm_browser_fixture
       PROPERTIES PASS_REGULAR_EXPRESSION
-                 "\"source\": \"native C\\+\\+ SimulationTrace\".*\"events\"")
+                 "\"source\": \"portable C\\+\\+ SimulationTrace\".*\"events\"")
     set_tests_properties(satellite_swarm_invalid_arguments PROPERTIES WILL_FAIL TRUE)
   endif()
+endif()
+
+if(SATELLITE_SWARM_BUILD_BROWSER)
+  if(NOT EMSCRIPTEN)
+    message(FATAL_ERROR "SATELLITE_SWARM_BUILD_BROWSER requires the Emscripten toolchain")
+  endif()
+  if(NOT SATELLITE_SWARM_BUILD_SIMULATION)
+    message(FATAL_ERROR "SATELLITE_SWARM_BUILD_BROWSER requires the simulation library")
+  endif()
+
+  add_executable(satellite_swarm_browser browser/src/browser_api.cpp)
+  target_include_directories(
+    satellite_swarm_browser
+    PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/browser/include)
+  target_link_libraries(satellite_swarm_browser PRIVATE satellite_swarm::simulation)
+  target_compile_features(satellite_swarm_browser PRIVATE cxx_std_20)
+  target_compile_options(
+    satellite_swarm PRIVATE -fexceptions)
+  target_compile_options(
+    satellite_swarm_simulation PRIVATE -fexceptions)
+  target_compile_options(
+    satellite_swarm_browser PRIVATE -fexceptions)
+  set_target_properties(
+    satellite_swarm_browser
+    PROPERTIES OUTPUT_NAME "satellite-swarm"
+               SUFFIX ".mjs"
+               RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/browser")
+  target_link_options(
+    satellite_swarm_browser
+    PRIVATE --no-entry
+            "SHELL:-sALLOW_MEMORY_GROWTH=1"
+            "SHELL:-sDISABLE_EXCEPTION_CATCHING=0"
+            "SHELL:-sENVIRONMENT=worker,node"
+            "SHELL:-sEXPORT_ES6=1"
+            "SHELL:-sEXPORTED_RUNTIME_METHODS=['UTF8ToString']"
+            "SHELL:-sFILESYSTEM=0"
+            "SHELL:-sMODULARIZE=1")
 endif()
 
 if(BUILD_TESTING)
@@ -102,7 +143,14 @@ if(BUILD_TESTING)
     tests/historical_orbital_scorer_test.cpp
     tests/wire_codec_test.cpp)
   if(SATELLITE_SWARM_BUILD_SIMULATION)
-    target_sources(satellite_swarm_tests PRIVATE tests/simulation_test.cpp)
+    target_sources(
+      satellite_swarm_tests
+      PRIVATE browser/src/browser_api.cpp
+              tests/browser_api_test.cpp
+              tests/simulation_test.cpp)
+    target_include_directories(
+      satellite_swarm_tests
+      PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/browser/include)
   endif()
   target_link_libraries(
     satellite_swarm_tests

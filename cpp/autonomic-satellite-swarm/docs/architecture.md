@@ -54,8 +54,10 @@ layouts.
 The simulation layer runs the portable controllers from a versioned sequence of fixed-time frames.
 Each frame applies health and satellite updates before mission commands and controller updates. The
 runner records messages and state changes in order, then captures every node's state, score, and
-satellite snapshot. The command-line demonstration uses this runner. A browser worker can bind the
-same entry point without moving coordination rules into TypeScript.
+satellite snapshot. The command-line demonstration uses this runner. An Emscripten target exposes
+the same browser serializer through a versioned C ABI, and a module worker invokes it without moving
+coordination rules into TypeScript. Native and WebAssembly results are compared byte for byte for
+the default scenario.
 
 ### Hardware adapters
 

@@ -7,7 +7,13 @@ import {
   Play,
   RotateCcw,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import {
@@ -30,10 +36,14 @@ function useReducedMotion(): boolean {
 
 export interface SatelliteSwarmSimulationProps {
   data: SimulationData;
+  executionMode?: "recorded" | "webassembly";
+  missionControls?: ReactNode;
 }
 
 export function SatelliteSwarmSimulation({
   data,
+  executionMode = "recorded",
+  missionControls,
 }: Readonly<SatelliteSwarmSimulationProps>) {
   const [frameIndex, setFrameIndex] = useState(0);
   const [playing, setPlaying] = useState(false);
@@ -94,11 +104,12 @@ export function SatelliteSwarmSimulation({
           </span>
         </div>
         <p className="text-sm text-muted-foreground">
-          The native C++ trace runner produced these states, scores, messages,
-          and positions. Cesium draws the record but does not calculate it.
+          The portable C++ trace runner produced these states, scores, messages,
+          and positions. Cesium draws the result but does not calculate it.
           {isSouthPoleMission &&
             " The exact pole is a deliberate coordinate edge case."}
         </p>
+        {missionControls}
       </div>
 
       <div className="grid lg:grid-cols-[minmax(0,1.65fr)_minmax(18rem,1fr)]">
@@ -288,8 +299,10 @@ export function SatelliteSwarmSimulation({
       <div className="border-t bg-amber-500/5 px-4 py-3 text-xs text-muted-foreground">
         {data.positionModel}. The score is the preserved historical heuristic,
         not validated astrodynamics. "Safe-disabled" is software state, not a
-        physical deorbit action. This browser slice replays native output; the
-        planned WebAssembly runner is not connected yet.
+        physical deorbit action.{" "}
+        {executionMode === "webassembly"
+          ? "The coordination code ran as WebAssembly in a module worker."
+          : "This view displays a recorded output from the native runner."}
       </div>
     </Card>
   );

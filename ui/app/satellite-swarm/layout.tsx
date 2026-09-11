@@ -9,7 +9,7 @@ export const metadata: Metadata = {
     template: "%s | Autonomic Satellite Swarm",
   },
   description:
-    "Explore a deterministic three-node satellite-swarm mission on a CesiumJS globe.",
+    "Run a deterministic C++ satellite-swarm mission in WebAssembly and inspect it on a CesiumJS globe.",
 };
 
 export default function SatelliteSwarmLayout({
