@@ -1,9 +1,11 @@
+#include "satellite_swarm/browser_simulation.hpp"
 #include "satellite_swarm/simulation.hpp"
 
 #include <catch2/catch_test_macros.hpp>
 #include <cstdint>
 #include <limits>
 #include <stdexcept>
+#include <string>
 #include <vector>
 
 using namespace satellite_swarm;
@@ -197,4 +199,38 @@ TEST_CASE("trace time supports one unsigned clock rollover") {
   REQUIRE(result.frames.size() == 2U);
   CHECK(result.frames[0].now_ms == std::numeric_limits<uint32_t>::max());
   CHECK(result.frames[1].now_ms == 0U);
+}
+
+TEST_CASE("the browser demonstration accepts a caller-provided objective") {
+  const Coordinate objective(18.25F, -34.5F);
+  const SimulationTrace trace = makeBrowserDemonstrationTrace(objective);
+
+  REQUIRE_FALSE(trace.frames.empty());
+  REQUIRE(trace.frames.front().mission_commands.size() == 1U);
+  CHECK(trace.frames.front().mission_commands.front().objective.longitude_degrees == 18.25F);
+  CHECK(trace.frames.front().mission_commands.front().objective.latitude_degrees == -34.5F);
+
+  const std::string json = serializeBrowserSimulation(trace, runSimulationTrace(trace));
+  CHECK(json.find(R"("scenario": "three-node-objective-pass")") != std::string::npos);
+  CHECK(json.find(R"("longitudeDegrees":18.25,"latitudeDegrees":-34.5)") != std::string::npos);
+}
+
+TEST_CASE("browser serialization rejects incomplete traces and results") {
+  SimulationTrace trace = makeBrowserDemonstrationTrace(Coordinate(0.0F, -90.0F));
+  const SimulationResult complete_result = runSimulationTrace(trace);
+
+  SECTION("missing command") {
+    trace.frames.front().mission_commands.clear();
+    CHECK_THROWS_AS(serializeBrowserSimulation(trace, complete_result), std::invalid_argument);
+  }
+
+  SECTION("missing sampled frame") {
+    SimulationResult incomplete_result = complete_result;
+    incomplete_result.frames.resize(12U);
+    CHECK_THROWS_AS(serializeBrowserSimulation(trace, incomplete_result), std::invalid_argument);
+  }
+}
+
+TEST_CASE("the browser demonstration rejects an invalid objective") {
+  CHECK_THROWS_AS(makeBrowserDemonstrationTrace(Coordinate(0.0F, 91.0F)), std::invalid_argument);
 }

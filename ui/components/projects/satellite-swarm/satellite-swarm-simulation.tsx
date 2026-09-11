@@ -7,7 +7,13 @@ import {
   Play,
   RotateCcw,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import {
@@ -30,13 +36,30 @@ function useReducedMotion(): boolean {
 
 export interface SatelliteSwarmSimulationProps {
   data: SimulationData;
+  executionMode?: "recorded" | "webassembly";
+  missionControls?: ReactNode;
+  startPlaying?: boolean;
+}
+
+function getReplayAction(playing: boolean, frameIndex: number, stopAt: number) {
+  if (playing) return { accessibleName: "Pause replay", label: "Pause" };
+  if (frameIndex >= stopAt) {
+    return { accessibleName: "Replay mission", label: "Replay" };
+  }
+  if (frameIndex > 0) {
+    return { accessibleName: "Resume replay", label: "Resume" };
+  }
+  return { accessibleName: "Play replay", label: "Play" };
 }
 
 export function SatelliteSwarmSimulation({
   data,
+  executionMode = "recorded",
+  missionControls,
+  startPlaying = false,
 }: Readonly<SatelliteSwarmSimulationProps>) {
   const [frameIndex, setFrameIndex] = useState(0);
-  const [playing, setPlaying] = useState(false);
+  const [playing, setPlaying] = useState(startPlaying);
   const [selectedNodeId, setSelectedNodeId] = useState(0);
   const [startupFailure, setStartupFailure] = useState<string | null>(null);
   const reducedMotion = useReducedMotion();
@@ -51,6 +74,7 @@ export function SatelliteSwarmSimulation({
   );
   const stopAt = data.frames.length - 1;
   const isSouthPoleMission = data.objective.latitudeDegrees === -90;
+  const replayAction = getReplayAction(playing, frameIndex, stopAt);
 
   useEffect(() => {
     if (reducedMotion) {
@@ -94,11 +118,12 @@ export function SatelliteSwarmSimulation({
           </span>
         </div>
         <p className="text-sm text-muted-foreground">
-          The native C++ trace runner produced these states, scores, messages,
-          and positions. Cesium draws the record but does not calculate it.
+          The portable C++ trace runner produced these states, scores, messages,
+          and positions. Cesium draws the result but does not calculate it.
           {isSouthPoleMission &&
             " The exact pole is a deliberate coordinate edge case."}
         </p>
+        {missionControls}
       </div>
 
       <div className="grid lg:grid-cols-[minmax(0,1.65fr)_minmax(18rem,1fr)]">
@@ -162,7 +187,7 @@ export function SatelliteSwarmSimulation({
               </Button>
               <Button
                 type="button"
-                aria-label={playing ? "Pause replay" : "Play replay"}
+                aria-label={replayAction.accessibleName}
                 disabled={reducedMotion}
                 onClick={() => {
                   if (frameIndex >= stopAt) setFrameIndex(0);
@@ -174,7 +199,7 @@ export function SatelliteSwarmSimulation({
                 ) : (
                   <Play className="h-4 w-4" />
                 )}
-                <span className="ml-2">{playing ? "Pause" : "Play"}</span>
+                <span className="ml-2">{replayAction.label}</span>
               </Button>
               <Button
                 type="button"
@@ -288,8 +313,10 @@ export function SatelliteSwarmSimulation({
       <div className="border-t bg-amber-500/5 px-4 py-3 text-xs text-muted-foreground">
         {data.positionModel}. The score is the preserved historical heuristic,
         not validated astrodynamics. "Safe-disabled" is software state, not a
-        physical deorbit action. This browser slice replays native output; the
-        planned WebAssembly runner is not connected yet.
+        physical deorbit action.{" "}
+        {executionMode === "webassembly"
+          ? "The coordination code ran as WebAssembly in a module worker."
+          : "This view displays a recorded output from the native runner."}
       </div>
     </Card>
   );

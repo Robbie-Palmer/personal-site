@@ -453,6 +453,34 @@ function buildRecipesIndexPage(
   };
 }
 
+function buildSatelliteSwarmPage(): GeneratedPage {
+  return {
+    htmlPath: "/satellite-swarm",
+    filePath: "satellite-swarm.md",
+    title: "Autonomic Satellite Swarm",
+    description:
+      "A deterministic three-node satellite-swarm mission rendered on a CesiumJS globe",
+    facts: [
+      ["Project", markdownUrl("/projects/autonomic-satellite-swarm")],
+      [
+        "Source code",
+        "https://github.com/Robbie-Palmer/personal-site/tree/main/cpp/autonomic-satellite-swarm",
+      ],
+    ],
+    content: [
+      "## C++ mission simulation",
+      "",
+      "Choose a geographic objective and run the portable C++ coordination code as WebAssembly in a module worker. React validates the versioned result, while CesiumJS draws the Earth, scripted node positions, message links, and objective.",
+      "",
+      "The positions are simulation inputs, not propagated or validated orbits. The historical candidacy score is not validated astrodynamics, and the safe-disabled state is software state rather than physical deorbiting.",
+      "",
+      "## Execution boundary",
+      "",
+      "Emscripten builds the same controller and deterministic trace runner exercised by native tests. A byte-for-byte parity check protects the default result, and the worker keeps C++ execution off the browser's main thread.",
+    ].join("\n"),
+  };
+}
+
 function buildTechnologyPages(projects: ProjectWithADRs[]): GeneratedPage[] {
   const repository = loadDomainRepository();
   // ADR slugs are only unique within a project, so collect ADRs per
@@ -648,6 +676,7 @@ function buildHomePage(): GeneratedPage {
       `- [Ideas](${markdownUrl("/ideas")}): recurring laws, methods, and mental models`,
       `- [Blog](${markdownUrl("/blog")}): ${siteConfig.blog.description}`,
       `- [Recipes](${markdownUrl("/recipes")}): a digital recipe book`,
+      `- [Satellite swarm](${markdownUrl("/satellite-swarm")}): a deterministic mission replay on a 3D globe`,
       "",
       "## Links",
       "",
@@ -679,6 +708,7 @@ function buildLlmsTxt(
     `- [Experience](${markdownUrl("/experience")}): career history, roles, responsibilities, and technologies`,
     `- [Projects](${markdownUrl("/projects")}): all projects plus the building philosophy that guides them`,
     `- [Ideas](${markdownUrl("/ideas")}): recurring laws, methods, and mental models`,
+    `- [Satellite swarm](${markdownUrl("/satellite-swarm")}): a deterministic C++ WebAssembly mission on a CesiumJS globe`,
     "",
     "## Initiatives",
     "",
@@ -788,6 +818,7 @@ function buildRoutesJson(): string {
         "/blog/*",
         "/recipes",
         "/recipes/*",
+        "/satellite-swarm",
         "/technologies/*",
         "/ideas",
         "/ideas/*",
@@ -863,6 +894,7 @@ function main(): void {
     buildBlogIndexPage(posts),
     ...buildBlogPostPages(posts),
     buildRecipesIndexPage(recipes),
+    buildSatelliteSwarmPage(),
     ...technologyPages,
   ];
 

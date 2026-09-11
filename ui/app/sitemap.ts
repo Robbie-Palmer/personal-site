@@ -107,6 +107,11 @@ export default function sitemap(): MetadataRoute.Sitemap {
       lastModified: new Date().toISOString(),
       priority: 0.4,
     },
+    {
+      url: `${siteConfig.url}/satellite-swarm`,
+      lastModified: new Date().toISOString(),
+      priority: 0.6,
+    },
     ...blogPosts,
     ...initiativePages,
     ...projectPages,

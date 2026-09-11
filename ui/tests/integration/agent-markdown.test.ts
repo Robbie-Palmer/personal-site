@@ -40,6 +40,7 @@ describe("agent markdown generation", () => {
       "ideas.md",
       "blog.md",
       "recipes.md",
+      "satellite-swarm.md",
       "llms.txt",
       "llms-full.txt",
       "_headers",
@@ -187,6 +188,7 @@ describe("agent markdown generation", () => {
     expect(routes.include).toContain("/llms.txt");
     expect(routes.include).toContain("/llms-full.txt");
     expect(routes.include).toContain("/sitemap.xml");
+    expect(routes.include).toContain("/satellite-swarm");
     expect(routes.include).toContain("/projects/*");
     expect(routes.include).toContain("/initiatives/*");
     expect(routes.include).toContain("/ideas/*");
@@ -235,6 +237,9 @@ describe("agent markdown generation", () => {
     expect(headers).toContain("/projects");
     expect(headers).toContain(
       'Link: <https://robbiepalmer.me/projects.md>; rel="alternate"; type="text/markdown"',
+    );
+    expect(headers).toContain(
+      'Link: <https://robbiepalmer.me/satellite-swarm.md>; rel="alternate"; type="text/markdown"',
     );
     const ruleCount = (headers.match(/^ {2}Link:/gm) ?? []).length;
     expect(ruleCount).toBeLessThanOrEqual(100);

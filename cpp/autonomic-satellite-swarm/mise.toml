@@ -7,7 +7,7 @@ run = "cmake --preset dev"
 
 [tasks.clean]
 description = "Remove generated host build directories"
-run = "cmake -E rm -rf build/dev build/sanitizers build/coverage coverage"
+run = "cmake -E rm -rf build/dev build/sanitizers build/coverage build/browser coverage"
 
 [tasks.build]
 description = "Build the portable library, tests, and simulation"
@@ -40,6 +40,34 @@ diff -u ../../ui/public/simulations/autonomic-satellite-swarm/demonstration.v1.j
   "$browser_fixture_check_file"
 '''
 
+[tasks."browser:toolchain"]
+description = "Install the pinned Emscripten SDK with its Python bootstrap dependency"
+tools = { python = "3.14.6" }
+run = "mise exec python@3.14.6 -- mise install asdf:mise-plugins/mise-emsdk@6.0.9"
+
+[tasks."browser:configure"]
+description = "Configure the Emscripten browser build"
+depends = ["browser:toolchain"]
+tools = { python = "3.14.6" }
+run = "mise exec python@3.14.6 asdf:mise-plugins/mise-emsdk@6.0.9 -- emcmake cmake -S . -B build/browser -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF -DSATELLITE_SWARM_BUILD_BROWSER=ON"
+
+[tasks."browser:build"]
+description = "Build the WebAssembly adapter and copy its deployable artifacts"
+depends = ["browser:configure"]
+tools = { python = "3.14.6" }
+run = '''
+mise exec python@3.14.6 asdf:mise-plugins/mise-emsdk@6.0.9 -- cmake --build build/browser --target satellite_swarm_browser
+browser_public_dir=../../ui/public/simulations/autonomic-satellite-swarm/wasm
+cmake -E make_directory "$browser_public_dir"
+cmake -E copy_if_different build/browser/browser/satellite-swarm.mjs "$browser_public_dir/satellite-swarm.mjs"
+cmake -E copy_if_different build/browser/browser/satellite-swarm.wasm "$browser_public_dir/satellite-swarm.wasm"
+'''
+
+[tasks."browser:parity"]
+description = "Check native and WebAssembly browser results for byte-for-byte parity"
+depends = ["browser:build"]
+run = "node browser/tests/browser_parity.mjs"
+
 [tasks.lint]
 description = "Run clang-tidy with warnings promoted to errors"
 depends = ["configure"]
@@ -47,7 +75,7 @@ run = '''
 gcc_install_dir=$(dirname "$(c++ -print-libgcc-file-name)")
 compiler_root=$(dirname "$(dirname "$(readlink -f "$(command -v c++)")")")
 compiler_sysroot="$compiler_root/$(c++ -dumpmachine)/sysroot"
-find src simulation/src examples -type f -name '*.cpp' -print0 |
+find src simulation/src browser/src examples -type f -name '*.cpp' -print0 |
   xargs -0 clang-tidy -p build/dev \
     --extra-arg-before="--gcc-install-dir=$gcc_install_dir" \
     --extra-arg-before="--sysroot=$compiler_sysroot"
@@ -69,7 +97,7 @@ run = [
   "cmake --build --preset coverage",
   "ctest --preset coverage",
   "cmake -E make_directory coverage",
-  "gcovr --root ../.. --filter 'src/satellite_swarm/' --filter 'simulation/' --filter 'examples/simulation/' --sonarqube coverage/sonarqube.xml --print-summary --fail-under-line 80 --fail-under-branch 70 build/coverage",
+  "gcovr --root ../.. --filter 'src/satellite_swarm/' --filter 'simulation/' --filter 'browser/src/' --filter 'examples/simulation/' --sonarqube coverage/sonarqube.xml --print-summary --fail-under-line 80 --fail-under-branch 70 build/coverage",
 ]
 
 [tasks."firmware:uno"]
@@ -117,5 +145,6 @@ depends = [
   "firmware:uno",
   "firmware:esp32",
   "browser:fixture:check",
+  "browser:parity",
   "lint:typos",
 ]

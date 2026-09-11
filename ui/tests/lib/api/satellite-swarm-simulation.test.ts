@@ -8,7 +8,7 @@ const validRecord = {
   schemaVersion: 1,
   traceVersion: 1,
   scenario: "test",
-  source: "native C++ SimulationTrace",
+  source: "portable C++ SimulationTrace",
   positionModel: "scripted",
   objective: { longitudeDegrees: 0, latitudeDegrees: -90 },
   frames: [
@@ -44,7 +44,7 @@ const validRecord = {
 } as const;
 
 describe("satellite swarm simulation records", () => {
-  it("accepts the versioned native trace contract", () => {
+  it("accepts the versioned portable trace contract", () => {
     const parsed = parseSatelliteSwarmSimulation(validRecord);
     const event = parsed.events[0];
     if (!event) throw new Error("Expected one simulation event");

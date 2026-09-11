@@ -1,81 +1,241 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { Card } from "@/components/ui/card";
+import { LoaderCircle, RotateCcw } from "lucide-react";
 import {
-  parseSatelliteSwarmSimulation,
-  type SatelliteSwarmSimulation as SimulationData,
-} from "@/lib/api/satellite-swarm-simulation";
+  type SubmitEvent,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import type { SatelliteSwarmSimulation as SimulationData } from "@/lib/api/satellite-swarm-simulation";
+import {
+  runSatelliteSwarmSimulation,
+  type SatelliteSwarmObjective,
+} from "@/lib/browser/satellite-swarm-worker-client";
 import { SatelliteSwarmSimulation } from "./satellite-swarm-simulation";
 
-const FIXTURE_URL =
-  "/simulations/autonomic-satellite-swarm/demonstration.v1.json";
+const SOUTH_POLE_OBJECTIVE: SatelliteSwarmObjective = {
+  latitudeDegrees: -90,
+  longitudeDegrees: 0,
+};
 
-function Placeholder({ failed }: Readonly<{ failed: boolean }>) {
+function messageFrom(error: unknown): string {
+  return error instanceof Error && error.message
+    ? error.message
+    : "The WebAssembly simulation failed.";
+}
+
+function Placeholder({
+  error,
+  onRetry,
+}: Readonly<{ error: string | null; onRetry: () => void }>) {
   return (
     <Card
       className="not-prose my-8 gap-0 overflow-hidden p-0"
       aria-live="polite"
     >
       <div className="space-y-1 border-b p-4">
-        <h3 className="text-lg font-semibold">South Pole mission replay</h3>
+        <h3 className="text-lg font-semibold">C++ mission simulation</h3>
         <p className="text-sm text-muted-foreground">
-          {failed
-            ? "The simulation record could not be loaded."
-            : "Loading the native simulation record..."}
+          {error
+            ? "The simulation worker could not start."
+            : "Loading the C++ WebAssembly module..."}
         </p>
       </div>
-      <div className="flex h-72 items-center justify-center bg-muted/20 p-8 text-center text-sm text-muted-foreground">
-        {failed
-          ? "The project description and source remain available below."
-          : "The globe loads when this section approaches the viewport."}
+      <div className="flex h-72 flex-col items-center justify-center gap-4 bg-muted/20 p-8 text-center text-sm text-muted-foreground">
+        {error ? (
+          <>
+            <p className="max-w-xl font-mono text-xs">{error}</p>
+            <Button type="button" variant="outline" onClick={onRetry}>
+              <RotateCcw className="mr-2 h-4 w-4" aria-hidden="true" />
+              Retry simulation
+            </Button>
+          </>
+        ) : (
+          <>
+            <LoaderCircle className="h-5 w-5 animate-spin" aria-hidden="true" />
+            <span>
+              The worker loads when this section approaches the viewport.
+            </span>
+          </>
+        )}
       </div>
     </Card>
   );
 }
 
+interface MissionControlsProps {
+  error: string | null;
+  latitude: string;
+  longitude: string;
+  onLatitudeChange: (value: string) => void;
+  onLongitudeChange: (value: string) => void;
+  onReset: () => void;
+  onSubmit: (event: SubmitEvent<HTMLFormElement>) => void;
+  running: boolean;
+}
+
+function MissionControls({
+  error,
+  latitude,
+  longitude,
+  onLatitudeChange,
+  onLongitudeChange,
+  onReset,
+  onSubmit,
+  running,
+}: Readonly<MissionControlsProps>) {
+  return (
+    <form
+      className="mt-4 grid gap-3 rounded-lg border bg-background/60 p-3 sm:grid-cols-[1fr_1fr_auto_auto] sm:items-end"
+      onSubmit={onSubmit}
+    >
+      <label
+        className="space-y-1 text-xs font-medium"
+        htmlFor="satellite-swarm-longitude"
+      >
+        <span>Longitude</span>
+        <Input
+          id="satellite-swarm-longitude"
+          type="number"
+          min={-180}
+          max={180}
+          step="any"
+          required
+          value={longitude}
+          onChange={(event) => onLongitudeChange(event.target.value)}
+          aria-describedby={error ? "satellite-swarm-run-error" : undefined}
+        />
+      </label>
+      <label
+        className="space-y-1 text-xs font-medium"
+        htmlFor="satellite-swarm-latitude"
+      >
+        <span>Latitude</span>
+        <Input
+          id="satellite-swarm-latitude"
+          type="number"
+          min={-90}
+          max={90}
+          step="any"
+          required
+          value={latitude}
+          onChange={(event) => onLatitudeChange(event.target.value)}
+          aria-describedby={error ? "satellite-swarm-run-error" : undefined}
+        />
+      </label>
+      <Button type="button" variant="outline" onClick={onReset}>
+        South Pole
+      </Button>
+      <Button type="submit" disabled={running}>
+        {running && (
+          <LoaderCircle
+            className="mr-2 h-4 w-4 animate-spin"
+            aria-hidden="true"
+          />
+        )}
+        {running ? "Running mission" : "Run mission"}
+      </Button>
+      <p className="text-xs text-muted-foreground sm:col-span-4">
+        Run mission recalculates the C++ trace. The controls below play, pause,
+        or inspect that result.
+      </p>
+      {error && (
+        <p
+          id="satellite-swarm-run-error"
+          className="text-xs text-destructive sm:col-span-4"
+          role="alert"
+        >
+          {error}
+        </p>
+      )}
+    </form>
+  );
+}
+
 export function DeferredSatelliteSwarmSimulation() {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [data, setData] = useState<SimulationData | null>(null);
-  const [failed, setFailed] = useState(false);
+  const activeRequestRef = useRef<AbortController | null>(null);
+  const [simulation, setSimulation] = useState<{
+    data: SimulationData;
+    runId: number;
+    startPlaying: boolean;
+  } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [latitude, setLatitude] = useState(
+    String(SOUTH_POLE_OBJECTIVE.latitudeDegrees),
+  );
+  const [longitude, setLongitude] = useState(
+    String(SOUTH_POLE_OBJECTIVE.longitudeDegrees),
+  );
+  const [running, setRunning] = useState(false);
   const [visible, setVisible] = useState(false);
+
+  const run = useCallback(
+    async (objective: SatelliteSwarmObjective, startPlaying = false) => {
+      activeRequestRef.current?.abort();
+      const controller = new AbortController();
+      activeRequestRef.current = controller;
+      setError(null);
+      setRunning(true);
+      try {
+        const result = await runSatelliteSwarmSimulation(objective, {
+          signal: controller.signal,
+        });
+        if (activeRequestRef.current === controller) {
+          setSimulation((current) => ({
+            data: result,
+            runId: (current?.runId ?? 0) + 1,
+            startPlaying,
+          }));
+        }
+      } catch (runError) {
+        if (
+          activeRequestRef.current === controller &&
+          (!(runError instanceof DOMException) ||
+            runError.name !== "AbortError")
+        ) {
+          setError(messageFrom(runError));
+        }
+      } finally {
+        if (activeRequestRef.current === controller) {
+          activeRequestRef.current = null;
+          setRunning(false);
+        }
+      }
+    },
+    [],
+  );
 
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
-    let active = true;
+    let disposed = false;
     let requested = false;
-    const controller = new AbortController();
-
     const load = () => {
-      if (requested) return;
+      if (disposed || requested) return;
       requested = true;
-      fetch(FIXTURE_URL, { signal: controller.signal })
-        .then((response) => {
-          if (!response.ok) throw new Error("Simulation request failed");
-          return response.json() as Promise<unknown>;
-        })
-        .then((value) => {
-          if (active) setData(parseSatelliteSwarmSimulation(value));
-        })
-        .catch(() => {
-          if (active) setFailed(true);
-        });
+      setVisible(true);
+      void run(SOUTH_POLE_OBJECTIVE);
     };
 
     if (typeof IntersectionObserver === "undefined") {
-      setVisible(true);
       load();
       return () => {
-        active = false;
-        controller.abort();
+        disposed = true;
+        const controller = activeRequestRef.current;
+        activeRequestRef.current = null;
+        controller?.abort();
       };
     }
 
     const observer = new IntersectionObserver(
       ([entry]) => {
-        if (!entry?.isIntersecting) return;
-        setVisible(true);
+        if (disposed || !entry?.isIntersecting) return;
         load();
         observer.disconnect();
       },
@@ -83,18 +243,57 @@ export function DeferredSatelliteSwarmSimulation() {
     );
     observer.observe(container);
     return () => {
-      active = false;
-      controller.abort();
+      disposed = true;
+      const controller = activeRequestRef.current;
+      activeRequestRef.current = null;
+      controller?.abort();
       observer.disconnect();
     };
-  }, []);
+  }, [run]);
+
+  const resetObjective = () => {
+    setLongitude(String(SOUTH_POLE_OBJECTIVE.longitudeDegrees));
+    setLatitude(String(SOUTH_POLE_OBJECTIVE.latitudeDegrees));
+    void run(SOUTH_POLE_OBJECTIVE, true);
+  };
+
+  const submit = (event: SubmitEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    void run(
+      {
+        latitudeDegrees: Number(latitude),
+        longitudeDegrees: Number(longitude),
+      },
+      true,
+    );
+  };
 
   return (
-    <div ref={containerRef} aria-busy={!data && !failed}>
-      {data && visible ? (
-        <SatelliteSwarmSimulation data={data} />
+    <div ref={containerRef} aria-busy={running}>
+      {simulation && visible ? (
+        <SatelliteSwarmSimulation
+          key={simulation.runId}
+          data={simulation.data}
+          executionMode="webassembly"
+          missionControls={
+            <MissionControls
+              error={error}
+              latitude={latitude}
+              longitude={longitude}
+              onLatitudeChange={setLatitude}
+              onLongitudeChange={setLongitude}
+              onReset={resetObjective}
+              onSubmit={submit}
+              running={running}
+            />
+          }
+          startPlaying={simulation.startPlaying}
+        />
       ) : (
-        <Placeholder failed={failed} />
+        <Placeholder
+          error={error}
+          onRetry={() => void run(SOUTH_POLE_OBJECTIVE)}
+        />
       )}
     </div>
   );

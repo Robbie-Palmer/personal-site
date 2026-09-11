@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
   "traceVersion": 1,
-  "scenario": "three-node-south-pole-pass",
-  "source": "native C++ SimulationTrace",
+  "scenario": "three-node-objective-pass",
+  "source": "portable C++ SimulationTrace",
   "positionModel": "scripted simulation data; not orbit propagation",
   "objective": {"longitudeDegrees":0,"latitudeDegrees":-90},
   "frames": [
