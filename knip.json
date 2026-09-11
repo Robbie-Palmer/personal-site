@@ -6,6 +6,7 @@
     ".": {
       "entry": [
         "functions/**/*.ts",
+        "cpp/autonomic-satellite-swarm/browser/tests/browser_parity.mjs",
         "homelab/images/t3-code/bootstrap-settings.mjs",
         "homelab/tests/**/*.test.ts",
         "scripts/prose-lint.ts"
@@ -24,7 +25,11 @@
     "packages/ai-review-domain": {},
     "packages/writing-editor-domain": {},
     "ui": {
-      "ignore": ["content/**", "public/recipes-sw.js"],
+      "ignore": [
+        "content/**",
+        "public/recipes-sw.js",
+        "public/simulations/autonomic-satellite-swarm/**/*.mjs"
+      ],
       "ignoreDependencies": ["serve"]
     },
     "workers/recipe-api": {
