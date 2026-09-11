@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 const uiRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const outputRoot = path.join(uiRoot, "out");
 const nextChunks = path.join(outputRoot, "_next", "static", "chunks");
+const CESIUM_SYNTAX_CHECK_TIMEOUT_MS = 30_000;
 
 async function javascriptFiles(directory) {
   const entries = await readdir(directory, { withFileTypes: true });
@@ -36,11 +37,16 @@ const cesiumSource = await readFile(cesiumModule, "utf8");
 const moduleCheck = spawnSync(
   process.execPath,
   ["--input-type=module", "--check"],
-  { encoding: "utf8", input: cesiumSource },
+  {
+    encoding: "utf8",
+    input: cesiumSource,
+    timeout: CESIUM_SYNTAX_CHECK_TIMEOUT_MS,
+  },
 );
 if (moduleCheck.status !== 0) {
+  const diagnostic = moduleCheck.error?.message ?? moduleCheck.stderr;
   throw new Error(
-    `Failed to parse ${path.relative(uiRoot, cesiumModule)}:\n${moduleCheck.stderr}`,
+    `Failed to parse ${path.relative(uiRoot, cesiumModule)}:\n${diagnostic}`,
   );
 }
 
