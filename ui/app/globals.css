@@ -387,29 +387,55 @@ code[data-line-numbers-max-digits="3"] > [data-line]::before {
 
 @media (max-width: 767px) {
   .home-project-artifact {
-    opacity: 0.25;
+    opacity: 0.28;
     animation: none;
   }
 
+  .artifact-capture__bar {
+    grid-template-columns: 1fr;
+    height: 2rem;
+    padding: 0 0.75rem;
+  }
+
+  .artifact-capture__dots,
+  .artifact-capture__meta {
+    display: none;
+  }
+
+  .artifact-capture__image--pathology {
+    aspect-ratio: 341 / 256;
+    background-image: url("/images/home/pathology-viewer-mobile.jpg");
+  }
+
+  .artifact-capture__image--satellites {
+    aspect-ratio: 341 / 400;
+    background-image: url("/images/home/satellite-swarm-mobile.jpg");
+  }
+
+  .artifact-capture__image--asset-tracker {
+    aspect-ratio: 325 / 400;
+    background-image: url("/images/home/asset-tracker-chart-mobile.jpg");
+  }
+
   .home-project-artifact--pathology {
-    top: 4%;
-    left: 6%;
-    width: 76vw;
-    transform: rotateY(8deg) rotateZ(-5deg) translateZ(-70px);
+    top: 16%;
+    left: 4%;
+    width: 58vw;
+    transform: rotateY(6deg) rotateZ(-5deg) translateZ(-70px);
   }
 
   .home-project-artifact--satellites {
-    top: 29%;
+    top: 2%;
     right: 2%;
-    width: 72vw;
-    transform: rotateY(-8deg) rotateZ(5deg) translateZ(-90px);
+    width: 50vw;
+    transform: rotateY(-6deg) rotateZ(5deg) translateZ(-90px);
   }
 
   .home-project-artifact--asset-tracker {
-    bottom: 4%;
-    left: 4%;
-    width: 92vw;
-    transform: rotateY(5deg) rotateZ(3deg) translateZ(-100px);
+    right: 4%;
+    bottom: 1%;
+    width: 54vw;
+    transform: rotateY(-5deg) rotateZ(-3deg) translateZ(-100px);
   }
 
   .home-project-backdrop__veil {
