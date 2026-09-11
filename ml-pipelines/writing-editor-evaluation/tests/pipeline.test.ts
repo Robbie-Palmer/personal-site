@@ -7,7 +7,7 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import { extractDataset } from "../src/extract-dataset";
 import { freezeCohort } from "../src/freeze-cohort";
-import { readJson, resetDirectory } from "../src/files";
+import { readJson, resetDirectory, resolveContainedFile } from "../src/files";
 import { fileAtRevision } from "../src/git-revisions";
 import {
   CorpusSourceManifestSchema,
@@ -105,13 +105,29 @@ function writeParams(file: string, seed = "fixture-seed"): void {
       requiredArtifactTypes: ["adr", "project-page"],
     },
     producers: {
-      vale: { binaryVersion: "3.20.0" },
+      vale: { binaryVersion: "3.20.0", timeoutMs: 1_000 },
     },
     matching: { characterDiff: { maxEditLength: 1_000 } },
   });
 }
 
 describe("writing editor evaluation pipeline", () => {
+  it("rejects corpus paths that escape lexically or through a symlink", () => {
+    const temporary = temporaryDirectory("writing-paths-");
+    const corpus = path.join(temporary, "corpus");
+    const outside = path.join(temporary, "outside.md");
+    fs.mkdirSync(corpus);
+    fs.writeFileSync(outside, "outside\n");
+
+    expect(() => resolveContainedFile(corpus, "../outside.md", "fixture source"))
+      .toThrow("fixture source must resolve to a file within");
+
+    const link = path.join(corpus, "linked.md");
+    fs.symlinkSync(outside, link);
+    expect(() => resolveContainedFile(corpus, "linked.md", "fixture source"))
+      .toThrow("fixture source must resolve to a file within");
+  });
+
   it("extracts exact content from immutable Git revisions", () => {
     const temporary = temporaryDirectory("writing-extract-");
     const repository = path.join(temporary, "repository");

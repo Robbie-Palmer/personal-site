@@ -1,4 +1,3 @@
-import fs from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -10,7 +9,7 @@ import { verifyFindingSource, type Finding } from "writing-editor-domain/finding
 import { sha256, sourceReference } from "writing-editor-domain/suggestions";
 import { z } from "zod";
 
-import { readJson, writeJson } from "./files";
+import { readContainedText, readJson, writeJson } from "./files";
 import {
   EditHunkSchema,
   EditMatchRunSchema,
@@ -298,6 +297,9 @@ export function matchPublishedEdits(options: MatchEditsOptions): EditMatchRun {
   const producerArtifacts = new Map(
     producerRun.artifacts.map((artifact) => [artifact.artifactId, artifact]),
   );
+  if (producerArtifacts.size !== producerRun.artifacts.length) {
+    throw new Error("producer output contains duplicate artifact IDs");
+  }
   if (producerArtifacts.size !== cohort.entries.length) {
     throw new Error("producer output must contain each frozen artifact exactly once");
   }
@@ -315,10 +317,15 @@ export function matchPublishedEdits(options: MatchEditsOptions): EditMatchRun {
       throw new Error(`producer metadata mismatch for ${entry.artifactId}`);
     }
 
-    const source = fs.readFileSync(path.resolve(options.corpusRoot, entry.source.file), "utf8");
-    const published = fs.readFileSync(
-      path.resolve(options.corpusRoot, entry.published.file),
-      "utf8",
+    const source = readContainedText(
+      options.corpusRoot,
+      entry.source.file,
+      `${entry.artifactId} source`,
+    );
+    const published = readContainedText(
+      options.corpusRoot,
+      entry.published.file,
+      `${entry.artifactId} published`,
     );
     const sourceRef = sourceReference(entry.path, entry.source.revision, source);
     const publishedRef = sourceReference(entry.path, entry.published.revision, published);

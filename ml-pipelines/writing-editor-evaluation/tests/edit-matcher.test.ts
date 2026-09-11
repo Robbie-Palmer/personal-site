@@ -3,7 +3,7 @@ import os from "node:os";
 import path from "node:path";
 
 import { afterEach, describe, expect, it } from "vitest";
-import { createFinding } from "writing-editor-domain/findings";
+import { createFinding, findingId } from "writing-editor-domain/findings";
 import { sha256, sourceReference } from "writing-editor-domain/suggestions";
 
 import {
@@ -152,7 +152,7 @@ function fixture(root: string): {
       split: { train: 0.6, validation: 0.2, holdout: 0.2 },
       requiredArtifactTypes: ["adr"],
     },
-    producers: { vale: { binaryVersion: "3.20.0" } },
+    producers: { vale: { binaryVersion: "3.20.0", timeoutMs: 1_000 } },
     matching: { characterDiff: { maxEditLength: 1_000 } },
   });
   return { cohortFile, corpusRoot, findingsFile, paramsFile, outputFile, publishedFile };
@@ -310,6 +310,14 @@ describe("published edit matcher", () => {
     expect(() => matchPublishedEdits(metadata)).toThrow(
       "producer metadata mismatch for example",
     );
+
+    const duplicate = fixture(temporaryDirectory("writing-match-duplicate-"));
+    const duplicateProducer = JSON.parse(fs.readFileSync(duplicate.findingsFile, "utf8"));
+    duplicateProducer.artifacts.push(duplicateProducer.artifacts[0]);
+    writeJson(duplicate.findingsFile, duplicateProducer);
+    expect(() => matchPublishedEdits(duplicate)).toThrow(
+      "producer artifact IDs must be unique",
+    );
   });
 
   it("rejects a finding whose recorded source text is stale", () => {
@@ -320,5 +328,30 @@ describe("published edit matcher", () => {
 
     expect(() => matchPublishedEdits(options)).toThrow(/invalid finding source/);
     expect(fs.existsSync(options.outputFile)).toBe(false);
+  });
+
+  it("rejects findings attributed to another source or producer", () => {
+    const sourceOptions = fixture(temporaryDirectory("writing-match-source-"));
+    const sourceProducer = JSON.parse(fs.readFileSync(sourceOptions.findingsFile, "utf8"));
+    const wrongSourceFinding = sourceProducer.artifacts[0].findings[0].finding;
+    wrongSourceFinding.source.documentId = "docs/other.md";
+    wrongSourceFinding.findingId = findingId(wrongSourceFinding);
+    sourceProducer.artifacts[0].findings[0].finding.findingId = wrongSourceFinding.findingId;
+    sourceProducer.artifacts[0].findingIds[0] = wrongSourceFinding.findingId;
+    writeJson(sourceOptions.findingsFile, sourceProducer);
+    expect(() => matchPublishedEdits(sourceOptions)).toThrow(
+      "each finding source must match the containing artifact source",
+    );
+
+    const producerOptions = fixture(temporaryDirectory("writing-match-producer-"));
+    const producerRun = JSON.parse(fs.readFileSync(producerOptions.findingsFile, "utf8"));
+    const wrongProducerFinding = producerRun.artifacts[0].findings[0].finding;
+    wrongProducerFinding.producer.version = "vale@0.0.0+rules.other";
+    wrongProducerFinding.findingId = findingId(wrongProducerFinding);
+    producerRun.artifacts[0].findingIds[0] = wrongProducerFinding.findingId;
+    writeJson(producerOptions.findingsFile, producerRun);
+    expect(() => matchPublishedEdits(producerOptions)).toThrow(
+      "each finding producer must match the containing producer run",
+    );
   });
 });

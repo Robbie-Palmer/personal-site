@@ -110,6 +110,7 @@ export const PipelineParamsSchema = z.object({
   producers: z.object({
     vale: z.object({
       binaryVersion: z.string().regex(/^\d+\.\d+\.\d+$/),
+      timeoutMs: z.number().int().positive(),
     }).strict(),
   }).strict(),
   matching: z.object({
@@ -193,6 +194,19 @@ const ValeArtifactResultSchema = z.object({
   findingIds: z.array(FindingIdSchema),
   findings: z.array(ValeFindingRecordSchema),
 }).strict().superRefine((artifact, context) => {
+  for (const [index, { finding }] of artifact.findings.entries()) {
+    if (
+      finding.source.documentId !== artifact.source.documentId ||
+      finding.source.revision !== artifact.source.revision ||
+      finding.source.contentHash !== artifact.source.contentHash
+    ) {
+      context.addIssue({
+        code: "custom",
+        message: "each finding source must match the containing artifact source",
+        path: ["findings", index, "finding", "source"],
+      });
+    }
+  }
   const expectedIds = artifact.findings.map(({ finding }) => finding.findingId);
   if (
     artifact.findingIds.length !== expectedIds.length ||
@@ -240,7 +254,30 @@ export const ValeProducerRunSchema = z.object({
     }).strict(),
     byCheck: z.array(FindingCountSchema),
   }).strict(),
-}).strict();
+}).strict().superRefine((run, context) => {
+  const artifactIds = run.artifacts.map(({ artifactId }) => artifactId);
+  if (new Set(artifactIds).size !== artifactIds.length) {
+    context.addIssue({
+      code: "custom",
+      message: "producer artifact IDs must be unique",
+      path: ["artifacts"],
+    });
+  }
+  for (const [artifactIndex, artifact] of run.artifacts.entries()) {
+    for (const [findingIndex, { finding }] of artifact.findings.entries()) {
+      if (
+        finding.producer.id !== run.producer.id ||
+        finding.producer.version !== run.producer.version
+      ) {
+        context.addIssue({
+          code: "custom",
+          message: "each finding producer must match the containing producer run",
+          path: ["artifacts", artifactIndex, "findings", findingIndex, "finding", "producer"],
+        });
+      }
+    }
+  }
+});
 export type ValeProducerRun = z.infer<typeof ValeProducerRunSchema>;
 
 export const EditHunkIdSchema = z.string().regex(/^edit-hunk:v1:[a-f0-9]{64}$/);

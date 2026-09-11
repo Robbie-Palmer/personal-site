@@ -35,6 +35,12 @@ metrics to Git. DVC will track the corpus, producer output, matched edits, and
 larger reports. Do not commit raw private writing or generated passages to the
 public repository.
 
+Run each DVC stage through a checked-in shell script or direct command. Hash the
+script, source, lockfile, parameters, and data inputs that determine its output.
+Do not make a stage depend on the root `mise.toml`: unrelated development-tool
+changes should not invalidate cached evaluation artifacts. A stage that uses a
+mise-installed binary must validate its declared version at runtime.
+
 This proposal uses the accepted record contract from
 [ADR 003](/projects/agent-first-writing/adrs/003-versioned-editor-record-contract).
 Producer stages validate their findings, suggestions, proposals, and decisions

@@ -11,6 +11,38 @@ export function readJson(file: string): unknown {
   }
 }
 
+export function resolveContainedFile(
+  rootDirectory: string,
+  relativeFile: string,
+  label: string,
+): string {
+  const root = path.resolve(rootDirectory);
+  const file = path.resolve(root, relativeFile);
+  assertContained(root, file, label);
+
+  try {
+    const realRoot = fs.realpathSync(root);
+    const realFile = fs.realpathSync(file);
+    assertContained(realRoot, realFile, label);
+    return realFile;
+  } catch (error) {
+    throw new Error(`cannot resolve ${label} ${file}: ${errorMessage(error)}`);
+  }
+}
+
+export function readContainedText(
+  rootDirectory: string,
+  relativeFile: string,
+  label: string,
+): string {
+  const file = resolveContainedFile(rootDirectory, relativeFile, label);
+  try {
+    return fs.readFileSync(file, "utf8");
+  } catch (error) {
+    throw new Error(`cannot read ${label} ${file}: ${errorMessage(error)}`);
+  }
+}
+
 export function writeJson(file: string, value: unknown): void {
   fs.mkdirSync(path.dirname(file), { recursive: true });
   fs.writeFileSync(file, `${canonicalJson(value)}\n`);
@@ -49,6 +81,18 @@ function assertNoSymlinkComponents(root: string, relative: string): void {
     if (stats.isSymbolicLink()) {
       throw new Error(`refusing to reset output through symbolic link: ${current}`);
     }
+  }
+}
+
+function assertContained(root: string, file: string, label: string): void {
+  const relative = path.relative(root, file);
+  if (
+    relative === "" ||
+    relative === ".." ||
+    relative.startsWith(`..${path.sep}`) ||
+    path.isAbsolute(relative)
+  ) {
+    throw new Error(`${label} must resolve to a file within ${root}`);
   }
 }
 

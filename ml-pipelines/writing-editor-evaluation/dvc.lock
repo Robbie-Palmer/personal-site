@@ -38,16 +38,16 @@ stages:
       size: 4790
     - path: src/files.ts
       hash: md5
-      md5: c37f764483386db1371ef118837e2a88
-      size: 1759
+      md5: fce85952c262353a104b1705fc30ddc6
+      size: 2954
     - path: src/git-revisions.ts
       hash: md5
       md5: 1bc9c69107afca3955ed1e82db0d9695
       size: 1652
     - path: src/schemas.ts
       hash: md5
-      md5: 6f9bb542ee0bf2e6ef79a3b4da3e2df5
-      size: 14531
+      md5: a24c32aa13a005e4d8faabccb39a459e
+      size: 15904
     outs:
     - path: data/corpus
       hash: md5
@@ -88,16 +88,16 @@ stages:
       isexec: true
     - path: src/files.ts
       hash: md5
-      md5: c37f764483386db1371ef118837e2a88
-      size: 1759
+      md5: fce85952c262353a104b1705fc30ddc6
+      size: 2954
     - path: src/freeze-cohort.ts
       hash: md5
       md5: 85905c8bcf9ee66051efb3a2f1a01796
       size: 7898
     - path: src/schemas.ts
       hash: md5
-      md5: 6f9bb542ee0bf2e6ef79a3b4da3e2df5
-      size: 14531
+      md5: a24c32aa13a005e4d8faabccb39a459e
+      size: 15904
     params:
       params.yaml:
         cohort:
@@ -126,10 +126,6 @@ stages:
   run_vale:
     cmd: bash scripts/run-vale.sh
     deps:
-    - path: ../../.mise.toml
-      hash: md5
-      md5: 908fd82b62b490ca2be901e14d25c776
-      size: 10609
     - path: ../../.vale.ini
       hash: md5
       md5: 1acb6180bad445baf61645d349c2bc6c
@@ -179,20 +175,21 @@ stages:
       isexec: true
     - path: src/files.ts
       hash: md5
-      md5: c37f764483386db1371ef118837e2a88
-      size: 1759
+      md5: fce85952c262353a104b1705fc30ddc6
+      size: 2954
     - path: src/run-vale.ts
       hash: md5
-      md5: 126393ebc8d47a4667553baac91e6590
-      size: 11641
+      md5: 6e4c23c5adcca52ecedd4e040bfddb9e
+      size: 12814
     - path: src/schemas.ts
       hash: md5
-      md5: 6f9bb542ee0bf2e6ef79a3b4da3e2df5
-      size: 14531
+      md5: a24c32aa13a005e4d8faabccb39a459e
+      size: 15904
     params:
       params.yaml:
         producers.vale:
           binaryVersion: 3.20.0
+          timeoutMs: 300000
     outs:
     - path: outputs/producers/vale.json
       hash: md5
@@ -245,16 +242,16 @@ stages:
       isexec: true
     - path: src/files.ts
       hash: md5
-      md5: c37f764483386db1371ef118837e2a88
-      size: 1759
+      md5: fce85952c262353a104b1705fc30ddc6
+      size: 2954
     - path: src/match-edits.ts
       hash: md5
-      md5: c0c2652f6199f1870aaefbadade69c5a
-      size: 12918
+      md5: b17cf164ffa9c73e977988a6fac15885
+      size: 13353
     - path: src/schemas.ts
       hash: md5
-      md5: 6f9bb542ee0bf2e6ef79a3b4da3e2df5
-      size: 14531
+      md5: a24c32aa13a005e4d8faabccb39a459e
+      size: 15904
     params:
       params.yaml:
         matching.characterDiff:

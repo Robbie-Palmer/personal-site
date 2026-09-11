@@ -30,7 +30,14 @@ artifact with the repository's merge-blocking Unslop rules. It writes stable
 finding IDs, rule provenance, severity, line and column positions, and exact
 UTF-8 source spans to `outputs/producers/vale.json`. The producer hashes the
 Vale config and rule directory into its version, so a rule change creates new
-finding identities and invalidates the DVC stage.
+finding identities and invalidates the DVC stage. The producer disables Vale's
+finding-based exit code, fails on process errors, and enforces the timeout in
+`params.yaml`.
+
+DVC invokes each stage through a checked-in shell script. Stage dependencies
+cover the script, source, lockfile, parameters, and data inputs, but exclude the
+root `.mise.toml`; unrelated development-tool changes must not invalidate the
+writing pipeline cache.
 
 Vale reports normalized text when Markdown markup occurs inside a match. The
 producer keeps that report beside the exact marked-up source bytes. It fails on

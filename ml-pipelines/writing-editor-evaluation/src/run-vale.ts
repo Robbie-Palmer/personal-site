@@ -17,7 +17,7 @@ import {
 } from "writing-editor-domain/suggestions";
 import { z } from "zod";
 
-import { readJson, writeJson } from "./files";
+import { readContainedText, readJson, resolveContainedFile, writeJson } from "./files";
 import {
   FrozenCohortSchema,
   PipelineParamsSchema,
@@ -195,8 +195,11 @@ function ruleSetHash(configFile: string, stylesDirectory: string): string {
   }))));
 }
 
-function valeVersion(binary: string): string {
-  const output = execFileSync(binary, ["--version"], { encoding: "utf8" }).trim();
+function valeVersion(binary: string, timeoutMs: number): string {
+  const output = execFileSync(binary, ["--version"], {
+    encoding: "utf8",
+    timeout: timeoutMs,
+  }).trim();
   const match = /^vale version (\d+\.\d+\.\d+)$/.exec(output);
   if (!match?.[1]) {
     throw new Error(`cannot parse Vale version from ${JSON.stringify(output)}`);
@@ -204,29 +207,41 @@ function valeVersion(binary: string): string {
   return match[1];
 }
 
-function runVale(binary: string, configFile: string, files: string[]): Map<string, ValeAlert[]> {
+function runVale(
+  binary: string,
+  configFile: string,
+  files: string[],
+  timeoutMs: number,
+): Map<string, ValeAlert[]> {
   const alertsByFile = new Map<string, ValeAlert[]>();
   for (const file of files) alertsByFile.set(path.resolve(file), []);
 
-  let stdout = "";
+  let stdout: string;
   try {
     stdout = execFileSync(
       binary,
-      ["--no-global", "--config", path.resolve(configFile), "--output", "JSON", ...files],
+      [
+        "--no-exit",
+        "--no-global",
+        "--config",
+        path.resolve(configFile),
+        "--output",
+        "JSON",
+        ...files,
+      ],
       {
         encoding: "utf8",
         stdio: ["ignore", "pipe", "pipe"],
         maxBuffer: 20 * 1024 * 1024,
+        timeout: timeoutMs,
       },
     );
   } catch (error) {
-    const failure = error as { stdout?: string; stderr?: string; status?: number };
-    stdout = failure.stdout ?? "";
-    if (!stdout) {
-      throw new Error(
-        `Vale failed with status ${failure.status ?? "unknown"}: ${(failure.stderr ?? "").trim()}`,
-      );
-    }
+    const failure = error as { stderr?: string; status?: number; signal?: string };
+    const signal = failure.signal ? `, signal ${failure.signal}` : "";
+    throw new Error(
+      `Vale failed with status ${failure.status ?? "unknown"}${signal}: ${(failure.stderr ?? "").trim()}`,
+    );
   }
 
   const parsed = ValeJsonSchema.parse(JSON.parse(stdout || "{}"));
@@ -273,7 +288,8 @@ function summary(artifacts: ValeProducerRun["artifacts"]): ValeProducerRun["summ
 export function runValeProducer(options: RunValeOptions): ValeProducerRun {
   const cohort = FrozenCohortSchema.parse(readJson(options.cohortFile));
   const params = PipelineParamsSchema.parse(readJson(options.paramsFile));
-  const binaryVersion = valeVersion(options.valeBinary);
+  const timeoutMs = params.producers.vale.timeoutMs;
+  const binaryVersion = valeVersion(options.valeBinary, timeoutMs);
   if (binaryVersion !== params.producers.vale.binaryVersion) {
     throw new Error(
       `Vale version mismatch: expected ${params.producers.vale.binaryVersion}, got ${binaryVersion}`,
@@ -289,15 +305,24 @@ export function runValeProducer(options: RunValeOptions): ValeProducerRun {
 
   const inputs = cohort.entries.map((entry) => ({
     entry,
-    file: path.resolve(options.corpusRoot, entry.source.file),
+    file: resolveContainedFile(
+      options.corpusRoot,
+      entry.source.file,
+      `${entry.artifactId} source`,
+    ),
   }));
   const alertsByFile = runVale(
     options.valeBinary,
     options.configFile,
     inputs.map(({ file }) => file),
+    timeoutMs,
   );
   const artifacts = inputs.map(({ entry, file }) => {
-    const source = fs.readFileSync(file, "utf8");
+    const source = readContainedText(
+      options.corpusRoot,
+      entry.source.file,
+      `${entry.artifactId} source`,
+    );
     const reference = sourceReference(entry.path, entry.source.revision, source);
     if (reference.contentHash !== entry.source.contentHash) {
       throw new Error(

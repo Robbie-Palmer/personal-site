@@ -41,7 +41,6 @@ stages:
     params:
       - producers.vale
     deps:
-      - ../../.mise.toml
       - ../../.vale.ini
       - ../../.vale/styles/Unslop
       - ../../packages/writing-editor-domain/package.json

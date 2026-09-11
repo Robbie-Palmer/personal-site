@@ -89,7 +89,7 @@ function fixture(temporary: string): {
       split: { train: 0.6, validation: 0.2, holdout: 0.2 },
       requiredArtifactTypes: ["adr"],
     },
-    producers: { vale: { binaryVersion: "3.20.0" } },
+    producers: { vale: { binaryVersion: "3.20.0", timeoutMs: 1_000 } },
     matching: { characterDiff: { maxEditLength: 1_000 } },
   });
   return { cohortFile, corpusRoot, paramsFile, outputFile };
@@ -272,13 +272,14 @@ describe("Vale producer", () => {
     })).toThrow("Vale reported an unexpected file: unexpected.md");
   });
 
-  it("surfaces a Vale process failure that has no JSON output", () => {
+  it("rejects a failed Vale process even when it emits JSON", () => {
     const temporary = temporaryDirectory("writing-vale-failure-");
     const options = fixture(temporary);
     const binary = fakeVale(temporary, [
       "if [[ \"$1\" == \"--version\" ]]; then",
       "  echo 'vale version 3.20.0'",
       "else",
+      "  echo '{}'",
       "  echo 'fixture failure' >&2",
       "  exit 2",
       "fi",
@@ -290,5 +291,28 @@ describe("Vale producer", () => {
       stylesDirectory: path.join(repositoryRoot, ".vale/styles/Unslop"),
       valeBinary: binary,
     })).toThrow("Vale failed with status 2: fixture failure");
+  });
+
+  it("terminates Vale when it exceeds the configured timeout", () => {
+    const temporary = temporaryDirectory("writing-vale-timeout-");
+    const options = fixture(temporary);
+    const params = JSON.parse(fs.readFileSync(options.paramsFile, "utf8"));
+    params.producers.vale.timeoutMs = 20;
+    writeJson(options.paramsFile, params);
+    const binary = fakeVale(temporary, [
+      "if [[ \"$1\" == \"--version\" ]]; then",
+      "  echo 'vale version 3.20.0'",
+      "else",
+      "  sleep 1",
+      "  echo '{}'",
+      "fi",
+    ].join("\n"));
+
+    expect(() => runValeProducer({
+      ...options,
+      configFile: path.join(repositoryRoot, ".vale.ini"),
+      stylesDirectory: path.join(repositoryRoot, ".vale/styles/Unslop"),
+      valeBinary: binary,
+    })).toThrow(/Vale failed with status unknown, signal SIGTERM/);
   });
 });
