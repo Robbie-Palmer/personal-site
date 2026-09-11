@@ -58,30 +58,18 @@ corrections and did not close the gap between a technically correct draft and
 something I wanted to publish. That negative result narrows the problem. Generic
 grammatical error correction is not enough.
 
-Version 1 of the record contract now lives in the shared
-`writing-editor-domain` package. It hashes exact source bytes, uses half-open
-UTF-8 spans, distinguishes findings without safe rewrites from actionable
-suggestions, groups suggestions under stable proposal IDs, and keeps the full
-proposal beside each accepted, rejected, or changed decision.
+The shared `writing-editor-domain` package defines records for findings,
+suggestions, grouped proposals, and editorial decisions. Every record refers to
+hashed source bytes through a half-open UTF-8 span. Stable IDs retain producer
+and revision provenance as records pass through review and evaluation.
 
-The evaluation pipeline now extracts nine public before-and-after pairs from
-pinned Git commits and freezes a 5/2/2 train, validation, and holdout cohort.
-Its readiness check still fails by design. Git shows the published edit, but it
-does not reveal whether the author accepted, rejected, or changed an editor
-proposal. Recorded outcomes and the GECToR baseline must enter private DVC
-storage before scoring can start.
-
-The first producer stage now runs the pinned Vale binary against all nine
-frozen source artifacts. It emits 43 stable findings across the cohort, with
-rule provenance and source-verified UTF-8 spans. These findings mark passages
-for the next rewrite producer. They do not claim that Vale knows a safe
-replacement.
-
-The next pipeline stage aligns those findings with the published revisions. It
-found 15 self-contained changes and sent 28 boundary-crossing edits to manual
-adjudication. Each result retains the exact before-and-after bytes and stable
-edit-hunk IDs. This measures where published edits touched a Vale finding
-without pretending that the diff records an accepted suggestion.
+The DVC evaluation pipeline extracts pinned source and published revisions,
+freezes train, validation, and holdout membership, and runs Vale through the
+shared finding contract. It aligns findings with observed published edits while
+keeping boundary-crossing cases separate for manual adjudication. Git can show
+that prose changed, but it cannot turn a detection-only finding into an
+accepted suggestion. Scoring therefore waits for explicit editorial outcomes
+and a reproducible rewrite baseline.
 
 Grammarly remains the practical baseline for the final mile, but it does not
 provide the API needed for an agentic publishing system. Its published research
