@@ -1,6 +1,11 @@
 import { z } from "zod";
 
-import { ContentHashSchema } from "writing-editor-domain/suggestions";
+import { FindingIdSchema, FindingSchema } from "writing-editor-domain/findings";
+import {
+  ContentHashSchema,
+  ProducerSchema,
+  SourceReferenceSchema,
+} from "writing-editor-domain/suggestions";
 
 export const ArtifactTypeSchema = z.enum(["adr", "project-page"]);
 export type ArtifactType = z.infer<typeof ArtifactTypeSchema>;
@@ -59,7 +64,7 @@ export const ExtractedRevisionSchema = z.object({
   committedAt: z.iso.datetime({ offset: true }),
   contentHash: ContentHashSchema,
   bytes: z.number().int().nonnegative(),
-  file: z.string().min(1),
+  file: RepositoryPathSchema,
 }).strict();
 
 export const DatasetEntrySchema = z.object({
@@ -101,6 +106,11 @@ export const PipelineParamsSchema = z.object({
       (types) => new Set(types).size === types.length,
       "required artifact types must be unique",
     ),
+  }).strict(),
+  producers: z.object({
+    vale: z.object({
+      binaryVersion: z.string().regex(/^\d+\.\d+\.\d+$/),
+    }).strict(),
   }).strict(),
 }).strict();
 export type PipelineParams = z.infer<typeof PipelineParamsSchema>;
@@ -154,3 +164,76 @@ export const ReadinessSchema = z.object({
   }).strict(),
 }).strict();
 export type Readiness = z.infer<typeof ReadinessSchema>;
+
+export const ValeSeveritySchema = z.enum(["error", "warning", "suggestion"]);
+export type ValeSeverity = z.infer<typeof ValeSeveritySchema>;
+
+export const ValeFindingRecordSchema = z.object({
+  severity: ValeSeveritySchema,
+  valeMatch: z.string().min(1),
+  location: z.object({
+    line: z.number().int().positive(),
+    startColumn: z.number().int().positive(),
+    endColumn: z.number().int().positive(),
+  }).strict(),
+  finding: FindingSchema,
+}).strict();
+export type ValeFindingRecord = z.infer<typeof ValeFindingRecordSchema>;
+
+const ValeArtifactResultSchema = z.object({
+  artifactId: ArtifactIdSchema,
+  artifactType: ArtifactTypeSchema,
+  split: SplitSchema,
+  source: SourceReferenceSchema,
+  findingIds: z.array(FindingIdSchema),
+  findings: z.array(ValeFindingRecordSchema),
+}).strict().superRefine((artifact, context) => {
+  const expectedIds = artifact.findings.map(({ finding }) => finding.findingId);
+  if (
+    artifact.findingIds.length !== expectedIds.length ||
+    artifact.findingIds.some((id, index) => id !== expectedIds[index])
+  ) {
+    context.addIssue({
+      code: "custom",
+      message: "findingIds must match findings in output order",
+      path: ["findingIds"],
+    });
+  }
+  if (new Set(expectedIds).size !== expectedIds.length) {
+    context.addIssue({
+      code: "custom",
+      message: "an artifact cannot contain duplicate findings",
+      path: ["findings"],
+    });
+  }
+});
+
+const FindingCountSchema = z.object({
+  check: z.string().min(1),
+  count: z.number().int().positive(),
+}).strict();
+
+export const ValeProducerRunSchema = z.object({
+  schemaVersion: z.literal(1),
+  recordType: z.literal("writing-editor-vale-producer-run"),
+  runId: z.string().regex(/^producer-run:v1:[a-f0-9]{64}$/),
+  cohortId: z.string().regex(/^cohort:v1:[a-f0-9]{64}$/),
+  producer: ProducerSchema,
+  vale: z.object({
+    binaryVersion: z.string().regex(/^\d+\.\d+\.\d+$/),
+    ruleSetHash: ContentHashSchema,
+  }).strict(),
+  artifacts: z.array(ValeArtifactResultSchema).min(1),
+  summary: z.object({
+    artifacts: z.number().int().positive(),
+    artifactsWithFindings: z.number().int().nonnegative(),
+    findings: z.number().int().nonnegative(),
+    bySeverity: z.object({
+      error: z.number().int().nonnegative(),
+      warning: z.number().int().nonnegative(),
+      suggestion: z.number().int().nonnegative(),
+    }).strict(),
+    byCheck: z.array(FindingCountSchema),
+  }).strict(),
+}).strict();
+export type ValeProducerRun = z.infer<typeof ValeProducerRunSchema>;

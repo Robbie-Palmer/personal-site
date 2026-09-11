@@ -50,9 +50,9 @@ Define these initial stages:
    candidate results exist. It reports missing revisions, incomplete edit
    outcomes, and coverage by artifact type.
 3. `run_producers` runs Vale, the GECToR-2024 baseline, and each declared
-   candidate against the frozen inputs. Every producer writes the versioned
-   suggestion format from
-   [ADR 003](/projects/agent-first-writing/adrs/003-versioned-suggestion-contract).
+   candidate against the frozen inputs. Detection-only rules write versioned
+   findings. Producers with a safe replacement write suggestions and proposals.
+   The shared domain package validates both formats.
    Captured Grammarly suggestions enter as reference data, not through an
    automated Grammarly stage.
 4. `match_edits` aligns each stable proposal ID and its ordered member

@@ -12,6 +12,11 @@ description = "Freeze the writing evaluation cohort and readiness report"
 depends = ["install"]
 run = "pnpm exec tsx src/freeze-cohort.ts --dataset data/corpus/manifest.json --params params.yaml --output outputs/frozen"
 
+[tasks."run:vale"]
+description = "Run Vale against the frozen writing cohort"
+depends = ["install"]
+run = "bash scripts/run-vale.sh"
+
 [tasks.repro]
 description = "Reproduce the local writing evaluation stages through DVC"
 depends = ["install"]

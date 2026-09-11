@@ -104,6 +104,9 @@ function writeParams(file: string, seed = "fixture-seed"): void {
       split: { train: 0.34, validation: 0.33, holdout: 0.33 },
       requiredArtifactTypes: ["adr", "project-page"],
     },
+    producers: {
+      vale: { binaryVersion: "3.20.0" },
+    },
   });
 }
 

@@ -58,9 +58,10 @@ corrections and did not close the gap between a technically correct draft and
 something I wanted to publish. That negative result narrows the problem. Generic
 grammatical error correction is not enough.
 
-Version 1 of the suggestion contract now lives in the shared
+Version 1 of the record contract now lives in the shared
 `writing-editor-domain` package. It hashes exact source bytes, uses half-open
-UTF-8 spans, groups suggestions under stable proposal IDs, and keeps the full
+UTF-8 spans, distinguishes findings without safe rewrites from actionable
+suggestions, groups suggestions under stable proposal IDs, and keeps the full
 proposal beside each accepted, rejected, or changed decision.
 
 The evaluation pipeline now extracts nine public before-and-after pairs from
@@ -69,6 +70,12 @@ Its readiness check still fails by design. Git shows the published edit, but it
 does not reveal whether the author accepted, rejected, or changed an editor
 proposal. Recorded outcomes and the GECToR baseline must enter private DVC
 storage before scoring can start.
+
+The first producer stage now runs the pinned Vale binary against all nine
+frozen source artifacts. It emits 43 stable findings across the cohort, with
+rule provenance and source-verified UTF-8 spans. These findings mark passages
+for the next rewrite producer. They do not claim that Vale knows a safe
+replacement.
 
 Grammarly remains the practical baseline for the final mile, but it does not
 provide the API needed for an agentic publishing system. Its published research
@@ -117,7 +124,7 @@ general editor:
    GECToR-2024 result as a baseline.
 3. Measure factual preservation, unwanted voice changes, accepted edits, time
    saved, and regressions caught by deterministic rules.
-4. Run Vale and other deterministic checks through the same suggestion format.
+4. Run Vale and other deterministic checks through the shared finding format.
 5. Add a lightweight model only for failure classes that the evaluation set
    proves Vale cannot handle.
 6. Add passage rewrites with diffs after local suggestions are reliable.
