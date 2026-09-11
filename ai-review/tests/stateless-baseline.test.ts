@@ -7,6 +7,7 @@ import { afterEach, expect, test } from "vitest";
 import { buildStatelessBaseline } from "../analytics/stateless-baseline";
 
 const temporaryDirectories: string[] = [];
+const TEST_TIMEOUT_MS = 10_000;
 
 afterEach(() => {
   for (const directory of temporaryDirectories.splice(0)) {
@@ -65,7 +66,7 @@ test(
     expect(first.uncachedInputTokens).toBe(700);
     expect(first.baselineId).toMatch(/^[a-f0-9]{64}$/);
   },
-  10_000,
+  TEST_TIMEOUT_MS,
 );
 
 test(
@@ -89,35 +90,43 @@ test(
     });
     expect(baseline.sample.reviewRuns).toBe(1);
   },
-  10_000,
+  TEST_TIMEOUT_MS,
 );
 
-test("rejects mart paths outside the marts directory or containing control characters", () => {
-  const root = temporaryRoot();
-  const marts = buildFixtureMarts(root);
-  const manifestFile = path.join(marts, "scorecard-manifest.json");
-  const original = fs.readFileSync(manifestFile, "utf8");
-  const manifest = JSON.parse(original) as { marts: { review_run_fact: { path: string } } };
+test(
+  "rejects mart paths outside the marts directory or containing control characters",
+  () => {
+    const root = temporaryRoot();
+    const marts = buildFixtureMarts(root);
+    const manifestFile = path.join(marts, "scorecard-manifest.json");
+    const original = fs.readFileSync(manifestFile, "utf8");
+    const manifest = JSON.parse(original) as { marts: { review_run_fact: { path: string } } };
 
-  manifest.marts.review_run_fact.path = "../outside.parquet";
-  fs.writeFileSync(manifestFile, `${JSON.stringify(manifest, null, 2)}\n`);
-  expect(() => buildStatelessBaseline({ martsDir: marts, outputFile: path.join(root, "outside.json") }))
-    .toThrow(/escapes the marts directory/);
+    manifest.marts.review_run_fact.path = "../outside.parquet";
+    fs.writeFileSync(manifestFile, `${JSON.stringify(manifest, null, 2)}\n`);
+    expect(() => buildStatelessBaseline({ martsDir: marts, outputFile: path.join(root, "outside.json") }))
+      .toThrow(/escapes the marts directory/);
 
-  manifest.marts.review_run_fact.path = "bad\npath.parquet";
-  fs.writeFileSync(manifestFile, `${JSON.stringify(manifest, null, 2)}\n`);
-  expect(() => buildStatelessBaseline({ martsDir: marts, outputFile: path.join(root, "control.json") }))
-    .toThrow(/unsupported characters/);
-});
+    manifest.marts.review_run_fact.path = "bad\npath.parquet";
+    fs.writeFileSync(manifestFile, `${JSON.stringify(manifest, null, 2)}\n`);
+    expect(() => buildStatelessBaseline({ martsDir: marts, outputFile: path.join(root, "control.json") }))
+      .toThrow(/unsupported characters/);
+  },
+  TEST_TIMEOUT_MS,
+);
 
-test("rejects mart bytes that do not match the manifest provenance", () => {
-  const root = temporaryRoot();
-  const marts = buildFixtureMarts(root);
-  const manifest = JSON.parse(fs.readFileSync(path.join(marts, "scorecard-manifest.json"), "utf8")) as {
-    marts: { review_run_fact: { path: string } };
-  };
-  fs.appendFileSync(path.join(marts, manifest.marts.review_run_fact.path), "tampered");
+test(
+  "rejects mart bytes that do not match the manifest provenance",
+  () => {
+    const root = temporaryRoot();
+    const marts = buildFixtureMarts(root);
+    const manifest = JSON.parse(fs.readFileSync(path.join(marts, "scorecard-manifest.json"), "utf8")) as {
+      marts: { review_run_fact: { path: string } };
+    };
+    fs.appendFileSync(path.join(marts, manifest.marts.review_run_fact.path), "tampered");
 
-  expect(() => buildStatelessBaseline({ martsDir: marts, outputFile: path.join(root, "baseline.json") }))
-    .toThrow(/checksum does not match/);
-});
+    expect(() => buildStatelessBaseline({ martsDir: marts, outputFile: path.join(root, "baseline.json") }))
+      .toThrow(/checksum does not match/);
+  },
+  TEST_TIMEOUT_MS,
+);
