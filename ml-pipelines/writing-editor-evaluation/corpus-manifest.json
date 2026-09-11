@@ -1,0 +1,78 @@
+{
+  "schemaVersion": 1,
+  "recordType": "writing-editor-corpus-source-manifest",
+  "entries": [
+    {
+      "artifactId": "agent-first-writing-project-page-vale-pass",
+      "artifactType": "project-page",
+      "path": "ui/content/projects/agent-first-writing/index.mdx",
+      "sourceRevision": "532d4b8010f8469e199b74fea62c0f01f056af58",
+      "publishedRevision": "775f1a279714da53fcd8b4b58a1ca2578a1c2abf",
+      "outcomeStatus": "unrecorded"
+    },
+    {
+      "artifactId": "grammarly-handoff-adr-vale-pass",
+      "artifactType": "adr",
+      "path": "ui/content/projects/agent-first-writing/adrs/007-playwright-assisted-grammarly-handoff.mdx",
+      "sourceRevision": "532d4b8010f8469e199b74fea62c0f01f056af58",
+      "publishedRevision": "775f1a279714da53fcd8b4b58a1ca2578a1c2abf",
+      "outcomeStatus": "unrecorded"
+    },
+    {
+      "artifactId": "satellite-swarm-project-page-vale-pass",
+      "artifactType": "project-page",
+      "path": "ui/content/projects/autonomic-satellite-swarm/index.mdx",
+      "sourceRevision": "532d4b8010f8469e199b74fea62c0f01f056af58",
+      "publishedRevision": "775f1a279714da53fcd8b4b58a1ca2578a1c2abf",
+      "outcomeStatus": "unrecorded"
+    },
+    {
+      "artifactId": "agent-health-adr-vale-pass",
+      "artifactType": "adr",
+      "path": "ui/content/projects/autonomic-satellite-swarm/adrs/005-agent-health-states.mdx",
+      "sourceRevision": "532d4b8010f8469e199b74fea62c0f01f056af58",
+      "publishedRevision": "775f1a279714da53fcd8b4b58a1ca2578a1c2abf",
+      "outcomeStatus": "unrecorded"
+    },
+    {
+      "artifactId": "personal-finance-project-page-vale-pass",
+      "artifactType": "project-page",
+      "path": "ui/content/projects/personal-finance-app/index.mdx",
+      "sourceRevision": "532d4b8010f8469e199b74fea62c0f01f056af58",
+      "publishedRevision": "775f1a279714da53fcd8b4b58a1ca2578a1c2abf",
+      "outcomeStatus": "unrecorded"
+    },
+    {
+      "artifactId": "knowledge-base-adr-vale-pass",
+      "artifactType": "adr",
+      "path": "ui/content/projects/homelab/adrs/014-basic-memory-silverbullet-agentic-knowledge-base.mdx",
+      "sourceRevision": "532d4b8010f8469e199b74fea62c0f01f056af58",
+      "publishedRevision": "775f1a279714da53fcd8b4b58a1ca2578a1c2abf",
+      "outcomeStatus": "unrecorded"
+    },
+    {
+      "artifactId": "gitleaks-adr-vale-pass",
+      "artifactType": "adr",
+      "path": "ui/content/projects/personal-site/adrs/054-gitleaks.mdx",
+      "sourceRevision": "532d4b8010f8469e199b74fea62c0f01f056af58",
+      "publishedRevision": "775f1a279714da53fcd8b4b58a1ca2578a1c2abf",
+      "outcomeStatus": "unrecorded"
+    },
+    {
+      "artifactId": "cooklang-adr-vale-pass",
+      "artifactType": "adr",
+      "path": "ui/content/projects/recipe-site/adrs/030-cooklang.mdx",
+      "sourceRevision": "532d4b8010f8469e199b74fea62c0f01f056af58",
+      "publishedRevision": "775f1a279714da53fcd8b4b58a1ca2578a1c2abf",
+      "outcomeStatus": "unrecorded"
+    },
+    {
+      "artifactId": "recipe-site-project-page-vale-pass",
+      "artifactType": "project-page",
+      "path": "ui/content/projects/recipe-site/index.mdx",
+      "sourceRevision": "532d4b8010f8469e199b74fea62c0f01f056af58",
+      "publishedRevision": "775f1a279714da53fcd8b4b58a1ca2578a1c2abf",
+      "outcomeStatus": "unrecorded"
+    }
+  ]
+}

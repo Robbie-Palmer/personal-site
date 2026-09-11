@@ -330,6 +330,31 @@ importers:
         specifier: ^3.6.0
         version: 3.6.0(vite@8.2.2(@types/node@24.13.3)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.13)(yaml@2.9.0))
 
+  ml-pipelines/writing-editor-evaluation:
+    dependencies:
+      writing-editor-domain:
+        specifier: workspace:*
+        version: link:../../packages/writing-editor-domain
+      zod:
+        specifier: ^4.2.1
+        version: 4.5.4
+    devDependencies:
+      '@types/node':
+        specifier: ^24
+        version: 24.13.3
+      '@vitest/coverage-v8':
+        specifier: ^4.1.10
+        version: 4.1.11(vitest@4.1.11)
+      tsx:
+        specifier: ^4.23.12
+        version: 4.23.13
+      typescript:
+        specifier: ^6.0.0
+        version: 6.0.3
+      vitest:
+        specifier: ^4.0.0
+        version: 4.1.11(@opentelemetry/api@1.9.1)(@types/node@24.13.3)(@vitest/coverage-v8@4.1.11)(jsdom@29.1.1(@noble/hashes@2.4.0))(vite@8.2.2(@types/node@24.13.3)(tsx@4.23.13)(yaml@2.9.0))
+
   packages/ai-review-domain:
     dependencies:
       zod:
@@ -499,7 +524,24 @@ importers:
       vitest:
         specifier: ^4.0.0
         version: 4.1.11(@opentelemetry/api@1.9.1)(@types/node@24.13.3)(@vitest/coverage-v8@4.1.11)(jsdom@29.1.1(@noble/hashes@2.4.0))(vite@8.2.2(@types/node@24.13.3)(tsx@4.23.13)(yaml@2.9.0))
-
+  packages/writing-editor-domain:
+    dependencies:
+      zod:
+        specifier: ^4.2.1
+        version: 4.5.4
+    devDependencies:
+      '@types/node':
+        specifier: ^24
+        version: 24.13.3
+      '@vitest/coverage-v8':
+        specifier: ^4.1.10
+        version: 4.1.11(vitest@4.1.11)
+      typescript:
+        specifier: ^6.0.0
+        version: 6.0.3
+      vitest:
+        specifier: ^4.0.0
+        version: 4.1.11(@opentelemetry/api@1.9.1)(@types/node@24.13.3)(@vitest/coverage-v8@4.1.11)(jsdom@29.1.1(@noble/hashes@2.4.0))(vite@8.2.2(@types/node@24.13.3)(tsx@4.23.13)(yaml@2.9.0))
   ui:
     dependencies:
       '@cooklang/cooklang':

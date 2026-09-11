@@ -46,7 +46,7 @@ Define these initial stages:
 1. `extract_dataset` reads a committed manifest of source paths and Git
    revisions, exports the selected document states, and records a content hash
    and provenance for each artifact.
-2. `freeze_cohort` fixes the train, development, and holdout membership before
+2. `freeze_cohort` fixes the train, validation, and holdout membership before
    candidate results exist. It reports missing revisions, incomplete edit
    outcomes, and coverage by artifact type.
 3. `run_producers` runs Vale, the GECToR-2024 baseline, and each declared
