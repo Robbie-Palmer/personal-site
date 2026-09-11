@@ -24,6 +24,7 @@ export interface RelationData {
   roleTechnologies: Map<RoleSlug, TechnologySlug[]>;
   blogRole: Map<BlogSlug, RoleSlug>;
   projectIdeas: Map<ProjectSlug, IdeaSlug[]>;
+  technologyIdeas: Map<TechnologySlug, IdeaSlug[]>;
   ideaRelatedIdeas: Map<IdeaSlug, IdeaSlug[]>;
 }
 
@@ -45,6 +46,7 @@ export function createEmptyRelationData(): RelationData {
     roleTechnologies: new Map(),
     blogRole: new Map(),
     projectIdeas: new Map(),
+    technologyIdeas: new Map(),
     ideaRelatedIdeas: new Map(),
   };
 }
@@ -77,6 +79,7 @@ export function buildContentGraph(input: BuildGraphInput): ContentGraph {
       createdAtRole: new Map(),
       writtenAtRole: new Map(),
       referencesIdea: new Map(),
+      technologyIdeas: new Map(),
       relatedIdea: new Map(),
     },
     reverse: {
@@ -89,6 +92,7 @@ export function buildContentGraph(input: BuildGraphInput): ContentGraph {
       roleProjects: new Map(),
       roleBlogs: new Map(),
       ideaReferencedBy: new Map(),
+      ideaTechnologies: new Map(),
     },
   };
 
@@ -103,6 +107,15 @@ export function buildContentGraph(input: BuildGraphInput): ContentGraph {
   }
   for (const ideaSlug of ideaSlugs) {
     graph.reverse.ideaReferencedBy.set(ideaSlug, new Set());
+    graph.reverse.ideaTechnologies.set(ideaSlug, new Set());
+  }
+
+  for (const [techSlug, ideas] of relations.technologyIdeas) {
+    if (ideas.length === 0) continue;
+    graph.edges.technologyIdeas.set(techSlug, new Set(ideas));
+    for (const ideaSlug of ideas) {
+      graph.reverse.ideaTechnologies.get(ideaSlug)?.add(techSlug);
+    }
   }
 
   for (const [slug, technologies] of relations.projectTechnologies) {

@@ -110,6 +110,7 @@ export const technologies: TechnologyContent[] = [
       "Infrastructure as code for building, changing, and versioning cloud resources",
     website: "https://www.terraform.io",
     type: "language",
+    ideas: ["directed-acyclic-graph"],
   },
   {
     name: "Cloudflare Pages",
@@ -434,9 +435,20 @@ export const technologies: TechnologyContent[] = [
     name: "Kafka",
     added: "2026-01-04",
     description: "Distributed event streaming platform",
+    overview: `Kafka's core abstraction is a distributed, replicated commit log. That makes a
+write-ahead log a useful model: records become durable in the log, and consumers can replay them to
+rebuild derived state. In a conventional database, the WAL usually sits behind mutable tables and
+indexes as an internal recovery mechanism. Kafka turns that arrangement inside out by making the
+durable log the primary interface and treating tables, indexes, and materialized views as downstream
+projections.
+
+The log defines ordering within each partition. It does not prescribe the topology of the system
+around it. Applications can use Kafka to drive an acyclic pipeline, a workflow with feedback loops,
+a state machine, a cyclic state graph, or another processing model entirely.`,
     website: "https://kafka.apache.org",
     iconSlug: "apachekafka",
     type: "platform",
+    ideas: ["commit-log", "stream-table-duality", "write-ahead-log"],
   },
   {
     name: "Quix Streams",
@@ -446,6 +458,7 @@ export const technologies: TechnologyContent[] = [
     website: "https://quix.io/docs/quix-streams/introduction.html",
     iconSlug: "quixstreams",
     type: "library",
+    ideas: ["directed-acyclic-graph", "stream-table-duality"],
   },
   {
     name: "Strimzi",
@@ -502,6 +515,7 @@ export const technologies: TechnologyContent[] = [
     website: "https://www.getdbt.com",
     iconSlug: "dbt",
     type: "tool",
+    ideas: ["directed-acyclic-graph"],
   },
   {
     name: "Arduino",
@@ -596,6 +610,7 @@ export const technologies: TechnologyContent[] = [
     description: "Data Version Control for machine learning projects",
     website: "https://dvc.org",
     type: "tool",
+    ideas: ["directed-acyclic-graph"],
   },
   {
     name: "DuckDB",
@@ -642,6 +657,7 @@ export const technologies: TechnologyContent[] = [
     website: "https://flink.apache.org",
     iconSlug: "apacheflink",
     type: "platform",
+    ideas: ["directed-acyclic-graph", "stream-table-duality"],
   },
   {
     name: "GCP",
@@ -672,6 +688,7 @@ export const technologies: TechnologyContent[] = [
     description: "Serverless, highly scalable data warehouse",
     website: "https://cloud.google.com/bigquery",
     type: "database",
+    ideas: ["feature-engineering", "feature-stores"],
   },
   {
     name: "Google Gemini",
@@ -781,6 +798,7 @@ export const technologies: TechnologyContent[] = [
       "A relational database optimized for extensibility and advanced data management",
     website: "https://www.postgresql.org",
     type: "database",
+    ideas: ["write-ahead-log"],
   },
   {
     name: "Prisma",
@@ -869,6 +887,7 @@ export const technologies: TechnologyContent[] = [
     description: "Database purpose-built for stream processing",
     website: "https://ksqldb.io",
     type: "tool",
+    ideas: ["directed-acyclic-graph", "stream-table-duality"],
   },
   {
     name: "spaCy",
@@ -996,6 +1015,7 @@ export const technologies: TechnologyContent[] = [
       "Serverless Postgres with scale-to-zero, branching, and a generous free tier",
     website: "https://neon.com",
     type: "database",
+    ideas: ["write-ahead-log"],
   },
   {
     name: "Google OAuth",
@@ -1216,6 +1236,7 @@ export const technologies: TechnologyContent[] = [
       "Local-first agent knowledge engine deriving an MCP-accessible semantic graph from plain Markdown files",
     website: "https://www.basicmemory.com",
     type: "tool",
+    ideas: ["context-engineering"],
   },
   {
     name: "SilverBullet",

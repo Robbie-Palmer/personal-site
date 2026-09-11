@@ -483,7 +483,20 @@ function buildTechnologyPages(projects: ProjectWithADRs[]): GeneratedPage[] {
     if (!tech) return [];
     const related = getRelatedContentForTechnology(repository, slug);
 
-    const sections: string[] = [];
+    const sections: string[] = tech.overview
+      ? [convert(tech.overview).trim(), ""]
+      : [];
+    if (related.ideas.length > 0) {
+      sections.push(
+        "## Ideas this technology builds on or exposes",
+        "",
+        ...related.ideas.map(
+          (idea) =>
+            `- [${idea.title}](${markdownUrl(routePath("ideas", idea.slug))}): ${idea.description}`,
+        ),
+        "",
+      );
+    }
     if (related.projects.length > 0) {
       sections.push(
         "## Projects using this technology",
@@ -581,6 +594,7 @@ function buildIdeaPages(
     }
     const references = detail.relatedContent;
     if (
+      references.technologies.length > 0 ||
       references.projects.length > 0 ||
       references.blogs.length > 0 ||
       references.adrs.length > 0
@@ -589,6 +603,10 @@ function buildIdeaPages(
         "",
         "## Where it appears",
         "",
+        ...references.technologies.map(
+          (technology) =>
+            `- Technology: [${technology.name}](${markdownUrl(routePath("technologies", technology.slug))})`,
+        ),
         ...references.projects.map(
           (project) =>
             `- Project: [${project.title}](${markdownUrl(routePath("projects", project.slug))})`,
@@ -704,7 +722,7 @@ function buildLlmsTxt(
     "",
     "## Technologies",
     "",
-    "Each page lists the projects, ADRs, blog posts, and roles using that technology.",
+    "Each page lists the ideas the technology builds on or exposes, plus the projects, ADRs, blog posts, and roles using it.",
     "",
     ...technologyPages.map((page) => {
       const descriptionSuffix = page.description ? `: ${page.description}` : "";
@@ -713,7 +731,7 @@ function buildLlmsTxt(
     "",
     "## Ideas",
     "",
-    "Each page defines an idea and links to the projects, ADRs, and posts that use it.",
+    "Each page defines an idea and links to related ideas, technologies, projects, ADRs, and posts.",
     "",
     ...ideaPages.map(
       (page) => `- [${page.title}](${markdownUrl(page.htmlPath)}): ${page.description}`,

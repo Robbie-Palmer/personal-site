@@ -5,7 +5,7 @@ import type { DomainRepository } from "@/lib/domain";
 describe("extractGraphData", () => {
   it("skips ADR nodes when project mapping is missing", () => {
     const repository = {
-      technologies: new Map(),
+      technologies: new Map([["kafka", { name: "Kafka" }]]),
       ideas: new Map([
         ["conways-law", { title: "Conway's Law" }],
         ["reverse-conway-maneuver", { title: "Reverse Conway Maneuver" }],
@@ -36,6 +36,9 @@ describe("extractGraphData", () => {
             ["project:site", new Set(["conways-law", "missing-idea"])],
             ["blog:missing", new Set(["conways-law"])],
           ]),
+          technologyIdeas: new Map([
+            ["kafka", new Set(["conways-law", "missing-idea"])],
+          ]),
           relatedIdea: new Map([
             [
               "conways-law",
@@ -46,7 +49,7 @@ describe("extractGraphData", () => {
           ]),
         },
         reverse: {
-          technologyUsedBy: new Map(),
+          technologyUsedBy: new Map([["kafka", new Set()]]),
           initiativeProjects: new Map(),
           projectADRs: new Map(),
           supersededBy: new Map(),
@@ -55,6 +58,7 @@ describe("extractGraphData", () => {
           roleProjects: new Map(),
           roleBlogs: new Map(),
           ideaReferencedBy: new Map(),
+          ideaTechnologies: new Map(),
         },
       },
       buildingPhilosophy: "",
@@ -83,13 +87,18 @@ describe("extractGraphData", () => {
       expect.objectContaining({
         id: "idea:conways-law",
         href: "/ideas/conways-law",
-        connections: 2,
+        connections: 3,
       }),
     );
     expect(data.edges).toContainEqual({
       source: "project:site",
       target: "idea:conways-law",
       type: "REFERENCES_IDEA",
+    });
+    expect(data.edges).toContainEqual({
+      source: "technology:kafka",
+      target: "idea:conways-law",
+      type: "HAS_IDEA",
     });
     expect(data.edges).toContainEqual({
       source: "idea:conways-law",

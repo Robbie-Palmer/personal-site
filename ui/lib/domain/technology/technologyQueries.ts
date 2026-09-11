@@ -1,6 +1,7 @@
 import {
   type DomainRepository,
   getContentUsingTechnologyByType,
+  getIdeasForTechnology,
   getProjectForADR,
   getTechnologiesForADR,
   getTechnologiesForBlog,
@@ -9,6 +10,7 @@ import {
 } from "@/lib/repository";
 import { type ADRListItemView, toADRListItemView } from "../adr/adrViews";
 import { type BlogListItemView, toBlogListItemView } from "../blog/blogViews";
+import { type IdeaLinkView, toIdeaLinkView } from "../idea/ideaViews";
 import {
   type ProjectListItemView,
   toProjectListItemView,
@@ -125,6 +127,7 @@ export function getTechnologyLabelsForADR(
 }
 
 export type TechnologyRelatedContentView = {
+  ideas: IdeaLinkView[];
   projects: ProjectListItemView[];
   blogs: BlogListItemView[];
   roles: RoleListItemView[];
@@ -144,6 +147,11 @@ export function getRelatedContentForTechnology(
     }
   }
   return {
+    ideas: Array.from(getIdeasForTechnology(repository.graph, slug))
+      .map((ideaSlug) => repository.ideas.get(ideaSlug))
+      .filter((idea): idea is NonNullable<typeof idea> => idea !== undefined)
+      .map(toIdeaLinkView)
+      .sort((a, b) => a.title.localeCompare(b.title)),
     projects: Array.from(directProjectSlugs)
       .map((projectSlug) => repository.projects.get(projectSlug))
       .filter((p): p is NonNullable<typeof p> => p !== undefined)

@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { TechnologySlug } from "../slugs";
-import { TechnologySlugSchema } from "../slugs";
+import { IdeaSlugSchema, TechnologySlugSchema } from "../slugs";
 
 export type { TechnologySlug };
 
@@ -47,6 +47,7 @@ const TechnologyContentSchema = z.object({
   name: z.string().min(1),
   slug: TechnologySlugSchema.optional(),
   description: z.string().optional(),
+  overview: z.string().optional(),
   website: z.string().url(),
   iconSlug: z.string().optional(), // Only when icon slug differs from what's derived from name
   type: TechnologyTypeSchema.optional(),
@@ -55,12 +56,16 @@ const TechnologyContentSchema = z.object({
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/, "added must be in YYYY-MM-DD format")
     .optional(),
+  ideas: z.array(IdeaSlugSchema).default([]),
 });
 
-export type TechnologyContent = z.infer<typeof TechnologyContentSchema>;
+export type TechnologyContent = z.input<typeof TechnologyContentSchema>;
 
 // Runtime Technology type always has a slug
-export type Technology = Omit<TechnologyContent, "slug"> & {
+export type Technology = Omit<
+  z.output<typeof TechnologyContentSchema>,
+  "slug"
+> & {
   slug: TechnologySlug;
 };
 

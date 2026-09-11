@@ -10,7 +10,7 @@ import {
 
 describe("ideas API", () => {
   it("lists every idea with canonical reference counts", () => {
-    expect(getAllIdeaSlugs()).toHaveLength(19);
+    expect(getAllIdeaSlugs()).toHaveLength(26);
 
     const ideas = getAllIdeas();
     expect(ideas.map((idea) => idea.title)).toEqual(
@@ -19,7 +19,7 @@ describe("ideas API", () => {
     expect(ideas).toContainEqual(
       expect.objectContaining({
         slug: "goodharts-law",
-        referenceCount: 9,
+        referenceCount: 11,
       }),
     );
   });
@@ -45,6 +45,23 @@ describe("ideas API", () => {
         projectSlug: "personal-site",
       }),
     );
+  });
+
+  it("derives technology backlinks from technology-to-idea relations", () => {
+    const idea = getIdea("write-ahead-log");
+    if (!idea) throw new Error("Expected Write-Ahead Log to exist");
+
+    expect(
+      idea.relatedContent.technologies.map((technology) => technology.slug),
+    ).toEqual(["kafka", "neon", "postgresql"]);
+
+    const commitLog = getIdea("commit-log");
+    if (!commitLog) throw new Error("Expected Commit Log to exist");
+    expect(
+      commitLog.relatedContent.technologies.map(
+        (technology) => technology.slug,
+      ),
+    ).toEqual(["kafka"]);
   });
 
   it("finds ideas attached to projects, posts, and ADRs", () => {

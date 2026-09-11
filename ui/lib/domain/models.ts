@@ -46,12 +46,14 @@ export const TechnologySchema = z.object({
       adrs: z.array(ADRRefSchema).default([]),
       projects: z.array(ProjectSlugSchema).default([]),
       roles: z.array(RoleSlugSchema).default([]),
+      ideas: z.array(IdeaSlugSchema).default([]),
     })
     .default({
       blogs: [],
       adrs: [],
       projects: [],
       roles: [],
+      ideas: [],
     }),
 });
 
