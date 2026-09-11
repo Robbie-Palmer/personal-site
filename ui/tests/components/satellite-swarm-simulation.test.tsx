@@ -135,7 +135,27 @@ describe("SatelliteSwarmSimulation", () => {
     expect(await screen.findByText("trace v1 · 0 ms")).toBeVisible();
     expect(fetchMock).toHaveBeenCalledWith(
       "/simulations/autonomic-satellite-swarm/demonstration.v1.json",
+      { signal: expect.any(AbortSignal) },
     );
+  });
+
+  it("aborts the native fixture request when unmounted", () => {
+    let requestSignal: AbortSignal | undefined;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((_url: string, init?: RequestInit) => {
+        requestSignal = init?.signal ?? undefined;
+        return new Promise<Response>(() => undefined);
+      }),
+    );
+    vi.stubGlobal("IntersectionObserver", undefined);
+
+    const { unmount } = render(<DeferredSatelliteSwarmSimulation />);
+    expect(requestSignal?.aborted).toBe(false);
+
+    unmount();
+
+    expect(requestSignal?.aborted).toBe(true);
   });
 
   it("keeps the replay mounted after its first intersection", async () => {

@@ -45,11 +45,12 @@ export function DeferredSatelliteSwarmSimulation() {
     if (!container) return;
     let active = true;
     let requested = false;
+    const controller = new AbortController();
 
     const load = () => {
       if (requested) return;
       requested = true;
-      fetch(FIXTURE_URL)
+      fetch(FIXTURE_URL, { signal: controller.signal })
         .then((response) => {
           if (!response.ok) throw new Error("Simulation request failed");
           return response.json() as Promise<unknown>;
@@ -67,6 +68,7 @@ export function DeferredSatelliteSwarmSimulation() {
       load();
       return () => {
         active = false;
+        controller.abort();
       };
     }
 
@@ -82,6 +84,7 @@ export function DeferredSatelliteSwarmSimulation() {
     observer.observe(container);
     return () => {
       active = false;
+      controller.abort();
       observer.disconnect();
     };
   }, []);
