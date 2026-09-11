@@ -72,9 +72,10 @@ export function DeferredSatelliteSwarmSimulation() {
 
     const observer = new IntersectionObserver(
       ([entry]) => {
-        const isVisible = entry?.isIntersecting ?? false;
-        setVisible(isVisible);
-        if (isVisible) load();
+        if (!entry?.isIntersecting) return;
+        setVisible(true);
+        load();
+        observer.disconnect();
       },
       { rootMargin: "500px 0px" },
     );

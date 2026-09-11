@@ -33,19 +33,37 @@ const missionCommandEventSchema = z.object({
   type: z.literal("mission-command"),
 });
 
-const messageSentEventSchema = z.object({
-  message: z.object({
-    missionId: z.number().int().min(0).max(65_535),
-    origin: z.number().int().min(0).max(15),
-    score: z.number().int().min(0).max(100),
-    target: z.number().int().min(0).max(15).nullable(),
-    type: z.enum([
-      "mission-request",
-      "candidacy",
-      "acknowledgement",
-      "mission-assignment",
-    ]),
+const messageFields = {
+  missionId: z.number().int().min(0).max(65_535),
+  origin: z.number().int().min(0).max(15),
+  score: z.number().int().min(0).max(100),
+};
+
+const messageSchema = z.discriminatedUnion("type", [
+  z.object({
+    ...messageFields,
+    target: z.null(),
+    type: z.literal("mission-request"),
   }),
+  z.object({
+    ...messageFields,
+    target: z.number().int().min(0).max(15),
+    type: z.literal("candidacy"),
+  }),
+  z.object({
+    ...messageFields,
+    target: z.number().int().min(0).max(15),
+    type: z.literal("acknowledgement"),
+  }),
+  z.object({
+    ...messageFields,
+    target: z.number().int().min(0).max(15),
+    type: z.literal("mission-assignment"),
+  }),
+]);
+
+const messageSentEventSchema = z.object({
+  message: messageSchema,
   nodeId: z.number().int().min(0).max(15),
   timeMs: z.number().int().nonnegative(),
   type: z.literal("message-sent"),

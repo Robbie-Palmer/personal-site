@@ -52,7 +52,11 @@ export function SatelliteSwarmSimulation({
   const stopAt = data.frames.length - 1;
 
   useEffect(() => {
-    if (!playing || reducedMotion) return;
+    if (reducedMotion) {
+      setPlaying(false);
+      return;
+    }
+    if (!playing) return;
     const timer = window.setInterval(() => {
       setFrameIndex((current) => {
         if (current >= stopAt) {

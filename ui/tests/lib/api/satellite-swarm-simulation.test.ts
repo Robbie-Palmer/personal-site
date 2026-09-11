@@ -66,4 +66,52 @@ describe("satellite swarm simulation records", () => {
       }),
     ).toThrow();
   });
+
+  it("accepts only mission requests as broadcasts", () => {
+    const messageEvent = validRecord.events[0];
+
+    expect(() =>
+      parseSatelliteSwarmSimulation({
+        ...validRecord,
+        events: [
+          {
+            ...messageEvent,
+            message: { ...messageEvent.message, target: null },
+          },
+        ],
+      }),
+    ).toThrow();
+
+    expect(() =>
+      parseSatelliteSwarmSimulation({
+        ...validRecord,
+        events: [
+          {
+            ...messageEvent,
+            message: {
+              ...messageEvent.message,
+              target: 1,
+              type: "mission-request",
+            },
+          },
+        ],
+      }),
+    ).toThrow();
+
+    expect(
+      parseSatelliteSwarmSimulation({
+        ...validRecord,
+        events: [
+          {
+            ...messageEvent,
+            message: {
+              ...messageEvent.message,
+              target: null,
+              type: "mission-request",
+            },
+          },
+        ],
+      }).events,
+    ).toHaveLength(1);
+  });
 });

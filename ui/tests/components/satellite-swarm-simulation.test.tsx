@@ -1,6 +1,6 @@
 import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DeferredSatelliteSwarmSimulation } from "@/components/projects/satellite-swarm/deferred-satellite-swarm-simulation";
 import { SatelliteSwarmSimulation } from "@/components/projects/satellite-swarm/satellite-swarm-simulation";
 import { parseSatelliteSwarmSimulation } from "@/lib/api/satellite-swarm-simulation";
@@ -8,6 +8,10 @@ import { parseSatelliteSwarmSimulation } from "@/lib/api/satellite-swarm-simulat
 const globeState = vi.hoisted(() => ({
   onFailure: null as ((error: unknown) => void) | null,
 }));
+
+let intersectionCallback: IntersectionObserverCallback;
+const disconnect = vi.fn();
+const observe = vi.fn();
 
 vi.mock(
   "@/components/projects/satellite-swarm/lazy-satellite-swarm-globe",
@@ -107,6 +111,11 @@ const data = parseSatelliteSwarmSimulation({
 });
 
 describe("SatelliteSwarmSimulation", () => {
+  beforeEach(() => {
+    disconnect.mockClear();
+    observe.mockClear();
+  });
+
   afterEach(() => {
     globeState.onFailure = null;
     vi.restoreAllMocks();
@@ -127,6 +136,48 @@ describe("SatelliteSwarmSimulation", () => {
     expect(fetchMock).toHaveBeenCalledWith(
       "/simulations/autonomic-satellite-swarm/demonstration.v1.json",
     );
+  });
+
+  it("keeps the replay mounted after its first intersection", async () => {
+    class MockIntersectionObserver {
+      constructor(callback: IntersectionObserverCallback) {
+        intersectionCallback = callback;
+      }
+
+      disconnect() {
+        disconnect();
+      }
+
+      observe(target: Element) {
+        observe(target);
+      }
+    }
+    vi.stubGlobal("IntersectionObserver", MockIntersectionObserver);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({ json: async () => data, ok: true }),
+    );
+
+    render(<DeferredSatelliteSwarmSimulation />);
+
+    act(() => {
+      intersectionCallback(
+        [{ isIntersecting: true } as IntersectionObserverEntry],
+        {} as IntersectionObserver,
+      );
+    });
+
+    expect(await screen.findByText("trace v1 · 0 ms")).toBeVisible();
+    expect(disconnect).toHaveBeenCalledOnce();
+
+    act(() => {
+      intersectionCallback(
+        [{ isIntersecting: false } as IntersectionObserverEntry],
+        {} as IntersectionObserver,
+      );
+    });
+
+    expect(screen.getByText("trace v1 · 0 ms")).toBeVisible();
   });
 
   it("steps through the native state and event record", async () => {
@@ -166,6 +217,37 @@ describe("SatelliteSwarmSimulation", () => {
     expect(screen.getByRole("button", { name: "Play replay" })).toBeDisabled();
     expect(screen.getByText(/autoplay is off/i)).toBeVisible();
     expect(screen.getByRole("button", { name: "Next frame" })).toBeEnabled();
+  });
+
+  it("stops playback when reduced motion becomes active", async () => {
+    let reducedMotion = false;
+    let changeListener: (() => void) | undefined;
+    vi.spyOn(window, "matchMedia").mockReturnValue({
+      get matches() {
+        return reducedMotion;
+      },
+      media: "(prefers-reduced-motion: reduce)",
+      onchange: null,
+      addEventListener: vi.fn((_event, listener) => {
+        changeListener = listener as () => void;
+      }),
+      removeEventListener: vi.fn(),
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      dispatchEvent: vi.fn(() => false),
+    });
+    const user = userEvent.setup();
+
+    render(<SatelliteSwarmSimulation data={data} />);
+    await user.click(screen.getByRole("button", { name: "Play replay" }));
+    expect(screen.getByRole("button", { name: "Pause replay" })).toBeEnabled();
+
+    act(() => {
+      reducedMotion = true;
+      changeListener?.();
+    });
+
+    expect(screen.getByRole("button", { name: "Play replay" })).toBeDisabled();
   });
 
   it("shows the globe startup error and offers a retry", async () => {
