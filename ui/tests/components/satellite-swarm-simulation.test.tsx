@@ -33,7 +33,7 @@ const data = parseSatelliteSwarmSimulation({
   scenario: "test",
   source: "native C++ SimulationTrace",
   positionModel: "scripted simulation data; not orbit propagation",
-  objective: { longitudeDegrees: 0, latitudeDegrees: -55 },
+  objective: { longitudeDegrees: 0, latitudeDegrees: -90 },
   frames: [
     {
       timeMs: 0,
@@ -204,6 +204,8 @@ describe("SatelliteSwarmSimulation", () => {
     const user = userEvent.setup();
     render(<SatelliteSwarmSimulation data={data} />);
 
+    expect(screen.getByText("South Pole mission replay")).toBeVisible();
+    expect(screen.getByText(/deliberate coordinate edge case/i)).toBeVisible();
     expect(screen.getByText("Cesium globe")).toBeVisible();
     expect(
       document.querySelector(

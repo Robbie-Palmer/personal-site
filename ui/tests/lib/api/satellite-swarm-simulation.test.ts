@@ -10,7 +10,7 @@ const validRecord = {
   scenario: "test",
   source: "native C++ SimulationTrace",
   positionModel: "scripted",
-  objective: { longitudeDegrees: 0, latitudeDegrees: -55 },
+  objective: { longitudeDegrees: 0, latitudeDegrees: -90 },
   frames: [
     {
       timeMs: 0,

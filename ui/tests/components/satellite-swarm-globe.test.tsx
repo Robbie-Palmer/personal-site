@@ -22,7 +22,7 @@ const data = parseSatelliteSwarmSimulation({
   scenario: "test",
   source: "native C++ SimulationTrace",
   positionModel: "scripted",
-  objective: { longitudeDegrees: 4, latitudeDegrees: -55 },
+  objective: { longitudeDegrees: 4, latitudeDegrees: -90 },
   frames: [
     {
       timeMs: 0,
@@ -150,6 +150,12 @@ describe("SatelliteSwarmGlobe", () => {
     expect(harness.add).toHaveBeenCalledTimes(3);
     expect(harness.add.mock.calls[0]?.[0]).toEqual(
       expect.objectContaining({ id: "node-0", label: expect.any(Object) }),
+    );
+    expect(harness.add.mock.calls[2]?.[0]).toEqual(
+      expect.objectContaining({
+        label: expect.objectContaining({ text: "South Pole objective" }),
+        position: [4, -90],
+      }),
     );
 
     const events = [

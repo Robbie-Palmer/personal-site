@@ -83,7 +83,7 @@ SimulationTrace demonstrationTrace() {
         {2U, satelliteAt(0.5F + step * 0.1F, 0.0F - step * 0.3F)},
     };
     if (now_ms == 0U) {
-      frame.mission_commands.push_back({0U, Coordinate(0.0F, -55.0F)});
+      frame.mission_commands.push_back({0U, Coordinate(0.0F, -90.0F)});
     }
     trace.frames.push_back(frame);
   }
@@ -153,7 +153,7 @@ void writeBrowserSimulation(const SimulationTrace& trace, const SimulationResult
   "schemaVersion": 1,
   "traceVersion": )"
             << static_cast<unsigned int>(trace.version) << R"(,
-  "scenario": "three-node-scripted-pass",
+  "scenario": "three-node-south-pole-pass",
   "source": "native C++ SimulationTrace",
   "positionModel": "scripted simulation data; not orbit propagation",
   "objective": )";

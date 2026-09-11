@@ -223,7 +223,10 @@ function addMissionObjective(
           outlineWidth: 3,
           pixelOffset: new Cartesian2(0, -22),
           style: LabelStyle.FILL_AND_OUTLINE,
-          text: "Mission objective",
+          text:
+            data.objective.latitudeDegrees === -90
+              ? "South Pole objective"
+              : "Mission objective",
         }
       : undefined,
     position: Cartesian3.fromDegrees(

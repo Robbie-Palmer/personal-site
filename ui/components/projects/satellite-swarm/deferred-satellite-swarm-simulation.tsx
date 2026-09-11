@@ -18,7 +18,7 @@ function Placeholder({ failed }: Readonly<{ failed: boolean }>) {
       aria-live="polite"
     >
       <div className="space-y-1 border-b p-4">
-        <h3 className="text-lg font-semibold">Three-node mission replay</h3>
+        <h3 className="text-lg font-semibold">South Pole mission replay</h3>
         <p className="text-sm text-muted-foreground">
           {failed
             ? "The simulation record could not be loaded."

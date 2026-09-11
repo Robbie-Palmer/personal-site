@@ -50,6 +50,7 @@ export function SatelliteSwarmSimulation({
     [data.events, frame?.timeMs],
   );
   const stopAt = data.frames.length - 1;
+  const isSouthPoleMission = data.objective.latitudeDegrees === -90;
 
   useEffect(() => {
     if (reducedMotion) {
@@ -83,7 +84,11 @@ export function SatelliteSwarmSimulation({
       <link rel="stylesheet" href="/cesium/Widgets/widgets.css" />
       <div className="space-y-1 border-b p-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h3 className="text-lg font-semibold">Three-node mission replay</h3>
+          <h3 className="text-lg font-semibold">
+            {isSouthPoleMission
+              ? "South Pole mission replay"
+              : "Three-node mission replay"}
+          </h3>
           <span className="rounded-full border bg-muted px-2.5 py-1 font-mono text-xs text-muted-foreground">
             trace v{data.traceVersion} · {frame.timeMs} ms
           </span>
@@ -91,6 +96,8 @@ export function SatelliteSwarmSimulation({
         <p className="text-sm text-muted-foreground">
           The native C++ trace runner produced these states, scores, messages,
           and positions. Cesium draws the record but does not calculate it.
+          {isSouthPoleMission &&
+            " The exact pole is a deliberate coordinate edge case."}
         </p>
       </div>
 
