@@ -34,8 +34,35 @@ describe("Domain Content Validation (Integration)", () => {
     expect(repo.adrs.size).toBeGreaterThan(0);
     expect(repo.roles.size).toBeGreaterThan(0);
     expect(repo.technologies.size).toBeGreaterThan(0);
-    expect(repo.ideas.size).toBe(13);
+    expect(repo.ideas.size).toBe(26);
     expect(repo.referentialIntegrityErrors).toEqual([]);
+  });
+
+  it("should connect technologies to the ideas they build on or expose", () => {
+    expect(repo.graph.edges.technologyIdeas.get("kafka")).toEqual(
+      new Set(["commit-log", "stream-table-duality", "write-ahead-log"]),
+    );
+    expect(repo.graph.reverse.ideaTechnologies.get("commit-log")).toEqual(
+      new Set(["kafka"]),
+    );
+    expect(repo.graph.reverse.ideaTechnologies.get("write-ahead-log")).toEqual(
+      new Set(["kafka", "postgresql", "neon"]),
+    );
+    expect(
+      repo.graph.reverse.ideaTechnologies.get("context-engineering"),
+    ).toEqual(new Set(["basic-memory"]));
+    expect(repo.graph.reverse.ideaTechnologies.get("feature-stores")).toEqual(
+      new Set(["google-bigquery"]),
+    );
+    expect(
+      repo.graph.reverse.ideaTechnologies.get("feature-engineering"),
+    ).toEqual(new Set(["google-bigquery"]));
+    expect(repo.graph.edges.relatedIdea.get("context-engineering")).toContain(
+      "feature-engineering",
+    );
+    expect(repo.graph.edges.relatedIdea.get("feature-engineering")).toContain(
+      "context-engineering",
+    );
   });
 
   it("should have bidirectional idea references in the graph", () => {

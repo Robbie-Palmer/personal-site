@@ -5,6 +5,7 @@ import {
   FileText,
   FolderKanban,
   Globe2,
+  Lightbulb,
   type LucideIcon,
   Map as MapIcon,
   Play,
@@ -15,6 +16,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
+import { Markdown } from "@/components/markdown";
 import { CesiumDemo } from "@/components/technology/cesium/cesium-demo";
 import { EmblaDemoCarousel } from "@/components/technology/embla-demo-carousel";
 import { KnowledgeGraph } from "@/components/technology/knowledge-graph";
@@ -175,6 +177,7 @@ export default async function TechnologyPage({ params }: Readonly<PageProps>) {
       : undefined;
 
   const hasRelatedContent =
+    relatedContent.ideas.length > 0 ||
     relatedContent.projects.length > 0 ||
     relatedContent.blogs.length > 0 ||
     relatedContent.roles.length > 0;
@@ -238,6 +241,13 @@ export default async function TechnologyPage({ params }: Readonly<PageProps>) {
           />
         </div>
 
+        {technology.overview && (
+          <>
+            <Separator />
+            <Markdown source={technology.overview} />
+          </>
+        )}
+
         {(() => {
           const demo = TECHNOLOGY_DEMOS[slug];
           if (!demo) return null;
@@ -261,6 +271,16 @@ export default async function TechnologyPage({ params }: Readonly<PageProps>) {
             <Separator />
 
             <div className="space-y-8">
+              <RelatedContentSection
+                icon={Lightbulb}
+                heading="Ideas"
+                items={relatedContent.ideas.map((idea) => ({
+                  key: idea.slug,
+                  href: `/ideas/${idea.slug}`,
+                  title: idea.title,
+                  subtitle: idea.description,
+                }))}
+              />
               <RelatedContentSection
                 icon={FolderKanban}
                 heading="Projects"

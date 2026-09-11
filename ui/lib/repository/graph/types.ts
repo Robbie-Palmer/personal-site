@@ -36,6 +36,7 @@ export type EdgeType =
   | "CREATED_AT_ROLE"
   | "WRITTEN_AT_ROLE"
   | "REFERENCES_IDEA"
+  | "HAS_IDEA"
   | "RELATED_IDEA";
 
 export interface ContentGraph {
@@ -49,6 +50,7 @@ export interface ContentGraph {
     createdAtRole: Map<ProjectSlug, RoleSlug>;
     writtenAtRole: Map<BlogSlug, RoleSlug>;
     referencesIdea: Map<NodeId, Set<IdeaSlug>>;
+    technologyIdeas: Map<TechnologySlug, Set<IdeaSlug>>;
     relatedIdea: Map<IdeaSlug, Set<IdeaSlug>>;
   };
 
@@ -62,6 +64,7 @@ export interface ContentGraph {
     roleProjects: Map<RoleSlug, Set<ProjectSlug>>;
     roleBlogs: Map<RoleSlug, Set<BlogSlug>>;
     ideaReferencedBy: Map<IdeaSlug, Set<NodeId>>;
+    ideaTechnologies: Map<IdeaSlug, Set<TechnologySlug>>;
   };
 }
 

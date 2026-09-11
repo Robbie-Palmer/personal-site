@@ -681,6 +681,7 @@ Content`;
               slug: "react",
               name: "React",
               website: "https://react.dev",
+              ideas: [],
             },
           ],
         ]);
@@ -769,6 +770,41 @@ Content`;
         expect(errors.length).toBeGreaterThan(0);
         expect(errors[0]?.type).toBe("missing_reference");
         expect(errors[0]?.value).toBe("react");
+      });
+
+      it("should detect an idea referenced by a technology that does not exist", () => {
+        const technologies = new Map([
+          [
+            "kafka",
+            {
+              slug: "kafka",
+              name: "Kafka",
+              website: "https://kafka.apache.org",
+              ideas: ["missing-idea"],
+            },
+          ],
+        ]);
+
+        const errors = validateReferentialIntegrity({
+          technologies,
+          ideas: new Map(),
+          initiatives: new Map(),
+          adrs: new Map(),
+          projects: new Map(),
+          blogRelations: new Map(),
+          projectRelations: new Map(),
+          adrRelations: new Map(),
+          roleRelations: new Map(),
+        });
+
+        expect(errors).toContainEqual(
+          expect.objectContaining({
+            type: "missing_reference",
+            entity: "Technology[kafka]",
+            field: "ideas",
+            value: "missing-idea",
+          }),
+        );
       });
 
       it("should detect missing ADR reference", () => {

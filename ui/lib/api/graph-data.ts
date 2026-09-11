@@ -121,7 +121,8 @@ function addTechnologyAndTagNodes(
 ): Set<string> {
   const connectedTechs = new Set<string>();
   for (const [techSlug, usedBy] of repository.graph.reverse.technologyUsedBy) {
-    if (usedBy.size === 0) continue;
+    const ideas = repository.graph.edges.technologyIdeas.get(techSlug);
+    if (usedBy.size === 0 && (!ideas || ideas.size === 0)) continue;
     const tech = repository.technologies.get(techSlug);
     if (!tech) continue;
     connectedTechs.add(techSlug);
@@ -224,6 +225,15 @@ function addIdeaEdges(
 ): void {
   const nodeIds = new Set(state.nodes.map((node) => node.id));
   addIdeaReferenceEdges(repository, state, nodeIds);
+  for (const [techSlug, ideaSlugs] of repository.graph.edges.technologyIdeas) {
+    const source = `technology:${techSlug}`;
+    for (const ideaSlug of ideaSlugs) {
+      const target = `idea:${ideaSlug}`;
+      if (nodeIds.has(source) && nodeIds.has(target)) {
+        addEdge(state, source, target, "HAS_IDEA");
+      }
+    }
+  }
   addRelatedIdeaEdges(repository, state, nodeIds);
 }
 

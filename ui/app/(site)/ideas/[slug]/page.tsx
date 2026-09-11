@@ -1,4 +1,10 @@
-import { ExternalLink, FileText, FolderKanban, GitBranch } from "lucide-react";
+import {
+  Blocks,
+  ExternalLink,
+  FileText,
+  FolderKanban,
+  GitBranch,
+} from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -60,6 +66,7 @@ export default async function IdeaPage({ params }: Readonly<PageProps>) {
   if (!idea) notFound();
 
   const hasReferences =
+    idea.relatedContent.technologies.length > 0 ||
     idea.relatedContent.projects.length > 0 ||
     idea.relatedContent.blogs.length > 0 ||
     idea.relatedContent.adrs.length > 0;
@@ -109,6 +116,23 @@ export default async function IdeaPage({ params }: Readonly<PageProps>) {
             <h2 id="idea-references" className="text-2xl font-semibold">
               Where it appears
             </h2>
+            {idea.relatedContent.technologies.length > 0 && (
+              <div className="space-y-3">
+                <h3 className="flex items-center gap-2 text-lg font-medium">
+                  <Blocks className="size-5" /> Technologies
+                </h3>
+                <div className="grid gap-3 md:grid-cols-2">
+                  {idea.relatedContent.technologies.map((technology) => (
+                    <RelatedCard
+                      key={technology.slug}
+                      href={`/technologies/${technology.slug}`}
+                      title={technology.name}
+                      description={technology.description ?? technology.website}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
             {idea.relatedContent.projects.length > 0 && (
               <div className="space-y-3">
                 <h3 className="flex items-center gap-2 text-lg font-medium">
@@ -163,7 +187,7 @@ export default async function IdeaPage({ params }: Readonly<PageProps>) {
           </section>
         ) : (
           <p className="rounded-lg border bg-muted/30 p-4 text-sm text-muted-foreground">
-            This idea has not appeared in a published project, post, or ADR yet.
+            This idea has no technology or published-content references yet.
           </p>
         )}
       </div>

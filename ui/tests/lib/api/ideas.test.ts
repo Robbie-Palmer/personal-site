@@ -10,7 +10,7 @@ import {
 
 describe("ideas API", () => {
   it("lists every idea with canonical reference counts", () => {
-    expect(getAllIdeaSlugs()).toHaveLength(13);
+    expect(getAllIdeaSlugs()).toHaveLength(26);
 
     const ideas = getAllIdeas();
     expect(ideas.map((idea) => idea.title)).toEqual(
@@ -19,7 +19,7 @@ describe("ideas API", () => {
     expect(ideas).toContainEqual(
       expect.objectContaining({
         slug: "goodharts-law",
-        referenceCount: 9,
+        referenceCount: 11,
       }),
     );
   });
@@ -47,6 +47,23 @@ describe("ideas API", () => {
     );
   });
 
+  it("derives technology backlinks from technology-to-idea relations", () => {
+    const idea = getIdea("write-ahead-log");
+    if (!idea) throw new Error("Expected Write-Ahead Log to exist");
+
+    expect(
+      idea.relatedContent.technologies.map((technology) => technology.slug),
+    ).toEqual(["kafka", "neon", "postgresql"]);
+
+    const commitLog = getIdea("commit-log");
+    if (!commitLog) throw new Error("Expected Commit Log to exist");
+    expect(
+      commitLog.relatedContent.technologies.map(
+        (technology) => technology.slug,
+      ),
+    ).toEqual(["kafka"]);
+  });
+
   it("finds ideas attached to projects, posts, and ADRs", () => {
     expect(
       getIdeasForProject("agentic-code-review").map((idea) => idea.slug),
@@ -58,7 +75,26 @@ describe("ideas API", () => {
       getIdeasForProject("intelligent-document-processing").map(
         (idea) => idea.slug,
       ),
-    ).toEqual(["domain-driven-design", "human-in-the-loop"]);
+    ).toEqual([
+      "domain-driven-design",
+      "human-in-the-loop",
+      "intelligent-document-processing",
+      "ner",
+      "nlp",
+      "ocr",
+      "ontology-engineering",
+    ]);
+    expect(
+      getIdeasForProject("commercial-knowledge-graph").map((idea) => idea.slug),
+    ).toEqual([
+      "intelligent-document-processing",
+      "nlp",
+      "ocr",
+      "ontology-engineering",
+    ]);
+    expect(
+      getIdeasForProject("pii-detection").map((idea) => idea.slug),
+    ).toEqual(["ner", "nlp"]);
     expect(
       getIdeasForProject("real-time-multi-camera-video-analytics").map(
         (idea) => idea.slug,
@@ -69,6 +105,29 @@ describe("ideas API", () => {
         "2026-08-18-crossing-the-chasm-with-ai-platform-teams",
       ).map((idea) => idea.slug),
     ).toEqual(["goodharts-law", "reverse-conway-maneuver"]);
+    expect(
+      getIdeasForBlog("2022-03-02-the-philosophy-of-data-science").map(
+        (idea) => idea.slug,
+      ),
+    ).toEqual(["bounded-context", "data-mesh", "domain-driven-design"]);
+    expect(
+      getIdeasForBlog(
+        "2023-03-28-uniting-machine-learning-data-streaming-1",
+      ).map((idea) => idea.slug),
+    ).toEqual(["bounded-context", "conways-law", "data-mesh"]);
+    expect(
+      getIdeasForBlog(
+        "2023-05-23-automatically-detect-pii-real-time-cyber-defense",
+      ).map((idea) => idea.slug),
+    ).toEqual(["ner", "nlp"]);
+    expect(
+      getIdeasForADR("recipe-site:031-openrouter").map((idea) => idea.slug),
+    ).toEqual(["intelligent-document-processing", "nlp", "ocr"]);
+    expect(
+      getIdeasForADR("personal-site:057-food-ontology-alignment").map(
+        (idea) => idea.slug,
+      ),
+    ).toEqual(["ontology-engineering"]);
     expect(
       getIdeasForADR("recipe-site:045-sonarqube").map((idea) => idea.slug),
     ).toEqual(["goodharts-law"]);

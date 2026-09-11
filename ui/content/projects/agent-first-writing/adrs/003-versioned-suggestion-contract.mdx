@@ -1,7 +1,7 @@
 ---
 title: "ADR 003: Versioned suggestion contract"
 date: "2026-09-04"
-status: "Proposed"
+status: "Accepted"
 ---
 
 # Context
@@ -64,3 +64,11 @@ local changes inspectable.
 Schema versioning adds migration work. Byte spans also require adapters at UI
 boundaries that use another offset convention, but they keep the persisted
 contract unambiguous across producer languages.
+
+# Implementation
+
+The `writing-editor-domain` workspace package implements version 1. It validates
+suggestions, proposals, and decisions at runtime, calculates their stable IDs,
+sorts proposal members, and rejects stale source hashes or byte spans. Decisions
+embed the complete proposal so evaluation jobs do not have to reconstruct the
+original suggestions from mutable producer output.

@@ -44,8 +44,8 @@ export default function IdeasPage() {
                 </CardDescription>
                 <p className="flex items-center gap-1.5 pt-2 text-xs text-muted-foreground">
                   <Network className="size-3.5" />
-                  {idea.referenceCount} published{" "}
-                  {idea.referenceCount === 1 ? "reference" : "references"}
+                  {idea.referenceCount} graph{" "}
+                  {idea.referenceCount === 1 ? "connection" : "connections"}
                 </p>
               </CardHeader>
             </Card>

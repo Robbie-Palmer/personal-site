@@ -1,0 +1,29 @@
+---
+title: "Write-Ahead Log (WAL)"
+description: "An append-only record written durably before the corresponding data changes, allowing a system to recover committed state after failure."
+source_url: "https://www.postgresql.org/docs/current/wal-intro.html"
+related_ideas:
+  - "commit-log"
+  - "stream-table-duality"
+---
+
+A write-ahead log records a change before the system writes that change to its main data files. A
+transaction can be reported as committed once its log records are durable. The database may flush
+the affected table and index pages later.
+
+After a crash, the system starts from a checkpoint and replays the log to redo committed changes
+that had not reached the data files. Sequential log writes are also cheaper than forcing scattered
+data pages to disk for every commit. The ordering rule is the important part: the log record must be
+safe before the data page it describes can be written.
+
+A WAL is not automatically an audit trail or an event-sourcing interface. It is usually an internal
+recovery format that may contain physical page changes, be recycled after checkpoints, and change
+between storage-engine versions. Replication and point-in-time recovery can build on it, but those
+uses need explicit retention and decoding rules.
+
+## Questions it prompts
+
+* What must reach durable storage before success is reported?
+* Where is the recovery checkpoint, and which records must replay after it?
+* Can a torn or corrupt log record be detected safely?
+* Is a consumer relying on an internal recovery log as though it were a stable event contract?

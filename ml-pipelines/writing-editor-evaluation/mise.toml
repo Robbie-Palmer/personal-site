@@ -1,0 +1,49 @@
+[tasks.install]
+description = "Install writing editor evaluation dependencies"
+depends = ["//:install"]
+
+[tasks.extract]
+description = "Extract the writing corpus from pinned Git revisions"
+depends = ["install"]
+run = "pnpm exec tsx src/extract-dataset.ts --manifest corpus-manifest.json --repository ../.. --output data/corpus"
+
+[tasks.freeze]
+description = "Freeze the writing evaluation cohort and readiness report"
+depends = ["install"]
+run = "pnpm exec tsx src/freeze-cohort.ts --dataset data/corpus/manifest.json --params params.yaml --output outputs/frozen"
+
+[tasks.repro]
+description = "Reproduce the local writing evaluation stages through DVC"
+depends = ["install"]
+run = "bash ../scripts/doppler-pipeline-env uv tool run --from 'dvc[s3]==3.67.1' dvc repro"
+
+[tasks.pull]
+description = "Pull the writing evaluation corpus and outputs from R2"
+run = "bash ../scripts/doppler-pipeline-env uv tool run --from 'dvc[s3]==3.67.1' dvc pull"
+
+[tasks.push]
+description = "Push the writing evaluation cache to its R2 prefix"
+run = "bash ../scripts/doppler-pipeline-env uv tool run --from 'dvc[s3]==3.67.1' dvc push"
+
+[tasks.dvc]
+description = "Run a DVC command in the writing evaluation project"
+run = "bash ../scripts/doppler-pipeline-env uv tool run --from 'dvc[s3]==3.67.1' dvc"
+
+[tasks.typecheck]
+description = "Typecheck the writing editor evaluation pipeline"
+depends = ["install"]
+run = "pnpm typecheck"
+
+[tasks.test]
+description = "Test the writing editor evaluation pipeline"
+depends = ["install"]
+run = "pnpm test"
+
+[tasks."test:coverage"]
+description = "Test the writing editor evaluation pipeline with LCOV coverage"
+depends = ["install"]
+run = "pnpm test:coverage"
+
+[tasks.check]
+description = "Check the writing editor evaluation pipeline"
+depends = ["typecheck", "test"]

@@ -40,6 +40,7 @@ describe("Domain Model Schemas", () => {
           adrs: ["personal-site:001-react"],
           projects: ["my-project"],
           roles: ["microsoft-0"],
+          ideas: ["component-composition"],
         },
       };
 
@@ -60,6 +61,7 @@ describe("Domain Model Schemas", () => {
           adrs: [],
           projects: [],
           roles: [],
+          ideas: [],
         });
       }
     });

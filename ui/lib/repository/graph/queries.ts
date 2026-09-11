@@ -50,6 +50,20 @@ export function getTechnologiesForRole(
   return getTechnologiesFor(graph, "role", slug);
 }
 
+export function getIdeasForTechnology(
+  graph: ContentGraph,
+  slug: TechnologySlug,
+): Set<IdeaSlug> {
+  return graph.edges.technologyIdeas.get(slug) ?? new Set();
+}
+
+export function getTechnologiesForIdea(
+  graph: ContentGraph,
+  slug: IdeaSlug,
+): Set<TechnologySlug> {
+  return graph.reverse.ideaTechnologies.get(slug) ?? new Set();
+}
+
 export function getContentUsingTechnology(
   graph: ContentGraph,
   slug: TechnologySlug,

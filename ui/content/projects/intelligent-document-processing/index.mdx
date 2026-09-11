@@ -15,6 +15,11 @@ tags:
 initiatives:
   - "digital-twin-of-the-yard"
 ideas:
+  - "intelligent-document-processing"
+  - "ocr"
+  - "nlp"
+  - "ner"
+  - "ontology-engineering"
   - "domain-driven-design"
   - "human-in-the-loop"
 status: "live"
@@ -37,7 +42,7 @@ That variation makes extraction more than an OCR problem. The system has to work
 
 I owned the project end to end, from the initial research to its production integration. I began with a literature review and market analysis, then tested candidate solutions against real bills of lading rather than relying on vendor examples.
 
-The documents did not arrive with a ready-made schema, so I discovered the domain and defined an ontology for the entities and relationships the product needed. I created the annotated dataset and set up the Encord annotation process, including the guidance needed to label inconsistent layouts and ambiguous fields consistently.
+The documents did not arrive with a ready-made schema, so I discovered the domain and defined an [ontology](/ideas/ontology-engineering) for the entities and relationships the product needed. I created the annotated dataset and set up the Encord annotation process, including the guidance needed to label inconsistent layouts and ambiguous fields consistently.
 
 I built a Python evaluation pipeline and used DVC to version the data and results. The pipeline made competing models and services comparable on the same documents and field-level criteria.
 

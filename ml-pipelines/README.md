@@ -14,6 +14,8 @@ Current projects:
   corpora for site seeding and future parsing evaluation.
 - `wsi-analysis`: versioned computational-pathology source slides and derived
   tile datasets, with Python tooling for validation and WSI tiling.
+- `writing-editor-evaluation`: Git-revision writing pairs, frozen evaluation
+  cohorts, producer outputs, edit matching, and writing-quality scorecards.
 
 ## Prerequisites
 

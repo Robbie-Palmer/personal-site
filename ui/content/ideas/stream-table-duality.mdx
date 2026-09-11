@@ -1,0 +1,30 @@
+---
+title: "Stream/Table Duality"
+description: "A stream can describe the changes to a table, while a table represents the latest state produced by those changes."
+source_url: "https://kafka.apache.org/streams/core-concepts#streams_concepts_duality"
+related_ideas:
+  - "commit-log"
+  - "write-ahead-log"
+  - "feature-stores"
+---
+
+A keyed stream of changes can be replayed to build a table. Each record inserts, updates, or deletes
+the value for a key, and the table holds the latest result. Viewed in the other direction, every
+change to a table can be emitted as a stream of updates.
+
+The two forms answer different questions. The stream preserves what changed and in which order. The
+table answers what is true now for a key. Stateful stream processing moves between them constantly:
+it consumes events, materialises state for joins or aggregates, and emits later changes to that
+state.
+
+The duality depends on clear semantics. Keys define identity, tombstones define deletion, and
+retention determines whether a table can still be rebuilt from the beginning. An event stream of
+facts is also different from a table changelog. Correcting a fact may require a compensating event,
+while replacing a table value is an ordinary update.
+
+## Questions it prompts
+
+* Is this topic a history of facts or a changelog of current values?
+* Which key identifies the row that a record changes?
+* Can the state be rebuilt from retained records?
+* How are deletion, late data, and out-of-order updates represented?

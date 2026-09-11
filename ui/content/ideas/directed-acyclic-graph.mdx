@@ -1,0 +1,25 @@
+---
+title: "Directed Acyclic Graph (DAG)"
+description: "A directed graph with no path that loops back to its starting node, useful for representing dependencies and executable plans."
+source_url: "https://dvc.org/doc/command-reference/dag"
+---
+
+A directed acyclic graph connects nodes with one-way edges and forbids cycles. If `B` depends on
+`A`, the edge fixes their order. Because no chain of dependencies can return to its starting point,
+the nodes can always be placed in a topological order.
+
+That makes a DAG a useful model for work with prerequisites. Build systems, data pipelines, stream
+processors, infrastructure planners, and workflow engines can find what is ready, run independent
+branches concurrently, and avoid repeating an unchanged branch. A node may have several parents or
+children, so a DAG is more general than a tree.
+
+The graph is only as good as its declared edges. An omitted dependency can produce stale output,
+while a cycle means the proposed ordering is impossible. I find DAGs most useful when the graph is
+inspectable and the execution state remains separate from the dependency model.
+
+## Questions it prompts
+
+* What must exist before this node can run?
+* Which branches can proceed concurrently?
+* What should a change invalidate downstream?
+* Does a cycle reveal a modelling mistake or two concerns that need separating?

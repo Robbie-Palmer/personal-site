@@ -76,6 +76,37 @@ describe("filterGraphData", () => {
     expect(filtered.edges).toEqual([]);
   });
 
+  it("does not turn technology-idea links into project technology usage", () => {
+    const ideaBridge: GraphData = {
+      nodes: [
+        ...data.nodes,
+        {
+          id: "idea:composition",
+          name: "Composition",
+          type: "idea",
+          href: "/ideas/composition",
+          connections: 2,
+        },
+      ],
+      edges: [
+        {
+          source: "project:site",
+          target: "idea:composition",
+          type: "REFERENCES_IDEA",
+        },
+        {
+          source: "technology:react",
+          target: "idea:composition",
+          type: "HAS_IDEA",
+        },
+      ],
+    };
+
+    const filtered = filterGraphData(ideaBridge, new Set(["idea"]), 0);
+
+    expect(filtered.edges).toEqual([]);
+  });
+
   it("bounds traversal when hidden context nodes contain a cycle", () => {
     const cyclicData: GraphData = {
       nodes: [

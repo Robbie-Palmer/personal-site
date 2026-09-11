@@ -1,0 +1,29 @@
+---
+title: "Feature Engineering"
+description: "The work of turning raw observations into model inputs that represent the signal needed for a prediction."
+source_url: "https://developers.google.com/machine-learning/glossary#feature_engineering"
+related_ideas:
+  - "context-engineering"
+  - "feature-stores"
+---
+
+Feature engineering turns raw data into the variables a model consumes. It includes selecting
+signals, encoding categories, scaling values, aggregating events, defining time windows, and
+combining observations into quantities that match the decision being modelled.
+
+The useful feature is rarely the field that happened to be easiest to query. "Logins in the last
+seven days" embeds a choice about identity, time, missing records, and the moment at which a
+prediction is made. Those choices carry domain assumptions into the model and often matter more
+than changing the learning algorithm.
+
+Learned representations reduce some manual transformation work, but they do not remove the need to
+define inputs, labels, sampling, or time boundaries. A feature pipeline must apply the same logic
+during training and inference. It must also prevent leakage by calculating each historical value
+using only information that would have existed at that point in time.
+
+## Questions it prompts
+
+* What real-world signal should this value represent?
+* Was the feature available when the prediction would have been made?
+* Do training and inference apply the same transformation?
+* How will missing, delayed, or revised source data change the value?

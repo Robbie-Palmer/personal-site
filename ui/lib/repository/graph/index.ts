@@ -17,6 +17,7 @@ export {
   getIdeasForADR,
   getIdeasForBlog,
   getIdeasForProject,
+  getIdeasForTechnology,
   getInitiativesForProject,
   getProjectForADR,
   getProjectsForInitiative,
@@ -30,6 +31,7 @@ export {
   getTagsForProject,
   getTechnologiesForADR,
   getTechnologiesForBlog,
+  getTechnologiesForIdea,
   getTechnologiesForProject,
   getTechnologiesForRole,
 } from "./queries";

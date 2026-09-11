@@ -6,11 +6,13 @@ import {
   getIdeasForProject,
   getProjectForADR,
   getRelatedIdeas,
+  getTechnologiesForIdea,
 } from "@/lib/repository";
 import { toADRListItemView } from "../adr/adrViews";
 import { toBlogListItemView } from "../blog/blogViews";
 import { toProjectListItemView } from "../project/projectViews";
 import type { ADRRef, BlogSlug, ProjectSlug } from "../slugs";
+import { toTechnologyDetailView } from "../technology/technologyViews";
 import type { Idea, IdeaSlug } from "./idea";
 import { type IdeaLinkView, toIdeaLinkView } from "./ideaViews";
 
@@ -75,6 +77,14 @@ export function getRelatedContentForIdea(
 ) {
   const references = getContentReferencingIdeaByType(repository.graph, slug);
   return {
+    technologies: Array.from(getTechnologiesForIdea(repository.graph, slug))
+      .map((technologySlug) => repository.technologies.get(technologySlug))
+      .filter(
+        (technology): technology is NonNullable<typeof technology> =>
+          technology !== undefined,
+      )
+      .map(toTechnologyDetailView)
+      .sort((a, b) => a.name.localeCompare(b.name)),
     projects: references.projects
       .map((projectSlug) => repository.projects.get(projectSlug))
       .filter((project): project is NonNullable<typeof project> =>
