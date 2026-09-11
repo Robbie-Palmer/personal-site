@@ -1,19 +1,19 @@
 import type { Viewer } from "cesium";
 import type { CesiumRuntime } from "./cesium-runtime";
 
-export function createOfflineCesiumViewer(
+function createViewer(
   container: HTMLElement,
   cesium: CesiumRuntime,
+  requestWebgl1: boolean,
 ): Viewer {
   const {
     buildModuleUrl,
-    Cartesian3,
     EllipsoidTerrainProvider,
     ImageryLayer,
     TileMapServiceImageryProvider,
     Viewer,
   } = cesium;
-  const viewer = new Viewer(container, {
+  return new Viewer(container, {
     animation: false,
     baseLayer: ImageryLayer.fromProviderAsync(
       TileMapServiceImageryProvider.fromUrl(
@@ -22,6 +22,7 @@ export function createOfflineCesiumViewer(
     ),
     baseLayerPicker: false,
     contextOptions: {
+      ...(requestWebgl1 ? { requestWebgl1: true } : {}),
       webgl: {
         antialias: false,
         powerPreference: "default",
@@ -44,6 +45,27 @@ export function createOfflineCesiumViewer(
     timeline: false,
     useBrowserRecommendedResolution: true,
   });
+}
+
+export function createOfflineCesiumViewer(
+  container: HTMLElement,
+  cesium: CesiumRuntime,
+): Viewer {
+  const { Cartesian3 } = cesium;
+  let viewer: Viewer;
+  try {
+    viewer = createViewer(container, cesium, false);
+  } catch (webgl2Error) {
+    container.replaceChildren();
+    try {
+      viewer = createViewer(container, cesium, true);
+    } catch (webgl1Error) {
+      throw new AggregateError(
+        [webgl2Error, webgl1Error],
+        "The browser could not create a Cesium WebGL context",
+      );
+    }
+  }
   viewer.scene.globe.showGroundAtmosphere = true;
   viewer.scene.highDynamicRange = false;
   viewer.camera.setView({

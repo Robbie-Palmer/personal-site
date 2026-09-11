@@ -48,4 +48,51 @@ describe("offline Cesium viewer", () => {
     );
     expect(setView).toHaveBeenCalledWith({ destination: "camera-position" });
   });
+
+  it("retries with WebGL 1 when WebGL 2 initialization fails", () => {
+    const container = document.createElement("div");
+    const attempts: Record<string, unknown>[] = [];
+
+    class Viewer {
+      camera = { setView: vi.fn() };
+      scene = {
+        globe: { showGroundAtmosphere: false },
+        highDynamicRange: true,
+      };
+
+      constructor(target: HTMLElement, options: Record<string, unknown>) {
+        attempts.push(options);
+        if (attempts.length === 1) {
+          target.appendChild(document.createElement("canvas"));
+          throw new Error("WebGL 2 initialization failed");
+        }
+      }
+    }
+
+    const cesium = {
+      buildModuleUrl: vi.fn((path: string) => `/cesium/${path}`),
+      Cartesian3: { fromDegrees: vi.fn(() => "camera-position") },
+      EllipsoidTerrainProvider: class {},
+      ImageryLayer: { fromProviderAsync: vi.fn(() => "base-layer") },
+      TileMapServiceImageryProvider: {
+        fromUrl: vi.fn(() => Promise.resolve("imagery-provider")),
+      },
+      Viewer,
+    } as unknown as CesiumRuntime;
+
+    createOfflineCesiumViewer(container, cesium);
+
+    expect(attempts).toHaveLength(2);
+    expect(attempts[0]).toEqual(
+      expect.objectContaining({
+        contextOptions: expect.not.objectContaining({ requestWebgl1: true }),
+      }),
+    );
+    expect(attempts[1]).toEqual(
+      expect.objectContaining({
+        contextOptions: expect.objectContaining({ requestWebgl1: true }),
+      }),
+    );
+    expect(container).toBeEmptyDOMElement();
+  });
 });

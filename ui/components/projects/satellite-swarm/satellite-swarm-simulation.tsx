@@ -38,7 +38,7 @@ export function SatelliteSwarmSimulation({
   const [frameIndex, setFrameIndex] = useState(0);
   const [playing, setPlaying] = useState(false);
   const [selectedNodeId, setSelectedNodeId] = useState(0);
-  const [webGlFailed, setWebGlFailed] = useState(false);
+  const [startupFailure, setStartupFailure] = useState<string | null>(null);
   const reducedMotion = useReducedMotion();
   const frame = data.frames[frameIndex] ?? data.frames[0];
   const visibleEvents = useMemo(
@@ -65,7 +65,13 @@ export function SatelliteSwarmSimulation({
     return () => window.clearInterval(timer);
   }, [playing, reducedMotion, stopAt]);
 
-  const reportWebGlFailure = useCallback(() => setWebGlFailed(true), []);
+  const reportStartupFailure = useCallback((error: unknown) => {
+    setStartupFailure(
+      error instanceof Error && error.message
+        ? error.message
+        : "Cesium reported an unknown startup error",
+    );
+  }, []);
   if (!frame) return null;
 
   return (
@@ -86,17 +92,30 @@ export function SatelliteSwarmSimulation({
       <div className="grid lg:grid-cols-[minmax(0,1.65fr)_minmax(18rem,1fr)]">
         <div className="min-w-0 border-b lg:border-r lg:border-b-0">
           <div className="h-[25rem] bg-zinc-950 sm:h-[32rem]">
-            {webGlFailed ? (
-              <div className="flex h-full items-center justify-center p-8 text-center text-sm text-zinc-300">
-                WebGL is unavailable. The state table and event log contain the
-                same simulation record.
+            {startupFailure ? (
+              <div className="flex h-full flex-col items-center justify-center gap-4 p-8 text-center text-sm text-zinc-300">
+                <p>
+                  The 3D globe could not start in this browser. The state table
+                  and event log contain the same simulation record.
+                </p>
+                <p className="max-w-xl font-mono text-xs text-zinc-400">
+                  Diagnostic: {startupFailure}
+                </p>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => setStartupFailure(null)}
+                >
+                  Retry globe
+                </Button>
               </div>
             ) : (
               <LazySatelliteSwarmGlobe
                 currentFrameIndex={frameIndex}
                 data={data}
                 events={currentEvents}
-                onFailure={reportWebGlFailure}
+                onFailure={reportStartupFailure}
                 selectedNodeId={selectedNodeId}
               />
             )}

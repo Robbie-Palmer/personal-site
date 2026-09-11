@@ -19,7 +19,7 @@ function findPoint(id: string): CesiumReferencePoint | undefined {
 }
 
 export interface CesiumDemoCanvasProps {
-  onFailure: () => void;
+  onFailure: (error: unknown) => void;
   reducedMotion: boolean;
   selectedPointId: string | null;
 }
@@ -47,28 +47,32 @@ export function CesiumDemoCanvas({
           Cartesian2,
           Cartesian3,
           Color,
+          FeatureDetection,
           HorizontalOrigin,
           LabelStyle,
           VerticalOrigin,
         } = cesium;
         viewer = createOfflineCesiumViewer(container, cesium);
+        const supportsLabels = FeatureDetection.supportsWebgl2(viewer.scene);
         cesiumRef.current = cesium;
         viewerRef.current = viewer;
 
         for (const point of CESIUM_REFERENCE_POINTS) {
           viewer.entities.add({
             id: point.id,
-            label: {
-              fillColor: Color.WHITE,
-              font: "600 14px sans-serif",
-              horizontalOrigin: HorizontalOrigin.LEFT,
-              outlineColor: Color.BLACK,
-              outlineWidth: 3,
-              pixelOffset: new Cartesian2(12, 0),
-              style: LabelStyle.FILL_AND_OUTLINE,
-              text: point.label,
-              verticalOrigin: VerticalOrigin.CENTER,
-            },
+            label: supportsLabels
+              ? {
+                  fillColor: Color.WHITE,
+                  font: "600 14px sans-serif",
+                  horizontalOrigin: HorizontalOrigin.LEFT,
+                  outlineColor: Color.BLACK,
+                  outlineWidth: 3,
+                  pixelOffset: new Cartesian2(12, 0),
+                  style: LabelStyle.FILL_AND_OUTLINE,
+                  text: point.label,
+                  verticalOrigin: VerticalOrigin.CENTER,
+                }
+              : undefined,
             point: {
               color: Color.fromCssColorString("#38bdf8"),
               outlineColor: Color.WHITE,
@@ -97,8 +101,8 @@ export function CesiumDemoCanvas({
         viewer.scene.requestRender();
         setViewerReady(true);
       })
-      .catch(() => {
-        if (active) onFailure();
+      .catch((error: unknown) => {
+        if (active) onFailure(error);
       });
 
     return () => {

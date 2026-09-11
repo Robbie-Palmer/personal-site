@@ -21,9 +21,15 @@ function useReducedMotion(): boolean {
 
 export function CesiumDemo() {
   const [selectedPointId, setSelectedPointId] = useState<string | null>(null);
-  const [webGlFailed, setWebGlFailed] = useState(false);
+  const [startupFailure, setStartupFailure] = useState<string | null>(null);
   const reducedMotion = useReducedMotion();
-  const reportWebGlFailure = useCallback(() => setWebGlFailed(true), []);
+  const reportStartupFailure = useCallback((error: unknown) => {
+    setStartupFailure(
+      error instanceof Error && error.message
+        ? error.message
+        : "Cesium reported an unknown startup error",
+    );
+  }, []);
 
   return (
     <Card className="gap-0 overflow-hidden p-0">
@@ -42,14 +48,27 @@ export function CesiumDemo() {
       </div>
 
       <div className="h-[26rem] bg-zinc-950 sm:h-[34rem]">
-        {webGlFailed ? (
-          <div className="flex h-full items-center justify-center p-8 text-center text-sm text-zinc-300">
-            WebGL is unavailable. The coordinate table below contains the same
-            reference points.
+        {startupFailure ? (
+          <div className="flex h-full flex-col items-center justify-center gap-4 p-8 text-center text-sm text-zinc-300">
+            <p>
+              The 3D globe could not start in this browser. The coordinate table
+              below contains the same reference points.
+            </p>
+            <p className="max-w-xl font-mono text-xs text-zinc-400">
+              Diagnostic: {startupFailure}
+            </p>
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              onClick={() => setStartupFailure(null)}
+            >
+              Retry globe
+            </Button>
           </div>
         ) : (
           <LazyCesiumDemoCanvas
-            onFailure={reportWebGlFailure}
+            onFailure={reportStartupFailure}
             reducedMotion={reducedMotion}
             selectedPointId={selectedPointId}
           />

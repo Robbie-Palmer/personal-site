@@ -103,7 +103,7 @@ export interface SatelliteSwarmGlobeProps {
   currentFrameIndex: number;
   data: SatelliteSwarmSimulation;
   events: readonly SatelliteSwarmEvent[];
-  onFailure: () => void;
+  onFailure: (error: unknown) => void;
   selectedNodeId: number;
 }
 
@@ -133,8 +133,8 @@ export function SatelliteSwarmGlobe({
         viewerRef.current = viewer;
         setViewerReady(true);
       })
-      .catch(() => {
-        if (active) onFailure();
+      .catch((error: unknown) => {
+        if (active) onFailure(error);
       });
 
     return () => {
@@ -155,6 +155,7 @@ export function SatelliteSwarmGlobe({
       Cartesian3,
       Color,
       Ellipsoid,
+      FeatureDetection,
       HeightReference,
       HorizontalOrigin,
       LabelStyle,
@@ -162,6 +163,7 @@ export function SatelliteSwarmGlobe({
       VerticalOrigin,
     } = cesium;
     const earthRadiusMetres = Ellipsoid.WGS84.maximumRadius;
+    const supportsLabels = FeatureDetection.supportsWebgl2(viewer.scene);
 
     viewer.entities.removeAll();
     for (const node of frame.nodes) {
@@ -171,19 +173,21 @@ export function SatelliteSwarmGlobe({
       const selected = node.id === selectedNodeId;
       viewer.entities.add({
         id: `node-${node.id}`,
-        label: {
-          distanceDisplayCondition: undefined,
-          fillColor: Color.WHITE,
-          font: selected ? "600 16px sans-serif" : "500 14px sans-serif",
-          horizontalOrigin: HorizontalOrigin.LEFT,
-          outlineColor: Color.BLACK,
-          outlineWidth: 3,
-          pixelOffset: new Cartesian2(14, 0),
-          scaleByDistance: new NearFarScalar(1_000_000, 1, 30_000_000, 0.7),
-          style: LabelStyle.FILL_AND_OUTLINE,
-          text: `Node ${node.id} · ${node.state}`,
-          verticalOrigin: VerticalOrigin.CENTER,
-        },
+        label: supportsLabels
+          ? {
+              distanceDisplayCondition: undefined,
+              fillColor: Color.WHITE,
+              font: selected ? "600 16px sans-serif" : "500 14px sans-serif",
+              horizontalOrigin: HorizontalOrigin.LEFT,
+              outlineColor: Color.BLACK,
+              outlineWidth: 3,
+              pixelOffset: new Cartesian2(14, 0),
+              scaleByDistance: new NearFarScalar(1_000_000, 1, 30_000_000, 0.7),
+              style: LabelStyle.FILL_AND_OUTLINE,
+              text: `Node ${node.id} · ${node.state}`,
+              verticalOrigin: VerticalOrigin.CENTER,
+            }
+          : undefined,
         point: {
           color: nodeColor,
           outlineColor: selected ? Color.WHITE : Color.BLACK,
@@ -235,15 +239,17 @@ export function SatelliteSwarmGlobe({
         semiMajorAxis: 250_000,
         semiMinorAxis: 250_000,
       },
-      label: {
-        fillColor: Color.WHITE,
-        font: "600 14px sans-serif",
-        outlineColor: Color.BLACK,
-        outlineWidth: 3,
-        pixelOffset: new Cartesian2(0, -22),
-        style: LabelStyle.FILL_AND_OUTLINE,
-        text: "Mission objective",
-      },
+      label: supportsLabels
+        ? {
+            fillColor: Color.WHITE,
+            font: "600 14px sans-serif",
+            outlineColor: Color.BLACK,
+            outlineWidth: 3,
+            pixelOffset: new Cartesian2(0, -22),
+            style: LabelStyle.FILL_AND_OUTLINE,
+            text: "Mission objective",
+          }
+        : undefined,
       position: Cartesian3.fromDegrees(
         data.objective.longitudeDegrees,
         data.objective.latitudeDegrees,

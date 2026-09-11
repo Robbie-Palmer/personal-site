@@ -1,14 +1,25 @@
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { DeferredSatelliteSwarmSimulation } from "@/components/projects/satellite-swarm/deferred-satellite-swarm-simulation";
 import { SatelliteSwarmSimulation } from "@/components/projects/satellite-swarm/satellite-swarm-simulation";
 import { parseSatelliteSwarmSimulation } from "@/lib/api/satellite-swarm-simulation";
 
+const globeState = vi.hoisted(() => ({
+  onFailure: null as ((error: unknown) => void) | null,
+}));
+
 vi.mock(
   "@/components/projects/satellite-swarm/lazy-satellite-swarm-globe",
   () => ({
-    LazySatelliteSwarmGlobe: () => <div>Cesium globe</div>,
+    LazySatelliteSwarmGlobe: ({
+      onFailure,
+    }: {
+      onFailure: (error: unknown) => void;
+    }) => {
+      globeState.onFailure = onFailure;
+      return <div>Cesium globe</div>;
+    },
   }),
 );
 
@@ -97,6 +108,7 @@ const data = parseSatelliteSwarmSimulation({
 
 describe("SatelliteSwarmSimulation", () => {
   afterEach(() => {
+    globeState.onFailure = null;
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
   });
@@ -149,5 +161,20 @@ describe("SatelliteSwarmSimulation", () => {
     expect(screen.getByRole("button", { name: "Play replay" })).toBeDisabled();
     expect(screen.getByText(/autoplay is off/i)).toBeVisible();
     expect(screen.getByRole("button", { name: "Next frame" })).toBeEnabled();
+  });
+
+  it("shows the globe startup error and offers a retry", async () => {
+    const user = userEvent.setup();
+    render(<SatelliteSwarmSimulation data={data} />);
+
+    act(() => {
+      globeState.onFailure?.(new Error("Both WebGL contexts failed"));
+    });
+
+    expect(screen.getByText(/Both WebGL contexts failed/)).toBeVisible();
+
+    await user.click(screen.getByRole("button", { name: "Retry globe" }));
+
+    expect(screen.getByText("Cesium globe")).toBeVisible();
   });
 });
