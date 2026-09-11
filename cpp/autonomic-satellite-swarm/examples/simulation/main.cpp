@@ -76,7 +76,7 @@ SimulationTrace demonstrationTrace() {
     SimulationFrame frame;
     frame.now_ms = now_ms;
     const auto step_index = now_ms / 10U;
-    const float step = static_cast<float>(step_index);
+    const auto step = static_cast<float>(step_index);
     frame.satellite_updates = {
         {0U, satelliteAt(-0.5F + step * 0.06F, 60.0F - step * 0.25F)},
         {1U, satelliteAt(0.0F + step * 0.08F, 10.0F - step * 0.4F)},
