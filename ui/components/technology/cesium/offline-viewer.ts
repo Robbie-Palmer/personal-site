@@ -21,11 +21,19 @@ export function createOfflineCesiumViewer(
       ),
     ),
     baseLayerPicker: false,
+    contextOptions: {
+      webgl: {
+        antialias: false,
+        powerPreference: "default",
+      },
+    },
     fullscreenButton: false,
     geocoder: false,
     homeButton: false,
     infoBox: false,
+    msaaSamples: 1,
     navigationHelpButton: false,
+    orderIndependentTranslucency: false,
     requestRenderMode: true,
     scene3DOnly: true,
     sceneModePicker: false,
@@ -34,6 +42,7 @@ export function createOfflineCesiumViewer(
     skyBox: false,
     terrainProvider: new EllipsoidTerrainProvider(),
     timeline: false,
+    useBrowserRecommendedResolution: true,
   });
   viewer.scene.globe.showGroundAtmosphere = true;
   viewer.scene.highDynamicRange = false;
