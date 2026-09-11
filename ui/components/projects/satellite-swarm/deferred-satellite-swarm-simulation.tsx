@@ -2,7 +2,7 @@
 
 import { LoaderCircle, RotateCcw } from "lucide-react";
 import {
-  type FormEvent,
+  type SubmitEvent,
   useCallback,
   useEffect,
   useRef,
@@ -75,7 +75,7 @@ interface MissionControlsProps {
   onLatitudeChange: (value: string) => void;
   onLongitudeChange: (value: string) => void;
   onReset: () => void;
-  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  onSubmit: (event: SubmitEvent<HTMLFormElement>) => void;
   running: boolean;
 }
 
@@ -245,7 +245,7 @@ export function DeferredSatelliteSwarmSimulation() {
     void run(SOUTH_POLE_OBJECTIVE, true);
   };
 
-  const submit = (event: FormEvent<HTMLFormElement>) => {
+  const submit = (event: SubmitEvent<HTMLFormElement>) => {
     event.preventDefault();
     void run(
       {

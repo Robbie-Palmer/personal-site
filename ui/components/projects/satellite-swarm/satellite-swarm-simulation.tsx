@@ -41,6 +41,17 @@ export interface SatelliteSwarmSimulationProps {
   startPlaying?: boolean;
 }
 
+function getReplayAction(playing: boolean, frameIndex: number, stopAt: number) {
+  if (playing) return { accessibleName: "Pause replay", label: "Pause" };
+  if (frameIndex >= stopAt) {
+    return { accessibleName: "Replay mission", label: "Replay" };
+  }
+  if (frameIndex > 0) {
+    return { accessibleName: "Resume replay", label: "Resume" };
+  }
+  return { accessibleName: "Play replay", label: "Play" };
+}
+
 export function SatelliteSwarmSimulation({
   data,
   executionMode = "recorded",
@@ -63,13 +74,7 @@ export function SatelliteSwarmSimulation({
   );
   const stopAt = data.frames.length - 1;
   const isSouthPoleMission = data.objective.latitudeDegrees === -90;
-  const replayAction = playing
-    ? { accessibleName: "Pause replay", label: "Pause" }
-    : frameIndex >= stopAt
-      ? { accessibleName: "Replay mission", label: "Replay" }
-      : frameIndex > 0
-        ? { accessibleName: "Resume replay", label: "Resume" }
-        : { accessibleName: "Play replay", label: "Play" };
+  const replayAction = getReplayAction(playing, frameIndex, stopAt);
 
   useEffect(() => {
     if (reducedMotion) {

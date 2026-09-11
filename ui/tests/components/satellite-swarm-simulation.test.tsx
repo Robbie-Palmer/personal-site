@@ -260,6 +260,21 @@ describe("SatelliteSwarmSimulation", () => {
     ).toBeEnabled();
   });
 
+  it("labels a paused trace as resumable", async () => {
+    const user = userEvent.setup();
+    render(
+      <SatelliteSwarmSimulation
+        data={{ ...data, frames: [...data.frames, ...data.frames.slice(-1)] }}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Next frame" }));
+    expect(screen.getByRole("button", { name: "Resume replay" })).toBeEnabled();
+
+    await user.click(screen.getByRole("button", { name: "Resume replay" }));
+    expect(screen.getByRole("button", { name: "Pause replay" })).toBeEnabled();
+  });
+
   it("disables autoplay when reduced motion is requested", () => {
     vi.spyOn(window, "matchMedia").mockReturnValue({
       matches: true,

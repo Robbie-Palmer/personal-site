@@ -1,7 +1,16 @@
-import { ArrowRight, Github } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import Link from "next/link";
+import { siGithub } from "simple-icons";
 import { Button } from "@/components/ui/button";
 import { DeferredSatelliteSwarmSimulation } from "./deferred-satellite-swarm-simulation";
+
+function GithubBrandIcon() {
+  return (
+    <svg aria-hidden="true" className="mr-2 h-4 w-4" viewBox="0 0 24 24">
+      <path d={siGithub.path} fill="currentColor" />
+    </svg>
+  );
+}
 
 export function SatelliteSwarmApp() {
   return (
@@ -32,7 +41,7 @@ export function SatelliteSwarmApp() {
                 target="_blank"
                 rel="noopener noreferrer"
               >
-                <Github className="mr-2 h-4 w-4" aria-hidden="true" />
+                <GithubBrandIcon />
                 View C++ source
               </a>
             </Button>

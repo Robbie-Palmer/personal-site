@@ -15,8 +15,16 @@
 namespace {
 
 constexpr uint32_t kBrowserApiVersion = 1U;
-std::string last_result;
-std::string last_error;
+
+struct BrowserState {
+  std::string result;
+  std::string error;
+};
+
+BrowserState& browserState() {
+  static BrowserState state;
+  return state;
+}
 
 } // namespace
 
@@ -26,22 +34,23 @@ extern "C" SATELLITE_SWARM_KEEPALIVE uint32_t satellite_swarm_browser_api_versio
 
 extern "C" SATELLITE_SWARM_KEEPALIVE const char*
 satellite_swarm_run_demonstration(float longitude_degrees, float latitude_degrees) noexcept {
+  auto& state = browserState();
   try {
-    last_result = satellite_swarm::simulation::runBrowserDemonstration(
+    state.result = satellite_swarm::simulation::runBrowserDemonstration(
         satellite_swarm::Coordinate(longitude_degrees, latitude_degrees));
-    last_error.clear();
-    return last_result.c_str();
+    state.error.clear();
+    return state.result.c_str();
   } catch (const std::exception& error) {
-    last_result.clear();
-    last_error = error.what();
+    state.result.clear();
+    state.error = error.what();
     return nullptr;
   } catch (...) {
-    last_result.clear();
-    last_error = "unknown simulation error";
+    state.result.clear();
+    state.error = "unknown simulation error";
     return nullptr;
   }
 }
 
 extern "C" SATELLITE_SWARM_KEEPALIVE const char* satellite_swarm_last_error() noexcept {
-  return last_error.c_str();
+  return browserState().error.c_str();
 }

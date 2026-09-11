@@ -97,7 +97,7 @@ run = [
   "cmake --build --preset coverage",
   "ctest --preset coverage",
   "cmake -E make_directory coverage",
-  "gcovr --root ../.. --filter 'src/satellite_swarm/' --filter 'simulation/' --filter 'examples/simulation/' --sonarqube coverage/sonarqube.xml --print-summary --fail-under-line 80 --fail-under-branch 70 build/coverage",
+  "gcovr --root ../.. --filter 'src/satellite_swarm/' --filter 'simulation/' --filter 'browser/src/' --filter 'examples/simulation/' --sonarqube coverage/sonarqube.xml --print-summary --fail-under-line 80 --fail-under-branch 70 build/coverage",
 ]
 
 [tasks."firmware:uno"]
