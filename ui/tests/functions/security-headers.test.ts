@@ -34,8 +34,9 @@ describe("Cloudflare Pages security headers", () => {
     expect(policy).toContain("frame-ancestors 'none'");
     expect(policy).toContain("object-src 'none'");
     expect(policy).toContain(
-      "script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'",
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval'",
     );
+    expect(policy).toContain("worker-src 'self' blob:");
     expect(policy).toContain("https://imagedelivery.net");
     expect(policy).toContain("https://avatars.githubusercontent.com");
     expect(policy).toContain("https://*.googleusercontent.com");
@@ -52,5 +53,12 @@ describe("Cloudflare Pages security headers", () => {
       expect(rule).toContain("frame-ancestors 'self'");
       expect(rule).not.toContain("frame-ancestors 'none'");
     }
+  });
+
+  it("keeps Cesium runtime permissions across client-side navigation", () => {
+    const baselinePolicy = header("Content-Security-Policy");
+    expect(baselinePolicy).toContain("'unsafe-eval'");
+    expect(baselinePolicy).toContain("worker-src 'self' blob:");
+    expect(headersFile).not.toContain("/technologies/cesiumjs\n");
   });
 });

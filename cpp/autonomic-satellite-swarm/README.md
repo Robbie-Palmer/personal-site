@@ -32,9 +32,10 @@ mise trust
 mise install
 mise run test
 mise run simulate
+mise run simulate:json
 ```
 
-The simulation should assign the South-Pole mission to node 1:
+The simulation should assign the southern-latitude mission to node 1:
 
 ```text
 Mission 1 assigned to node 1
@@ -42,6 +43,11 @@ node 0: idle
 node 1: active
 node 2: idle
 ```
+
+`simulate:json` prints a versioned state, position, message, and transition record prepared for the
+project's future CesiumJS replay. The paths come from scripted simulation inputs. Orbit propagation
+remains outside this demo. The prepared browser adapter replays native output. WebAssembly execution
+remains a later integration.
 
 Run every host, firmware, formatting, lint, and spelling check with:
 

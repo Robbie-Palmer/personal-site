@@ -24,6 +24,22 @@ description = "Run the deterministic three-node simulation"
 depends = ["build"]
 run = "./build/dev/autonomic-satellite-swarm-simulation"
 
+[tasks."simulate:json"]
+description = "Print the browser visualization fixture from the native trace runner"
+depends = ["build"]
+run = "./build/dev/autonomic-satellite-swarm-simulation --json"
+
+[tasks."browser:fixture:check"]
+description = "Check that the committed browser fixture matches the native trace runner"
+depends = ["build"]
+run = '''
+browser_fixture_check_file=$(mktemp)
+trap 'cmake -E rm -f "$browser_fixture_check_file"' EXIT
+./build/dev/autonomic-satellite-swarm-simulation --json > "$browser_fixture_check_file"
+diff -u ../../ui/public/simulations/autonomic-satellite-swarm/demonstration.v1.json \
+  "$browser_fixture_check_file"
+'''
+
 [tasks.lint]
 description = "Run clang-tidy with warnings promoted to errors"
 depends = ["configure"]
@@ -100,5 +116,6 @@ depends = [
   "coverage",
   "firmware:uno",
   "firmware:esp32",
+  "browser:fixture:check",
   "lint:typos",
 ]
