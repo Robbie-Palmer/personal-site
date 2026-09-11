@@ -2,6 +2,7 @@ import { BlogCollectionTabs } from "@/components/blog/blog-collection-tabs";
 import { HomeExperienceCard } from "@/components/experience/home-experience-card";
 import { HomeCTAButtons } from "@/components/home-cta-buttons";
 import { HomeKnowledgeGraph } from "@/components/home-knowledge-graph";
+import { HomeProjectBackdrop } from "@/components/home-project-backdrop";
 import { HomeInitiatives } from "@/components/initiatives/home-initiatives";
 import { ADRCarousel } from "@/components/projects/adr-carousel";
 import { LightRays } from "@/components/ui/light-rays";
@@ -45,13 +46,14 @@ export default function Home() {
       >
         <LightRays length="150vh" />
       </div>
-      <section className="relative flex min-h-[calc(100vh-5rem)] items-center justify-center">
+      <section className="relative isolate flex min-h-[calc(100vh-5rem)] items-center justify-center overflow-hidden">
+        <HomeProjectBackdrop />
         <div className="text-center max-w-3xl relative z-10">
           <h1 className="text-5xl md:text-6xl font-bold mb-6 animate-fade-in-up">
             {siteConfig.name}
           </h1>
           {/* Letter-by-letter animation with prefers-reduced-motion support via CSS */}
-          <p className="text-xl md:text-2xl text-muted-foreground mb-8">
+          <p className="flex flex-col text-xl text-muted-foreground mb-8 sm:block md:text-2xl">
             <span className="inline-block whitespace-nowrap">
               {"ML expert".split("").map((char, i) => (
                 <span
@@ -64,7 +66,7 @@ export default function Home() {
               ))}
             </span>
             <span
-              className="inline-block animate-fade-in mx-2"
+              className="mx-2 hidden animate-fade-in sm:inline-block"
               style={{ animationDelay: "580ms" }}
             >
               |
@@ -81,7 +83,7 @@ export default function Home() {
               ))}
             </span>
             <span
-              className="inline-block animate-fade-in mx-2"
+              className="mx-2 hidden animate-fade-in sm:inline-block"
               style={{ animationDelay: "1210ms" }}
             >
               |
