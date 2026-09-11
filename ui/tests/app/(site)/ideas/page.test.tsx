@@ -32,6 +32,15 @@ const idea = {
     },
   ],
   relatedContent: {
+    technologies: [
+      {
+        slug: "kafka",
+        name: "Kafka",
+        description: "Distributed event streaming platform",
+        website: "https://kafka.apache.org",
+        hasIcon: true,
+      },
+    ],
     projects: [
       {
         slug: "agentic-code-review",
@@ -63,7 +72,7 @@ describe("ideas pages", () => {
     vi.clearAllMocks();
   });
 
-  it("renders the ideas index with singular and plural reference counts", () => {
+  it("renders the ideas index with singular and plural connection counts", () => {
     (getAllIdeas as Mock).mockReturnValue([
       { ...idea, referenceCount: 1 },
       {
@@ -77,8 +86,8 @@ describe("ideas pages", () => {
     render(<IdeasPage />);
 
     expect(screen.getByRole("heading", { name: "Ideas" })).toBeInTheDocument();
-    expect(screen.getByText(/1 published reference$/)).toBeInTheDocument();
-    expect(screen.getByText(/2 published references$/)).toBeInTheDocument();
+    expect(screen.getByText(/1 graph connection$/)).toBeInTheDocument();
+    expect(screen.getByText(/2 graph connections$/)).toBeInTheDocument();
   });
 
   it("generates routes and metadata", async () => {
@@ -130,6 +139,10 @@ describe("ideas pages", () => {
       "href",
       "/ideas/dora-metrics",
     );
+    expect(screen.getByRole("link", { name: /^Kafka/ })).toHaveAttribute(
+      "href",
+      "/technologies/kafka",
+    );
     expect(
       screen.getByRole("link", { name: /^Agentic Code Review/ }),
     ).toHaveAttribute("href", "/projects/agentic-code-review");
@@ -150,7 +163,7 @@ describe("ideas pages", () => {
       ...idea,
       sourceUrl: undefined,
       relatedIdeas: [],
-      relatedContent: { projects: [], blogs: [], adrs: [] },
+      relatedContent: { technologies: [], projects: [], blogs: [], adrs: [] },
     });
 
     render(
@@ -161,7 +174,7 @@ describe("ideas pages", () => {
 
     expect(screen.queryByRole("link", { name: /Read the source/ })).toBeNull();
     expect(
-      screen.getByText(/has not appeared in a published project/),
+      screen.getByText(/has no technology or published-content references/),
     ).toBeInTheDocument();
   });
 

@@ -26,6 +26,7 @@ export type TechnologyDetailView = {
   slug: string;
   name: string;
   description?: string;
+  overview?: string;
   website: string;
   iconSlug?: string;
   hasIcon: boolean;
@@ -64,6 +65,7 @@ export function toTechnologyDetailView(tech: Technology): TechnologyDetailView {
     slug: tech.slug,
     name: tech.name,
     description: tech.description,
+    overview: tech.overview,
     website: tech.website,
     iconSlug,
     hasIcon: hasTechIcon(tech.name, iconSlug),

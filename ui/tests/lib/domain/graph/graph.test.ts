@@ -9,6 +9,7 @@ import {
   getIdeasForADR,
   getIdeasForBlog,
   getIdeasForProject,
+  getIdeasForTechnology,
   getInitiativesForProject,
   getNodeSlug,
   getNodeType,
@@ -19,6 +20,7 @@ import {
   getSupersedingADR,
   getTechnologiesForADR,
   getTechnologiesForBlog,
+  getTechnologiesForIdea,
   getTechnologiesForProject,
   getTechnologiesForRole,
   isNodeType,
@@ -229,6 +231,7 @@ describe("graph queries", () => {
   relations.adrIdeas.set("001", ["goodharts-law"]);
   relations.ideaRelatedIdeas.set("conways-law", ["reverse-conway-maneuver"]);
   relations.ideaRelatedIdeas.set("reverse-conway-maneuver", ["goodharts-law"]);
+  relations.technologyIdeas.set("typescript", ["conways-law"]);
 
   const graph = buildContentGraph({
     technologySlugs: ["typescript", "react"],
@@ -260,6 +263,15 @@ describe("graph queries", () => {
     const techs = getTechnologiesForRole(graph, "eng");
     expect(techs.has("typescript")).toBe(true);
     expect(techs.has("react")).toBe(true);
+  });
+
+  it("queries technology-to-idea relationships in both directions", () => {
+    expect(getIdeasForTechnology(graph, "typescript")).toEqual(
+      new Set(["conways-law"]),
+    );
+    expect(getTechnologiesForIdea(graph, "conways-law")).toEqual(
+      new Set(["typescript"]),
+    );
   });
 
   it("getContentUsingTechnology returns all content using a tech", () => {

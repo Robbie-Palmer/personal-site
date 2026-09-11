@@ -96,6 +96,7 @@ export function loadTechnologies(): Map<TechnologySlug, Technology> {
     const tech: Technology = {
       ...techContent,
       slug,
+      ideas: techContent.ideas ?? [],
     };
     techMap.set(slug, tech);
   }
@@ -884,6 +885,12 @@ export function validateReferentialIntegrity(
     });
   });
 
+  input.technologies.forEach((technology, techSlug) => {
+    technology.ideas.forEach((ideaSlug) => {
+      checkIdea(ideaSlug, `Technology[${techSlug}]`, "ideas");
+    });
+  });
+
   input.blogRelations.forEach((relations, blogSlug) => {
     relations.technologies.forEach((techSlug) => {
       checkTech(techSlug, `BlogPost[${blogSlug}]`, "technologies");
@@ -1180,6 +1187,9 @@ function buildDomainRepository(): DomainRepository {
   };
 
   const relations = buildRelationDataFromLoaders(loaders);
+  for (const [slug, technology] of technologies) {
+    relations.technologyIdeas.set(slug, technology.ideas);
+  }
   const graph = buildContentGraph({
     technologySlugs: technologies.keys(),
     projectSlugs: projectsResult.entities.keys(),

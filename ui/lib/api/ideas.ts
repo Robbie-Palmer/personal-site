@@ -25,6 +25,7 @@ export function getAllIdeas() {
       ...idea,
       relatedIdeas: getRelatedIdeaLinks(repository, idea.slug),
       referenceCount:
+        relatedContent.technologies.length +
         relatedContent.projects.length +
         relatedContent.blogs.length +
         relatedContent.adrs.length,

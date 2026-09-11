@@ -55,11 +55,34 @@ describe("agent markdown generation", () => {
       .filter((file) => file.endsWith(".html"));
     expect(htmlPages).toContain("human-in-the-loop.html");
     expect(htmlPages).toContain("human-on-the-loop.html");
-    expect(htmlPages).toHaveLength(19);
+    expect(htmlPages).toContain("context-engineering.html");
+    expect(htmlPages).toContain("commit-log.html");
+    expect(htmlPages).toContain("stream-table-duality.html");
+    expect(htmlPages).toHaveLength(26);
     for (const htmlPage of htmlPages) {
       const mdPage = htmlPage.replace(/\.html$/, ".md");
       expect(fs.existsSync(path.join(OUT_DIR, "ideas", mdPage))).toBe(true);
     }
+  });
+
+  it("includes inferred technology backlinks on idea markdown pages", () => {
+    const wal = read("ideas/write-ahead-log.md");
+    expect(wal).toContain(
+      "Technology: [Kafka](https://robbiepalmer.me/technologies/kafka.md)",
+    );
+  });
+
+  it("keeps technology-specific explanations on technology pages", () => {
+    const kafka = read("technologies/kafka.md");
+    expect(kafka).toContain(
+      "Kafka's core abstraction is a distributed, replicated commit log.",
+    );
+    expect(kafka).toContain("It does not prescribe the topology");
+    expect(kafka).toContain("/ideas/commit-log.md");
+    expect(kafka).toContain("/ideas/write-ahead-log.md");
+
+    const wal = read("ideas/write-ahead-log.md");
+    expect(wal).not.toContain("Kafka's core abstraction");
   });
 
   it("includes the building philosophy in projects.md", () => {

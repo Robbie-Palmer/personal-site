@@ -1,0 +1,29 @@
+---
+title: "Feature Stores"
+description: "Systems that define, retrieve, and serve machine-learning features consistently for training and inference."
+source_url: "https://docs.feast.dev/getting-started/architecture/overview"
+related_ideas:
+  - "feature-engineering"
+  - "stream-table-duality"
+---
+
+A feature store gives named, versioned feature definitions a shared route into model training and
+production inference. Historical retrieval builds training sets as the features looked at a chosen
+time. Online retrieval returns the latest values for low-latency predictions.
+
+That split exists because the two workloads differ. Training scans large time ranges and needs
+point-in-time-correct joins. Online inference usually needs a small vector for one entity within
+milliseconds. Materialisation moves selected values from the historical path into an online store,
+while a registry records definitions, ownership, and data sources.
+
+Consistency and reuse are the reason to introduce this infrastructure. A feature store cannot fix
+a weak definition, and many leave transformation to declarative queries, stream processors, or
+other compute engines. It earns its cost when several models need the same governed features or
+when training-serving skew has become a recurring failure.
+
+## Questions it prompts
+
+* Can training retrieve the value that was known at prediction time?
+* Which definition and source produced this feature value?
+* How fresh must the online value be, and what happens when materialisation lags?
+* Is shared infrastructure justified, or would a versioned pipeline be simpler?
