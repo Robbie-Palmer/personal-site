@@ -294,14 +294,6 @@ code[data-line-numbers-max-digits="3"] > [data-line]::before {
   will-change: translate;
 }
 
-.home-project-artifact svg {
-  display: block;
-  width: 100%;
-  height: auto;
-  overflow: visible;
-  filter: drop-shadow(0 24px 45px color-mix(in oklch, black 36%, transparent));
-}
-
 .artifact-capture {
   overflow: hidden;
   border: 1px solid color-mix(in oklch, var(--foreground) 22%, transparent);
@@ -364,132 +356,33 @@ code[data-line-numbers-max-digits="3"] > [data-line]::before {
   background-image: url("/images/home/satellite-swarm.jpg");
 }
 
+.artifact-capture__image--asset-tracker {
+  aspect-ratio: 52 / 27;
+  background-image: url("/images/home/asset-tracker-chart.jpg");
+}
+
 .home-project-artifact--pathology {
-  top: 9%;
-  left: -3%;
-  width: clamp(20rem, 32vw, 31rem);
-  transform: rotateY(21deg) rotateZ(-7deg) translateZ(-70px);
+  top: 11%;
+  left: -1%;
+  width: clamp(20rem, 30vw, 29rem);
+  transform: rotateY(18deg) rotateZ(-6deg) translateZ(-70px);
   animation: artifactFloat 11s ease-in-out infinite;
 }
 
 .home-project-artifact--satellites {
-  top: 4%;
+  top: 28%;
   right: -1%;
-  width: clamp(19rem, 28vw, 27rem);
-  transform: rotateY(-22deg) rotateZ(7deg) translateZ(-90px);
+  width: clamp(19rem, 26vw, 25rem);
+  transform: rotateY(-18deg) rotateZ(6deg) translateZ(-90px);
   animation: artifactFloat 13s 1.8s ease-in-out infinite reverse;
 }
 
-.home-project-artifact--work-graph {
-  right: 9%;
-  bottom: 4%;
-  width: clamp(25rem, 38vw, 36rem);
-  transform: rotateX(8deg) rotateY(-17deg) rotateZ(-4deg) translateZ(-120px);
+.home-project-artifact--asset-tracker {
+  bottom: 3%;
+  left: 7%;
+  width: clamp(25rem, 37vw, 35rem);
+  transform: rotateX(6deg) rotateY(15deg) rotateZ(4deg) translateZ(-120px);
   animation: artifactFloat 14s 0.7s ease-in-out infinite;
-}
-
-.artifact-shell {
-  fill: color-mix(in oklch, var(--card) 72%, transparent);
-  stroke: color-mix(in oklch, var(--foreground) 22%, transparent);
-  stroke-width: 1.5;
-}
-
-.artifact-rule,
-.work-connectors path {
-  fill: none;
-  stroke: color-mix(in oklch, var(--foreground) 25%, transparent);
-  stroke-width: 1.5;
-}
-
-.artifact-dot {
-  fill: color-mix(in oklch, var(--foreground) 28%, transparent);
-}
-
-.artifact-title,
-.artifact-meta,
-.work-node text,
-.attention-card text {
-  fill: currentColor;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-}
-
-.artifact-title {
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.16em;
-}
-
-.artifact-meta {
-  font-size: 9px;
-  letter-spacing: 0.08em;
-  opacity: 0.68;
-}
-
-.work-node rect,
-.attention-card rect {
-  fill: color-mix(in oklch, var(--card) 80%, transparent);
-  stroke: color-mix(in oklch, var(--foreground) 22%, transparent);
-  stroke-width: 1.2;
-}
-
-.work-node circle {
-  fill: #94a3b8;
-}
-
-.work-node text {
-  font-size: 7px;
-  letter-spacing: 0.08em;
-  opacity: 0.74;
-}
-
-.work-node .node-name {
-  font-family: ui-sans-serif, system-ui, sans-serif;
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0;
-  opacity: 0.92;
-}
-
-.work-node--running circle {
-  fill: #38bdf8;
-}
-
-.work-node--complete circle {
-  fill: #4ade80;
-}
-
-.work-node--review circle {
-  fill: #fbbf24;
-}
-
-.attention-card rect {
-  fill: color-mix(in oklch, #f59e0b 8%, var(--card));
-  stroke: color-mix(in oklch, #f59e0b 48%, transparent);
-}
-
-.attention-card path {
-  fill: none;
-  stroke: #fbbf24;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  stroke-width: 1.8;
-}
-
-.attention-card circle {
-  fill: color-mix(in oklch, #f59e0b 16%, transparent);
-  stroke: #fbbf24;
-  stroke-width: 1.2;
-}
-
-.attention-title {
-  font-size: 8px;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-}
-
-.attention-copy {
-  font-size: 10px;
-  opacity: 0.78;
 }
 
 @media (max-width: 767px) {
@@ -500,23 +393,23 @@ code[data-line-numbers-max-digits="3"] > [data-line]::before {
 
   .home-project-artifact--pathology {
     top: 4%;
-    left: -43%;
-    width: 78vw;
-    transform: rotateY(14deg) rotateZ(-8deg) translateZ(-70px);
+    left: 6%;
+    width: 76vw;
+    transform: rotateY(8deg) rotateZ(-5deg) translateZ(-70px);
   }
 
   .home-project-artifact--satellites {
-    top: 9%;
-    right: -38%;
-    width: 70vw;
-    transform: rotateY(-13deg) rotateZ(8deg) translateZ(-90px);
+    top: 29%;
+    right: 2%;
+    width: 72vw;
+    transform: rotateY(-8deg) rotateZ(5deg) translateZ(-90px);
   }
 
-  .home-project-artifact--work-graph {
-    right: -19%;
-    bottom: 5%;
-    width: 88vw;
-    transform: rotateY(-10deg) rotateZ(-4deg) translateZ(-100px);
+  .home-project-artifact--asset-tracker {
+    bottom: 4%;
+    left: 4%;
+    width: 92vw;
+    transform: rotateY(5deg) rotateZ(3deg) translateZ(-100px);
   }
 
   .home-project-backdrop__veil {
