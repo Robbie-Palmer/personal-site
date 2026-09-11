@@ -47,6 +47,14 @@ function createViewer(
   });
 }
 
+function releaseWebglContexts(container: HTMLElement): void {
+  for (const canvas of container.querySelectorAll("canvas")) {
+    const context = canvas.getContext("webgl2") ?? canvas.getContext("webgl");
+    context?.getExtension("WEBGL_lose_context")?.loseContext();
+  }
+  container.replaceChildren();
+}
+
 export function createOfflineCesiumViewer(
   container: HTMLElement,
   cesium: CesiumRuntime,
@@ -57,7 +65,7 @@ export function createOfflineCesiumViewer(
   try {
     viewer = createViewer(container, cesium, false);
   } catch (webgl2Error) {
-    container.replaceChildren();
+    releaseWebglContexts(container);
     try {
       viewer = createViewer(container, cesium, true);
     } catch (webgl1Error) {

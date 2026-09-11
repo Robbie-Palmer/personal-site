@@ -57,6 +57,7 @@ describe("offline Cesium viewer", () => {
   it("retries with WebGL 1 when WebGL 2 initialization fails", () => {
     const container = document.createElement("div");
     const attempts: Record<string, unknown>[] = [];
+    const loseContext = vi.fn();
 
     class Viewer {
       camera = { setView: vi.fn() };
@@ -68,7 +69,11 @@ describe("offline Cesium viewer", () => {
       constructor(target: HTMLElement, options: Record<string, unknown>) {
         attempts.push(options);
         if (attempts.length === 1) {
-          target.appendChild(document.createElement("canvas"));
+          const canvas = document.createElement("canvas");
+          vi.spyOn(canvas, "getContext").mockReturnValue({
+            getExtension: vi.fn(() => ({ loseContext })),
+          } as unknown as WebGL2RenderingContext);
+          target.appendChild(canvas);
           throw new Error("WebGL 2 initialization failed");
         }
       }
@@ -102,6 +107,7 @@ describe("offline Cesium viewer", () => {
         contextOptions: expect.objectContaining({ requestWebgl1: true }),
       }),
     );
+    expect(loseContext).toHaveBeenCalledOnce();
     expect(container).toBeEmptyDOMElement();
   });
 });
