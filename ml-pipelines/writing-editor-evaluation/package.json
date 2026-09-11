@@ -9,6 +9,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "diff": "^9.0.0",
     "writing-editor-domain": "workspace:*",
     "zod": "^4.2.1"
   },

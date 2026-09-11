@@ -1,0 +1,89 @@
+---
+title: "ADR 009: Source-diff alignment without outcome inference"
+date: "2026-09-11"
+status: "Accepted"
+---
+
+# Context
+
+The evaluation cohort contains source and published revisions plus stable Vale
+findings. It does not contain rewrite suggestions or the author's accept,
+reject, and change decisions. The pipeline can still establish whether the
+published document changed around each finding, but that observation is not a
+decision outcome.
+
+The matcher needs exact positions despite Markdown markup and multibyte text.
+Line diffs are too coarse for a finding inside one sentence. Word tokenization
+can hide punctuation and markup changes. A direct character diff can produce
+the required mapping, provided its output is converted to the contract's UTF-8
+byte offsets and ambiguous boundaries remain visible.
+
+# Decision
+
+Compare each frozen source revision with its published revision using
+[JsDiff's character diff](https://github.com/kpdecker/jsdiff#readme). Pin the
+library version in the workspace lockfile, record it in every match run, and
+bound its edit distance through `params.yaml`.
+
+Convert the ordered diff into edit hunks. Every hunk records:
+
+* a stable ID derived from the algorithm version, source and published hashes,
+  and both byte ranges;
+* a half-open UTF-8 byte span and exact text from the source; and
+* the corresponding half-open UTF-8 byte span and exact text from the
+  published revision.
+
+Classify each finding as follows:
+
+* `changed` when at least one edit overlaps the finding and every overlapping
+  edit is contained by its source span;
+* `unchanged` when no edit overlaps or touches the finding; or
+* `manual-adjudication-required` when an edit crosses the finding boundary or
+  an insertion occurs exactly on it.
+
+For an unambiguous match, map the complete finding span into the published
+revision and retain its exact observed text. For an ambiguous match, retain the
+relevant hunk IDs and reason without inventing a published span.
+
+Before matching, verify the source and published hashes against the frozen
+cohort, require the Vale producer run to name that cohort, and verify every
+finding against the source bytes. Stable match-run identity covers the cohort,
+producer run, algorithm parameters, hunks, and classifications.
+
+Do not infer accepted, rejected, or changed suggestion outcomes from this
+alignment. A finding has no replacement, and a Git diff cannot prove why an
+author made an edit. Outcome scoring begins only when the dataset contains a
+proposal and an explicit decision record.
+
+# Alternatives
+
+## Treat every overlapping published edit as acceptance
+
+This would turn a convenient correlation into false labels. The author could
+have rewritten the passage independently, changed a larger section, or solved
+a different problem. Rejected.
+
+## Use line or word diffs
+
+These produce smaller artifacts and more readable patches. Their units do not
+match the byte-exact finding contract, and a line containing several findings
+would create false overlap. Rejected for matching; they can still support a
+human-facing report.
+
+## Require manual labels before any alignment
+
+Manual labels are necessary for outcome evaluation, but they are not needed to
+record objective source-to-published changes. Deferring alignment would leave
+later adjudication without stable evidence. Rejected.
+
+# Consequences
+
+The pipeline can now trace every Vale finding to an observed published change
+or a visible adjudication queue without choosing a rewrite model. Later
+producers can reuse the same source and published evidence while adding their
+own proposals and explicit decisions.
+
+Character diffs may split a rewrite into several small hunks, especially when
+old and new text share isolated characters. The DVC output is therefore larger
+than a display-oriented patch. Boundary-crossing rewrites remain unresolved by
+design rather than being forced into a misleading automatic match.

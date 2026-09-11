@@ -55,10 +55,11 @@ Define these initial stages:
    The shared domain package validates both formats.
    Captured Grammarly suggestions enter as reference data, not through an
    automated Grammarly stage.
-4. `match_edits` aligns each stable proposal ID and its ordered member
-   suggestion IDs with accepted, rejected, and changed edits and the final
-   published diff. It keeps unmatched and ambiguous cases separate instead of
-   counting them as rejections.
+4. `match_edits` first aligns stable finding IDs with the final published diff.
+   As rewrite producers arrive, it will also align proposal IDs and their
+   ordered member suggestion IDs with recorded accepted, rejected, and changed
+   decisions. It keeps observed changes, explicit outcomes, unmatched records,
+   and ambiguous cases separate.
 5. `evaluate` writes per-artifact results, summary metrics, and a fixed-rule
    recommendation to adopt, reject, or gather more evidence.
 

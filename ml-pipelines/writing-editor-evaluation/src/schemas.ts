@@ -112,6 +112,11 @@ export const PipelineParamsSchema = z.object({
       binaryVersion: z.string().regex(/^\d+\.\d+\.\d+$/),
     }).strict(),
   }).strict(),
+  matching: z.object({
+    characterDiff: z.object({
+      maxEditLength: z.number().int().positive(),
+    }).strict(),
+  }).strict(),
 }).strict();
 export type PipelineParams = z.infer<typeof PipelineParamsSchema>;
 
@@ -237,3 +242,195 @@ export const ValeProducerRunSchema = z.object({
   }).strict(),
 }).strict();
 export type ValeProducerRun = z.infer<typeof ValeProducerRunSchema>;
+
+export const EditHunkIdSchema = z.string().regex(/^edit-hunk:v1:[a-f0-9]{64}$/);
+
+const ObservedSpanSchema = z.object({
+  startByte: z.number().int().nonnegative(),
+  endByte: z.number().int().nonnegative(),
+  text: z.string(),
+}).strict().superRefine((span, context) => {
+  if (span.endByte < span.startByte) {
+    context.addIssue({
+      code: "custom",
+      message: "span end must be greater than or equal to its start",
+      path: ["endByte"],
+    });
+  }
+  if (Buffer.byteLength(span.text, "utf8") !== span.endByte - span.startByte) {
+    context.addIssue({
+      code: "custom",
+      message: "span text must occupy the declared UTF-8 byte range",
+      path: ["text"],
+    });
+  }
+});
+
+export const EditHunkSchema = z.object({
+  hunkId: EditHunkIdSchema,
+  source: ObservedSpanSchema,
+  published: ObservedSpanSchema,
+}).strict().superRefine((hunk, context) => {
+  if (
+    hunk.source.startByte === hunk.source.endByte &&
+    hunk.published.startByte === hunk.published.endByte
+  ) {
+    context.addIssue({ code: "custom", message: "an edit hunk must change content" });
+  }
+});
+export type EditHunk = z.infer<typeof EditHunkSchema>;
+
+export const FindingEditMatchStatusSchema = z.enum([
+  "changed",
+  "unchanged",
+  "manual-adjudication-required",
+]);
+export type FindingEditMatchStatus = z.infer<typeof FindingEditMatchStatusSchema>;
+
+export const FindingEditMatchSchema = z.object({
+  findingId: FindingIdSchema,
+  status: FindingEditMatchStatusSchema,
+  hunkIds: z.array(EditHunkIdSchema),
+  publishedSpan: ObservedSpanSchema.nullable(),
+  reason: z.enum([
+    "edit-crosses-finding-boundary",
+    "edit-touches-finding-boundary",
+  ]).nullable(),
+}).strict().superRefine((match, context) => {
+  if (match.status === "unchanged" && match.hunkIds.length > 0) {
+    context.addIssue({
+      code: "custom",
+      message: "an unchanged finding cannot reference edit hunks",
+      path: ["hunkIds"],
+    });
+  }
+  if (match.status !== "unchanged" && match.hunkIds.length === 0) {
+    context.addIssue({
+      code: "custom",
+      message: "a changed or ambiguous finding must reference an edit hunk",
+      path: ["hunkIds"],
+    });
+  }
+  if (match.status === "manual-adjudication-required") {
+    if (match.publishedSpan !== null) {
+      context.addIssue({
+        code: "custom",
+        message: "an ambiguous match cannot claim an exact published span",
+        path: ["publishedSpan"],
+      });
+    }
+    if (match.reason === null) {
+      context.addIssue({
+        code: "custom",
+        message: "an ambiguous match needs a reason",
+        path: ["reason"],
+      });
+    }
+  } else {
+    if (match.publishedSpan === null) {
+      context.addIssue({
+        code: "custom",
+        message: "an unambiguous match needs an exact published span",
+        path: ["publishedSpan"],
+      });
+    }
+    if (match.reason !== null) {
+      context.addIssue({
+        code: "custom",
+        message: "only ambiguous matches can have a reason",
+        path: ["reason"],
+      });
+    }
+  }
+});
+export type FindingEditMatch = z.infer<typeof FindingEditMatchSchema>;
+
+const EditMatchArtifactSchema = z.object({
+  artifactId: ArtifactIdSchema,
+  artifactType: ArtifactTypeSchema,
+  split: SplitSchema,
+  source: SourceReferenceSchema,
+  published: SourceReferenceSchema,
+  hunkIds: z.array(EditHunkIdSchema),
+  hunks: z.array(EditHunkSchema),
+  findingIds: z.array(FindingIdSchema),
+  matches: z.array(FindingEditMatchSchema),
+}).strict().superRefine((artifact, context) => {
+  const hunkIds = artifact.hunks.map(({ hunkId }) => hunkId);
+  if (
+    artifact.hunkIds.length !== hunkIds.length ||
+    artifact.hunkIds.some((id, index) => id !== hunkIds[index])
+  ) {
+    context.addIssue({
+      code: "custom",
+      message: "hunkIds must match hunks in output order",
+      path: ["hunkIds"],
+    });
+  }
+  if (new Set(hunkIds).size !== hunkIds.length) {
+    context.addIssue({
+      code: "custom",
+      message: "an artifact cannot contain duplicate edit hunks",
+      path: ["hunks"],
+    });
+  }
+
+  const findingIds = artifact.matches.map(({ findingId }) => findingId);
+  if (
+    artifact.findingIds.length !== findingIds.length ||
+    artifact.findingIds.some((id, index) => id !== findingIds[index])
+  ) {
+    context.addIssue({
+      code: "custom",
+      message: "findingIds must match edit matches in output order",
+      path: ["findingIds"],
+    });
+  }
+  if (new Set(findingIds).size !== findingIds.length) {
+    context.addIssue({
+      code: "custom",
+      message: "an artifact cannot contain duplicate finding matches",
+      path: ["matches"],
+    });
+  }
+
+  const knownHunks = new Set(hunkIds);
+  for (const [matchIndex, match] of artifact.matches.entries()) {
+    for (const [hunkIndex, hunkId] of match.hunkIds.entries()) {
+      if (!knownHunks.has(hunkId)) {
+        context.addIssue({
+          code: "custom",
+          message: "a match cannot reference an unknown edit hunk",
+          path: ["matches", matchIndex, "hunkIds", hunkIndex],
+        });
+      }
+    }
+  }
+});
+
+const MatchStatusCountsSchema = z.object({
+  changed: z.number().int().nonnegative(),
+  unchanged: z.number().int().nonnegative(),
+  "manual-adjudication-required": z.number().int().nonnegative(),
+}).strict();
+
+export const EditMatchRunSchema = z.object({
+  schemaVersion: z.literal(1),
+  recordType: z.literal("writing-editor-edit-match-run"),
+  runId: z.string().regex(/^edit-match-run:v1:[a-f0-9]{64}$/),
+  cohortId: z.string().regex(/^cohort:v1:[a-f0-9]{64}$/),
+  producerRunId: z.string().regex(/^producer-run:v1:[a-f0-9]{64}$/),
+  algorithm: z.object({
+    id: z.literal("jsdiff-character-overlap"),
+    version: z.string().regex(/^jsdiff@\d+\.\d+\.\d+\+matcher\.\d+$/),
+    maxEditLength: z.number().int().positive(),
+  }).strict(),
+  artifacts: z.array(EditMatchArtifactSchema).min(1),
+  summary: z.object({
+    artifacts: z.number().int().positive(),
+    findings: z.number().int().nonnegative(),
+    editHunks: z.number().int().nonnegative(),
+    byStatus: MatchStatusCountsSchema,
+  }).strict(),
+}).strict();
+export type EditMatchRun = z.infer<typeof EditMatchRunSchema>;

@@ -58,3 +58,24 @@ stages:
       - src/schemas.ts
     outs:
       - outputs/producers/vale.json
+
+  match_edits:
+    cmd: bash scripts/match-edits.sh
+    params:
+      - matching.characterDiff
+    deps:
+      - ../../packages/writing-editor-domain/package.json
+      - ../../packages/writing-editor-domain/src/canonical-json.ts
+      - ../../packages/writing-editor-domain/src/findings.ts
+      - ../../packages/writing-editor-domain/src/suggestions.ts
+      - ../../pnpm-lock.yaml
+      - data/corpus
+      - outputs/frozen/cohort.json
+      - outputs/producers/vale.json
+      - package.json
+      - scripts/match-edits.sh
+      - src/files.ts
+      - src/match-edits.ts
+      - src/schemas.ts
+    outs:
+      - outputs/matched/vale.json

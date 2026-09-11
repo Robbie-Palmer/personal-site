@@ -17,6 +17,11 @@ description = "Run Vale against the frozen writing cohort"
 depends = ["install"]
 run = "bash scripts/run-vale.sh"
 
+[tasks."match:edits"]
+description = "Align Vale findings with observed published edits"
+depends = ["install"]
+run = "bash scripts/match-edits.sh"
+
 [tasks.repro]
 description = "Reproduce the local writing evaluation stages through DVC"
 depends = ["install"]

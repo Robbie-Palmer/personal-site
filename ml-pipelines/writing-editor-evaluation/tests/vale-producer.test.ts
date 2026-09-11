@@ -83,6 +83,7 @@ function fixture(temporary: string): {
       requiredArtifactTypes: ["adr"],
     },
     producers: { vale: { binaryVersion: "3.20.0" } },
+    matching: { characterDiff: { maxEditLength: 1_000 } },
   });
   return { cohortFile, corpusRoot, paramsFile, outputFile };
 }

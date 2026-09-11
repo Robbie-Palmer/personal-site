@@ -107,6 +107,7 @@ function writeParams(file: string, seed = "fixture-seed"): void {
     producers: {
       vale: { binaryVersion: "3.20.0" },
     },
+    matching: { characterDiff: { maxEditLength: 1_000 } },
   });
 }
 

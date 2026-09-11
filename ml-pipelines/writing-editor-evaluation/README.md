@@ -1,7 +1,8 @@
 # Writing editor evaluation
 
-This DVC project turns pinned Git revisions into a reproducible writing corpus.
-Its first two stages establish the data boundary required by ADR 004.
+This DVC project turns pinned Git revisions into a reproducible writing corpus,
+runs detection-only checks, and aligns their findings with observed published
+edits.
 
 `extract_dataset` reads `corpus-manifest.json`. Each entry names a repository
 path, a full source commit, and a full published commit. The extractor verifies
@@ -40,12 +41,32 @@ These records are findings because the active Vale rules identify passages but
 cannot rewrite them safely. They contain no replacement text. A later rewrite
 producer will turn selected findings into suggestions and proposals.
 
+`match_edits` compares each source and published revision as Unicode code
+points, then records the resulting edits as exact UTF-8 byte ranges. It labels a
+finding `changed` when every overlapping edit stays inside its source span and
+maps the whole span to its observed published text. It labels a finding
+`unchanged` when no edit touches it. An edit that crosses the span, or an
+insertion exactly on its boundary, becomes `manual-adjudication-required`.
+
+The match output contains evidence about the final document, not an editorial
+decision. It does not claim that a change accepted a Vale suggestion: Vale did
+not provide a replacement, and the Git history does not record that decision.
+The matcher verifies both revision hashes, the producer run and cohort, every
+finding span, and its own runtime schema before writing
+`outputs/matched/vale.json`.
+
+On the initial cohort, 15 of 43 findings map to self-contained published
+changes. The remaining 28 cross or touch finding boundaries and stay in the
+manual-adjudication queue. The cohort intentionally contains no unchanged
+findings because it was sampled from a Vale cleanup commit.
+
 Run the implemented stages directly:
 
 ```bash
 mise run //ml-pipelines/writing-editor-evaluation:extract
 mise run //ml-pipelines/writing-editor-evaluation:freeze
 mise run //ml-pipelines/writing-editor-evaluation:run:vale
+mise run //ml-pipelines/writing-editor-evaluation:match:edits
 ```
 
 With access to the ML pipeline credentials, reproduce them through DVC:
@@ -54,6 +75,7 @@ With access to the ML pipeline credentials, reproduce them through DVC:
 mise run //ml-pipelines/writing-editor-evaluation:repro
 ```
 
-The next producer will propose rewrites for the areas Vale identifies. Model
-baselines remain blocked until the project records their immutable revisions,
-runtime locks, and weights.
+The rewrite producer remains an open design choice. Model baselines remain
+blocked until the project records their immutable revisions, runtime locks,
+and weights. The diff alignment can support that later evaluation without
+pretending the published text came from a model that did not exist.

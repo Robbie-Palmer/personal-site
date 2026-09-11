@@ -77,6 +77,12 @@ rule provenance and source-verified UTF-8 spans. These findings mark passages
 for the next rewrite producer. They do not claim that Vale knows a safe
 replacement.
 
+The next pipeline stage aligns those findings with the published revisions. It
+found 15 self-contained changes and sent 28 boundary-crossing edits to manual
+adjudication. Each result retains the exact before-and-after bytes and stable
+edit-hunk IDs. This measures where published edits touched a Vale finding
+without pretending that the diff records an accepted suggestion.
+
 Grammarly remains the practical baseline for the final mile, but it does not
 provide the API needed for an agentic publishing system. Its published research
 and descriptions of its correction approach provide useful prior work without
