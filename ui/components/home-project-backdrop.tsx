@@ -30,7 +30,8 @@ function ProjectCapture({
 function AutonomousWorkGraph() {
   return (
     <div className="home-project-artifact home-project-artifact--work-graph">
-      <svg viewBox="0 0 580 310" role="presentation">
+      <svg viewBox="0 0 580 310">
+        <title>Semi-autonomous software development work graph</title>
         <rect width="580" height="310" rx="24" className="artifact-shell" />
         <path d="M0 42h580" className="artifact-rule" />
         <circle cx="22" cy="21" r="4" className="artifact-dot" />
