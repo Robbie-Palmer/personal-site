@@ -31,10 +31,10 @@ const char* stateName(ControllerState state) {
 
 int runSimulation(bool json) {
   const Coordinate kSouthPole(0.0F, -90.0F);
-  const SimulationTrace trace = makeBrowserDemonstrationTrace(kSouthPole);
-  const SimulationResult result = runSimulationTrace(trace);
+  const BrowserSimulation simulation = makeBrowserDemonstration(kSouthPole);
+  const SimulationResult result = runSimulationTrace(simulation.trace);
   if (json) {
-    std::cout << serializeBrowserSimulation(trace, result);
+    std::cout << serializeBrowserSimulation(simulation, result);
     return 0;
   }
 

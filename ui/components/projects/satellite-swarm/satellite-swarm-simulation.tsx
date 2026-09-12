@@ -74,6 +74,7 @@ export function SatelliteSwarmSimulation({
   );
   const stopAt = data.frames.length - 1;
   const isSouthPoleMission = data.objective.latitudeDegrees === -90;
+  const hasLostAssignment = data.scenario === "three-node-assignment-loss";
   const replayAction = getReplayAction(playing, frameIndex, stopAt);
 
   useEffect(() => {
@@ -122,6 +123,8 @@ export function SatelliteSwarmSimulation({
           and positions. Cesium draws the result but does not calculate it.
           {isSouthPoleMission &&
             " The exact pole is a deliberate coordinate edge case."}
+          {hasLostAssignment &&
+            " The fault schedule drops the winning assignment before node 1 receives it."}
         </p>
         {missionControls}
       </div>
@@ -254,6 +257,7 @@ export function SatelliteSwarmSimulation({
                     <th className="pb-2 font-medium">Node</th>
                     <th className="pb-2 font-medium">State</th>
                     <th className="pb-2 text-right font-medium">Score</th>
+                    <th className="pb-2 text-right font-medium">Assigned</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -272,6 +276,11 @@ export function SatelliteSwarmSimulation({
                       <td className="py-2 pr-2">{node.state}</td>
                       <td className="py-2 text-right tabular-nums">
                         {node.candidacyScore}
+                      </td>
+                      <td className="py-2 text-right tabular-nums">
+                        {node.assignedNode === null
+                          ? "None"
+                          : `Node ${node.assignedNode}`}
                       </td>
                     </tr>
                   ))}

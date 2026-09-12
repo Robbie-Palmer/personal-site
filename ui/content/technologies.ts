@@ -487,6 +487,14 @@ a state machine, a cyclic state graph, or another processing model entirely.`,
     type: "platform",
   },
   {
+    name: "kube-state-metrics",
+    added: "2026-09-12",
+    description:
+      "Kubernetes service that exposes cluster object state as Prometheus metrics",
+    website: "https://github.com/kubernetes/kube-state-metrics",
+    type: "tool",
+  },
+  {
     name: "Amazon S3",
     added: "2026-09-05",
     description: "AWS object storage for data lakes and application artifacts",
@@ -979,6 +987,14 @@ a state machine, a cyclic state graph, or another processing model entirely.`,
     type: "platform",
   },
   {
+    name: "Healthchecks.io",
+    added: "2026-09-12",
+    description:
+      "Hosted dead man's switch for detecting missed heartbeats from jobs and machines",
+    website: "https://healthchecks.io",
+    type: "platform",
+  },
+  {
     name: "cooklang-rs",
     added: "2026-02-28",
     description:
@@ -1085,6 +1101,14 @@ a state machine, a cyclic state graph, or another processing model entirely.`,
     description:
       "Vendor-neutral observability framework and protocol (OTLP) for emitting and exporting logs, metrics, and traces",
     website: "https://opentelemetry.io",
+    type: "tool",
+  },
+  {
+    name: "OpenTelemetry Collector",
+    added: "2026-09-12",
+    description:
+      "Vendor-neutral gateway for receiving, processing, and exporting telemetry",
+    website: "https://opentelemetry.io/docs/collector/",
     type: "tool",
   },
   {

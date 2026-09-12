@@ -11,10 +11,18 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import type { SatelliteSwarmSimulation as SimulationData } from "@/lib/api/satellite-swarm-simulation";
 import {
   runSatelliteSwarmSimulation,
   type SatelliteSwarmObjective,
+  type SatelliteSwarmScenario,
 } from "@/lib/browser/satellite-swarm-worker-client";
 import { SatelliteSwarmSimulation } from "./satellite-swarm-simulation";
 
@@ -75,8 +83,10 @@ interface MissionControlsProps {
   onLatitudeChange: (value: string) => void;
   onLongitudeChange: (value: string) => void;
   onReset: () => void;
+  onScenarioChange: (value: SatelliteSwarmScenario) => void;
   onSubmit: (event: SubmitEvent<HTMLFormElement>) => void;
   running: boolean;
+  scenario: SatelliteSwarmScenario;
 }
 
 function MissionControls({
@@ -86,12 +96,14 @@ function MissionControls({
   onLatitudeChange,
   onLongitudeChange,
   onReset,
+  onScenarioChange,
   onSubmit,
   running,
+  scenario,
 }: Readonly<MissionControlsProps>) {
   return (
     <form
-      className="mt-4 grid gap-3 rounded-lg border bg-background/60 p-3 sm:grid-cols-[1fr_1fr_auto_auto] sm:items-end"
+      className="mt-4 grid gap-3 rounded-lg border bg-background/60 p-3 sm:grid-cols-[1fr_1fr_1.3fr_auto_auto] sm:items-end"
       onSubmit={onSubmit}
     >
       <label
@@ -128,6 +140,30 @@ function MissionControls({
           aria-describedby={error ? "satellite-swarm-run-error" : undefined}
         />
       </label>
+      <label
+        className="space-y-1 text-xs font-medium"
+        htmlFor="satellite-swarm-scenario"
+      >
+        <span>Network scenario</span>
+        <Select
+          value={scenario}
+          onValueChange={(value) => {
+            if (value === "nominal" || value === "lost-assignment") {
+              onScenarioChange(value);
+            }
+          }}
+        >
+          <SelectTrigger id="satellite-swarm-scenario" className="w-full">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent position="popper">
+            <SelectItem value="nominal">All deliveries</SelectItem>
+            <SelectItem value="lost-assignment">
+              Lose winning assignment
+            </SelectItem>
+          </SelectContent>
+        </Select>
+      </label>
       <Button type="button" variant="outline" onClick={onReset}>
         South Pole
       </Button>
@@ -140,14 +176,14 @@ function MissionControls({
         )}
         {running ? "Running mission" : "Run mission"}
       </Button>
-      <p className="text-xs text-muted-foreground sm:col-span-4">
+      <p className="text-xs text-muted-foreground sm:col-span-5">
         Run mission recalculates the C++ trace. The controls below play, pause,
         or inspect that result.
       </p>
       {error && (
         <p
           id="satellite-swarm-run-error"
-          className="text-xs text-destructive sm:col-span-4"
+          className="text-xs text-destructive sm:col-span-5"
           role="alert"
         >
           {error}
@@ -172,11 +208,16 @@ export function DeferredSatelliteSwarmSimulation() {
   const [longitude, setLongitude] = useState(
     String(SOUTH_POLE_OBJECTIVE.longitudeDegrees),
   );
+  const [scenario, setScenario] = useState<SatelliteSwarmScenario>("nominal");
   const [running, setRunning] = useState(false);
   const [visible, setVisible] = useState(false);
 
   const run = useCallback(
-    async (objective: SatelliteSwarmObjective, startPlaying = false) => {
+    async (
+      objective: SatelliteSwarmObjective,
+      startPlaying = false,
+      selectedScenario: SatelliteSwarmScenario = "nominal",
+    ) => {
       activeRequestRef.current?.abort();
       const controller = new AbortController();
       activeRequestRef.current = controller;
@@ -184,6 +225,7 @@ export function DeferredSatelliteSwarmSimulation() {
       setRunning(true);
       try {
         const result = await runSatelliteSwarmSimulation(objective, {
+          scenario: selectedScenario,
           signal: controller.signal,
         });
         if (activeRequestRef.current === controller) {
@@ -254,7 +296,7 @@ export function DeferredSatelliteSwarmSimulation() {
   const resetObjective = () => {
     setLongitude(String(SOUTH_POLE_OBJECTIVE.longitudeDegrees));
     setLatitude(String(SOUTH_POLE_OBJECTIVE.latitudeDegrees));
-    void run(SOUTH_POLE_OBJECTIVE, true);
+    void run(SOUTH_POLE_OBJECTIVE, true, scenario);
   };
 
   const submit = (event: SubmitEvent<HTMLFormElement>) => {
@@ -265,6 +307,7 @@ export function DeferredSatelliteSwarmSimulation() {
         longitudeDegrees: Number(longitude),
       },
       true,
+      scenario,
     );
   };
 
@@ -283,8 +326,10 @@ export function DeferredSatelliteSwarmSimulation() {
               onLatitudeChange={setLatitude}
               onLongitudeChange={setLongitude}
               onReset={resetObjective}
+              onScenarioChange={setScenario}
               onSubmit={submit}
               running={running}
+              scenario={scenario}
             />
           }
           startPlaying={simulation.startPlaying}

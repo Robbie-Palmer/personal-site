@@ -3,6 +3,7 @@
 #include "satellite_swarm/browser_simulation.hpp"
 
 #include <exception>
+#include <stdexcept>
 #include <string>
 
 #ifdef __EMSCRIPTEN__
@@ -14,7 +15,18 @@
 
 namespace {
 
-constexpr uint32_t kBrowserApiVersion = 1U;
+constexpr uint32_t kBrowserApiVersion = 2U;
+
+satellite_swarm::simulation::BrowserScenario parseScenario(uint32_t scenario) {
+  if (scenario == static_cast<uint32_t>(satellite_swarm::simulation::BrowserScenario::Nominal)) {
+    return satellite_swarm::simulation::BrowserScenario::Nominal;
+  }
+  if (scenario ==
+      static_cast<uint32_t>(satellite_swarm::simulation::BrowserScenario::LostAssignment)) {
+    return satellite_swarm::simulation::BrowserScenario::LostAssignment;
+  }
+  throw std::invalid_argument("unknown browser simulation scenario");
+}
 
 struct BrowserState {
   std::string result;
@@ -33,11 +45,12 @@ extern "C" SATELLITE_SWARM_KEEPALIVE uint32_t satellite_swarm_browser_api_versio
 }
 
 extern "C" SATELLITE_SWARM_KEEPALIVE const char*
-satellite_swarm_run_demonstration(float longitude_degrees, float latitude_degrees) noexcept {
+satellite_swarm_run_demonstration(float longitude_degrees, float latitude_degrees,
+                                  uint32_t scenario) noexcept {
   auto& state = browserState();
   try {
     state.result = satellite_swarm::simulation::runBrowserDemonstration(
-        satellite_swarm::Coordinate(longitude_degrees, latitude_degrees));
+        satellite_swarm::Coordinate(longitude_degrees, latitude_degrees), parseScenario(scenario));
     state.error.clear();
     return state.result.c_str();
   } catch (const std::exception& error) {
