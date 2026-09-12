@@ -1,7 +1,9 @@
 import { render, screen, within } from "@testing-library/react";
 import type { Mock } from "vitest";
 import { describe, expect, it, vi } from "vitest";
-import ProjectPage from "@/app/(site)/projects/[slug]/page";
+import ProjectPage, {
+  generateMetadata,
+} from "@/app/(site)/projects/[slug]/page";
 import type { InitiativeWithProjects } from "@/lib/api/initiatives";
 import { getInitiativesForProject } from "@/lib/api/initiatives";
 import type { ProjectWithADRs } from "@/lib/api/projects";
@@ -74,6 +76,7 @@ const fixture = {
   description: "Test description",
   date: "2026-08-02",
   status: "live",
+  paperUrl: "https://doi.org/10.1000/example",
   content: "# Home Lab\n\nHello",
   technologies: [
     {
@@ -111,6 +114,27 @@ const fixture = {
 } as ProjectWithADRs;
 
 describe("project page", () => {
+  it("advertises its project-specific feed", async () => {
+    (getProject as Mock).mockReturnValue(fixture);
+
+    await expect(
+      generateMetadata({ params: Promise.resolve({ slug: "homelab" }) }),
+    ).resolves.toEqual({
+      title: "Home Lab - Projects",
+      description: "Test description",
+      alternates: {
+        types: {
+          "application/rss+xml": [
+            {
+              url: "/projects/homelab/feed.xml",
+              title: "Home Lab RSS feed",
+            },
+          ],
+        },
+      },
+    });
+  });
+
   it("renders the project with the content component registry", async () => {
     (getProject as Mock).mockReturnValue(fixture);
 
@@ -122,6 +146,13 @@ describe("project page", () => {
     expect(screen.getByText("Test description")).toBeInTheDocument();
     expect(screen.getByText("adr-list")).toBeInTheDocument();
     expect(screen.getByTitle("Apache Kafka")).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Subscribe to Home Lab" }),
+    ).toHaveAttribute("href", "/projects/homelab/feed.xml");
+    expect(screen.getByRole("link", { name: "Read Paper" })).toHaveAttribute(
+      "href",
+      "https://doi.org/10.1000/example",
+    );
   });
 
   it("passes Mermaid and DesignEmbed to the project markdown renderer", async () => {

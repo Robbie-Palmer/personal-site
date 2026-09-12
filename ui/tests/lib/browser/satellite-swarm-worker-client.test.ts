@@ -13,9 +13,10 @@ const validResult = {
       nodes: [
         {
           assignedNode: null,
+          bootEpoch: 1,
           candidacyScore: 0,
           id: 0,
-          missionId: 1,
+          missionKey: { bootEpoch: 1, originNode: 0, sequence: 1 },
           orbitalRadiusMetres: 6_750_000,
           position: { latitudeDegrees: 0, longitudeDegrees: 0 },
           state: "leading",
@@ -27,9 +28,9 @@ const validResult = {
   objective: { latitudeDegrees: -90, longitudeDegrees: 0 },
   positionModel: "scripted simulation data; not orbit propagation",
   scenario: "three-node-objective-pass",
-  schemaVersion: 2,
+  schemaVersion: 3,
   source: "portable C++ SimulationTrace",
-  traceVersion: 2,
+  traceVersion: 3,
 };
 
 type WorkerListener = (event: MessageEvent<unknown> | ErrorEvent) => void;

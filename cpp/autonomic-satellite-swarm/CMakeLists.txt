@@ -155,6 +155,7 @@ if(BUILD_TESTING)
     satellite_swarm_tests
     tests/controller_test.cpp
     tests/historical_orbital_scorer_test.cpp
+    tests/invariant_test.cpp
     tests/wire_codec_test.cpp)
   if(SATELLITE_SWARM_BUILD_SIMULATION)
     target_sources(

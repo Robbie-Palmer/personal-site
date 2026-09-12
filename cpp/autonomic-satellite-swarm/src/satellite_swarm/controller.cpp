@@ -9,10 +9,11 @@ uint8_t boundedScore(uint8_t score) {
 
 } // namespace
 
-SwarmController::SwarmController(NodeId node_id, const SatelliteSnapshot& satellite,
-                                 Transport& transport, HealthMonitor& health_monitor,
-                                 const CandidacyScorer& scorer, const ControllerConfig& config)
-    : node_id_(node_id), satellite_(satellite), transport_(transport),
+SwarmController::SwarmController(NodeId node_id, BootEpoch boot_epoch,
+                                 const SatelliteSnapshot& satellite, Transport& transport,
+                                 HealthMonitor& health_monitor, const CandidacyScorer& scorer,
+                                 const ControllerConfig& config)
+    : node_id_(node_id), boot_epoch_(boot_epoch), satellite_(satellite), transport_(transport),
       health_monitor_(health_monitor), scorer_(scorer), config_(config) {
   if (config_.node_capacity == 0U || config_.node_capacity > kMaximumNodes) {
     config_.node_capacity = kMaximumNodes;
@@ -27,26 +28,27 @@ SwarmController::SwarmController(NodeId node_id, const SatelliteSnapshot& satell
     config_.maximum_messages_per_update = 1U;
   }
   resetCandidates();
-  if (node_id_ >= config_.node_capacity) {
+  if (node_id_ >= config_.node_capacity || boot_epoch_ == 0U) {
     state_ = ControllerState::SafeDisabled;
   }
 }
 
 bool SwarmController::initiateMission(const Coordinate& objective, uint32_t now_ms) {
-  if (state_ != ControllerState::Idle || node_id_ >= config_.node_capacity || !isValid(objective)) {
+  if (state_ != ControllerState::Idle || node_id_ >= config_.node_capacity ||
+      next_mission_sequence_ == 0U || !isValid(objective)) {
     return false;
   }
 
-  const Message mission = Message::missionRequest(node_id_, next_mission_id_, objective);
+  const MissionKey mission_key(node_id_, boot_epoch_, next_mission_sequence_);
+  const Message mission = Message::missionRequest(node_id_, mission_key, objective);
   if (!transport_.send(mission)) {
     return false;
   }
 
   current_mission_ = mission;
-  ++next_mission_id_;
-  if (next_mission_id_ == 0U) {
-    next_mission_id_ = 1U;
-  }
+  next_mission_sequence_ = next_mission_sequence_ == UINT16_MAX
+                               ? 0U
+                               : static_cast<MissionSequence>(next_mission_sequence_ + 1U);
 
   resetCandidates();
   candidates_[node_id_].received = true;
@@ -124,23 +126,25 @@ void SwarmController::resetCandidates() {
 }
 
 void SwarmController::process(const Message& message, uint32_t now_ms) {
-  if (message.origin >= config_.node_capacity || message.origin == node_id_) {
+  if (message.sender >= config_.node_capacity || message.sender == node_id_ ||
+      message.mission_key.origin_node >= config_.node_capacity || !isValid(message.mission_key)) {
     return;
   }
 
   switch (message.type) {
   case MessageType::MissionRequest:
-    if (message.target == kBroadcastNode && isValid(message.objective)) {
+    if (message.target == kBroadcastNode && message.sender == message.mission_key.origin_node &&
+        isValid(message.objective)) {
       acceptMissionRequest(message, now_ms);
     }
     break;
   case MessageType::Candidacy:
     if (state_ == ControllerState::Leading && message.target == node_id_ &&
-        message.mission_id == current_mission_.mission_id &&
+        message.mission_key == current_mission_.mission_key &&
         message.score <= kMaximumCandidacyScore) {
-      candidates_[message.origin].received = true;
-      candidates_[message.origin].score = message.score;
-      transport_.send(Message::acknowledgement(node_id_, message.origin, message.mission_id));
+      candidates_[message.sender].received = true;
+      candidates_[message.sender].score = message.score;
+      transport_.send(Message::acknowledgement(node_id_, message.sender, message.mission_key));
     }
     break;
   case MessageType::Acknowledgement:
@@ -178,8 +182,9 @@ void SwarmController::acceptMissionRequest(const Message& request, uint32_t now_
 }
 
 bool SwarmController::sendCandidacy(uint32_t now_ms) {
-  const bool sent = transport_.send(Message::candidacy(
-      node_id_, current_mission_.origin, current_mission_.mission_id, candidates_[node_id_].score));
+  const bool sent = transport_.send(
+      Message::candidacy(node_id_, current_mission_.mission_key.origin_node,
+                         current_mission_.mission_key, candidates_[node_id_].score));
   ++attempts_;
   last_attempt_at_ms_ = now_ms;
   if (sent) {
@@ -197,7 +202,7 @@ void SwarmController::finishLeading() {
     }
   }
 
-  if (!transport_.send(Message::assignment(node_id_, chosen, current_mission_.mission_id))) {
+  if (!transport_.send(Message::assignment(node_id_, chosen, current_mission_.mission_key))) {
     assigned_node_ = kBroadcastNode;
     state_ = ControllerState::Idle;
     return;
@@ -217,8 +222,8 @@ void SwarmController::abandonUnacknowledgedMission() {
 }
 
 bool SwarmController::matchesCurrentMission(const Message& message) const {
-  return message.mission_id == current_mission_.mission_id &&
-         message.origin == current_mission_.origin;
+  return message.mission_key == current_mission_.mission_key &&
+         message.sender == current_mission_.mission_key.origin_node;
 }
 
 bool SwarmController::elapsed(uint32_t now_ms, uint32_t since_ms, uint32_t duration_ms) const {

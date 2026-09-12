@@ -13,7 +13,16 @@ describe("extractGraphData", () => {
       initiatives: new Map([
         ["software-development", { title: "Software Development" }],
       ]),
-      projects: new Map([["site", { title: "Site" }]]),
+      projects: new Map([
+        [
+          "site",
+          {
+            title: "Site",
+            paperTitle: "A Site Paper",
+            paperUrl: "https://doi.org/10.1000/site",
+          },
+        ],
+      ]),
       blogs: new Map(),
       roles: new Map(),
       adrs: new Map([
@@ -82,6 +91,18 @@ describe("extractGraphData", () => {
       source: "project:site",
       target: "initiative:software-development",
       type: "CONTRIBUTES_TO_INITIATIVE",
+    });
+    expect(data.nodes).toContainEqual({
+      id: "paper:site",
+      name: "A Site Paper",
+      type: "paper",
+      href: "https://doi.org/10.1000/site",
+      connections: 1,
+    });
+    expect(data.edges).toContainEqual({
+      source: "project:site",
+      target: "paper:site",
+      type: "HAS_RESEARCH_PAPER",
     });
     expect(data.nodes).toContainEqual(
       expect.objectContaining({

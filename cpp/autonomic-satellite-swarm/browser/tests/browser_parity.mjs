@@ -5,7 +5,7 @@ import { Worker } from "node:worker_threads";
 import createSatelliteSwarmModule from "../../build/browser/browser/satellite-swarm.mjs";
 
 const module = await createSatelliteSwarmModule();
-assert.equal(module._satellite_swarm_browser_api_version(), 3);
+assert.equal(module._satellite_swarm_browser_api_version(), 4);
 const sourceRevision = module.UTF8ToString(
   module._satellite_swarm_source_revision(),
 );
@@ -25,7 +25,7 @@ function run(longitudeDegrees, latitudeDegrees, scenario = 0) {
 }
 
 const fixtureUrl = new URL(
-  "../../../../ui/public/simulations/autonomic-satellite-swarm/demonstration.v2.json",
+  "../../../../ui/public/simulations/autonomic-satellite-swarm/demonstration.v3.json",
   import.meta.url,
 );
 const nativeFixture = await readFile(fixtureUrl, "utf8");

@@ -43,6 +43,17 @@ describe("Projects functions", () => {
       expect(project.pitch?.content).not.toContain("<ReviewDepthDemo />");
     });
 
+    it("loads published research paper metadata", () => {
+      const project = getProject("autonomic-satellite-swarm");
+
+      expect(project.paperUrl).toBe(
+        "https://doi.org/10.1109/SMC-IT.2019.00015",
+      );
+      expect(project.paperTitle).toBe(
+        "Autonomic Providing Pre-Programmed Death of Cubesats for Avoiding Space JUNK",
+      );
+    });
+
     it("should return project with all required fields", () => {
       const slugs = getAllProjectSlugs();
       expect(slugs.length).toBeGreaterThan(0);

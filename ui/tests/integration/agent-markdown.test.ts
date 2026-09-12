@@ -59,7 +59,7 @@ describe("agent markdown generation", () => {
     expect(htmlPages).toContain("context-engineering.html");
     expect(htmlPages).toContain("commit-log.html");
     expect(htmlPages).toContain("stream-table-duality.html");
-    expect(htmlPages).toHaveLength(26);
+    expect(htmlPages).toHaveLength(28);
     for (const htmlPage of htmlPages) {
       const mdPage = htmlPage.replace(/\.html$/, ".md");
       expect(fs.existsSync(path.join(OUT_DIR, "ideas", mdPage))).toBe(true);
@@ -94,6 +94,13 @@ describe("agent markdown generation", () => {
     const projects = read("projects.md");
     expect(projects).toContain("# Building Philosophy");
     expect(projects).toContain("## Short Feedback Loops");
+  });
+
+  it("includes the research paper in the satellite swarm project twin", () => {
+    const project = read("projects/autonomic-satellite-swarm.md");
+    expect(project).toContain(
+      "- Research paper: https://doi.org/10.1109/SMC-IT.2019.00015",
+    );
   });
 
   it("generates a markdown twin for every project HTML page", () => {

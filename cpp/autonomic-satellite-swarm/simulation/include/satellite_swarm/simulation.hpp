@@ -8,11 +8,12 @@
 
 namespace satellite_swarm::simulation {
 
-constexpr uint8_t kSimulationTraceVersion = 2U;
+constexpr uint8_t kSimulationTraceVersion = 3U;
 
 struct NodeConfiguration {
   NodeId node_id = 0U;
   SatelliteSnapshot satellite{};
+  BootEpoch boot_epoch = 1U;
 };
 
 struct SatelliteUpdate {
@@ -106,7 +107,8 @@ struct NodeObservation {
   NodeId node_id = 0U;
   ControllerState state = ControllerState::Idle;
   SatelliteSnapshot satellite{};
-  MissionId mission_id = 0U;
+  BootEpoch boot_epoch = 0U;
+  MissionKey mission_key{};
   NodeId assigned_node = kBroadcastNode;
   uint8_t candidacy_score = 0U;
   uint8_t communication_failures = 0U;

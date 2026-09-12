@@ -230,7 +230,7 @@ mise_version=$(tr -d '\r\n' < ../.github/actions/setup-mise/mise-version)
 docker build \
   --build-arg "MISE_VERSION=$mise_version" \
   --pull=false \
-  --tag ghcr.io/robbie-palmer/t3-code:0.0.38-agent-tools-9 \
+  --tag ghcr.io/robbie-palmer/t3-code:0.0.38-agent-tools-11 \
   images/t3-code
 '''
 
@@ -240,7 +240,7 @@ run = "bash scripts/check-t3-image"
 
 [tasks.t3-image-push]
 description = "Push the checked t3-code image to GHCR"
-run = "docker push ghcr.io/robbie-palmer/t3-code:0.0.38-agent-tools-9"
+run = "docker push ghcr.io/robbie-palmer/t3-code:0.0.38-agent-tools-11"
 
 [tasks.t3-image-load-remote]
 description = "Load the checked image into remote-development K3s over SSH"
