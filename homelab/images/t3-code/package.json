@@ -3,7 +3,7 @@
   "private": true,
   "dependencies": {
     "@anthropic-ai/claude-code": "2.1.261",
-    "@openai/codex": "0.153.2",
+    "@openai/codex": "0.153.4",
     "@xai-official/grok": "1.0.13",
     "opencode-ai": "1.18.27",
     "pnpm": "12.2.1",
