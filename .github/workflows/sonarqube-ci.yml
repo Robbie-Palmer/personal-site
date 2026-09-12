@@ -20,6 +20,9 @@ concurrency:
   group: sonarqube-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
+env:
+  MISE_VERSION: "2026.9.1"
+
 jobs:
   coverage:
     name: Tests and coverage
@@ -34,7 +37,7 @@ jobs:
       - name: Setup mise
         uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
         with:
-          version: "2026.9.1"
+          version: ${{ env.MISE_VERSION }}
           experimental: true
           minimum_release_age: 24h
 
@@ -73,7 +76,7 @@ jobs:
             ~/.local/share/mise/installs/pipx-gcovr
             ~/.local/share/mise/installs/python
             ~/.local/share/mise/installs/uv
-          key: mise-cpp-v2-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('cpp/mise.toml', 'cpp/autonomic-satellite-swarm/mise.toml') }}
+          key: mise-cpp-v2-mise-${{ env.MISE_VERSION }}-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('cpp/mise.toml', 'cpp/autonomic-satellite-swarm/mise.toml') }}
 
       - name: Install coverage toolchain
         shell: bash
@@ -161,7 +164,7 @@ jobs:
       - name: Setup mise
         uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
         with:
-          version: "2026.9.1"
+          version: ${{ env.MISE_VERSION }}
           experimental: true
           minimum_release_age: 24h
 
