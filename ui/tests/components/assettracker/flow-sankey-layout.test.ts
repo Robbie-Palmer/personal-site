@@ -80,6 +80,37 @@ describe("getFlowSankeyLayout", () => {
     ]);
   });
 
+  it("orders a crossed graph with isolated and zero-weight neighbours", () => {
+    const nodes = [
+      "source-a",
+      "source-b",
+      "zero-source",
+      "isolated",
+      "target-a",
+      "target-b",
+      "zero-target",
+    ].map((id) => ({ id, name: id, color: "blue" }));
+    const link = (source: number, target: number, value = 1) => ({
+      source,
+      target,
+      value,
+      label: "Fixture flow",
+      sourceName: nodes[source]?.name ?? "Source",
+      targetName: nodes[target]?.name ?? "Target",
+    });
+    const data: FlowSankeyData = {
+      nodes,
+      links: [link(0, 4), link(0, 5), link(1, 4), link(1, 5), link(2, 6, 0)],
+    };
+
+    const prepared = prepareFlowSankeyData(data);
+
+    expect(prepared.nodes.map((node) => node.id).sort()).toEqual(
+      nodes.map((node) => node.id).sort(),
+    );
+    expect(prepared.links).toHaveLength(data.links.length);
+  });
+
   it("falls back safely when imported links reference missing nodes", () => {
     const data: FlowSankeyData = {
       nodes: [{ id: "source", name: "Source", color: "blue" }],
