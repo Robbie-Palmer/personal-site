@@ -96,6 +96,13 @@ describe("agent markdown generation", () => {
     expect(projects).toContain("## Short Feedback Loops");
   });
 
+  it("includes the research paper in the satellite swarm project twin", () => {
+    const project = read("projects/autonomic-satellite-swarm.md");
+    expect(project).toContain(
+      "- Research paper: https://doi.org/10.1109/SMC-IT.2019.00015",
+    );
+  });
+
   it("generates a markdown twin for every project HTML page", () => {
     const projectDirs = fs
       .readdirSync(path.join(OUT_DIR, "projects"), { withFileTypes: true })
