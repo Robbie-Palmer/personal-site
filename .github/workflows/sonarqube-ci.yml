@@ -24,7 +24,7 @@ jobs:
   coverage:
     name: Tests and coverage
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -59,8 +59,56 @@ jobs:
       - name: Test Kubernetes manifests
         run: mise run //homelab:k3s-test-remote
 
+      - name: Restore C++ toolchain cache
+        id: cpp-toolchain-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.local/share/mise/installs/arduino-cli
+            ~/.local/share/mise/installs/cmake
+            ~/.local/share/mise/installs/conda-gxx
+            ~/.local/share/mise/installs/ninja
+            ~/.local/share/mise/installs/pipx-clang-format
+            ~/.local/share/mise/installs/pipx-clang-tidy
+            ~/.local/share/mise/installs/pipx-gcovr
+            ~/.local/share/mise/installs/python
+          key: mise-cpp-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('cpp/mise.toml', 'cpp/autonomic-satellite-swarm/mise.toml') }}
+
+      - name: Install coverage toolchain
+        shell: bash
+        run: |
+          attempt=1
+          until mise install --jobs 1 --cd cpp/autonomic-satellite-swarm; do
+            if (( attempt >= 4 )); then
+              echo "::error::Coverage toolchain installation failed after $attempt attempts"
+              exit 1
+            fi
+
+            delay=$((attempt * 10))
+            echo "::warning::Coverage toolchain installation failed on attempt $attempt; retrying in ${delay}s"
+            sleep "$delay"
+            attempt=$((attempt + 1))
+          done
+
+      - name: Save C++ toolchain cache
+        if: steps.cpp-toolchain-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.local/share/mise/installs/arduino-cli
+            ~/.local/share/mise/installs/cmake
+            ~/.local/share/mise/installs/conda-gxx
+            ~/.local/share/mise/installs/ninja
+            ~/.local/share/mise/installs/pipx-clang-format
+            ~/.local/share/mise/installs/pipx-clang-tidy
+            ~/.local/share/mise/installs/pipx-gcovr
+            ~/.local/share/mise/installs/python
+          key: ${{ steps.cpp-toolchain-cache.outputs.cache-primary-key }}
+
       - name: Generate coverage reports
-        run: mise run //:sonar:coverage
+        # Several coverage tasks invoke pnpm install against the shared workspace.
+        # Serial execution avoids install races and CPU-starved test timeouts.
+        run: mise run --jobs 1 //:sonar:coverage
 
       - name: Upload coverage reports
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
