@@ -21,7 +21,7 @@ import { loadDomainRepository } from "@/lib/domain";
 const OUT_DIR = path.join(process.cwd(), "out");
 // Section feeds stay a tight rolling window; the global feed is the firehose
 // of everything, so it keeps a much larger cap.
-const MAX_ITEMS = 50;
+export const SECTION_FEED_MAX_ITEMS = 50;
 const GLOBAL_MAX_ITEMS = 200;
 
 type FeedEntry = {
@@ -135,16 +135,19 @@ function buildFeed(
     pagePath?: string;
   },
   entries: FeedEntry[],
-  max: number = MAX_ITEMS,
+  max: number = SECTION_FEED_MAX_ITEMS,
 ): string {
   const items = [...entries]
-    .sort((a, b) => b.date.getTime() - a.date.getTime())
+    .sort(
+      (a, b) =>
+        b.date.getTime() - a.date.getTime() || a.url.localeCompare(b.url),
+    )
     .slice(0, max);
 
   const feed = new Feed({
     title: meta.title,
     description: meta.description,
-    id: siteConfig.url,
+    id: `${siteConfig.url}${meta.feedPath}`,
     link: `${siteConfig.url}${meta.pagePath ?? ""}`,
     language: "en",
     copyright: `© ${new Date().getFullYear()} ${siteConfig.author.name}`,
