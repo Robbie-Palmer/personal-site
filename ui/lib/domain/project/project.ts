@@ -69,7 +69,7 @@ export const ProjectSchema = z.object({
   repoUrl: z.string().url().optional(),
   demoUrl: z.string().url().optional(),
   productUrl: z.string().url().optional(),
-  paperUrl: z.string().url().optional(),
+  paperUrl: z.url().optional(),
   pitch: PitchDeckSchema.optional(),
   content: z.string(),
 });
