@@ -39,6 +39,13 @@ spec:
                     }
                   }
                 }
+          envFrom:
+            - secretRef:
+                name: t3-code-runtime
+                optional: true
+            - secretRef:
+                name: t3-code-preview-access
+                optional: false
           resources:
             requests:
               cpu: 500m

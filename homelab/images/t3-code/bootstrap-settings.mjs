@@ -30,6 +30,9 @@ if (existsSync(settingsPath)) {
 }
 
 const providers = recordOrEmpty(settings.providers);
+const providerInstances = recordOrEmpty(settings.providerInstances);
+const personalCodex = recordOrEmpty(providerInstances["codex-personal"]);
+const personalCodexConfig = recordOrEmpty(personalCodex.config);
 
 settings.providers = {
   ...providers,
@@ -40,6 +43,23 @@ settings.providers = {
   opencode: {
     ...recordOrEmpty(providers.opencode),
     enabled: true,
+  },
+};
+
+settings.providerInstances = {
+  ...providerInstances,
+  "codex-personal": {
+    ...personalCodex,
+    driver: "codex",
+    displayName: personalCodex.displayName ?? "Codex personal",
+    accentColor: personalCodex.accentColor ?? "#30eb25",
+    enabled: personalCodex.enabled ?? true,
+    config: {
+      ...personalCodexConfig,
+      binaryPath: "codex",
+      homePath: "/data/home/.codex",
+      shadowHomePath: "/data/home/.codex-personal",
+    },
   },
 };
 

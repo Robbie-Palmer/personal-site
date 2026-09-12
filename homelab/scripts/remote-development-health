@@ -45,7 +45,7 @@ check_workspace() {
   local namespace=$1
   local node_port=$2
   local volume=$3
-  local actual_policy_names expected_policy_names
+  local actual_policy_names expected_policy_names runtime_summary
   shift 3
 
   if ! k3s kubectl --namespace "${namespace}" get deployment t3-code >/dev/null 2>&1; then
@@ -53,6 +53,19 @@ check_workspace() {
   fi
 
   k3s kubectl --namespace "${namespace}" rollout status deployment/t3-code --timeout=120s
+  runtime_summary=$(
+    k3s kubectl --namespace "${namespace}" get pods \
+      --selector=app.kubernetes.io/name=t3-code \
+      --output=json \
+      | jq --raw-output '
+          .items[] as $pod
+          | $pod.status.containerStatuses[]?
+          | "\($pod.metadata.name)/\(.name): restarts=\(.restartCount) previous=\(.lastState.terminated.reason // "none") exit=\(.lastState.terminated.exitCode // "n/a") finished=\(.lastState.terminated.finishedAt // "n/a")"
+        '
+  )
+  if [ -n "${runtime_summary}" ]; then
+    printf '%s\n' "${runtime_summary}"
+  fi
   actual_policy_names=$(
     k3s kubectl --namespace "${namespace}" get networkpolicy \
       --output=jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' \
@@ -66,6 +79,14 @@ check_workspace() {
 }
 
 check_workspace t3-code 30773 t3-code-remote-development
+k3s kubectl --namespace t3-code get secret t3-code-preview-access --output=json \
+  | jq --exit-status '
+      .data
+      | has("CF_ACCESS_CLIENT_ID")
+        and has("CF_ACCESS_CLIENT_SECRET")
+        and has("CLOUDFLARE_PAGES_HOST")
+    ' >/dev/null
+echo "operator preview Access credentials are present"
 check_workspace \
   t3-code-pilot \
   30774 \
