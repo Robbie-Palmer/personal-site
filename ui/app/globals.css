@@ -203,6 +203,16 @@ code[data-line-numbers-max-digits="3"] > [data-line]::before {
 }
 
 /* Hero section animations */
+@keyframes artifactFloat {
+  0%,
+  100% {
+    translate: 0 0;
+  }
+  50% {
+    translate: 0 -10px;
+  }
+}
+
 @keyframes fadeInUp {
   from {
     opacity: 0;
@@ -253,6 +263,199 @@ code[data-line-numbers-max-digits="3"] > [data-line]::before {
   animation: orbit calc(var(--duration) * 1s) linear infinite;
 }
 
+.home-project-backdrop {
+  position: absolute;
+  inset: 0 50%;
+  z-index: -1;
+  width: min(100vw, 96rem);
+  translate: -50% 0;
+  overflow: hidden;
+  pointer-events: none;
+  perspective: 1200px;
+}
+
+.home-project-backdrop__veil {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    ellipse 43% 42% at 50% 50%,
+    color-mix(in oklch, var(--background) 96%, transparent) 0%,
+    color-mix(in oklch, var(--background) 86%, transparent) 48%,
+    transparent 76%
+  );
+}
+
+.home-project-artifact {
+  position: absolute;
+  color: color-mix(in oklch, var(--foreground) 76%, transparent);
+  opacity: 0.34;
+  filter: saturate(0.72) contrast(0.92);
+  transform-style: preserve-3d;
+  will-change: translate;
+}
+
+:root:not(.dark) .home-project-artifact {
+  opacity: 0.56;
+  filter: saturate(0.95) contrast(1.18) brightness(0.9);
+  mix-blend-mode: multiply;
+}
+
+.artifact-capture {
+  overflow: hidden;
+  border: 1px solid color-mix(in oklch, var(--foreground) 22%, transparent);
+  border-radius: 1.5rem;
+  background: color-mix(in oklch, var(--card) 72%, transparent);
+  box-shadow: 0 24px 45px color-mix(in oklch, black 36%, transparent);
+}
+
+.artifact-capture__bar {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  height: 2.625rem;
+  padding: 0 0.9rem;
+  border-bottom: 1px solid
+    color-mix(in oklch, var(--foreground) 16%, transparent);
+  gap: 0.8rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+.artifact-capture__dots {
+  display: flex;
+  gap: 0.35rem;
+}
+
+.artifact-capture__dots i {
+  width: 0.35rem;
+  height: 0.35rem;
+  border-radius: 999px;
+  background: color-mix(in oklch, var(--foreground) 28%, transparent);
+}
+
+.artifact-capture__title,
+.artifact-capture__meta {
+  font-size: 0.55rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+}
+
+.artifact-capture__meta {
+  font-size: 0.48rem;
+  font-weight: 500;
+  opacity: 0.58;
+}
+
+.artifact-capture__image {
+  width: 100%;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
+}
+
+.artifact-capture__image--pathology {
+  aspect-ratio: 16 / 9;
+  background-image: url("/images/home/pathology-viewer.jpg");
+}
+
+.artifact-capture__image--satellites {
+  aspect-ratio: 775 / 512;
+  background-image: url("/images/home/satellite-swarm.jpg");
+}
+
+.artifact-capture__image--asset-tracker {
+  aspect-ratio: 52 / 27;
+  background-image: url("/images/home/asset-tracker-chart.jpg");
+}
+
+.home-project-artifact--pathology {
+  top: 11%;
+  left: -1%;
+  width: clamp(20rem, 30vw, 29rem);
+  transform: rotateY(18deg) rotateZ(-6deg) translateZ(-70px);
+  animation: artifactFloat 11s ease-in-out infinite;
+}
+
+.home-project-artifact--satellites {
+  top: 28%;
+  right: -1%;
+  width: clamp(19rem, 26vw, 25rem);
+  transform: rotateY(-18deg) rotateZ(6deg) translateZ(-90px);
+  animation: artifactFloat 13s 1.8s ease-in-out infinite reverse;
+}
+
+.home-project-artifact--asset-tracker {
+  bottom: 3%;
+  left: 7%;
+  width: clamp(25rem, 37vw, 35rem);
+  transform: rotateX(6deg) rotateY(15deg) rotateZ(4deg) translateZ(-120px);
+  animation: artifactFloat 14s 0.7s ease-in-out infinite;
+}
+
+@media (max-width: 767px) {
+  .home-project-artifact {
+    opacity: 0.29;
+    animation: none;
+    will-change: auto;
+  }
+
+  .artifact-capture__bar {
+    grid-template-columns: 1fr;
+    height: 2rem;
+    padding: 0 0.75rem;
+  }
+
+  .artifact-capture__dots,
+  .artifact-capture__meta {
+    display: none;
+  }
+
+  .artifact-capture__image--pathology {
+    aspect-ratio: 341 / 256;
+    background-image: url("/images/home/pathology-viewer-mobile.jpg");
+  }
+
+  .artifact-capture__image--satellites {
+    aspect-ratio: 341 / 400;
+    background-image: url("/images/home/satellite-swarm-mobile.jpg");
+  }
+
+  .artifact-capture__image--asset-tracker {
+    aspect-ratio: 325 / 400;
+    background-image: url("/images/home/asset-tracker-chart-mobile.jpg");
+  }
+
+  .home-project-artifact--pathology {
+    top: 4%;
+    left: -4%;
+    width: 40vw;
+    transform: rotateY(4deg) rotateZ(-4deg) translateZ(-40px);
+  }
+
+  .home-project-artifact--satellites {
+    top: 0;
+    right: -4%;
+    width: 33vw;
+    transform: rotateY(-4deg) rotateZ(4deg) translateZ(-50px);
+  }
+
+  .home-project-artifact--asset-tracker {
+    right: auto;
+    bottom: -5%;
+    left: 6%;
+    width: 38vw;
+    transform: rotateY(-4deg) rotateZ(-3deg) translateZ(-50px);
+  }
+
+  .home-project-backdrop__veil {
+    background: radial-gradient(
+      ellipse 72% 40% at 50% 56%,
+      color-mix(in oklch, var(--background) 97%, transparent) 0%,
+      color-mix(in oklch, var(--background) 88%, transparent) 54%,
+      transparent 84%
+    );
+  }
+}
+
 @keyframes orbit {
   0% {
     transform: rotate(0deg) translateY(calc(var(--radius) * 1px)) rotate(0deg);
@@ -281,6 +484,11 @@ code[data-line-numbers-max-digits="3"] > [data-line]::before {
 
   .animate-orbit {
     animation: none;
+  }
+
+  .home-project-artifact {
+    animation: none;
+    will-change: auto;
   }
 }
 
