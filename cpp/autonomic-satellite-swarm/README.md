@@ -58,9 +58,10 @@ Build the browser module and compare its default output with the native fixture:
 mise run browser:parity
 ```
 
-The task pins Emscripten, writes the deployable `.mjs` and `.wasm` files under `ui/public`, checks a
-custom objective, and verifies invalid-input handling. The worker API is versioned separately from
-the simulation trace and display schema.
+The task pins Emscripten, writes the untracked deployable `.mjs` and `.wasm` files under `ui/public`,
+checks a custom objective, and verifies invalid-input handling. The UI build runs the same task so
+deployments compile the browser module from source. The worker API is versioned separately from the
+simulation trace and display schema.
 
 Run every host, firmware, formatting, lint, and spelling check with:
 

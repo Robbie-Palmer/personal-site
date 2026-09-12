@@ -9,17 +9,17 @@ outputs = ["node_modules"]
 
 [tasks.dev]
 description = "Start Next.js development server"
-depends = ["//ui:install"]
+depends = ["//ui:install", "//cpp/autonomic-satellite-swarm:browser:build"]
 run = "pnpm dev"
 
 [tasks."dev:qr"]
 description = "Start dev server and show QR code for mobile testing"
-depends = ["//ui:install"]
+depends = ["//ui:install", "//cpp/autonomic-satellite-swarm:browser:build"]
 run = "pnpm dev:qr"
 
 [tasks.build]
 description = "Build Next.js application for production"
-depends = ["//ui:install"]
+depends = ["//ui:install", "//cpp/autonomic-satellite-swarm:browser:build"]
 run = "pnpm build"
 sources = ["app/**/*", "components/**/*", "content/**/*", "lib/**/*", "public/**/*", "scripts/**/*", "*.ts", "*.tsx", "*.json"]
 outputs = ["out/**/*"]

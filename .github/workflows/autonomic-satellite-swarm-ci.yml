@@ -94,5 +94,8 @@ jobs:
       - name: Build WebAssembly and check native parity
         run: mise run //cpp/autonomic-satellite-swarm:browser:parity
 
-      - name: Check generated browser artifacts
-        run: git diff --exit-code -- ui/public/simulations/autonomic-satellite-swarm/wasm
+      - name: Verify generated browser artifacts are untracked
+        run: |
+          test -f ui/public/simulations/autonomic-satellite-swarm/wasm/satellite-swarm.mjs
+          test -f ui/public/simulations/autonomic-satellite-swarm/wasm/satellite-swarm.wasm
+          test -z "$(git ls-files -- ui/public/simulations/autonomic-satellite-swarm/wasm)"
