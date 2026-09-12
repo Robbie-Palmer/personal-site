@@ -327,6 +327,71 @@ function migrationApplied(sql: SqlStorage, migration: SchemaMigration): boolean 
   );
 }
 
+function assertSupportedHistory(recorded: ReadonlyMap<number, string>): void {
+  const newestRecordedVersion = Math.max(0, ...recorded.keys());
+  if (newestRecordedVersion > LATEST_SCHEMA_VERSION) {
+    throw new Error(
+      `Database schema version ${newestRecordedVersion} is newer than ` +
+      `supported version ${LATEST_SCHEMA_VERSION}`,
+    );
+  }
+}
+
+function assertMigrationOrder(): void {
+  for (const [index, migration] of migrations.entries()) {
+    if (migration.version !== index + 1) {
+      throw new Error(
+        `Schema migration versions must be contiguous at ${migration.name}`,
+      );
+    }
+  }
+}
+
+function assertRecordedName(
+  migration: SchemaMigration,
+  recordedName: string,
+): void {
+  if (recordedName !== migration.name) {
+    throw new Error(
+      `Schema migration ${migration.version} was recorded as ` +
+        `${recordedName}, expected ${migration.name}`,
+    );
+  }
+}
+
+function applyUnrecordedMigration(
+  sql: SqlStorage,
+  migration: SchemaMigration,
+): void {
+  if (!migrationApplied(sql, migration)) {
+    for (const statement of migration.up) sql.exec(statement);
+  }
+  if (!migrationApplied(sql, migration)) {
+    throw new Error(
+      `Schema migration ${migration.version} (${migration.name}) did not ` +
+        "produce its expected schema",
+    );
+  }
+
+  sql.exec(
+    "INSERT INTO _migrations (version, name) VALUES (?, ?)",
+    migration.version,
+    migration.name,
+  );
+}
+
+function applyMigration(
+  sql: SqlStorage,
+  migration: SchemaMigration,
+  recordedName: string | undefined,
+): void {
+  if (recordedName !== undefined) {
+    assertRecordedName(migration, recordedName);
+    return;
+  }
+  applyUnrecordedMigration(sql, migration);
+}
+
 export function runMigrations(sql: SqlStorage): void {
   sql.exec(`CREATE TABLE IF NOT EXISTS _migrations (
     version INTEGER PRIMARY KEY,
@@ -342,46 +407,10 @@ export function runMigrations(sql: SqlStorage): void {
       .toArray()
       .map(({ version, name }) => [Number(version), name]),
   );
-  const newestRecordedVersion = Math.max(0, ...recorded.keys());
-  if (newestRecordedVersion > LATEST_SCHEMA_VERSION) {
-    throw new Error(
-      `Database schema version ${newestRecordedVersion} is newer than ` +
-        `supported version ${LATEST_SCHEMA_VERSION}`,
-    );
-  }
+  assertSupportedHistory(recorded);
+  assertMigrationOrder();
 
-  for (const [index, migration] of migrations.entries()) {
-    if (migration.version !== index + 1) {
-      throw new Error(
-        `Schema migration versions must be contiguous at ${migration.name}`,
-      );
-    }
-
-    const recordedName = recorded.get(migration.version);
-    if (recordedName !== undefined) {
-      if (recordedName !== migration.name) {
-        throw new Error(
-          `Schema migration ${migration.version} was recorded as ` +
-            `${recordedName}, expected ${migration.name}`,
-        );
-      }
-      continue;
-    }
-
-    if (!migrationApplied(sql, migration)) {
-      for (const statement of migration.up) sql.exec(statement);
-      if (!migrationApplied(sql, migration)) {
-        throw new Error(
-          `Schema migration ${migration.version} (${migration.name}) did not ` +
-            "produce its expected schema",
-        );
-      }
-    }
-
-    sql.exec(
-      "INSERT INTO _migrations (version, name) VALUES (?, ?)",
-      migration.version,
-      migration.name,
-    );
+  for (const migration of migrations) {
+    applyMigration(sql, migration, recorded.get(migration.version));
   }
 }
