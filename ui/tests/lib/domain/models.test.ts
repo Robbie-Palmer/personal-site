@@ -329,6 +329,30 @@ describe("Domain Model Schemas", () => {
       expect(result.success).toBe(false);
     });
 
+    it("should require complete research paper metadata", () => {
+      const project = {
+        slug: "research-project",
+        title: "Research Project",
+        description: "Desc",
+        date: "2025-01-01",
+        status: "completed" as const,
+        content: "Content",
+      };
+
+      expect(
+        ProjectSchema.safeParse({
+          ...project,
+          paperUrl: "https://doi.org/10.1000/example",
+        }).success,
+      ).toBe(false);
+      expect(
+        ProjectSchema.safeParse({
+          ...project,
+          paperTitle: "A Research Paper",
+        }).success,
+      ).toBe(false);
+    });
+
     it("should apply default empty arrays when relations is omitted", () => {
       const projectWithoutRelations = {
         slug: "test-project",
