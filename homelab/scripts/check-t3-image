@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-image=ghcr.io/robbie-palmer/t3-code:0.0.38-agent-tools-9
+image=ghcr.io/robbie-palmer/t3-code:0.0.38-agent-tools-11
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 mise_version="$(<"${script_dir}/../../.github/actions/setup-mise/mise-version")"
 container="personal-site-t3-image-check-$$"
@@ -36,6 +36,12 @@ docker run --rm \
     test "$(docker --version)" = "Docker version 29.8.0, build 88096ef"
     test "$(docker buildx version | cut -d" " -f1-3)" = "github.com/docker/buildx v0.37.0 ac30b249211430b85fb8f37b6e7154b5c47ba0b6"
     test "$(docker compose version)" = "Docker Compose version v5.5.1"
+    case ":$PATH:" in
+      *:/usr/local/lib/t3-code/node_modules/.bin:*) exit 1 ;;
+    esac
+    for cli in claude codex grok opencode pnpm t3; do
+      test "$(command -v "$cli")" = "/usr/local/bin/$cli"
+    done
     command -v bwrap chromium git gh lsof t3 >/dev/null
     test "$PUPPETEER_EXECUTABLE_PATH" = /usr/bin/chromium
     test "$PLAYWRIGHT_BROWSERS_PATH" = /data/home/.cache/ms-playwright
