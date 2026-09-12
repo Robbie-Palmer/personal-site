@@ -6,6 +6,8 @@ on:
       - main
     paths:
       - "ui/**"
+      - "cpp/autonomic-satellite-swarm/**"
+      - "cpp/mise.toml"
       - "functions/**"
       - "packages/**"
       - ".mise.toml"
