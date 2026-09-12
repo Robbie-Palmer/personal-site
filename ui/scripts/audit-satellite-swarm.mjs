@@ -321,6 +321,7 @@ async function main() {
     const results = {};
     for (const [name, profile] of Object.entries(profiles)) {
       results[name] = await auditProfile(browser, profile);
+      assertAuditServerAlive();
     }
     process.stdout.write(
       `${JSON.stringify(
