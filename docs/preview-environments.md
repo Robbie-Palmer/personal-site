@@ -107,8 +107,11 @@ bash scripts/doppler-terraform-env terraform output -raw preview_access_service_
 
 Store the values as `CF_ACCESS_CLIENT_ID` and `CF_ACCESS_CLIENT_SECRET` in the
 dedicated `dev_agent` Doppler config that injects environment variables into
-coding-agent runtimes. Do not put them in repository files, PR comments, shell
-profiles committed to a dotfiles repository, or the preview deployment itself.
+coding-agent runtimes. The remote operator workspace reads this config through
+a config-scoped, read-only Doppler token. Do not give that token or the managed
+secret to pilot workspaces. Do not put the Access values in repository files,
+PR comments, shell profiles committed to a dotfiles repository, or the preview
+deployment itself.
 
 The preview Worker verifies the `Cf-Access-Jwt-Assertion` itself. Calling its
 public `workers.dev` URL therefore cannot bypass Pages Access for test login.
