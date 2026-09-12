@@ -11,6 +11,13 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import type { SatelliteSwarmSimulation as SimulationData } from "@/lib/api/satellite-swarm-simulation";
 import {
   runSatelliteSwarmSimulation,
@@ -138,17 +145,22 @@ function MissionControls({
         htmlFor="satellite-swarm-scenario"
       >
         <span>Network scenario</span>
-        <select
-          id="satellite-swarm-scenario"
-          className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+        <Select
           value={scenario}
-          onChange={(event) =>
-            onScenarioChange(event.target.value as SatelliteSwarmScenario)
+          onValueChange={(value) =>
+            onScenarioChange(value as SatelliteSwarmScenario)
           }
         >
-          <option value="nominal">All deliveries</option>
-          <option value="lost-assignment">Lose winning assignment</option>
-        </select>
+          <SelectTrigger id="satellite-swarm-scenario" className="w-full">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent position="popper">
+            <SelectItem value="nominal">All deliveries</SelectItem>
+            <SelectItem value="lost-assignment">
+              Lose winning assignment
+            </SelectItem>
+          </SelectContent>
+        </Select>
       </label>
       <Button type="button" variant="outline" onClick={onReset}>
         South Pole

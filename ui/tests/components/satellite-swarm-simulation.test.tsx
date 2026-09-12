@@ -1,6 +1,15 @@
 import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
 import { DeferredSatelliteSwarmSimulation } from "@/components/projects/satellite-swarm/deferred-satellite-swarm-simulation";
 import { SatelliteSwarmSimulation } from "@/components/projects/satellite-swarm/satellite-swarm-simulation";
 import { parseSatelliteSwarmSimulation } from "@/lib/api/satellite-swarm-simulation";
@@ -15,6 +24,32 @@ const workerClient = vi.hoisted(() => ({
 let intersectionCallback: IntersectionObserverCallback;
 const disconnect = vi.fn();
 const observe = vi.fn();
+const originalScrollIntoView = Element.prototype.scrollIntoView;
+
+beforeAll(() => {
+  for (const method of [
+    "setPointerCapture",
+    "releasePointerCapture",
+    "hasPointerCapture",
+  ]) {
+    Object.defineProperty(HTMLElement.prototype, method, {
+      configurable: true,
+      value: vi.fn(),
+    });
+  }
+  Element.prototype.scrollIntoView = vi.fn();
+});
+
+afterAll(() => {
+  for (const method of [
+    "setPointerCapture",
+    "releasePointerCapture",
+    "hasPointerCapture",
+  ]) {
+    Reflect.deleteProperty(HTMLElement.prototype, method);
+  }
+  Element.prototype.scrollIntoView = originalScrollIntoView;
+});
 
 function stubIntersectionObserver() {
   class MockIntersectionObserver {
@@ -246,9 +281,13 @@ describe("SatelliteSwarmSimulation", () => {
     render(<DeferredSatelliteSwarmSimulation />);
     expect(await screen.findByText("trace v2 · 0 ms")).toBeVisible();
 
-    await user.selectOptions(
-      screen.getByRole("combobox", { name: "Network scenario" }),
-      "lost-assignment",
+    const scenario = screen.getByRole("combobox", {
+      name: "Network scenario",
+    });
+    await user.click(scenario);
+    await user.keyboard("{ArrowDown}");
+    await user.click(
+      screen.getByRole("option", { name: "Lose winning assignment" }),
     );
     await user.click(screen.getByRole("button", { name: "Run mission" }));
 
