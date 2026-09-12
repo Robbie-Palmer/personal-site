@@ -36,5 +36,6 @@ describe("ProjectCard", () => {
     expect(
       screen.getByRole("link", { name: "Read Research Paper" }),
     ).toHaveAttribute("href", "https://doi.org/10.1109/SMC-IT.2019.00015");
+    expect(screen.queryByText("Paper")).not.toBeInTheDocument();
   });
 });

@@ -158,9 +158,8 @@ export function ProjectCard({
                 href={project.paperUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 hover:text-foreground transition-colors"
+                className="hover:text-foreground transition-colors"
                 aria-label="Read Research Paper"
-                title="Research paper"
                 onClick={() =>
                   posthog.capture("project_external_link_clicked", {
                     project_slug: project.slug,
@@ -169,8 +168,7 @@ export function ProjectCard({
                   })
                 }
               >
-                <FileText className="w-4 h-4" />
-                <span className="text-sm">Paper</span>
+                <FileText className="w-5 h-5" />
               </a>
             )}
           </div>
