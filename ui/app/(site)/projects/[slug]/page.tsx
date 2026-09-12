@@ -1,4 +1,4 @@
-import { ExternalLink, Github, Globe } from "lucide-react";
+import { ExternalLink, Github, Globe, Rss } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
@@ -46,6 +46,16 @@ export async function generateMetadata({ params }: PageProps) {
     return {
       title: `${project.title} - Projects`,
       description: project.description,
+      alternates: {
+        types: {
+          "application/rss+xml": [
+            {
+              url: `/projects/${project.slug}/feed.xml`,
+              title: `${project.title} RSS feed`,
+            },
+          ],
+        },
+      },
     };
   } catch (_e) {
     return {
@@ -120,6 +130,21 @@ export default async function ProjectPage({ params }: Readonly<PageProps>) {
           </div>
 
           <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
+            <Button
+              asChild
+              variant="outline"
+              className="gap-2 w-full sm:w-auto"
+            >
+              <a
+                href={`/projects/${project.slug}/feed.xml`}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label={`Subscribe to ${project.title}`}
+              >
+                <Rss className="w-4 h-4" />
+                Subscribe
+              </a>
+            </Button>
             {project.repoUrl && (
               <Button
                 asChild
