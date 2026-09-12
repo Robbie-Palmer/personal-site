@@ -50,7 +50,7 @@ The recipe site is governed by a small set of strong constraints:
    Cooklang ([ADR 030](/projects/recipe-site/adrs/030-cooklang)). The model returns a JSON
    envelope (`{ frontmatter, body }`) that the gateway constrains via structured outputs; the
    Cooklang text inside `body` is plain text, validated post-hoc by `cooklang-rs`. Structured-output
-   support across providers is load-bearing for the envelope, even though the
+   support across providers is required for the envelope, even though the
    format inside it is not JSON.
 
 # Decision
@@ -139,7 +139,7 @@ This aligns with:
   (`int4`, `int8`, `fp8`, `bf16`), all set in the request body.
 * **Sort shortcuts in the model slug**. `:nitro` for highest throughput, `:floor` for lowest
   price. Syntactic sugar for the `provider.sort` parameter; useful as a one-line knob if
-  experimentation later wants it, but not load-bearing.
+  experimentation later wants it, but the integration does not depend on it.
 * **Structured outputs**. `response_format: { type: "json_schema", strict: true, ... }` is
   honoured across providers that support it, with automatic filtering to capable providers.
   Already used in `openrouter.ts` for every stage.
@@ -370,7 +370,7 @@ Gateways do not remove per-provider account or billing sprawl. They add observab
   if we wanted a single pane of glass across the whole product (Workers, D1, AI, business
   metrics) we'd more likely introduce a dedicated platform like Grafana Cloud. A separate ADR.
 * **Decision**: **Rejected as the primary access layer.** Worth layering in front of OpenRouter
-  *later* if guardrails become load-bearing for user-facing AI features, the one realistic
+  *later* if user-facing AI features come to depend on guardrails, the one realistic
   trigger for a B2C consumer recipe product, and accepting the per-provider onboarding cost
   that comes with it. Pure caching is not on its own reason enough (OpenRouter already covers
   it), and general observability is *not* a reason to reach for AI Gateway either. That's a
@@ -468,8 +468,8 @@ A typed `LLMClient` interface in the domain layer with adapters per provider, sw
 
 * **Third-party dependency on the live inference path.** Once user-facing AI features ship
   (recipe ingestion at onboarding, cooking-mode voice navigation, AI URL import, meal
-  planning, nutritional analysis), OpenRouter availability becomes load-bearing for product
-  UX. An OpenRouter outage degrades onboarding, blocks live transcription, breaks meal
+  planning, nutritional analysis), product UX depends on OpenRouter availability. An
+  OpenRouter outage degrades onboarding, blocks live transcription, breaks meal
   planning. The BYOK fallback isn't an instant escape hatch. It requires us to have already
   onboarded the affected provider directly, which is itself a planning decision we'd need to
   have made in advance for the heavy-traffic paths. Mitigation: BYOK pre-configured for the
@@ -523,7 +523,7 @@ A typed `LLMClient` interface in the domain layer with adapters per provider, sw
   AI Gateway, Eden AI), to a BYOK gateway with full provider sprawl (Cloudflare AI Gateway,
   Portkey), or to provider-direct requires a baseURL change and provider re-onboarding without a
   code rewrite. Keep the integration on the OpenAI-compatible API and treat
-  vendor-specific OpenRouter features as nice-to-have, not load-bearing.
+  vendor-specific OpenRouter features as optional.
 
 ## When to Revisit
 
@@ -537,8 +537,8 @@ This decision should be revisited if any of the following become true:
   markup on that subset becomes a meaningful absolute number. At that point a head-to-head with
   Vercel AI Gateway is warranted, they run at \~2.5% effective (Stripe passthrough) so the
   \~3pp gap on that traffic could justify accepting the catalogue/depth trade-offs.
-* Prompt caching across providers (Anthropic-style cache control, OpenAI cached input pricing)
-  becomes load-bearing for a feature and OpenRouter's pass-through coverage lags. At that point
+* A feature comes to depend on prompt caching across providers (Anthropic-style cache control,
+  OpenAI cached input pricing) and OpenRouter's pass-through coverage lags. At that point
   going direct for one specific stage via BYOK is reasonable.
 * **User-facing AI features become abuse vectors.** If a Phase 3+ cooking-assistant chat,
   AI URL import, or AI photo import accepts freeform user input that ends up at a model, the

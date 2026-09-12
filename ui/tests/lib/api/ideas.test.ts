@@ -10,7 +10,7 @@ import {
 
 describe("ideas API", () => {
   it("lists every idea with canonical reference counts", () => {
-    expect(getAllIdeaSlugs()).toHaveLength(26);
+    expect(getAllIdeaSlugs()).toHaveLength(28);
 
     const ideas = getAllIdeas();
     expect(ideas.map((idea) => idea.title)).toEqual(
@@ -19,7 +19,7 @@ describe("ideas API", () => {
     expect(ideas).toContainEqual(
       expect.objectContaining({
         slug: "goodharts-law",
-        referenceCount: 11,
+        referenceCount: 12,
       }),
     );
   });
@@ -29,6 +29,7 @@ describe("ideas API", () => {
     if (!idea) throw new Error("Expected Goodhart's Law to exist");
 
     expect(idea.relatedIdeas.map((related) => related.slug)).toEqual([
+      "adaptive-planning",
       "dora-metrics",
       "jevons-paradox",
     ]);

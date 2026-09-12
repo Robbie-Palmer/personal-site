@@ -5,6 +5,10 @@ date: "2026-09-04"
 status: "idea"
 initiatives:
   - "semi-autonomous-software-development"
+ideas:
+  - "adaptive-planning"
+  - "epistemology"
+  - "directed-acyclic-graph"
 tags:
   - "agentic-engineering"
   - "project-management"
@@ -91,6 +95,37 @@ unsafe to automate.
 Owners should define which node types, transitions, evidence requirements, and
 plan changes are allowed. Projects with low risk can grant broad authority.
 Production systems can require review at specific boundaries.
+
+# Adaptive planning
+
+The graph should support [adaptive planning](/ideas/adaptive-planning) towards a
+fixed goal. Expect the plan to be wrong and revise it as evidence arrives.
+Knowledge work changes what we know, including whether a planned task still
+helps reach that goal. [Epistemology](/ideas/epistemology) informs how we assess
+the evidence behind those decisions.
+
+Detail should follow evidence. Ready work needs a bounded scope and completion
+criteria. Work behind unresolved research or design decisions should remain
+provisional, with room to refactor, rescope, and reprioritise it. Downstream
+position often means more uncertainty, but graph depth alone cannot measure
+confidence. The graph should record the assumptions that make a branch useful
+and the evidence that could invalidate it.
+
+Only work in flight is committed. Regularly replenish and reprioritise the ready
+queue, then pull its highest-priority eligible task when capacity becomes
+available. Interrupting active work is expensive and needs a reason strong
+enough to justify the lost progress and context. A revision should identify the
+affected branch, retain its history, and explain the evidence behind the change.
+
+The graph should expose critical paths and opportunities to parallelise work,
+then help reduce lead times by removing waits and dependencies. Forecasting is
+limited to the delivery of an individual task once picked up. Queued work does
+not acquire a delivery commitment merely because it appears in the plan.
+
+The Work Graph records those assumptions, commitments, and revisions. The
+[wider initiative](/initiatives/semi-autonomous-software-development#an-adaptive-model-of-the-organisation)
+owns the feedback loop that uses delivery evidence and available capacity to
+propose better plans. The Agent Coordinator continues to own actor selection.
 
 # Core model
 
@@ -191,7 +226,7 @@ more. Those behaviours support a price. A feature comparison does not.
    leases, and attention requests.
 2. Import one live personal plan and make the Work Graph authoritative for it.
 3. Expose a narrow agent interface for reading ready work and proposing graph
-   changes.
+   changes, including the assumptions and evidence behind a revision.
 4. Add claim, renew, release, expire, block, and complete operations with
    optimistic concurrency and an auditable history.
 5. Build a read-only public DAG view with the critical path and blockers.
@@ -200,6 +235,8 @@ more. Those behaviours support a price. A feature comparison does not.
 7. Connect one external source, likely GitHub or PostHog, as events rather than
    a competing source of truth.
 8. Run real projects through it before adding the Agent Coordinator.
+   Test whether discoveries can replace a provisional branch while unrelated
+   committed work continues.
 
 # Later work
 
@@ -218,6 +255,10 @@ The Work Graph succeeds when the next useful task is visible without
 reconstructing the plan from tools scattered across the workflow, expired work
 can be resumed by another actor, and human attention goes to decisions rather
 than ticket administration.
+
+Learning should change the plan without causing constant disruption. Track
+avoidable interruptions and rework alongside progress towards outcomes, and
+check whether people can keep moving when downstream work is uncertain.
 
 # Non-goals
 
