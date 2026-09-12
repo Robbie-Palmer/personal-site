@@ -387,7 +387,7 @@ code[data-line-numbers-max-digits="3"] > [data-line]::before {
 
 @media (max-width: 767px) {
   .home-project-artifact {
-    opacity: 0.28;
+    opacity: 0.29;
     animation: none;
   }
 
@@ -418,29 +418,29 @@ code[data-line-numbers-max-digits="3"] > [data-line]::before {
   }
 
   .home-project-artifact--pathology {
-    top: 16%;
-    left: 4%;
-    width: 58vw;
-    transform: rotateY(6deg) rotateZ(-5deg) translateZ(-70px);
+    top: 3%;
+    left: -5%;
+    width: 46vw;
+    transform: rotateY(4deg) rotateZ(-4deg) translateZ(-40px);
   }
 
   .home-project-artifact--satellites {
-    top: 2%;
-    right: 2%;
-    width: 50vw;
-    transform: rotateY(-6deg) rotateZ(5deg) translateZ(-90px);
+    top: -1%;
+    right: -5%;
+    width: 38vw;
+    transform: rotateY(-4deg) rotateZ(4deg) translateZ(-50px);
   }
 
   .home-project-artifact--asset-tracker {
-    right: 4%;
-    bottom: 1%;
-    width: 54vw;
-    transform: rotateY(-5deg) rotateZ(-3deg) translateZ(-100px);
+    right: -5%;
+    bottom: -7%;
+    width: 44vw;
+    transform: rotateY(-4deg) rotateZ(-3deg) translateZ(-50px);
   }
 
   .home-project-backdrop__veil {
     background: radial-gradient(
-      ellipse 72% 40% at 50% 49%,
+      ellipse 72% 40% at 50% 56%,
       color-mix(in oklch, var(--background) 97%, transparent) 0%,
       color-mix(in oklch, var(--background) 88%, transparent) 54%,
       transparent 84%
