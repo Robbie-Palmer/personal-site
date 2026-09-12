@@ -48,7 +48,7 @@ function nodeDepths(data: FlowSankeyData): number[] {
 
   // Sankey data is normally acyclic. Bounding the relaxation by the number of
   // nodes also gives a stable fallback for malformed, cyclic imported data.
-  for (let pass = 0; pass < data.nodes.length; pass += 1) {
+  for (const _node of data.nodes) {
     let changed = false;
     for (const link of data.links) {
       const sourceDepth = depths[link.source];
@@ -147,58 +147,98 @@ function crossingWeight(data: FlowSankeyRenderData, layers: number[][]) {
   );
   let weight = 0;
 
-  for (let left = 0; left < data.links.length; left += 1) {
-    const first = data.links[left];
-    if (!first) continue;
-    for (let right = left + 1; right < data.links.length; right += 1) {
-      const second = data.links[right];
-      if (!second || depths.get(first.source) !== depths.get(second.source)) {
-        continue;
-      }
-      if (
-        first.source === second.source ||
-        first.target === second.target ||
-        depths.get(first.target) !== depths.get(second.target)
-      ) {
-        continue;
-      }
-      const sourceOrder =
-        (positions.get(first.source) ?? 0) -
-        (positions.get(second.source) ?? 0);
-      const targetOrder =
-        (positions.get(first.target) ?? 0) -
-        (positions.get(second.target) ?? 0);
-      if (sourceOrder * targetOrder < 0) {
-        weight += Math.sqrt(first.value * second.value);
-      }
+  for (const [left, first] of data.links.entries()) {
+    for (const second of data.links.slice(left + 1)) {
+      weight += linkPairCrossingWeight(first, second, positions, depths);
     }
   }
 
   return weight;
 }
 
-function transposeLayers(data: FlowSankeyRenderData, layers: number[][]) {
-  for (let pass = 0; pass < layers.length; pass += 1) {
-    let changed = false;
-    for (const layer of layers) {
-      for (let position = 0; position < layer.length - 1; position += 1) {
-        const before = crossingWeight(data, layers);
-        const nextPosition = position + 1;
-        const current = layer[position];
-        const next = layer[nextPosition];
-        if (current == null || next == null) continue;
-        layer[position] = next;
-        layer[nextPosition] = current;
-        if (crossingWeight(data, layers) < before) {
-          changed = true;
-        } else {
-          layer[position] = current;
-          layer[nextPosition] = next;
-        }
+function linkPairCrossingWeight(
+  first: FlowSankeyRenderLink,
+  second: FlowSankeyRenderLink,
+  positions: Map<number, number>,
+  depths: Map<number, number>,
+) {
+  const spansDifferentLayers =
+    depths.get(first.source) !== depths.get(second.source) ||
+    depths.get(first.target) !== depths.get(second.target);
+  const sharesNode =
+    first.source === second.source || first.target === second.target;
+  if (spansDifferentLayers || sharesNode) return 0;
+
+  const sourceOrder =
+    (positions.get(first.source) ?? 0) - (positions.get(second.source) ?? 0);
+  const targetOrder =
+    (positions.get(first.target) ?? 0) - (positions.get(second.target) ?? 0);
+  return sourceOrder * targetOrder < 0
+    ? Math.sqrt(first.value * second.value)
+    : 0;
+}
+
+function transposeLayer(data: FlowSankeyRenderData, layers: number[][]) {
+  let changed = false;
+  for (const layer of layers) {
+    for (let position = 0; position < layer.length - 1; position += 1) {
+      const before = crossingWeight(data, layers);
+      const nextPosition = position + 1;
+      const current = layer[position];
+      const next = layer[nextPosition];
+      if (current == null || next == null) continue;
+      layer[position] = next;
+      layer[nextPosition] = current;
+      if (crossingWeight(data, layers) < before) {
+        changed = true;
+      } else {
+        layer[position] = current;
+        layer[nextPosition] = next;
       }
     }
-    if (!changed) break;
   }
+  return changed;
+}
+
+function transposeLayers(data: FlowSankeyRenderData, layers: number[][]) {
+  for (const _layer of layers) {
+    if (!transposeLayer(data, layers)) break;
+  }
+}
+
+type NeighbourMaps = {
+  incoming: Map<number, Array<{ index: number; value: number }>>;
+  outgoing: Map<number, Array<{ index: number; value: number }>>;
+};
+
+function neighbourMaps(data: FlowSankeyRenderData): NeighbourMaps {
+  const incoming: NeighbourMaps["incoming"] = new Map();
+  const outgoing: NeighbourMaps["outgoing"] = new Map();
+  for (const link of data.links) {
+    incoming.set(link.target, [
+      ...(incoming.get(link.target) ?? []),
+      { index: link.source, value: link.value },
+    ]);
+    outgoing.set(link.source, [
+      ...(outgoing.get(link.source) ?? []),
+      { index: link.target, value: link.value },
+    ]);
+  }
+  return { incoming, outgoing };
+}
+
+function reorderLayers(
+  data: FlowSankeyRenderData,
+  layers: number[][],
+  { incoming, outgoing }: NeighbourMaps,
+) {
+  for (const layer of layers.slice(1)) {
+    reorderLayer(layer, nodePositions(layers), incoming);
+  }
+  for (const layer of layers.slice(0, -1).reverse()) {
+    reorderLayer(layer, nodePositions(layers), outgoing);
+  }
+  transposeLayers(data, layers);
 }
 
 export function minimizeFlowSankeyCrossings(
@@ -213,29 +253,10 @@ export function minimizeFlowSankeyCrossings(
   transposeLayers(data, layers);
   let bestLayers = cloneLayers(layers);
   let bestWeight = crossingWeight(data, layers);
-  const incoming = new Map<number, Array<{ index: number; value: number }>>();
-  const outgoing = new Map<number, Array<{ index: number; value: number }>>();
-  for (const link of data.links) {
-    incoming.set(link.target, [
-      ...(incoming.get(link.target) ?? []),
-      { index: link.source, value: link.value },
-    ]);
-    outgoing.set(link.source, [
-      ...(outgoing.get(link.source) ?? []),
-      { index: link.target, value: link.value },
-    ]);
-  }
+  const neighbours = neighbourMaps(data);
 
   for (let pass = 0; pass < 8 && bestWeight > 0; pass += 1) {
-    for (let depth = 1; depth <= maxDepth; depth += 1) {
-      const layer = layers[depth];
-      if (layer) reorderLayer(layer, nodePositions(layers), incoming);
-    }
-    for (let depth = maxDepth - 1; depth >= 0; depth -= 1) {
-      const layer = layers[depth];
-      if (layer) reorderLayer(layer, nodePositions(layers), outgoing);
-    }
-    transposeLayers(data, layers);
+    reorderLayers(data, layers, neighbours);
     const weight = crossingWeight(data, layers);
     if (weight < bestWeight) {
       bestWeight = weight;

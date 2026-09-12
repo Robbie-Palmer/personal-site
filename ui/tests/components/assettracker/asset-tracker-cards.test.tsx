@@ -49,8 +49,76 @@ vi.mock("recharts", () => ({
   XAxis: () => null,
   YAxis: () => null,
   Legend: () => null,
-  Sankey: ({ align, sort }: { align?: string; sort?: boolean }) => (
-    <div data-align={align} data-sort={sort} data-testid="flow-sankey" />
+  Sankey: ({
+    align,
+    data,
+    link,
+    node,
+    onMouseEnter,
+    onMouseLeave,
+    sort,
+  }: {
+    align?: string;
+    data: {
+      links: Array<Record<string, unknown>>;
+      nodes: Array<Record<string, unknown>>;
+    };
+    link?: (props: Record<string, unknown>) => ReactNode;
+    node?: (props: Record<string, unknown>) => ReactNode;
+    onMouseEnter?: (
+      item: { index: number; payload: Record<string, unknown> },
+      type: "link" | "node",
+    ) => void;
+    onMouseLeave?: () => void;
+    sort?: boolean;
+  }) => (
+    <div data-align={align} data-sort={sort} data-testid="flow-sankey">
+      {data.nodes.map((payload, index) => (
+        <button
+          aria-label={`Hover ${String(payload.id)}`}
+          data-testid={`sankey-node-${String(payload.id)}`}
+          key={String(payload.id)}
+          onMouseEnter={() => onMouseEnter?.({ index, payload }, "node")}
+          onMouseLeave={onMouseLeave}
+          type="button"
+        >
+          <svg aria-hidden="true">
+            {node?.({
+              height: 20,
+              index,
+              payload: { ...payload, depth: index === 0 ? 0 : 1 },
+              width: 12,
+              x: 120,
+              y: index * 24,
+            })}
+          </svg>
+        </button>
+      ))}
+      {data.links.map((payload, index) => (
+        <button
+          aria-label={`Hover link ${index}`}
+          data-testid={`sankey-link-${index}`}
+          key={`${String(payload.flowKey)}:${index}`}
+          onMouseEnter={() => onMouseEnter?.({ index, payload }, "link")}
+          onMouseLeave={onMouseLeave}
+          type="button"
+        >
+          <svg aria-hidden="true">
+            {link?.({
+              index,
+              linkWidth: 10,
+              payload,
+              sourceControlX: 160,
+              sourceX: 132,
+              sourceY: index * 12 + 5,
+              targetControlX: 200,
+              targetX: 228,
+              targetY: index * 12 + 5,
+            })}
+          </svg>
+        </button>
+      ))}
+    </div>
   ),
   Tooltip: () => null,
 }));
@@ -825,6 +893,96 @@ describe("FlowSankeyChart", () => {
       "data-sort",
       "false",
     );
+  });
+
+  it("highlights every flow connected to a hovered account", async () => {
+    const user = userEvent.setup();
+    const today = todayIsoDate();
+    mockAssetTracker({
+      accountDetails: [
+        {
+          id: "current",
+          name: "Current",
+          provider: "Bank",
+          currency: "GBP",
+          assetType: "cash",
+          expectedAnnualReturn: 0,
+          isOpen: true,
+          latestBalance: 1000,
+          latestSnapshotDate: today,
+          cagr: null,
+          createdAt: today,
+          snapshots: [{ date: today, balance: 1000 }],
+          capitalFlows: [],
+          netContributed: null,
+          gainLoss: null,
+        },
+        {
+          id: "isa",
+          name: "ISA",
+          provider: "Broker",
+          currency: "GBP",
+          assetType: "stocks",
+          expectedAnnualReturn: 0.05,
+          isOpen: true,
+          latestBalance: 5000,
+          latestSnapshotDate: today,
+          cagr: null,
+          createdAt: today,
+          snapshots: [{ date: today, balance: 5000 }],
+          capitalFlows: [],
+          netContributed: null,
+          gainLoss: null,
+        },
+      ],
+      recurringFlows: [
+        {
+          id: "salary",
+          name: "Salary",
+          toAccountId: "current",
+          amount: 2000,
+          frequency: "monthly",
+          startDate: today,
+        },
+        {
+          id: "isa",
+          name: "ISA contribution",
+          fromAccountId: "current",
+          toAccountId: "isa",
+          amount: 500,
+          frequency: "monthly",
+          startDate: today,
+        },
+      ],
+    });
+
+    render(<FlowSankeyChart />);
+
+    const current = await screen.findByTestId("sankey-node-current");
+    const incoming = screen.getByLabelText("External income to Current");
+    const outgoing = screen.getByLabelText("Current to ISA");
+    const unrelated = screen.getAllByLabelText("Expected returns to ISA")[0];
+    if (!unrelated) throw new Error("Expected the return flow to be rendered");
+    await user.hover(current);
+
+    expect(current.querySelector("rect")).toHaveAttribute("fill-opacity", "1");
+    expect(incoming).toHaveAttribute("stroke-opacity", "0.65");
+    expect(outgoing).toHaveAttribute("stroke-opacity", "0.65");
+    expect(unrelated).toHaveAttribute("stroke-opacity", "0.25");
+
+    await user.unhover(current);
+    expect(incoming).toHaveAttribute("stroke-opacity", "0.25");
+
+    await user.hover(unrelated);
+    const flowKey = unrelated.getAttribute("data-flow-key");
+    expect(flowKey).not.toBeNull();
+    for (const segment of document.querySelectorAll(
+      `[data-flow-key="${flowKey}"]`,
+    )) {
+      const opacityAttribute =
+        segment.tagName === "path" ? "stroke-opacity" : "fill-opacity";
+      expect(segment).toHaveAttribute(opacityAttribute, "0.65");
+    }
   });
 });
 

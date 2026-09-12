@@ -40,6 +40,23 @@ import {
   prepareFlowSankeyData,
 } from "./flow-sankey-layout";
 
+type FlowSankeyNodeShapeOptions = {
+  activeFlowKeys: ReadonlySet<string>;
+  activeNodeId: string | null;
+  layout?: FlowSankeyLayout;
+  showLabel: boolean;
+};
+
+function nodeLabelWidth(
+  depth: number,
+  labelOnLeft: boolean,
+  layout?: FlowSankeyLayout,
+) {
+  if (labelOnLeft) return layout?.labelWidths.left;
+  if (depth === layout?.maxDepth) return layout.labelWidths.right;
+  return layout?.labelWidths.middle;
+}
+
 function FlowSankeyNodeShape({
   x,
   y,
@@ -50,12 +67,9 @@ function FlowSankeyNodeShape({
   layout,
   activeFlowKeys,
   activeNodeId,
-}: SankeyNodeProps & {
-  activeFlowKeys: ReadonlySet<string>;
-  activeNodeId: string | null;
-  showLabel: boolean;
-  layout?: FlowSankeyLayout;
-}): ReactElement<SVGProps<SVGGElement>> {
+}: SankeyNodeProps & FlowSankeyNodeShapeOptions): ReactElement<
+  SVGProps<SVGGElement>
+> {
   const node = payload as unknown as FlowSankeyRenderNode & { value?: number };
   if (node.isWaypoint) {
     return (
@@ -79,11 +93,7 @@ function FlowSankeyNodeShape({
   const depth =
     typeof rawDepth === "number" && Number.isFinite(rawDepth) ? rawDepth : 0;
   const labelOnLeft = depth === 0;
-  const labelWidth = labelOnLeft
-    ? layout?.labelWidths.left
-    : depth === layout?.maxDepth
-      ? layout.labelWidths.right
-      : layout?.labelWidths.middle;
+  const labelWidth = nodeLabelWidth(depth, labelOnLeft, layout);
   const labelX = labelOnLeft ? x - (labelWidth ?? 0) - 8 : x + width + 8;
   const labelY = y + height / 2 - 8;
   return (
@@ -112,6 +122,12 @@ function FlowSankeyNodeShape({
   );
 }
 
+function createFlowSankeyNodeRenderer(options: FlowSankeyNodeShapeOptions) {
+  return function FlowSankeyNodeRenderer(props: SankeyNodeProps) {
+    return <FlowSankeyNodeShape {...props} {...options} />;
+  };
+}
+
 function FlowSankeyLinkShape({
   sourceX,
   sourceY,
@@ -138,6 +154,12 @@ function FlowSankeyLinkShape({
       strokeWidth={linkWidth}
     />
   );
+}
+
+function createFlowSankeyLinkRenderer(activeFlowKeys: ReadonlySet<string>) {
+  return function FlowSankeyLinkRenderer(props: SankeyLinkProps) {
+    return <FlowSankeyLinkShape {...props} activeFlowKeys={activeFlowKeys} />;
+  };
 }
 
 type SankeyTooltipItem = Partial<FlowSankeyLink & FlowSankeyNode> & {
@@ -234,30 +256,16 @@ export function FlowSankeyChart() {
   );
   const nodeRenderer = useMemo(
     () =>
-      layout.showLabels
-        ? (props: SankeyNodeProps) => (
-            <FlowSankeyNodeShape
-              {...props}
-              activeFlowKeys={activeFlowKeys}
-              activeNodeId={activeNodeId}
-              showLabel
-              layout={layout}
-            />
-          )
-        : (props: SankeyNodeProps) => (
-            <FlowSankeyNodeShape
-              {...props}
-              activeFlowKeys={activeFlowKeys}
-              activeNodeId={activeNodeId}
-              showLabel={false}
-            />
-          ),
+      createFlowSankeyNodeRenderer({
+        activeFlowKeys,
+        activeNodeId,
+        layout,
+        showLabel: layout.showLabels,
+      }),
     [activeFlowKeys, activeNodeId, layout],
   );
   const linkRenderer = useMemo(
-    () => (props: SankeyLinkProps) => (
-      <FlowSankeyLinkShape {...props} activeFlowKeys={activeFlowKeys} />
-    ),
+    () => createFlowSankeyLinkRenderer(activeFlowKeys),
     [activeFlowKeys],
   );
 
