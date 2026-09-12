@@ -341,7 +341,13 @@ export function matchPublishedEdits(options: MatchEditsOptions): EditMatchRun {
     });
     assertReference(`${entry.artifactId} producer source`, producerArtifact.source, sourceRef);
 
-    const hunks = buildEditHunks(source, published, maxEditLength);
+    let hunks: EditHunk[];
+    try {
+      hunks = buildEditHunks(source, published, maxEditLength);
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error);
+      throw new Error(`cannot align artifact ${entry.artifactId}: ${detail}`);
+    }
     const matches = producerArtifact.findings.map(({ finding }) => {
       const verification = verifyFindingSource(finding, source);
       if (!verification.ok) {

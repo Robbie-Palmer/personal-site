@@ -239,6 +239,18 @@ describe("published edit matcher", () => {
       .toThrow("character diff exceeded maxEditLength 2");
   });
 
+  it("identifies the artifact when its configured edit-distance ceiling is exceeded", () => {
+    const options = fixture(temporaryDirectory("writing-match-ceiling-"));
+    const params = JSON.parse(fs.readFileSync(options.paramsFile, "utf8"));
+    params.matching.characterDiff.maxEditLength = 1;
+    writeJson(options.paramsFile, params);
+
+    expect(() => matchPublishedEdits(options)).toThrow(
+      "cannot align artifact example: character diff exceeded maxEditLength 1",
+    );
+    expect(fs.existsSync(options.outputFile)).toBe(false);
+  });
+
   it("writes a stable, validated match run without inferring decisions", () => {
     const temporary = temporaryDirectory("writing-match-");
     const options = fixture(temporary);
