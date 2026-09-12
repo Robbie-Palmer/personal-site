@@ -150,6 +150,11 @@
       failed_when: false
       register: mac_k3s_nodes
 
+    - name: Parse the home K3s node response
+      ansible.builtin.set_fact:
+        mac_k3s_node_items: "{{ (mac_k3s_nodes.stdout | from_json)['items'] }}"
+      when: mac_k3s_nodes.rc == 0
+
     - name: Initialize Mac K3s health
       ansible.builtin.set_fact:
         mac_k3s_healthy: false
@@ -158,13 +163,13 @@
       ansible.builtin.set_fact:
         mac_k3s_healthy: >-
           {{
-            ((mac_k3s_nodes.stdout | from_json)['items'] | length) == 1
-            and (mac_k3s_nodes.stdout | from_json)['items'][0].metadata.labels['homelab.dev/location']
+            (mac_k3s_node_items | length) == 1
+            and mac_k3s_node_items[0].metadata.labels['homelab.dev/location']
               | default('') == colima_k3s_node_labels['homelab.dev/location']
-            and (mac_k3s_nodes.stdout | from_json)['items'][0].metadata.labels['homelab.dev/capability']
+            and mac_k3s_node_items[0].metadata.labels['homelab.dev/capability']
               | default('') == colima_k3s_node_labels['homelab.dev/capability']
             and (
-              (mac_k3s_nodes.stdout | from_json)['items'][0].status.conditions
+              mac_k3s_node_items[0].status.conditions
               | selectattr('type', 'equalto', 'Ready')
               | selectattr('status', 'equalto', 'True')
               | list

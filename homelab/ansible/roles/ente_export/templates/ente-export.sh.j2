@@ -68,7 +68,7 @@ set +e
 
   if ($child == 0) {
     exec @ARGV;
-    exit 127;
+    die "could not execute Ente CLI: $!\n";
   }
 
   my $timed_out = 0;

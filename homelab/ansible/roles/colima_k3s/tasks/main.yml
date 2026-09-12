@@ -167,8 +167,13 @@
           != colima_k3s_desired_profile_config.get('kubernetes', {}).get('version')
         or colima_k3s_existing_profile_config.get('kubernetes', {}).get('port')
           != colima_k3s_desired_profile_config.get('kubernetes', {}).get('port')
-        or colima_k3s_existing_profile_config.get('kubernetes', {}).get('k3sArgs', [])
-          != colima_k3s_desired_profile_config.get('kubernetes', {}).get('k3sArgs', [])
+        or (
+          colima_k3s_existing_profile_config.get('kubernetes', {}).get('k3sArgs', [])
+          | sort
+        ) != (
+          colima_k3s_desired_profile_config.get('kubernetes', {}).get('k3sArgs', [])
+          | sort
+        )
       }}
 
 - name: Install the isolated Colima K3s profile
