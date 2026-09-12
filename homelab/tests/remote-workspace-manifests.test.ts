@@ -122,6 +122,20 @@ function valueAt(value: unknown, path: readonly (string | number)[]): unknown {
   return current;
 }
 
+function servicePort(
+  service: KubernetesResource,
+  name: string,
+): Record<string, unknown> {
+  const ports = valueAt(service, ["spec", "ports"]);
+  assert.ok(Array.isArray(ports));
+  const matches = ports.filter(
+    (port): port is Record<string, unknown> =>
+      typeof port === "object" && port !== null && port.name === name,
+  );
+  assert.equal(matches.length, 1, `expected one service port named ${name}`);
+  return matches[0]!;
+}
+
 function kindCounts(resources: KubernetesResource[]): Record<string, number> {
   return Object.fromEntries(
     [...new Set(resources.map(({ kind }) => kind))]
@@ -223,7 +237,7 @@ test("the pilot overlay renders two distinct workspaces", () => {
 
   assert.deepEqual(kindCounts(resources), {
     Deployment: 2,
-    DopplerSecret: 2,
+    DopplerSecret: 3,
     Namespace: 2,
     NetworkPolicy: 3,
     PersistentVolume: 2,
@@ -251,11 +265,23 @@ test("the pilot overlay renders two distinct workspaces", () => {
     "t3-code",
     "t3-code-pilot",
   );
-  assert.equal(
-    valueAt(operatorService, ["spec", "ports", 0, "nodePort"]),
-    30773,
-  );
-  assert.equal(valueAt(pilotService, ["spec", "ports", 0, "nodePort"]), 30774);
+  assert.deepEqual(servicePort(operatorService, "http"), {
+    name: "http",
+    nodePort: 30773,
+    port: 3773,
+    protocol: "TCP",
+    targetPort: "http",
+  });
+  for (let offset = 0; offset < 5; offset += 1) {
+    assert.deepEqual(servicePort(operatorService, `qa-${3000 + offset}`), {
+      name: `qa-${3000 + offset}`,
+      nodePort: 31000 + offset,
+      port: 3000 + offset,
+      protocol: "TCP",
+      targetPort: 3000 + offset,
+    });
+  }
+  assert.equal(servicePort(pilotService, "http").nodePort, 30774);
 
   const operatorVolume = resource(
     resources,
@@ -373,6 +399,27 @@ test("the pilot overlay renders two distinct workspaces", () => {
     "restricted",
   );
   assert.equal(valueAt(pilotDeployment, ["spec", "strategy", "type"]), "Recreate");
+  for (const deployment of [operatorDeployment, pilotDeployment]) {
+    assert.equal(
+      valueAt(deployment, [
+        "spec",
+        "template",
+        "spec",
+        "initContainers",
+        0,
+        "image",
+      ]),
+      valueAt(deployment, [
+        "spec",
+        "template",
+        "spec",
+        "containers",
+        0,
+        "image",
+      ]),
+      `${deployment.metadata.namespace} init and main images must match`,
+    );
+  }
   assert.deepEqual(
     valueAt(operatorDeployment, [
       "spec",
@@ -468,6 +515,61 @@ test("the pilot overlay renders two distinct workspaces", () => {
       0,
     ]),
     { name: "DOCKER_HOST", value: "tcp://127.0.0.1:2375" },
+  );
+  assert.deepEqual(
+    valueAt(operatorDeployment, [
+      "spec",
+      "template",
+      "spec",
+      "containers",
+      0,
+      "envFrom",
+    ]),
+    [{ secretRef: { name: "t3-code-runtime", optional: true } }],
+  );
+  const operatorEnvironment = valueAt(operatorDeployment, [
+    "spec",
+    "template",
+    "spec",
+    "containers",
+    0,
+    "env",
+  ]);
+  assert.ok(Array.isArray(operatorEnvironment));
+  for (const name of [
+    "CF_ACCESS_CLIENT_ID",
+    "CF_ACCESS_CLIENT_SECRET",
+    "CLOUDFLARE_PAGES_HOST",
+  ]) {
+    assert.deepEqual(
+      operatorEnvironment.find(
+        (entry) =>
+          typeof entry === "object" && entry !== null && entry.name === name,
+      ),
+      {
+        name,
+        valueFrom: {
+          secretKeyRef: {
+            key: name,
+            name: "t3-code-preview-access",
+            optional: false,
+          },
+        },
+      },
+    );
+  }
+  assert.ok(
+    String(
+      valueAt(operatorDeployment, [
+        "spec",
+        "template",
+        "spec",
+        "initContainers",
+        0,
+        "command",
+        3,
+      ]),
+    ).includes("/data/home/.t3/worktrees"),
   );
 
   const dockerSidecar = valueAt(operatorDeployment, [
@@ -614,6 +716,26 @@ test("the pilot overlay renders two distinct workspaces", () => {
     valueAt(pilotSecret, ["spec", "managedSecret", "namespace"]),
     "t3-code-pilot",
   );
+
+  const previewAccessSecret = resource(
+    resources,
+    "DopplerSecret",
+    "t3-code-preview-access",
+    "t3-code",
+  );
+  assert.equal(
+    valueAt(previewAccessSecret, ["spec", "project"]),
+    "personal-site",
+  );
+  assert.equal(valueAt(previewAccessSecret, ["spec", "config"]), "dev_agent");
+  assert.equal(
+    valueAt(previewAccessSecret, ["spec", "tokenSecret", "name"]),
+    "doppler-agent-token",
+  );
+  assert.equal(
+    valueAt(previewAccessSecret, ["spec", "managedSecret", "name"]),
+    "t3-code-preview-access",
+  );
 });
 
 test("the default remote overlay contains only the operator workspace", () => {
@@ -621,7 +743,7 @@ test("the default remote overlay contains only the operator workspace", () => {
 
   assert.deepEqual(kindCounts(resources), {
     Deployment: 1,
-    DopplerSecret: 1,
+    DopplerSecret: 2,
     Namespace: 1,
     PersistentVolume: 1,
     PersistentVolumeClaim: 1,
@@ -652,6 +774,13 @@ test("the NixOS host publishes, prepares, and limits both workspace paths", () =
       "tailscale serve --bg --https=8443 http://127.0.0.1:30774",
     ),
   );
+  for (let offset = 0; offset < 5; offset += 1) {
+    assert.ok(
+      hostDefinition.includes(
+        `tailscale serve --bg --https=${3000 + offset} http://127.0.0.1:${31000 + offset}`,
+      ),
+    );
+  }
   assert.ok(
     hostDefinition.includes(
       "install -d -m 0700 -o t3code -g t3code ${pilotDataPath}/home/.codex",
@@ -700,4 +829,34 @@ test("the NixOS host publishes, prepares, and limits both workspace paths", () =
     ),
   );
   assert.ok(!healthCheck.includes('project_id="#2001"'));
+  assert.ok(healthCheck.includes(".lastState.terminated.reason"));
+  assert.ok(healthCheck.includes(".lastState.terminated.exitCode"));
+  assert.ok(
+    healthCheck.includes("no pods match app.kubernetes.io/name=t3-code"),
+  );
+  assert.ok(
+    healthCheck.indexOf('runtime_summary=$(') <
+      healthCheck.indexOf('return "${rollout_status}"'),
+    "restart diagnostics must be collected before a failed rollout is returned",
+  );
+  assert.ok(healthCheck.includes(".CF_ACCESS_CLIENT_ID"));
+  assert.ok(healthCheck.includes(".CF_ACCESS_CLIENT_SECRET"));
+  assert.ok(healthCheck.includes("@base64d"));
+
+  const dopplerInstaller = readFileSync(
+    new URL("../scripts/install-doppler-operator", import.meta.url),
+    "utf8",
+  );
+  assert.ok(
+    dopplerInstaller.includes(
+      '"t3-code:doppler-agent-token:personal-site:dev_agent"',
+    ),
+  );
+  assert.ok(
+    dopplerInstaller.includes(
+      'remote-development-k3s-${namespace}-${token_secret}-${doppler_config}',
+    ),
+  );
+  assert.ok(dopplerInstaller.includes("--from-file=serviceToken=/dev/stdin"));
+  assert.ok(!dopplerInstaller.includes("token_file"));
 });
