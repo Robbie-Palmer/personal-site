@@ -294,6 +294,12 @@ code[data-line-numbers-max-digits="3"] > [data-line]::before {
   will-change: translate;
 }
 
+:root:not(.dark) .home-project-artifact {
+  opacity: 0.56;
+  filter: saturate(0.95) contrast(1.18) brightness(0.9);
+  mix-blend-mode: multiply;
+}
+
 .artifact-capture {
   overflow: hidden;
   border: 1px solid color-mix(in oklch, var(--foreground) 22%, transparent);
@@ -418,23 +424,24 @@ code[data-line-numbers-max-digits="3"] > [data-line]::before {
   }
 
   .home-project-artifact--pathology {
-    top: 3%;
-    left: -5%;
-    width: 46vw;
+    top: 4%;
+    left: -4%;
+    width: 40vw;
     transform: rotateY(4deg) rotateZ(-4deg) translateZ(-40px);
   }
 
   .home-project-artifact--satellites {
-    top: -1%;
-    right: -5%;
-    width: 38vw;
+    top: 0;
+    right: -4%;
+    width: 33vw;
     transform: rotateY(-4deg) rotateZ(4deg) translateZ(-50px);
   }
 
   .home-project-artifact--asset-tracker {
-    right: -5%;
-    bottom: -7%;
-    width: 44vw;
+    right: auto;
+    bottom: -5%;
+    left: 6%;
+    width: 38vw;
     transform: rotateY(-4deg) rotateZ(-3deg) translateZ(-50px);
   }
 
