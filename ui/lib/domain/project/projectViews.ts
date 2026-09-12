@@ -14,6 +14,8 @@ export type ProjectCardView = {
   repoUrl?: string;
   demoUrl?: string;
   productUrl?: string;
+  paperUrl?: string;
+  paperTitle?: string;
   technologies: TechnologyBadgeView[];
   adrCount: number;
   role?: RoleListItemView;
@@ -30,6 +32,8 @@ export type ProjectDetailView = {
   repoUrl?: string;
   demoUrl?: string;
   productUrl?: string;
+  paperUrl?: string;
+  paperTitle?: string;
   pitch?: PitchDeck;
   content: string;
   technologies: TechnologyBadgeView[];
@@ -54,6 +58,8 @@ export type ProjectWithADRsView = {
   repoUrl?: string;
   demoUrl?: string;
   productUrl?: string;
+  paperUrl?: string;
+  paperTitle?: string;
   pitch?: PitchDeck;
   content: string;
   technologies: TechnologyBadgeView[];
@@ -80,6 +86,8 @@ export function toProjectCardView(
     repoUrl: project.repoUrl,
     demoUrl: project.demoUrl,
     productUrl: project.productUrl,
+    paperUrl: project.paperUrl,
+    paperTitle: project.paperTitle,
     technologies,
     adrCount,
     role,
@@ -104,6 +112,8 @@ export function toProjectDetailView(
     repoUrl: project.repoUrl,
     demoUrl: project.demoUrl,
     productUrl: project.productUrl,
+    paperUrl: project.paperUrl,
+    paperTitle: project.paperTitle,
     pitch: project.pitch,
     content: project.content,
     technologies,

@@ -29,7 +29,9 @@ The controller can be:
 - quiescent; or
 - safely disabled.
 
-Safe-disabled is latched. Quiescence is reversible when the health monitor returns to nominal.
+Safe-disabled is latched for one controller lifetime. Quiescence is reversible when the health
+monitor returns to nominal. The deterministic reset baseline records that constructing a replacement
+controller clears safe-disabled because no durable state store exists yet.
 
 ### Policies and ports
 
@@ -45,9 +47,10 @@ model can replace it behind the same interface.
 
 ### Wire codec
 
-`WireCodec` converts messages to a fixed 12-byte representation. It explicitly controls byte order,
+`WireCodec` converts messages to a fixed 18-byte representation. It explicitly controls byte order,
 coordinate quantization, versioning, and error detection. Adapters never send in-memory C++ object
-layouts.
+layouts. Each message separates its immediate sender from a stable mission key containing the
+mission's origin node, that node's boot epoch, and a sequence within the epoch.
 
 ### Deterministic simulation
 
@@ -59,11 +62,12 @@ fault alongside messages and state changes, then captures every node's state, sc
 snapshot. The command-line demonstration uses this runner. An Emscripten target exposes the same
 browser serializer through a versioned C ABI, and a module worker invokes it without moving
 coordination rules into TypeScript. Native and WebAssembly results are compared byte for byte for
-the default scenario.
+the default scenario. A reset increments the simulated node's boot epoch before constructing its
+replacement controller.
 
 ### Hardware adapters
 
-The Arduino Uno adapter fragments one packet into four NEC infrared frames. It is the closest
+The Arduino Uno adapter fragments one packet into six NEC infrared frames. It is the closest
 maintainable equivalent of the original three-Arduino demonstration.
 
 The ESP32 adapter sends the same packet through ESP-NOW. ESP-NOW is a convenient modern local radio
@@ -75,7 +79,10 @@ for a benchtop swarm demonstration; it is not proposed as a spacecraft communica
 - Candidate storage is statically bounded at 16 nodes.
 - Each update processes a configurable bounded number of received messages.
 - One controller negotiates one mission at a time.
-- Mission IDs are local 16-bit counters and are not globally unique.
+- Mission keys combine a provisioned node ID, a 32-bit boot epoch, and a 16-bit sequence. Sequence
+  wrap is forbidden.
+- The simulator advances boot epochs. The compile-tested firmware accepts a build-time epoch but has
+  no durable epoch store.
 - The reference transport is unauthenticated and unencrypted.
 - The controller accepts snapshot updates but does not calculate or schedule them.
 - Multi-hop discovery and forwarding are out of scope for this revival.
@@ -88,13 +95,13 @@ and an architecture decision rather than an incidental code edit.
 A credible next research iteration would add:
 
 1. A validated orbital propagation and maneuver-cost model.
-2. Bounded, prioritized telemetry for swarm-level observation and deterministic replay.
+2. Durable boot-epoch, assignment, and safe-state storage with explicit recovery rules.
 3. Fair, lifetime-aware allocation instead of a fixed node-ID tie-break.
 4. A mission executor interface with progress, cancellation, and failure semantics, plus an
    idempotent platform hook for physical safe-state actions.
-5. Persisted mission and safe-state transitions across reset.
+5. Bounded, prioritized telemetry keyed by stable node and mission identity.
 6. Authenticated messages with replay protection before enabling remote intervention.
-7. A simulator capable of packet loss, partitions, changing topology, and property-based invariants.
+7. Property-based and model-checked invariants beyond the deterministic regression scenarios.
 8. Hardware-in-the-loop tests for a selected board and radio.
 
 The [next research cycle](next-research-cycle.md) develops these questions, including an observable

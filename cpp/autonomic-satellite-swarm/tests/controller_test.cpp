@@ -20,6 +20,10 @@ ControllerConfig fastConfig() {
   return config;
 }
 
+MissionKey mission(NodeId origin, MissionSequence sequence, BootEpoch epoch = 1U) {
+  return MissionKey(origin, epoch, sequence);
+}
+
 class LongitudeScorer : public CandidacyScorer {
 public:
   uint8_t score(const SatelliteSnapshot& satellite, const Coordinate&) const override {
@@ -33,7 +37,7 @@ TEST_CASE("a validated satellite snapshot feeds later candidacy scoring") {
   FakeTransport transport;
   FakeHealthMonitor health;
   LongitudeScorer scorer;
-  SwarmController controller(2, SatelliteSnapshot(), transport, health, scorer, fastConfig());
+  SwarmController controller(2, 1U, SatelliteSnapshot(), transport, health, scorer, fastConfig());
   SatelliteSnapshot refreshed;
   refreshed.coordinate = Coordinate(25.0F, 40.0F);
 
@@ -41,7 +45,7 @@ TEST_CASE("a validated satellite snapshot feeds later candidacy scoring") {
   CHECK(controller.satelliteSnapshot().coordinate.longitude_degrees == 25.0F);
   CHECK(controller.satelliteSnapshot().coordinate.latitude_degrees == 40.0F);
 
-  transport.deliver(Message::missionRequest(0, 17, Coordinate()));
+  transport.deliver(Message::missionRequest(0, mission(0, 17), Coordinate()));
   controller.update(0U);
 
   REQUIRE(transport.sent.size() == 1U);
@@ -54,7 +58,7 @@ TEST_CASE("an invalid satellite snapshot does not replace the last valid observa
   FixedScorer scorer(50U);
   SatelliteSnapshot initial;
   initial.coordinate = Coordinate(25.0F, 40.0F);
-  SwarmController controller(0, initial, transport, health, scorer, fastConfig());
+  SwarmController controller(0, 1U, initial, transport, health, scorer, fastConfig());
   SatelliteSnapshot invalid = initial;
   invalid.coordinate.latitude_degrees = 91.0F;
 
@@ -67,15 +71,15 @@ TEST_CASE("a leader collects scores and deterministically assigns the strongest 
   FakeTransport transport;
   FakeHealthMonitor health;
   FixedScorer scorer(40);
-  SwarmController controller(0, SatelliteSnapshot(), transport, health, scorer, fastConfig());
+  SwarmController controller(0, 1U, SatelliteSnapshot(), transport, health, scorer, fastConfig());
 
   REQUIRE(controller.initiateMission(Coordinate(10.0F, 20.0F), 1U));
   REQUIRE(controller.state() == ControllerState::Leading);
   REQUIRE(transport.sent.size() == 1U);
   CHECK(transport.sent.front().type == MessageType::MissionRequest);
 
-  transport.deliver(Message::candidacy(1, 0, controller.currentMissionId(), 80));
-  transport.deliver(Message::candidacy(2, 0, controller.currentMissionId(), 80));
+  transport.deliver(Message::candidacy(1, 0, controller.currentMissionKey(), 80));
+  transport.deliver(Message::candidacy(2, 0, controller.currentMissionKey(), 80));
   controller.update(2U);
   REQUIRE(transport.sent.size() == 3U);
   CHECK(transport.sent[1].type == MessageType::Acknowledgement);
@@ -92,20 +96,20 @@ TEST_CASE("a candidate progresses from request to acknowledgement to assignment"
   FakeTransport transport;
   FakeHealthMonitor health;
   FixedScorer scorer(73);
-  SwarmController controller(2, SatelliteSnapshot(), transport, health, scorer, fastConfig());
+  SwarmController controller(2, 1U, SatelliteSnapshot(), transport, health, scorer, fastConfig());
 
-  transport.deliver(Message::missionRequest(0, 17, Coordinate(-20.0F, 30.0F)));
+  transport.deliver(Message::missionRequest(0, mission(0, 17), Coordinate(-20.0F, 30.0F)));
   controller.update(5U);
   REQUIRE(controller.state() == ControllerState::AwaitingAcknowledgement);
   REQUIRE(transport.sent.size() == 1U);
   CHECK(transport.sent.back().score == 73U);
   CHECK(transport.sent.back().target == 0U);
 
-  transport.deliver(Message::acknowledgement(0, 2, 17));
+  transport.deliver(Message::acknowledgement(0, 2, mission(0, 17)));
   controller.update(6U);
   CHECK(controller.state() == ControllerState::AwaitingAssignment);
 
-  transport.deliver(Message::assignment(0, 2, 17));
+  transport.deliver(Message::assignment(0, 2, mission(0, 17)));
   controller.update(7U);
   CHECK(controller.state() == ControllerState::Active);
   CHECK(controller.assignedNode() == 2U);
@@ -118,23 +122,47 @@ TEST_CASE("a direct assignment completes the negotiation and clears earlier fail
   FakeTransport transport;
   FakeHealthMonitor health;
   FixedScorer scorer(73);
-  SwarmController controller(2, SatelliteSnapshot(), transport, health, scorer, fastConfig());
+  SwarmController controller(2, 1U, SatelliteSnapshot(), transport, health, scorer, fastConfig());
 
-  transport.deliver(Message::missionRequest(0, 16, Coordinate()));
+  transport.deliver(Message::missionRequest(0, mission(0, 16), Coordinate()));
   controller.update(0U);
   controller.update(10U);
   controller.update(20U);
   REQUIRE(controller.state() == ControllerState::Idle);
   REQUIRE(controller.consecutiveCommunicationFailures() == 1U);
 
-  transport.deliver(Message::missionRequest(0, 17, Coordinate()));
+  transport.deliver(Message::missionRequest(0, mission(0, 17), Coordinate()));
   controller.update(30U);
   REQUIRE(controller.state() == ControllerState::AwaitingAcknowledgement);
-  transport.deliver(Message::assignment(0, 2, 17));
+  transport.deliver(Message::assignment(0, 2, mission(0, 17)));
   controller.update(31U);
 
   CHECK(controller.state() == ControllerState::Active);
   CHECK(controller.consecutiveCommunicationFailures() == 0U);
+}
+
+TEST_CASE("messages from an earlier leader boot cannot complete a reused sequence") {
+  FakeTransport transport;
+  FakeHealthMonitor health;
+  FixedScorer scorer(73);
+  SwarmController controller(2, 4U, SatelliteSnapshot(), transport, health, scorer, fastConfig());
+  const MissionKey current(0U, 9U, 1U);
+  const MissionKey stale(0U, 8U, 1U);
+
+  transport.deliver(Message::missionRequest(0U, current, Coordinate()));
+  controller.update(0U);
+  REQUIRE(controller.state() == ControllerState::AwaitingAcknowledgement);
+
+  transport.deliver(Message::acknowledgement(0U, 2U, stale));
+  transport.deliver(Message::assignment(0U, 2U, stale));
+  controller.update(1U);
+  CHECK(controller.state() == ControllerState::AwaitingAcknowledgement);
+  CHECK(controller.assignedNode() == kBroadcastNode);
+
+  transport.deliver(Message::assignment(0U, 2U, current));
+  controller.update(2U);
+  CHECK(controller.state() == ControllerState::Active);
+  CHECK(controller.currentMissionKey() == current);
 }
 
 TEST_CASE("custom scorer output is constrained to the wire score range") {
@@ -142,9 +170,9 @@ TEST_CASE("custom scorer output is constrained to the wire score range") {
     FakeTransport transport;
     FakeHealthMonitor health;
     FixedScorer scorer(255U);
-    SwarmController controller(2, SatelliteSnapshot(), transport, health, scorer, fastConfig());
+    SwarmController controller(2, 1U, SatelliteSnapshot(), transport, health, scorer, fastConfig());
 
-    transport.deliver(Message::missionRequest(0, 17, Coordinate()));
+    transport.deliver(Message::missionRequest(0, mission(0, 17), Coordinate()));
     controller.update(0U);
 
     REQUIRE(transport.sent.size() == 1U);
@@ -155,10 +183,10 @@ TEST_CASE("custom scorer output is constrained to the wire score range") {
     FakeTransport transport;
     FakeHealthMonitor health;
     FixedScorer scorer(255U);
-    SwarmController controller(0, SatelliteSnapshot(), transport, health, scorer, fastConfig());
+    SwarmController controller(0, 1U, SatelliteSnapshot(), transport, health, scorer, fastConfig());
 
     REQUIRE(controller.initiateMission(Coordinate(), 0U));
-    transport.deliver(Message::candidacy(1, 0, controller.currentMissionId(), 99U));
+    transport.deliver(Message::candidacy(1, 0, controller.currentMissionKey(), 99U));
     controller.update(1U);
     controller.update(100U);
 
@@ -171,23 +199,23 @@ TEST_CASE("an active node does not volunteer for another mission") {
   FakeTransport transport;
   FakeHealthMonitor health;
   FixedScorer scorer(73);
-  SwarmController controller(2, SatelliteSnapshot(), transport, health, scorer, fastConfig());
-  transport.deliver(Message::missionRequest(0, 17, Coordinate()));
+  SwarmController controller(2, 1U, SatelliteSnapshot(), transport, health, scorer, fastConfig());
+  transport.deliver(Message::missionRequest(0, mission(0, 17), Coordinate()));
   controller.update(0U);
-  transport.deliver(Message::acknowledgement(0, 2, 17));
-  transport.deliver(Message::assignment(0, 2, 17));
+  transport.deliver(Message::acknowledgement(0, 2, mission(0, 17)));
+  transport.deliver(Message::assignment(0, 2, mission(0, 17)));
   controller.update(1U);
   REQUIRE(controller.state() == ControllerState::Active);
   transport.sent.clear();
 
-  transport.deliver(Message::missionRequest(1, 99, Coordinate()));
+  transport.deliver(Message::missionRequest(1, mission(1, 99), Coordinate()));
   controller.update(2U);
   CHECK(controller.state() == ControllerState::Active);
   CHECK(transport.sent.empty());
 
   CHECK_FALSE(controller.initiateMission(Coordinate(10.0F, 20.0F), 3U));
   CHECK(controller.state() == ControllerState::Active);
-  CHECK(controller.currentMissionId() == 17U);
+  CHECK(controller.currentMissionKey() == mission(0, 17));
   CHECK(transport.sent.empty());
 }
 
@@ -195,16 +223,16 @@ TEST_CASE("repeated unacknowledged candidacy triggers a latched safe-disabled st
   FakeTransport transport;
   FakeHealthMonitor health;
   FixedScorer scorer(50);
-  SwarmController controller(2, SatelliteSnapshot(), transport, health, scorer, fastConfig());
+  SwarmController controller(2, 1U, SatelliteSnapshot(), transport, health, scorer, fastConfig());
 
-  transport.deliver(Message::missionRequest(0, 1, Coordinate()));
+  transport.deliver(Message::missionRequest(0, mission(0, 1), Coordinate()));
   controller.update(0U);
   controller.update(10U);
   controller.update(20U);
   REQUIRE(controller.state() == ControllerState::Idle);
   REQUIRE(controller.consecutiveCommunicationFailures() == 1U);
 
-  transport.deliver(Message::missionRequest(0, 2, Coordinate()));
+  transport.deliver(Message::missionRequest(0, mission(0, 2), Coordinate()));
   controller.update(30U);
   controller.update(40U);
   controller.update(50U);
@@ -219,7 +247,7 @@ TEST_CASE("health monitoring supports reversible quiescence and irreversible fat
   FakeTransport transport;
   FakeHealthMonitor health;
   FixedScorer scorer(50);
-  SwarmController controller(0, SatelliteSnapshot(), transport, health, scorer, fastConfig());
+  SwarmController controller(0, 1U, SatelliteSnapshot(), transport, health, scorer, fastConfig());
 
   health.current = HealthStatus::Quiescent;
   controller.update(0U);
@@ -241,7 +269,7 @@ TEST_CASE("elapsed-time checks remain correct across a 32-bit clock rollover") {
   FakeTransport transport;
   FakeHealthMonitor health;
   FixedScorer scorer(50);
-  SwarmController controller(0, SatelliteSnapshot(), transport, health, scorer, fastConfig());
+  SwarmController controller(0, 1U, SatelliteSnapshot(), transport, health, scorer, fastConfig());
   const uint32_t start = std::numeric_limits<uint32_t>::max() - 49U;
 
   REQUIRE(controller.initiateMission(Coordinate(), start));
@@ -254,15 +282,40 @@ TEST_CASE("invalid missions and out-of-range node identifiers are rejected") {
   FakeTransport transport;
   FakeHealthMonitor health;
   FixedScorer scorer(50);
-  SwarmController invalid_node(9, SatelliteSnapshot(), transport, health, scorer, fastConfig());
+  SwarmController invalid_node(9, 1U, SatelliteSnapshot(), transport, health, scorer, fastConfig());
   CHECK_FALSE(invalid_node.initiateMission(Coordinate(), 0U));
   CHECK(invalid_node.state() == ControllerState::SafeDisabled);
-  transport.deliver(Message::missionRequest(0, 1, Coordinate()));
+  transport.deliver(Message::missionRequest(0, mission(0, 1), Coordinate()));
   invalid_node.update(1U);
   CHECK(transport.sent.empty());
 
-  SwarmController controller(0, SatelliteSnapshot(), transport, health, scorer, fastConfig());
+  SwarmController invalid_epoch(0, 0U, SatelliteSnapshot(), transport, health, scorer,
+                                fastConfig());
+  CHECK_FALSE(invalid_epoch.initiateMission(Coordinate(), 0U));
+  CHECK(invalid_epoch.state() == ControllerState::SafeDisabled);
+
+  SwarmController controller(0, 1U, SatelliteSnapshot(), transport, health, scorer, fastConfig());
   CHECK_FALSE(controller.initiateMission(Coordinate(0.0F, 91.0F), 0U));
+}
+
+TEST_CASE("mission sequences stop instead of wrapping within one boot epoch") {
+  FakeTransport transport;
+  FakeHealthMonitor health;
+  FixedScorer scorer(50);
+  ControllerConfig config = fastConfig();
+  config.response_window_ms = 0U;
+  SwarmController controller(0, 7U, SatelliteSnapshot(), transport, health, scorer, config);
+
+  for (uint32_t sequence = 1U; sequence <= UINT16_MAX; ++sequence) {
+    REQUIRE(controller.initiateMission(Coordinate(), sequence));
+    controller.update(sequence);
+    REQUIRE(controller.state() == ControllerState::Active);
+    controller.completeMission();
+  }
+
+  CHECK(controller.currentMissionKey() == MissionKey(0U, 7U, UINT16_MAX));
+  CHECK_FALSE(controller.initiateMission(Coordinate(), UINT16_MAX + 1U));
+  CHECK(controller.state() == ControllerState::Idle);
 }
 
 TEST_CASE("zero-valued controller limits are normalized to safe operating bounds") {
@@ -274,10 +327,10 @@ TEST_CASE("zero-valued controller limits are normalized to safe operating bounds
   config.maximum_attempts = 0U;
   config.failed_missions_before_safe_disable = 0U;
   config.maximum_messages_per_update = 0U;
-  SwarmController controller(kMaximumNodes - 1U, SatelliteSnapshot(), transport, health, scorer,
+  SwarmController controller(kMaximumNodes - 1U, 1U, SatelliteSnapshot(), transport, health, scorer,
                              config);
 
-  transport.deliver(Message::missionRequest(0, 1, Coordinate()));
+  transport.deliver(Message::missionRequest(0, mission(0, 1), Coordinate()));
   controller.update(0U);
   REQUIRE(controller.state() == ControllerState::AwaitingAcknowledgement);
 
@@ -291,10 +344,10 @@ TEST_CASE("message processing per update is bounded") {
   FixedScorer scorer(50);
   ControllerConfig config = fastConfig();
   config.maximum_messages_per_update = 1U;
-  SwarmController controller(0, SatelliteSnapshot(), transport, health, scorer, config);
+  SwarmController controller(0, 1U, SatelliteSnapshot(), transport, health, scorer, config);
 
-  transport.deliver(Message::missionRequest(0, 1, Coordinate()));
-  transport.deliver(Message::missionRequest(0, 2, Coordinate()));
+  transport.deliver(Message::missionRequest(0, mission(0, 1), Coordinate()));
+  transport.deliver(Message::missionRequest(0, mission(0, 2), Coordinate()));
   controller.update(0U);
   CHECK(transport.incoming.size() == 1U);
 
@@ -306,15 +359,15 @@ TEST_CASE("an assignment to an out-of-range node is ignored") {
   FakeTransport transport;
   FakeHealthMonitor health;
   FixedScorer scorer(73);
-  SwarmController controller(2, SatelliteSnapshot(), transport, health, scorer, fastConfig());
+  SwarmController controller(2, 1U, SatelliteSnapshot(), transport, health, scorer, fastConfig());
 
-  transport.deliver(Message::missionRequest(0, 17, Coordinate()));
+  transport.deliver(Message::missionRequest(0, mission(0, 17), Coordinate()));
   controller.update(0U);
-  transport.deliver(Message::acknowledgement(0, 2, 17));
+  transport.deliver(Message::acknowledgement(0, 2, mission(0, 17)));
   controller.update(1U);
   REQUIRE(controller.state() == ControllerState::AwaitingAssignment);
 
-  transport.deliver(Message::assignment(0, 99, 17));
+  transport.deliver(Message::assignment(0, 99, mission(0, 17)));
   controller.update(2U);
   CHECK(controller.state() == ControllerState::AwaitingAssignment);
   CHECK(controller.assignedNode() == kBroadcastNode);
@@ -324,14 +377,14 @@ TEST_CASE("transport rejection does not masquerade as protocol progress") {
   FakeTransport transport;
   FakeHealthMonitor health;
   FixedScorer scorer(73);
-  SwarmController controller(0, SatelliteSnapshot(), transport, health, scorer, fastConfig());
+  SwarmController controller(0, 1U, SatelliteSnapshot(), transport, health, scorer, fastConfig());
 
   transport.send_succeeds = false;
   CHECK_FALSE(controller.initiateMission(Coordinate(), 0U));
   CHECK(controller.state() == ControllerState::Idle);
-  CHECK(controller.currentMissionId() == 0U);
+  CHECK_FALSE(isValid(controller.currentMissionKey()));
 
-  transport.deliver(Message::missionRequest(1, 17, Coordinate()));
+  transport.deliver(Message::missionRequest(1, mission(1, 17), Coordinate()));
   controller.update(1U);
   CHECK(controller.state() == ControllerState::Idle);
   CHECK(controller.consecutiveCommunicationFailures() == 0U);
@@ -341,10 +394,10 @@ TEST_CASE("a failed assignment send aborts the local negotiation") {
   FakeTransport transport;
   FakeHealthMonitor health;
   FixedScorer scorer(40);
-  SwarmController controller(0, SatelliteSnapshot(), transport, health, scorer, fastConfig());
+  SwarmController controller(0, 1U, SatelliteSnapshot(), transport, health, scorer, fastConfig());
 
   REQUIRE(controller.initiateMission(Coordinate(), 0U));
-  transport.deliver(Message::candidacy(1, 0, controller.currentMissionId(), 80));
+  transport.deliver(Message::candidacy(1, 0, controller.currentMissionKey(), 80));
   controller.update(1U);
   transport.send_succeeds = false;
   controller.update(100U);
@@ -358,10 +411,10 @@ TEST_CASE("messages queued at or after a phase deadline are ignored") {
     FakeTransport transport;
     FakeHealthMonitor health;
     FixedScorer scorer(40);
-    SwarmController controller(0, SatelliteSnapshot(), transport, health, scorer, fastConfig());
+    SwarmController controller(0, 1U, SatelliteSnapshot(), transport, health, scorer, fastConfig());
 
     REQUIRE(controller.initiateMission(Coordinate(), 0U));
-    transport.deliver(Message::candidacy(1, 0, controller.currentMissionId(), 80));
+    transport.deliver(Message::candidacy(1, 0, controller.currentMissionKey(), 80));
     controller.update(100U);
 
     CHECK(controller.state() == ControllerState::Active);
@@ -372,12 +425,12 @@ TEST_CASE("messages queued at or after a phase deadline are ignored") {
     FakeTransport transport;
     FakeHealthMonitor health;
     FixedScorer scorer(40);
-    SwarmController controller(2, SatelliteSnapshot(), transport, health, scorer, fastConfig());
+    SwarmController controller(2, 1U, SatelliteSnapshot(), transport, health, scorer, fastConfig());
 
-    transport.deliver(Message::missionRequest(0, 17, Coordinate()));
+    transport.deliver(Message::missionRequest(0, mission(0, 17), Coordinate()));
     controller.update(0U);
     controller.update(10U);
-    transport.deliver(Message::acknowledgement(0, 2, 17));
+    transport.deliver(Message::acknowledgement(0, 2, mission(0, 17)));
     controller.update(20U);
 
     CHECK(controller.state() == ControllerState::Idle);
@@ -388,14 +441,14 @@ TEST_CASE("messages queued at or after a phase deadline are ignored") {
     FakeTransport transport;
     FakeHealthMonitor health;
     FixedScorer scorer(40);
-    SwarmController controller(2, SatelliteSnapshot(), transport, health, scorer, fastConfig());
+    SwarmController controller(2, 1U, SatelliteSnapshot(), transport, health, scorer, fastConfig());
 
-    transport.deliver(Message::missionRequest(0, 17, Coordinate()));
+    transport.deliver(Message::missionRequest(0, mission(0, 17), Coordinate()));
     controller.update(0U);
-    transport.deliver(Message::acknowledgement(0, 2, 17));
+    transport.deliver(Message::acknowledgement(0, 2, mission(0, 17)));
     controller.update(1U);
     REQUIRE(controller.state() == ControllerState::AwaitingAssignment);
-    transport.deliver(Message::assignment(0, 2, 17));
+    transport.deliver(Message::assignment(0, 2, mission(0, 17)));
     controller.update(101U);
 
     CHECK(controller.state() == ControllerState::Idle);

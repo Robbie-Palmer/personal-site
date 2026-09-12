@@ -36,7 +36,7 @@ run = '''
 browser_fixture_check_file=$(mktemp)
 trap 'cmake -E rm -f "$browser_fixture_check_file"' EXIT
 ./build/dev/autonomic-satellite-swarm-simulation --json > "$browser_fixture_check_file"
-diff -u ../../ui/public/simulations/autonomic-satellite-swarm/demonstration.v2.json \
+diff -u ../../ui/public/simulations/autonomic-satellite-swarm/demonstration.v3.json \
   "$browser_fixture_check_file"
 '''
 
@@ -49,24 +49,25 @@ run = "mise exec python@3.14.6 -- mise install asdf:mise-plugins/mise-emsdk@6.0.
 description = "Configure the Emscripten browser build"
 depends = ["browser:toolchain"]
 tools = { python = "3.14.6" }
-run = "mise exec python@3.14.6 asdf:mise-plugins/mise-emsdk@6.0.9 -- emcmake cmake -S . -B build/browser -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF -DSATELLITE_SWARM_BUILD_BROWSER=ON"
+run = '''
+source_revision=${SATELLITE_SWARM_SOURCE_REVISION:-${GITHUB_SHA:-$(git rev-parse HEAD)}}
+case "$source_revision" in
+  *[!0-9a-f]*|'') echo "SATELLITE_SWARM_SOURCE_REVISION must be a full lowercase Git revision" >&2; exit 2 ;;
+esac
+revision_length=$(printf %s "$source_revision" | wc -c)
+if [ "$revision_length" -ne 40 ]; then
+  echo "SATELLITE_SWARM_SOURCE_REVISION must be a full lowercase Git revision" >&2
+  exit 2
+fi
+mise exec python@3.14.6 asdf:mise-plugins/mise-emsdk@6.0.9 -- \
+  emcmake cmake -S . -B build/browser -G Ninja -DCMAKE_BUILD_TYPE=Release \
+    -DBUILD_TESTING=OFF -DSATELLITE_SWARM_BUILD_BROWSER=ON \
+    -DSATELLITE_SWARM_SOURCE_REVISION="$source_revision"
+'''
 
 [tasks."browser:build"]
 description = "Build the WebAssembly adapter and copy its deployable artifacts"
 depends = ["browser:configure"]
-sources = [
-  "CMakeLists.txt",
-  "browser/include/**/*",
-  "browser/src/**/*",
-  "mise.toml",
-  "simulation/include/**/*",
-  "simulation/src/**/*",
-  "src/**/*",
-]
-outputs = [
-  "../../ui/public/simulations/autonomic-satellite-swarm/wasm/satellite-swarm.mjs",
-  "../../ui/public/simulations/autonomic-satellite-swarm/wasm/satellite-swarm.wasm",
-]
 tools = { python = "3.14.6" }
 run = '''
 mise exec python@3.14.6 asdf:mise-plugins/mise-emsdk@6.0.9 -- cmake --build build/browser --target satellite_swarm_browser
@@ -78,7 +79,7 @@ cmake -E copy_if_different build/browser/browser/satellite-swarm.wasm "$browser_
 
 [tasks."browser:parity"]
 description = "Check native and WebAssembly browser results for byte-for-byte parity"
-depends = ["browser:build"]
+depends = ["browser:build", "browser:fixture:check"]
 run = "node browser/tests/browser_parity.mjs"
 
 [tasks.lint]
@@ -126,6 +127,7 @@ run = [
 description = "Compile the legacy Arduino Uno infrared firmware"
 run = '''
 node_id=${SATELLITE_SWARM_NODE_ID:-0}
+boot_epoch=${SATELLITE_SWARM_BOOT_EPOCH:-1}
 case "$node_id" in
   ''|*[!0-9]*) echo "SATELLITE_SWARM_NODE_ID must be an integer from 0 to 15" >&2; exit 2 ;;
 esac
@@ -133,14 +135,22 @@ if [ "$node_id" -gt 15 ]; then
   echo "SATELLITE_SWARM_NODE_ID must be an integer from 0 to 15" >&2
   exit 2
 fi
+case "$boot_epoch" in
+  ''|*[!0-9]*) echo "SATELLITE_SWARM_BOOT_EPOCH must be an integer from 1 to 4294967295" >&2; exit 2 ;;
+esac
+if [ "$boot_epoch" -eq 0 ] || [ "$boot_epoch" -gt 4294967295 ]; then
+  echo "SATELLITE_SWARM_BOOT_EPOCH must be an integer from 1 to 4294967295" >&2
+  exit 2
+fi
 arduino-cli compile --profile uno \
-  --build-property "build.extra_flags=-DSATELLITE_SWARM_NODE_ID=$node_id" firmware/uno_ir
+  --build-property "build.extra_flags=-DSATELLITE_SWARM_NODE_ID=$node_id -DSATELLITE_SWARM_BOOT_EPOCH=$boot_epoch" firmware/uno_ir
 '''
 
 [tasks."firmware:esp32"]
 description = "Compile the modern ESP32 ESP-NOW firmware"
 run = '''
 node_id=${SATELLITE_SWARM_NODE_ID:-0}
+boot_epoch=${SATELLITE_SWARM_BOOT_EPOCH:-1}
 case "$node_id" in
   ''|*[!0-9]*) echo "SATELLITE_SWARM_NODE_ID must be an integer from 0 to 15" >&2; exit 2 ;;
 esac
@@ -148,8 +158,15 @@ if [ "$node_id" -gt 15 ]; then
   echo "SATELLITE_SWARM_NODE_ID must be an integer from 0 to 15" >&2
   exit 2
 fi
+case "$boot_epoch" in
+  ''|*[!0-9]*) echo "SATELLITE_SWARM_BOOT_EPOCH must be an integer from 1 to 4294967295" >&2; exit 2 ;;
+esac
+if [ "$boot_epoch" -eq 0 ] || [ "$boot_epoch" -gt 4294967295 ]; then
+  echo "SATELLITE_SWARM_BOOT_EPOCH must be an integer from 1 to 4294967295" >&2
+  exit 2
+fi
 arduino-cli compile --profile esp32 \
-  --build-property "build.extra_flags=-DSATELLITE_SWARM_NODE_ID=$node_id" firmware/esp32_espnow
+  --build-property "build.extra_flags=-DSATELLITE_SWARM_NODE_ID=$node_id -DSATELLITE_SWARM_BOOT_EPOCH=$boot_epoch" firmware/esp32_espnow
 '''
 
 [tasks."lint:typos"]

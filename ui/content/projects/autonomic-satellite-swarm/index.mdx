@@ -2,7 +2,7 @@
 title: "Autonomic Satellite Swarm"
 description: "A revived C++ research prototype for fail-safe coordination across hardware-independent satellite-swarm agents"
 date: "2019-07-30"
-updated: "2026-09-11"
+updated: "2026-09-12"
 ideas:
   - "two-generals-problem"
   - "flp-impossibility"
@@ -18,6 +18,8 @@ tech_stack:
   - "GitHub Actions"
 repo_url: "https://github.com/Robbie-Palmer/personal-site/tree/main/cpp/autonomic-satellite-swarm"
 demo_url: "https://robbiepalmer.me/satellite-swarm"
+paper_url: "https://doi.org/10.1109/SMC-IT.2019.00015"
+paper_title: "Autonomic Providing Pre-Programmed Death of Cubesats for Avoiding Space JUNK"
 status: "in_progress"
 role: "ulster-university"
 tags:
@@ -88,6 +90,8 @@ explicit seams while retaining firmware-size checks so the abstraction cost rema
    access.
 10. Reference adapters compile for the original Arduino Uno/infrared setup and a modern ESP32/
     ESP-NOW setup.
+11. A mission key combines its origin node, the origin's boot epoch, and a sequence that never wraps
+    within that epoch.
 
 ## Quality requirements
 
@@ -111,7 +115,7 @@ paper examples, but the type and documentation label it as a heuristic rather th
 mechanics. Better guidance and maneuver planning can replace it without changing the negotiation
 protocol.
 
-The legacy adapter fragments each validated packet across four NEC infrared frames. The modern
+The legacy adapter fragments each validated packet across six NEC infrared frames. The modern
 reference adapter sends the same packet over ESP-NOW. ESP-NOW is useful for a benchtop demonstration;
 it is not presented as a spacecraft communication choice.
 
@@ -144,7 +148,7 @@ order do not. The swarm should begin with a bounded journal per node and admit t
 partial histories.
 
 Software rollout is another distributed protocol. The current codec rejects every layout except its
-single 12-byte version, so a future swarm must define how mixed software versions advertise
+single 18-byte version, so a future swarm must define how mixed software versions advertise
 capabilities, interpret old messages, migrate durable state, stage activation, and roll back. NASA's
 Starling experience shows why this matters: one spacecraft could not receive the autonomy software
 update, leaving the experiment to run with three nodes.
@@ -167,8 +171,11 @@ The [full research note](https://github.com/Robbie-Palmer/personal-site/blob/mai
 turns these results into a sequence of experiments. The deterministic simulator can now drop,
 delay, or duplicate a selected delivery, change one-way links, and reset a node. The browser exposes
 the first experiment: it drops the winning assignment to show that the leader records an assignee
-which never learns that it owns the mission. Stable mission identities and the full invariant suite
-come next. A consensus algorithm comes later, if an operation's evidence requirements justify one.
+which never learns that it owns the mission. Missions now use an origin node, boot epoch, and mission
+sequence as their stable key. Deterministic invariant checks cover loss, duplication, one-way links,
+and resets. They also preserve two baseline failures: reset clears `safe-disabled`, and delayed
+mission requests have no expiry. Bounded telemetry comes next. A consensus algorithm comes later, if
+an operation's evidence requirements justify one.
 The note also compares TLA+, OMNeT++, DTNSim, Basilisk, and NASA NOS3, then defines how the CesiumJS
 prototype can become a deterministic test-bed console with headless batch runs and comparable
 mission-success measures.
@@ -185,9 +192,11 @@ mission-success measures.
 # Verification
 
 Host tests cover the published score examples, invalid inputs, exact-arrival behavior, message
-corruption, mission negotiation, retries, deterministic ties, busy nodes, health transitions,
-32-bit clock rollover, explicit delivery faults, asymmetric links, and volatile state after a node
-reset. A three-node in-memory simulation reconstructs the central demonstration without hardware.
+corruption, mission negotiation, stable keys, retries, deterministic ties, busy nodes, health
+transitions, 32-bit clock rollover, explicit delivery faults, asymmetric links, and volatile state
+after a node reset. The invariant suite checks local assignment evidence and duplicate transitions,
+then records reset persistence and command expiry as known failures. A three-node in-memory
+simulation reconstructs the central demonstration without hardware.
 The same runner builds with Emscripten, executes in a browser worker, and has a byte-for-byte parity
 check against the native fixture. CI also compiles both firmware targets from pinned profiles.
 

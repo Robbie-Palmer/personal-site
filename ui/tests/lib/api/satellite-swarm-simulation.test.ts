@@ -5,10 +5,11 @@ import {
 } from "@/lib/api/satellite-swarm-simulation";
 
 const validRecord = {
-  schemaVersion: 2,
-  traceVersion: 2,
+  schemaVersion: 3,
+  traceVersion: 3,
   scenario: "test",
   source: "portable C++ SimulationTrace",
+  sourceRevision: "0123456789abcdef0123456789abcdef01234567",
   positionModel: "scripted",
   objective: { longitudeDegrees: 0, latitudeDegrees: -90 },
   frames: [
@@ -17,11 +18,12 @@ const validRecord = {
       nodes: [
         {
           id: 0,
+          bootEpoch: 1,
           state: "leading",
           position: { longitudeDegrees: 0, latitudeDegrees: 10 },
           orbitalRadiusMetres: 6_750_000,
           candidacyScore: 81,
-          missionId: 1,
+          missionKey: { bootEpoch: 1, originNode: 0, sequence: 1 },
           assignedNode: null,
         },
       ],
@@ -34,9 +36,9 @@ const validRecord = {
       nodeId: 0,
       message: {
         type: "candidacy",
-        origin: 0,
+        sender: 0,
         target: 1,
-        missionId: 1,
+        missionKey: { bootEpoch: 1, originNode: 0, sequence: 1 },
         score: 81,
       },
     },
@@ -73,9 +75,9 @@ describe("satellite swarm simulation records", () => {
       events: [
         {
           message: {
-            missionId: 1,
-            origin: 0,
+            missionKey: { bootEpoch: 1, originNode: 0, sequence: 1 },
             score: 0,
+            sender: 0,
             target: 1,
             type: "mission-assignment",
           },
@@ -97,9 +99,9 @@ describe("satellite swarm simulation records", () => {
 
   it("describes every replay event variant", () => {
     const message = {
-      missionId: 1,
-      origin: 0,
+      missionKey: { bootEpoch: 1, originNode: 0, sequence: 1 },
       score: 0,
+      sender: 0,
       target: 1,
       type: "mission-assignment",
     } as const;
@@ -174,7 +176,7 @@ describe("satellite swarm simulation records", () => {
         {
           message: {
             ...message,
-            origin: 1,
+            sender: 1,
             score: 72,
             target: 0,
             type: "candidacy",
@@ -218,8 +220,8 @@ describe("satellite swarm simulation records", () => {
       "Node 1 changed from awaiting assignment to active.",
       "Node 1 sent score 72 to node 0.",
       "Node 0 acknowledged node 1.",
-      "Node 0 assigned mission 1 to node 1.",
-      "Node 0 broadcast mission 1.",
+      "Node 0 assigned mission 0:1:1 to node 1.",
+      "Node 0 broadcast mission 0:1:1.",
     ]);
   });
 

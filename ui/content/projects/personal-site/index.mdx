@@ -1,8 +1,8 @@
 ---
 title: "Personal Site"
-description: "My personal portfolio"
+description: "A public knowledge graph, project incubator, and interface to my work"
 date: "2025-11-02"
-updated: "2026-09-04"
+updated: "2026-09-12"
 initiatives:
   - "semi-autonomous-software-development"
 tech_stack:
@@ -17,13 +17,28 @@ status: "live"
 
 # Vision
 
-This site is my personal portfolio. It provides me a space to share ideas, it helps build my network and provides
-the tech stack for incubating projects.
+The Personal Site is the public interface to a living body of work. It brings
+together writing, experience, projects, decisions, research, and demos so each
+can add context to the others.
 
-It is a personal knowledge graph - inspired by tools like Roam Research and Obsidian,
-but with full control over UI/UX, richer relations between content, and no vendor lock-in.
-Those tools promised compounding returns from connected thinking but fell short.
-I found them too inflexible, too siloed and did not lead to meaningful engagement.
+It is also a personal knowledge graph, inspired by tools like Roam Research and
+Obsidian, but with full control over UI/UX, richer relations between content,
+and no vendor lock-in. Those tools promised compounding returns from connected
+thinking but fell short for me. I found them too inflexible and siloed, and
+they did not lead to meaningful engagement.
+
+The deeper aim is to turn documentation into an active system. Content begins
+as prose, but structured frontmatter and explicit relationships also make it a
+database of what exists, why it exists, how it changed, and what it affects.
+That database can become a control plane: first surfacing gaps and stale
+decisions, then recommending bounded work, and eventually coordinating
+authorised changes through agents and review workflows.
+
+It creates a second path from thought to delivery. An observation can become
+an idea, research, a decision, a demo, and eventually an independent project
+or product without losing the history that explains it. The products move
+into their own bounded contexts while their provenance and lessons remain
+connected here.
 
 # Problem Statement
 
@@ -45,7 +60,9 @@ I want:
 **For the author:**
 
 * I want self-documenting projects, so I can context-switch efficiently when returning to the codebase
-* I want a platform that can incubate SaaS ideas, so I have production-ready infrastructure when inspiration strikes
+* I want ideas to retain their provenance as they become demos, projects, and products
+* I want the knowledge graph to identify useful work and eventually coordinate authorised changes
+* I want the Personal Engineering Platform to provide production-ready defaults when an idea becomes a project
 * I want a forcing function to ship end-to-end
 
 # Platform Capabilities
@@ -74,7 +91,9 @@ The blog serves multiple audiences with different needs:
 
 * LLM-readable codebase optimized for AI-assisted development workflows
 * Self-documenting architecture reducing context-switching cost
-* Extensible foundation for future ventures and experiments
+* Structured content that serves as both public documentation and a queryable database
+* Explicit provenance and authority boundaries for explainable recommendations
+* Incubation path from connected ideas to independent projects and products
 
 # Building Philosophy
 
@@ -92,7 +111,9 @@ Each ADR references specific principles to explain why certain trade-offs were a
 
 This site is infrastructure to enable future work:
 
-* **SaaS incubator**: The tech stack and deployment pipeline are production-grade. When an idea is worth pursuing, the foundation is already there
+* **Idea incubator**: Research and writing can become decisions, demos, and independent products while preserving their lineage in the graph
+* **Knowledge control plane**: Use structured decisions, lifecycle state, provenance, and project authority to recommend upgrades and other bounded work; later decisions may allow agents to execute approved migrations
+* **Personal Engineering Platform integration**: Link incubated projects to reusable engineering defaults without making generic platform decisions part of the Personal Site's own history
 * **Expanded project documentation**: More PRDs and ADRs as case studies in technical decision-making
 * **Enhanced data visualization**: Richer interactive content and visual communication
 * **Self-maintaining knowledge**: Find missing, weak, and stale content; gather supporting evidence; propose changes; and publish accepted updates through the same review path as code

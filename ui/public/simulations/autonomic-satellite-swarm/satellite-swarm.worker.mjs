@@ -1,7 +1,7 @@
 import createSatelliteSwarmModule from "./wasm/satellite-swarm.mjs";
 
-const PROTOCOL_VERSION = 2;
-const BROWSER_API_VERSION = 2;
+const PROTOCOL_VERSION = 3;
+const BROWSER_API_VERSION = 4;
 let modulePromise;
 
 function errorMessage(error) {
@@ -74,6 +74,12 @@ self.addEventListener("message", async (event) => {
     if (module._satellite_swarm_browser_api_version() !== BROWSER_API_VERSION) {
       throw new Error("The simulation worker API version does not match the site.");
     }
+    const sourceRevision = module.UTF8ToString(
+      module._satellite_swarm_source_revision(),
+    );
+    if (!/^[0-9a-f]{40}$/.test(sourceRevision)) {
+      throw new Error("The simulation module has no valid source revision.");
+    }
 
     const resultPointer = module._satellite_swarm_run_demonstration(
       request.objective.longitudeDegrees,
@@ -87,6 +93,7 @@ self.addEventListener("message", async (event) => {
 
     reply(requestId, {
       result: JSON.parse(module.UTF8ToString(resultPointer)),
+      sourceRevision,
       type: "result",
     });
   } catch (error) {

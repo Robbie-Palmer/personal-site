@@ -5,7 +5,11 @@ import { Worker } from "node:worker_threads";
 import createSatelliteSwarmModule from "../../build/browser/browser/satellite-swarm.mjs";
 
 const module = await createSatelliteSwarmModule();
-assert.equal(module._satellite_swarm_browser_api_version(), 2);
+assert.equal(module._satellite_swarm_browser_api_version(), 4);
+const sourceRevision = module.UTF8ToString(
+  module._satellite_swarm_source_revision(),
+);
+assert.match(sourceRevision, /^[0-9a-f]{40}$/);
 
 function run(longitudeDegrees, latitudeDegrees, scenario = 0) {
   const resultPointer = module._satellite_swarm_run_demonstration(
@@ -21,7 +25,7 @@ function run(longitudeDegrees, latitudeDegrees, scenario = 0) {
 }
 
 const fixtureUrl = new URL(
-  "../../../../ui/public/simulations/autonomic-satellite-swarm/demonstration.v2.json",
+  "../../../../ui/public/simulations/autonomic-satellite-swarm/demonstration.v3.json",
   import.meta.url,
 );
 const nativeFixture = await readFile(fixtureUrl, "utf8");
@@ -62,27 +66,29 @@ try {
   const requestId = "browser-parity";
   productionWorker.postMessage({
     objective: { latitudeDegrees: -90, longitudeDegrees: 0 },
-    protocolVersion: 2,
+    protocolVersion: 3,
     requestId,
     scenario: "nominal",
     type: "run",
   });
   const [workerResponse] = await once(productionWorker, "message");
-  assert.equal(workerResponse.protocolVersion, 2);
+  assert.equal(workerResponse.protocolVersion, 3);
   assert.equal(workerResponse.requestId, requestId);
+  assert.equal(workerResponse.sourceRevision, sourceRevision);
   assert.equal(workerResponse.type, "result");
   assert.deepEqual(workerResponse.result, JSON.parse(nativeFixture));
 
   const faultRequestId = "browser-parity-fault";
   productionWorker.postMessage({
     objective: { latitudeDegrees: -90, longitudeDegrees: 0 },
-    protocolVersion: 2,
+    protocolVersion: 3,
     requestId: faultRequestId,
     scenario: "lost-assignment",
     type: "run",
   });
   const [faultWorkerResponse] = await once(productionWorker, "message");
   assert.equal(faultWorkerResponse.requestId, faultRequestId);
+  assert.equal(faultWorkerResponse.sourceRevision, sourceRevision);
   assert.equal(faultWorkerResponse.type, "result");
   assert.deepEqual(faultWorkerResponse.result, faultResult);
 } finally {

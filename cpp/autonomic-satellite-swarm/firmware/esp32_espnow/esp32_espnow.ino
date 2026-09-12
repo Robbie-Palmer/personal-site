@@ -9,6 +9,9 @@
 #ifndef SATELLITE_SWARM_NODE_ID
 #error "Define SATELLITE_SWARM_NODE_ID through the firmware build task"
 #endif
+#ifndef SATELLITE_SWARM_BOOT_EPOCH
+#error "Define SATELLITE_SWARM_BOOT_EPOCH through the firmware build task"
+#endif
 
 namespace {
 
@@ -16,6 +19,8 @@ static_assert(SATELLITE_SWARM_NODE_ID >= 0 &&
                   SATELLITE_SWARM_NODE_ID < satellite_swarm::kMaximumNodes,
               "SATELLITE_SWARM_NODE_ID must identify a configured swarm node");
 constexpr uint8_t kNodeId = SATELLITE_SWARM_NODE_ID;
+constexpr satellite_swarm::BootEpoch kBootEpoch = SATELLITE_SWARM_BOOT_EPOCH;
+static_assert(kBootEpoch != 0U, "SATELLITE_SWARM_BOOT_EPOCH must be nonzero");
 const uint8_t kMissionButtonPin = 0;
 const uint32_t kButtonDebounceMs = 250U;
 
@@ -39,8 +44,8 @@ satellite_swarm::ControllerConfig makeConfig() {
 }
 satellite_swarm::SatelliteSnapshot satellite = makeSatellite();
 satellite_swarm::ControllerConfig config = makeConfig();
-satellite_swarm::SwarmController controller(kNodeId, satellite, transport, health_monitor, scorer,
-                                            config);
+satellite_swarm::SwarmController controller(kNodeId, kBootEpoch, satellite, transport,
+                                            health_monitor, scorer, config);
 satellite_swarm::ControllerState previous_state = satellite_swarm::ControllerState::Idle;
 uint32_t last_button_press_ms = 0;
 bool transport_ready = false;

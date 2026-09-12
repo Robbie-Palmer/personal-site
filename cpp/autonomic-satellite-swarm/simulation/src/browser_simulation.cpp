@@ -78,13 +78,25 @@ void writeCoordinate(std::ostream& output, const Coordinate& coordinate) {
          << coordinate.latitude_degrees << '}';
 }
 
+void writeMissionKey(std::ostream& output, const MissionKey& mission_key) {
+  if (!isValid(mission_key)) {
+    output << "null";
+    return;
+  }
+  output << R"({"originNode":)" << static_cast<unsigned int>(mission_key.origin_node)
+         << R"(,"bootEpoch":)" << mission_key.boot_epoch << R"(,"sequence":)"
+         << mission_key.sequence << '}';
+}
+
 void writeBrowserNode(std::ostream& output, const NodeObservation& node) {
   output << R"({"id":)" << static_cast<unsigned int>(node.node_id) << R"(,"state":")"
          << stateName(node.state) << R"(","position":)";
   writeCoordinate(output, node.satellite.coordinate);
   output << R"(,"orbitalRadiusMetres":)" << node.satellite.orbital_radius_metres
          << R"(,"candidacyScore":)" << static_cast<unsigned int>(node.candidacy_score)
-         << R"(,"missionId":)" << node.mission_id << R"(,"assignedNode":)";
+         << R"(,"bootEpoch":)" << node.boot_epoch << R"(,"missionKey":)";
+  writeMissionKey(output, node.mission_key);
+  output << R"(,"assignedNode":)";
   if (node.assigned_node == kBroadcastNode) {
     output << "null";
   } else {
@@ -105,15 +117,16 @@ void writeBrowserFrame(std::ostream& output, const FrameObservation& frame) {
 }
 
 void writeMessage(std::ostream& output, const Message& message) {
-  output << R"({"type":")" << messageName(message.type) << R"(","origin":)"
-         << static_cast<unsigned int>(message.origin) << R"(,"target":)";
+  output << R"({"type":")" << messageName(message.type) << R"(","sender":)"
+         << static_cast<unsigned int>(message.sender) << R"(,"target":)";
   if (message.target == kBroadcastNode) {
     output << "null";
   } else {
     output << static_cast<unsigned int>(message.target);
   }
-  output << R"(,"missionId":)" << message.mission_id << R"(,"score":)"
-         << static_cast<unsigned int>(message.score) << '}';
+  output << R"(,"missionKey":)";
+  writeMissionKey(output, message.mission_key);
+  output << R"(,"score":)" << static_cast<unsigned int>(message.score) << '}';
 }
 
 void writeBrowserEvent(std::ostream& output, const SimulationEvent& event) {

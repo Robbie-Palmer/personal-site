@@ -13,6 +13,8 @@ option(SATELLITE_SWARM_BUILD_SIMULATION "Build the deterministic host simulation
 option(SATELLITE_SWARM_BUILD_BROWSER "Build the Emscripten browser adapter" OFF)
 option(SATELLITE_SWARM_ENABLE_COVERAGE "Enable GCC coverage instrumentation" OFF)
 option(SATELLITE_SWARM_ENABLE_SANITIZERS "Enable address and undefined-behavior sanitizers" OFF)
+set(SATELLITE_SWARM_SOURCE_REVISION "unknown" CACHE STRING
+    "Full Git revision used to build the browser module")
 
 add_library(
   satellite_swarm
@@ -93,6 +95,15 @@ if(SATELLITE_SWARM_BUILD_SIMULATION)
 endif()
 
 if(SATELLITE_SWARM_BUILD_BROWSER)
+  string(LENGTH "${SATELLITE_SWARM_SOURCE_REVISION}"
+               SATELLITE_SWARM_SOURCE_REVISION_LENGTH)
+  if(NOT SATELLITE_SWARM_SOURCE_REVISION MATCHES "^[0-9a-f]+$"
+     OR NOT SATELLITE_SWARM_SOURCE_REVISION_LENGTH EQUAL 40)
+    message(
+      FATAL_ERROR
+        "SATELLITE_SWARM_SOURCE_REVISION must be a full lowercase Git revision"
+    )
+  endif()
   if(NOT EMSCRIPTEN)
     message(FATAL_ERROR "SATELLITE_SWARM_BUILD_BROWSER requires the Emscripten toolchain")
   endif()
@@ -112,6 +123,9 @@ if(SATELLITE_SWARM_BUILD_BROWSER)
     satellite_swarm_simulation PRIVATE -fexceptions)
   target_compile_options(
     satellite_swarm_browser PRIVATE -fexceptions)
+  target_compile_definitions(
+    satellite_swarm_browser
+    PRIVATE SATELLITE_SWARM_SOURCE_REVISION="${SATELLITE_SWARM_SOURCE_REVISION}")
   set_target_properties(
     satellite_swarm_browser
     PROPERTIES OUTPUT_NAME "satellite-swarm"
@@ -141,6 +155,7 @@ if(BUILD_TESTING)
     satellite_swarm_tests
     tests/controller_test.cpp
     tests/historical_orbital_scorer_test.cpp
+    tests/invariant_test.cpp
     tests/wire_codec_test.cpp)
   if(SATELLITE_SWARM_BUILD_SIMULATION)
     target_sources(

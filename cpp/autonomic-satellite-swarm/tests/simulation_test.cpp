@@ -136,6 +136,19 @@ TEST_CASE("malformed simulation traces fail before a controller runs") {
     CHECK_THROWS_AS(runSimulationTrace(trace), std::invalid_argument);
   }
 
+  SECTION("zero boot epoch") {
+    SimulationTrace trace = demonstrationTrace();
+    trace.nodes[1].boot_epoch = 0U;
+    CHECK_THROWS_AS(runSimulationTrace(trace), std::invalid_argument);
+  }
+
+  SECTION("boot epoch exhausted by reset") {
+    SimulationTrace trace = demonstrationTrace();
+    trace.nodes[1].boot_epoch = std::numeric_limits<BootEpoch>::max();
+    trace.frames[0].node_resets.push_back({1U});
+    CHECK_THROWS_AS(runSimulationTrace(trace), std::invalid_argument);
+  }
+
   SECTION("invalid satellite update") {
     SimulationTrace trace = demonstrationTrace();
     SatelliteSnapshot invalid = satelliteAt(0.0F, 0.0F);
@@ -392,7 +405,7 @@ TEST_CASE("directed link changes model an asymmetric partition") {
   const SimulationResult result = runSimulationTrace(trace);
 
   CHECK(result.frames.back().nodes[0].assigned_node == 2U);
-  CHECK(result.frames.back().nodes[1].mission_id == 0U);
+  CHECK_FALSE(isValid(result.frames.back().nodes[1].mission_key));
   CHECK(result.frames.back().nodes[2].state == ControllerState::Active);
 
   bool found_link_drop = false;

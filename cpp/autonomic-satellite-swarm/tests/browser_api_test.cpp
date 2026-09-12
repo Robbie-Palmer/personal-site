@@ -4,7 +4,8 @@
 #include <string>
 
 TEST_CASE("the browser bridge exposes a versioned JSON result") {
-  CHECK(satellite_swarm_browser_api_version() == 2U);
+  CHECK(satellite_swarm_browser_api_version() == 4U);
+  CHECK(std::string(satellite_swarm_source_revision()) == "unknown");
 
   const char* result = satellite_swarm_run_demonstration(12.5F, -45.25F, 0U);
   REQUIRE(result != nullptr);

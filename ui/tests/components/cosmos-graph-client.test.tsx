@@ -197,6 +197,37 @@ describe("CosmosGraphClient", () => {
     expect(screen.getByText("1")).toBeVisible();
   });
 
+  it("offers research papers as a visible graph type", () => {
+    render(
+      <CosmosGraphClient
+        data={{
+          nodes: [
+            ...data.nodes,
+            {
+              id: "paper:site",
+              name: "A Site Paper",
+              type: "paper",
+              href: "https://doi.org/10.1000/site",
+              connections: 1,
+            },
+          ],
+          edges: [
+            ...data.edges,
+            {
+              source: "project:site",
+              target: "paper:site",
+              type: "HAS_RESEARCH_PAPER",
+            },
+          ],
+        }}
+      />,
+    );
+
+    expect(
+      screen.getByRole("button", { name: "Research papers" }),
+    ).toBeVisible();
+  });
+
   it("supports selection, search, direct dragging, reset, and full screen", async () => {
     const user = userEvent.setup();
     render(<CosmosGraphClient data={data} />);

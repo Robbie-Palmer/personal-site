@@ -49,6 +49,53 @@ description = "Install Chromium for Playwright preview tests"
 depends = ["//ui:install"]
 run = "pnpm exec playwright install chromium"
 
+[tasks."audit:satellite-swarm"]
+description = "Audit satellite-swarm payloads, rendering, provenance, and offline requests"
+depends = ["//ui:test:e2e:install"]
+run = "pnpm audit:satellite-swarm"
+
+[tasks."audit:satellite-swarm:serve"]
+description = "Build, serve, and audit the satellite-swarm production export"
+depends = ["//ui:build", "//ui:test:e2e:install"]
+run = '''
+audit_port=${SATELLITE_SWARM_AUDIT_PORT:-0}
+case "$audit_port" in
+  *[!0-9]*|'') echo "SATELLITE_SWARM_AUDIT_PORT must be an integer" >&2; exit 2 ;;
+esac
+audit_server_log=$(mktemp "${TMPDIR:-/tmp}/satellite-swarm-audit.XXXXXX")
+./node_modules/.bin/serve out -l "tcp://127.0.0.1:$audit_port" >"$audit_server_log" 2>&1 &
+audit_server_pid=$!
+trap 'kill "$audit_server_pid" 2>/dev/null || true; rm -f -- "$audit_server_log"' EXIT
+audit_url=
+for _ in $(seq 1 40); do
+  if ! kill -0 "$audit_server_pid" 2>/dev/null; then
+    cat "$audit_server_log" >&2
+    exit 1
+  fi
+  audit_url=$(sed -n 's|.*\(http://127\.0\.0\.1:[0-9][0-9]*\).*|\1|p' "$audit_server_log" | tail -n 1)
+  if [ -n "$audit_url" ]; then break; fi
+  sleep 0.25
+done
+if [ -z "$audit_url" ]; then
+  cat "$audit_server_log" >&2
+  echo "Static-site server did not report its listening address" >&2
+  exit 1
+fi
+source_revision=${SATELLITE_SWARM_SOURCE_REVISION:-${GITHUB_SHA:-$(git rev-parse HEAD)}}
+case "$source_revision" in
+  *[!0-9a-f]*|'') echo "SATELLITE_SWARM_SOURCE_REVISION must be a full lowercase Git revision" >&2; exit 2 ;;
+esac
+revision_length=$(printf %s "$source_revision" | wc -c)
+if [ "$revision_length" -ne 40 ]; then
+  echo "SATELLITE_SWARM_SOURCE_REVISION must be a full lowercase Git revision" >&2
+  exit 2
+fi
+SATELLITE_SWARM_AUDIT_SERVER_PID="$audit_server_pid" \
+  SATELLITE_SWARM_AUDIT_URL="$audit_url" \
+  SATELLITE_SWARM_SOURCE_REVISION="$source_revision" \
+  pnpm audit:satellite-swarm
+'''
+
 [tasks."test:watch"]
 description = "Run tests in watch mode"
 depends = ["//ui:install"]

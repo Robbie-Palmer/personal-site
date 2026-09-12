@@ -189,6 +189,8 @@ export function getProjectWithADRs(
     repoUrl: project.repoUrl,
     demoUrl: project.demoUrl,
     productUrl: project.productUrl,
+    paperUrl: project.paperUrl,
+    paperTitle: project.paperTitle,
     pitch: project.pitch,
     content: project.content,
     technologies: mergedTechnologies,
