@@ -39,13 +39,28 @@ spec:
                     }
                   }
                 }
+            - name: CF_ACCESS_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: t3-code-preview-access
+                  key: CF_ACCESS_CLIENT_ID
+                  optional: false
+            - name: CF_ACCESS_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: t3-code-preview-access
+                  key: CF_ACCESS_CLIENT_SECRET
+                  optional: false
+            - name: CLOUDFLARE_PAGES_HOST
+              valueFrom:
+                secretKeyRef:
+                  name: t3-code-preview-access
+                  key: CLOUDFLARE_PAGES_HOST
+                  optional: false
           envFrom:
             - secretRef:
                 name: t3-code-runtime
                 optional: true
-            - secretRef:
-                name: t3-code-preview-access
-                optional: false
           resources:
             requests:
               cpu: 500m

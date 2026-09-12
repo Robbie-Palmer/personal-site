@@ -504,12 +504,51 @@ test("the pilot overlay renders two distinct workspaces", () => {
       0,
       "envFrom",
     ]),
-    [
-      { secretRef: { name: "t3-code-runtime", optional: true } },
+    [{ secretRef: { name: "t3-code-runtime", optional: true } }],
+  );
+  const operatorEnvironment = valueAt(operatorDeployment, [
+    "spec",
+    "template",
+    "spec",
+    "containers",
+    0,
+    "env",
+  ]);
+  assert.ok(Array.isArray(operatorEnvironment));
+  for (const name of [
+    "CF_ACCESS_CLIENT_ID",
+    "CF_ACCESS_CLIENT_SECRET",
+    "CLOUDFLARE_PAGES_HOST",
+  ]) {
+    assert.deepEqual(
+      operatorEnvironment.find(
+        (entry) =>
+          typeof entry === "object" && entry !== null && entry.name === name,
+      ),
       {
-        secretRef: { name: "t3-code-preview-access", optional: false },
+        name,
+        valueFrom: {
+          secretKeyRef: {
+            key: name,
+            name: "t3-code-preview-access",
+            optional: false,
+          },
+        },
       },
-    ],
+    );
+  }
+  assert.ok(
+    String(
+      valueAt(operatorDeployment, [
+        "spec",
+        "template",
+        "spec",
+        "initContainers",
+        0,
+        "command",
+        3,
+      ]),
+    ).includes("/data/home/.t3/worktrees"),
   );
 
   const dockerSidecar = valueAt(operatorDeployment, [
@@ -776,8 +815,9 @@ test("the NixOS host publishes, prepares, and limits both workspace paths", () =
       healthCheck.indexOf('return "${rollout_status}"'),
     "restart diagnostics must be collected before a failed rollout is returned",
   );
-  assert.ok(healthCheck.includes('has("CF_ACCESS_CLIENT_ID")'));
-  assert.ok(healthCheck.includes('has("CF_ACCESS_CLIENT_SECRET")'));
+  assert.ok(healthCheck.includes(".CF_ACCESS_CLIENT_ID"));
+  assert.ok(healthCheck.includes(".CF_ACCESS_CLIENT_SECRET"));
+  assert.ok(healthCheck.includes("@base64d"));
 
   const dopplerInstaller = readFileSync(
     new URL("../scripts/install-doppler-operator", import.meta.url),
@@ -788,4 +828,11 @@ test("the NixOS host publishes, prepares, and limits both workspace paths", () =
       '"t3-code:doppler-agent-token:personal-site:dev_agent"',
     ),
   );
+  assert.ok(
+    dopplerInstaller.includes(
+      'remote-development-k3s-${namespace}-${token_secret}-${doppler_config}',
+    ),
+  );
+  assert.ok(dopplerInstaller.includes("--from-file=serviceToken=/dev/stdin"));
+  assert.ok(!dopplerInstaller.includes("token_file"));
 });

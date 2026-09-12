@@ -35,6 +35,7 @@ spec:
             - >-
               mkdir -p
               /data/home/.t3
+              /data/home/.t3/worktrees
               /data/home/.codex
               /data/home/.codex-personal
               /data/home/.config/opencode

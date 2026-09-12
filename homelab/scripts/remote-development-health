@@ -89,9 +89,12 @@ check_workspace t3-code 30773 t3-code-remote-development
 k3s kubectl --namespace t3-code get secret t3-code-preview-access --output=json \
   | jq --exit-status '
       .data
-      | has("CF_ACCESS_CLIENT_ID")
-        and has("CF_ACCESS_CLIENT_SECRET")
-        and has("CLOUDFLARE_PAGES_HOST")
+      | [.CF_ACCESS_CLIENT_ID, .CF_ACCESS_CLIENT_SECRET, .CLOUDFLARE_PAGES_HOST]
+      | all(
+          type == "string"
+            and length > 0
+            and ((@base64d | length) > 0)
+        )
     ' >/dev/null
 echo "operator preview Access credentials are present"
 check_workspace \
