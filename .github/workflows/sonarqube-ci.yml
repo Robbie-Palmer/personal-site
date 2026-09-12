@@ -72,7 +72,8 @@ jobs:
             ~/.local/share/mise/installs/pipx-clang-tidy
             ~/.local/share/mise/installs/pipx-gcovr
             ~/.local/share/mise/installs/python
-          key: mise-cpp-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('cpp/mise.toml', 'cpp/autonomic-satellite-swarm/mise.toml') }}
+            ~/.local/share/mise/installs/uv
+          key: mise-cpp-v2-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('.github/workflows/sonarqube-ci.yml', 'cpp/mise.toml', 'cpp/autonomic-satellite-swarm/mise.toml') }}
 
       - name: Install coverage toolchain
         shell: bash
@@ -103,6 +104,7 @@ jobs:
             ~/.local/share/mise/installs/pipx-clang-tidy
             ~/.local/share/mise/installs/pipx-gcovr
             ~/.local/share/mise/installs/python
+            ~/.local/share/mise/installs/uv
           key: ${{ steps.cpp-toolchain-cache.outputs.cache-primary-key }}
 
       - name: Generate coverage reports
