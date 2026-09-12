@@ -66,6 +66,7 @@ export function addFlowSankeyWaypoints(
 ): FlowSankeyRenderData {
   const depths = nodeDepths(data);
   const nodes: FlowSankeyRenderNode[] = [...data.nodes];
+  const nodeIds = new Set(nodes.map((node) => node.id));
   const links = data.links.flatMap((link, linkIndex) => {
     if (
       !Number.isInteger(link.source) ||
@@ -87,8 +88,14 @@ export function addFlowSankeyWaypoints(
 
     for (let depth = sourceDepth + 1; depth < targetDepth; depth += 1) {
       const target = nodes.length;
+      const idPrefix = `__flow_waypoint:${linkIndex}:${depth}`;
+      let id = idPrefix;
+      for (let suffix = 1; nodeIds.has(id); suffix += 1) {
+        id = `${idPrefix}:${suffix}`;
+      }
+      nodeIds.add(id);
       nodes.push({
-        id: `__flow_waypoint:${linkIndex}:${depth}`,
+        id,
         name: "",
         color: FLOW_SANKEY_LINK_COLOR,
         flowKey,
@@ -112,6 +119,13 @@ function remapFlowSankeyData(
   const remappedIndexes = new Map(
     orderedNodeIndexes.map((nodeIndex, nextIndex) => [nodeIndex, nextIndex]),
   );
+  const remappedIndex = (nodeIndex: number): number => {
+    const index = remappedIndexes.get(nodeIndex);
+    if (index == null) {
+      throw new RangeError(`Missing remapped Sankey node ${nodeIndex}`);
+    }
+    return index;
+  };
   return {
     nodes: orderedNodeIndexes.flatMap((nodeIndex) => {
       const node = data.nodes[nodeIndex];
@@ -119,8 +133,8 @@ function remapFlowSankeyData(
     }),
     links: data.links.map((link) => ({
       ...link,
-      source: remappedIndexes.get(link.source) ?? link.source,
-      target: remappedIndexes.get(link.target) ?? link.target,
+      source: remappedIndex(link.source),
+      target: remappedIndex(link.target),
     })),
   };
 }

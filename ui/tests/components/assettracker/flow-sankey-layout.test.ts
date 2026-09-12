@@ -196,6 +196,53 @@ describe("getFlowSankeyLayout", () => {
     ).toBe(true);
   });
 
+  it("keeps generated waypoint IDs distinct from imported node IDs", () => {
+    const data: FlowSankeyData = {
+      nodes: [
+        { id: "source", name: "Source", color: "blue" },
+        { id: "middle", name: "Middle", color: "blue" },
+        { id: "target", name: "Target", color: "blue" },
+        {
+          id: "__flow_waypoint:0:1",
+          name: "Imported",
+          color: "blue",
+        },
+      ],
+      links: [
+        {
+          source: 0,
+          target: 2,
+          value: 10,
+          label: "Long flow",
+          sourceName: "Source",
+          targetName: "Target",
+        },
+        {
+          source: 0,
+          target: 1,
+          value: 5,
+          label: "First hop",
+          sourceName: "Source",
+          targetName: "Middle",
+        },
+        {
+          source: 1,
+          target: 2,
+          value: 5,
+          label: "Second hop",
+          sourceName: "Middle",
+          targetName: "Target",
+        },
+      ],
+    };
+
+    const routed = addFlowSankeyWaypoints(data);
+    const nodeIds = routed.nodes.map((node) => node.id);
+
+    expect(new Set(nodeIds).size).toBe(nodeIds.length);
+    expect(nodeIds).toContain("__flow_waypoint:0:1:1");
+  });
+
   it("gives long labels a bounded slot between Sankey columns", () => {
     const layout = getFlowSankeyLayout(flowFixture([2, 3, 3, 2, 2], true), 688);
 

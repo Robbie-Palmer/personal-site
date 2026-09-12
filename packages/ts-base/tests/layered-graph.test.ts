@@ -52,6 +52,17 @@ describe("orderLayeredGraphNodes", () => {
     expect(Math.sign(sourceOrder)).toBe(Math.sign(targetOrder));
   });
 
+  it("orders edges with weights near the numeric limit", () => {
+    const ordered = orderLayeredGraphNodes(4, [
+      edge(0, 3, Number.MAX_VALUE),
+      edge(1, 2, Number.MAX_VALUE),
+    ]);
+    const sourceOrder = ordered.indexOf(0) - ordered.indexOf(1);
+    const targetOrder = ordered.indexOf(3) - ordered.indexOf(2);
+
+    expect(Math.sign(sourceOrder)).toBe(Math.sign(targetOrder));
+  });
+
   it("keeps every node when neighbours are isolated or zero-weighted", () => {
     const ordered = orderLayeredGraphNodes(7, [
       edge(0, 4),

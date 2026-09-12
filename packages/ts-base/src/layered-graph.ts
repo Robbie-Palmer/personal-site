@@ -36,6 +36,18 @@ function validEdges(
   );
 }
 
+function normaliseEdgeWeights(edges: LayeredGraphEdge[]): LayeredGraphEdge[] {
+  const largestWeight = edges.reduce(
+    (largest, edge) => Math.max(largest, edge.weight),
+    0,
+  );
+  if (largestWeight <= 1) return edges;
+  return edges.map((edge) => ({
+    ...edge,
+    weight: edge.weight / largestWeight,
+  }));
+}
+
 /**
  * Assigns each node its longest-path layer. Edges with out-of-range endpoints
  * or non-finite, negative weights are ignored.
@@ -90,24 +102,35 @@ function reorderLayer(
   const previousOrder = new Map(
     layer.map((nodeIndex, position) => [nodeIndex, position]),
   );
-  const barycentre = (nodeIndex: number) => {
+  const barycentres = new Map<number, number>();
+  for (const nodeIndex of layer) {
     const adjacent = neighbours.get(nodeIndex) ?? [];
-    if (adjacent.length === 0) return previousOrder.get(nodeIndex) ?? 0;
+    const previousPosition = previousOrder.get(nodeIndex) ?? 0;
+    if (adjacent.length === 0) {
+      barycentres.set(nodeIndex, previousPosition);
+      continue;
+    }
     const totalWeight = adjacent.reduce((sum, edge) => sum + edge.weight, 0);
-    if (totalWeight === 0) return previousOrder.get(nodeIndex) ?? 0;
-    return (
+    if (totalWeight === 0) {
+      barycentres.set(nodeIndex, previousPosition);
+      continue;
+    }
+    barycentres.set(
+      nodeIndex,
       adjacent.reduce(
         (sum, edge) => sum + (positions.get(edge.index) ?? 0) * edge.weight,
         0,
-      ) / totalWeight
+      ) / totalWeight,
     );
-  };
+  }
 
-  layer.sort(
-    (left, right) =>
-      barycentre(left) - barycentre(right) ||
-      (previousOrder.get(left) ?? 0) - (previousOrder.get(right) ?? 0),
-  );
+  layer.sort((left, right) => {
+    const leftBarycentre = barycentres.get(left) ?? 0;
+    const rightBarycentre = barycentres.get(right) ?? 0;
+    if (leftBarycentre < rightBarycentre) return -1;
+    if (leftBarycentre > rightBarycentre) return 1;
+    return (previousOrder.get(left) ?? 0) - (previousOrder.get(right) ?? 0);
+  });
 
   let changed = false;
   for (const [position, nodeIndex] of layer.entries()) {
@@ -128,14 +151,21 @@ function linkPairCrossingWeight(
     depths.get(first.target) !== depths.get(second.target);
   const sharesNode =
     first.source === second.source || first.target === second.target;
-  if (spansDifferentLayers || sharesNode) return 0;
+  if (
+    spansDifferentLayers ||
+    sharesNode ||
+    first.weight === 0 ||
+    second.weight === 0
+  ) {
+    return 0;
+  }
 
   const sourceOrder =
     (positions.get(first.source) ?? 0) - (positions.get(second.source) ?? 0);
   const targetOrder =
     (positions.get(first.target) ?? 0) - (positions.get(second.target) ?? 0);
   return sourceOrder * targetOrder < 0
-    ? Math.sqrt(first.weight * second.weight)
+    ? Math.sqrt(first.weight) * Math.sqrt(second.weight)
     : 0;
 }
 
@@ -241,10 +271,8 @@ function transposePass(edges: LayeredGraphEdge[], layers: number[][]): boolean {
 
 function transposeLayers(edges: LayeredGraphEdge[], layers: number[][]): boolean {
   let changed = false;
-  for (const _layer of layers) {
-    const passChanged = transposePass(edges, layers);
-    changed ||= passChanged;
-    if (!passChanged) break;
+  while (transposePass(edges, layers)) {
+    changed = true;
   }
   return changed;
 }
@@ -313,7 +341,7 @@ export function orderLayeredGraphNodes(
   options: LayeredGraphOrderOptions = {},
 ): number[] {
   assertNodeCount(nodeCount);
-  const graphEdges = validEdges(nodeCount, edges);
+  const graphEdges = normaliseEdgeWeights(validEdges(nodeCount, edges));
   const depths = layeredGraphNodeDepths(nodeCount, graphEdges);
   const maxDepth = Math.max(0, ...depths);
   const layers = Array.from({ length: maxDepth + 1 }, () => [] as number[]);
