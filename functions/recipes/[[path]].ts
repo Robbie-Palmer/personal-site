@@ -1,6 +1,5 @@
 import {
   escapeHtmlAttribute,
-  escapeHtmlText,
   formatRecipeIngredientText,
   formatRecipeCooklang,
 } from "recipe-domain/serialization";
@@ -30,6 +29,23 @@ type Context = {
   next: () => Promise<Response>;
   waitUntil?: (promise: Promise<unknown>) => void;
 };
+
+interface HtmlRewriterElement {
+  append(content: string, options: { html: true }): void;
+  remove(): void;
+  setAttribute(name: string, value: string): void;
+  setInnerContent(content: string): void;
+}
+
+interface HtmlRewriter {
+  on(
+    selector: string,
+    handlers: { element(element: HtmlRewriterElement): void },
+  ): HtmlRewriter;
+  transform(response: Response): Response;
+}
+
+type HtmlRewriterConstructor = new () => HtmlRewriter;
 
 function textResponse(body: string, contentType: string): Response {
   return new Response(body, {
@@ -139,20 +155,42 @@ export const onRequest = async (context: Context): Promise<Response> => {
           slug,
         ).trim()}</script>`
       : "";
-    let html = (await asset.text())
-      .replace(
-        /<title>[\s\S]*?<\/title>/,
-        `<title>${escapeHtmlText(loaded.payload.recipe.title)}</title>`,
-      )
-      .replace(
-        /<meta name="description" content="[^"]*"\s*\/?>/i,
-        `<meta name="description" content="${escapeHtmlAttribute(description)}">`,
-      )
-      .replace("</head>", `${headMarkup}</head>`);
+    const Rewriter = (
+      globalThis as typeof globalThis & {
+        HTMLRewriter: HtmlRewriterConstructor;
+      }
+    ).HTMLRewriter;
+    let rewriter = new Rewriter()
+      .on("title", {
+        element(element) {
+          element.setInnerContent(loaded.payload.recipe.title);
+        },
+      })
+      .on('meta[name="description"]', {
+        element(element) {
+          element.setAttribute("content", description);
+        },
+      });
     if (isPublic) {
-      html = html.replace(/<meta name="robots"[^>]*>/i, "");
+      rewriter = rewriter
+        .on('meta[name="robots"]', {
+          element(element) {
+            element.remove();
+          },
+        })
+        .on("head", {
+          element(element) {
+            element.append(headMarkup, { html: true });
+          },
+        });
     }
-    return new Response(html, { status: asset.status, headers });
+    return rewriter.transform(
+      new Response(asset.body, {
+        status: asset.status,
+        statusText: asset.statusText,
+        headers,
+      }),
+    );
   }
 
   const loaded = await loadPublicRecipe(context.env, slug);
