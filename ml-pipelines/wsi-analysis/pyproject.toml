@@ -19,12 +19,16 @@ wsi-analysis = "wsi_analysis.cli:main"
 
 [dependency-groups]
 dev = [
-    "pytest>=8.4.2,<9",
+    "pytest>=9.0.3,<10",
     "pytest-cases>=3.10.1",
     "pytest-cov>=7.0.0",
     "ruff>=0.14.14",
     "ty>=0.0.75",
 ]
+
+[tool.uv.sources]
+# Remove when https://github.com/smarie/python-pytest-cases/pull/386 is released.
+pytest-cases = { git = "https://github.com/smarie/python-pytest-cases.git", rev = "37c72c1350899d45bc80e92b4b4168b5f7a7af7c" }
 
 [build-system]
 requires = ["uv_build>=0.12.5,<0.13.0"]
