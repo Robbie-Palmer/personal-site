@@ -31,8 +31,15 @@ if (existsSync(settingsPath)) {
 
 const providers = recordOrEmpty(settings.providers);
 const providerInstances = recordOrEmpty(settings.providerInstances);
-const personalCodex = recordOrEmpty(providerInstances["codex-personal"]);
-const personalCodexConfig = recordOrEmpty(personalCodex.config);
+const legacyCodex2 = recordOrEmpty(providerInstances["codex-personal"]);
+const configuredCodex2 = recordOrEmpty(providerInstances.codex2);
+const codex2 = { ...legacyCodex2, ...configuredCodex2 };
+const codex2Config = {
+  ...recordOrEmpty(legacyCodex2.config),
+  ...recordOrEmpty(configuredCodex2.config),
+};
+const migratedProviderInstances = { ...providerInstances };
+delete migratedProviderInstances["codex-personal"];
 
 settings.providers = {
   ...providers,
@@ -47,15 +54,15 @@ settings.providers = {
 };
 
 settings.providerInstances = {
-  ...providerInstances,
-  "codex-personal": {
-    ...personalCodex,
+  ...migratedProviderInstances,
+  codex2: {
+    ...codex2,
     driver: "codex",
-    displayName: personalCodex.displayName ?? "Codex personal",
-    accentColor: personalCodex.accentColor ?? "#30eb25",
-    enabled: personalCodex.enabled ?? true,
+    displayName: "codex2",
+    accentColor: codex2.accentColor ?? "#30eb25",
+    enabled: codex2.enabled ?? true,
     config: {
-      ...personalCodexConfig,
+      ...codex2Config,
       binaryPath: "codex",
       homePath: "/data/home/.codex",
       shadowHomePath: "/data/home/.codex-personal",

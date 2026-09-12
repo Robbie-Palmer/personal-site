@@ -127,10 +127,10 @@ CODEX_HOME=/data/home/.codex codex login --device-auth
 CODEX_HOME=/data/home/.codex-personal codex login --device-auth
 ```
 
-T3 labels the second login `Codex personal`. Its shadow home keeps
+T3 labels the second provider `codex2`. Its shadow home keeps
 `auth.json` separate while sharing the main Codex configuration, skills, and
-session state. The image bootstrap keeps an existing display name, colour,
-enabled state, and extra configuration when it adds this provider.
+session state. The image bootstrap keeps its existing colour, enabled state,
+and extra configuration when it adds this provider.
 
 The resulting `auth.json` files contain access tokens. Do not copy them into an
 image, Doppler, Kubernetes manifests, Terraform, logs, tickets, or chat. GitHub

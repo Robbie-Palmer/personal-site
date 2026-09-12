@@ -4,7 +4,7 @@ This image packages the headless t3-code server and its supported coding-agent
 CLIs, mise, Doppler, and the native libraries required by headless browser
 tests. The base image uses an immutable digest, every top-level npm package
 uses an explicit version, and the deployment uses the release tag
-`0.0.38-agent-tools-7`. Increment that release suffix for every image change.
+`0.0.38-agent-tools-8`. Increment that release suffix for every image change.
 After the first registry publish, replacing the tag in the manifests with its
 registry digest adds another immutability check.
 
@@ -14,7 +14,7 @@ volume at `/data`; t3 state and provider authentication live under
 Neither the image nor its build context contains credentials.
 
 The deployment enables the OpenCode and Grok providers in T3's persisted
-settings and adds a `Codex personal` instance backed by a separate
+settings and adds a `codex2` instance backed by a separate
 `auth.json`. The remote-development overlay declares OpenRouter's GLM 5.3 Flash
 model through `OPENCODE_CONFIG_CONTENT`. Doppler injects
 `OPENROUTER_API_KEY`; the key never appears in the OpenCode configuration or
