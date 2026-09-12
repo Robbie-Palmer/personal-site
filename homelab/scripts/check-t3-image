@@ -71,7 +71,7 @@ if [ "${server_ready}" != true ]; then
   exit 1
 fi
 echo "t3-code image starts as UID/GID 2000 and serves HTTP"
-docker stop "${container}" >/dev/null
+docker stop "${container}" >/dev/null 2>&1 || true
 
 docker volume create "${docker_data_volume}" >/dev/null
 docker run --rm \
