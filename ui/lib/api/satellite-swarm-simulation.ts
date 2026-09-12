@@ -165,44 +165,44 @@ export function parseSatelliteSwarmSimulation(
 export function describeSatelliteSwarmEvent(
   event: SatelliteSwarmEvent,
 ): string {
-  if (event.type === "mission-command") {
-    return `Node ${event.nodeId} ${event.accepted ? "accepted" : "rejected"} the mission command.`;
+  switch (event.type) {
+    case "mission-command":
+      return `Node ${event.nodeId} ${event.accepted ? "accepted" : "rejected"} the mission command.`;
+    case "state-changed":
+      return `Node ${event.nodeId} changed from ${event.previousState} to ${event.currentState}.`;
+    case "node-reset":
+      return `Node ${event.nodeId} reset from ${event.previousState} to ${event.currentState}.`;
+    case "link-changed":
+      return `Link ${event.nodeId} to node ${event.recipientNode} ${event.connected ? "connected" : "disconnected"}.`;
+    case "message-dropped": {
+      const reason =
+        event.reason === "link-unavailable"
+          ? "because the link was unavailable"
+          : "by the fault schedule";
+      return `Node ${event.nodeId}'s ${event.message.type} to node ${event.recipientNode} was dropped ${reason}.`;
+    }
+    case "message-delayed":
+      return `Node ${event.nodeId}'s ${event.message.type} to node ${event.recipientNode} was delayed until ${event.deliverAtMs} ms.`;
+    case "message-duplicated":
+      return `Node ${event.nodeId}'s ${event.message.type} was delivered twice to node ${event.recipientNode}.`;
+    case "delayed-message-delivered":
+      return `Node ${event.nodeId}'s delayed ${event.message.type} reached node ${event.recipientNode}.`;
+    case "message-sent":
+      return describeMessageSentEvent(event);
   }
-  if (event.type === "state-changed") {
-    return `Node ${event.nodeId} changed from ${event.previousState} to ${event.currentState}.`;
-  }
-  if (event.type === "node-reset") {
-    return `Node ${event.nodeId} reset from ${event.previousState} to ${event.currentState}.`;
-  }
-  if (event.type === "link-changed") {
-    return `Link ${event.nodeId} to node ${event.recipientNode} ${event.connected ? "connected" : "disconnected"}.`;
-  }
-  if (event.type === "message-dropped") {
-    const reason =
-      event.reason === "link-unavailable"
-        ? "because the link was unavailable"
-        : "by the fault schedule";
-    return `Node ${event.nodeId}'s ${event.message.type} to node ${event.recipientNode} was dropped ${reason}.`;
-  }
-  if (event.type === "message-delayed") {
-    return `Node ${event.nodeId}'s ${event.message.type} to node ${event.recipientNode} was delayed until ${event.deliverAtMs} ms.`;
-  }
-  if (event.type === "message-duplicated") {
-    return `Node ${event.nodeId}'s ${event.message.type} was delivered twice to node ${event.recipientNode}.`;
-  }
-  if (event.type === "delayed-message-delivered") {
-    return `Node ${event.nodeId}'s delayed ${event.message.type} reached node ${event.recipientNode}.`;
-  }
+}
 
-  const { message } = event;
-  if (message.type === "mission-request") {
-    return `Node ${event.nodeId} broadcast mission ${message.missionId}.`;
+function describeMessageSentEvent(
+  event: Extract<SatelliteSwarmEvent, { type: "message-sent" }>,
+): string {
+  switch (event.message.type) {
+    case "mission-request":
+      return `Node ${event.nodeId} broadcast mission ${event.message.missionId}.`;
+    case "candidacy":
+      return `Node ${event.nodeId} sent score ${event.message.score} to node ${event.message.target}.`;
+    case "acknowledgement":
+      return `Node ${event.nodeId} acknowledged node ${event.message.target}.`;
+    case "mission-assignment":
+      return `Node ${event.nodeId} assigned mission ${event.message.missionId} to node ${event.message.target}.`;
   }
-  if (message.type === "candidacy") {
-    return `Node ${event.nodeId} sent score ${message.score} to node ${message.target}.`;
-  }
-  if (message.type === "acknowledgement") {
-    return `Node ${event.nodeId} acknowledged node ${message.target}.`;
-  }
-  return `Node ${event.nodeId} assigned mission ${message.missionId} to node ${message.target}.`;
 }

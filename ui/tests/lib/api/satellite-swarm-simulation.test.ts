@@ -95,6 +95,134 @@ describe("satellite swarm simulation records", () => {
     );
   });
 
+  it("describes every replay event variant", () => {
+    const message = {
+      missionId: 1,
+      origin: 0,
+      score: 0,
+      target: 1,
+      type: "mission-assignment",
+    } as const;
+    const record = parseSatelliteSwarmSimulation({
+      ...validRecord,
+      events: [
+        {
+          accepted: false,
+          nodeId: 0,
+          objective: validRecord.objective,
+          timeMs: 0,
+          type: "mission-command",
+        },
+        {
+          currentState: "idle",
+          nodeId: 1,
+          previousState: "safe-disabled",
+          timeMs: 10,
+          type: "node-reset",
+        },
+        {
+          connected: false,
+          nodeId: 0,
+          recipientNode: 1,
+          timeMs: 20,
+          type: "link-changed",
+        },
+        {
+          connected: true,
+          nodeId: 0,
+          recipientNode: 1,
+          timeMs: 30,
+          type: "link-changed",
+        },
+        {
+          message,
+          nodeId: 0,
+          reason: "link-unavailable",
+          recipientNode: 1,
+          timeMs: 40,
+          type: "message-dropped",
+        },
+        {
+          deliverAtMs: 60,
+          message,
+          nodeId: 0,
+          recipientNode: 1,
+          timeMs: 50,
+          type: "message-delayed",
+        },
+        {
+          message,
+          nodeId: 0,
+          recipientNode: 1,
+          timeMs: 60,
+          type: "message-duplicated",
+        },
+        {
+          message,
+          nodeId: 0,
+          recipientNode: 1,
+          timeMs: 70,
+          type: "delayed-message-delivered",
+        },
+        {
+          currentState: "active",
+          nodeId: 1,
+          previousState: "awaiting assignment",
+          timeMs: 80,
+          type: "state-changed",
+        },
+        {
+          message: {
+            ...message,
+            origin: 1,
+            score: 72,
+            target: 0,
+            type: "candidacy",
+          },
+          nodeId: 1,
+          timeMs: 90,
+          type: "message-sent",
+        },
+        {
+          message: { ...message, type: "acknowledgement" },
+          nodeId: 0,
+          timeMs: 100,
+          type: "message-sent",
+        },
+        {
+          message,
+          nodeId: 0,
+          timeMs: 110,
+          type: "message-sent",
+        },
+        {
+          message: { ...message, target: null, type: "mission-request" },
+          nodeId: 0,
+          timeMs: 120,
+          type: "message-sent",
+        },
+      ],
+    });
+
+    expect(
+      record.events.map((event) => describeSatelliteSwarmEvent(event)),
+    ).toEqual([
+      "Node 0 rejected the mission command.",
+      "Node 1 reset from safe-disabled to idle.",
+      "Link 0 to node 1 disconnected.",
+      "Link 0 to node 1 connected.",
+      "Node 0's mission-assignment to node 1 was dropped because the link was unavailable.",
+      "Node 0's mission-assignment to node 1 was delayed until 60 ms.",
+      "Node 0's mission-assignment was delivered twice to node 1.",
+      "Node 0's delayed mission-assignment reached node 1.",
+      "Node 1 changed from awaiting assignment to active.",
+      "Node 1 sent score 72 to node 0.",
+      "Node 0 acknowledged node 1.",
+      "Node 0 assigned mission 1 to node 1.",
+      "Node 0 broadcast mission 1.",
+    ]);
+  });
+
   it("accepts only mission requests as broadcasts", () => {
     const messageEvent = validRecord.events[0];
 

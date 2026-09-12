@@ -372,12 +372,43 @@ TEST_CASE("invalid network fault inputs fail deterministically") {
     CHECK_THROWS_AS(runSimulationTrace(trace), std::invalid_argument);
   }
 
+  SECTION("self-directed delivery fault") {
+    SimulationTrace trace = demonstrationTrace();
+    trace.frames[0].delivery_faults.push_back(
+        {1U, 1U, MessageType::Candidacy, DeliveryFaultType::Drop, 0U});
+    CHECK_THROWS_AS(runSimulationTrace(trace), std::invalid_argument);
+  }
+
   SECTION("unmatched delivery fault") {
     SimulationTrace trace = demonstrationTrace();
     trace.frames[0].delivery_faults.push_back(
         {2U, 1U, MessageType::MissionAssignment, DeliveryFaultType::Drop, 0U});
     CHECK_THROWS_AS(runSimulationTrace(trace), std::invalid_argument);
   }
+}
+
+TEST_CASE("browser serialization preserves every network fault event") {
+  SimulationTrace trace = makeBrowserDemonstrationTrace(Coordinate(0.0F, -90.0F));
+  trace.frames[0].delivery_faults = {
+      {0U, 2U, MessageType::MissionRequest, DeliveryFaultType::Duplicate, 0U},
+      {1U, 0U, MessageType::Candidacy, DeliveryFaultType::Delay, 20U},
+      {2U, 0U, MessageType::Candidacy, DeliveryFaultType::Delay, 30U},
+  };
+  trace.frames[2].link_updates.push_back({1U, 0U, false});
+  trace.frames[3].link_updates.push_back({1U, 0U, true});
+  trace.frames[12].node_resets.push_back({1U});
+
+  const std::string json = serializeBrowserSimulation(trace, runSimulationTrace(trace));
+
+  CHECK(json.find(R"("type":"message-delayed")") != std::string::npos);
+  CHECK(json.find(R"("deliverAtMs":20)") != std::string::npos);
+  CHECK(json.find(R"("type":"message-duplicated")") != std::string::npos);
+  CHECK(json.find(R"("type":"delayed-message-delivered")") != std::string::npos);
+  CHECK(json.find(R"("reason":"link-unavailable")") != std::string::npos);
+  CHECK(json.find(R"("type":"link-changed")") != std::string::npos);
+  CHECK(json.find(R"("connected":false)") != std::string::npos);
+  CHECK(json.find(R"("connected":true)") != std::string::npos);
+  CHECK(json.find(R"("type":"node-reset")") != std::string::npos);
 }
 
 TEST_CASE("the browser assignment-loss scenario records the dropped delivery") {

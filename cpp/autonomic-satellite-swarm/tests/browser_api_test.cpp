@@ -13,6 +13,11 @@ TEST_CASE("the browser bridge exposes a versioned JSON result") {
   CHECK(json.find(R"("objective": {"longitudeDegrees":12.5,"latitudeDegrees":-45.25})") !=
         std::string::npos);
   CHECK(std::string(satellite_swarm_last_error()).empty());
+
+  const char* fault_result = satellite_swarm_run_demonstration(0.0F, -90.0F, 1U);
+  REQUIRE(fault_result != nullptr);
+  CHECK(std::string(fault_result).find(R"("scenario": "three-node-assignment-loss")") !=
+        std::string::npos);
 }
 
 TEST_CASE("the browser bridge reports invalid input without unwinding across C") {

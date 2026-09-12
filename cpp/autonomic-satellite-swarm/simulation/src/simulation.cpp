@@ -32,10 +32,15 @@ public:
 
 private:
   struct PendingDelivery {
-    uint32_t deliver_at_ms = 0U;
-    NodeId sender = 0U;
-    NodeId recipient = 0U;
-    Message message{};
+    PendingDelivery(uint32_t delivery_time_ms, NodeId delivery_sender, NodeId delivery_recipient,
+                    const Message& delivery_message)
+        : deliver_at_ms(delivery_time_ms), sender(delivery_sender), recipient(delivery_recipient),
+          message(delivery_message) {}
+
+    uint32_t deliver_at_ms;
+    NodeId sender;
+    NodeId recipient;
+    Message message;
   };
 
   void deliver(NodeId sender, NodeId recipient, const Message& message);
@@ -143,7 +148,7 @@ void SimulationBus::deliver(NodeId sender, NodeId recipient, const Message& mess
     return;
   }
 
-  DeliveryFault* fault = matchingFault(sender, recipient, message.type);
+  const DeliveryFault* const fault = matchingFault(sender, recipient, message.type);
   if (fault == nullptr) {
     transports_.at(static_cast<std::size_t>(recipient))->deliver(message);
     return;
@@ -157,7 +162,7 @@ void SimulationBus::deliver(NodeId sender, NodeId recipient, const Message& mess
     break;
   case DeliveryFaultType::Delay: {
     const uint32_t deliver_at_ms = now_ms_ + selected.delay_ms;
-    pending_deliveries_.push_back({deliver_at_ms, sender, recipient, message});
+    pending_deliveries_.emplace_back(deliver_at_ms, sender, recipient, message);
     recordDeliveryEvent(SimulationEventType::MessageDelayed, sender, recipient, message,
                         deliver_at_ms);
     break;
@@ -201,9 +206,10 @@ void SimulationBus::broadcast(NodeId sender, const Message& message) {
   event.message = message;
   events_.push_back(event);
 
-  for (SimulationTransport* transport : transports_) {
-    if (transport->nodeId() != sender) {
-      deliver(sender, transport->nodeId(), message);
+  for (std::size_t recipient = 0U; recipient < transports_.size(); ++recipient) {
+    const auto recipient_id = static_cast<NodeId>(recipient);
+    if (recipient_id != sender) {
+      deliver(sender, recipient_id, message);
     }
   }
 }
@@ -385,7 +391,7 @@ SimulationResult runSimulationTrace(const SimulationTrace& trace) {
     for (const NodeReset& reset : frame.node_resets) {
       const std::size_t index = static_cast<std::size_t>(reset.node_id);
       const ControllerState previous = controllers[index]->state();
-      const SatelliteSnapshot satellite = controllers[index]->satelliteSnapshot();
+      const auto satellite = controllers[index]->satelliteSnapshot();
       bus.reset(reset.node_id);
       controllers[index] =
           std::make_unique<SwarmController>(reset.node_id, satellite, *transports[index],
