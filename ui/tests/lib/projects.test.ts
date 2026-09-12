@@ -43,6 +43,14 @@ describe("Projects functions", () => {
       expect(project.pitch?.content).not.toContain("<ReviewDepthDemo />");
     });
 
+    it("loads a published research paper URL", () => {
+      const project = getProject("autonomic-satellite-swarm");
+
+      expect(project.paperUrl).toBe(
+        "https://doi.org/10.1109/SMC-IT.2019.00015",
+      );
+    });
+
     it("should return project with all required fields", () => {
       const slugs = getAllProjectSlugs();
       expect(slugs.length).toBeGreaterThan(0);

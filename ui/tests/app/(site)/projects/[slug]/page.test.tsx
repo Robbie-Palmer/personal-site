@@ -76,6 +76,7 @@ const fixture = {
   description: "Test description",
   date: "2026-08-02",
   status: "live",
+  paperUrl: "https://doi.org/10.1000/example",
   content: "# Home Lab\n\nHello",
   technologies: [
     {
@@ -148,6 +149,10 @@ describe("project page", () => {
     expect(
       screen.getByRole("link", { name: "Subscribe to Home Lab" }),
     ).toHaveAttribute("href", "/projects/homelab/feed.xml");
+    expect(screen.getByRole("link", { name: "Read Paper" })).toHaveAttribute(
+      "href",
+      "https://doi.org/10.1000/example",
+    );
   });
 
   it("passes Mermaid and DesignEmbed to the project markdown renderer", async () => {

@@ -516,6 +516,7 @@ export function loadProjects(): ProjectLoadResult {
       repoUrl: data.repo_url,
       demoUrl: data.demo_url,
       productUrl: data.product_url,
+      paperUrl: data.paper_url,
       pitch,
       content,
     };
