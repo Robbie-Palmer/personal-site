@@ -68,19 +68,6 @@ mise exec python@3.14.6 asdf:mise-plugins/mise-emsdk@6.0.9 -- \
 [tasks."browser:build"]
 description = "Build the WebAssembly adapter and copy its deployable artifacts"
 depends = ["browser:configure"]
-sources = [
-  "CMakeLists.txt",
-  "browser/include/**/*",
-  "browser/src/**/*",
-  "mise.toml",
-  "simulation/include/**/*",
-  "simulation/src/**/*",
-  "src/**/*",
-]
-outputs = [
-  "../../ui/public/simulations/autonomic-satellite-swarm/wasm/satellite-swarm.mjs",
-  "../../ui/public/simulations/autonomic-satellite-swarm/wasm/satellite-swarm.wasm",
-]
 tools = { python = "3.14.6" }
 run = '''
 mise exec python@3.14.6 asdf:mise-plugins/mise-emsdk@6.0.9 -- cmake --build build/browser --target satellite_swarm_browser

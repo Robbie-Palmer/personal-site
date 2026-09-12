@@ -62,10 +62,18 @@ audit_port=${SATELLITE_SWARM_AUDIT_PORT:-3013}
 case "$audit_port" in
   *[!0-9]*|'') echo "SATELLITE_SWARM_AUDIT_PORT must be an integer" >&2; exit 2 ;;
 esac
-pnpm exec serve out -l "$audit_port" >/tmp/satellite-swarm-audit-server.log 2>&1 &
+node -e 'const net = require("node:net"); const server = net.createServer(); server.once("error", () => process.exit(1)); server.listen({ exclusive: true, host: "127.0.0.1", port: Number(process.argv[1]) }, () => server.close());' "$audit_port" || {
+  echo "SATELLITE_SWARM_AUDIT_PORT $audit_port is already in use" >&2
+  exit 1
+}
+pnpm exec serve out -l "tcp://127.0.0.1:$audit_port" >/tmp/satellite-swarm-audit-server.log 2>&1 &
 audit_server_pid=$!
 trap 'kill "$audit_server_pid" 2>/dev/null || true' EXIT
-SATELLITE_SWARM_AUDIT_URL="http://127.0.0.1:$audit_port" pnpm audit:satellite-swarm
+source_revision=${SATELLITE_SWARM_SOURCE_REVISION:-${GITHUB_SHA:-$(git rev-parse HEAD)}}
+SATELLITE_SWARM_AUDIT_SERVER_PID="$audit_server_pid" \
+  SATELLITE_SWARM_AUDIT_URL="http://127.0.0.1:$audit_port" \
+  SATELLITE_SWARM_SOURCE_REVISION="$source_revision" \
+  pnpm audit:satellite-swarm
 '''
 
 [tasks."test:watch"]

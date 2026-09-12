@@ -7,6 +7,8 @@ const baseURL = new URL(
 );
 const routeURL = new URL("/satellite-swarm", baseURL);
 const sourceRevisionPattern = /^[0-9a-f]{40}$/;
+const serverPID = Number(process.env.SATELLITE_SWARM_AUDIT_SERVER_PID);
+const expectedSourceRevision = process.env.SATELLITE_SWARM_SOURCE_REVISION;
 
 const profiles = {
   desktop: {
@@ -42,12 +44,37 @@ function classify(url) {
   return null;
 }
 
+function isCesiumJavaScript(url) {
+  const pathname = new URL(url).pathname;
+  return pathname.startsWith("/cesium/") && /\.(?:m?js)$/.test(pathname);
+}
+
+function isNextJavaScriptChunk(url) {
+  return new URL(url).pathname.startsWith("/_next/static/chunks/");
+}
+
+function assertAuditServerAlive() {
+  if (!Number.isInteger(serverPID) || serverPID <= 0) return;
+
+  try {
+    process.kill(serverPID, 0);
+  } catch (cause) {
+    throw new Error(`Static-site server ${serverPID} exited before the audit`, {
+      cause,
+    });
+  }
+}
+
 async function waitForServer() {
   let cause;
   for (let attempt = 0; attempt < 40; attempt += 1) {
+    assertAuditServerAlive();
     try {
       const response = await fetch(routeURL, { method: "HEAD" });
-      if (response.ok) return;
+      if (response.ok) {
+        assertAuditServerAlive();
+        return;
+      }
       cause = new Error(`HTTP ${response.status}`);
     } catch (error) {
       cause = error;
@@ -133,7 +160,11 @@ async function auditProfile(browser, profile) {
     const category = classify(url);
     if (!category) return;
     if (!captureSimulationResources) {
-      if (category === "webAssembly" || category === "imagery") {
+      if (
+        category === "webAssembly" ||
+        category === "imagery" ||
+        isCesiumJavaScript(url)
+      ) {
         preActivationRequests.push({ category, url });
       }
       return;
@@ -194,6 +225,11 @@ async function auditProfile(browser, profile) {
     ) {
       throw new Error("The simulation did not display its exact source revision");
     }
+    if (expectedSourceRevision && fullRevision !== expectedSourceRevision) {
+      throw new Error(
+        `The simulation reported ${fullRevision}, expected ${expectedSourceRevision}`,
+      );
+    }
 
     const frameSamplePromise = sampleAnimationFrames(page, 3_200);
     await page.getByRole("button", { name: "Play replay" }).click();
@@ -201,6 +237,15 @@ async function auditProfile(browser, profile) {
     const rendering = await frameSamplePromise;
 
     await Promise.all(responseTasks);
+    const javascriptRequests = requests.filter(
+      ({ category }) => category === "javaScript",
+    );
+    if (!javascriptRequests.some(({ url }) => isCesiumJavaScript(url))) {
+      throw new Error("The audit measured no deferred Cesium JavaScript");
+    }
+    if (!javascriptRequests.some(({ url }) => isNextJavaScriptChunk(url))) {
+      throw new Error("The audit measured no deferred globe JavaScript chunk");
+    }
     const failedResources = requests.filter(({ status }) => status >= 400);
     if (failedResources.length > 0) {
       throw new Error(
