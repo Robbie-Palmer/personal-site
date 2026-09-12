@@ -245,7 +245,7 @@ describe("dynamic recipe pages", () => {
     const assetFetch = vi.fn(
       async () =>
         new Response(
-          "<html><head><title>Saved Recipe</title><META content='Saved' name='description'><META content='noindex, nofollow' name='robots'></head><body></body></html>",
+          "<html><head><title>Saved Recipe</title><META content='Saved' name='description'><META content='noindex, nofollow' name='robots'><LINK href='https://robbiepalmer.me' rel='canonical'></head><body></body></html>",
         ),
     ) as typeof fetch;
 
@@ -259,8 +259,11 @@ describe("dynamic recipe pages", () => {
     const html = await response.text();
 
     expect(html).toContain("<title>Lentil Soup</title>");
-    expect(html).toContain(
-      '<link rel="canonical" href="https://robbiepalmer.me/recipes/lentil-soup">',
+    const document = new DOMParser().parseFromString(html, "text/html");
+    const canonicalLinks = document.querySelectorAll('link[rel="canonical"]');
+    expect(canonicalLinks).toHaveLength(1);
+    expect(canonicalLinks[0]?.getAttribute("href")).toBe(
+      "https://robbiepalmer.me/recipes/lentil-soup",
     );
     expect(html).toContain('type="application/ld+json"');
     expect(html).not.toContain("noindex");
