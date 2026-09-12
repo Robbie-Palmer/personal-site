@@ -12,8 +12,9 @@ explicit.
 
 > [!IMPORTANT]
 > This is research and demonstration software, not flight software. "Apoptosis" means entering a
-> latched safe-disabled software state. It does not physically destroy or deorbit a spacecraft. The
-> included orbital score is a historical heuristic, not validated astrodynamics.
+> safe-disabled software state that is latched until the controller resets. It does not physically
+> destroy or deorbit a spacecraft. The included orbital score is a historical heuristic, not
+> validated astrodynamics.
 
 ## What it demonstrates
 
@@ -21,10 +22,12 @@ explicit.
 - Available nodes calculate a replaceable candidacy score.
 - The leader acknowledges responses and deterministically assigns the strongest candidate.
 - A busy node does not accept more work.
-- Health policy can place a node into reversible quiescence or an irreversible safe-disabled state.
+- Health policy can place a node into reversible quiescence or a safe-disabled state latched for the controller lifetime.
 - Repeated failure to receive acknowledgements can trigger the historical "death by default" rule.
 - Deterministic trace inputs can drop, delay, or duplicate deliveries, change directed links, and
   reset a node so protocol failures can be replayed exactly.
+- Missions use `{origin node, boot epoch, mission sequence}` keys, so messages from different nodes
+  or leader boots cannot alias the same mission.
 
 ## Quick start
 
@@ -41,7 +44,7 @@ mise run simulate:json
 The simulation should assign the southern-latitude mission to node 1:
 
 ```text
-Mission 1 assigned to node 1
+Mission 0:1:1 assigned to node 1
 node 0: idle
 node 1: active
 node 2: idle
@@ -108,7 +111,7 @@ mise run firmware:uno
 mise run firmware:esp32
 ```
 
-The Uno adapter uses four NEC infrared frames for each validated protocol packet. The ESP32 adapter
+The Uno adapter uses six NEC infrared frames for each validated protocol packet. The ESP32 adapter
 uses ESP-NOW broadcast packets. Both are compile-tested; neither has been exercised on physical
 hardware during the revival because the original equipment is no longer available.
 
@@ -120,14 +123,17 @@ SATELLITE_SWARM_NODE_ID=2 mise run firmware:uno
 SATELLITE_SWARM_NODE_ID=2 mise run firmware:esp32
 ```
 
-Initial coordinates remain deliberately simple constants in each sketch. A real deployment needs
-durably provisioned identities, calibrated health inputs, authenticated transport with replay
-protection, mission persistence, and a genuine guidance/navigation/control implementation.
+The firmware build accepts `SATELLITE_SWARM_BOOT_EPOCH`, which defaults to `1` for compile and bench
+use. A real deployment must advance that value in durable storage before the controller starts after
+a reset. Initial coordinates remain deliberately simple constants in each sketch. A real deployment
+also needs calibrated health inputs, authenticated transport with replay protection, mission
+persistence, and a genuine guidance/navigation/control implementation.
 
 ## Documentation
 
 - [Architecture](docs/architecture.md)
 - [Wire protocol](docs/wire-protocol.md)
+- [Coordination invariant baseline](docs/invariant-baseline.md)
 - [Revival notes and corrected defects](docs/revival-notes.md)
 - [Next research cycle](docs/next-research-cycle.md)
 - [Distributed coordination over intermittent links](docs/distributed-coordination-research.md)

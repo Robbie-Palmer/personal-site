@@ -6,11 +6,26 @@
 namespace satellite_swarm {
 
 using NodeId = uint8_t;
-using MissionId = uint16_t;
+using BootEpoch = uint32_t;
+using MissionSequence = uint16_t;
 
 constexpr NodeId kBroadcastNode = UINT8_MAX;
 constexpr uint8_t kMaximumNodes = 16U;
 constexpr uint8_t kMaximumCandidacyScore = 100U;
+
+struct MissionKey {
+  NodeId origin_node = kBroadcastNode;
+  BootEpoch boot_epoch = 0U;
+  MissionSequence sequence = 0U;
+
+  MissionKey() = default;
+  MissionKey(NodeId origin, BootEpoch epoch, MissionSequence mission_sequence)
+      : origin_node(origin), boot_epoch(epoch), sequence(mission_sequence) {}
+};
+
+bool operator==(const MissionKey& left, const MissionKey& right);
+bool operator!=(const MissionKey& left, const MissionKey& right);
+bool isValid(const MissionKey& mission_key);
 
 struct Coordinate {
   float longitude_degrees = 0.0F;
@@ -46,18 +61,18 @@ enum class MessageType : uint8_t {
 
 struct Message {
   MessageType type = MessageType::MissionRequest;
-  NodeId origin = 0U;
+  NodeId sender = 0U;
   NodeId target = kBroadcastNode;
-  MissionId mission_id = 0U;
+  MissionKey mission_key{};
   Coordinate objective{};
   uint8_t score = 0U;
 
   Message() = default;
 
-  static Message missionRequest(NodeId origin, MissionId mission_id, Coordinate objective);
-  static Message candidacy(NodeId origin, NodeId leader, MissionId mission_id, uint8_t score);
-  static Message acknowledgement(NodeId leader, NodeId candidate, MissionId mission_id);
-  static Message assignment(NodeId leader, NodeId assignee, MissionId mission_id);
+  static Message missionRequest(NodeId sender, MissionKey mission_key, Coordinate objective);
+  static Message candidacy(NodeId sender, NodeId leader, MissionKey mission_key, uint8_t score);
+  static Message acknowledgement(NodeId sender, NodeId candidate, MissionKey mission_key);
+  static Message assignment(NodeId sender, NodeId assignee, MissionKey mission_key);
 };
 
 enum class HealthStatus : uint8_t { Nominal, Quiescent, Fatal };

@@ -20,8 +20,9 @@ struct ControllerConfig {
 
 class SwarmController {
 public:
-  SwarmController(NodeId node_id, const SatelliteSnapshot& satellite, Transport& transport,
-                  HealthMonitor& health_monitor, const CandidacyScorer& scorer,
+  SwarmController(NodeId node_id, BootEpoch boot_epoch, const SatelliteSnapshot& satellite,
+                  Transport& transport, HealthMonitor& health_monitor,
+                  const CandidacyScorer& scorer,
                   const ControllerConfig& config = ControllerConfig());
 
   // now_ms must use one modulo-2^32 monotonic tick source for every call. Unsigned elapsed-time
@@ -35,7 +36,8 @@ public:
   ControllerState state() const { return state_; }
   NodeId nodeId() const { return node_id_; }
   const SatelliteSnapshot& satelliteSnapshot() const { return satellite_; }
-  MissionId currentMissionId() const { return current_mission_.mission_id; }
+  BootEpoch bootEpoch() const { return boot_epoch_; }
+  MissionKey currentMissionKey() const { return current_mission_.mission_key; }
   NodeId assignedNode() const { return assigned_node_; }
   uint8_t currentCandidacyScore() const {
     return node_id_ < kMaximumNodes ? candidates_[node_id_].score : 0U;
@@ -49,6 +51,7 @@ private:
   };
 
   NodeId node_id_;
+  BootEpoch boot_epoch_;
   SatelliteSnapshot satellite_;
   Transport& transport_;
   HealthMonitor& health_monitor_;
@@ -56,7 +59,7 @@ private:
   ControllerConfig config_;
   ControllerState state_ = ControllerState::Idle;
   Message current_mission_{};
-  MissionId next_mission_id_ = 1U;
+  MissionSequence next_mission_sequence_ = 1U;
   NodeId assigned_node_ = kBroadcastNode;
   uint32_t phase_started_at_ms_ = 0U;
   uint32_t last_attempt_at_ms_ = 0U;

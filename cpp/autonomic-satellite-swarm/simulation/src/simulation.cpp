@@ -309,6 +309,9 @@ void validateTrace(const SimulationTrace& trace) {
     if (!isValid(node.satellite)) {
       throw std::invalid_argument("simulation node has an invalid satellite snapshot");
     }
+    if (node.boot_epoch == 0U) {
+      throw std::invalid_argument("simulation node boot epochs must be nonzero");
+    }
   }
 
   uint32_t previous_time = 0U;
@@ -345,7 +348,8 @@ NodeObservation observe(const SwarmController& controller) {
   observation.node_id = controller.nodeId();
   observation.state = controller.state();
   observation.satellite = controller.satelliteSnapshot();
-  observation.mission_id = controller.currentMissionId();
+  observation.boot_epoch = controller.bootEpoch();
+  observation.mission_key = controller.currentMissionKey();
   observation.assigned_node = controller.assignedNode();
   observation.candidacy_score = controller.currentCandidacyScore();
   observation.communication_failures = controller.consecutiveCommunicationFailures();
@@ -366,19 +370,22 @@ SimulationResult runSimulationTrace(const SimulationTrace& trace) {
   std::vector<std::unique_ptr<SimulationTransport>> transports;
   std::vector<std::unique_ptr<SimulationHealth>> health_monitors;
   std::vector<std::unique_ptr<SwarmController>> controllers;
+  std::vector<BootEpoch> boot_epochs;
   transports.reserve(trace.nodes.size());
   health_monitors.reserve(trace.nodes.size());
   controllers.reserve(trace.nodes.size());
+  boot_epochs.reserve(trace.nodes.size());
 
   for (const NodeConfiguration& node : trace.nodes) {
     transports.push_back(std::make_unique<SimulationTransport>(node.node_id, bus));
     health_monitors.push_back(std::make_unique<SimulationHealth>());
+    boot_epochs.push_back(node.boot_epoch);
   }
   for (const NodeConfiguration& node : trace.nodes) {
     const auto index = static_cast<std::size_t>(node.node_id);
-    controllers.push_back(
-        std::make_unique<SwarmController>(node.node_id, node.satellite, *transports[index],
-                                          *health_monitors[index], scorer, controller_config));
+    controllers.push_back(std::make_unique<SwarmController>(
+        node.node_id, node.boot_epoch, node.satellite, *transports[index], *health_monitors[index],
+        scorer, controller_config));
   }
 
   for (const SimulationFrame& frame : trace.frames) {
@@ -397,10 +404,14 @@ SimulationResult runSimulationTrace(const SimulationTrace& trace) {
       const auto index = static_cast<std::size_t>(reset.node_id);
       const ControllerState previous = controllers[index]->state();
       const auto satellite = controllers[index]->satelliteSnapshot();
+      if (boot_epochs[index] == std::numeric_limits<BootEpoch>::max()) {
+        throw std::invalid_argument("simulation node boot epoch exhausted");
+      }
+      ++boot_epochs[index];
       bus.reset(reset.node_id);
-      controllers[index] =
-          std::make_unique<SwarmController>(reset.node_id, satellite, *transports[index],
-                                            *health_monitors[index], scorer, controller_config);
+      controllers[index] = std::make_unique<SwarmController>(
+          reset.node_id, boot_epochs[index], satellite, *transports[index], *health_monitors[index],
+          scorer, controller_config);
 
       SimulationEvent event;
       event.type = SimulationEventType::NodeReset;
