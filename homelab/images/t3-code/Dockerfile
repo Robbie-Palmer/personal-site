@@ -7,7 +7,7 @@ ARG CODEX_VERSION=0.153.2
 ARG CLAUDE_CODE_VERSION=2.1.260
 ARG OPENCODE_VERSION=1.18.27
 ARG GROK_VERSION=1.0.13
-ARG MISE_VERSION=2026.9.1
+ARG MISE_VERSION
 ARG MISE_SHA256=063dda9149ab6be53da877c2d176afe0eac68e64cf8ca295bd0528720701c65d
 ARG DOPPLER_VERSION=3.76.5
 ARG DOPPLER_SHA256=1b2f412d984920d665daf233ab6c15b364df9339b5c5b5224d5e8ee4e0a70154
@@ -21,7 +21,8 @@ LABEL org.opencontainers.image.description="Pinned t3-code runtime for the remot
 COPY --from=docker-cli /usr/local/bin/docker /usr/local/bin/docker
 COPY --from=docker-cli /usr/local/libexec/docker/cli-plugins /usr/local/libexec/docker/cli-plugins
 
-RUN groupadd --gid 2000 t3code \
+RUN test -n "${MISE_VERSION}" \
+    && groupadd --gid 2000 t3code \
     && useradd --uid 2000 --gid 2000 --create-home --shell /bin/bash t3code \
     && apt-get update \
     && apt-get install --yes --no-install-recommends \

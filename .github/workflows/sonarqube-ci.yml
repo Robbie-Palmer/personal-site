@@ -24,7 +24,7 @@ jobs:
   coverage:
     name: Tests and coverage
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -32,11 +32,7 @@ jobs:
           persist-credentials: false
 
       - name: Setup mise
-        uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
-        with:
-          version: "2026.9.1"
-          experimental: true
-          minimum_release_age: 24h
+        uses: $/.github/actions/setup-mise
 
       - name: Get pnpm store directory
         id: pnpm-store
@@ -59,8 +55,68 @@ jobs:
       - name: Test Kubernetes manifests
         run: mise run //homelab:k3s-test-remote
 
+      - name: Resolve C++ toolchain cache paths
+        id: cpp-toolchain
+        shell: bash
+        run: |
+          paths="$(
+            mise ls --current --json --cd cpp/autonomic-satellite-swarm |
+              jq --raw-output --arg prefix "$GITHUB_WORKSPACE/cpp/" '
+                [
+                  to_entries[].value[]
+                  | select(.source.type == "mise.toml")
+                  | select(.source.path | startswith($prefix))
+                  | .install_path
+                ]
+                | unique[]
+              '
+          )"
+
+          if [ -z "$paths" ]; then
+            echo "::error::mise did not resolve any C++ toolchain cache paths"
+            exit 1
+          fi
+
+          {
+            echo 'paths<<MISE_PATHS'
+            echo "$paths"
+            echo 'MISE_PATHS'
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Restore C++ toolchain cache
+        id: cpp-toolchain-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ steps.cpp-toolchain.outputs.paths }}
+          key: mise-cpp-v3-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('.github/actions/setup-mise/**', 'cpp/**/mise.toml') }}
+
+      - name: Install coverage toolchain
+        shell: bash
+        run: |
+          attempt=1
+          until mise install --jobs 1 --cd cpp/autonomic-satellite-swarm; do
+            if (( attempt >= 4 )); then
+              echo "::error::Coverage toolchain installation failed after $attempt attempts"
+              exit 1
+            fi
+
+            delay=$((attempt * 10))
+            echo "::warning::Coverage toolchain installation failed on attempt $attempt; retrying in ${delay}s"
+            sleep "$delay"
+            attempt=$((attempt + 1))
+          done
+
+      - name: Save C++ toolchain cache
+        if: steps.cpp-toolchain-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ steps.cpp-toolchain.outputs.paths }}
+          key: ${{ steps.cpp-toolchain-cache.outputs.cache-primary-key }}
+
       - name: Generate coverage reports
-        run: mise run //:sonar:coverage
+        # Several coverage tasks invoke pnpm install against the shared workspace.
+        # Serial execution avoids install races and CPU-starved test timeouts.
+        run: mise run --jobs 1 //:sonar:coverage
 
       - name: Upload coverage reports
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -102,20 +158,14 @@ jobs:
           persist-credentials: false
 
       - name: Restore SonarQube package cache
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        id: sonar-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.sonar/cache
-          key: sonar-${{ runner.os }}-v1-${{ hashFiles('.github/workflows/sonarqube-ci.yml') }}
-          restore-keys: |
-            sonar-${{ runner.os }}-v1-
-            sonar-${{ runner.os }}
+          key: sonar-${{ runner.os }}-${{ runner.arch }}-v2
 
       - name: Setup mise
-        uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
-        with:
-          version: "2026.9.1"
-          experimental: true
-          minimum_release_age: 24h
+        uses: $/.github/actions/setup-mise
 
       - name: Get pnpm store directory
         id: pnpm-store
@@ -191,3 +241,10 @@ jobs:
           args: ${{ steps.scanner-arguments.outputs.args }}
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
+      - name: Save SonarQube package cache
+        if: github.ref == 'refs/heads/main' && steps.sonar-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.sonar/cache
+          key: ${{ steps.sonar-cache.outputs.cache-primary-key }}

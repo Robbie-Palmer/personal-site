@@ -1,7 +1,5 @@
 [tools]
 "conda:gxx" = "16.2.0"
-"conda:gcc" = "16.2.0"
-"conda:binutils" = "2.46.1"
 # The pipx backend uses uv to install the pinned Python tools below.
 uv = "0.12.11"
 # Espressif's Arduino build tools invoke python3 during ESP32 firmware compilation.
