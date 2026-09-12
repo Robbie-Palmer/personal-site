@@ -78,7 +78,6 @@ public:
     return true;
   }
 
-  NodeId nodeId() const { return node_id_; }
   void deliver(const Message& message) { inbox_.push_back(message); }
   void reset() { inbox_.clear(); }
 
@@ -389,7 +388,7 @@ SimulationResult runSimulationTrace(const SimulationTrace& trace) {
       }
     }
     for (const NodeReset& reset : frame.node_resets) {
-      const std::size_t index = static_cast<std::size_t>(reset.node_id);
+      const auto index = static_cast<std::size_t>(reset.node_id);
       const ControllerState previous = controllers[index]->state();
       const auto satellite = controllers[index]->satelliteSnapshot();
       bus.reset(reset.node_id);
