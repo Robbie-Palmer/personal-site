@@ -290,6 +290,47 @@ TEST_CASE("delayed messages are released on a later frame in replay order") {
   CHECK(result.frames.back().nodes[1].state == ControllerState::Active);
 }
 
+TEST_CASE("a delayed message waits for its scheduled tick across clock rollover") {
+  SimulationTrace trace = demonstrationTrace();
+  trace.frames.clear();
+
+  SimulationFrame schedule;
+  schedule.now_ms = std::numeric_limits<uint32_t>::max() - 5U;
+  schedule.mission_commands.push_back({0U, Coordinate(0.0F, -90.0F)});
+  schedule.delivery_faults.push_back(
+      {0U, 1U, MessageType::MissionRequest, DeliveryFaultType::Delay, 10U});
+  trace.frames.push_back(schedule);
+  for (const uint32_t now_ms : {std::numeric_limits<uint32_t>::max(), 0U, 4U}) {
+    SimulationFrame frame;
+    frame.now_ms = now_ms;
+    trace.frames.push_back(frame);
+  }
+
+  const SimulationResult result = runSimulationTrace(trace);
+
+  CHECK(result.frames[2].nodes[1].state == ControllerState::Idle);
+  CHECK(result.frames[3].nodes[1].state == ControllerState::AwaitingAcknowledgement);
+  std::size_t delayed_events = 0U;
+  std::size_t delivered_events = 0U;
+  for (const SimulationEvent& event : result.events) {
+    if (event.node_id != 0U || event.recipient_node != 1U ||
+        event.message.type != MessageType::MissionRequest) {
+      continue;
+    }
+    if (event.type == SimulationEventType::MessageDelayed) {
+      CHECK(event.now_ms == std::numeric_limits<uint32_t>::max() - 5U);
+      CHECK(event.deliver_at_ms == 4U);
+      ++delayed_events;
+    }
+    if (event.type == SimulationEventType::DelayedMessageDelivered) {
+      CHECK(event.now_ms == 4U);
+      ++delivered_events;
+    }
+  }
+  CHECK(delayed_events == 1U);
+  CHECK(delivered_events == 1U);
+}
+
 TEST_CASE("a reset completes before a due delayed message reaches the replacement controller") {
   SimulationTrace trace = demonstrationTrace();
   trace.frames[0].delivery_faults.push_back(

@@ -44,11 +44,13 @@ private:
     Message message;
   };
 
+  using DeliveryFaultIterator = std::vector<DeliveryFault>::iterator;
+
   void deliver(NodeId sender, NodeId recipient, const Message& message);
   void recordDeliveryEvent(SimulationEventType type, NodeId sender, NodeId recipient,
                            const Message& message, uint32_t deliver_at_ms = 0U,
                            MessageDropReason drop_reason = MessageDropReason::Scripted);
-  DeliveryFault* matchingFault(NodeId sender, NodeId recipient, MessageType message_type);
+  DeliveryFaultIterator matchingFault(NodeId sender, NodeId recipient, MessageType message_type);
 
   std::vector<SimulationTransport*> transports_;
   std::vector<SimulationEvent>& events_;
@@ -128,24 +130,24 @@ void SimulationBus::recordDeliveryEvent(SimulationEventType type, NodeId sender,
   events_.push_back(event);
 }
 
-DeliveryFault* SimulationBus::matchingFault(NodeId sender, NodeId recipient,
-                                            MessageType message_type) {
-  for (DeliveryFault& fault : delivery_faults_) {
-    if (fault.sender == sender && fault.recipient == recipient &&
-        fault.message_type == message_type) {
-      return &fault;
+SimulationBus::DeliveryFaultIterator SimulationBus::matchingFault(NodeId sender, NodeId recipient,
+                                                                  MessageType message_type) {
+  for (auto fault = delivery_faults_.begin(); fault != delivery_faults_.end(); ++fault) {
+    if (fault->sender == sender && fault->recipient == recipient &&
+        fault->message_type == message_type) {
+      return fault;
     }
   }
-  return nullptr;
+  return delivery_faults_.end();
 }
 
 void SimulationBus::deliver(NodeId sender, NodeId recipient, const Message& message) {
-  const DeliveryFault* const fault = matchingFault(sender, recipient, message.type);
-  const bool has_fault = fault != nullptr;
+  const DeliveryFaultIterator fault = matchingFault(sender, recipient, message.type);
+  const bool has_fault = fault != delivery_faults_.end();
   DeliveryFault selected;
   if (has_fault) {
     selected = *fault;
-    delivery_faults_.erase(delivery_faults_.begin() + (fault - delivery_faults_.data()));
+    delivery_faults_.erase(fault);
   }
 
   if (!links_[sender][recipient]) {
