@@ -93,6 +93,7 @@ function projectFacts(project: ProjectWithADRs): [string, string][] {
   if (project.repoUrl) facts.push(["Source code", project.repoUrl]);
   if (project.demoUrl) facts.push(["Live demo", project.demoUrl]);
   if (project.productUrl) facts.push(["Product", project.productUrl]);
+  if (project.paperUrl) facts.push(["Research paper", project.paperUrl]);
   if (project.technologies.length > 0) {
     facts.push([
       "Technologies",

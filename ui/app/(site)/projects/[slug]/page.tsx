@@ -1,4 +1,4 @@
-import { ExternalLink, Github, Globe, Rss } from "lucide-react";
+import { ExternalLink, FileText, Github, Globe, Rss } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
@@ -182,6 +182,18 @@ export default async function ProjectPage({ params }: Readonly<PageProps>) {
                 >
                   <Globe className="w-4 h-4" />
                   Product Page
+                </a>
+              </Button>
+            )}
+            {project.paperUrl && (
+              <Button asChild className="gap-2 w-full sm:w-auto">
+                <a
+                  href={project.paperUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <FileText className="w-4 h-4" />
+                  Read Paper
                 </a>
               </Button>
             )}

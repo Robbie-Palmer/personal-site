@@ -268,6 +268,7 @@ describe("Domain Model Schemas", () => {
         status: "live" as const,
         repoUrl: "https://github.com/user/repo",
         demoUrl: "https://example.com",
+        paperUrl: "https://doi.org/10.1000/example",
         content: "# Overview",
         relations: {
           technologies: ["nextjs", "react", "typescript"],
@@ -315,6 +316,7 @@ describe("Domain Model Schemas", () => {
         status: "live" as const,
         repoUrl: "not-a-url",
         demoUrl: "also-not-a-url",
+        paperUrl: "not-a-paper-url",
         content: "Content",
         relations: {
           technologies: ["react"],

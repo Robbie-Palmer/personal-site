@@ -1,6 +1,6 @@
 "use client";
 
-import { ExternalLink, Github, Globe, Tag } from "lucide-react";
+import { ExternalLink, FileText, Github, Globe, Tag } from "lucide-react";
 import Link from "next/link";
 import posthog from "posthog-js";
 import { useMemo } from "react";
@@ -151,6 +151,26 @@ export function ProjectCard({
                 }
               >
                 <Globe className="w-5 h-5" />
+              </a>
+            )}
+            {project.paperUrl && (
+              <a
+                href={project.paperUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 hover:text-foreground transition-colors"
+                aria-label="Read Research Paper"
+                title="Research paper"
+                onClick={() =>
+                  posthog.capture("project_external_link_clicked", {
+                    project_slug: project.slug,
+                    link_type: "paper",
+                    url: project.paperUrl,
+                  })
+                }
+              >
+                <FileText className="w-4 h-4" />
+                <span className="text-sm">Paper</span>
               </a>
             )}
           </div>
