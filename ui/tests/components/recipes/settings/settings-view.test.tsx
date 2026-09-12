@@ -5,7 +5,7 @@ import {
   parseUnitPreference,
   resetUnitPreferenceServerSnapshot,
   UNIT_PREFERENCE_STORAGE_KEY,
-} from "@/hooks/use-unit-preference";
+} from "@/tests/support/recipe-state";
 import { fireEvent, render, screen, waitFor } from "@/tests/test-utils";
 
 const mocks = vi.hoisted(() => ({

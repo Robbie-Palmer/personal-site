@@ -4,11 +4,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ShoppingList } from "@/components/recipes/shopping/shopping-list";
 import type { ShoppingRecipe } from "@/lib/api/shopping";
 import {
-  __resetShoppingListForTests,
   addExtra,
   addRecipe,
   toggleChecked,
 } from "@/lib/shopping/shoppingListStore";
+import { __resetShoppingListForTests } from "@/tests/support/recipe-state";
 
 const mocks = vi.hoisted(() => ({
   captureRecipeProductActivity: vi.fn(),

@@ -15,12 +15,12 @@ import {
 import { ApiError } from "@/lib/api/http";
 import type { StoredShoppingList } from "@/lib/api/shopping-lists";
 import {
-  __resetShoppingListForTests,
   addExtra,
   getShoppingListSnapshot,
   setPlannedMeal,
   toggleChecked,
 } from "@/lib/shopping/shoppingListStore";
+import { __resetShoppingListForTests } from "@/tests/support/recipe-state";
 
 const mocks = vi.hoisted(() => ({
   getCurrentShoppingList: vi.fn(),
