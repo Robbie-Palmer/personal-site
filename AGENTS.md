@@ -19,6 +19,10 @@ NEXT_PUBLIC_CF_IMAGES_ACCOUNT_HASH=placeholder pnpm build
 Every major page has a plain-Markdown twin at the same URL with a `.md` suffix (e.g.
 `/projects.md`), indexed at `/llms.txt`. Prefer these when fetching page content.
 
+Idea pages explain concepts independently of the projects or initiatives that use them.
+Keep them domain-agnostic unless the concept itself belongs to a specific domain. Do not
+add project or initiative links to idea-page prose; link from projects and initiatives to ideas.
+
 ## Protected Preview QA
 
 PR previews remain behind Cloudflare Access. Agent runtimes receive the preview-only
