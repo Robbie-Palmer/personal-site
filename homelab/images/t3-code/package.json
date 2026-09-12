@@ -2,7 +2,7 @@
   "name": "personal-site-t3-code-image",
   "private": true,
   "dependencies": {
-    "@anthropic-ai/claude-code": "2.1.260",
+    "@anthropic-ai/claude-code": "2.1.261",
     "@openai/codex": "0.153.2",
     "@xai-official/grok": "1.0.13",
     "opencode-ai": "1.18.27",
