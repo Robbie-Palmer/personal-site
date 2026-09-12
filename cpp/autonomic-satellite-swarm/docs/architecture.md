@@ -52,10 +52,12 @@ layouts.
 ### Deterministic simulation
 
 The simulation layer runs the portable controllers from a versioned sequence of fixed-time frames.
-Each frame applies health and satellite updates before mission commands and controller updates. The
-runner records messages and state changes in order, then captures every node's state, score, and
-satellite snapshot. The command-line demonstration uses this runner. An Emscripten target exposes
-the same browser serializer through a versioned C ABI, and a module worker invokes it without moving
+Each frame applies directed-link changes, explicit delivery faults, health and satellite updates,
+and node resets before mission commands and controller updates. A delivery directive can drop,
+delay, or duplicate the next matching sender-to-recipient message. The runner records each applied
+fault alongside messages and state changes, then captures every node's state, score, and satellite
+snapshot. The command-line demonstration uses this runner. An Emscripten target exposes the same
+browser serializer through a versioned C ABI, and a module worker invokes it without moving
 coordination rules into TypeScript. Native and WebAssembly results are compared byte for byte for
 the default scenario.
 

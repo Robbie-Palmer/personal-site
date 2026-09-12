@@ -7,14 +7,23 @@
 
 namespace satellite_swarm::simulation {
 
-constexpr uint8_t kBrowserSimulationSchemaVersion = 1U;
+constexpr uint8_t kBrowserSimulationSchemaVersion = 2U;
 
-SimulationTrace makeBrowserDemonstrationTrace(Coordinate objective);
+enum class BrowserScenario : uint8_t { Nominal = 0U, LostAssignment = 1U };
 
-std::string serializeBrowserSimulation(const SimulationTrace& trace,
+struct BrowserSimulation {
+  BrowserScenario scenario = BrowserScenario::Nominal;
+  SimulationTrace trace;
+};
+
+BrowserSimulation makeBrowserDemonstration(Coordinate objective,
+                                           BrowserScenario scenario = BrowserScenario::Nominal);
+
+std::string serializeBrowserSimulation(const BrowserSimulation& simulation,
                                        const SimulationResult& result);
 
-std::string runBrowserDemonstration(Coordinate objective);
+std::string runBrowserDemonstration(Coordinate objective,
+                                    BrowserScenario scenario = BrowserScenario::Nominal);
 
 } // namespace satellite_swarm::simulation
 

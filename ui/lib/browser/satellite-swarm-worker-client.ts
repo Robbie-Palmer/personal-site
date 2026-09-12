@@ -4,7 +4,7 @@ import {
   type SatelliteSwarmSimulation,
 } from "@/lib/api/satellite-swarm-simulation";
 
-export const SATELLITE_SWARM_WORKER_PROTOCOL_VERSION = 1 as const;
+export const SATELLITE_SWARM_WORKER_PROTOCOL_VERSION = 2 as const;
 
 const WORKER_URL =
   "/simulations/autonomic-satellite-swarm/satellite-swarm.worker.mjs";
@@ -34,7 +34,10 @@ export interface SatelliteSwarmObjective {
   longitudeDegrees: number;
 }
 
+export type SatelliteSwarmScenario = "lost-assignment" | "nominal";
+
 export interface SatelliteSwarmRunOptions {
+  scenario?: SatelliteSwarmScenario;
   signal?: AbortSignal;
   timeoutMs?: number;
 }
@@ -153,6 +156,7 @@ export function runSatelliteSwarmSimulation(
         objective,
         protocolVersion: SATELLITE_SWARM_WORKER_PROTOCOL_VERSION,
         requestId,
+        scenario: options.scenario ?? "nominal",
         type: "run",
       });
     } catch (error) {

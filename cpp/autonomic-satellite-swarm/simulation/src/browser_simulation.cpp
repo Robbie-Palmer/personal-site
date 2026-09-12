@@ -35,6 +35,18 @@ const char* eventName(SimulationEventType type) {
     return "mission-command";
   case SimulationEventType::MessageSent:
     return "message-sent";
+  case SimulationEventType::MessageDropped:
+    return "message-dropped";
+  case SimulationEventType::MessageDelayed:
+    return "message-delayed";
+  case SimulationEventType::MessageDuplicated:
+    return "message-duplicated";
+  case SimulationEventType::DelayedMessageDelivered:
+    return "delayed-message-delivered";
+  case SimulationEventType::LinkChanged:
+    return "link-changed";
+  case SimulationEventType::NodeReset:
+    return "node-reset";
   case SimulationEventType::StateChanged:
     return "state-changed";
   }
@@ -92,6 +104,18 @@ void writeBrowserFrame(std::ostream& output, const FrameObservation& frame) {
   output << "]}";
 }
 
+void writeMessage(std::ostream& output, const Message& message) {
+  output << R"({"type":")" << messageName(message.type) << R"(","origin":)"
+         << static_cast<unsigned int>(message.origin) << R"(,"target":)";
+  if (message.target == kBroadcastNode) {
+    output << "null";
+  } else {
+    output << static_cast<unsigned int>(message.target);
+  }
+  output << R"(,"missionId":)" << message.mission_id << R"(,"score":)"
+         << static_cast<unsigned int>(message.score) << '}';
+}
+
 void writeBrowserEvent(std::ostream& output, const SimulationEvent& event) {
   output << R"(    {"type":")" << eventName(event.type) << R"(","timeMs":)" << event.now_ms
          << R"(,"nodeId":)" << static_cast<unsigned int>(event.node_id);
@@ -99,15 +123,26 @@ void writeBrowserEvent(std::ostream& output, const SimulationEvent& event) {
     output << R"(,"accepted":)" << (event.accepted ? "true" : "false") << R"(,"objective":)";
     writeCoordinate(output, event.objective);
   } else if (event.type == SimulationEventType::MessageSent) {
-    output << R"(,"message":{"type":")" << messageName(event.message.type) << R"(","origin":)"
-           << static_cast<unsigned int>(event.message.origin) << R"(,"target":)";
-    if (event.message.target == kBroadcastNode) {
-      output << "null";
-    } else {
-      output << static_cast<unsigned int>(event.message.target);
+    output << R"(,"message":)";
+    writeMessage(output, event.message);
+  } else if (event.type == SimulationEventType::MessageDropped ||
+             event.type == SimulationEventType::MessageDelayed ||
+             event.type == SimulationEventType::MessageDuplicated ||
+             event.type == SimulationEventType::DelayedMessageDelivered) {
+    output << R"(,"recipientNode":)" << static_cast<unsigned int>(event.recipient_node);
+    if (event.type == SimulationEventType::MessageDropped) {
+      output << R"(,"reason":")"
+             << (event.drop_reason == MessageDropReason::LinkUnavailable ? "link-unavailable"
+                                                                         : "scripted-drop")
+             << '"';
+    } else if (event.type == SimulationEventType::MessageDelayed) {
+      output << R"(,"deliverAtMs":)" << event.deliver_at_ms;
     }
-    output << R"(,"missionId":)" << event.message.mission_id << R"(,"score":)"
-           << static_cast<unsigned int>(event.message.score) << '}';
+    output << R"(,"message":)";
+    writeMessage(output, event.message);
+  } else if (event.type == SimulationEventType::LinkChanged) {
+    output << R"(,"recipientNode":)" << static_cast<unsigned int>(event.recipient_node)
+           << R"(,"connected":)" << (event.connected ? "true" : "false");
   } else {
     output << R"(,"previousState":")" << stateName(event.previous_state) << R"(","currentState":")"
            << stateName(event.current_state) << '"';
@@ -117,12 +152,14 @@ void writeBrowserEvent(std::ostream& output, const SimulationEvent& event) {
 
 } // namespace
 
-SimulationTrace makeBrowserDemonstrationTrace(Coordinate objective) {
+BrowserSimulation makeBrowserDemonstration(Coordinate objective, BrowserScenario scenario) {
   if (!isValid(objective)) {
     throw std::invalid_argument("mission objective is outside the coordinate bounds");
   }
 
-  SimulationTrace trace;
+  BrowserSimulation simulation;
+  simulation.scenario = scenario;
+  SimulationTrace& trace = simulation.trace;
   trace.controller.response_window_ms = 100U;
   trace.nodes = {
       {0U, satelliteAt(-0.5F, 60.0F)},
@@ -143,13 +180,18 @@ SimulationTrace makeBrowserDemonstrationTrace(Coordinate objective) {
     if (now_ms == 0U) {
       frame.mission_commands.push_back({0U, objective});
     }
+    if (scenario == BrowserScenario::LostAssignment && now_ms == 100U) {
+      frame.delivery_faults.push_back(
+          {0U, 1U, MessageType::MissionAssignment, DeliveryFaultType::Drop, 0U});
+    }
     trace.frames.push_back(frame);
   }
-  return trace;
+  return simulation;
 }
 
-std::string serializeBrowserSimulation(const SimulationTrace& trace,
+std::string serializeBrowserSimulation(const BrowserSimulation& simulation,
                                        const SimulationResult& result) {
+  const SimulationTrace& trace = simulation.trace;
   if (trace.frames.empty() || trace.frames.front().mission_commands.empty()) {
     throw std::invalid_argument("browser simulation requires a mission command");
   }
@@ -167,7 +209,10 @@ std::string serializeBrowserSimulation(const SimulationTrace& trace,
          << static_cast<unsigned int>(kBrowserSimulationSchemaVersion) << R"(,
   "traceVersion": )"
          << static_cast<unsigned int>(trace.version) << R"(,
-  "scenario": "three-node-objective-pass",
+  "scenario": ")"
+         << (simulation.scenario == BrowserScenario::LostAssignment ? "three-node-assignment-loss"
+                                                                    : "three-node-objective-pass")
+         << R"(",
   "source": "portable C++ SimulationTrace",
   "positionModel": "scripted simulation data; not orbit propagation",
   "objective": )";
@@ -198,9 +243,9 @@ std::string serializeBrowserSimulation(const SimulationTrace& trace,
   return output.str();
 }
 
-std::string runBrowserDemonstration(Coordinate objective) {
-  const SimulationTrace trace = makeBrowserDemonstrationTrace(objective);
-  return serializeBrowserSimulation(trace, runSimulationTrace(trace));
+std::string runBrowserDemonstration(Coordinate objective, BrowserScenario scenario) {
+  const BrowserSimulation simulation = makeBrowserDemonstration(objective, scenario);
+  return serializeBrowserSimulation(simulation, runSimulationTrace(simulation.trace));
 }
 
 } // namespace satellite_swarm::simulation

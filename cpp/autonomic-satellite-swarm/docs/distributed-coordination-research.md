@@ -340,9 +340,16 @@ traffic. Security work done earlier would protect protocol behavior whose meanin
 
 ## The first implementation slice
 
-Start with the simulator, not a consensus library or new radio. Add duplicate, reordering, asymmetric
-partition, and node-reset events to the deterministic trace. Add stable mission identifiers and
-assert the invariants above against the existing temporary-leader controller.
+The first network-laboratory step is now implemented. The deterministic trace can drop, delay, or
+duplicate a selected delivery, change directed links for asymmetric partitions, and reset a node.
+Every applied fault is visible in the result. The browser's assignment-loss scenario shows the
+leader recording an assignee while the winning node waits and then returns to idle because its
+assignment never arrived.
+
+The next step is stable mission identity and executable invariant checks against the existing
+temporary-leader controller. Node-reset replay already captures one baseline failure: safe-disabled
+is volatile, so a reset clears the latch. That result identifies required persistence work and
+fails the intended safety property.
 
 That slice should answer one sharp question: when the assignment or its acknowledgement is lost,
 what can each node truthfully claim to know? The failures will show which operation semantics need a
