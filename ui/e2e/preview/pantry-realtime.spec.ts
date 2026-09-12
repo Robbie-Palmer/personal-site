@@ -176,12 +176,12 @@ function waitForPantryChange(
       realtimeTimeoutMs,
     );
 
-    const onFrame = ({ payload }: { payload: string | Buffer }) => {
-      const message = parseFrame(payload);
+    const matchesExpectedChange = (
+      message: Record<string, unknown>,
+      expectedOperationId: string,
+    ) => {
+      if (message.operationId !== expectedOperationId) return false;
       if (
-        message?.type !== "resource.changed" ||
-        message.resourceType !== "pantry" ||
-        message.changeKind !== changeKind ||
         !message.pantry ||
         typeof message.pantry !== "object" ||
         !("stock" in message.pantry) ||
@@ -189,19 +189,28 @@ function waitForPantryChange(
         typeof message.pantry.stock !== "object" ||
         Array.isArray(message.pantry.stock)
       ) {
-        return;
+        return false;
       }
       const stock = message.pantry.stock as Record<string, unknown>;
-      const matchesIngredient =
-        expectedLocation === undefined
-          ? !Object.hasOwn(stock, ingredientSlug)
-          : stock[ingredientSlug] === expectedLocation;
-      if (!matchesIngredient) return;
+      return expectedLocation === undefined
+        ? !Object.hasOwn(stock, ingredientSlug)
+        : stock[ingredientSlug] === expectedLocation;
+    };
+
+    const onFrame = ({ payload }: { payload: string | Buffer }) => {
+      const message = parseFrame(payload);
+      if (
+        message?.type !== "resource.changed" ||
+        message.resourceType !== "pantry" ||
+        message.changeKind !== changeKind
+      ) {
+        return;
+      }
       if (expectedOperationId === undefined) {
         pendingFrames.push(message);
         return;
       }
-      if (message.operationId !== expectedOperationId) return;
+      if (!matchesExpectedChange(message, expectedOperationId)) return;
       finish(resolve);
     };
     const onSocketError = (error: string) => {
@@ -242,8 +251,8 @@ function waitForPantryChange(
           return;
         }
         expectedOperationId = value;
-        const matchingFrame = pendingFrames.find(
-          (message) => message.operationId === expectedOperationId,
+        const matchingFrame = pendingFrames.find((message) =>
+          matchesExpectedChange(message, value),
         );
         if (matchingFrame) finish(resolve);
       },
