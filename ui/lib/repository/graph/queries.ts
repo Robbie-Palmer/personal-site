@@ -1,5 +1,6 @@
 import type { ADRRef } from "@/lib/domain/adr/adr";
 import type { BlogSlug } from "@/lib/domain/blog/blogPost";
+import type { IdeaSlug } from "@/lib/domain/idea/idea";
 import type { InitiativeSlug } from "@/lib/domain/initiative/initiative";
 import type { ProjectSlug } from "@/lib/domain/project/project";
 import type { RoleSlug } from "@/lib/domain/role/jobRole";
@@ -47,6 +48,20 @@ export function getTechnologiesForRole(
   slug: RoleSlug,
 ): Set<TechnologySlug> {
   return getTechnologiesFor(graph, "role", slug);
+}
+
+export function getIdeasForTechnology(
+  graph: ContentGraph,
+  slug: TechnologySlug,
+): Set<IdeaSlug> {
+  return graph.edges.technologyIdeas.get(slug) ?? new Set();
+}
+
+export function getTechnologiesForIdea(
+  graph: ContentGraph,
+  slug: IdeaSlug,
+): Set<TechnologySlug> {
+  return graph.reverse.ideaTechnologies.get(slug) ?? new Set();
 }
 
 export function getContentUsingTechnology(
@@ -205,4 +220,63 @@ export function getBlogsForRole(
   slug: RoleSlug,
 ): Set<BlogSlug> {
   return graph.reverse.roleBlogs.get(slug) ?? new Set();
+}
+
+function getIdeasFor(
+  graph: ContentGraph,
+  type: NodeType,
+  slug: string,
+): Set<IdeaSlug> {
+  return graph.edges.referencesIdea.get(makeNodeId(type, slug)) ?? new Set();
+}
+
+export function getIdeasForProject(
+  graph: ContentGraph,
+  slug: ProjectSlug,
+): Set<IdeaSlug> {
+  return getIdeasFor(graph, "project", slug);
+}
+
+export function getIdeasForBlog(
+  graph: ContentGraph,
+  slug: BlogSlug,
+): Set<IdeaSlug> {
+  return getIdeasFor(graph, "blog", slug);
+}
+
+export function getIdeasForADR(
+  graph: ContentGraph,
+  adrRef: ADRRef,
+): Set<IdeaSlug> {
+  return getIdeasFor(graph, "adr", adrRef);
+}
+
+export function getContentReferencingIdea(
+  graph: ContentGraph,
+  slug: IdeaSlug,
+): Set<NodeId> {
+  return graph.reverse.ideaReferencedBy.get(slug) ?? new Set();
+}
+
+export function getContentReferencingIdeaByType(
+  graph: ContentGraph,
+  slug: IdeaSlug,
+): { projects: ProjectSlug[]; adrs: ADRRef[]; blogs: BlogSlug[] } {
+  const nodeIds = getContentReferencingIdea(graph, slug);
+  return {
+    projects: filterNodesByType(nodeIds, "project"),
+    adrs: filterNodesByType(nodeIds, "adr"),
+    blogs: filterNodesByType(nodeIds, "blog"),
+  };
+}
+
+export function getRelatedIdeas(
+  graph: ContentGraph,
+  slug: IdeaSlug,
+): Set<IdeaSlug> {
+  const related = new Set(graph.edges.relatedIdea.get(slug) ?? []);
+  for (const [source, targets] of graph.edges.relatedIdea) {
+    if (targets.has(slug)) related.add(source);
+  }
+  return related;
 }

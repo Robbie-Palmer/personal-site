@@ -19,6 +19,13 @@ import {
   type BlogSlug,
 } from "../domain/blog/blogPost";
 import {
+  type Idea,
+  type IdeaRelations,
+  IdeaRelationsSchema,
+  IdeaSchema,
+  type IdeaSlug,
+} from "../domain/idea/idea";
+import {
   type Initiative,
   InitiativeSchema,
   type InitiativeSlug,
@@ -73,6 +80,7 @@ export interface ReferentialIntegrityError {
 const CONTENT_DIR = path.join(process.cwd(), "content");
 const BLOG_DIR = path.join(CONTENT_DIR, "blog");
 const INITIATIVES_DIR = path.join(CONTENT_DIR, "initiatives");
+const IDEAS_DIR = path.join(CONTENT_DIR, "ideas");
 const PROJECTS_DIR = path.join(CONTENT_DIR, "projects");
 const BUILDING_PHILOSOPHY_PATH = path.join(
   PROJECTS_DIR,
@@ -88,6 +96,7 @@ export function loadTechnologies(): Map<TechnologySlug, Technology> {
     const tech: Technology = {
       ...techContent,
       slug,
+      ideas: techContent.ideas ?? [],
     };
     techMap.set(slug, tech);
   }
@@ -211,6 +220,56 @@ interface BlogLoadResult {
   relations: Map<BlogSlug, BlogRelations>;
 }
 
+interface IdeaLoadResult {
+  entities: Map<IdeaSlug, Idea>;
+  relations: Map<IdeaSlug, IdeaRelations>;
+}
+
+export function loadIdeas(): IdeaLoadResult {
+  const entities = new Map<IdeaSlug, Idea>();
+  const relations = new Map<IdeaSlug, IdeaRelations>();
+
+  if (!fs.existsSync(IDEAS_DIR)) return { entities, relations };
+
+  const files = fs
+    .readdirSync(IDEAS_DIR)
+    .filter((file) => file.endsWith(".mdx"))
+    .sort((a, b) => a.localeCompare(b, "en"));
+
+  for (const filename of files) {
+    const slug = filename.replace(/\.mdx$/, "") as IdeaSlug;
+    const fileContent = fs.readFileSync(
+      path.join(IDEAS_DIR, filename),
+      "utf-8",
+    );
+    const { data, content } = parseFrontmatter(fileContent);
+    const ideaResult = IdeaSchema.safeParse({
+      slug,
+      title: data.title,
+      description: data.description,
+      sourceUrl: data.source_url,
+      content,
+    });
+    const relationsResult = IdeaRelationsSchema.safeParse({
+      relatedIdeas: (data.related_ideas || []).map((idea: string) =>
+        normalizeSlug(idea),
+      ),
+    });
+
+    if (!ideaResult.success || !relationsResult.success) {
+      console.error(`Failed to validate idea ${slug}:`, {
+        idea: ideaResult.error,
+        relations: relationsResult.error,
+      });
+      throw new Error(`Idea ${slug} failed validation`);
+    }
+    entities.set(slug, ideaResult.data);
+    relations.set(slug, relationsResult.data);
+  }
+
+  return { entities, relations };
+}
+
 export function loadBlogPosts(): BlogLoadResult {
   const entities = new Map<BlogSlug, BlogPost>();
   const relations = new Map<BlogSlug, BlogRelations>();
@@ -245,6 +304,7 @@ export function loadBlogPosts(): BlogLoadResult {
       technologies: (data.technologies || []).map((tech: string) =>
         normalizeSlug(tech),
       ),
+      ideas: (data.ideas || []).map((idea: string) => normalizeSlug(idea)),
       tags: data.tags || [],
       role: data.role ? normalizeSlug(data.role) : undefined,
     };
@@ -480,6 +540,7 @@ export function loadProjects(): ProjectLoadResult {
 
     const projectRelations: ProjectRelations = {
       technologies,
+      ideas: (data.ideas || []).map((idea: string) => normalizeSlug(idea)),
       adrs: adrRefs,
       initiatives: initiativesValidation.data,
       role: data.role ? normalizeSlug(data.role) : undefined,
@@ -586,6 +647,7 @@ export function loadADRs(): ADRLoadResult {
       const adrRelations: ADRRelations = {
         project: projectSlug,
         technologies,
+        ideas: (data.ideas || []).map((idea: string) => normalizeSlug(idea)),
       };
 
       const validation = validateADR(adr);
@@ -660,6 +722,7 @@ export function loadADRs(): ADRLoadResult {
     const adrRelations: ADRRelations = {
       project: record.projectSlug,
       technologies: sourceRelations?.technologies ?? [],
+      ideas: sourceRelations?.ideas ?? [],
     };
 
     const validation = validateADR(adr);
@@ -767,6 +830,8 @@ export function loadBuildingPhilosophy(): string {
 
 interface ValidationInput {
   technologies: Map<TechnologySlug, Technology>;
+  ideas?: Map<IdeaSlug, Idea>;
+  ideaRelations?: Map<IdeaSlug, IdeaRelations>;
   initiatives: Map<InitiativeSlug, Initiative>;
   adrs: Map<ADRRef, ADR>;
   projects: Map<ProjectSlug, Project>;
@@ -793,9 +858,45 @@ export function validateReferentialIntegrity(
     }
   };
 
+  const checkIdea = (slug: IdeaSlug, entity: string, field: string) => {
+    if (input.ideas && !input.ideas.has(slug)) {
+      errors.push({
+        type: "missing_reference",
+        entity,
+        field,
+        value: slug,
+        message: `Idea '${slug}' referenced by ${entity}.${field} does not exist`,
+      });
+    }
+  };
+
+  input.ideaRelations?.forEach((relations, ideaSlug) => {
+    relations.relatedIdeas.forEach((relatedSlug) => {
+      checkIdea(relatedSlug, `Idea[${ideaSlug}]`, "relatedIdeas");
+      if (relatedSlug === ideaSlug) {
+        errors.push({
+          type: "circular_reference",
+          entity: `Idea[${ideaSlug}]`,
+          field: "relatedIdeas",
+          value: relatedSlug,
+          message: `Idea '${ideaSlug}' cannot relate to itself`,
+        });
+      }
+    });
+  });
+
+  input.technologies.forEach((technology, techSlug) => {
+    technology.ideas.forEach((ideaSlug) => {
+      checkIdea(ideaSlug, `Technology[${techSlug}]`, "ideas");
+    });
+  });
+
   input.blogRelations.forEach((relations, blogSlug) => {
     relations.technologies.forEach((techSlug) => {
       checkTech(techSlug, `BlogPost[${blogSlug}]`, "technologies");
+    });
+    relations.ideas.forEach((ideaSlug) => {
+      checkIdea(ideaSlug, `BlogPost[${blogSlug}]`, "ideas");
     });
     if (relations.role && !input.roleRelations.has(relations.role)) {
       errors.push({
@@ -811,6 +912,9 @@ export function validateReferentialIntegrity(
   input.projectRelations.forEach((relations, projectSlug) => {
     relations.technologies.forEach((techSlug) => {
       checkTech(techSlug, `Project[${projectSlug}]`, "technologies");
+    });
+    relations.ideas.forEach((ideaSlug) => {
+      checkIdea(ideaSlug, `Project[${projectSlug}]`, "ideas");
     });
     relations.adrs.forEach((adrRef) => {
       if (!input.adrs.has(adrRef)) {
@@ -902,6 +1006,9 @@ export function validateReferentialIntegrity(
     relations.technologies.forEach((techSlug) => {
       checkTech(techSlug, `ADR[${adrRef}]`, "technologies");
     });
+    relations.ideas.forEach((ideaSlug) => {
+      checkIdea(ideaSlug, `ADR[${adrRef}]`, "ideas");
+    });
     const adr = input.adrs.get(adrRef);
     if (adr?.supersedes && !input.adrs.has(adr.supersedes)) {
       errors.push({
@@ -967,6 +1074,7 @@ export function validateReferentialIntegrity(
 
 export interface DomainRepository {
   technologies: Map<TechnologySlug, Technology>;
+  ideas: Map<IdeaSlug, Idea>;
   initiatives: Map<InitiativeSlug, Initiative>;
   blogs: Map<BlogSlug, BlogPost>;
   projects: Map<ProjectSlug, Project>;
@@ -978,6 +1086,7 @@ export interface DomainRepository {
 }
 
 interface LoaderResults {
+  ideas: IdeaLoadResult;
   blogs: BlogLoadResult;
   initiatives: InitiativeLoadResult;
   projects: ProjectLoadResult;
@@ -996,11 +1105,13 @@ function buildRelationDataFromLoaders(loaders: LoaderResults): RelationData {
     }
     relations.projectTags.set(slug, projectRels.tags);
     relations.projectInitiatives.set(slug, projectRels.initiatives);
+    relations.projectIdeas.set(slug, projectRels.ideas);
   }
 
   for (const [slug, blogRels] of loaders.blogs.relations) {
     relations.blogTechnologies.set(slug, blogRels.technologies);
     relations.blogTags.set(slug, blogRels.tags);
+    relations.blogIdeas.set(slug, blogRels.ideas);
     if (blogRels.role) {
       relations.blogRole.set(slug, blogRels.role);
     }
@@ -1009,6 +1120,7 @@ function buildRelationDataFromLoaders(loaders: LoaderResults): RelationData {
   for (const [adrRef, adrRels] of loaders.adrs.relations) {
     relations.adrTechnologies.set(adrRef, adrRels.technologies);
     relations.adrProject.set(adrRef, adrRels.project);
+    relations.adrIdeas.set(adrRef, adrRels.ideas);
   }
 
   for (const [adrRef, adr] of loaders.adrs.entities) {
@@ -1024,12 +1136,17 @@ function buildRelationDataFromLoaders(loaders: LoaderResults): RelationData {
     relations.roleTechnologies.set(slug, roleRels.technologies);
   }
 
+  for (const [slug, ideaRels] of loaders.ideas.relations) {
+    relations.ideaRelatedIdeas.set(slug, ideaRels.relatedIdeas);
+  }
+
   return relations;
 }
 
 function buildDomainRepository(): DomainRepository {
   const technologies = loadTechnologies();
   validateTechnologyReferences(technologies);
+  const ideasResult = loadIdeas();
   const blogsResult = loadBlogPosts();
   const initiativesResult = loadInitiatives();
   const projectsResult = loadProjects();
@@ -1039,6 +1156,8 @@ function buildDomainRepository(): DomainRepository {
 
   const referentialIntegrityErrors = validateReferentialIntegrity({
     technologies,
+    ideas: ideasResult.entities,
+    ideaRelations: ideasResult.relations,
     initiatives: initiativesResult.entities,
     adrs: adrsResult.entities,
     projects: projectsResult.entities,
@@ -1059,6 +1178,7 @@ function buildDomainRepository(): DomainRepository {
   }
 
   const loaders: LoaderResults = {
+    ideas: ideasResult,
     blogs: blogsResult,
     initiatives: initiativesResult,
     projects: projectsResult,
@@ -1067,15 +1187,20 @@ function buildDomainRepository(): DomainRepository {
   };
 
   const relations = buildRelationDataFromLoaders(loaders);
+  for (const [slug, technology] of technologies) {
+    relations.technologyIdeas.set(slug, technology.ideas);
+  }
   const graph = buildContentGraph({
     technologySlugs: technologies.keys(),
     projectSlugs: projectsResult.entities.keys(),
     initiativeSlugs: initiativesResult.entities.keys(),
+    ideaSlugs: ideasResult.entities.keys(),
     relations,
   });
 
   return {
     technologies,
+    ideas: ideasResult.entities,
     initiatives: initiativesResult.entities,
     blogs: blogsResult.entities,
     projects: projectsResult.entities,

@@ -36,6 +36,11 @@ const sections = [
     description: "Track and manage your assets",
     href: "/assettracker",
   },
+  {
+    title: "Satellite Swarm",
+    description: "Replay a three-node mission on a 3D globe",
+    href: "/satellite-swarm",
+  },
 ];
 
 export default function NotFound() {

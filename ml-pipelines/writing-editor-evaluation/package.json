@@ -1,0 +1,23 @@
+{
+  "name": "writing-editor-evaluation-pipeline",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "diff": "^9.0.0",
+    "writing-editor-domain": "workspace:*",
+    "zod": "^4.2.1"
+  },
+  "devDependencies": {
+    "@types/node": "^24",
+    "@vitest/coverage-v8": "^4.1.10",
+    "tsx": "^4.23.12",
+    "typescript": "^6.0.0",
+    "vitest": "^4.0.0"
+  }
+}

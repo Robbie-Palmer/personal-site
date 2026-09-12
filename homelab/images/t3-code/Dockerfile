@@ -1,3 +1,5 @@
+FROM docker@sha256:eccaacfeed644c7de222ff047483568cb988dde95476fbaaf10ea2d04921bb66 AS docker-cli
+
 FROM node@sha256:2c87ef9bd3c6a3bd4b472b4bec2ce9d16354b0c574f736c476489d09f560a203
 
 ARG T3_VERSION=0.0.38
@@ -15,6 +17,9 @@ ARG PNPM_VERSION=12.2.1
 
 LABEL org.opencontainers.image.source="https://github.com/Robbie-Palmer/personal-site"
 LABEL org.opencontainers.image.description="Pinned t3-code runtime for the remote development K3s cluster"
+
+COPY --from=docker-cli /usr/local/bin/docker /usr/local/bin/docker
+COPY --from=docker-cli /usr/local/libexec/docker/cli-plugins /usr/local/libexec/docker/cli-plugins
 
 RUN groupadd --gid 2000 t3code \
     && useradd --uid 2000 --gid 2000 --create-home --shell /bin/bash t3code \

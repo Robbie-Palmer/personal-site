@@ -84,6 +84,15 @@ function addContentNodes(
       connections: 0,
     });
   }
+  for (const [slug, idea] of repository.ideas) {
+    state.nodes.push({
+      id: `idea:${slug}`,
+      name: idea.title,
+      type: "idea",
+      href: `/ideas/${slug}`,
+      connections: 0,
+    });
+  }
 }
 
 function addAdrNodes(
@@ -112,7 +121,8 @@ function addTechnologyAndTagNodes(
 ): Set<string> {
   const connectedTechs = new Set<string>();
   for (const [techSlug, usedBy] of repository.graph.reverse.technologyUsedBy) {
-    if (usedBy.size === 0) continue;
+    const ideas = repository.graph.edges.technologyIdeas.get(techSlug);
+    if (usedBy.size === 0 && (!ideas || ideas.size === 0)) continue;
     const tech = repository.technologies.get(techSlug);
     if (!tech) continue;
     connectedTechs.add(techSlug);
@@ -168,6 +178,65 @@ function addMappedEdges(
   }
 }
 
+function addIdeaReferenceEdges(
+  repository: DomainRepository,
+  state: GraphBuildState,
+  nodeIds: ReadonlySet<string>,
+): void {
+  for (const [nodeId, ideaSlugs] of repository.graph.edges.referencesIdea) {
+    for (const ideaSlug of ideaSlugs) {
+      const target = `idea:${ideaSlug}`;
+      if (nodeIds.has(nodeId) && nodeIds.has(target)) {
+        addEdge(state, nodeId, target, "REFERENCES_IDEA");
+      }
+    }
+  }
+}
+
+function relatedIdeaPairKey(source: string, target: string): string {
+  return source.localeCompare(target) <= 0
+    ? `${source}|${target}`
+    : `${target}|${source}`;
+}
+
+function addRelatedIdeaEdges(
+  repository: DomainRepository,
+  state: GraphBuildState,
+  nodeIds: ReadonlySet<string>,
+): void {
+  const relatedIdeaPairs = new Set<string>();
+  for (const [ideaSlug, relatedSlugs] of repository.graph.edges.relatedIdea) {
+    for (const relatedSlug of relatedSlugs) {
+      const source = `idea:${ideaSlug}`;
+      const target = `idea:${relatedSlug}`;
+      if (nodeIds.has(source) && nodeIds.has(target)) {
+        const pairKey = relatedIdeaPairKey(source, target);
+        if (relatedIdeaPairs.has(pairKey)) continue;
+        relatedIdeaPairs.add(pairKey);
+        addEdge(state, source, target, "RELATED_IDEA");
+      }
+    }
+  }
+}
+
+function addIdeaEdges(
+  repository: DomainRepository,
+  state: GraphBuildState,
+): void {
+  const nodeIds = new Set(state.nodes.map((node) => node.id));
+  addIdeaReferenceEdges(repository, state, nodeIds);
+  for (const [techSlug, ideaSlugs] of repository.graph.edges.technologyIdeas) {
+    const source = `technology:${techSlug}`;
+    for (const ideaSlug of ideaSlugs) {
+      const target = `idea:${ideaSlug}`;
+      if (nodeIds.has(source) && nodeIds.has(target)) {
+        addEdge(state, source, target, "HAS_IDEA");
+      }
+    }
+  }
+  addRelatedIdeaEdges(repository, state, nodeIds);
+}
+
 function addRelationshipEdges(
   repository: DomainRepository,
   state: GraphBuildState,
@@ -218,6 +287,8 @@ function addRelationshipEdges(
     (slug) => `role:${slug}`,
     "WRITTEN_AT_ROLE",
   );
+
+  addIdeaEdges(repository, state);
 }
 
 function addTagEdges(

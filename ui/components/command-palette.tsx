@@ -8,6 +8,7 @@ import {
   Code2,
   FolderKanban,
   Home,
+  Lightbulb,
   Network,
   Search,
   X,
@@ -17,6 +18,7 @@ import posthog from "posthog-js";
 import { type ReactNode, useCallback, useMemo, useRef, useState } from "react";
 import type {
   FilterOption,
+  PaletteIdea,
   PaletteTechnology,
 } from "@/components/command-palette-types";
 import { useIsMac } from "@/hooks/use-is-mac";
@@ -77,6 +79,12 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
     icon: <Briefcase className="size-4" />,
     keywords: ["experience", "jobs", "career", "work history"],
   },
+  {
+    label: "Ideas",
+    href: "/ideas",
+    icon: <Lightbulb className="size-4" />,
+    keywords: ["ideas", "concepts", "laws", "mental models"],
+  },
 ];
 
 function getActiveNavigationHref(
@@ -104,6 +112,7 @@ interface CommandPaletteDialogProps {
   onOpenChange: (open: boolean) => void;
   pageFilters: FilterOption[];
   technologies: PaletteTechnology[];
+  ideas: PaletteIdea[];
 }
 
 export function CommandPaletteDialog({
@@ -111,6 +120,7 @@ export function CommandPaletteDialog({
   onOpenChange,
   pageFilters,
   technologies,
+  ideas,
 }: Readonly<CommandPaletteDialogProps>) {
   const router = useRouter();
   const pathname = usePathname();
@@ -212,6 +222,18 @@ export function CommandPaletteDialog({
       .slice(0, 10);
   }, [search, technologies]);
 
+  const matchedIdeas = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    if (!query) return [];
+    return ideas
+      .filter(
+        (idea) =>
+          idea.title.toLowerCase().includes(query) ||
+          idea.slug.toLowerCase().includes(query),
+      )
+      .slice(0, 10);
+  }, [ideas, search]);
+
   return (
     <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
       <DialogPrimitive.Portal>
@@ -308,6 +330,25 @@ export function CommandPaletteDialog({
                         <Code2 className="size-4" />
                       )}
                       <span>{tech.name}</span>
+                    </Command.Item>
+                  ))}
+                </Command.Group>
+              )}
+
+              {matchedIdeas.length > 0 && (
+                <Command.Group
+                  heading="Ideas"
+                  className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-muted-foreground"
+                >
+                  {matchedIdeas.map((idea) => (
+                    <Command.Item
+                      key={idea.slug}
+                      value={`${idea.title} ${idea.slug}`}
+                      onSelect={() => handleNavigation(`/ideas/${idea.slug}`)}
+                      className="flex items-center gap-2 px-2 py-1.5 text-sm rounded-sm cursor-pointer aria-selected:bg-accent aria-selected:text-accent-foreground"
+                    >
+                      <Lightbulb className="size-4" />
+                      <span>{idea.title}</span>
                     </Command.Item>
                   ))}
                 </Command.Group>

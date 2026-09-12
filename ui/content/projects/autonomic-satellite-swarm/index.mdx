@@ -2,15 +2,22 @@
 title: "Autonomic Satellite Swarm"
 description: "A revived C++ research prototype for fail-safe coordination across hardware-independent satellite-swarm agents"
 date: "2019-07-30"
-updated: "2026-09-09"
+updated: "2026-09-11"
+ideas:
+  - "two-generals-problem"
+  - "flp-impossibility"
 tech_stack:
   - "C++"
   - "CMake"
   - "Arduino"
   - "ESP32"
   - "Catch2"
+  - "CesiumJS"
+  - "Emscripten"
+  - "WebAssembly"
   - "GitHub Actions"
 repo_url: "https://github.com/Robbie-Palmer/personal-site/tree/main/cpp/autonomic-satellite-swarm"
+demo_url: "https://robbiepalmer.me/satellite-swarm"
 status: "in_progress"
 role: "ulster-university"
 tags:
@@ -157,12 +164,14 @@ three-node network and tolerated periods in which they did not hold the same pla
 model for the next simulation than an always-connected cluster.
 
 The [full research note](https://github.com/Robbie-Palmer/personal-site/blob/main/cpp/autonomic-satellite-swarm/docs/distributed-coordination-research.md)
-turns these results into a sequence of experiments. The first slice adds duplicate, reordering,
-asymmetric-partition, and node-reset faults to the deterministic simulator, then tests stable mission
-identities and explicit safety invariants against the current protocol. A consensus algorithm comes
-later, if an operation's evidence requirements justify one. The note also compares TLA+, OMNeT++,
-DTNSim, Basilisk, and NASA NOS3, then defines how the CesiumJS prototype can become a deterministic
-test-bed console with headless batch runs and comparable mission-success measures.
+turns these results into a sequence of experiments. The deterministic simulator can now drop,
+delay, or duplicate a selected delivery, change one-way links, and reset a node. The browser exposes
+the first experiment: it drops the winning assignment to show that the leader records an assignee
+which never learns that it owns the mission. Stable mission identities and the full invariant suite
+come next. A consensus algorithm comes later, if an operation's evidence requirements justify one.
+The note also compares TLA+, OMNeT++, DTNSim, Basilisk, and NASA NOS3, then defines how the CesiumJS
+prototype can become a deterministic test-bed console with headless batch runs and comparable
+mission-success measures.
 
 # Non-goals
 
@@ -176,9 +185,11 @@ test-bed console with headless batch runs and comparable mission-success measure
 # Verification
 
 Host tests cover the published score examples, invalid inputs, exact-arrival behavior, message
-corruption, mission negotiation, retries, deterministic ties, busy nodes, health transitions, and
-32-bit clock rollover. A three-node in-memory simulation reconstructs the central demonstration
-without hardware. CI compiles both firmware targets from pinned profiles.
+corruption, mission negotiation, retries, deterministic ties, busy nodes, health transitions,
+32-bit clock rollover, explicit delivery faults, asymmetric links, and volatile state after a node
+reset. A three-node in-memory simulation reconstructs the central demonstration without hardware.
+The same runner builds with Emscripten, executes in a browser worker, and has a byte-for-byte parity
+check against the native fixture. CI also compiles both firmware targets from pinned profiles.
 
 Physical timing, sensor calibration, radio behavior under load, real propulsion, and orbital
 validity remain outside the current evidence boundary.

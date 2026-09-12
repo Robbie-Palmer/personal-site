@@ -1,0 +1,28 @@
+---
+title: "Context Engineering"
+description: "The design and continual selection of the information an AI model receives so it can act well within a limited context window."
+source_url: "https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents"
+related_ideas:
+  - "feature-engineering"
+---
+
+Context engineering manages the full input available to a model at inference time. That includes
+system instructions, tool definitions, retrieved documents, examples, message history, tool
+results, and working notes. Prompt wording sits alongside all of these other inputs.
+
+More context is not automatically better. Irrelevant logs, overlapping tools, stale documentation,
+and repeated instructions compete with the evidence needed for the current decision. The useful
+target is the smallest set of information that lets the model act correctly, with a way to retrieve
+more when the task demands it.
+
+Agents make the problem dynamic. Each tool call creates new state, long tasks outgrow one context
+window, and the value of earlier details changes as work progresses. Search, compact summaries,
+structured notes, and clear file or graph links let an agent recover detail without carrying the
+entire history in every turn.
+
+## Questions it prompts
+
+* Which information could change the next decision?
+* What can be retrieved when needed instead of included up front?
+* Which source wins when instructions or facts conflict?
+* Does evaluation test retrieval and context assembly as well as the final prompt?

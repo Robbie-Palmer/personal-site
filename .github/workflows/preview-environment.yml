@@ -392,6 +392,7 @@ jobs:
               `**Personal site:** ${process.env.PREVIEW_SITE_URL}`,
               `**Recipes:** ${process.env.PREVIEW_SITE_URL}/recipes`,
               `**AssetTracker:** ${process.env.PREVIEW_SITE_URL}/assettracker`,
+              `**Satellite swarm:** ${process.env.PREVIEW_SITE_URL}/satellite-swarm`,
               ...backendLines,
             ].join('\n');
 

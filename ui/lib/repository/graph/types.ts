@@ -1,5 +1,6 @@
 import type { ADRRef } from "@/lib/domain/adr/adr";
 import type { BlogSlug } from "@/lib/domain/blog/blogPost";
+import type { IdeaSlug } from "@/lib/domain/idea/idea";
 import type { InitiativeSlug } from "@/lib/domain/initiative/initiative";
 import type { ProjectSlug } from "@/lib/domain/project/project";
 import type { RoleSlug } from "@/lib/domain/role/jobRole";
@@ -10,6 +11,7 @@ import type { TechnologySlug } from "@/lib/domain/technology/technology";
 export type NodeType =
   | "project"
   | "initiative"
+  | "idea"
   | "adr"
   | "blog"
   | "role"
@@ -18,6 +20,7 @@ export type NodeType =
 export type NodeId =
   | `project:${string}`
   | `initiative:${string}`
+  | `idea:${string}`
   | `adr:${string}`
   | `blog:${string}`
   | `role:${string}`
@@ -31,7 +34,10 @@ export type EdgeType =
   | "HAS_TAG"
   | "CONTRIBUTES_TO_INITIATIVE"
   | "CREATED_AT_ROLE"
-  | "WRITTEN_AT_ROLE";
+  | "WRITTEN_AT_ROLE"
+  | "REFERENCES_IDEA"
+  | "HAS_IDEA"
+  | "RELATED_IDEA";
 
 export interface ContentGraph {
   edges: {
@@ -43,6 +49,9 @@ export interface ContentGraph {
     contributesToInitiative: Map<ProjectSlug, Set<InitiativeSlug>>;
     createdAtRole: Map<ProjectSlug, RoleSlug>;
     writtenAtRole: Map<BlogSlug, RoleSlug>;
+    referencesIdea: Map<NodeId, Set<IdeaSlug>>;
+    technologyIdeas: Map<TechnologySlug, Set<IdeaSlug>>;
+    relatedIdea: Map<IdeaSlug, Set<IdeaSlug>>;
   };
 
   reverse: {
@@ -54,6 +63,8 @@ export interface ContentGraph {
     initiativeProjects: Map<InitiativeSlug, Set<ProjectSlug>>;
     roleProjects: Map<RoleSlug, Set<ProjectSlug>>;
     roleBlogs: Map<RoleSlug, Set<BlogSlug>>;
+    ideaReferencedBy: Map<IdeaSlug, Set<NodeId>>;
+    ideaTechnologies: Map<IdeaSlug, Set<TechnologySlug>>;
   };
 }
 

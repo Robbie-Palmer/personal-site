@@ -1,0 +1,26 @@
+---
+title: "Human on the Loop"
+description: "An interaction model in which automation acts within set bounds while a person monitors it and can intervene."
+related_ideas:
+  - "human-in-the-loop"
+---
+
+Human on the loop leaves routine decisions with the system while a person supervises its operation.
+They do not approve every action. They need enough visibility and control to detect when behaviour
+departs from expectations, pause or override an action, and change the system's operating bounds.
+
+The phrase describes how a person supervises the system. The same person may stay on the loop while
+automation handles high-confidence cases, then move into the loop when an exception needs an
+explicit decision.
+
+The difficult part is making oversight actionable. A dashboard with stale data and no useful
+controls does not keep anybody meaningfully on the loop. The system must surface exceptions in time
+to act, make the available intervention clear, and record both automated actions and human
+interventions as events.
+
+## Questions it prompts
+
+* Which actions may proceed without prior approval?
+* What should trigger an alert or require intervention?
+* Can a person stop or reverse an action quickly enough?
+* Do policy changes and overrides become part of the audit history?

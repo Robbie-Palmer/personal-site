@@ -46,6 +46,7 @@ import { calculateGraphLayout } from "@/lib/domain/technology/graphLayout";
 
 const NODE_COLORS: Record<string, string> = {
   initiative: "#ec4899",
+  idea: "#06b6d4",
   project: "#3b82f6",
   blog: "#f97316",
   role: "#a855f7",
@@ -56,6 +57,7 @@ const NODE_COLORS: Record<string, string> = {
 
 const NODE_TYPE_LABELS: Record<string, string> = {
   initiative: "Initiatives",
+  idea: "Ideas",
   project: "Projects",
   blog: "Blog posts",
   role: "Roles",

@@ -8,7 +8,7 @@
 
 namespace satellite_swarm::simulation {
 
-constexpr uint8_t kSimulationTraceVersion = 1U;
+constexpr uint8_t kSimulationTraceVersion = 2U;
 
 struct NodeConfiguration {
   NodeId node_id = 0U;
@@ -30,10 +30,39 @@ struct MissionCommand {
   Coordinate objective{};
 };
 
+enum class DeliveryFaultType : uint8_t { Drop, Delay, Duplicate };
+enum class MessageDropReason : uint8_t { Scripted, LinkUnavailable };
+
+// A directive applies once to the next matching sender-to-recipient delivery in its frame.
+// A delayed delivery reaches the recipient on the first trace frame at or after deliver_at_ms.
+struct DeliveryFault {
+  NodeId sender = 0U;
+  NodeId recipient = 0U;
+  MessageType message_type = MessageType::MissionRequest;
+  DeliveryFaultType type = DeliveryFaultType::Drop;
+  uint32_t delay_ms = 0U;
+};
+
+struct LinkUpdate {
+  NodeId sender = 0U;
+  NodeId recipient = 0U;
+  bool connected = true;
+};
+
+struct NodeReset {
+  NodeId node_id = 0U;
+};
+
 struct SimulationFrame {
   uint32_t now_ms = 0U;
   std::vector<SatelliteUpdate> satellite_updates;
   std::vector<HealthUpdate> health_updates;
+  // Link changes take effect before resets, delayed-message release, and controller updates.
+  std::vector<LinkUpdate> link_updates;
+  // Link availability takes precedence over a matching directive, which is still consumed.
+  std::vector<DeliveryFault> delivery_faults;
+  // Resets complete before due delayed messages are released to the replacement controller.
+  std::vector<NodeReset> node_resets;
   std::vector<MissionCommand> mission_commands;
 };
 
@@ -46,13 +75,27 @@ struct SimulationTrace {
   std::vector<SimulationFrame> frames;
 };
 
-enum class SimulationEventType : uint8_t { MissionCommand, MessageSent, StateChanged };
+enum class SimulationEventType : uint8_t {
+  MissionCommand,
+  MessageSent,
+  MessageDropped,
+  MessageDelayed,
+  MessageDuplicated,
+  DelayedMessageDelivered,
+  LinkChanged,
+  NodeReset,
+  StateChanged
+};
 
 struct SimulationEvent {
   SimulationEventType type = SimulationEventType::StateChanged;
   uint32_t now_ms = 0U;
   NodeId node_id = 0U;
+  NodeId recipient_node = kBroadcastNode;
   bool accepted = false;
+  bool connected = true;
+  uint32_t deliver_at_ms = 0U;
+  MessageDropReason drop_reason = MessageDropReason::Scripted;
   Coordinate objective{};
   Message message{};
   ControllerState previous_state = ControllerState::Idle;

@@ -17,6 +17,8 @@ ui/source-images/
 # Generated at dev/build from the pinned typos version (not committed)
 ui/public/recipes/typos-dictionary.tsv
 ui/public/recipes/typos-dictionary.tsv.version
+ui/public/cesium/
+ui/public/simulations/autonomic-satellite-swarm/wasm/
 
 # Testing
 coverage/

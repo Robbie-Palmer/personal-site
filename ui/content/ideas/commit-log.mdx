@@ -1,0 +1,28 @@
+---
+title: "Commit Log"
+description: "An ordered, append-only record of accepted state changes that can be replicated or replayed to reconstruct derived state."
+source_url: "https://kafka.apache.org/26/getting-started/uses/"
+related_ideas:
+  - "write-ahead-log"
+  - "stream-table-duality"
+---
+
+A commit log records accepted state changes in a stable order. Writers append new records, while
+readers keep a position in the sequence and move forward independently. Replicas and recovering
+consumers can replay the same records to reach the same derived state.
+
+The word "committed" needs a precise scope. It may mean that a quorum has accepted a record, that a
+transaction has crossed its durability boundary, or that downstream consumers may safely observe
+it. Records beyond the committed position can exist temporarily and may disappear during recovery.
+
+A commit log describes the meaning and lifecycle of an ordered record. Write-ahead logging adds an
+ordering constraint between log durability and updates to another stored representation. One log
+can serve both purposes, while a commit log can also be the authoritative representation from which
+tables, indexes, caches, or other views are derived.
+
+## Questions it prompts
+
+* What event makes a record committed, and who agrees on that boundary?
+* Is the log authoritative, or does it protect another representation of state?
+* How do readers identify and persist their position?
+* Can retention or compaction remove records required for a complete replay?

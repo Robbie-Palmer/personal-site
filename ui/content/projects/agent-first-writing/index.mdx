@@ -58,6 +58,19 @@ corrections and did not close the gap between a technically correct draft and
 something I wanted to publish. That negative result narrows the problem. Generic
 grammatical error correction is not enough.
 
+The shared `writing-editor-domain` package defines records for findings,
+suggestions, grouped proposals, and editorial decisions. Every record refers to
+hashed source bytes through a half-open UTF-8 span. Stable IDs retain producer
+and revision provenance as records pass through review and evaluation.
+
+The DVC evaluation pipeline extracts pinned source and published revisions,
+freezes train, validation, and holdout membership, and runs Vale through the
+shared finding contract. It aligns findings with observed published edits while
+keeping boundary-crossing cases separate for manual adjudication. Git can show
+that prose changed, but it cannot turn a detection-only finding into an
+accepted suggestion. Scoring therefore waits for explicit editorial outcomes
+and a reproducible rewrite baseline.
+
 Grammarly remains the practical baseline for the final mile, but it does not
 provide the API needed for an agentic publishing system. Its published research
 and descriptions of its correction approach provide useful prior work without
@@ -105,7 +118,7 @@ general editor:
    GECToR-2024 result as a baseline.
 3. Measure factual preservation, unwanted voice changes, accepted edits, time
    saved, and regressions caught by deterministic rules.
-4. Run Vale and other deterministic checks through the same suggestion format.
+4. Run Vale and other deterministic checks through the shared finding format.
 5. Add a lightweight model only for failure classes that the evaluation set
    proves Vale cannot handle.
 6. Add passage rewrites with diffs after local suggestions are reliable.

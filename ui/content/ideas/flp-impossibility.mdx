@@ -1,0 +1,26 @@
+---
+title: "FLP Impossibility"
+description: "A deterministic consensus protocol cannot guarantee both safety and termination in a fully asynchronous system if even one process may crash."
+source_url: "https://read.seas.harvard.edu/cs2620/2026/lectures/flp/"
+related_ideas:
+  - "two-generals-problem"
+---
+
+FLP rules out a guarantee about distributed consensus. In a fully asynchronous system, messages can
+take an arbitrary amount of time and one process may stop. The remaining processes cannot always
+tell a crashed peer from a slow one. A deterministic protocol can preserve agreement, but no such
+protocol can guarantee that every valid execution eventually decides.
+
+This is not a claim that practical consensus is impossible. Real protocols change the assumptions.
+They use partial synchrony, failure detectors, randomised choices, or accept that progress can stop
+under some conditions. A design should state which changed assumption it relies on.
+
+A timeout is a policy for making progress. It cannot prove that another participant has failed,
+because delay and failure are indistinguishable under these assumptions. Protocol documentation
+should say what a timeout permits and which safety property still holds.
+
+## Questions it prompts
+
+* Which timing and delivery assumptions does this protocol need?
+* Does a timeout report failure, or only the absence of a timely response?
+* When safety and progress conflict, which one does the system preserve?

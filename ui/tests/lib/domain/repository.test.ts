@@ -681,6 +681,7 @@ Content`;
               slug: "react",
               name: "React",
               website: "https://react.dev",
+              ideas: [],
             },
           ],
         ]);
@@ -704,6 +705,7 @@ Content`;
             "test-project",
             {
               technologies: ["react"],
+              ideas: [],
               adrs: [],
               initiatives: [],
               tags: [],
@@ -746,6 +748,7 @@ Content`;
             "test-project",
             {
               technologies: ["react"], // react doesn't exist
+              ideas: [],
               adrs: [],
               initiatives: [],
               tags: [],
@@ -769,6 +772,41 @@ Content`;
         expect(errors[0]?.value).toBe("react");
       });
 
+      it("should detect an idea referenced by a technology that does not exist", () => {
+        const technologies = new Map([
+          [
+            "kafka",
+            {
+              slug: "kafka",
+              name: "Kafka",
+              website: "https://kafka.apache.org",
+              ideas: ["missing-idea"],
+            },
+          ],
+        ]);
+
+        const errors = validateReferentialIntegrity({
+          technologies,
+          ideas: new Map(),
+          initiatives: new Map(),
+          adrs: new Map(),
+          projects: new Map(),
+          blogRelations: new Map(),
+          projectRelations: new Map(),
+          adrRelations: new Map(),
+          roleRelations: new Map(),
+        });
+
+        expect(errors).toContainEqual(
+          expect.objectContaining({
+            type: "missing_reference",
+            entity: "Technology[kafka]",
+            field: "ideas",
+            value: "missing-idea",
+          }),
+        );
+      });
+
       it("should detect missing ADR reference", () => {
         const technologies = new Map();
         const projects = new Map([
@@ -790,6 +828,7 @@ Content`;
             "test-project",
             {
               technologies: [],
+              ideas: [],
               adrs: ["001-missing"], // ADR doesn't exist
               initiatives: [],
               tags: [],
@@ -832,6 +871,7 @@ Content`;
             "test-project",
             {
               technologies: [],
+              ideas: [],
               adrs: [],
               initiatives: ["missing-initiative"],
               tags: [],
@@ -919,6 +959,7 @@ Content`;
             "recipe-site",
             {
               technologies: [],
+              ideas: [],
               adrs: ["recipe-site:001-react", "personal-site:001-react"],
               initiatives: [],
               tags: [],
@@ -972,6 +1013,7 @@ Content`;
             {
               project: "missing-project", // Project doesn't exist
               technologies: [],
+              ideas: [],
             },
           ],
         ]);

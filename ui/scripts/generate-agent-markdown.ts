@@ -24,6 +24,13 @@ import {
   type InitiativeWithProjects,
 } from "@/lib/api/initiatives";
 import {
+  getAllIdeas,
+  getIdea,
+  getIdeasForADR,
+  getIdeasForBlog,
+  getIdeasForProject,
+} from "@/lib/api/ideas";
+import {
   getAllProjects,
   getBuildingPhilosophy,
   getProjectADR,
@@ -90,6 +97,15 @@ function projectFacts(project: ProjectWithADRs): [string, string][] {
     facts.push([
       "Technologies",
       project.technologies.map((tech) => tech.name).join(", "),
+    ]);
+  }
+  const ideas = getIdeasForProject(project.slug);
+  if (ideas.length > 0) {
+    facts.push([
+      "Ideas",
+      ideas
+        .map((idea) => `${idea.title} (${markdownUrl(routePath("ideas", idea.slug))})`)
+        .join(", "),
     ]);
   }
   return facts;
@@ -262,6 +278,15 @@ function buildAdrPages(
       ["Date", adr.date],
     ];
     if (adr.supersedes) facts.push(["Supersedes", adr.supersedes]);
+    const ideas = getIdeasForADR(adr.adrRef);
+    if (ideas.length > 0) {
+      facts.push([
+        "Ideas",
+        ideas
+          .map((idea) => `${idea.title} (${markdownUrl(routePath("ideas", idea.slug))})`)
+          .join(", "),
+      ]);
+    }
     if (relatedInitiatives.length > 0) {
       facts.push([
         "Initiatives",
@@ -338,6 +363,15 @@ function buildBlogPostPages(
     if (post.updated) facts.push(["Updated", post.updated]);
     if (post.tags.length > 0) facts.push(["Tags", post.tags.join(", ")]);
     if (post.canonicalUrl) facts.push(["Canonical URL", post.canonicalUrl]);
+    const ideas = getIdeasForBlog(post.slug);
+    if (ideas.length > 0) {
+      facts.push([
+        "Ideas",
+        ideas
+          .map((idea) => `${idea.title} (${markdownUrl(routePath("ideas", idea.slug))})`)
+          .join(", "),
+      ]);
+    }
     return {
       htmlPath: `/blog/${post.slug}`,
       filePath: `blog/${post.slug}.md`,
@@ -419,6 +453,34 @@ function buildRecipesIndexPage(
   };
 }
 
+function buildSatelliteSwarmPage(): GeneratedPage {
+  return {
+    htmlPath: "/satellite-swarm",
+    filePath: "satellite-swarm.md",
+    title: "Autonomic Satellite Swarm",
+    description:
+      "A deterministic three-node satellite-swarm mission rendered on a CesiumJS globe",
+    facts: [
+      ["Project", markdownUrl("/projects/autonomic-satellite-swarm")],
+      [
+        "Source code",
+        "https://github.com/Robbie-Palmer/personal-site/tree/main/cpp/autonomic-satellite-swarm",
+      ],
+    ],
+    content: [
+      "## C++ mission simulation",
+      "",
+      "Choose a geographic objective and run the portable C++ coordination code as WebAssembly in a module worker. React validates the versioned result, while CesiumJS draws the Earth, scripted node positions, message links, and objective.",
+      "",
+      "The positions are simulation inputs, not propagated or validated orbits. The historical candidacy score is not validated astrodynamics, and the safe-disabled state is software state rather than physical deorbiting.",
+      "",
+      "## Execution boundary",
+      "",
+      "Emscripten builds the same controller and deterministic trace runner exercised by native tests. A byte-for-byte parity check protects the default result, and the worker keeps C++ execution off the browser's main thread.",
+    ].join("\n"),
+  };
+}
+
 function buildTechnologyPages(projects: ProjectWithADRs[]): GeneratedPage[] {
   const repository = loadDomainRepository();
   // ADR slugs are only unique within a project, so collect ADRs per
@@ -449,7 +511,20 @@ function buildTechnologyPages(projects: ProjectWithADRs[]): GeneratedPage[] {
     if (!tech) return [];
     const related = getRelatedContentForTechnology(repository, slug);
 
-    const sections: string[] = [];
+    const sections: string[] = tech.overview
+      ? [convert(tech.overview).trim(), ""]
+      : [];
+    if (related.ideas.length > 0) {
+      sections.push(
+        "## Ideas this technology builds on or exposes",
+        "",
+        ...related.ideas.map(
+          (idea) =>
+            `- [${idea.title}](${markdownUrl(routePath("ideas", idea.slug))}): ${idea.description}`,
+        ),
+        "",
+      );
+    }
     if (related.projects.length > 0) {
       sections.push(
         "## Projects using this technology",
@@ -507,6 +582,84 @@ function buildTechnologyPages(projects: ProjectWithADRs[]): GeneratedPage[] {
   });
 }
 
+function buildIdeasIndexPage(
+  ideas: ReturnType<typeof getAllIdeas>,
+): GeneratedPage {
+  return {
+    htmlPath: "/ideas",
+    filePath: "ideas.md",
+    title: "Ideas",
+    description:
+      "Laws, methods, and mental models that recur across my projects, decisions, and writing.",
+    content: ideas
+      .flatMap((idea) => [
+        `### [${idea.title}](${markdownUrl(routePath("ideas", idea.slug))})`,
+        "",
+        idea.description,
+        "",
+      ])
+      .join("\n"),
+  };
+}
+
+function buildIdeaPages(
+  ideas: ReturnType<typeof getAllIdeas>,
+): GeneratedPage[] {
+  return ideas.map((idea) => {
+    const detail = getIdea(idea.slug);
+    if (!detail) throw new Error(`Idea not found: ${idea.slug}`);
+    const sections: string[] = [convert(detail.content).trim()];
+    if (detail.relatedIdeas.length > 0) {
+      sections.push(
+        "",
+        "## Related ideas",
+        "",
+        ...detail.relatedIdeas.map(
+          (related) =>
+            `- [${related.title}](${markdownUrl(routePath("ideas", related.slug))}): ${related.description}`,
+        ),
+      );
+    }
+    const references = detail.relatedContent;
+    if (
+      references.technologies.length > 0 ||
+      references.projects.length > 0 ||
+      references.blogs.length > 0 ||
+      references.adrs.length > 0
+    ) {
+      sections.push(
+        "",
+        "## Where it appears",
+        "",
+        ...references.technologies.map(
+          (technology) =>
+            `- Technology: [${technology.name}](${markdownUrl(routePath("technologies", technology.slug))})`,
+        ),
+        ...references.projects.map(
+          (project) =>
+            `- Project: [${project.title}](${markdownUrl(routePath("projects", project.slug))})`,
+        ),
+        ...references.blogs.map(
+          (post) =>
+            `- Blog post: [${post.title}](${markdownUrl(routePath("blog", post.slug))})`,
+        ),
+        ...references.adrs.map(
+          (adr) =>
+            `- ADR: [${adr.title}](${markdownUrl(routePath("projects", adr.projectSlug, "adrs", adr.slug))})`,
+        ),
+      );
+    }
+    return {
+      htmlPath: `/ideas/${idea.slug}`,
+      filePath: `ideas/${idea.slug}.md`,
+      title: idea.title,
+      description: idea.description,
+      content: sections.join("\n"),
+      facts: detail.sourceUrl ? [["Source", detail.sourceUrl]] : undefined,
+    };
+  });
+}
+
 function buildHomePage(): GeneratedPage {
   return {
     htmlPath: "/",
@@ -520,8 +673,10 @@ function buildHomePage(): GeneratedPage {
       "",
       `- [Experience](${markdownUrl("/experience")}): career history, roles, and technologies`,
       `- [Projects](${markdownUrl("/projects")}): projects, ADRs, and building philosophy`,
+      `- [Ideas](${markdownUrl("/ideas")}): recurring laws, methods, and mental models`,
       `- [Blog](${markdownUrl("/blog")}): ${siteConfig.blog.description}`,
       `- [Recipes](${markdownUrl("/recipes")}): a digital recipe book`,
+      `- [Satellite swarm](${markdownUrl("/satellite-swarm")}): a deterministic mission replay on a 3D globe`,
       "",
       "## Links",
       "",
@@ -538,6 +693,7 @@ function buildLlmsTxt(
   posts: ReturnType<typeof getAllPosts>,
   recipes: RecipeCardView[],
   technologyPages: GeneratedPage[],
+  ideaPages: GeneratedPage[],
 ): string {
   const lines = [
     `# ${siteConfig.name}`,
@@ -551,6 +707,8 @@ function buildLlmsTxt(
     `- [About](${markdownUrl("/")}): site overview and contact links`,
     `- [Experience](${markdownUrl("/experience")}): career history, roles, responsibilities, and technologies`,
     `- [Projects](${markdownUrl("/projects")}): all projects plus the building philosophy that guides them`,
+    `- [Ideas](${markdownUrl("/ideas")}): recurring laws, methods, and mental models`,
+    `- [Satellite swarm](${markdownUrl("/satellite-swarm")}): a deterministic C++ WebAssembly mission on a CesiumJS globe`,
     "",
     "## Initiatives",
     "",
@@ -594,12 +752,20 @@ function buildLlmsTxt(
     "",
     "## Technologies",
     "",
-    "Each page lists the projects, ADRs, blog posts, and roles using that technology.",
+    "Each page lists the ideas the technology builds on or exposes, plus the projects, ADRs, blog posts, and roles using it.",
     "",
     ...technologyPages.map((page) => {
       const descriptionSuffix = page.description ? `: ${page.description}` : "";
       return `- [${page.title}](${markdownUrl(page.htmlPath)})${descriptionSuffix}`;
     }),
+    "",
+    "## Ideas",
+    "",
+    "Each page defines an idea and links to related ideas, technologies, projects, ADRs, and posts.",
+    "",
+    ...ideaPages.map(
+      (page) => `- [${page.title}](${markdownUrl(page.htmlPath)}): ${page.description}`,
+    ),
     "",
     "## Recipes",
     "",
@@ -652,7 +818,10 @@ function buildRoutesJson(): string {
         "/blog/*",
         "/recipes",
         "/recipes/*",
+        "/satellite-swarm",
         "/technologies/*",
+        "/ideas",
+        "/ideas/*",
       ],
       exclude: ["/_next/*", "/company-logos/*", "/tech-icons/*"],
     },
@@ -700,12 +869,14 @@ function main(): void {
   }
 
   const projects = getAllProjects();
+  const ideas = getAllIdeas();
   const initiatives = getAllInitiatives();
   const posts = getAllPosts();
   const philosophy = getBuildingPhilosophy();
   // Recipes are database-backed and served dynamically by the Pages Function.
   const recipes: RecipeCardView[] = [];
   const technologyPages = buildTechnologyPages(projects);
+  const ideaPages = buildIdeaPages(ideas);
   const pitchDeckPages = projects
     .map(buildPitchDeckPage)
     .filter((page): page is GeneratedPage => page !== null);
@@ -714,6 +885,8 @@ function main(): void {
     buildHomePage(),
     buildExperiencePage(),
     buildProjectsIndexPage(projects, initiatives, philosophy),
+    buildIdeasIndexPage(ideas),
+    ...ideaPages,
     ...buildInitiativePages(initiatives),
     ...projects.map((project) => buildProjectPage(project, initiatives)),
     ...pitchDeckPages,
@@ -721,6 +894,7 @@ function main(): void {
     buildBlogIndexPage(posts),
     ...buildBlogPostPages(posts),
     buildRecipesIndexPage(recipes),
+    buildSatelliteSwarmPage(),
     ...technologyPages,
   ];
 
@@ -741,7 +915,14 @@ function main(): void {
 
   writeFile(
     "llms.txt",
-    buildLlmsTxt(projects, initiatives, posts, recipes, technologyPages),
+    buildLlmsTxt(
+      projects,
+      initiatives,
+      posts,
+      recipes,
+      technologyPages,
+      ideaPages,
+    ),
   );
 
   // The llms.txt index is deliberately not prepended: its navigation links

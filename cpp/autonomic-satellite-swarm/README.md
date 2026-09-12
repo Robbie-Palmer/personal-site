@@ -1,7 +1,8 @@
 # Autonomic Satellite Swarm
 
 A revived research prototype for coordinating small satellite swarms and exploring fail-safe
-behavior. The portable C++ core can run in a host simulation or behind Arduino hardware adapters.
+behavior. The portable C++ core can run in a host simulation, in a browser through WebAssembly, or
+behind Arduino hardware adapters.
 
 The original prototype was called *Apoptotic Temporal Satellite Swarms*. This project accompanies
 the 2019 paper [*Autonomic Providing Pre-Programmed Death of Cubesats
@@ -22,6 +23,8 @@ explicit.
 - A busy node does not accept more work.
 - Health policy can place a node into reversible quiescence or an irreversible safe-disabled state.
 - Repeated failure to receive acknowledgements can trigger the historical "death by default" rule.
+- Deterministic trace inputs can drop, delay, or duplicate deliveries, change directed links, and
+  reset a node so protocol failures can be replayed exactly.
 
 ## Quick start
 
@@ -32,9 +35,10 @@ mise trust
 mise install
 mise run test
 mise run simulate
+mise run simulate:json
 ```
 
-The simulation should assign the South-Pole mission to node 1:
+The simulation should assign the southern-latitude mission to node 1:
 
 ```text
 Mission 1 assigned to node 1
@@ -42,6 +46,25 @@ node 0: idle
 node 1: active
 node 2: idle
 ```
+
+The [browser demonstration](https://robbiepalmer.me/satellite-swarm) runs the portable controller
+as WebAssembly in a module worker and draws the result on a self-hosted CesiumJS globe.
+
+`simulate:json` prints the versioned state, position, message, transition, and network-fault record
+consumed by the CesiumJS view. The paths come from scripted simulation inputs. Orbit propagation
+remains outside this demo. The browser can compare the connected mission with a run where node 1's
+winning assignment is dropped.
+
+Build the browser module and compare its default output with the native fixture:
+
+```shell
+mise run browser:parity
+```
+
+The task pins Emscripten, writes the untracked deployable `.mjs` and `.wasm` files under `ui/public`,
+checks a custom objective, and verifies invalid-input handling. The UI build runs the same task so
+deployments compile the browser module from source. The worker API is versioned separately from the
+simulation trace and display schema.
 
 Run every host, firmware, formatting, lint, and spelling check with:
 
@@ -58,6 +81,7 @@ its JavaScript and Python coverage.
 ```text
 src/satellite_swarm/       portable state machine, policies, types, and wire codec
 simulation/                 deterministic trace runner and observable simulation state
+browser/                    C ABI, Emscripten entry point, and native/WASM parity test
 examples/simulation/       deterministic host-side three-node demonstration
 firmware/uno_ir/           legacy Arduino Uno + infrared reference adapter
 firmware/esp32_espnow/     modern ESP32 + ESP-NOW reference adapter

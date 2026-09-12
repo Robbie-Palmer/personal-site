@@ -1,5 +1,6 @@
 import type { ADRRef } from "@/lib/domain/adr/adr";
 import type { BlogSlug } from "@/lib/domain/blog/blogPost";
+import type { IdeaSlug } from "@/lib/domain/idea/idea";
 import type { InitiativeSlug } from "@/lib/domain/initiative/initiative";
 import type { ProjectSlug } from "@/lib/domain/project/project";
 import type { RoleSlug } from "@/lib/domain/role/jobRole";
@@ -13,13 +14,18 @@ export interface RelationData {
   projectTags: Map<ProjectSlug, string[]>;
   projectInitiatives: Map<ProjectSlug, InitiativeSlug[]>;
   blogTechnologies: Map<BlogSlug, TechnologySlug[]>;
+  blogIdeas: Map<BlogSlug, IdeaSlug[]>;
   blogTags: Map<BlogSlug, string[]>;
   adrTechnologies: Map<ADRRef, TechnologySlug[]>;
+  adrIdeas: Map<ADRRef, IdeaSlug[]>;
   adrProject: Map<ADRRef, ProjectSlug>;
   adrSupersedes: Map<ADRRef, ADRRef>;
   adrInheritsFrom: Map<ADRRef, ADRRef>;
   roleTechnologies: Map<RoleSlug, TechnologySlug[]>;
   blogRole: Map<BlogSlug, RoleSlug>;
+  projectIdeas: Map<ProjectSlug, IdeaSlug[]>;
+  technologyIdeas: Map<TechnologySlug, IdeaSlug[]>;
+  ideaRelatedIdeas: Map<IdeaSlug, IdeaSlug[]>;
 }
 
 export function createEmptyRelationData(): RelationData {
@@ -30,13 +36,18 @@ export function createEmptyRelationData(): RelationData {
     projectTags: new Map(),
     projectInitiatives: new Map(),
     blogTechnologies: new Map(),
+    blogIdeas: new Map(),
     blogTags: new Map(),
     adrTechnologies: new Map(),
+    adrIdeas: new Map(),
     adrProject: new Map(),
     adrSupersedes: new Map(),
     adrInheritsFrom: new Map(),
     roleTechnologies: new Map(),
     blogRole: new Map(),
+    projectIdeas: new Map(),
+    technologyIdeas: new Map(),
+    ideaRelatedIdeas: new Map(),
   };
 }
 
@@ -44,6 +55,7 @@ interface BuildGraphInput {
   technologySlugs: Iterable<TechnologySlug>;
   projectSlugs: Iterable<ProjectSlug>;
   initiativeSlugs?: Iterable<InitiativeSlug>;
+  ideaSlugs?: Iterable<IdeaSlug>;
   relations: RelationData;
 }
 
@@ -52,6 +64,7 @@ export function buildContentGraph(input: BuildGraphInput): ContentGraph {
     technologySlugs,
     projectSlugs,
     initiativeSlugs = [],
+    ideaSlugs = [],
     relations,
   } = input;
 
@@ -65,6 +78,9 @@ export function buildContentGraph(input: BuildGraphInput): ContentGraph {
       contributesToInitiative: new Map(),
       createdAtRole: new Map(),
       writtenAtRole: new Map(),
+      referencesIdea: new Map(),
+      technologyIdeas: new Map(),
+      relatedIdea: new Map(),
     },
     reverse: {
       technologyUsedBy: new Map(),
@@ -75,6 +91,8 @@ export function buildContentGraph(input: BuildGraphInput): ContentGraph {
       initiativeProjects: new Map(),
       roleProjects: new Map(),
       roleBlogs: new Map(),
+      ideaReferencedBy: new Map(),
+      ideaTechnologies: new Map(),
     },
   };
 
@@ -87,12 +105,27 @@ export function buildContentGraph(input: BuildGraphInput): ContentGraph {
   for (const initiativeSlug of initiativeSlugs) {
     graph.reverse.initiativeProjects.set(initiativeSlug, new Set());
   }
+  for (const ideaSlug of ideaSlugs) {
+    graph.reverse.ideaReferencedBy.set(ideaSlug, new Set());
+    graph.reverse.ideaTechnologies.set(ideaSlug, new Set());
+  }
+
+  for (const [techSlug, ideas] of relations.technologyIdeas) {
+    if (ideas.length === 0) continue;
+    graph.edges.technologyIdeas.set(techSlug, new Set(ideas));
+    for (const ideaSlug of ideas) {
+      graph.reverse.ideaTechnologies.get(ideaSlug)?.add(techSlug);
+    }
+  }
 
   for (const [slug, technologies] of relations.projectTechnologies) {
     addTechnologyEdges(graph, makeNodeId("project", slug), technologies);
   }
   for (const [slug, tags] of relations.projectTags) {
     addTagEdges(graph, makeNodeId("project", slug), tags);
+  }
+  for (const [slug, ideas] of relations.projectIdeas) {
+    addIdeaEdges(graph, makeNodeId("project", slug), ideas);
   }
   for (const [projectSlug, initiatives] of relations.projectInitiatives) {
     if (initiatives.length === 0) continue;
@@ -109,6 +142,9 @@ export function buildContentGraph(input: BuildGraphInput): ContentGraph {
 
   for (const [slug, technologies] of relations.adrTechnologies) {
     addTechnologyEdges(graph, makeNodeId("adr", slug), technologies);
+  }
+  for (const [slug, ideas] of relations.adrIdeas) {
+    addIdeaEdges(graph, makeNodeId("adr", slug), ideas);
   }
   for (const [slug, projectSlug] of relations.adrProject) {
     graph.edges.partOfProject.set(slug, projectSlug);
@@ -132,6 +168,15 @@ export function buildContentGraph(input: BuildGraphInput): ContentGraph {
   for (const [slug, tags] of relations.blogTags) {
     addTagEdges(graph, makeNodeId("blog", slug), tags);
   }
+  for (const [slug, ideas] of relations.blogIdeas) {
+    addIdeaEdges(graph, makeNodeId("blog", slug), ideas);
+  }
+
+  for (const [slug, relatedIdeas] of relations.ideaRelatedIdeas) {
+    if (relatedIdeas.length > 0) {
+      graph.edges.relatedIdea.set(slug, new Set(relatedIdeas));
+    }
+  }
 
   for (const [slug, technologies] of relations.roleTechnologies) {
     addTechnologyEdges(graph, makeNodeId("role", slug), technologies);
@@ -154,6 +199,18 @@ export function buildContentGraph(input: BuildGraphInput): ContentGraph {
   }
 
   return graph;
+}
+
+function addIdeaEdges(
+  graph: ContentGraph,
+  nodeId: NodeId,
+  ideas: IdeaSlug[],
+): void {
+  if (ideas.length === 0) return;
+  graph.edges.referencesIdea.set(nodeId, new Set(ideas));
+  for (const idea of ideas) {
+    graph.reverse.ideaReferencedBy.get(idea)?.add(nodeId);
+  }
 }
 
 function addTechnologyEdges(

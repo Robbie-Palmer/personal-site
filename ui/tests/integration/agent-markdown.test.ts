@@ -37,8 +37,10 @@ describe("agent markdown generation", () => {
       "index.md",
       "experience.md",
       "projects.md",
+      "ideas.md",
       "blog.md",
       "recipes.md",
+      "satellite-swarm.md",
       "llms.txt",
       "llms-full.txt",
       "_headers",
@@ -46,6 +48,46 @@ describe("agent markdown generation", () => {
     ]) {
       expect(fs.existsSync(path.join(OUT_DIR, file)), file).toBe(true);
     }
+  });
+
+  it("generates a markdown twin for every idea page", () => {
+    const htmlPages = fs
+      .readdirSync(path.join(OUT_DIR, "ideas"))
+      .filter((file) => file.endsWith(".html"));
+    expect(htmlPages).toContain("human-in-the-loop.html");
+    expect(htmlPages).toContain("human-on-the-loop.html");
+    expect(htmlPages).toContain("context-engineering.html");
+    expect(htmlPages).toContain("commit-log.html");
+    expect(htmlPages).toContain("stream-table-duality.html");
+    expect(htmlPages).toHaveLength(26);
+    for (const htmlPage of htmlPages) {
+      const mdPage = htmlPage.replace(/\.html$/, ".md");
+      expect(fs.existsSync(path.join(OUT_DIR, "ideas", mdPage))).toBe(true);
+    }
+  });
+
+  it("includes inferred technology backlinks on idea markdown pages", () => {
+    const wal = read("ideas/write-ahead-log.md");
+    expect(wal).toContain(
+      "Technology: [Kafka](https://robbiepalmer.me/technologies/kafka.md)",
+    );
+
+    expect(read("llms.txt")).toContain(
+      "links to related ideas, technologies, projects, ADRs, and posts",
+    );
+  });
+
+  it("keeps technology-specific explanations on technology pages", () => {
+    const kafka = read("technologies/kafka.md");
+    expect(kafka).toContain(
+      "Kafka's core abstraction is a distributed, replicated commit log.",
+    );
+    expect(kafka).toContain("It does not prescribe the topology");
+    expect(kafka).toContain("/ideas/commit-log.md");
+    expect(kafka).toContain("/ideas/write-ahead-log.md");
+
+    const wal = read("ideas/write-ahead-log.md");
+    expect(wal).not.toContain("Kafka's core abstraction");
   });
 
   it("includes the building philosophy in projects.md", () => {
@@ -146,8 +188,10 @@ describe("agent markdown generation", () => {
     expect(routes.include).toContain("/llms.txt");
     expect(routes.include).toContain("/llms-full.txt");
     expect(routes.include).toContain("/sitemap.xml");
+    expect(routes.include).toContain("/satellite-swarm");
     expect(routes.include).toContain("/projects/*");
     expect(routes.include).toContain("/initiatives/*");
+    expect(routes.include).toContain("/ideas/*");
     expect(routes.exclude).toContain("/_next/*");
     expect(routes.include.length + routes.exclude.length).toBeLessThanOrEqual(
       100,
@@ -193,6 +237,9 @@ describe("agent markdown generation", () => {
     expect(headers).toContain("/projects");
     expect(headers).toContain(
       'Link: <https://robbiepalmer.me/projects.md>; rel="alternate"; type="text/markdown"',
+    );
+    expect(headers).toContain(
+      'Link: <https://robbiepalmer.me/satellite-swarm.md>; rel="alternate"; type="text/markdown"',
     );
     const ruleCount = (headers.match(/^ {2}Link:/gm) ?? []).length;
     expect(ruleCount).toBeLessThanOrEqual(100);

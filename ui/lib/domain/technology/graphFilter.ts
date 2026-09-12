@@ -40,7 +40,7 @@ function buildNeighbors(edges: GraphEdge[]): Map<string, Neighbor[]> {
 }
 
 function canTraverse(edge: Neighbor): boolean {
-  if (edge.type === "HAS_TAG") return false;
+  if (["HAS_TAG", "HAS_IDEA"].includes(edge.type)) return false;
   if (edge.direction === "in") return true;
   return ![
     "CONTRIBUTES_TO_INITIATIVE",

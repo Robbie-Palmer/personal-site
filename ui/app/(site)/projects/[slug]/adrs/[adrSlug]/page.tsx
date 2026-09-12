@@ -1,6 +1,7 @@
 import { Calendar } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { IdeaBadges } from "@/components/ideas/idea-badges";
 import { Markdown } from "@/components/markdown";
 import { Mermaid } from "@/components/mermaid";
 import { ADRBadge } from "@/components/projects/adr-badge";
@@ -12,6 +13,7 @@ import { MermaidDemo } from "@/components/technology/mermaid-demo";
 import { ShikiDemo } from "@/components/technology/shiki-demo";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { getIdeasForADR } from "@/lib/api/ideas";
 import {
   type ADRDetailView,
   getAllProjects,
@@ -98,6 +100,7 @@ export default async function ADRPage({ params }: Readonly<PageProps>) {
       : undefined;
   const displayIndex = formatADRIndex(currentIndex >= 0 ? currentIndex : 0);
   const displayTitle = normalizeADRTitle(adr.title);
+  const ideas = getIdeasForADR(adr.adrRef);
   const supersedesRef = adr.supersedes ? parseADRRef(adr.supersedes) : null;
   const adrContent = (() => {
     if (!adr.isInherited) {
@@ -152,6 +155,8 @@ export default async function ADRPage({ params }: Readonly<PageProps>) {
           </h1>
 
           <div className="flex flex-wrap items-center gap-4">
+            <IdeaBadges ideas={ideas} />
+
             {adr.technologies && adr.technologies.length > 0 && (
               <div className="flex flex-wrap gap-2">
                 {adr.technologies.map((tech) => (

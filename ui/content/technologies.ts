@@ -110,6 +110,7 @@ export const technologies: TechnologyContent[] = [
       "Infrastructure as code for building, changing, and versioning cloud resources",
     website: "https://www.terraform.io",
     type: "language",
+    ideas: ["directed-acyclic-graph"],
   },
   {
     name: "Cloudflare Pages",
@@ -137,6 +138,17 @@ export const technologies: TechnologyContent[] = [
     added: "2026-01-04",
     description: "Lightweight, client-side, fuzzy-search library",
     website: "https://www.fusejs.io",
+    type: "library",
+  },
+  {
+    name: "jsdiff",
+    added: "2026-09-11",
+    description:
+      "Text differencing library with character, word, line, and structured patch APIs",
+    overview: `jsdiff compares text at several token granularities and returns ordered runs of unchanged, inserted, and removed content. Its character mode treats Unicode code points as tokens.
+
+Diff operations can set an edit-distance or time limit. The function returns no result when it reaches that limit, which lets batch pipelines bound difficult comparisons explicitly. Version 8 and later include TypeScript definitions.`,
+    website: "https://github.com/kpdecker/jsdiff",
     type: "library",
   },
   {
@@ -434,9 +446,20 @@ export const technologies: TechnologyContent[] = [
     name: "Kafka",
     added: "2026-01-04",
     description: "Distributed event streaming platform",
+    overview: `Kafka's core abstraction is a distributed, replicated commit log. That makes a
+write-ahead log a useful model: records become durable in the log, and consumers can replay them to
+rebuild derived state. In a conventional database, the WAL usually sits behind mutable tables and
+indexes as an internal recovery mechanism. Kafka turns that arrangement inside out by making the
+durable log the primary interface and treating tables, indexes, and materialized views as downstream
+projections.
+
+The log defines ordering within each partition. It does not prescribe the topology of the system
+around it. Applications can use Kafka to drive an acyclic pipeline, a workflow with feedback loops,
+a state machine, a cyclic state graph, or another processing model entirely.`,
     website: "https://kafka.apache.org",
     iconSlug: "apachekafka",
     type: "platform",
+    ideas: ["commit-log", "stream-table-duality", "write-ahead-log"],
   },
   {
     name: "Quix Streams",
@@ -446,6 +469,7 @@ export const technologies: TechnologyContent[] = [
     website: "https://quix.io/docs/quix-streams/introduction.html",
     iconSlug: "quixstreams",
     type: "library",
+    ideas: ["directed-acyclic-graph", "stream-table-duality"],
   },
   {
     name: "Strimzi",
@@ -463,10 +487,42 @@ export const technologies: TechnologyContent[] = [
     type: "platform",
   },
   {
+    name: "kube-state-metrics",
+    added: "2026-09-12",
+    description:
+      "Kubernetes service that exposes cluster object state as Prometheus metrics",
+    website: "https://github.com/kubernetes/kube-state-metrics",
+    type: "tool",
+  },
+  {
     name: "Amazon S3",
     added: "2026-09-05",
     description: "AWS object storage for data lakes and application artifacts",
     website: "https://aws.amazon.com/s3/",
+    iconSlug: "aws",
+    type: "platform",
+  },
+  {
+    name: "Amazon ECS",
+    added: "2026-09-09",
+    description: "AWS service for deploying and managing container workloads",
+    website: "https://aws.amazon.com/ecs/",
+    iconSlug: "aws",
+    type: "platform",
+  },
+  {
+    name: "Amazon SNS",
+    added: "2026-09-09",
+    description: "AWS publish-and-subscribe messaging service",
+    website: "https://aws.amazon.com/sns/",
+    iconSlug: "aws",
+    type: "platform",
+  },
+  {
+    name: "Amazon SQS",
+    added: "2026-09-09",
+    description: "AWS managed message queue service",
+    website: "https://aws.amazon.com/sqs/",
     iconSlug: "aws",
     type: "platform",
   },
@@ -478,6 +534,7 @@ export const technologies: TechnologyContent[] = [
     website: "https://www.getdbt.com",
     iconSlug: "dbt",
     type: "tool",
+    ideas: ["directed-acyclic-graph"],
   },
   {
     name: "Arduino",
@@ -572,6 +629,7 @@ export const technologies: TechnologyContent[] = [
     description: "Data Version Control for machine learning projects",
     website: "https://dvc.org",
     type: "tool",
+    ideas: ["directed-acyclic-graph"],
   },
   {
     name: "DuckDB",
@@ -588,6 +646,13 @@ export const technologies: TechnologyContent[] = [
       "A platform for packaging, distributing, and running applications in containers",
     website: "https://www.docker.com",
     type: "tool",
+  },
+  {
+    name: "Encord",
+    added: "2026-09-10",
+    description: "Data annotation and management for computer vision and AI",
+    website: "https://encord.com",
+    type: "platform",
   },
   {
     name: "FastAPI",
@@ -611,6 +676,15 @@ export const technologies: TechnologyContent[] = [
     website: "https://flink.apache.org",
     iconSlug: "apacheflink",
     type: "platform",
+    ideas: ["directed-acyclic-graph", "stream-table-duality"],
+  },
+  {
+    name: "GCP",
+    added: "2026-09-10",
+    description: "Google Cloud computing platform",
+    website: "https://cloud.google.com",
+    iconSlug: "googlecloud",
+    type: "platform",
   },
   {
     name: "GeoPandas",
@@ -633,6 +707,7 @@ export const technologies: TechnologyContent[] = [
     description: "Serverless, highly scalable data warehouse",
     website: "https://cloud.google.com/bigquery",
     type: "database",
+    ideas: ["feature-engineering", "feature-stores"],
   },
   {
     name: "Google Gemini",
@@ -742,6 +817,7 @@ export const technologies: TechnologyContent[] = [
       "A relational database optimized for extensibility and advanced data management",
     website: "https://www.postgresql.org",
     type: "database",
+    ideas: ["write-ahead-log"],
   },
   {
     name: "Prisma",
@@ -830,6 +906,7 @@ export const technologies: TechnologyContent[] = [
     description: "Database purpose-built for stream processing",
     website: "https://ksqldb.io",
     type: "tool",
+    ideas: ["directed-acyclic-graph", "stream-table-duality"],
   },
   {
     name: "spaCy",
@@ -910,6 +987,14 @@ export const technologies: TechnologyContent[] = [
     type: "platform",
   },
   {
+    name: "Healthchecks.io",
+    added: "2026-09-12",
+    description:
+      "Hosted dead man's switch for detecting missed heartbeats from jobs and machines",
+    website: "https://healthchecks.io",
+    type: "platform",
+  },
+  {
     name: "cooklang-rs",
     added: "2026-02-28",
     description:
@@ -957,6 +1042,7 @@ export const technologies: TechnologyContent[] = [
       "Serverless Postgres with scale-to-zero, branching, and a generous free tier",
     website: "https://neon.com",
     type: "database",
+    ideas: ["write-ahead-log"],
   },
   {
     name: "Google OAuth",
@@ -1015,6 +1101,14 @@ export const technologies: TechnologyContent[] = [
     description:
       "Vendor-neutral observability framework and protocol (OTLP) for emitting and exporting logs, metrics, and traces",
     website: "https://opentelemetry.io",
+    type: "tool",
+  },
+  {
+    name: "OpenTelemetry Collector",
+    added: "2026-09-12",
+    description:
+      "Vendor-neutral gateway for receiving, processing, and exporting telemetry",
+    website: "https://opentelemetry.io/docs/collector/",
     type: "tool",
   },
   {
@@ -1177,6 +1271,7 @@ export const technologies: TechnologyContent[] = [
       "Local-first agent knowledge engine deriving an MCP-accessible semantic graph from plain Markdown files",
     website: "https://www.basicmemory.com",
     type: "tool",
+    ideas: ["context-engineering"],
   },
   {
     name: "SilverBullet",

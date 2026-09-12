@@ -5,6 +5,7 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
 import { siteConfig } from "@/lib/config/site-config";
 import { loadDomainRepository } from "@/lib/domain";
+import { getAllIdeas } from "@/lib/domain/idea";
 import { getAllTechnologyBadgesSorted } from "@/lib/domain/technology";
 
 // Use Cloudflare Pages URL for preview deployments, fallback to production URL
@@ -63,6 +64,10 @@ export default function RootLayout({
     iconSlug: tech.iconSlug,
     hasIcon: tech.hasIcon,
   }));
+  const ideas = getAllIdeas(repository).map((idea) => ({
+    slug: idea.slug,
+    title: idea.title,
+  }));
 
   return (
     <html lang="en-GB" suppressHydrationWarning>
@@ -73,7 +78,7 @@ export default function RootLayout({
           enableSystem={false}
           disableTransitionOnChange
         >
-          <CommandPaletteProvider technologies={technologies}>
+          <CommandPaletteProvider technologies={technologies} ideas={ideas}>
             {children}
           </CommandPaletteProvider>
           <Toaster />

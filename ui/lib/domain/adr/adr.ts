@@ -3,6 +3,7 @@ import type { ADRRef, ADRSlug, ProjectSlug } from "../slugs";
 import {
   ADRRefSchema,
   ADRSlugSchema,
+  IdeaSlugSchema,
   ProjectSlugSchema,
   TechnologySlugSchema,
 } from "../slugs";
@@ -63,6 +64,7 @@ export type ADR = z.infer<typeof ADRSchema>;
 export const ADRRelationsSchema = z.object({
   project: ProjectSlugSchema,
   technologies: z.array(TechnologySlugSchema).default([]),
+  ideas: z.array(IdeaSlugSchema).default([]),
 });
 
 export type ADRRelations = z.infer<typeof ADRRelationsSchema>;

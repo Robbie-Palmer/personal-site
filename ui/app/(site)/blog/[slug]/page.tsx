@@ -9,11 +9,13 @@ import {
   PensionReturnsChart,
 } from "@/components/blog/how-to-build-wealth/lazy-wealth-charts";
 import { ShareButtons } from "@/components/blog/share-buttons";
+import { IdeaBadges } from "@/components/ideas/idea-badges";
 import { Markdown } from "@/components/markdown";
 import { Mermaid } from "@/components/mermaid";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { getAllPostSlugs, getPostBySlug } from "@/lib/api/blog";
+import { getIdeasForBlog } from "@/lib/api/ideas";
 import { siteConfig } from "@/lib/config/site-config";
 import { formatDate } from "@/lib/generic/date";
 import {
@@ -88,6 +90,7 @@ export default async function BlogPostPage(props: Readonly<PageProps>) {
   const { slug } = params;
 
   const post = getPostBySlug(slug);
+  const ideas = getIdeasForBlog(slug);
 
   return (
     <article className="container mx-auto px-4 py-12 max-w-4xl">
@@ -122,6 +125,8 @@ export default async function BlogPostPage(props: Readonly<PageProps>) {
               </Link>
             ))}
           </div>
+
+          <IdeaBadges ideas={ideas} />
 
           <div className="sm:ml-auto">
             <ShareButtons
