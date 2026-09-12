@@ -112,6 +112,14 @@ parent layer, `effective_from`, optional `effective_until`, and deciding ADR.
 Changing layer composition closes the old relationship and creates another.
 It must not rewrite the meaning of the earlier relationship.
 
+All temporal policy and usage fields, including `effective_from`,
+`effective_until`, `adopted`, and `until`, use RFC 3339 UTC instants rather
+than calendar dates. Effective periods are half-open: the start is included
+and the end is excluded. A replacement can therefore end the previous record
+and begin the next one at the same instant without an overlap or gap. An ADR's
+frontmatter `date` remains publication metadata and does not participate in
+temporal resolution.
+
 The list is open-ended. A new layer is justified when it groups defaults with
 the same applicability. The manifests describe current policy rather than the
 complete package inventory of a built artifact.
@@ -198,12 +206,12 @@ slot:
 policies:
   - layer: "backend-api"
     mode: "preferred"
-    effective_from: "2025-11-12"
+    effective_from: "2025-11-12T00:00:00Z"
     decision: "personal-engineering-platform:020-cloudflare-functions"
 selections:
   - technology: "cloudflare-functions"
     status: "Accepted"
-    effective_from: "2025-11-12"
+    effective_from: "2025-11-12T00:00:00Z"
     decision: "personal-engineering-platform:020-cloudflare-functions"
     origin_project: "personal-site"
 ```
@@ -212,7 +220,7 @@ Selection status uses the existing ADR vocabulary: `Proposed`, `Accepted`,
 `Rejected`, and `Deprecated`. A `Proposed` selection is visible as a candidate
 but does not replace the current default. Accepting a later selection requires
 it to identify the current selection through `supersedes`. The replacement's
-`effective_from` closes the earlier selection's effective period.
+`effective_from` becomes the earlier selection's exclusive `effective_until`.
 
 Validation enforces exactly one non-superseded `Accepted` selection for every
 active slot policy that expresses a default. It rejects overlapping effective
@@ -235,16 +243,16 @@ An active personal project may declare:
 ```yaml
 platform_layers:
   - layer: "base"
-    adopted: "2026-09-12"
+    adopted: "2026-09-12T00:00:00Z"
     tracking: true
   - layer: "database"
-    adopted: "2026-10-03"
+    adopted: "2026-10-03T00:00:00Z"
     tracking: true
     slots:
       - slot: "database.relational-engine"
-        adopted: "2026-10-03"
+        adopted: "2026-10-03T00:00:00Z"
       - slot: "database.relational-host"
-        adopted: "2026-10-03"
+        adopted: "2026-10-03T00:00:00Z"
 ```
 
 The TypeScript layer is derived from the base layer's effective
@@ -487,11 +495,12 @@ following:
 1. Schemas validate platform layers, stable slots, dated layer extensions,
    dated layer-slot policies, slot prerequisites, default selections,
    selection status, supersession, language-layer activation, and dated project
-   layer and slot uses.
+   layer and slot uses. They reject date-only temporal values.
 2. Graph queries resolve exactly one current default for an active opinionated
    slot. Accepting a replacement requires a `supersedes` link, closes the prior
    effective period, and cannot create overlapping or unlinked current
-   selections.
+   selections. Tests cover two successive changes on the same calendar day and
+   their shared half-open boundary.
 3. Historical queries resolve layer extensions, slot policies, selections, and
    project uses at the requested timestamp. They keep completed projects fixed
    at closure and do not link pre-platform or organisation-governed projects
