@@ -58,20 +58,32 @@ run = "pnpm audit:satellite-swarm"
 description = "Build, serve, and audit the satellite-swarm production export"
 depends = ["//ui:build", "//ui:test:e2e:install"]
 run = '''
-audit_port=${SATELLITE_SWARM_AUDIT_PORT:-3013}
+audit_port=${SATELLITE_SWARM_AUDIT_PORT:-0}
 case "$audit_port" in
   *[!0-9]*|'') echo "SATELLITE_SWARM_AUDIT_PORT must be an integer" >&2; exit 2 ;;
 esac
-node -e 'const net = require("node:net"); const server = net.createServer(); server.once("error", () => process.exit(1)); server.listen({ exclusive: true, host: "127.0.0.1", port: Number(process.argv[1]) }, () => server.close());' "$audit_port" || {
-  echo "SATELLITE_SWARM_AUDIT_PORT $audit_port is already in use" >&2
-  exit 1
-}
-pnpm exec serve out -l "tcp://127.0.0.1:$audit_port" >/tmp/satellite-swarm-audit-server.log 2>&1 &
+audit_server_log=$(mktemp)
+pnpm exec serve out -l "tcp://127.0.0.1:$audit_port" >"$audit_server_log" 2>&1 &
 audit_server_pid=$!
-trap 'kill "$audit_server_pid" 2>/dev/null || true' EXIT
+trap 'kill "$audit_server_pid" 2>/dev/null || true; rm -f -- "$audit_server_log"' EXIT
+audit_url=
+for _ in $(seq 1 40); do
+  if ! kill -0 "$audit_server_pid" 2>/dev/null; then
+    cat "$audit_server_log" >&2
+    exit 1
+  fi
+  audit_url=$(sed -n 's|.*\(http://127\.0\.0\.1:[0-9][0-9]*\).*|\1|p' "$audit_server_log" | tail -n 1)
+  if [ -n "$audit_url" ]; then break; fi
+  sleep 0.25
+done
+if [ -z "$audit_url" ]; then
+  cat "$audit_server_log" >&2
+  echo "Static-site server did not report its listening address" >&2
+  exit 1
+fi
 source_revision=${SATELLITE_SWARM_SOURCE_REVISION:-${GITHUB_SHA:-$(git rev-parse HEAD)}}
 SATELLITE_SWARM_AUDIT_SERVER_PID="$audit_server_pid" \
-  SATELLITE_SWARM_AUDIT_URL="http://127.0.0.1:$audit_port" \
+  SATELLITE_SWARM_AUDIT_URL="$audit_url" \
   SATELLITE_SWARM_SOURCE_REVISION="$source_revision" \
   pnpm audit:satellite-swarm
 '''
