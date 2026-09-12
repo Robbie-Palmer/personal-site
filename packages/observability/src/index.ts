@@ -19,7 +19,7 @@ import {
 } from "@opentelemetry/sdk-logs";
 import {
   BasicTracerProvider,
-  SimpleSpanProcessor,
+  BatchSpanProcessor,
 } from "@opentelemetry/sdk-trace-base";
 import {
   ATTR_DEPLOYMENT_ENVIRONMENT_NAME,
@@ -137,7 +137,7 @@ function getTelemetry(
   const traceProvider = new BasicTracerProvider({
     resource,
     spanProcessors: [
-      new SimpleSpanProcessor(
+      new BatchSpanProcessor(
         new OTLPTraceExporter({
           url: `${baseUrl}/i/v1/traces`,
           headers,
