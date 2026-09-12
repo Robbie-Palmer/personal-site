@@ -2,6 +2,10 @@ import { env } from "cloudflare:workers";
 import { evictDurableObject, runInDurableObject } from "cloudflare:test";
 import { describe, expect, it } from "vitest";
 import type { Env, ReviewWorkflowParams } from "../src/env";
+import {
+  runMigrations,
+  SCHEMA_MIGRATION_HISTORY,
+} from "../src/schema";
 
 const event: ReviewWorkflowParams = {
   deliveryId: "workerd-delivery-1",
@@ -26,6 +30,183 @@ function modelReliabilityCoordinator() {
 }
 
 describe("PullRequestCoordinator in workerd", () => {
+  it("records the current schema and preserves it across eviction", async () => {
+    const bindings = env as unknown as Env;
+    const stub = bindings.PR_STATE.getByName("__schema-current__");
+
+    const readHistory = () =>
+      runInDurableObject(stub, async (_instance, state) =>
+        state.storage.sql
+          .exec<{ version: number; name: string }>(
+            "SELECT version, name FROM _migrations ORDER BY version",
+          )
+          .toArray()
+      );
+
+    await expect(readHistory()).resolves.toEqual(SCHEMA_MIGRATION_HISTORY);
+    await evictDurableObject(stub);
+    await expect(readHistory()).resolves.toEqual(SCHEMA_MIGRATION_HISTORY);
+  });
+
+  it("upgrades legacy tables without losing their rows", async () => {
+    const bindings = env as unknown as Env;
+    const stub = bindings.PR_STATE.getByName("__schema-legacy__");
+
+    await runInDurableObject(stub, async (_instance, state) => {
+      const { sql } = state.storage;
+      sql.exec("DROP TABLE _migrations");
+      sql.exec("DROP TABLE review_runs");
+      sql.exec("DROP TABLE review_findings");
+      sql.exec("DROP TABLE review_finding_outcomes");
+
+      sql.exec(`CREATE TABLE review_runs (
+        run_id TEXT PRIMARY KEY,
+        head_sha TEXT NOT NULL,
+        diff_fingerprint TEXT NOT NULL,
+        config_fingerprint TEXT NOT NULL,
+        status TEXT NOT NULL,
+        force_run INTEGER NOT NULL,
+        started_at TEXT NOT NULL,
+        completed_at TEXT,
+        cost_usd REAL NOT NULL DEFAULT 0,
+        comment_id INTEGER,
+        findings_json TEXT,
+        error TEXT
+      )`);
+      sql.exec(
+        `INSERT INTO review_runs (
+          run_id, head_sha, diff_fingerprint, config_fingerprint,
+          status, force_run, started_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        "legacy-run",
+        "legacy-head",
+        "legacy-diff",
+        "legacy-config",
+        "completed",
+        0,
+        "2026-08-01T00:00:00Z",
+      );
+
+      sql.exec(`CREATE TABLE review_findings (
+        finding_id TEXT PRIMARY KEY,
+        file_path TEXT NOT NULL,
+        title TEXT NOT NULL,
+        status TEXT NOT NULL,
+        first_seen_head_sha TEXT NOT NULL,
+        last_seen_head_sha TEXT NOT NULL,
+        first_seen_run_id TEXT NOT NULL,
+        last_seen_run_id TEXT NOT NULL,
+        first_seen_at TEXT NOT NULL,
+        last_seen_at TEXT NOT NULL
+      )`);
+      sql.exec(
+        `INSERT INTO review_findings (
+          finding_id, file_path, title, status, first_seen_head_sha,
+          last_seen_head_sha, first_seen_run_id, last_seen_run_id,
+          first_seen_at, last_seen_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        "legacy-finding",
+        "src/index.ts",
+        "Legacy finding",
+        "open",
+        "legacy-head",
+        "legacy-head",
+        "legacy-run",
+        "legacy-run",
+        "2026-08-01T00:00:00Z",
+        "2026-08-01T00:00:00Z",
+      );
+
+      sql.exec(`CREATE TABLE review_finding_outcomes (
+        finding_id TEXT NOT NULL,
+        outcome_version INTEGER NOT NULL,
+        outcome TEXT NOT NULL,
+        basis TEXT NOT NULL,
+        source_id TEXT NOT NULL UNIQUE,
+        payload_json TEXT NOT NULL,
+        occurred_at TEXT NOT NULL,
+        recorded_at TEXT NOT NULL,
+        r2_recorded INTEGER NOT NULL DEFAULT 0,
+        PRIMARY KEY (finding_id, outcome_version)
+      )`);
+      sql.exec(
+        `INSERT INTO review_finding_outcomes (
+          finding_id, outcome_version, outcome, basis, source_id,
+          payload_json, occurred_at, recorded_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        "legacy-finding",
+        1,
+        "unknown",
+        "legacy",
+        "legacy-source",
+        "{}",
+        "2026-08-01T00:00:00Z",
+        "2026-08-01T00:00:00Z",
+      );
+
+      runMigrations(sql);
+      runMigrations(sql);
+
+      expect(
+        sql
+          .exec<{ version: number; name: string }>(
+            "SELECT version, name FROM _migrations ORDER BY version",
+          )
+          .toArray(),
+      ).toEqual(SCHEMA_MIGRATION_HISTORY);
+      expect(
+        sql
+          .exec<{
+            run_id: string;
+            completion_hash: string | null;
+            finding_resolutions_json: string | null;
+          }>(
+            `SELECT run_id, completion_hash, finding_resolutions_json
+             FROM review_runs`,
+          )
+          .toArray()[0],
+      ).toEqual({
+        run_id: "legacy-run",
+        completion_hash: null,
+        finding_resolutions_json: null,
+      });
+      expect(
+        sql
+          .exec<{
+            finding_id: string;
+            disposition: string | null;
+            disposition_reason: string | null;
+          }>(
+            `SELECT finding_id, disposition, disposition_reason
+             FROM review_findings`,
+          )
+          .toArray()[0],
+      ).toEqual({
+        finding_id: "legacy-finding",
+        disposition: null,
+        disposition_reason: null,
+      });
+      expect(
+        sql
+          .exec<{
+            finding_id: string;
+            confidence: number;
+            evaluator_version: string;
+            manual_override: number;
+          }>(
+            `SELECT finding_id, confidence, evaluator_version, manual_override
+             FROM review_finding_outcomes`,
+          )
+          .toArray()[0],
+      ).toEqual({
+        finding_id: "legacy-finding",
+        confidence: 1,
+        evaluator_version: "legacy-v1",
+        manual_override: 0,
+      });
+    });
+  });
+
   it("opens a bounded model cooldown without double-counting replayed observations", async () => {
     const stub = modelReliabilityCoordinator();
     const model = "test/circuit-model";

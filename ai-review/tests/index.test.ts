@@ -3,6 +3,7 @@ import { createHmac, generateKeyPairSync } from "node:crypto";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Env, ReviewWorkflowParams } from "../src/env";
 import worker, { PullRequestCoordinator, ReviewWorkflow } from "../src/index";
+import { SCHEMA_MIGRATION_HISTORY } from "../src/schema";
 
 const event: ReviewWorkflowParams = {
   deliveryId: "delivery-123",
@@ -80,11 +81,18 @@ function coordinatorFixture(
       ..._params: unknown[]
     ): { rowsWritten: number; toArray: () => unknown[] } => ({
       rowsWritten: 1,
-      toArray: () =>
-        query.includes("FROM webhook_deliveries") &&
-        existingDeliveries.includes(event.deliveryId)
-          ? [{ delivery_id: event.deliveryId }]
-          : [],
+      toArray: () => {
+        if (query.includes("FROM _migrations")) {
+          return [...SCHEMA_MIGRATION_HISTORY];
+        }
+        if (
+          query.includes("FROM webhook_deliveries") &&
+          existingDeliveries.includes(event.deliveryId)
+        ) {
+          return [{ delivery_id: event.deliveryId }];
+        }
+        return [];
+      },
     }),
   );
   const storage = {
