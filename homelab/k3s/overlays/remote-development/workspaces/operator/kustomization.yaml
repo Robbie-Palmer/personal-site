@@ -4,8 +4,10 @@ namespace: t3-code
 resources:
   - ../../../../base/t3-code
   - doppler-secret.yaml
+  - preview-agent-doppler-secret.yaml
   - persistent-volume.yaml
 patches:
+  - path: namespace-patch.yaml
   - path: deployment-patch.yaml
   - path: persistent-volume-claim-patch.yaml
   - path: service-patch.yaml

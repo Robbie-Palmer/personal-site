@@ -23,6 +23,8 @@ explicit.
 - A busy node does not accept more work.
 - Health policy can place a node into reversible quiescence or an irreversible safe-disabled state.
 - Repeated failure to receive acknowledgements can trigger the historical "death by default" rule.
+- Deterministic trace inputs can drop, delay, or duplicate deliveries, change directed links, and
+  reset a node so protocol failures can be replayed exactly.
 
 ## Quick start
 
@@ -48,9 +50,10 @@ node 2: idle
 The [browser demonstration](https://robbiepalmer.me/satellite-swarm) runs the portable controller
 as WebAssembly in a module worker and draws the result on a self-hosted CesiumJS globe.
 
-`simulate:json` prints the versioned state, position, message, and transition record consumed by the
-CesiumJS view. The paths come from scripted simulation inputs. Orbit propagation remains outside
-this demo.
+`simulate:json` prints the versioned state, position, message, transition, and network-fault record
+consumed by the CesiumJS view. The paths come from scripted simulation inputs. Orbit propagation
+remains outside this demo. The browser can compare the connected mission with a run where node 1's
+winning assignment is dropped.
 
 Build the browser module and compare its default output with the native fixture:
 
@@ -58,9 +61,10 @@ Build the browser module and compare its default output with the native fixture:
 mise run browser:parity
 ```
 
-The task pins Emscripten, writes the deployable `.mjs` and `.wasm` files under `ui/public`, checks a
-custom objective, and verifies invalid-input handling. The worker API is versioned separately from
-the simulation trace and display schema.
+The task pins Emscripten, writes the untracked deployable `.mjs` and `.wasm` files under `ui/public`,
+checks a custom objective, and verifies invalid-input handling. The UI build runs the same task so
+deployments compile the browser module from source. The worker API is versioned separately from the
+simulation trace and display schema.
 
 Run every host, firmware, formatting, lint, and spelling check with:
 

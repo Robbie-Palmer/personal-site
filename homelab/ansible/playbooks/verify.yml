@@ -124,6 +124,66 @@
       ansible.builtin.set_fact:
         mac_workloads_healthy: "{{ mac_failed_http_checks | length == 0 }}"
 
+    - name: Inspect the isolated Colima K3s profile
+      ansible.builtin.command:
+        argv:
+          - colima
+          - status
+          - "{{ colima_k3s_profile }}"
+      check_mode: false
+      changed_when: false
+      failed_when: false
+      register: mac_colima_k3s_status
+
+    - name: Inspect the home K3s node
+      ansible.builtin.command:
+        argv:
+          - kubectl
+          - --context
+          - "{{ colima_k3s_context }}"
+          - get
+          - nodes
+          - --selector=node-role.kubernetes.io/control-plane
+          - --output=json
+      check_mode: false
+      changed_when: false
+      failed_when: false
+      register: mac_k3s_nodes
+
+    - name: Parse the home K3s node response
+      ansible.builtin.set_fact:
+        mac_k3s_node_items: "{{ (mac_k3s_nodes.stdout | from_json)['items'] }}"
+      when: mac_k3s_nodes.rc == 0
+
+    - name: Initialize Mac K3s health
+      ansible.builtin.set_fact:
+        mac_k3s_healthy: false
+
+    - name: Record Mac K3s health
+      ansible.builtin.set_fact:
+        mac_k3s_healthy: >-
+          {{
+            (mac_k3s_node_items | length) == 1
+            and mac_k3s_node_items[0].metadata.labels['homelab.dev/location']
+              | default('') == colima_k3s_node_labels['homelab.dev/location']
+            and mac_k3s_node_items[0].metadata.labels['homelab.dev/capability']
+              | default('') == colima_k3s_node_labels['homelab.dev/capability']
+            and (
+              mac_k3s_node_items[0].status.conditions
+              | selectattr('type', 'equalto', 'Ready')
+              | selectattr('status', 'equalto', 'True')
+              | list
+              | length
+            ) == 1
+          }}
+      when:
+        - mac_colima_k3s_status.rc == 0
+        - mac_k3s_nodes.rc == 0
+
+    - name: Report Mac K3s health
+      ansible.builtin.debug:
+        msg: "Isolated K3s server: {{ 'OK' if mac_k3s_healthy else 'FAILED' }}"
+
     - name: Check whether Ente verification is configured
       ansible.builtin.set_fact:
         ente_verification_configured: >-
@@ -236,6 +296,7 @@
           - hostvars['raspberry-pi'].dns_healthy | default(false)
           - hostvars['raspberry-pi'].pi_services_healthy | default(false)
           - hostvars['mac-mini'].mac_workloads_healthy | default(false)
+          - hostvars['mac-mini'].mac_k3s_healthy | default(false)
           - hostvars['mac-mini'].ente_export_healthy | default(false)
           - hostvars['asus-desktop'].asus_gpu_healthy | default(false)
         fail_msg: One or more fleet health checks reported FAILED above.

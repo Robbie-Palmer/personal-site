@@ -1,0 +1,29 @@
+cpu: {{ colima_k3s_cpu }}
+disk: {{ colima_k3s_disk_gib }}
+memory: {{ colima_k3s_memory_gib }}
+arch: host
+runtime: docker
+hostname: {{ colima_k3s_profile }}
+vmType: vz
+mountType: virtiofs
+portForwarder: ssh
+autoActivate: false
+forwardAgent: false
+sshConfig: true
+network:
+  address: false
+  mode: shared
+mounts:
+  - location: {{ colima_k3s_data_path | to_json }}
+    mountPoint: {{ colima_k3s_mount_path | to_json }}
+    writable: true
+kubernetes:
+  enabled: true
+  version: {{ colima_k3s_version }}
+  port: 6443
+  k3sArgs:
+    - --disable=traefik
+    - --secrets-encryption
+{% for label in colima_k3s_node_labels | dict2items | sort(attribute='key') %}
+    - --node-label={{ label.key }}={{ label.value }}
+{% endfor %}

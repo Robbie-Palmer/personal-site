@@ -249,6 +249,11 @@ in
       if tailscale status --json | jq --exit-status '.BackendState == "Running"' >/dev/null; then
         tailscale serve --bg --https=443 http://127.0.0.1:30773
         tailscale serve --bg --https=8443 http://127.0.0.1:30774
+        tailscale serve --bg --https=3000 http://127.0.0.1:31000
+        tailscale serve --bg --https=3001 http://127.0.0.1:31001
+        tailscale serve --bg --https=3002 http://127.0.0.1:31002
+        tailscale serve --bg --https=3003 http://127.0.0.1:31003
+        tailscale serve --bg --https=3004 http://127.0.0.1:31004
       else
         echo "Tailscale is not enrolled; Serve will be configured after enrollment"
       fi

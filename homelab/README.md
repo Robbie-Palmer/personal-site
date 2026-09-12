@@ -49,6 +49,12 @@ Create two Doppler configs before installation:
 - `homelab/prd_remote_development` supplies runtime values to the Doppler
   Kubernetes Operator. Do not put interactive OAuth sessions in this config.
 
+The operator workspace also reads `personal-site/dev_agent` through a separate
+read-only Doppler token. Keep only `CF_ACCESS_CLIENT_ID`,
+`CF_ACCESS_CLIENT_SECRET`, and `CLOUDFLARE_PAGES_HOST` there. The installation
+task stores that token as `t3-code/doppler-agent-token`; the pilot namespace
+does not receive it.
+
 Build the host, encrypt the empty volume, and install NixOS while Terraform's
 single bootstrap SSH CIDR is active:
 
@@ -121,11 +127,32 @@ CODEX_HOME=/data/home/.codex codex login --device-auth
 CODEX_HOME=/data/home/.codex-personal codex login --device-auth
 ```
 
+T3 labels the second provider `codex2`. Its shadow home keeps
+`auth.json` separate while sharing the main Codex configuration, skills, and
+session state. The image bootstrap keeps its existing colour, enabled state,
+and extra configuration when it adds this provider.
+
 The resulting `auth.json` files contain access tokens. Do not copy them into an
 image, Doppler, Kubernetes manifests, Terraform, logs, tickets, or chat. GitHub
 access should use a fine-grained repository token or GitHub App held in the
 remote workload Doppler config. Other interactive coding-harness sessions
 belong under `/data/home`, not in an image layer.
+
+### Tailnet QA ports
+
+The operator workspace reserves ports 3000 through 3004 for browser QA. Run
+the application on an unused port and bind it to `0.0.0.0`, then open the same
+HTTPS port on the remote-development MagicDNS name. For example, an app on
+port 3000 is available at:
+
+```text
+https://remote-development.<tailnet-name>.ts.net:3000/
+```
+
+Tailscale terminates HTTPS on the host and proxies the request through the
+matching Kubernetes NodePort to the operator pod. Stop the application when
+QA finishes so another agent can reuse the slot. These ports do not provide
+the pod with outbound access to other tailnet devices.
 
 ### First pilot workspace
 
@@ -137,9 +164,9 @@ not in Doppler.
 The [tailnet policy](https://tailscale.com/docs/reference/syntax/policy-file)
 must deny broad member access to
 `tag:remote-development`. Give administrators access to both workspace ports
-for support and recovery. Give the pilot's exact Tailscale login access only to
-port 8443. For example, merge rules shaped like these into the existing policy
-after replacing the email address:
+and the operator QA pool for support and recovery. Give the pilot's exact
+Tailscale login access only to port 8443. For example, merge rules shaped like
+these into the existing policy after replacing the email address:
 
 ```json
 {
@@ -147,7 +174,7 @@ after replacing the email address:
     {
       "src": ["autogroup:admin"],
       "dst": ["tag:remote-development"],
-      "ip": ["tcp:443", "tcp:8443"]
+      "ip": ["tcp:443", "tcp:3000-3004", "tcp:8443"]
     },
     {
       "src": ["pilot@example.com"],
@@ -373,12 +400,15 @@ mise run //homelab:ansible-discover-pi
 mise run //homelab:asus-deploy
 mise run //homelab:ansible-verify
 mise run //homelab:ansible-check-mac
+mise run //homelab:ansible-configure-mac
+mise run //homelab:ansible-verify-ente-fail-closed
 ```
 
-The last two commands connect to each live host in turn. They gather facts and
-report health without changing remote state. See
+The facts and verification commands connect to each live host in turn without
+changing remote state. The Mac configuration command owns the native Ente job
+and a separate `homelab-k3s` Colima profile. See
 [`ansible/README.md`](ansible/README.md) for first-connection setup and the
-reviewed apply command for the Mac host configuration.
+reviewed apply command, profile boundaries, and ADR 022 acceptance run.
 
 [ADR 024](/projects/homelab/adrs/024-doppler-secrets) assigns homelab secrets
 to the separate Doppler `homelab` project. Check access without printing values

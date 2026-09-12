@@ -22,6 +22,9 @@ import {
 } from "@/lib/api/satellite-swarm-simulation";
 import { LazySatelliteSwarmGlobe } from "./lazy-satellite-swarm-globe";
 
+const SOURCE_REPOSITORY_URL =
+  "https://github.com/Robbie-Palmer/personal-site/commit";
+
 function useReducedMotion(): boolean {
   const [reduced, setReduced] = useState(false);
   useEffect(() => {
@@ -74,6 +77,7 @@ export function SatelliteSwarmSimulation({
   );
   const stopAt = data.frames.length - 1;
   const isSouthPoleMission = data.objective.latitudeDegrees === -90;
+  const hasLostAssignment = data.scenario === "three-node-assignment-loss";
   const replayAction = getReplayAction(playing, frameIndex, stopAt);
 
   useEffect(() => {
@@ -122,6 +126,8 @@ export function SatelliteSwarmSimulation({
           and positions. Cesium draws the result but does not calculate it.
           {isSouthPoleMission &&
             " The exact pole is a deliberate coordinate edge case."}
+          {hasLostAssignment &&
+            " The fault schedule drops the winning assignment before node 1 receives it."}
         </p>
         {missionControls}
       </div>
@@ -254,6 +260,7 @@ export function SatelliteSwarmSimulation({
                     <th className="pb-2 font-medium">Node</th>
                     <th className="pb-2 font-medium">State</th>
                     <th className="pb-2 text-right font-medium">Score</th>
+                    <th className="pb-2 text-right font-medium">Assigned</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -272,6 +279,11 @@ export function SatelliteSwarmSimulation({
                       <td className="py-2 pr-2">{node.state}</td>
                       <td className="py-2 text-right tabular-nums">
                         {node.candidacyScore}
+                      </td>
+                      <td className="py-2 text-right tabular-nums">
+                        {node.assignedNode === null
+                          ? "None"
+                          : `Node ${node.assignedNode}`}
                       </td>
                     </tr>
                   ))}
@@ -313,7 +325,16 @@ export function SatelliteSwarmSimulation({
       <div className="border-t bg-amber-500/5 px-4 py-3 text-xs text-muted-foreground">
         {data.positionModel}. The score is the preserved historical heuristic,
         not validated astrodynamics. "Safe-disabled" is software state, not a
-        physical deorbit action.{" "}
+        physical deorbit action. Wasm source:{" "}
+        <a
+          className="font-mono underline underline-offset-4"
+          href={`${SOURCE_REPOSITORY_URL}/${data.sourceRevision}`}
+          rel="noopener noreferrer"
+          target="_blank"
+        >
+          {data.sourceRevision.slice(0, 12)}
+        </a>
+        .{" "}
         {executionMode === "webassembly"
           ? "The coordination code ran as WebAssembly in a module worker."
           : "This view displays a recorded output from the native runner."}

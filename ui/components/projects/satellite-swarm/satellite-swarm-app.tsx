@@ -25,8 +25,9 @@ export function SatelliteSwarmApp() {
           </h1>
           <p className="max-w-2xl text-lg leading-8 text-muted-foreground sm:text-xl">
             Run a deterministic three-node mission on a self-hosted CesiumJS
-            globe. The existing C++ coordination code executes as WebAssembly in
-            a browser worker, with no JavaScript copy of its decisions.
+            globe, then drop the winning assignment to inspect a real protocol
+            failure. The existing C++ coordination code executes as WebAssembly
+            in a browser worker, with no JavaScript copy of its decisions.
           </p>
           <div className="flex flex-wrap gap-3">
             <Button asChild>
@@ -63,10 +64,10 @@ export function SatelliteSwarmApp() {
               C++ mission simulation
             </h2>
             <p className="leading-7 text-muted-foreground">
-              Choose a geographic objective, run the portable C++ controller,
-              and step through its request, candidate scores, messages, and
-              final assignment. Positions remain scripted inputs, not propagated
-              orbits.
+              Choose a geographic objective and network scenario, run the
+              portable C++ controller, and step through its request, candidate
+              scores, messages, and final assignment. Positions remain scripted
+              inputs, not propagated orbits.
             </p>
           </div>
           <DeferredSatelliteSwarmSimulation />

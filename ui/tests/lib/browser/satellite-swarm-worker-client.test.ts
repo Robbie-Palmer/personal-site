@@ -4,6 +4,8 @@ import {
   SATELLITE_SWARM_WORKER_PROTOCOL_VERSION,
 } from "@/lib/browser/satellite-swarm-worker-client";
 
+const sourceRevision = "0123456789abcdef0123456789abcdef01234567";
+
 const validResult = {
   events: [],
   frames: [
@@ -25,9 +27,9 @@ const validResult = {
   objective: { latitudeDegrees: -90, longitudeDegrees: 0 },
   positionModel: "scripted simulation data; not orbit propagation",
   scenario: "three-node-objective-pass",
-  schemaVersion: 1,
+  schemaVersion: 2,
   source: "portable C++ SimulationTrace",
-  traceVersion: 1,
+  traceVersion: 2,
 };
 
 type WorkerListener = (event: MessageEvent<unknown> | ErrorEvent) => void;
@@ -112,6 +114,7 @@ describe("satellite swarm worker client", () => {
     expect(worker.posted).toMatchObject({
       objective: { latitudeDegrees: -90, longitudeDegrees: 0 },
       protocolVersion: SATELLITE_SWARM_WORKER_PROTOCOL_VERSION,
+      scenario: "nominal",
       type: "run",
     });
 
@@ -119,15 +122,39 @@ describe("satellite swarm worker client", () => {
       protocolVersion: SATELLITE_SWARM_WORKER_PROTOCOL_VERSION,
       requestId: request.requestId,
       result: validResult,
+      sourceRevision,
       type: "result",
     });
 
     await expect(resultPromise).resolves.toMatchObject({
       objective: { latitudeDegrees: -90, longitudeDegrees: 0 },
+      sourceRevision,
     });
     expect(worker.terminated).toBe(true);
     expect(worker.listeners.get("message")).toEqual([]);
     expect(worker.listeners.get("error")).toEqual([]);
+  });
+
+  it("sends a selected fault scenario to the worker", async () => {
+    const resultPromise = runSatelliteSwarmSimulation(
+      { latitudeDegrees: -90, longitudeDegrees: 0 },
+      { scenario: "lost-assignment" },
+    );
+    const worker = MockWorker.latest;
+    if (!worker) throw new Error("Expected a worker instance");
+    const request = worker.posted as { requestId: string };
+
+    expect(worker.posted).toMatchObject({
+      scenario: "lost-assignment",
+    });
+    worker.emitMessage({
+      protocolVersion: SATELLITE_SWARM_WORKER_PROTOCOL_VERSION,
+      requestId: request.requestId,
+      result: validResult,
+      sourceRevision,
+      type: "result",
+    });
+    await resultPromise;
   });
 
   it("surfaces a worker error response", async () => {

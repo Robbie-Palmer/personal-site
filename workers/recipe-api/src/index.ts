@@ -571,29 +571,6 @@ const agentConfigurationSchema = z
   })
   .openapi("AgentConfiguration");
 
-const openApiRequestBodySchemas = new Map<string, z.ZodType>([
-  ["POST /api/auth/preview/sign-in", previewSignInBodySchema],
-  ["PUT /api/profile/diet", updateDietProfileBodySchema],
-  ["PUT /api/profile/recipe-box", recipeBoxBodySchema],
-  ["POST /api/profile/cooking-sessions", cookingSessionBodySchema],
-  ["PUT /pantry", pantryStockBodySchema],
-  ["PATCH /pantry", pantryStockBodySchema],
-  ["PUT /pantry/items/:ingredientSlug", pantryItemBodySchema],
-  ["PUT /shopping-lists/current", updateShoppingListBodySchema],
-  ["POST /shopping-lists", createShoppingListBodySchema],
-  ["POST /households", createHouseholdBodySchema],
-  ["PATCH /households/:householdId", updateHouseholdBodySchema],
-  [
-    "POST /households/:householdId/invitations",
-    inviteHouseholdMemberBodySchema,
-  ],
-  ["POST /recipe-drafts/url", importRecipeUrlBodySchema],
-  ["POST /recipe-drafts/file", importRecipeFileBodySchema],
-  ["POST /recipes/:slug/recommendations", recommendRecipeBodySchema],
-  ["POST /recipes", createRecipeBodySchema],
-  ["PATCH /recipes/:slug", updateRecipeBodySchema],
-]);
-
 const pantryOperationHeadersSchema = z.object({
   "idempotency-key": z.uuid().max(36).optional().openapi({
     description:
@@ -601,78 +578,169 @@ const pantryOperationHeadersSchema = z.object({
   }),
 });
 
-const PANTRY_MUTATION_OPERATIONS = new Set([
-  "PUT /pantry",
-  "PATCH /pantry",
-  "PUT /pantry/items/:ingredientSlug",
-  "DELETE /pantry/items/:ingredientSlug",
-]);
-
-const openApiQuerySchemas = new Map<string, z.ZodObject>([
-  [
-    "GET /notifications",
-    z.object({ offset: z.string().regex(/^\d+$/).max(10).optional() }),
-  ],
-  [
-    "GET /recipes",
-    z.object({
-      scope: z.literal("owned").optional(),
-      limit: z.string().regex(/^\d+$/).max(3).optional(),
-      cursor: z.string().max(500).optional(),
-    }),
-  ],
-  [
-    "GET /recipes/discover/feed",
-    z.object({
-      scope: feedScopeSchema.optional(),
-      limit: z.string().regex(/^\d+$/).max(2).optional(),
-      cursor: z.string().max(500).optional(),
-    }),
-  ],
-  ["GET /recipes/cooks", z.object({ cook: z.string().max(128).optional() })],
-]);
-
 const ERROR_STATUS_CODES = [
   400, 401, 403, 404, 409, 410, 415, 422, 500, 502, 503,
 ] as const;
 
-const SPECIAL_ERROR_STATUS_CODES = new Map<string, readonly number[]>([
-  ["GET /pantry/realtime", [426, 429]],
-]);
-
-const RATE_LIMITED_OPERATIONS = new Set([
-  "POST /households/:householdId/invitations",
-  "POST /recipe-drafts/url",
-  "POST /recipe-drafts/file",
-  "POST /recipes/:slug/recommendations",
-  "POST /recipe-imports",
-]);
-
 type SuccessStatus = 101 | 200 | 201 | 202 | 204;
 
-const SUCCESS_STATUS_OVERRIDES = new Map<string, readonly SuccessStatus[]>([
-  ["GET /pantry/realtime", [101]],
-  ["POST /api/profile/cooking-sessions", [200, 201]],
-  ["POST /households", [201]],
-  ["POST /households/:householdId/invitations", [201]],
-  ["POST /households/:householdId/leave", [204]],
-  ["POST /notifications/read-all", [204]],
-  ["POST /notifications/clear-all", [204]],
-  ["POST /recipes/:slug/recommendations", [201]],
-  ["POST /recipes", [201]],
-  ["POST /recipe-imports", [202]],
-  ["DELETE /pantry/items/:ingredientSlug", [200]],
-  ["POST /shopping-lists", [201]],
-  ["DELETE /recipes/cooks/:cookId/follow", [200]],
-  ["DELETE /recipes/:slug/household-share", [200]],
-]);
+type RouteMethod = "get" | "post" | "put" | "patch" | "delete";
+type RouteKey = `${Uppercase<RouteMethod>} /${string}`;
+type RouteMetadata = {
+  requestBodySchema?: z.ZodType;
+  querySchema?: z.ZodObject;
+  headersSchema?: z.ZodObject;
+  successStatuses?: readonly SuccessStatus[];
+  successResponseSchema?: z.ZodType;
+  additionalErrorStatuses?: readonly number[];
+  rateLimited?: true;
+};
 
-const openApiSuccessResponseSchemas = new Map<string, z.ZodType>([
-  ["GET /notifications/unread-count", notificationUnreadCountResponseSchema],
-  ["GET /shopping-lists/current", shoppingListResponseSchema],
-  ["PUT /shopping-lists/current", shoppingListResponseSchema],
-  ["POST /shopping-lists", shoppingListResponseSchema],
-]);
+export const routeMetadata = {
+  "GET /health": {},
+  "GET /.well-known/agent-configuration": {},
+  "GET /api/auth/preview/scenarios": {},
+  "POST /api/auth/preview/sign-up": {},
+  "POST /api/auth/preview/sign-in": {
+    requestBodySchema: previewSignInBodySchema,
+  },
+  "GET /api/profile/diet": {},
+  "GET /api/profile/diet/options": {},
+  "PUT /api/profile/diet": {
+    requestBodySchema: updateDietProfileBodySchema,
+  },
+  "GET /api/profile/recipe-box": {},
+  "GET /api/profile/bootstrap": {},
+  "PUT /api/profile/recipe-box": { requestBodySchema: recipeBoxBodySchema },
+  "GET /api/profile/cooking-insights": {},
+  "POST /api/profile/cooking-sessions": {
+    requestBodySchema: cookingSessionBodySchema,
+    successStatuses: [200, 201],
+  },
+  "GET /shopping-lists/current": {
+    successResponseSchema: shoppingListResponseSchema,
+  },
+  "PUT /shopping-lists/current": {
+    requestBodySchema: updateShoppingListBodySchema,
+    successResponseSchema: shoppingListResponseSchema,
+  },
+  "POST /shopping-lists": {
+    requestBodySchema: createShoppingListBodySchema,
+    successStatuses: [201],
+    successResponseSchema: shoppingListResponseSchema,
+  },
+  "GET /pantry": {},
+  "GET /pantry/realtime": {
+    successStatuses: [101],
+    additionalErrorStatuses: [426, 429],
+  },
+  "PUT /pantry": {
+    requestBodySchema: pantryStockBodySchema,
+    headersSchema: pantryOperationHeadersSchema,
+  },
+  "PATCH /pantry": {
+    requestBodySchema: pantryStockBodySchema,
+    headersSchema: pantryOperationHeadersSchema,
+  },
+  "PUT /pantry/items/:ingredientSlug": {
+    requestBodySchema: pantryItemBodySchema,
+    headersSchema: pantryOperationHeadersSchema,
+  },
+  "DELETE /pantry/items/:ingredientSlug": {
+    headersSchema: pantryOperationHeadersSchema,
+    successStatuses: [200],
+  },
+  "GET /households": {},
+  "GET /households/invitations": {},
+  "POST /households": {
+    requestBodySchema: createHouseholdBodySchema,
+    successStatuses: [201],
+  },
+  "PATCH /households/:householdId": {
+    requestBodySchema: updateHouseholdBodySchema,
+  },
+  "GET /households/:householdId/members": {},
+  "GET /households/:householdId/invitations": {},
+  "POST /households/:householdId/invitations": {
+    requestBodySchema: inviteHouseholdMemberBodySchema,
+    successStatuses: [201],
+    rateLimited: true,
+  },
+  "POST /households/invitations/:invitationId/accept": {},
+  "POST /households/invitations/:invitationId/decline": {},
+  "DELETE /households/:householdId/invitations/:invitationId": {},
+  "DELETE /households/:householdId/members/:memberId": {},
+  "POST /households/:householdId/leave": { successStatuses: [204] },
+  "DELETE /households/:householdId": {},
+  "GET /notifications/unread-count": {
+    successResponseSchema: notificationUnreadCountResponseSchema,
+  },
+  "GET /notifications": {
+    querySchema: z.object({
+      offset: z.string().regex(/^\d+$/).max(10).optional(),
+    }),
+  },
+  "POST /notifications/read-all": { successStatuses: [204] },
+  "POST /notifications/clear-all": { successStatuses: [204] },
+  "POST /notifications/:notificationId/actions/:actionKey": {},
+  "PATCH /notifications/:notificationId": {},
+  "GET /recipes": {
+    querySchema: z.object({
+      scope: z.literal("owned").optional(),
+      limit: z.string().regex(/^\d+$/).max(3).optional(),
+      cursor: z.string().max(500).optional(),
+    }),
+  },
+  "GET /recipes/discover/feed": {
+    querySchema: z.object({
+      scope: feedScopeSchema.optional(),
+      limit: z.string().regex(/^\d+$/).max(2).optional(),
+      cursor: z.string().max(500).optional(),
+    }),
+  },
+  "GET /recipes/cooks": {
+    querySchema: z.object({ cook: z.string().max(128).optional() }),
+  },
+  "GET /recipes/cooks/me/connections": {},
+  "GET /recipes/cooks/:cookId/follow": {},
+  "PUT /recipes/cooks/:cookId/follow": {},
+  "DELETE /recipes/cooks/:cookId/follow": { successStatuses: [200] },
+  "POST /recipe-drafts/url": {
+    requestBodySchema: importRecipeUrlBodySchema,
+    rateLimited: true,
+  },
+  "POST /recipe-drafts/file": {
+    requestBodySchema: importRecipeFileBodySchema,
+    rateLimited: true,
+  },
+  "GET /recipes/:slug": {},
+  "POST /recipes/:slug/recommendations": {
+    requestBodySchema: recommendRecipeBodySchema,
+    successStatuses: [201],
+    rateLimited: true,
+  },
+  "POST /recipes": {
+    requestBodySchema: createRecipeBodySchema,
+    successStatuses: [201],
+  },
+  "PATCH /recipes/:slug": { requestBodySchema: updateRecipeBodySchema },
+  "POST /recipes/:slug/household-share": {},
+  "DELETE /recipes/:slug/household-share": { successStatuses: [200] },
+  "DELETE /recipes/:slug": {},
+  "POST /recipe-imports": {
+    successStatuses: [202],
+    rateLimited: true,
+  },
+  "GET /recipe-imports": {},
+  "GET /recipe-imports/:jobId": {},
+} as const satisfies Record<RouteKey, RouteMetadata>;
+
+type RegisteredRouteKey = keyof typeof routeMetadata;
+type RegisteredRouteArguments = {
+  [Key in RegisteredRouteKey]: Key extends `${infer Method extends Uppercase<RouteMethod>} ${infer Path}`
+    ? [method: Lowercase<Method>, path: Path, handler: Handler<AppEnv>]
+    : never;
+}[RegisteredRouteKey];
 
 function openApiPath(path: string): string {
   return path.replace(/:(\w+)/g, "{$1}");
@@ -740,15 +808,15 @@ function successDescription(status: SuccessStatus): string {
 }
 
 function successResponsesFor(
-  key: string,
-  method: "get" | "post" | "put" | "patch" | "delete",
+  metadata: RouteMetadata,
+  method: RouteMethod,
 ): RouteConfig["responses"] {
   const statuses =
-    SUCCESS_STATUS_OVERRIDES.get(key) ??
-    ([method === "delete" ? 204 : 200] as const);
+    metadata.successStatuses ??
+    ([method === "delete" ? 204 : 200] as readonly SuccessStatus[]);
   const responses: RouteConfig["responses"] = {};
   const responseSchema =
-    openApiSuccessResponseSchemas.get(key) ?? jsonResponseSchema;
+    metadata.successResponseSchema ?? jsonResponseSchema;
 
   for (const status of statuses) {
     if (status === 101) {
@@ -779,18 +847,12 @@ function securityFor(path: string): NonNullable<RouteConfig["security"]> {
 }
 
 function registerRoute(
-  method: "get" | "post" | "put" | "patch" | "delete",
-  path: string,
-  handler: Handler<AppEnv>,
+  ...[method, path, handler]: RegisteredRouteArguments
 ): void {
-  const key = `${method.toUpperCase()} ${path}`;
+  const key = `${method.toUpperCase()} ${path}` as RegisteredRouteKey;
+  const metadata: RouteMetadata = routeMetadata[key];
   const isAgentConfiguration =
     key === "GET /.well-known/agent-configuration";
-  const requestBodySchema = openApiRequestBodySchemas.get(key);
-  const querySchema = openApiQuerySchemas.get(key);
-  const headersSchema = PANTRY_MUTATION_OPERATIONS.has(key)
-    ? pantryOperationHeadersSchema
-    : undefined;
   const paramsSchema = pathParamsSchema(path);
   const errorResponses: RouteConfig["responses"] = isAgentConfiguration
     ? {
@@ -802,7 +864,7 @@ function registerRoute(
     : Object.fromEntries(
         [
           ...ERROR_STATUS_CODES,
-          ...(SPECIAL_ERROR_STATUS_CODES.get(key) ?? []),
+          ...(metadata.additionalErrorStatuses ?? []),
         ].map((status) => [
           status,
           {
@@ -829,9 +891,9 @@ function registerRoute(
           },
         },
       }
-    : successResponsesFor(key, method);
+    : successResponsesFor(metadata, method);
   const rateLimitResponses: RouteConfig["responses"] = {};
-  if (RATE_LIMITED_OPERATIONS.has(key)) {
+  if (metadata.rateLimited) {
     rateLimitResponses[429] = {
       description: "Rate limit exceeded",
       headers: {
@@ -861,14 +923,16 @@ function registerRoute(
     security: securityFor(path),
     request: {
       ...(paramsSchema ? { params: paramsSchema } : {}),
-      ...(querySchema ? { query: querySchema } : {}),
-      ...(headersSchema ? { headers: headersSchema } : {}),
-      ...(requestBodySchema
+      ...(metadata.querySchema ? { query: metadata.querySchema } : {}),
+      ...(metadata.headersSchema
+        ? { headers: metadata.headersSchema }
+        : {}),
+      ...(metadata.requestBodySchema
         ? {
             body: {
               required: true,
               content: {
-                "application/json": { schema: requestBodySchema },
+                "application/json": { schema: metadata.requestBodySchema },
               },
             },
           }

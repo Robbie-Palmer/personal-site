@@ -1,3 +1,5 @@
+FROM docker@sha256:eccaacfeed644c7de222ff047483568cb988dde95476fbaaf10ea2d04921bb66 AS docker-cli
+
 FROM node@sha256:2c87ef9bd3c6a3bd4b472b4bec2ce9d16354b0c574f736c476489d09f560a203
 
 ARG T3_VERSION=0.0.38
@@ -5,7 +7,7 @@ ARG CODEX_VERSION=0.153.2
 ARG CLAUDE_CODE_VERSION=2.1.260
 ARG OPENCODE_VERSION=1.18.27
 ARG GROK_VERSION=1.0.13
-ARG MISE_VERSION=2026.9.1
+ARG MISE_VERSION
 ARG MISE_SHA256=063dda9149ab6be53da877c2d176afe0eac68e64cf8ca295bd0528720701c65d
 ARG DOPPLER_VERSION=3.76.5
 ARG DOPPLER_SHA256=1b2f412d984920d665daf233ab6c15b364df9339b5c5b5224d5e8ee4e0a70154
@@ -16,7 +18,11 @@ ARG PNPM_VERSION=12.2.1
 LABEL org.opencontainers.image.source="https://github.com/Robbie-Palmer/personal-site"
 LABEL org.opencontainers.image.description="Pinned t3-code runtime for the remote development K3s cluster"
 
-RUN groupadd --gid 2000 t3code \
+COPY --from=docker-cli /usr/local/bin/docker /usr/local/bin/docker
+COPY --from=docker-cli /usr/local/libexec/docker/cli-plugins /usr/local/libexec/docker/cli-plugins
+
+RUN test -n "${MISE_VERSION}" \
+    && groupadd --gid 2000 t3code \
     && useradd --uid 2000 --gid 2000 --create-home --shell /bin/bash t3code \
     && apt-get update \
     && apt-get install --yes --no-install-recommends \
@@ -87,7 +93,7 @@ ENV T3CODE_HOST=0.0.0.0
 ENV T3CODE_PORT=3773
 ENV T3CODE_NO_BROWSER=true
 ENV MISE_EXPERIMENTAL=1
-ENV MISE_TRUSTED_CONFIG_PATHS=/data/workspaces
+ENV MISE_TRUSTED_CONFIG_PATHS=/data/workspaces:/data/home/.t3/worktrees
 ENV PATH=/data/home/.local/share/mise/shims:${PATH}
 ENV PLAYWRIGHT_BROWSERS_PATH=/data/home/.cache/ms-playwright
 ENV PUPPETEER_CACHE_DIR=/data/home/.cache/puppeteer

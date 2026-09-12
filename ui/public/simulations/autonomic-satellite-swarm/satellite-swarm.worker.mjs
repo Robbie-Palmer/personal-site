@@ -1,7 +1,7 @@
 import createSatelliteSwarmModule from "./wasm/satellite-swarm.mjs";
 
-const PROTOCOL_VERSION = 1;
-const BROWSER_API_VERSION = 1;
+const PROTOCOL_VERSION = 3;
+const BROWSER_API_VERSION = 3;
 let modulePromise;
 
 function errorMessage(error) {
@@ -21,6 +21,12 @@ function isCoordinate(value) {
     value.latitudeDegrees >= -90 &&
     value.latitudeDegrees <= 90
   );
+}
+
+function scenarioCode(value) {
+  if (value === "nominal") return 0;
+  if (value === "lost-assignment") return 1;
+  return null;
 }
 
 async function loadModule() {
@@ -53,7 +59,8 @@ self.addEventListener("message", async (event) => {
   if (
     request?.type !== "run" ||
     request?.protocolVersion !== PROTOCOL_VERSION ||
-    !isCoordinate(request.objective)
+    !isCoordinate(request.objective) ||
+    scenarioCode(request.scenario) === null
   ) {
     reply(requestId, {
       error: "The simulation worker received an invalid request.",
@@ -67,10 +74,17 @@ self.addEventListener("message", async (event) => {
     if (module._satellite_swarm_browser_api_version() !== BROWSER_API_VERSION) {
       throw new Error("The simulation worker API version does not match the site.");
     }
+    const sourceRevision = module.UTF8ToString(
+      module._satellite_swarm_source_revision(),
+    );
+    if (!/^[0-9a-f]{40}$/.test(sourceRevision)) {
+      throw new Error("The simulation module has no valid source revision.");
+    }
 
     const resultPointer = module._satellite_swarm_run_demonstration(
       request.objective.longitudeDegrees,
       request.objective.latitudeDegrees,
+      scenarioCode(request.scenario),
     );
     if (resultPointer === 0) {
       const errorPointer = module._satellite_swarm_last_error();
@@ -79,6 +93,7 @@ self.addEventListener("message", async (event) => {
 
     reply(requestId, {
       result: JSON.parse(module.UTF8ToString(resultPointer)),
+      sourceRevision,
       type: "result",
     });
   } catch (error) {

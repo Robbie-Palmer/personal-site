@@ -2,7 +2,23 @@ macos_required_commands:
   - brew
   - colima
   - docker
+  - kubectl
   - launchctl
+
+colima_k3s_profile: homelab-k3s
+colima_k3s_launchd_label: homelab.colima-k3s
+colima_k3s_required_colima_version: "0.10.3"
+colima_k3s_required_lima_version: "2.2.0"
+colima_k3s_cpu: 2
+colima_k3s_memory_gib: 4
+colima_k3s_disk_gib: 60
+colima_k3s_version: v1.36.4+k3s1
+colima_k3s_context: colima-homelab-k3s
+colima_k3s_data_path: "{{ ansible_facts.env.HOME }}/.local/share/homelab/k3s/t3-code"
+colima_k3s_mount_path: /srv/t3-code
+colima_k3s_node_labels:
+  homelab.dev/capability: agent-workspace
+  homelab.dev/location: home
 
 mac_http_checks:
   - name: Jellyfin
@@ -28,6 +44,7 @@ mac_http_checks:
     status_codes: [200]
 
 ente_cli_version: 0.2.3
+ente_cli_binary_path: /opt/homebrew/bin/ente
 ente_cli_archive_url: >-
   https://github.com/ente/ente/releases/download/cli-v0.2.3/ente-cli-v0.2.3-darwin-arm64.tar.gz
 ente_cli_archive_sha256: 1369f6acac2b6a606c75b583dbfcb355c6c5ab37d6b1d9ec27d8bba11aef98a8
@@ -39,8 +56,10 @@ ente_export_mount_path: /Volumes/Expansion
 ente_export_mount_uuid: 808A2851-4126-3A7B-B23F-9E1C3ADD28E4
 ente_export_path: /Volumes/Expansion/Pictures/Ente Photos/Jade
 ente_export_log_path: "{{ ansible_facts.env.HOME }}/Library/Logs/ente-export.log"
+ente_export_state_dir: >-
+  {{ ansible_facts.env.HOME }}/Library/Application Support/homelab/ente-export
 ente_export_success_marker: >-
-  {{ ansible_facts.env.HOME }}/Library/Application Support/homelab/ente-export/last-success
+  {{ ente_export_state_dir }}/last-success
 ente_export_max_age_hours: 48
 ente_export_max_runtime_seconds: 1800
 netdata_launchd_label: homebrew.mxcl.netdata

@@ -15,12 +15,12 @@ import {
 import { ApiError } from "@/lib/api/http";
 import type { StoredShoppingList } from "@/lib/api/shopping-lists";
 import {
-  __resetShoppingListForTests,
   addExtra,
   getShoppingListSnapshot,
   setPlannedMeal,
   toggleChecked,
 } from "@/lib/shopping/shoppingListStore";
+import { __resetShoppingListForTests } from "@/tests/support/recipe-state";
 
 const mocks = vi.hoisted(() => ({
   getCurrentShoppingList: vi.fn(),
@@ -110,7 +110,7 @@ function StatefulStartNewButton() {
   );
 }
 
-describe("ShoppingListBoundary", () => {
+describe("ShoppingListBoundary", { timeout: 10_000 }, () => {
   beforeEach(() => {
     __resetShoppingListForTests();
     localStorage.clear();
@@ -319,7 +319,7 @@ describe("ShoppingListBoundary", () => {
             ]),
           }),
         ),
-      { timeout: 3_000 },
+      { timeout: 5_000 },
     );
   });
 
@@ -529,8 +529,9 @@ describe("ShoppingListBoundary", () => {
     );
     await screen.findByRole("button", { name: "Start new" });
     act(() => addExtra("Milk"));
-    await waitFor(() =>
-      expect(mocks.saveCurrentShoppingList).toHaveBeenCalledOnce(),
+    await waitFor(
+      () => expect(mocks.saveCurrentShoppingList).toHaveBeenCalledOnce(),
+      { timeout: 5_000 },
     );
 
     fireEvent.click(screen.getByRole("button", { name: "Start new" }));

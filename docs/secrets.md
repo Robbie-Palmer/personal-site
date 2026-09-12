@@ -33,7 +33,7 @@ Configs are split by environment and runtime/control boundary:
 | Config | Purpose | GitHub target |
 | --- | --- | --- |
 | `dev_pages_env` | Shared local Cloudflare Pages env vars | None |
-| `dev_agent` | Preview-only credentials consumed by coding agents | None |
+| `dev_agent` | Preview-only credentials consumed by local agents and the remote operator workspace | None |
 | `dev_recipe_api` | Local recipe Worker/API/DB/OAuth config | None |
 | `dev_infra` | Local Terraform/provider credentials | None |
 | `dev_bootstrap_infra` | Local bootstrap Terraform credentials | None |
@@ -245,8 +245,11 @@ config, `ops_preview_agent_access`, should contain:
 - `DOPPLER_SERVICE_TOKEN` with read/write access only to `dev_agent`
 
 `dev_agent` contains only `CF_ACCESS_CLIENT_ID`,
-`CF_ACCESS_CLIENT_SECRET`, and `CLOUDFLARE_PAGES_HOST`. Agent launchers read
-this config; they must not receive `dev_infra` or deployment credentials.
+`CF_ACCESS_CLIENT_SECRET`, and `CLOUDFLARE_PAGES_HOST`. Local agent launchers
+and the remote operator workspace read this config. The remote workspace uses
+its own read-only Doppler token and managed Kubernetes Secret; the pilot
+workspace does not receive it. Agents must not receive `dev_infra` or
+deployment credentials.
 
 ## Preview Values
 

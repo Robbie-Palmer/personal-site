@@ -5,19 +5,22 @@ C++ runner. The coordination algorithm remains in the portable core.
 
 ## Boundary
 
-The exported C ABI has three functions:
+The exported C ABI has four functions:
 
 - `satellite_swarm_browser_api_version()` reports the worker-facing API version.
-- `satellite_swarm_run_demonstration(longitude, latitude)` runs the deterministic three-node trace
-  and returns a pointer to its JSON result.
+- `satellite_swarm_source_revision()` reports the exact Git revision embedded at configure time.
+- `satellite_swarm_run_demonstration(longitude, latitude, scenario)` runs the deterministic
+  three-node trace and returns a pointer to its JSON result. Scenario `0` uses connected links;
+  scenario `1` drops the winning node's assignment.
 - `satellite_swarm_last_error()` returns the last adapter error when a run fails.
 
 Returned pointers refer to adapter-owned strings and remain valid until the next call. The worker
 copies each string into JavaScript before making another call. The adapter catches C++ exceptions so
 none cross the C boundary.
 
-The worker API, simulation trace, and JSON display record have independent version fields. A change
-to one does not silently reinterpret either of the others.
+The worker protocol and C ABI are at version `3`; the simulation trace and JSON display record are
+at version `2`. These independent version fields prevent a change to one boundary from silently
+reinterpreting another.
 
 ## Build and parity check
 
@@ -32,15 +35,16 @@ to the site's public simulation directory, and runs the Node parity test. The te
 South Pole result to match the native fixture byte for byte. It also exercises a custom coordinate,
 the error path, and the deployed worker's protocol and module paths through a worker-thread bridge.
 
-The generated files are committed because the site's normal static build does not install a C++
-toolchain. CI rebuilds them and fails when the checked artifacts drift.
+The generated files are ignored by Git. The UI's mise build and development tasks compile them from
+source with the pinned Emscripten toolchain before Next.js starts.
 
 ## Browser lifecycle
 
-The public module worker is loaded only when the simulation approaches the viewport. Each UI run
-creates one worker, posts one versioned objective request, validates the response, and terminates the
-worker. Aborting navigation also terminates it. This keeps Emscripten initialization and simulation
-work off the page's main thread and prevents stale requests from replacing a newer result.
+The public module worker and CesiumJS renderer load only after the reader selects **Load
+simulation**. Each UI run creates one worker, posts one versioned objective and network-scenario
+request, validates the response and embedded source revision, and terminates the worker. Aborting
+navigation also terminates it. This keeps Emscripten initialization and simulation work off the
+page's main thread and prevents stale requests from replacing a newer result.
 
 Cesium receives the validated snapshots after the run. It does not calculate candidate scores,
 select an assignee, or update controller state.
@@ -48,7 +52,7 @@ select an assignee, or update controller state.
 ## Deliberate limits
 
 - The three node paths are scripted simulation inputs and provide no orbit propagation.
-- The objective is the only caller-controlled input in this slice.
+- The caller can select either the connected baseline or a deterministic lost-assignment fault.
 - The global result buffer assumes one call at a time, which matches the dedicated worker.
 - The browser adapter may allocate memory. The portable coordination core and firmware constraints
   remain unchanged.

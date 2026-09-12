@@ -27,26 +27,41 @@ export type RecipeApiProxyContext = {
   };
 };
 
+export function proxyLeaf(
+  segment: string,
+  label: string,
+  description: string,
+): (context: RecipeApiProxyContext) => Promise<Response> {
+  const pagesPrefix = `/api/${segment}`;
+  const workerPrefix = `/${segment}`;
+
+  return (context) =>
+    proxyRecipeApiRequest(
+      context,
+      `${description} are available on the canonical PR preview URL only`,
+      label,
+      (path) =>
+        path === pagesPrefix || path.startsWith(`${pagesPrefix}/`)
+          ? `${workerPrefix}${path.slice(pagesPrefix.length)}`
+          : "",
+    );
+}
+
 const MAX_PROXY_PATH_LENGTH = 2_048;
+const ENCODED_PATH_OCTET = /%[0-9a-f]{2}/i;
 
 function isUnsafePathSegment(segment: string): boolean {
-  let decoded = segment;
-  for (let pass = 0; pass < 10; pass += 1) {
-    const next = decodeURIComponent(decoded);
-    if (next === decoded) {
-      return (
-        decoded === "." ||
-        decoded === ".." ||
-        decoded.includes("/") ||
-        decoded.includes("\\") ||
-        decoded.includes("\0")
-      );
-    }
-    decoded = next;
-  }
-
-  // Reject path segments that remain multiply encoded after a generous limit.
-  return true;
+  const decoded = decodeURIComponent(segment);
+  return (
+    decoded === "." ||
+    decoded === ".." ||
+    decoded.includes("/") ||
+    decoded.includes("\\") ||
+    decoded.includes("\0") ||
+    // A residual encoded byte means the input was nested-encoded. Reject it
+    // instead of repeatedly decoding attacker-controlled input.
+    ENCODED_PATH_OCTET.test(decoded)
+  );
 }
 
 function resolveDestinationPath(
