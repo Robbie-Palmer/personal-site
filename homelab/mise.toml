@@ -222,7 +222,7 @@ mise_version=$(tr -d '\r\n' < ../.github/actions/setup-mise/mise-version)
 docker build \
   --build-arg "MISE_VERSION=$mise_version" \
   --pull=false \
-  --tag ghcr.io/robbie-palmer/t3-code:0.0.38-agent-tools-6 \
+  --tag ghcr.io/robbie-palmer/t3-code:0.0.38-agent-tools-9 \
   images/t3-code
 '''
 
@@ -232,7 +232,7 @@ run = "bash scripts/check-t3-image"
 
 [tasks.t3-image-push]
 description = "Push the checked t3-code image to GHCR"
-run = "docker push ghcr.io/robbie-palmer/t3-code:0.0.38-agent-tools-6"
+run = "docker push ghcr.io/robbie-palmer/t3-code:0.0.38-agent-tools-9"
 
 [tasks.t3-image-load-remote]
 description = "Load the checked image into remote-development K3s over SSH"
@@ -325,7 +325,7 @@ bash scripts/apply-kustomize-overlay \
 '''
 
 [tasks.doppler-operator-install-remote]
-description = "Install the pinned Doppler operator and inject its config-scoped token"
+description = "Install the pinned Doppler operator and inject config-scoped tokens"
 run = '''
 export KUBECONFIG="${REMOTE_DEVELOPMENT_KUBECONFIG:-$PWD/.kube/remote-development.yaml}"
 bash scripts/install-doppler-operator
