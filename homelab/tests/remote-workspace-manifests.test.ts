@@ -771,6 +771,11 @@ test("the NixOS host publishes, prepares, and limits both workspace paths", () =
   assert.ok(!healthCheck.includes('project_id="#2001"'));
   assert.ok(healthCheck.includes(".lastState.terminated.reason"));
   assert.ok(healthCheck.includes(".lastState.terminated.exitCode"));
+  assert.ok(
+    healthCheck.indexOf('runtime_summary=$(') <
+      healthCheck.indexOf('return "${rollout_status}"'),
+    "restart diagnostics must be collected before a failed rollout is returned",
+  );
   assert.ok(healthCheck.includes('has("CF_ACCESS_CLIENT_ID")'));
   assert.ok(healthCheck.includes('has("CF_ACCESS_CLIENT_SECRET")'));
 

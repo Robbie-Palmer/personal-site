@@ -45,14 +45,18 @@ check_workspace() {
   local namespace=$1
   local node_port=$2
   local volume=$3
-  local actual_policy_names expected_policy_names runtime_summary
+  local actual_policy_names expected_policy_names rollout_status runtime_summary
   shift 3
 
   if ! k3s kubectl --namespace "${namespace}" get deployment t3-code >/dev/null 2>&1; then
     return
   fi
 
-  k3s kubectl --namespace "${namespace}" rollout status deployment/t3-code --timeout=120s
+  if k3s kubectl --namespace "${namespace}" rollout status deployment/t3-code --timeout=120s; then
+    rollout_status=0
+  else
+    rollout_status=$?
+  fi
   runtime_summary=$(
     k3s kubectl --namespace "${namespace}" get pods \
       --selector=app.kubernetes.io/name=t3-code \
@@ -65,6 +69,9 @@ check_workspace() {
   )
   if [ -n "${runtime_summary}" ]; then
     printf '%s\n' "${runtime_summary}"
+  fi
+  if [ "${rollout_status}" -ne 0 ]; then
+    return "${rollout_status}"
   fi
   actual_policy_names=$(
     k3s kubectl --namespace "${namespace}" get networkpolicy \
