@@ -4,6 +4,7 @@ import {
   flowKeysForNode,
   getFlowSankeyLayout,
   minimizeFlowSankeyCrossings,
+  prepareFlowSankeyData,
 } from "@/components/assettracker/flow-sankey-layout";
 import type { FlowSankeyData } from "@/lib/domain/assettracker";
 
@@ -35,6 +36,82 @@ function flowFixture(columns: number[], longNames = false): FlowSankeyData {
 }
 
 describe("getFlowSankeyLayout", () => {
+  it("lays out a single standalone account without dividing by a column gap", () => {
+    const data: FlowSankeyData = {
+      nodes: [{ id: "cash", name: "Cash", color: "blue" }],
+      links: [],
+    };
+
+    const layout = getFlowSankeyLayout(data, 800);
+
+    expect(layout.maxDepth).toBe(0);
+    expect(layout.showLabels).toBe(true);
+    expect(layout.labelWidths.middle).toBe(136);
+  });
+
+  it("keeps isolated nodes and zero-value links stable", () => {
+    const data: FlowSankeyData = {
+      nodes: [
+        { id: "source", name: "Source", color: "blue" },
+        { id: "isolated", name: "Isolated", color: "blue" },
+        { id: "target", name: "Target", color: "blue" },
+      ],
+      links: [
+        {
+          source: 0,
+          target: 2,
+          value: 0,
+          label: "Zero transfer",
+          sourceName: "Source",
+          targetName: "Target",
+        },
+      ],
+    };
+
+    const prepared = prepareFlowSankeyData(data);
+
+    expect(prepared.nodes.map((node) => node.id).sort()).toEqual([
+      "isolated",
+      "source",
+      "target",
+    ]);
+    expect(prepared.links).toEqual([
+      expect.objectContaining({ flowKey: "flow:0", value: 0 }),
+    ]);
+  });
+
+  it("falls back safely when imported links reference missing nodes", () => {
+    const data: FlowSankeyData = {
+      nodes: [{ id: "source", name: "Source", color: "blue" }],
+      links: [
+        {
+          source: 0,
+          target: 9,
+          value: 10,
+          label: "Missing target",
+          sourceName: "Source",
+          targetName: "Missing",
+        },
+        {
+          source: 8,
+          target: 0,
+          value: 5,
+          label: "Missing source",
+          sourceName: "Missing",
+          targetName: "Source",
+        },
+      ],
+    };
+
+    const routed = addFlowSankeyWaypoints(data);
+
+    expect(routed.nodes).toEqual(data.nodes);
+    expect(routed.links).toEqual([
+      expect.objectContaining({ flowKey: "flow:0", source: 0, target: 9 }),
+      expect.objectContaining({ flowKey: "flow:1", source: 8, target: 0 }),
+    ]);
+  });
+
   it("orders adjacent layers to remove avoidable crossings", () => {
     const data: FlowSankeyData = {
       nodes: [
