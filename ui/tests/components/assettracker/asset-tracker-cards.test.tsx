@@ -49,8 +49,8 @@ vi.mock("recharts", () => ({
   XAxis: () => null,
   YAxis: () => null,
   Legend: () => null,
-  Sankey: ({ align }: { align?: string }) => (
-    <div data-align={align} data-testid="flow-sankey" />
+  Sankey: ({ align, sort }: { align?: string; sort?: boolean }) => (
+    <div data-align={align} data-sort={sort} data-testid="flow-sankey" />
   ),
   Tooltip: () => null,
 }));
@@ -763,7 +763,7 @@ describe("FlowSankeyChart", () => {
     vi.clearAllMocks();
   });
 
-  it("passes left alignment to the Sankey layout", async () => {
+  it("preserves the calculated node order in the Sankey layout", async () => {
     const today = todayIsoDate();
     mockAssetTracker({
       accountDetails: [
@@ -820,6 +820,10 @@ describe("FlowSankeyChart", () => {
     expect(await screen.findByTestId("flow-sankey")).toHaveAttribute(
       "data-align",
       "left",
+    );
+    expect(screen.getByTestId("flow-sankey")).toHaveAttribute(
+      "data-sort",
+      "false",
     );
   });
 });

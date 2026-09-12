@@ -5,12 +5,13 @@ import {
   type SVGProps,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
-import { useMediaQuery } from "react-responsive";
 import {
   ResponsiveContainer,
   Sankey,
+  type SankeyLinkProps,
   type SankeyNodeProps,
   Tooltip,
 } from "recharts";
@@ -28,6 +29,16 @@ import {
   formatCurrency,
 } from "@/lib/domain/assettracker";
 import { useAssetTracker } from "./asset-tracker-provider";
+import {
+  FLOW_SANKEY_LINK_COLOR,
+  FLOW_SANKEY_NODE_WIDTH,
+  type FlowSankeyLayout,
+  type FlowSankeyRenderLink,
+  type FlowSankeyRenderNode,
+  flowKeysForNode,
+  getFlowSankeyLayout,
+  prepareFlowSankeyData,
+} from "./flow-sankey-layout";
 
 function FlowSankeyNodeShape({
   x,
@@ -36,17 +47,48 @@ function FlowSankeyNodeShape({
   height,
   payload,
   showLabel,
+  layout,
+  activeFlowKeys,
+  activeNodeId,
 }: SankeyNodeProps & {
+  activeFlowKeys: ReadonlySet<string>;
+  activeNodeId: string | null;
   showLabel: boolean;
+  layout?: FlowSankeyLayout;
 }): ReactElement<SVGProps<SVGGElement>> {
-  const node = payload as unknown as FlowSankeyNode & { value?: number };
+  const node = payload as unknown as FlowSankeyRenderNode & { value?: number };
+  if (node.isWaypoint) {
+    return (
+      <g pointerEvents="none">
+        <rect
+          x={x}
+          y={y}
+          width={width}
+          height={height}
+          data-flow-key={node.flowKey}
+          fill={FLOW_SANKEY_LINK_COLOR}
+          fillOpacity={
+            node.flowKey && activeFlowKeys.has(node.flowKey) ? 0.65 : 0.25
+          }
+          className="transition-[fill-opacity] duration-150"
+        />
+      </g>
+    );
+  }
   const rawDepth = "depth" in payload ? payload.depth : 0;
   const depth =
     typeof rawDepth === "number" && Number.isFinite(rawDepth) ? rawDepth : 0;
   const labelOnLeft = depth === 0;
-  const labelX = labelOnLeft ? x - 8 : x + width + 8;
+  const labelWidth = labelOnLeft
+    ? layout?.labelWidths.left
+    : depth === layout?.maxDepth
+      ? layout.labelWidths.right
+      : layout?.labelWidths.middle;
+  const labelX = labelOnLeft ? x - (labelWidth ?? 0) - 8 : x + width + 8;
+  const labelY = y + height / 2 - 8;
   return (
     <g>
+      <title>{node.name}</title>
       <rect
         x={x}
         y={y}
@@ -54,21 +96,47 @@ function FlowSankeyNodeShape({
         height={height}
         rx={4}
         fill={node.color}
-        fillOpacity={0.85}
+        fillOpacity={node.id === activeNodeId ? 1 : 0.85}
+        className="transition-[fill-opacity] duration-150"
       />
-      {showLabel && (
-        <text
-          x={labelX}
-          y={y + Math.max(height / 2, 10)}
-          fill="currentColor"
-          fontSize={11}
-          textAnchor={labelOnLeft ? "end" : "start"}
-          dominantBaseline="middle"
-        >
-          {node.name}
-        </text>
+      {showLabel && labelWidth != null && labelWidth > 0 && (
+        <foreignObject x={labelX} y={labelY} width={labelWidth} height={16}>
+          <div
+            className={`truncate text-[11px] leading-4 ${labelOnLeft ? "text-right" : "text-left"}`}
+          >
+            {node.name}
+          </div>
+        </foreignObject>
       )}
     </g>
+  );
+}
+
+function FlowSankeyLinkShape({
+  sourceX,
+  sourceY,
+  sourceControlX,
+  targetX,
+  targetY,
+  targetControlX,
+  linkWidth,
+  payload,
+  activeFlowKeys,
+}: SankeyLinkProps & {
+  activeFlowKeys: ReadonlySet<string>;
+}): ReactElement<SVGProps<SVGPathElement>> {
+  const link = payload as unknown as FlowSankeyRenderLink;
+  return (
+    <path
+      aria-label={`${link.sourceName} to ${link.targetName}`}
+      className="cursor-pointer transition-[stroke-opacity] duration-150"
+      d={`M${sourceX},${sourceY} C${sourceControlX},${sourceY} ${targetControlX},${targetY} ${targetX},${targetY}`}
+      data-flow-key={link.flowKey}
+      fill="none"
+      stroke={FLOW_SANKEY_LINK_COLOR}
+      strokeOpacity={activeFlowKeys.has(link.flowKey) ? 0.65 : 0.25}
+      strokeWidth={linkWidth}
+    />
   );
 }
 
@@ -105,19 +173,15 @@ function SankeyTooltip({
   );
 }
 
-function LabeledFlowSankeyNodeShape(props: SankeyNodeProps) {
-  return <FlowSankeyNodeShape {...props} showLabel />;
-}
-
-function CompactFlowSankeyNodeShape(props: SankeyNodeProps) {
-  return <FlowSankeyNodeShape {...props} showLabel={false} />;
-}
-
 export function FlowSankeyChart() {
   const { accountDetails, recurringFlows } = useAssetTracker();
   const [mounted, setMounted] = useState(false);
-  const compactQuery = useMediaQuery({ maxWidth: 639 });
-  const isCompact = mounted && compactQuery;
+  const [containerWidth, setContainerWidth] = useState(0);
+  const [activeFlowKeys, setActiveFlowKeys] = useState<ReadonlySet<string>>(
+    () => new Set(),
+  );
+  const [activeNodeId, setActiveNodeId] = useState<string | null>(null);
+  const chartRef = useRef<HTMLDivElement>(null);
   const liabilityBalances = useMemo(
     () =>
       Object.fromEntries(
@@ -125,21 +189,77 @@ export function FlowSankeyChart() {
       ),
     [accountDetails],
   );
-  const data = useMemo(
+  const flowData = useMemo(
     () =>
       buildFlowSankeyData(accountDetails, recurringFlows, liabilityBalances),
     [accountDetails, recurringFlows, liabilityBalances],
   );
+  const data = useMemo(() => prepareFlowSankeyData(flowData), [flowData]);
+  const hasFlows = flowData.links.length > 0;
   useEffect(() => {
     setMounted(true);
   }, []);
+  useEffect(() => {
+    if (!mounted || !hasFlows) return;
+    const container = chartRef.current;
+    if (!container) return;
 
-  const chartMargin = isCompact
-    ? { top: 8, right: 12, bottom: 8, left: 12 }
-    : { top: 8, right: 140, bottom: 8, left: 120 };
-  const nodeRenderer = isCompact
-    ? CompactFlowSankeyNodeShape
-    : LabeledFlowSankeyNodeShape;
+    let frame = 0;
+    const updateWidth = (width: number) => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        const roundedWidth = Math.round(width);
+        setContainerWidth((current) =>
+          current === roundedWidth ? current : roundedWidth,
+        );
+      });
+    };
+    updateWidth(container.getBoundingClientRect().width);
+    if (typeof ResizeObserver === "undefined") {
+      return () => cancelAnimationFrame(frame);
+    }
+    const observer = new ResizeObserver(([entry]) => {
+      if (entry) updateWidth(entry.contentRect.width);
+    });
+    observer.observe(container);
+    return () => {
+      cancelAnimationFrame(frame);
+      observer.disconnect();
+    };
+  }, [hasFlows, mounted]);
+
+  const layout = useMemo(
+    () => getFlowSankeyLayout(data, containerWidth),
+    [containerWidth, data],
+  );
+  const nodeRenderer = useMemo(
+    () =>
+      layout.showLabels
+        ? (props: SankeyNodeProps) => (
+            <FlowSankeyNodeShape
+              {...props}
+              activeFlowKeys={activeFlowKeys}
+              activeNodeId={activeNodeId}
+              showLabel
+              layout={layout}
+            />
+          )
+        : (props: SankeyNodeProps) => (
+            <FlowSankeyNodeShape
+              {...props}
+              activeFlowKeys={activeFlowKeys}
+              activeNodeId={activeNodeId}
+              showLabel={false}
+            />
+          ),
+    [activeFlowKeys, activeNodeId, layout],
+  );
+  const linkRenderer = useMemo(
+    () => (props: SankeyLinkProps) => (
+      <FlowSankeyLinkShape {...props} activeFlowKeys={activeFlowKeys} />
+    ),
+    [activeFlowKeys],
+  );
 
   return (
     <Card className="min-w-0">
@@ -150,7 +270,7 @@ export function FlowSankeyChart() {
         </CardDescription>
       </CardHeader>
       <CardContent className="px-2 sm:px-6">
-        {data.links.length === 0 ? (
+        {!hasFlows ? (
           <p className="px-2 text-sm text-muted-foreground">
             No regular flows yet. Add income, contributions, or repayments from
             an account's detail view.
@@ -158,48 +278,74 @@ export function FlowSankeyChart() {
         ) : (
           <>
             {mounted ? (
-              <div className="h-[280px] min-w-0 sm:h-[320px]">
+              <div
+                ref={chartRef}
+                className="min-w-0"
+                style={{ height: layout.chartHeight }}
+              >
                 <ResponsiveContainer width="100%" height="100%">
                   <Sankey
                     data={data}
                     dataKey="value"
                     nameKey="name"
                     node={nodeRenderer}
-                    link={{
-                      stroke: "hsl(220, 70%, 50%)",
-                      strokeOpacity: 0.25,
-                    }}
-                    nodePadding={isCompact ? 14 : 18}
-                    nodeWidth={12}
-                    margin={chartMargin}
+                    link={linkRenderer}
+                    nodePadding={layout.nodePadding}
+                    nodeWidth={FLOW_SANKEY_NODE_WIDTH}
+                    margin={layout.margin}
                     align="left"
                     iterations={64}
+                    sort={false}
+                    onMouseEnter={(item, type) => {
+                      if (type === "link") {
+                        const link = item.payload as unknown as
+                          | FlowSankeyRenderLink
+                          | undefined;
+                        setActiveFlowKeys(
+                          link?.flowKey ? new Set([link.flowKey]) : new Set(),
+                        );
+                        setActiveNodeId(null);
+                        return;
+                      }
+                      const node = item.payload as unknown as
+                        | FlowSankeyRenderNode
+                        | undefined;
+                      if (!node || node.isWaypoint) return;
+                      setActiveFlowKeys(flowKeysForNode(data, item.index));
+                      setActiveNodeId(node.id);
+                    }}
+                    onMouseLeave={() => {
+                      setActiveFlowKeys(new Set());
+                      setActiveNodeId(null);
+                    }}
                   >
                     <Tooltip content={<SankeyTooltip />} />
                   </Sankey>
                 </ResponsiveContainer>
               </div>
             ) : (
-              <div className="h-[280px] min-w-0 sm:h-[320px]" />
+              <div className="h-[280px] min-w-0" />
             )}
-            <ul
-              aria-label="Flow map legend"
-              className="mt-3 flex flex-wrap gap-2 text-xs sm:hidden"
-            >
-              {data.nodes.map((node) => (
-                <li
-                  key={node.id}
-                  className="inline-flex min-w-0 items-center gap-1.5 rounded-full border px-2 py-1"
-                >
-                  <span
-                    aria-hidden="true"
-                    className="size-2 shrink-0 rounded-full"
-                    style={{ backgroundColor: node.color }}
-                  />
-                  <span className="min-w-0 truncate">{node.name}</span>
-                </li>
-              ))}
-            </ul>
+            {!layout.showLabels && (
+              <ul
+                aria-label="Flow map legend"
+                className="mt-3 flex flex-wrap gap-2 text-xs"
+              >
+                {flowData.nodes.map((node) => (
+                  <li
+                    key={node.id}
+                    className="inline-flex max-w-full min-w-0 items-center gap-1.5 rounded-full border px-2 py-1"
+                  >
+                    <span
+                      aria-hidden="true"
+                      className="size-2 shrink-0 rounded-full"
+                      style={{ backgroundColor: node.color }}
+                    />
+                    <span className="min-w-0 truncate">{node.name}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
           </>
         )}
       </CardContent>
