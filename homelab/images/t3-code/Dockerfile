@@ -2,24 +2,19 @@ FROM docker@sha256:eccaacfeed644c7de222ff047483568cb988dde95476fbaaf10ea2d04921b
 
 FROM node@sha256:2c87ef9bd3c6a3bd4b472b4bec2ce9d16354b0c574f736c476489d09f560a203
 
-ARG T3_VERSION=0.0.38
-ARG CODEX_VERSION=0.153.2
-ARG CLAUDE_CODE_VERSION=2.1.260
-ARG OPENCODE_VERSION=1.18.27
-ARG GROK_VERSION=1.0.13
 ARG MISE_VERSION
 ARG MISE_SHA256=063dda9149ab6be53da877c2d176afe0eac68e64cf8ca295bd0528720701c65d
 ARG DOPPLER_VERSION=3.76.5
 ARG DOPPLER_SHA256=1b2f412d984920d665daf233ab6c15b364df9339b5c5b5224d5e8ee4e0a70154
 ARG VALE_VERSION=3.19.0
 ARG VALE_SHA256=c8f9d6c8055442bc7e9c121b2498e6f0e3fb670f4665e6ee577f1897f7665cf6
-ARG PNPM_VERSION=12.2.1
 
 LABEL org.opencontainers.image.source="https://github.com/Robbie-Palmer/personal-site"
 LABEL org.opencontainers.image.description="Pinned t3-code runtime for the remote development K3s cluster"
 
 COPY --from=docker-cli /usr/local/bin/docker /usr/local/bin/docker
 COPY --from=docker-cli /usr/local/libexec/docker/cli-plugins /usr/local/libexec/docker/cli-plugins
+COPY package.json package-lock.json /usr/local/lib/t3-code/
 
 RUN test -n "${MISE_VERSION}" \
     && groupadd --gid 2000 t3code \
@@ -47,24 +42,18 @@ RUN test -n "${MISE_VERSION}" \
       ripgrep \
       tini \
       unzip \
-    && npm install --global --ignore-scripts \
-      "t3@${T3_VERSION}" \
-      "@openai/codex@${CODEX_VERSION}" \
-      "@anthropic-ai/claude-code@${CLAUDE_CODE_VERSION}" \
-      "opencode-ai@${OPENCODE_VERSION}" \
-      "@xai-official/grok@${GROK_VERSION}" \
-      "pnpm@${PNPM_VERSION}" \
+    && npm ci --ignore-scripts --omit=dev --prefix /usr/local/lib/t3-code \
     && ln --force \
-      /usr/local/lib/node_modules/@anthropic-ai/claude-code/node_modules/@anthropic-ai/claude-code-linux-x64/claude \
-      /usr/local/lib/node_modules/@anthropic-ai/claude-code/bin/claude.exe \
+      /usr/local/lib/t3-code/node_modules/@anthropic-ai/claude-code-linux-x64/claude \
+      /usr/local/lib/t3-code/node_modules/@anthropic-ai/claude-code/bin/claude.exe \
     && ln --force \
-      /usr/local/lib/node_modules/opencode-ai/node_modules/opencode-linux-x64/bin/opencode \
-      /usr/local/lib/node_modules/opencode-ai/bin/opencode.exe \
+      /usr/local/lib/t3-code/node_modules/opencode-linux-x64/bin/opencode \
+      /usr/local/lib/t3-code/node_modules/opencode-ai/bin/opencode.exe \
     && ln --force \
-      /usr/local/lib/node_modules/pnpm/node_modules/@pnpm/exe.linux-x64/pnpm \
-      /usr/local/lib/node_modules/pnpm/pnpm \
+      /usr/local/lib/t3-code/node_modules/@pnpm/exe.linux-x64/pnpm \
+      /usr/local/lib/t3-code/node_modules/pnpm/pnpm \
     && node /usr/local/lib/node_modules/npm/node_modules/node-gyp/bin/node-gyp.js rebuild \
-      --directory /usr/local/lib/node_modules/t3/node_modules/node-pty \
+      --directory /usr/local/lib/t3-code/node_modules/node-pty \
     && npm cache clean --force \
     && curl --fail --location --proto '=https' --proto-redir '=https' --silent --show-error \
       "https://github.com/jdx/mise/releases/download/v${MISE_VERSION}/mise-v${MISE_VERSION}-linux-x64.tar.gz" \
@@ -94,7 +83,7 @@ ENV T3CODE_PORT=3773
 ENV T3CODE_NO_BROWSER=true
 ENV MISE_EXPERIMENTAL=1
 ENV MISE_TRUSTED_CONFIG_PATHS=/data/workspaces:/data/home/.t3/worktrees
-ENV PATH=/data/home/.local/share/mise/shims:${PATH}
+ENV PATH=/data/home/.local/share/mise/shims:/usr/local/lib/t3-code/node_modules/.bin:${PATH}
 ENV PLAYWRIGHT_BROWSERS_PATH=/data/home/.cache/ms-playwright
 ENV PUPPETEER_CACHE_DIR=/data/home/.cache/puppeteer
 ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium

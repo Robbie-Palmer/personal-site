@@ -2,8 +2,8 @@
 
 This image packages the headless t3-code server and its supported coding-agent
 CLIs, mise, Doppler, and the native libraries required by headless browser
-tests. The base image uses an immutable digest, every top-level npm package
-uses an explicit version, and the deployment uses the release tag
+tests. The base image uses an immutable digest, and `npm ci` verifies every
+package against the committed lockfile. The deployment uses the release tag
 `0.0.38-agent-tools-9`. Increment that release suffix for every image change.
 After the first registry publish, replacing the tag in the manifests with its
 registry digest adds another immutability check.
@@ -60,8 +60,9 @@ The `t3-code image` GitHub workflow publishes the checked image to GHCR from
 or if GHCR is unavailable, load the checked local image directly into the
 remote node with `mise run //homelab:t3-image-load-remote`.
 
-To update, change one or more version arguments in the Dockerfile, increment
-the release suffix in the image tasks and manifests, then build and test it.
+To update, change one or more versions in `package.json`, update the lockfile,
+increment the release suffix in the image tasks and manifests, then build and
+test it.
 After publishing, deploy the new reference with the context-guarded task. A
 rollback restores the previous image reference from Git and reapplies the
 overlay; neither operation replaces the persistent volume.
