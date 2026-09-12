@@ -15,11 +15,18 @@ const controllerStateSchema = z.enum([
   "safe-disabled",
 ]);
 
+const missionKeySchema = z.object({
+  bootEpoch: z.number().int().min(1).max(4_294_967_295),
+  originNode: z.number().int().min(0).max(15),
+  sequence: z.number().int().min(1).max(65_535),
+});
+
 const nodeSchema = z.object({
   assignedNode: z.number().int().min(0).max(15).nullable(),
+  bootEpoch: z.number().int().min(1).max(4_294_967_295),
   candidacyScore: z.number().int().min(0).max(100),
   id: z.number().int().min(0).max(15),
-  missionId: z.number().int().min(0).max(65_535),
+  missionKey: missionKeySchema.nullable(),
   orbitalRadiusMetres: z.number().positive(),
   position: coordinateSchema,
   state: controllerStateSchema,
@@ -34,9 +41,9 @@ const missionCommandEventSchema = z.object({
 });
 
 const messageFields = {
-  missionId: z.number().int().min(0).max(65_535),
-  origin: z.number().int().min(0).max(15),
+  missionKey: missionKeySchema,
   score: z.number().int().min(0).max(100),
+  sender: z.number().int().min(0).max(15),
 };
 
 const messageSchema = z.discriminatedUnion("type", [
@@ -147,10 +154,10 @@ const simulationSchema = z.object({
   objective: coordinateSchema,
   positionModel: z.string().min(1),
   scenario: z.string().min(1),
-  schemaVersion: z.literal(2),
+  schemaVersion: z.literal(3),
   source: z.literal("portable C++ SimulationTrace"),
   sourceRevision: z.string().regex(/^[0-9a-f]{40}$/),
-  traceVersion: z.literal(2),
+  traceVersion: z.literal(3),
 });
 
 export type SatelliteSwarmSimulation = z.infer<typeof simulationSchema>;
@@ -198,12 +205,18 @@ function describeMessageSentEvent(
 ): string {
   switch (event.message.type) {
     case "mission-request":
-      return `Node ${event.nodeId} broadcast mission ${event.message.missionId}.`;
+      return `Node ${event.nodeId} broadcast mission ${formatMissionKey(event.message.missionKey)}.`;
     case "candidacy":
       return `Node ${event.nodeId} sent score ${event.message.score} to node ${event.message.target}.`;
     case "acknowledgement":
       return `Node ${event.nodeId} acknowledged node ${event.message.target}.`;
     case "mission-assignment":
-      return `Node ${event.nodeId} assigned mission ${event.message.missionId} to node ${event.message.target}.`;
+      return `Node ${event.nodeId} assigned mission ${formatMissionKey(event.message.missionKey)} to node ${event.message.target}.`;
   }
+}
+
+function formatMissionKey(
+  missionKey: z.infer<typeof missionKeySchema>,
+): string {
+  return `${missionKey.originNode}:${missionKey.bootEpoch}:${missionKey.sequence}`;
 }

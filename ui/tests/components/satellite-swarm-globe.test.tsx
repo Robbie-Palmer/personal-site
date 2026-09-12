@@ -17,8 +17,8 @@ vi.mock("@/components/technology/cesium/offline-viewer", () => ({
 }));
 
 const data = parseSatelliteSwarmSimulation({
-  schemaVersion: 2,
-  traceVersion: 2,
+  schemaVersion: 3,
+  traceVersion: 3,
   scenario: "test",
   source: "portable C++ SimulationTrace",
   sourceRevision: "0123456789abcdef0123456789abcdef01234567",
@@ -30,20 +30,22 @@ const data = parseSatelliteSwarmSimulation({
       nodes: [
         {
           id: 0,
+          bootEpoch: 1,
           state: "leading",
           position: { longitudeDegrees: 0, latitudeDegrees: 10 },
           orbitalRadiusMetres: 6_750_000,
           candidacyScore: 60,
-          missionId: 1,
+          missionKey: { bootEpoch: 1, originNode: 0, sequence: 1 },
           assignedNode: null,
         },
         {
           id: 1,
+          bootEpoch: 1,
           state: "awaiting assignment",
           position: { longitudeDegrees: 2, latitudeDegrees: 0 },
           orbitalRadiusMetres: 6_750_000,
           candidacyScore: 81,
-          missionId: 1,
+          missionKey: { bootEpoch: 1, originNode: 0, sequence: 1 },
           assignedNode: null,
         },
       ],
@@ -53,20 +55,22 @@ const data = parseSatelliteSwarmSimulation({
       nodes: [
         {
           id: 0,
+          bootEpoch: 1,
           state: "idle",
           position: { longitudeDegrees: 1, latitudeDegrees: 9 },
           orbitalRadiusMetres: 6_750_000,
           candidacyScore: 60,
-          missionId: 1,
+          missionKey: { bootEpoch: 1, originNode: 0, sequence: 1 },
           assignedNode: 1,
         },
         {
           id: 1,
+          bootEpoch: 1,
           state: "active",
           position: { longitudeDegrees: 3, latitudeDegrees: -1 },
           orbitalRadiusMetres: 6_750_000,
           candidacyScore: 81,
-          missionId: 1,
+          missionKey: { bootEpoch: 1, originNode: 0, sequence: 1 },
           assignedNode: 1,
         },
       ],
@@ -166,9 +170,9 @@ describe("SatelliteSwarmGlobe", () => {
         nodeId: 0,
         message: {
           type: "mission-assignment" as const,
-          origin: 0,
+          sender: 0,
           target: 1,
-          missionId: 1,
+          missionKey: { bootEpoch: 1, originNode: 0, sequence: 1 },
           score: 0,
         },
       },

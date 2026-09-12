@@ -40,8 +40,9 @@ int runSimulation(bool json) {
 
   const FrameObservation& final_frame = result.frames.back();
   const NodeObservation& leader = final_frame.nodes.front();
-  std::cout << "Mission " << leader.mission_id << " assigned to node "
-            << static_cast<unsigned int>(leader.assigned_node) << '\n';
+  std::cout << "Mission " << static_cast<unsigned int>(leader.mission_key.origin_node) << ':'
+            << leader.mission_key.boot_epoch << ':' << leader.mission_key.sequence
+            << " assigned to node " << static_cast<unsigned int>(leader.assigned_node) << '\n';
   for (const NodeObservation& node : final_frame.nodes) {
     std::cout << "node " << static_cast<unsigned int>(node.node_id) << ": " << stateName(node.state)
               << '\n';

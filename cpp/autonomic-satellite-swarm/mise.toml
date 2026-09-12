@@ -36,7 +36,7 @@ run = '''
 browser_fixture_check_file=$(mktemp)
 trap 'cmake -E rm -f "$browser_fixture_check_file"' EXIT
 ./build/dev/autonomic-satellite-swarm-simulation --json > "$browser_fixture_check_file"
-diff -u ../../ui/public/simulations/autonomic-satellite-swarm/demonstration.v2.json \
+diff -u ../../ui/public/simulations/autonomic-satellite-swarm/demonstration.v3.json \
   "$browser_fixture_check_file"
 '''
 
@@ -127,6 +127,7 @@ run = [
 description = "Compile the legacy Arduino Uno infrared firmware"
 run = '''
 node_id=${SATELLITE_SWARM_NODE_ID:-0}
+boot_epoch=${SATELLITE_SWARM_BOOT_EPOCH:-1}
 case "$node_id" in
   ''|*[!0-9]*) echo "SATELLITE_SWARM_NODE_ID must be an integer from 0 to 15" >&2; exit 2 ;;
 esac
@@ -134,14 +135,22 @@ if [ "$node_id" -gt 15 ]; then
   echo "SATELLITE_SWARM_NODE_ID must be an integer from 0 to 15" >&2
   exit 2
 fi
+case "$boot_epoch" in
+  ''|*[!0-9]*) echo "SATELLITE_SWARM_BOOT_EPOCH must be an integer from 1 to 4294967295" >&2; exit 2 ;;
+esac
+if [ "$boot_epoch" -eq 0 ] || [ "$boot_epoch" -gt 4294967295 ]; then
+  echo "SATELLITE_SWARM_BOOT_EPOCH must be an integer from 1 to 4294967295" >&2
+  exit 2
+fi
 arduino-cli compile --profile uno \
-  --build-property "build.extra_flags=-DSATELLITE_SWARM_NODE_ID=$node_id" firmware/uno_ir
+  --build-property "build.extra_flags=-DSATELLITE_SWARM_NODE_ID=$node_id -DSATELLITE_SWARM_BOOT_EPOCH=$boot_epoch" firmware/uno_ir
 '''
 
 [tasks."firmware:esp32"]
 description = "Compile the modern ESP32 ESP-NOW firmware"
 run = '''
 node_id=${SATELLITE_SWARM_NODE_ID:-0}
+boot_epoch=${SATELLITE_SWARM_BOOT_EPOCH:-1}
 case "$node_id" in
   ''|*[!0-9]*) echo "SATELLITE_SWARM_NODE_ID must be an integer from 0 to 15" >&2; exit 2 ;;
 esac
@@ -149,8 +158,15 @@ if [ "$node_id" -gt 15 ]; then
   echo "SATELLITE_SWARM_NODE_ID must be an integer from 0 to 15" >&2
   exit 2
 fi
+case "$boot_epoch" in
+  ''|*[!0-9]*) echo "SATELLITE_SWARM_BOOT_EPOCH must be an integer from 1 to 4294967295" >&2; exit 2 ;;
+esac
+if [ "$boot_epoch" -eq 0 ] || [ "$boot_epoch" -gt 4294967295 ]; then
+  echo "SATELLITE_SWARM_BOOT_EPOCH must be an integer from 1 to 4294967295" >&2
+  exit 2
+fi
 arduino-cli compile --profile esp32 \
-  --build-property "build.extra_flags=-DSATELLITE_SWARM_NODE_ID=$node_id" firmware/esp32_espnow
+  --build-property "build.extra_flags=-DSATELLITE_SWARM_NODE_ID=$node_id -DSATELLITE_SWARM_BOOT_EPOCH=$boot_epoch" firmware/esp32_espnow
 '''
 
 [tasks."lint:typos"]
