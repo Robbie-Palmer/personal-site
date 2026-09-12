@@ -1,5 +1,0 @@
-message: "Replace '%s' with the specific dependency or consequence"
-extends: existence
-level: error
-ignorecase: true
-raw: 'load[ -]bearing'
