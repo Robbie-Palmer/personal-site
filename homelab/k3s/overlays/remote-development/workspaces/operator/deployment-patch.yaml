@@ -23,6 +23,8 @@ spec:
       containers:
         - name: t3-code
           env:
+            - name: DOCKER_HOST
+              value: tcp://127.0.0.1:2375
             - name: OPENCODE_CONFIG_CONTENT
               value: |
                 {
@@ -50,3 +52,44 @@ spec:
               drop:
                 - ALL
             readOnlyRootFilesystem: true
+        - name: docker
+          image: docker:29.8.0-dind-rootless@sha256:e17fa54c2ffd511d8407c746eec77f7814e6f74fe20caf822dad1870599984c0
+          env:
+            - name: DOCKERD_ROOTLESS_ROOTLESSKIT_FLAGS
+              value: -p 127.0.0.1:2375:2375/tcp
+          args:
+            - dockerd
+            - --host=tcp://0.0.0.0:2375
+            - --tls=false
+          readinessProbe:
+            exec:
+              command:
+                - docker
+                - --host=tcp://127.0.0.1:2375
+                - info
+            initialDelaySeconds: 2
+            periodSeconds: 5
+            timeoutSeconds: 3
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+          securityContext:
+            allowPrivilegeEscalation: true
+            privileged: true
+            readOnlyRootFilesystem: false
+            runAsGroup: 1000
+            runAsNonRoot: true
+            runAsUser: 1000
+            seccompProfile:
+              type: Unconfined
+          volumeMounts:
+            - name: docker-data
+              mountPath: /home/rootless/.local/share/docker
+      volumes:
+        - name: docker-data
+          emptyDir:
+            sizeLimit: 10Gi

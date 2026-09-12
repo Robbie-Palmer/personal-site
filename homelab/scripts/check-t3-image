@@ -1,11 +1,16 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-image=ghcr.io/robbie-palmer/t3-code:0.0.38-agent-tools-5
+image=ghcr.io/robbie-palmer/t3-code:0.0.38-agent-tools-6
 container="personal-site-t3-image-check-$$"
+docker_container="personal-site-rootless-docker-check-$$"
+docker_data_volume="personal-site-rootless-docker-data-check-$$"
+docker_image=docker:29.8.0-dind-rootless@sha256:e17fa54c2ffd511d8407c746eec77f7814e6f74fe20caf822dad1870599984c0
 
 cleanup() {
   docker stop "${container}" >/dev/null 2>&1 || true
+  docker stop "${docker_container}" >/dev/null 2>&1 || true
+  docker volume rm "${docker_data_volume}" >/dev/null 2>&1 || true
 }
 trap cleanup EXIT
 
@@ -24,6 +29,9 @@ docker run --rm \
     test "$(doppler --version)" = "v3.76.5"
     test "$(vale --version)" = "vale version 3.19.0"
     test "$(pnpm --version)" = "12.2.1"
+    test "$(docker --version)" = "Docker version 29.8.0, build 88096ef"
+    test "$(docker buildx version | cut -d" " -f1-3)" = "github.com/docker/buildx v0.37.0 ac30b249211430b85fb8f37b6e7154b5c47ba0b6"
+    test "$(docker compose version)" = "Docker Compose version v5.5.1"
     command -v bwrap chromium git gh lsof t3 >/dev/null
     test "$PUPPETEER_EXECUTABLE_PATH" = /usr/bin/chromium
     test "$PLAYWRIGHT_BROWSERS_PATH" = /data/home/.cache/ms-playwright
@@ -49,13 +57,62 @@ docker run --detach --rm \
   "${image}" >/dev/null
 
 port=$(docker port "${container}" 3773/tcp | sed 's/.*://')
+server_ready=false
 for _ in $(seq 1 30); do
   if curl --fail --max-time 2 --silent "http://127.0.0.1:${port}/" >/dev/null; then
-    echo "t3-code image starts as UID/GID 2000 and serves HTTP"
-    exit 0
+    server_ready=true
+    break
   fi
   sleep 1
 done
 
-echo "t3-code image did not become healthy" >&2
-exit 1
+if [ "${server_ready}" != true ]; then
+  echo "t3-code image did not become healthy" >&2
+  exit 1
+fi
+echo "t3-code image starts as UID/GID 2000 and serves HTTP"
+docker stop "${container}" >/dev/null
+
+docker volume create "${docker_data_volume}" >/dev/null
+docker run --rm \
+  --user 0:0 \
+  --volume "${docker_data_volume}:/data" \
+  --entrypoint /bin/sh \
+  "${docker_image}" \
+  -eu -c 'chown 1000:2000 /data; chmod 2770 /data'
+
+docker run --detach --rm \
+  --name "${docker_container}" \
+  --privileged \
+  --user 1000:1000 \
+  --group-add 2000 \
+  --env 'DOCKERD_ROOTLESS_ROOTLESSKIT_FLAGS=-p 127.0.0.1:2375:2375/tcp' \
+  --volume "${docker_data_volume}:/home/rootless/.local/share/docker" \
+  "${docker_image}" \
+  dockerd \
+  --host=tcp://0.0.0.0:2375 \
+  --tls=false >/dev/null
+
+docker_ready=false
+for _ in $(seq 1 30); do
+  if docker run --rm \
+    --network "container:${docker_container}" \
+    --user 2000:2000 \
+    --env DOCKER_HOST=tcp://127.0.0.1:2375 \
+    --entrypoint /bin/sh \
+    "${image}" \
+    -eu -c \
+    'docker info >/dev/null && docker run --rm alpine:3.23@sha256:fd791d74b68913cbb027c6546007b3f0d3bc45125f797758156952bc2d6daf40 echo rootless-docker-ready' \
+    >/dev/null 2>&1; then
+    docker_ready=true
+    break
+  fi
+  sleep 1
+done
+
+if [ "${docker_ready}" != true ]; then
+  docker logs "${docker_container}" >&2
+  echo "rootless Docker sidecar did not become healthy" >&2
+  exit 1
+fi
+echo "t3-code image runs containers through the rootless Docker sidecar"

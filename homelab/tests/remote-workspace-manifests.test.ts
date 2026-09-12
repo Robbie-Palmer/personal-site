@@ -338,6 +338,40 @@ test("the pilot overlay renders two distinct workspaces", () => {
     "t3-code",
     "t3-code-pilot",
   );
+  const operatorNamespace = resource(resources, "Namespace", "t3-code");
+  const pilotNamespace = resource(resources, "Namespace", "t3-code-pilot");
+  assert.equal(
+    valueAt(operatorNamespace, [
+      "metadata",
+      "labels",
+      "pod-security.kubernetes.io/enforce",
+    ]),
+    "privileged",
+  );
+  assert.equal(
+    valueAt(operatorNamespace, [
+      "metadata",
+      "labels",
+      "pod-security.kubernetes.io/audit",
+    ]),
+    "restricted",
+  );
+  assert.equal(
+    valueAt(operatorNamespace, [
+      "metadata",
+      "labels",
+      "pod-security.kubernetes.io/warn",
+    ]),
+    "restricted",
+  );
+  assert.equal(
+    valueAt(pilotNamespace, [
+      "metadata",
+      "labels",
+      "pod-security.kubernetes.io/enforce",
+    ]),
+    "restricted",
+  );
   assert.equal(valueAt(pilotDeployment, ["spec", "strategy", "type"]), "Recreate");
   assert.deepEqual(
     valueAt(operatorDeployment, [
@@ -421,6 +455,83 @@ test("the pilot overlay renders two distinct workspaces", () => {
   assert.deepEqual(
     valueAt(pilotDeployment, ["spec", "template", "spec", "volumes", 1]),
     { emptyDir: { sizeLimit: "1Gi" }, name: "tmp" },
+  );
+
+  assert.deepEqual(
+    valueAt(operatorDeployment, [
+      "spec",
+      "template",
+      "spec",
+      "containers",
+      0,
+      "env",
+      0,
+    ]),
+    { name: "DOCKER_HOST", value: "tcp://127.0.0.1:2375" },
+  );
+
+  const dockerSidecar = valueAt(operatorDeployment, [
+    "spec",
+    "template",
+    "spec",
+    "containers",
+    1,
+  ]);
+  assert.deepEqual(dockerSidecar, {
+    args: ["dockerd", "--host=tcp://0.0.0.0:2375", "--tls=false"],
+    env: [
+      {
+        name: "DOCKERD_ROOTLESS_ROOTLESSKIT_FLAGS",
+        value: "-p 127.0.0.1:2375:2375/tcp",
+      },
+    ],
+    image:
+      "docker:29.8.0-dind-rootless@sha256:e17fa54c2ffd511d8407c746eec77f7814e6f74fe20caf822dad1870599984c0",
+    name: "docker",
+    readinessProbe: {
+      exec: {
+        command: [
+          "docker",
+          "--host=tcp://127.0.0.1:2375",
+          "info",
+        ],
+      },
+      initialDelaySeconds: 2,
+      periodSeconds: 5,
+      timeoutSeconds: 3,
+    },
+    resources: {
+      limits: { cpu: "1", memory: "1Gi" },
+      requests: { cpu: "100m", memory: "256Mi" },
+    },
+    securityContext: {
+      allowPrivilegeEscalation: true,
+      privileged: true,
+      readOnlyRootFilesystem: false,
+      runAsGroup: 1000,
+      runAsNonRoot: true,
+      runAsUser: 1000,
+      seccompProfile: { type: "Unconfined" },
+    },
+    volumeMounts: [
+      {
+        mountPath: "/home/rootless/.local/share/docker",
+        name: "docker-data",
+      },
+    ],
+  });
+  assert.deepEqual(
+    valueAt(operatorDeployment, ["spec", "template", "spec", "volumes", 0]),
+    { emptyDir: { sizeLimit: "10Gi" }, name: "docker-data" },
+  );
+  assert.equal(
+    (valueAt(pilotDeployment, [
+      "spec",
+      "template",
+      "spec",
+      "containers",
+    ]) as unknown[]).length,
+    1,
   );
 
   const quota = resource(
