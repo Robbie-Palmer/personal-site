@@ -399,6 +399,27 @@ test("the pilot overlay renders two distinct workspaces", () => {
     "restricted",
   );
   assert.equal(valueAt(pilotDeployment, ["spec", "strategy", "type"]), "Recreate");
+  for (const deployment of [operatorDeployment, pilotDeployment]) {
+    assert.equal(
+      valueAt(deployment, [
+        "spec",
+        "template",
+        "spec",
+        "initContainers",
+        0,
+        "image",
+      ]),
+      valueAt(deployment, [
+        "spec",
+        "template",
+        "spec",
+        "containers",
+        0,
+        "image",
+      ]),
+      `${deployment.metadata.namespace} init and main images must match`,
+    );
+  }
   assert.deepEqual(
     valueAt(operatorDeployment, [
       "spec",
@@ -810,6 +831,9 @@ test("the NixOS host publishes, prepares, and limits both workspace paths", () =
   assert.ok(!healthCheck.includes('project_id="#2001"'));
   assert.ok(healthCheck.includes(".lastState.terminated.reason"));
   assert.ok(healthCheck.includes(".lastState.terminated.exitCode"));
+  assert.ok(
+    healthCheck.includes("no pods match app.kubernetes.io/name=t3-code"),
+  );
   assert.ok(
     healthCheck.indexOf('runtime_summary=$(') <
       healthCheck.indexOf('return "${rollout_status}"'),

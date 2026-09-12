@@ -62,9 +62,18 @@ check_workspace() {
       --selector=app.kubernetes.io/name=t3-code \
       --output=json \
       | jq --raw-output '
-          .items[] as $pod
-          | $pod.status.containerStatuses[]?
-          | "\($pod.metadata.name)/\(.name): restarts=\(.restartCount) previous=\(.lastState.terminated.reason // "none") exit=\(.lastState.terminated.exitCode // "n/a") finished=\(.lastState.terminated.finishedAt // "n/a")"
+          if (.items | length) == 0 then
+            "no pods match app.kubernetes.io/name=t3-code"
+          else
+            .items[] as $pod
+            | ($pod.status.containerStatuses // []) as $statuses
+            | if ($statuses | length) == 0 then
+                "\($pod.metadata.name): phase=\($pod.status.phase // "unknown") container status unavailable"
+              else
+                $statuses[]
+                | "\($pod.metadata.name)/\(.name): restarts=\(.restartCount) previous=\(.lastState.terminated.reason // "none") exit=\(.lastState.terminated.exitCode // "n/a") finished=\(.lastState.terminated.finishedAt // "n/a")"
+              end
+          end
         '
   )
   if [ -n "${runtime_summary}" ]; then
