@@ -37,15 +37,68 @@ function messageFrom(error: unknown): string {
     : "The WebAssembly simulation failed.";
 }
 
+interface PlaceholderProps {
+  activated: boolean;
+  error: string | null;
+  onActivate: () => void;
+}
+
+function placeholderDescription(activated: boolean, error: string | null) {
+  if (error) {
+    return "The simulation worker could not start.";
+  }
+
+  if (activated) {
+    return "Loading the C++ WebAssembly module...";
+  }
+
+  return "Load the WebAssembly simulation and 3D globe when you are ready.";
+}
+
+function PlaceholderContent({
+  activated,
+  error,
+  onActivate,
+}: Readonly<PlaceholderProps>) {
+  if (error) {
+    return (
+      <>
+        <p className="max-w-xl font-mono text-xs">{error}</p>
+        <Button type="button" variant="outline" onClick={onActivate}>
+          <RotateCcw className="mr-2 h-4 w-4" aria-hidden="true" />
+          Retry simulation
+        </Button>
+      </>
+    );
+  }
+
+  if (activated) {
+    return (
+      <>
+        <LoaderCircle className="h-5 w-5 animate-spin" aria-hidden="true" />
+        <span>Preparing the deterministic mission replay...</span>
+      </>
+    );
+  }
+
+  return (
+    <>
+      <p className="max-w-xl">
+        This optional interactive downloads CesiumJS and the compiled C++
+        module. The rest of the page works without them.
+      </p>
+      <Button type="button" onClick={onActivate}>
+        Load simulation
+      </Button>
+    </>
+  );
+}
+
 function Placeholder({
   activated,
   error,
   onActivate,
-}: Readonly<{
-  activated: boolean;
-  error: string | null;
-  onActivate: () => void;
-}>) {
+}: Readonly<PlaceholderProps>) {
   return (
     <Card
       className="not-prose my-8 gap-0 overflow-hidden p-0"
@@ -54,38 +107,15 @@ function Placeholder({
       <div className="space-y-1 border-b p-4">
         <h3 className="text-lg font-semibold">C++ mission simulation</h3>
         <p className="text-sm text-muted-foreground">
-          {error
-            ? "The simulation worker could not start."
-            : activated
-              ? "Loading the C++ WebAssembly module..."
-              : "Load the WebAssembly simulation and 3D globe when you are ready."}
+          {placeholderDescription(activated, error)}
         </p>
       </div>
       <div className="flex h-72 flex-col items-center justify-center gap-4 bg-muted/20 p-8 text-center text-sm text-muted-foreground">
-        {error ? (
-          <>
-            <p className="max-w-xl font-mono text-xs">{error}</p>
-            <Button type="button" variant="outline" onClick={onActivate}>
-              <RotateCcw className="mr-2 h-4 w-4" aria-hidden="true" />
-              Retry simulation
-            </Button>
-          </>
-        ) : activated ? (
-          <>
-            <LoaderCircle className="h-5 w-5 animate-spin" aria-hidden="true" />
-            <span>Preparing the deterministic mission replay...</span>
-          </>
-        ) : (
-          <>
-            <p className="max-w-xl">
-              This optional interactive downloads CesiumJS and the compiled C++
-              module. The rest of the page works without them.
-            </p>
-            <Button type="button" onClick={onActivate}>
-              Load simulation
-            </Button>
-          </>
-        )}
+        <PlaceholderContent
+          activated={activated}
+          error={error}
+          onActivate={onActivate}
+        />
       </div>
     </Card>
   );
