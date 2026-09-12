@@ -125,6 +125,50 @@ function waitForSocketClose(socket: WebSocket): Promise<void> {
     .then(() => undefined);
 }
 
+function waitForPantryChange(
+  socket: WebSocket,
+  changeKind: string,
+): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      cleanup();
+      reject(new Error(`Pantry WebSocket did not receive ${changeKind}`));
+    }, realtimeTimeoutMs);
+
+    const onFrame = ({ payload }: { payload: string | Buffer }) => {
+      const message = parseFrame(payload);
+      if (
+        message?.type !== "resource.changed" ||
+        message.resourceType !== "pantry" ||
+        message.changeKind !== changeKind
+      ) {
+        return;
+      }
+      cleanup();
+      resolve();
+    };
+    const onSocketError = (error: string) => {
+      cleanup();
+      reject(new Error(`Pantry WebSocket failed: ${error}`));
+    };
+    const onClose = () => {
+      cleanup();
+      reject(new Error("Pantry WebSocket closed before receiving a change"));
+    };
+
+    function cleanup() {
+      clearTimeout(timeout);
+      socket.off("framereceived", onFrame);
+      socket.off("socketerror", onSocketError);
+      socket.off("close", onClose);
+    }
+
+    socket.on("framereceived", onFrame);
+    socket.on("socketerror", onSocketError);
+    socket.on("close", onClose);
+  });
+}
+
 async function disconnectPantrySocket(page: Page): Promise<void> {
   await page.evaluate(() => {
     const closeSocket = (
@@ -192,7 +236,10 @@ test.describe("deployed household pantry realtime", () => {
       sessions.push(member);
       await restoreGarlic(owner.context);
 
-      await Promise.all([openKitchen(owner), openKitchen(member)]);
+      const [ownerSocket, memberSocket] = await Promise.all([
+        openKitchen(owner),
+        openKitchen(member),
+      ]);
       await expect(
         owner.page.getByRole("button", { name: "Remove Garlic" }),
       ).toBeVisible();
@@ -200,13 +247,23 @@ test.describe("deployed household pantry realtime", () => {
         member.page.getByRole("button", { name: "Remove Garlic" }),
       ).toBeVisible();
 
+      const memberRemoval = waitForPantryChange(
+        memberSocket,
+        "pantry.item-removed",
+      );
       await owner.page.getByRole("button", { name: "Remove Garlic" }).click();
       pantryWasChanged = true;
+      await memberRemoval;
       await expect(
         member.page.getByRole("button", { name: "Remove Garlic" }),
       ).toHaveCount(0, { timeout: visibleConvergenceTimeoutMs });
 
+      const ownerRestoration = waitForPantryChange(
+        ownerSocket,
+        "pantry.item-set",
+      );
       await restoreGarlic(member.context);
+      await ownerRestoration;
       await expect(
         owner.page.getByRole("button", { name: "Remove Garlic" }),
       ).toBeVisible({ timeout: visibleConvergenceTimeoutMs });
