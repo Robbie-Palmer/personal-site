@@ -19,6 +19,7 @@ function queryDb(...results: unknown[][]): Db {
         from: () => query,
         leftJoin: () => query,
         where: () => query,
+        groupBy: () => Promise.resolve(result),
         orderBy: () => query,
         limit: () => Promise.resolve(result),
         then: <TResult1 = unknown[]>(
@@ -142,6 +143,40 @@ function recipe(
     updatedAt: new Date("2026-08-21T08:00:00Z"),
     ...overrides,
   };
+}
+
+function savedRecipeBody(input: {
+  canonical?: string;
+  cuisines?: string[];
+  cookware?: string[];
+  ingredients: string[];
+  slug: string;
+}): string {
+  const source = input.ingredients
+    .map((ingredient) => `Add @${ingredient}{1}.`)
+    .join("\n");
+  return JSON.stringify({
+    version: 1,
+    source,
+    recipe: {
+      slug: input.slug,
+      title: input.slug,
+      description: `${input.slug} description`,
+      cookBody: source,
+      date: "2026-09-09",
+      cuisine: input.cuisines ?? [],
+      servings: 2,
+      tags: [],
+      cookware: input.cookware ?? [],
+      ingredientGroups: [
+        {
+          items: input.ingredients.map((ingredient) => ({ ingredient })),
+        },
+      ],
+      instructions: ["Combine the ingredients."],
+      ...(input.canonical ? { canonical: input.canonical } : {}),
+    },
+  });
 }
 
 describe("recipe Agent Auth capabilities", () => {
@@ -360,6 +395,7 @@ describe("recipe Agent Auth capabilities", () => {
     ).toEqual([
       "recipes.search",
       "recipes.read",
+      "recipes.dataset.inspect",
       "pantry.read",
       "shopping_list.read",
       "cook_log.read",
@@ -389,6 +425,33 @@ describe("recipe Agent Auth capabilities", () => {
     });
     expect(search?.output).toMatchObject({
       properties: { items: { maxItems: 25 } },
+    });
+  });
+
+  it("bounds recipe dataset inspection work and ranked values", () => {
+    const inspect = RECIPE_SITE_AGENT_CAPABILITIES.find(
+      (capability) => capability.name === "recipes.dataset.inspect",
+    );
+
+    expect(inspect?.input).toMatchObject({
+      additionalProperties: false,
+      properties: {
+        sampleSize: { minimum: 1, maximum: 200, default: 100 },
+        top: { minimum: 1, maximum: 25, default: 10 },
+      },
+    });
+    expect(inspect?.output).toMatchObject({
+      properties: {
+        population: {
+          properties: { sampledRecipes: { maximum: 200 } },
+        },
+        sample: {
+          properties: {
+            ingredients: { properties: { top: { maxItems: 25 } } },
+            cuisines: { properties: { top: { maxItems: 25 } } },
+          },
+        },
+      },
     });
   });
 
@@ -489,6 +552,109 @@ describe("recipe Agent Auth capabilities", () => {
         agentSession(),
       ),
     ).resolves.toEqual({ recipe: null });
+  });
+
+  it("inspects a bounded aggregate sample without returning recipe bodies", async () => {
+    const result = await executeRecipeAgentCapability(
+      queryDb(
+        [],
+        [
+          { visibility: "public", value: 1 },
+          { visibility: "household", value: 1 },
+          { visibility: "private", value: 1 },
+        ],
+        [
+          {
+            id: "00000000-0000-4000-8000-000000000081",
+            body: savedRecipeBody({
+              slug: "tomato-pasta",
+              ingredients: ["tomato", "basil"],
+              cuisines: ["Italian"],
+              cookware: ["saucepan"],
+              canonical: "https://recipes.example.test/tomato-pasta",
+            }),
+          },
+          {
+            id: "00000000-0000-4000-8000-000000000082",
+            body: savedRecipeBody({
+              slug: "tomato-soup",
+              ingredients: ["tomato", "salt"],
+              cuisines: ["Italian", "American"],
+            }),
+          },
+          {
+            id: "00000000-0000-4000-8000-000000000083",
+            body: "not-json",
+          },
+        ],
+      ),
+      "recipes.dataset.inspect",
+      { sampleSize: 3, top: 2 },
+      agentSession(),
+    );
+
+    expect(result).toEqual({
+      population: {
+        visibleRecipes: 3,
+        sampledRecipes: 3,
+        truncated: false,
+      },
+      visibility: { public: 1, household: 1, private: 1 },
+      sample: {
+        parseQuality: {
+          validPayloads: 2,
+          invalidPayloads: 1,
+          withInstructionSdk: 0,
+        },
+        provenance: { withCanonicalUrl: 1, withoutCanonicalUrl: 1 },
+        coverage: { withCuisine: 2, withIngredients: 2, withCookware: 1 },
+        ingredients: {
+          distinct: 3,
+          top: [
+            { ingredient: "tomato", recipeCount: 2 },
+            { ingredient: "basil", recipeCount: 1 },
+          ],
+        },
+        cuisines: {
+          distinct: 2,
+          top: [
+            { cuisine: "Italian", recipeCount: 2 },
+            { cuisine: "American", recipeCount: 1 },
+          ],
+        },
+      },
+    });
+    expect(JSON.stringify(result)).not.toContain("recipes.example.test");
+    expect(JSON.stringify(result)).not.toContain("Combine the ingredients");
+  });
+
+  it("marks a recipe dataset sample as truncated", async () => {
+    const result = await executeRecipeAgentCapability(
+      queryDb(
+        [],
+        [{ visibility: "public", value: 4 }],
+        [
+          {
+            id: "00000000-0000-4000-8000-000000000084",
+            body: savedRecipeBody({
+              slug: "sampled-recipe",
+              ingredients: ["salt"],
+            }),
+          },
+        ],
+      ),
+      "recipes.dataset.inspect",
+      { sampleSize: 1 },
+      agentSession(),
+    );
+
+    expect(result).toMatchObject({
+      population: {
+        visibleRecipes: 4,
+        sampledRecipes: 1,
+        truncated: true,
+      },
+    });
   });
 
   it("reads a repeatable household pantry snapshot with item versions", async () => {
@@ -651,6 +817,14 @@ describe("recipe Agent Auth capabilities", () => {
         queryDb([]),
         "cook_log.read",
         { cursor: "not-a-cursor" },
+        agentSession(),
+      ),
+    ).rejects.toThrow();
+    await expect(
+      executeRecipeAgentCapability(
+        queryDb(),
+        "recipes.dataset.inspect",
+        { sampleSize: 201 },
         agentSession(),
       ),
     ).rejects.toThrow();

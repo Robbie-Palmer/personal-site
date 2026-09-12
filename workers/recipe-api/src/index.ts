@@ -99,6 +99,7 @@ import {
   readPantry,
   resolvePantryScope,
 } from "./pantry";
+import { readableRecipeFilter } from "./recipe-access";
 import { fetchRecipePage, RecipeUrlImportError } from "./recipe-url-import";
 import {
   type PantryChangeKind,
@@ -1288,37 +1289,6 @@ async function findRecipeBySlug(
     .where(eq(schema.recipe.slug, slug))
     .limit(1);
   return recipe;
-}
-
-async function readableRecipeFilter(
-  db: Db,
-  userId: string | undefined,
-): Promise<SQL | undefined> {
-  if (!userId) return eq(schema.recipe.visibility, "public");
-
-  const householdMembership = await findUserHouseholdMembership(db, userId);
-  const householdMemberIds = householdMembership
-    ? await findHouseholdMemberUserIds(
-        db,
-        householdMembership.organizationId,
-      )
-    : [];
-
-  const householdFilter =
-    householdMemberIds.length > 0
-      ? and(
-          eq(schema.recipe.visibility, "household"),
-          inArray(schema.recipe.userId, householdMemberIds),
-        )
-      : undefined;
-
-  return householdFilter
-    ? or(
-        eq(schema.recipe.visibility, "public"),
-        eq(schema.recipe.userId, userId),
-        householdFilter,
-      )
-    : or(eq(schema.recipe.visibility, "public"), eq(schema.recipe.userId, userId));
 }
 
 async function listRecipesPage(
@@ -3183,9 +3153,6 @@ registerRoute("get", "/api/profile/bootstrap", async (c) => {
       c.header("Cache-Control", "private, no-store");
       const userId = session.user.id;
       const visibilityFilter = await readableRecipeFilter(db, userId);
-      if (!visibilityFilter) {
-        throw new Error("Authenticated recipe visibility filter is missing");
-      }
 
       const [
         ownedRecipes,

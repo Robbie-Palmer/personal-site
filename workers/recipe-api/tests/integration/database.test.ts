@@ -347,6 +347,68 @@ describe("recipe API PostgreSQL integration", () => {
     });
   });
 
+  it("limits recipe dataset inspection to recipes visible to the agent's user", async () => {
+    const cook = await createUser(
+      "Dataset Inspection Cook",
+      "dataset-inspection@example.test",
+    );
+    const otherCook = await createUser(
+      "Dataset Inspection Other Cook",
+      "dataset-inspection-other@example.test",
+    );
+    await db.insert(schema.recipe).values([
+      {
+        slug: "dataset-owned-private",
+        title: "Dataset Owned Private",
+        body: savedRecipeBody(
+          "dataset-owned-private",
+          "Dataset Owned Private",
+        ),
+        userId: cook.id,
+        visibility: "private",
+      },
+      {
+        slug: "dataset-other-public",
+        title: "Dataset Other Public",
+        body: savedRecipeBody(
+          "dataset-other-public",
+          "Dataset Other Public",
+        ),
+        userId: otherCook.id,
+        visibility: "public",
+      },
+      {
+        slug: "dataset-other-private",
+        title: "Dataset Other Private",
+        body: savedRecipeBody(
+          "dataset-other-private",
+          "Dataset Other Private",
+        ),
+        userId: otherCook.id,
+        visibility: "private",
+      },
+    ]);
+
+    const result = await executeRecipeAgentCapability(
+      db,
+      "recipes.dataset.inspect",
+      { sampleSize: 10, top: 5 },
+      delegatedAgentSession(cook),
+    );
+
+    expect(result).toMatchObject({
+      population: {
+        visibleRecipes: 2,
+        sampledRecipes: 2,
+        truncated: false,
+      },
+      visibility: { public: 1, household: 0, private: 1 },
+      sample: {
+        parseQuality: { validPayloads: 2, invalidPayloads: 0 },
+      },
+    });
+  });
+
   it("combines household and followed-cook activity in the following feed", async () => {
     const viewer = await createUser(
       "Following Viewer",

@@ -5,7 +5,7 @@ import {
   type Capability,
 } from "@better-auth/agent-auth";
 import { APIError } from "better-auth";
-import { and, desc, eq, ilike, inArray, or, type SQL } from "drizzle-orm";
+import { and, desc, eq, ilike, or } from "drizzle-orm";
 import type { Db } from "recipe-db";
 import * as schema from "recipe-db/schema";
 import { RECIPE_VISIBILITIES } from "recipe-domain/visibility";
@@ -16,6 +16,8 @@ import {
   decodeCookingLogCursor,
 } from "./cooking-reads";
 import { readPantry } from "./pantry";
+import { readableRecipeFilter } from "./recipe-access";
+import { inspectRecipeDataset } from "./recipe-dataset";
 
 const READ_GRANT_TTL_SECONDS = 30 * 24 * 60 * 60;
 const MAX_AGENT_LIFETIME_SECONDS = 30 * 24 * 60 * 60;
@@ -74,6 +76,13 @@ const recipeReadInput = z
       .min(1)
       .max(120)
       .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
+  })
+  .strict();
+
+const recipeDatasetInspectInput = z
+  .object({
+    sampleSize: z.number().int().min(1).max(200).default(100),
+    top: z.number().int().min(1).max(25).default(10),
   })
   .strict();
 
@@ -192,6 +201,122 @@ const pantrySnapshotSchema = {
   },
 } as const;
 
+const recipeDatasetInspectionSchema = {
+  type: "object",
+  additionalProperties: false,
+  required: ["population", "visibility", "sample"],
+  properties: {
+    population: {
+      type: "object",
+      additionalProperties: false,
+      description:
+        "Exact visible count and the size of the most recently updated sample inspected for detailed statistics.",
+      required: ["visibleRecipes", "sampledRecipes", "truncated"],
+      properties: {
+        visibleRecipes: { type: "integer", minimum: 0 },
+        sampledRecipes: { type: "integer", minimum: 0, maximum: 200 },
+        truncated: { type: "boolean" },
+      },
+    },
+    visibility: {
+      type: "object",
+      additionalProperties: false,
+      required: ["public", "household", "private"],
+      properties: {
+        public: { type: "integer", minimum: 0 },
+        household: { type: "integer", minimum: 0 },
+        private: { type: "integer", minimum: 0 },
+      },
+    },
+    sample: {
+      type: "object",
+      additionalProperties: false,
+      description:
+        "Statistics from the bounded, most recently updated recipe sample. No recipe body or canonical URL is returned.",
+      required: [
+        "parseQuality",
+        "provenance",
+        "coverage",
+        "ingredients",
+        "cuisines",
+      ],
+      properties: {
+        parseQuality: {
+          type: "object",
+          additionalProperties: false,
+          required: ["validPayloads", "invalidPayloads", "withInstructionSdk"],
+          properties: {
+            validPayloads: { type: "integer", minimum: 0 },
+            invalidPayloads: { type: "integer", minimum: 0 },
+            withInstructionSdk: { type: "integer", minimum: 0 },
+          },
+        },
+        provenance: {
+          type: "object",
+          additionalProperties: false,
+          required: ["withCanonicalUrl", "withoutCanonicalUrl"],
+          properties: {
+            withCanonicalUrl: { type: "integer", minimum: 0 },
+            withoutCanonicalUrl: { type: "integer", minimum: 0 },
+          },
+        },
+        coverage: {
+          type: "object",
+          additionalProperties: false,
+          required: ["withCuisine", "withIngredients", "withCookware"],
+          properties: {
+            withCuisine: { type: "integer", minimum: 0 },
+            withIngredients: { type: "integer", minimum: 0 },
+            withCookware: { type: "integer", minimum: 0 },
+          },
+        },
+        ingredients: {
+          type: "object",
+          additionalProperties: false,
+          required: ["distinct", "top"],
+          properties: {
+            distinct: { type: "integer", minimum: 0 },
+            top: {
+              type: "array",
+              maxItems: 25,
+              items: {
+                type: "object",
+                additionalProperties: false,
+                required: ["ingredient", "recipeCount"],
+                properties: {
+                  ingredient: { type: "string" },
+                  recipeCount: { type: "integer", minimum: 1 },
+                },
+              },
+            },
+          },
+        },
+        cuisines: {
+          type: "object",
+          additionalProperties: false,
+          required: ["distinct", "top"],
+          properties: {
+            distinct: { type: "integer", minimum: 0 },
+            top: {
+              type: "array",
+              maxItems: 25,
+              items: {
+                type: "object",
+                additionalProperties: false,
+                required: ["cuisine", "recipeCount"],
+                properties: {
+                  cuisine: { type: "string" },
+                  recipeCount: { type: "integer", minimum: 1 },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+  },
+} as const;
+
 const shoppingListSnapshotSchema = {
   type: "object",
   additionalProperties: false,
@@ -296,6 +421,36 @@ export const RECIPE_SITE_AGENT_CAPABILITIES = [
         },
       },
     },
+  },
+  {
+    name: "recipes.dataset.inspect",
+    description:
+      "Inspect aggregate coverage, provenance, parse quality, ingredients, and cuisines for recipes visible to the delegated user.",
+    approvalStrength: "session",
+    grantTTL: READ_GRANT_TTL_SECONDS,
+    input: {
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        sampleSize: {
+          type: "integer",
+          minimum: 1,
+          maximum: 200,
+          default: 100,
+          description:
+            "Number of the most recently updated visible recipes to inspect in detail.",
+        },
+        top: {
+          type: "integer",
+          minimum: 1,
+          maximum: 25,
+          default: 10,
+          description:
+            "Maximum ingredient and cuisine frequency rows to return.",
+        },
+      },
+    },
+    output: recipeDatasetInspectionSchema,
   },
   {
     name: "pantry.read",
@@ -443,36 +598,6 @@ export function escapedLikePattern(value: string): string {
   return "%" + escaped + "%";
 }
 
-async function readableRecipeFilter(db: Db, userId: string): Promise<SQL> {
-  const [membership] = await db
-    .select({ organizationId: schema.member.organizationId })
-    .from(schema.member)
-    .where(eq(schema.member.userId, userId))
-    .limit(1);
-
-  if (!membership) {
-    return or(
-      eq(schema.recipe.visibility, "public"),
-      eq(schema.recipe.userId, userId),
-    )!;
-  }
-
-  const members = await db
-    .select({ userId: schema.member.userId })
-    .from(schema.member)
-    .where(eq(schema.member.organizationId, membership.organizationId));
-  const memberIds = members.map((member) => member.userId);
-
-  return or(
-    eq(schema.recipe.visibility, "public"),
-    eq(schema.recipe.userId, userId),
-    and(
-      eq(schema.recipe.visibility, "household"),
-      inArray(schema.recipe.userId, memberIds),
-    ),
-  )!;
-}
-
 function recipeSummary(
   recipe: typeof schema.recipe.$inferSelect,
   userId: string,
@@ -533,6 +658,11 @@ export async function executeRecipeAgentCapability(
         ? { ...recipeSummary(recipe, userId), body: recipe.body }
         : null,
     };
+  }
+
+  if (capability === "recipes.dataset.inspect") {
+    const input = recipeDatasetInspectInput.parse(args ?? {});
+    return inspectRecipeDataset(db, userId, input);
   }
 
   if (capability === "pantry.read") {

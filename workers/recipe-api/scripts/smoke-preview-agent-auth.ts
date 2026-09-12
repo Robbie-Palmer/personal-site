@@ -238,6 +238,7 @@ const agentPublicKey = await publicJWK(agentKeys.publicKey, agentKid);
 const requestedCapabilities = [
   "recipes.search",
   "recipes.read",
+  "recipes.dataset.inspect",
   "pantry.read",
   "cook_log.read",
   "cooking_insights.read",
@@ -452,6 +453,46 @@ if (
   !read.data.recipe.body
 ) {
   throw new Error("Recipe read did not return the delegated user's private recipe");
+}
+
+const datasetToken = await agentJWT(
+  agentKeys.privateKey,
+  agentKid,
+  registration.agent_id,
+  registration.host_id,
+  discovery.issuer,
+  "recipes.dataset.inspect",
+);
+const datasetResponse = await execute(
+  discovery.endpoints.execute,
+  datasetToken,
+  "recipes.dataset.inspect",
+  { sampleSize: 100, top: 10 },
+);
+if (!datasetResponse.ok) {
+  throw new Error(
+    `Recipe dataset inspection failed: ${await datasetResponse.text()}`,
+  );
+}
+const dataset = (await datasetResponse.json()) as {
+  data: {
+    population: { visibleRecipes: number; sampledRecipes: number };
+    visibility: { public: number; private: number };
+    sample: {
+      parseQuality: { validPayloads: number };
+      ingredients: { distinct: number };
+    };
+  };
+};
+if (
+  dataset.data.population.visibleRecipes < 2 ||
+  dataset.data.population.sampledRecipes < 2 ||
+  dataset.data.visibility.public < 1 ||
+  dataset.data.visibility.private < 1 ||
+  dataset.data.sample.parseQuality.validPayloads < 2 ||
+  dataset.data.sample.ingredients.distinct < 1
+) {
+  throw new Error("Recipe dataset inspection omitted seeded visible recipes");
 }
 
 const pantryToken = await agentJWT(
