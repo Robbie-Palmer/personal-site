@@ -79,10 +79,23 @@ async function createScenarioSession(
 
 function waitForPantrySubscription(page: Page): Promise<WebSocket> {
   return new Promise((resolve, reject) => {
-    const timeout = setTimeout(() => {
-      cleanup();
-      reject(new Error("Pantry WebSocket did not become ready"));
-    }, realtimeTimeoutMs);
+    let settled = false;
+    const listeners = new Map<
+      WebSocket,
+      {
+        onClose: () => void;
+        onFrame: (event: { payload: string | Buffer }) => void;
+        onSocketError: (error: string) => void;
+      }
+    >();
+
+    const timeout = setTimeout(
+      () =>
+        finish(() =>
+          reject(new Error("Pantry WebSocket did not become ready")),
+        ),
+      realtimeTimeoutMs,
+    );
 
     const onWebSocket = (socket: WebSocket) => {
       if (new URL(socket.url()).pathname !== pantryRealtimePath) return;
@@ -93,26 +106,40 @@ function waitForPantrySubscription(page: Page): Promise<WebSocket> {
           message?.type === "subscription.ready" &&
           message.resourceType === "pantry"
         ) {
-          cleanup();
-          resolve(socket);
+          finish(() => resolve(socket));
         }
       };
+      const onSocketError = (error: string) => {
+        finish(() => reject(new Error(`Pantry WebSocket failed: ${error}`)));
+      };
+      const onClose = () => {
+        finish(() =>
+          reject(new Error("Pantry WebSocket closed before becoming ready")),
+        );
+      };
+      listeners.set(socket, { onClose, onFrame, onSocketError });
       socket.on("framereceived", onFrame);
-      socket.on("socketerror", (error) => {
-        cleanup();
-        reject(new Error(`Pantry WebSocket failed: ${error}`));
-      });
-
-      function cleanup() {
-        clearTimeout(timeout);
-        page.off("websocket", onWebSocket);
-        socket.off("framereceived", onFrame);
-      }
+      socket.on("socketerror", onSocketError);
+      socket.on("close", onClose);
+      if (socket.isClosed()) onClose();
     };
+
+    function finish(callback: () => void) {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      callback();
+    }
 
     function cleanup() {
       clearTimeout(timeout);
       page.off("websocket", onWebSocket);
+      for (const [socket, handlers] of listeners) {
+        socket.off("framereceived", handlers.onFrame);
+        socket.off("socketerror", handlers.onSocketError);
+        socket.off("close", handlers.onClose);
+      }
+      listeners.clear();
     }
 
     page.on("websocket", onWebSocket);
@@ -127,15 +154,27 @@ function waitForSocketClose(socket: WebSocket): Promise<void> {
 
 function waitForPantryChange(
   socket: WebSocket,
+  operationId: Promise<string>,
   changeKind: string,
   ingredientSlug: string,
   expectedLocation: string | undefined,
 ): Promise<void> {
   return new Promise((resolve, reject) => {
-    const timeout = setTimeout(() => {
-      cleanup();
-      reject(new Error(`Pantry WebSocket did not receive ${changeKind}`));
-    }, realtimeTimeoutMs);
+    let expectedOperationId: string | undefined;
+    let settled = false;
+    const pendingFrames: Record<string, unknown>[] = [];
+    const expectedState = expectedLocation ?? "absent";
+    const timeout = setTimeout(
+      () =>
+        finish(() =>
+          reject(
+            new Error(
+              `Pantry WebSocket did not receive ${changeKind} for ${ingredientSlug} (${expectedState})`,
+            ),
+          ),
+        ),
+      realtimeTimeoutMs,
+    );
 
     const onFrame = ({ payload }: { payload: string | Buffer }) => {
       const message = parseFrame(payload);
@@ -147,7 +186,8 @@ function waitForPantryChange(
         typeof message.pantry !== "object" ||
         !("stock" in message.pantry) ||
         !message.pantry.stock ||
-        typeof message.pantry.stock !== "object"
+        typeof message.pantry.stock !== "object" ||
+        Array.isArray(message.pantry.stock)
       ) {
         return;
       }
@@ -157,17 +197,28 @@ function waitForPantryChange(
           ? !Object.hasOwn(stock, ingredientSlug)
           : stock[ingredientSlug] === expectedLocation;
       if (!matchesIngredient) return;
-      cleanup();
-      resolve();
+      if (expectedOperationId === undefined) {
+        pendingFrames.push(message);
+        return;
+      }
+      if (message.operationId !== expectedOperationId) return;
+      finish(resolve);
     };
     const onSocketError = (error: string) => {
-      cleanup();
-      reject(new Error(`Pantry WebSocket failed: ${error}`));
+      finish(() => reject(new Error(`Pantry WebSocket failed: ${error}`)));
     };
     const onClose = () => {
-      cleanup();
-      reject(new Error("Pantry WebSocket closed before receiving a change"));
+      finish(() =>
+        reject(new Error("Pantry WebSocket closed before receiving a change")),
+      );
     };
+
+    function finish(callback: () => void) {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      callback();
+    }
 
     function cleanup() {
       clearTimeout(timeout);
@@ -179,7 +230,53 @@ function waitForPantryChange(
     socket.on("framereceived", onFrame);
     socket.on("socketerror", onSocketError);
     socket.on("close", onClose);
+    if (socket.isClosed()) onClose();
+
+    void operationId.then(
+      (value) => {
+        if (settled) return;
+        if (!value) {
+          finish(() =>
+            reject(new Error("Pantry request omitted its operation ID")),
+          );
+          return;
+        }
+        expectedOperationId = value;
+        const matchingFrame = pendingFrames.find(
+          (message) => message.operationId === expectedOperationId,
+        );
+        if (matchingFrame) finish(resolve);
+      },
+      (error: unknown) => {
+        finish(() =>
+          reject(
+            error instanceof Error
+              ? error
+              : new Error("Could not observe the pantry request"),
+          ),
+        );
+      },
+    );
   });
+}
+
+function waitForPantryOperationId(
+  page: Page,
+  method: string,
+  path: string,
+): Promise<string> {
+  return page
+    .waitForRequest(
+      (request) =>
+        request.method() === method && new URL(request.url()).pathname === path,
+      { timeout: realtimeTimeoutMs },
+    )
+    .then((request) => {
+      const operationId = request.headers()["idempotency-key"];
+      if (!operationId)
+        throw new Error("Pantry request omitted its operation ID");
+      return operationId;
+    });
 }
 
 async function disconnectPantrySocket(page: Page): Promise<void> {
@@ -207,11 +304,14 @@ async function openKitchen(session: ScenarioSession): Promise<WebSocket> {
   return socket;
 }
 
-async function restoreGarlic(context: BrowserContext): Promise<void> {
+async function restoreGarlic(
+  context: BrowserContext,
+  operationId = crypto.randomUUID(),
+): Promise<void> {
   const response = await context.request.put("/api/pantry/items/garlic", {
     data: { location: "fresh" },
     headers: {
-      "idempotency-key": crypto.randomUUID(),
+      "idempotency-key": operationId,
       origin: previewSiteURL.origin,
     },
   });
@@ -260,8 +360,14 @@ test.describe("deployed household pantry realtime", () => {
         member.page.getByRole("button", { name: "Remove Garlic" }),
       ).toBeVisible();
 
+      const removalOperationId = waitForPantryOperationId(
+        owner.page,
+        "DELETE",
+        "/api/pantry/items/garlic",
+      );
       const memberRemoval = waitForPantryChange(
         memberSocket,
+        removalOperationId,
         "pantry.item-removed",
         "garlic",
         undefined,
@@ -273,13 +379,15 @@ test.describe("deployed household pantry realtime", () => {
         member.page.getByRole("button", { name: "Remove Garlic" }),
       ).toHaveCount(0, { timeout: visibleConvergenceTimeoutMs });
 
+      const restorationOperationId = crypto.randomUUID();
       const ownerRestoration = waitForPantryChange(
         ownerSocket,
+        Promise.resolve(restorationOperationId),
         "pantry.item-set",
         "garlic",
         "fresh",
       );
-      await restoreGarlic(member.context);
+      await restoreGarlic(member.context, restorationOperationId);
       await ownerRestoration;
       await expect(
         owner.page.getByRole("button", { name: "Remove Garlic" }),
