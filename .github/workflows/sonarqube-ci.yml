@@ -73,7 +73,7 @@ jobs:
             ~/.local/share/mise/installs/pipx-gcovr
             ~/.local/share/mise/installs/python
             ~/.local/share/mise/installs/uv
-          key: mise-cpp-v2-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('.github/workflows/sonarqube-ci.yml', 'cpp/mise.toml', 'cpp/autonomic-satellite-swarm/mise.toml') }}
+          key: mise-cpp-v2-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('cpp/mise.toml', 'cpp/autonomic-satellite-swarm/mise.toml') }}
 
       - name: Install coverage toolchain
         shell: bash
@@ -152,13 +152,11 @@ jobs:
           persist-credentials: false
 
       - name: Restore SonarQube package cache
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        id: sonar-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.sonar/cache
-          key: sonar-${{ runner.os }}-v1-${{ hashFiles('.github/workflows/sonarqube-ci.yml') }}
-          restore-keys: |
-            sonar-${{ runner.os }}-v1-
-            sonar-${{ runner.os }}
+          key: sonar-${{ runner.os }}-${{ runner.arch }}-v2
 
       - name: Setup mise
         uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
@@ -241,3 +239,10 @@ jobs:
           args: ${{ steps.scanner-arguments.outputs.args }}
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
+      - name: Save SonarQube package cache
+        if: github.ref == 'refs/heads/main' && steps.sonar-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.sonar/cache
+          key: ${{ steps.sonar-cache.outputs.cache-primary-key }}
