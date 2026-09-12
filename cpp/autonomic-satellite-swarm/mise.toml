@@ -49,7 +49,21 @@ run = "mise exec python@3.14.6 -- mise install asdf:mise-plugins/mise-emsdk@6.0.
 description = "Configure the Emscripten browser build"
 depends = ["browser:toolchain"]
 tools = { python = "3.14.6" }
-run = "mise exec python@3.14.6 asdf:mise-plugins/mise-emsdk@6.0.9 -- emcmake cmake -S . -B build/browser -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF -DSATELLITE_SWARM_BUILD_BROWSER=ON"
+run = '''
+source_revision=${SATELLITE_SWARM_SOURCE_REVISION:-${GITHUB_SHA:-$(git rev-parse HEAD)}}
+case "$source_revision" in
+  *[!0-9a-f]*|'') echo "SATELLITE_SWARM_SOURCE_REVISION must be a full lowercase Git revision" >&2; exit 2 ;;
+esac
+revision_length=$(printf %s "$source_revision" | wc -c)
+if [ "$revision_length" -ne 40 ]; then
+  echo "SATELLITE_SWARM_SOURCE_REVISION must be a full lowercase Git revision" >&2
+  exit 2
+fi
+mise exec python@3.14.6 asdf:mise-plugins/mise-emsdk@6.0.9 -- \
+  emcmake cmake -S . -B build/browser -G Ninja -DCMAKE_BUILD_TYPE=Release \
+    -DBUILD_TESTING=OFF -DSATELLITE_SWARM_BUILD_BROWSER=ON \
+    -DSATELLITE_SWARM_SOURCE_REVISION="$source_revision"
+'''
 
 [tasks."browser:build"]
 description = "Build the WebAssembly adapter and copy its deployable artifacts"
@@ -78,7 +92,7 @@ cmake -E copy_if_different build/browser/browser/satellite-swarm.wasm "$browser_
 
 [tasks."browser:parity"]
 description = "Check native and WebAssembly browser results for byte-for-byte parity"
-depends = ["browser:build"]
+depends = ["browser:build", "browser:fixture:check"]
 run = "node browser/tests/browser_parity.mjs"
 
 [tasks.lint]

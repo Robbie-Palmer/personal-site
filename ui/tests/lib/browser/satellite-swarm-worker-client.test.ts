@@ -4,6 +4,8 @@ import {
   SATELLITE_SWARM_WORKER_PROTOCOL_VERSION,
 } from "@/lib/browser/satellite-swarm-worker-client";
 
+const sourceRevision = "0123456789abcdef0123456789abcdef01234567";
+
 const validResult = {
   events: [],
   frames: [
@@ -120,11 +122,13 @@ describe("satellite swarm worker client", () => {
       protocolVersion: SATELLITE_SWARM_WORKER_PROTOCOL_VERSION,
       requestId: request.requestId,
       result: validResult,
+      sourceRevision,
       type: "result",
     });
 
     await expect(resultPromise).resolves.toMatchObject({
       objective: { latitudeDegrees: -90, longitudeDegrees: 0 },
+      sourceRevision,
     });
     expect(worker.terminated).toBe(true);
     expect(worker.listeners.get("message")).toEqual([]);
@@ -147,6 +151,7 @@ describe("satellite swarm worker client", () => {
       protocolVersion: SATELLITE_SWARM_WORKER_PROTOCOL_VERSION,
       requestId: request.requestId,
       result: validResult,
+      sourceRevision,
       type: "result",
     });
     await resultPromise;

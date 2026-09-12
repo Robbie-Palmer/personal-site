@@ -13,6 +13,8 @@ option(SATELLITE_SWARM_BUILD_SIMULATION "Build the deterministic host simulation
 option(SATELLITE_SWARM_BUILD_BROWSER "Build the Emscripten browser adapter" OFF)
 option(SATELLITE_SWARM_ENABLE_COVERAGE "Enable GCC coverage instrumentation" OFF)
 option(SATELLITE_SWARM_ENABLE_SANITIZERS "Enable address and undefined-behavior sanitizers" OFF)
+set(SATELLITE_SWARM_SOURCE_REVISION "unknown" CACHE STRING
+    "Full Git revision used to build the browser module")
 
 add_library(
   satellite_swarm
@@ -112,6 +114,9 @@ if(SATELLITE_SWARM_BUILD_BROWSER)
     satellite_swarm_simulation PRIVATE -fexceptions)
   target_compile_options(
     satellite_swarm_browser PRIVATE -fexceptions)
+  target_compile_definitions(
+    satellite_swarm_browser
+    PRIVATE SATELLITE_SWARM_SOURCE_REVISION="${SATELLITE_SWARM_SOURCE_REVISION}")
   set_target_properties(
     satellite_swarm_browser
     PROPERTIES OUTPUT_NAME "satellite-swarm"

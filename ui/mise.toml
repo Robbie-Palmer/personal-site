@@ -49,6 +49,25 @@ description = "Install Chromium for Playwright preview tests"
 depends = ["//ui:install"]
 run = "pnpm exec playwright install chromium"
 
+[tasks."audit:satellite-swarm"]
+description = "Audit satellite-swarm payloads, rendering, provenance, and offline requests"
+depends = ["//ui:test:e2e:install"]
+run = "pnpm audit:satellite-swarm"
+
+[tasks."audit:satellite-swarm:serve"]
+description = "Build, serve, and audit the satellite-swarm production export"
+depends = ["//ui:build", "//ui:test:e2e:install"]
+run = '''
+audit_port=${SATELLITE_SWARM_AUDIT_PORT:-3013}
+case "$audit_port" in
+  *[!0-9]*|'') echo "SATELLITE_SWARM_AUDIT_PORT must be an integer" >&2; exit 2 ;;
+esac
+pnpm exec serve out -l "$audit_port" >/tmp/satellite-swarm-audit-server.log 2>&1 &
+audit_server_pid=$!
+trap 'kill "$audit_server_pid" 2>/dev/null || true' EXIT
+SATELLITE_SWARM_AUDIT_URL="http://127.0.0.1:$audit_port" pnpm audit:satellite-swarm
+'''
+
 [tasks."test:watch"]
 description = "Run tests in watch mode"
 depends = ["//ui:install"]

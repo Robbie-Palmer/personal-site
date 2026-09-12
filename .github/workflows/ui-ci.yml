@@ -4,6 +4,8 @@ on:
   pull_request:
     paths:
       - "ui/**"
+      - "cpp/autonomic-satellite-swarm/**"
+      - "cpp/mise.toml"
       - ".github/workflows/ui-ci.yml"
       - ".mise.toml"
       - ".remarkrc.js"
@@ -75,3 +77,10 @@ jobs:
       # Depends on build output - mise caches the build
       - name: Run integration tests
         run: mise run //ui:test:integration
+
+      - name: Audit satellite-swarm browser simulation
+        run: mise run //ui:audit:satellite-swarm:serve
+        env:
+          NEXT_PUBLIC_CF_IMAGES_ACCOUNT_HASH: ${{ vars.CF_IMAGES_ACCOUNT_HASH }}
+          NEXT_PUBLIC_POSTHOG_KEY: ${{ vars.POSTHOG_KEY }}
+          NEXT_PUBLIC_POSTHOG_HOST: ${{ vars.POSTHOG_HOST }}

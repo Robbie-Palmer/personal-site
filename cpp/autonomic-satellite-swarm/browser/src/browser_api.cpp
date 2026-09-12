@@ -13,9 +13,13 @@
 #define SATELLITE_SWARM_KEEPALIVE
 #endif
 
+#ifndef SATELLITE_SWARM_SOURCE_REVISION
+#define SATELLITE_SWARM_SOURCE_REVISION "unknown"
+#endif
+
 namespace {
 
-constexpr uint32_t kBrowserApiVersion = 2U;
+constexpr uint32_t kBrowserApiVersion = 3U;
 
 satellite_swarm::simulation::BrowserScenario parseScenario(uint32_t scenario) {
   if (scenario == static_cast<uint32_t>(satellite_swarm::simulation::BrowserScenario::Nominal)) {
@@ -42,6 +46,10 @@ BrowserState& browserState() {
 
 extern "C" SATELLITE_SWARM_KEEPALIVE uint32_t satellite_swarm_browser_api_version() noexcept {
   return kBrowserApiVersion;
+}
+
+extern "C" SATELLITE_SWARM_KEEPALIVE const char* satellite_swarm_source_revision() noexcept {
+  return SATELLITE_SWARM_SOURCE_REVISION;
 }
 
 extern "C" SATELLITE_SWARM_KEEPALIVE const char*

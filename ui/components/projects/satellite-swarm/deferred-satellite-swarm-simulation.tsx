@@ -38,9 +38,14 @@ function messageFrom(error: unknown): string {
 }
 
 function Placeholder({
+  activated,
   error,
-  onRetry,
-}: Readonly<{ error: string | null; onRetry: () => void }>) {
+  onActivate,
+}: Readonly<{
+  activated: boolean;
+  error: string | null;
+  onActivate: () => void;
+}>) {
   return (
     <Card
       className="not-prose my-8 gap-0 overflow-hidden p-0"
@@ -51,24 +56,34 @@ function Placeholder({
         <p className="text-sm text-muted-foreground">
           {error
             ? "The simulation worker could not start."
-            : "Loading the C++ WebAssembly module..."}
+            : activated
+              ? "Loading the C++ WebAssembly module..."
+              : "Load the WebAssembly simulation and 3D globe when you are ready."}
         </p>
       </div>
       <div className="flex h-72 flex-col items-center justify-center gap-4 bg-muted/20 p-8 text-center text-sm text-muted-foreground">
         {error ? (
           <>
             <p className="max-w-xl font-mono text-xs">{error}</p>
-            <Button type="button" variant="outline" onClick={onRetry}>
+            <Button type="button" variant="outline" onClick={onActivate}>
               <RotateCcw className="mr-2 h-4 w-4" aria-hidden="true" />
               Retry simulation
             </Button>
           </>
-        ) : (
+        ) : activated ? (
           <>
             <LoaderCircle className="h-5 w-5 animate-spin" aria-hidden="true" />
-            <span>
-              The worker loads when this section approaches the viewport.
-            </span>
+            <span>Preparing the deterministic mission replay...</span>
+          </>
+        ) : (
+          <>
+            <p className="max-w-xl">
+              This optional interactive downloads CesiumJS and the compiled C++
+              module. The rest of the page works without them.
+            </p>
+            <Button type="button" onClick={onActivate}>
+              Load simulation
+            </Button>
           </>
         )}
       </div>
@@ -194,7 +209,6 @@ function MissionControls({
 }
 
 export function DeferredSatelliteSwarmSimulation() {
-  const containerRef = useRef<HTMLDivElement>(null);
   const activeRequestRef = useRef<AbortController | null>(null);
   const [simulation, setSimulation] = useState<{
     data: SimulationData;
@@ -210,7 +224,7 @@ export function DeferredSatelliteSwarmSimulation() {
   );
   const [scenario, setScenario] = useState<SatelliteSwarmScenario>("nominal");
   const [running, setRunning] = useState(false);
-  const [visible, setVisible] = useState(false);
+  const [activated, setActivated] = useState(false);
 
   const run = useCallback(
     async (
@@ -254,44 +268,17 @@ export function DeferredSatelliteSwarmSimulation() {
   );
 
   useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
-    let disposed = false;
-    let requested = false;
-    const load = () => {
-      if (disposed || requested) return;
-      requested = true;
-      setVisible(true);
-      void run(SOUTH_POLE_OBJECTIVE);
-    };
-
-    if (typeof IntersectionObserver === "undefined") {
-      load();
-      return () => {
-        disposed = true;
-        const controller = activeRequestRef.current;
-        activeRequestRef.current = null;
-        controller?.abort();
-      };
-    }
-
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (disposed || !entry?.isIntersecting) return;
-        load();
-        observer.disconnect();
-      },
-      { rootMargin: "500px 0px" },
-    );
-    observer.observe(container);
     return () => {
-      disposed = true;
       const controller = activeRequestRef.current;
       activeRequestRef.current = null;
       controller?.abort();
-      observer.disconnect();
     };
-  }, [run]);
+  }, []);
+
+  const activate = () => {
+    setActivated(true);
+    void run(SOUTH_POLE_OBJECTIVE);
+  };
 
   const resetObjective = () => {
     setLongitude(String(SOUTH_POLE_OBJECTIVE.longitudeDegrees));
@@ -312,8 +299,8 @@ export function DeferredSatelliteSwarmSimulation() {
   };
 
   return (
-    <div ref={containerRef} aria-busy={running}>
-      {simulation && visible ? (
+    <div aria-busy={running}>
+      {simulation && activated ? (
         <SatelliteSwarmSimulation
           key={simulation.runId}
           data={simulation.data}
@@ -336,8 +323,9 @@ export function DeferredSatelliteSwarmSimulation() {
         />
       ) : (
         <Placeholder
+          activated={activated}
           error={error}
-          onRetry={() => void run(SOUTH_POLE_OBJECTIVE)}
+          onActivate={activate}
         />
       )}
     </div>

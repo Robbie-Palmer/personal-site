@@ -4,7 +4,7 @@ import {
   type SatelliteSwarmSimulation,
 } from "@/lib/api/satellite-swarm-simulation";
 
-export const SATELLITE_SWARM_WORKER_PROTOCOL_VERSION = 2 as const;
+export const SATELLITE_SWARM_WORKER_PROTOCOL_VERSION = 3 as const;
 
 const WORKER_URL =
   "/simulations/autonomic-satellite-swarm/satellite-swarm.worker.mjs";
@@ -14,6 +14,7 @@ const resultMessageSchema = z.object({
   protocolVersion: z.literal(SATELLITE_SWARM_WORKER_PROTOCOL_VERSION),
   requestId: z.string(),
   result: z.unknown(),
+  sourceRevision: z.string().regex(/^[0-9a-f]{40}$/),
   type: z.literal("result"),
 });
 
@@ -135,7 +136,15 @@ export function runSatelliteSwarmSimulation(
         return;
       }
       try {
-        finish(parseSatelliteSwarmSimulation(parsed.data.result));
+        finish(
+          parseSatelliteSwarmSimulation({
+            ...(typeof parsed.data.result === "object" &&
+            parsed.data.result !== null
+              ? parsed.data.result
+              : {}),
+            sourceRevision: parsed.data.sourceRevision,
+          }),
+        );
       } catch (error) {
         fail(error);
       }

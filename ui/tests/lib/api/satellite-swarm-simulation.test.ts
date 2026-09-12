@@ -9,6 +9,7 @@ const validRecord = {
   traceVersion: 2,
   scenario: "test",
   source: "portable C++ SimulationTrace",
+  sourceRevision: "0123456789abcdef0123456789abcdef01234567",
   positionModel: "scripted",
   objective: { longitudeDegrees: 0, latitudeDegrees: -90 },
   frames: [
