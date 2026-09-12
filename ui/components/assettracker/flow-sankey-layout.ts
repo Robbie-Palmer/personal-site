@@ -50,11 +50,11 @@ export type FlowSankeyRenderData = Omit<FlowSankeyData, "links" | "nodes"> & {
 };
 
 function graphEdges(data: FlowSankeyData): LayeredGraphEdge[] {
-  return data.links.map(({ source, target, value }) => ({
-    source,
-    target,
-    weight: value,
-  }));
+  return data.links.flatMap(({ source, target, value }) =>
+    Number.isFinite(value) && value >= 0
+      ? [{ source, target, weight: value }]
+      : [],
+  );
 }
 
 function nodeDepths(data: FlowSankeyData): number[] {
@@ -73,7 +73,9 @@ export function addFlowSankeyWaypoints(
       link.source < 0 ||
       link.target < 0 ||
       link.source >= data.nodes.length ||
-      link.target >= data.nodes.length
+      link.target >= data.nodes.length ||
+      !Number.isFinite(link.value) ||
+      link.value < 0
     ) {
       return [];
     }

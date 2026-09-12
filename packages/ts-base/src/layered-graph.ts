@@ -1,6 +1,7 @@
 export type LayeredGraphEdge = Readonly<{
   source: number;
   target: number;
+  /** A finite, non-negative value used to prioritise heavier edges. */
   weight: number;
 }>;
 
@@ -35,6 +36,10 @@ function validEdges(
   );
 }
 
+/**
+ * Assigns each node its longest-path layer. Edges with out-of-range endpoints
+ * or non-finite, negative weights are ignored.
+ */
 export function layeredGraphNodeDepths(
   nodeCount: number,
   edges: readonly LayeredGraphEdge[],
@@ -81,7 +86,7 @@ function reorderLayer(
   layer: number[],
   positions: Map<number, number>,
   neighbours: Map<number, WeightedNeighbour[]>,
-): void {
+): boolean {
   const previousOrder = new Map(
     layer.map((nodeIndex, position) => [nodeIndex, position]),
   );
@@ -103,6 +108,13 @@ function reorderLayer(
       barycentre(left) - barycentre(right) ||
       (previousOrder.get(left) ?? 0) - (previousOrder.get(right) ?? 0),
   );
+
+  let changed = false;
+  for (const [position, nodeIndex] of layer.entries()) {
+    if (previousOrder.get(nodeIndex) !== position) changed = true;
+    positions.set(nodeIndex, position);
+  }
+  return changed;
 }
 
 function linkPairCrossingWeight(
@@ -145,32 +157,96 @@ function crossingWeight(edges: LayeredGraphEdge[], layers: number[][]): number {
   return weight;
 }
 
-function transposeLayer(edges: LayeredGraphEdge[], layers: number[][]): boolean {
+function incidentEdgeIndexes(
+  edges: LayeredGraphEdge[],
+  firstNode: number,
+  secondNode: number,
+): number[] {
+  const indexes: number[] = [];
+  for (const [index, edge] of edges.entries()) {
+    if (
+      edge.source === firstNode ||
+      edge.target === firstNode ||
+      edge.source === secondNode ||
+      edge.target === secondNode
+    ) {
+      indexes.push(index);
+    }
+  }
+  return indexes;
+}
+
+function incidentCrossingWeight(
+  edges: LayeredGraphEdge[],
+  incidentIndexes: number[],
+  positions: Map<number, number>,
+  depths: Map<number, number>,
+): number {
+  const incident = new Set(incidentIndexes);
+  let weight = 0;
+
+  for (const firstIndex of incidentIndexes) {
+    const first = edges[firstIndex];
+    if (!first) continue;
+    for (const [secondIndex, second] of edges.entries()) {
+      if (firstIndex === secondIndex) continue;
+      if (incident.has(secondIndex) && secondIndex < firstIndex) continue;
+      weight += linkPairCrossingWeight(first, second, positions, depths);
+    }
+  }
+
+  return weight;
+}
+
+function transposePass(edges: LayeredGraphEdge[], layers: number[][]): boolean {
+  const positions = nodePositions(layers);
+  const depths = new Map(
+    layers.flatMap((layer, depth) =>
+      layer.map((nodeIndex) => [nodeIndex, depth] as const),
+    ),
+  );
   let changed = false;
   for (const layer of layers) {
     for (let position = 0; position < layer.length - 1; position += 1) {
-      const before = crossingWeight(edges, layers);
       const nextPosition = position + 1;
       const current = layer[position];
       const next = layer[nextPosition];
       if (current == null || next == null) continue;
+      const incidentIndexes = incidentEdgeIndexes(edges, current, next);
+      const before = incidentCrossingWeight(
+        edges,
+        incidentIndexes,
+        positions,
+        depths,
+      );
       layer[position] = next;
       layer[nextPosition] = current;
-      if (crossingWeight(edges, layers) < before) {
+      positions.set(current, nextPosition);
+      positions.set(next, position);
+      if (
+        incidentCrossingWeight(edges, incidentIndexes, positions, depths) <
+        before
+      ) {
         changed = true;
       } else {
         layer[position] = current;
         layer[nextPosition] = next;
+        positions.set(current, position);
+        positions.set(next, nextPosition);
       }
     }
   }
   return changed;
 }
 
-function transposeLayers(edges: LayeredGraphEdge[], layers: number[][]): void {
+function transposeLayers(edges: LayeredGraphEdge[], layers: number[][]): boolean {
+  let changed = false;
   for (const _layer of layers) {
-    if (!transposeLayer(edges, layers)) break;
+    const passChanged = transposePass(edges, layers);
+    changed ||= passChanged;
+    if (!passChanged) break;
   }
+  return changed;
 }
 
 type NeighbourMaps = {
@@ -182,14 +258,15 @@ function neighbourMaps(edges: LayeredGraphEdge[]): NeighbourMaps {
   const incoming: NeighbourMaps["incoming"] = new Map();
   const outgoing: NeighbourMaps["outgoing"] = new Map();
   for (const edge of edges) {
-    incoming.set(edge.target, [
-      ...(incoming.get(edge.target) ?? []),
-      { index: edge.source, weight: edge.weight },
-    ]);
-    outgoing.set(edge.source, [
-      ...(outgoing.get(edge.source) ?? []),
-      { index: edge.target, weight: edge.weight },
-    ]);
+    const incomingEdges = incoming.get(edge.target);
+    const incomingEdge = { index: edge.source, weight: edge.weight };
+    if (incomingEdges) incomingEdges.push(incomingEdge);
+    else incoming.set(edge.target, [incomingEdge]);
+
+    const outgoingEdges = outgoing.get(edge.source);
+    const outgoingEdge = { index: edge.target, weight: edge.weight };
+    if (outgoingEdges) outgoingEdges.push(outgoingEdge);
+    else outgoing.set(edge.source, [outgoingEdge]);
   }
   return { incoming, outgoing };
 }
@@ -199,14 +276,26 @@ function reorderLayers(
   layers: number[][],
   { incoming, outgoing }: NeighbourMaps,
   transpose: boolean,
-): void {
-  for (const layer of layers.slice(1)) {
-    reorderLayer(layer, nodePositions(layers), incoming);
+): boolean {
+  const positions = nodePositions(layers);
+  let changed = false;
+  for (let depth = 1; depth < layers.length; depth += 1) {
+    const layer = layers[depth];
+    if (!layer) continue;
+    const layerChanged = reorderLayer(layer, positions, incoming);
+    changed ||= layerChanged;
   }
-  for (const layer of layers.slice(0, -1).reverse()) {
-    reorderLayer(layer, nodePositions(layers), outgoing);
+  for (let depth = layers.length - 2; depth >= 0; depth -= 1) {
+    const layer = layers[depth];
+    if (!layer) continue;
+    const layerChanged = reorderLayer(layer, positions, outgoing);
+    changed ||= layerChanged;
   }
-  if (transpose) transposeLayers(edges, layers);
+  if (transpose) {
+    const transposeChanged = transposeLayers(edges, layers);
+    changed ||= transposeChanged;
+  }
+  return changed;
 }
 
 function nonNegativeInteger(value: number | undefined, fallback: number): number {
@@ -214,6 +303,10 @@ function nonNegativeInteger(value: number | undefined, fallback: number): number
   return Number.isFinite(value) ? Math.max(0, Math.trunc(value)) : fallback;
 }
 
+/**
+ * Returns every node index grouped by depth and ordered to reduce weighted
+ * edge crossings. Edges with invalid endpoints or weights are ignored.
+ */
 export function orderLayeredGraphNodes(
   nodeCount: number,
   edges: readonly LayeredGraphEdge[],
@@ -240,9 +333,7 @@ export function orderLayeredGraphNodes(
 
   if (graphEdges.length > maxExactCrossingEdges) {
     for (let pass = 0; pass < maxBarycentricPasses; pass += 1) {
-      const previousOrder = layers.flat().join(",");
-      reorderLayers(graphEdges, layers, neighbours, false);
-      if (layers.flat().join(",") === previousOrder) break;
+      if (!reorderLayers(graphEdges, layers, neighbours, false)) break;
     }
     return layers.flat();
   }
@@ -256,12 +347,13 @@ export function orderLayeredGraphNodes(
     pass < maxBarycentricPasses && bestWeight > 0;
     pass += 1
   ) {
-    reorderLayers(graphEdges, layers, neighbours, true);
+    const changed = reorderLayers(graphEdges, layers, neighbours, true);
     const weight = crossingWeight(graphEdges, layers);
     if (weight < bestWeight) {
       bestWeight = weight;
       bestLayers = cloneLayers(layers);
     }
+    if (!changed) break;
   }
 
   return bestLayers.flat();

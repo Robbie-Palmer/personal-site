@@ -109,6 +109,35 @@ describe("getFlowSankeyLayout", () => {
     expect(routed.links).toEqual([]);
   });
 
+  it("filters imported links with invalid Sankey values", () => {
+    const data: FlowSankeyData = {
+      nodes: [
+        { id: "source", name: "Source", color: "blue" },
+        { id: "target", name: "Target", color: "blue" },
+      ],
+      links: [
+        {
+          source: 0,
+          target: 1,
+          value: -10,
+          label: "Negative transfer",
+          sourceName: "Source",
+          targetName: "Target",
+        },
+        {
+          source: 0,
+          target: 1,
+          value: Number.NaN,
+          label: "Non-finite transfer",
+          sourceName: "Source",
+          targetName: "Target",
+        },
+      ],
+    };
+
+    expect(addFlowSankeyWaypoints(data).links).toEqual([]);
+  });
+
   it("reserves a lane when a flow skips intermediate columns", () => {
     const data = flowFixture([1, 2, 1, 1]);
     const source = data.nodes[0];
