@@ -4,6 +4,7 @@ import {
   flowKeysForNode,
   getFlowSankeyLayout,
   minimizeFlowSankeyCrossings,
+  nodeIdsForFlow,
   prepareFlowSankeyData,
 } from "@/components/assettracker/flow-sankey-layout";
 import type { FlowSankeyData } from "@/lib/domain/assettracker";
@@ -111,7 +112,7 @@ describe("getFlowSankeyLayout", () => {
     expect(prepared.links).toHaveLength(data.links.length);
   });
 
-  it("falls back safely when imported links reference missing nodes", () => {
+  it("filters imported links that reference missing nodes", () => {
     const data: FlowSankeyData = {
       nodes: [{ id: "source", name: "Source", color: "blue" }],
       links: [
@@ -137,10 +138,7 @@ describe("getFlowSankeyLayout", () => {
     const routed = addFlowSankeyWaypoints(data);
 
     expect(routed.nodes).toEqual(data.nodes);
-    expect(routed.links).toEqual([
-      expect.objectContaining({ flowKey: "flow:0", source: 0, target: 9 }),
-      expect.objectContaining({ flowKey: "flow:1", source: 8, target: 0 }),
-    ]);
+    expect(routed.links).toEqual([]);
   });
 
   it("orders adjacent layers to remove avoidable crossings", () => {
@@ -216,12 +214,14 @@ describe("getFlowSankeyLayout", () => {
     expect(routed.links).toHaveLength(data.links.length + 3);
     expect(longFlowSegments).toHaveLength(3);
     expect(new Set(longFlowSegments.map((link) => link.flowKey)).size).toBe(1);
-    const finalTargetIndex = routed.nodes.findIndex(
-      (node) => node.id === finalTarget.id,
-    );
-    const connectedFlowKeys = flowKeysForNode(routed, finalTargetIndex);
+    const connectedFlowKeys = flowKeysForNode(routed, finalTarget.id);
     expect(connectedFlowKeys).toContain(longFlowSegments[0]?.flowKey);
     expect(connectedFlowKeys.size).toBe(2);
+    expect(flowKeysForNode(routed, "missing-node")).toEqual(new Set());
+    expect(
+      nodeIdsForFlow(routed, longFlowSegments[0]?.flowKey ?? "missing-flow"),
+    ).toEqual(new Set([source.id, finalTarget.id]));
+    expect(nodeIdsForFlow(routed, "missing-flow")).toEqual(new Set());
 
     const depths = routed.nodes.map(() => 0);
     for (const link of routed.links) {
@@ -259,5 +259,23 @@ describe("getFlowSankeyLayout", () => {
     const innerHeight =
       layout.chartHeight - layout.margin.top - layout.margin.bottom;
     expect(innerHeight).toBeGreaterThanOrEqual(24 * 2 + 23 * 14);
+  });
+
+  it("caps height and compresses padding for exceptionally dense columns", () => {
+    const layout = getFlowSankeyLayout(flowFixture([1, 500]), 520);
+
+    expect(layout.chartHeight).toBe(720);
+    expect(layout.nodePadding).toBe(0);
+  });
+
+  it("uses bounded barycentric ordering for dense link sets", () => {
+    const data = flowFixture([1, 120]);
+    const ordered = minimizeFlowSankeyCrossings(addFlowSankeyWaypoints(data));
+
+    expect(ordered.nodes).toHaveLength(data.nodes.length);
+    expect(ordered.links).toHaveLength(data.links.length);
+    expect(
+      ordered.links.every((link) => link.flowKey.startsWith("flow:")),
+    ).toBe(true);
   });
 });

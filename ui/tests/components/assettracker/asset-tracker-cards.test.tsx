@@ -983,6 +983,14 @@ describe("FlowSankeyChart", () => {
         segment.tagName === "path" ? "stroke-opacity" : "fill-opacity";
       expect(segment).toHaveAttribute(opacityAttribute, "0.65");
     }
+    expect(
+      screen
+        .getByTestId("sankey-node-__expected_returns")
+        .querySelector("rect"),
+    ).toHaveAttribute("fill-opacity", "1");
+    expect(
+      screen.getByTestId("sankey-node-isa").querySelector("rect"),
+    ).toHaveAttribute("fill-opacity", "1");
   });
 });
 

@@ -4,6 +4,7 @@ import {
   type ReactElement,
   type SVGProps,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -37,12 +38,13 @@ import {
   type FlowSankeyRenderNode,
   flowKeysForNode,
   getFlowSankeyLayout,
+  nodeIdsForFlow,
   prepareFlowSankeyData,
 } from "./flow-sankey-layout";
 
 type FlowSankeyNodeShapeOptions = {
   activeFlowKeys: ReadonlySet<string>;
-  activeNodeId: string | null;
+  activeNodeIds: ReadonlySet<string>;
   layout?: FlowSankeyLayout;
   showLabel: boolean;
 };
@@ -66,7 +68,7 @@ function FlowSankeyNodeShape({
   showLabel,
   layout,
   activeFlowKeys,
-  activeNodeId,
+  activeNodeIds,
 }: SankeyNodeProps & FlowSankeyNodeShapeOptions): ReactElement<
   SVGProps<SVGGElement>
 > {
@@ -106,7 +108,7 @@ function FlowSankeyNodeShape({
         height={height}
         rx={4}
         fill={node.color}
-        fillOpacity={node.id === activeNodeId ? 1 : 0.85}
+        fillOpacity={activeNodeIds.has(node.id) ? 1 : 0.85}
         className="transition-[fill-opacity] duration-150"
       />
       {showLabel && labelWidth != null && labelWidth > 0 && (
@@ -202,7 +204,9 @@ export function FlowSankeyChart() {
   const [activeFlowKeys, setActiveFlowKeys] = useState<ReadonlySet<string>>(
     () => new Set(),
   );
-  const [activeNodeId, setActiveNodeId] = useState<string | null>(null);
+  const [activeNodeIds, setActiveNodeIds] = useState<ReadonlySet<string>>(
+    () => new Set(),
+  );
   const chartRef = useRef<HTMLDivElement>(null);
   const liabilityBalances = useMemo(
     () =>
@@ -221,30 +225,39 @@ export function FlowSankeyChart() {
   useEffect(() => {
     setMounted(true);
   }, []);
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!mounted || !hasFlows) return;
     const container = chartRef.current;
     if (!container) return;
 
     let frame = 0;
-    const updateWidth = (width: number) => {
+    let active = true;
+    const commitWidth = (width: number) => {
+      if (!active) return;
+      const roundedWidth = Math.round(width);
+      setContainerWidth((current) =>
+        current === roundedWidth ? current : roundedWidth,
+      );
+    };
+    const scheduleWidthUpdate = (width: number) => {
       cancelAnimationFrame(frame);
       frame = requestAnimationFrame(() => {
-        const roundedWidth = Math.round(width);
-        setContainerWidth((current) =>
-          current === roundedWidth ? current : roundedWidth,
-        );
+        commitWidth(width);
       });
     };
-    updateWidth(container.getBoundingClientRect().width);
+    commitWidth(container.getBoundingClientRect().width);
     if (typeof ResizeObserver === "undefined") {
-      return () => cancelAnimationFrame(frame);
+      return () => {
+        active = false;
+        cancelAnimationFrame(frame);
+      };
     }
     const observer = new ResizeObserver(([entry]) => {
-      if (entry) updateWidth(entry.contentRect.width);
+      if (entry) scheduleWidthUpdate(entry.contentRect.width);
     });
     observer.observe(container);
     return () => {
+      active = false;
       cancelAnimationFrame(frame);
       observer.disconnect();
     };
@@ -258,11 +271,11 @@ export function FlowSankeyChart() {
     () =>
       createFlowSankeyNodeRenderer({
         activeFlowKeys,
-        activeNodeId,
+        activeNodeIds,
         layout,
         showLabel: layout.showLabels,
       }),
-    [activeFlowKeys, activeNodeId, layout],
+    [activeFlowKeys, activeNodeIds, layout],
   );
   const linkRenderer = useMemo(
     () => createFlowSankeyLinkRenderer(activeFlowKeys),
@@ -312,19 +325,23 @@ export function FlowSankeyChart() {
                         setActiveFlowKeys(
                           link?.flowKey ? new Set([link.flowKey]) : new Set(),
                         );
-                        setActiveNodeId(null);
+                        setActiveNodeIds(
+                          link?.flowKey
+                            ? nodeIdsForFlow(data, link.flowKey)
+                            : new Set(),
+                        );
                         return;
                       }
                       const node = item.payload as unknown as
                         | FlowSankeyRenderNode
                         | undefined;
                       if (!node || node.isWaypoint) return;
-                      setActiveFlowKeys(flowKeysForNode(data, item.index));
-                      setActiveNodeId(node.id);
+                      setActiveFlowKeys(flowKeysForNode(data, node.id));
+                      setActiveNodeIds(new Set([node.id]));
                     }}
                     onMouseLeave={() => {
                       setActiveFlowKeys(new Set());
-                      setActiveNodeId(null);
+                      setActiveNodeIds(new Set());
                     }}
                   >
                     <Tooltip content={<SankeyTooltip />} />

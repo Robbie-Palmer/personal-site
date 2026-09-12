@@ -12,6 +12,9 @@ const LABEL_GAP = 8;
 const MIN_LABEL_WIDTH = 48;
 const MAX_LABEL_WIDTH = 136;
 const MIN_LABELED_WIDTH = 640;
+const MAX_CHART_HEIGHT = 720;
+const MAX_EXACT_CROSSING_LINKS = 96;
+const MAX_BARYCENTRIC_PASSES = 8;
 
 const COMPACT_MARGIN = { top: 8, right: 12, bottom: 8, left: 12 };
 const LABELED_MARGIN = { top: 8, right: 140, bottom: 8, left: 120 };
@@ -72,6 +75,16 @@ export function addFlowSankeyWaypoints(
   const depths = nodeDepths(data);
   const nodes: FlowSankeyRenderNode[] = [...data.nodes];
   const links = data.links.flatMap((link, linkIndex) => {
+    if (
+      !Number.isInteger(link.source) ||
+      !Number.isInteger(link.target) ||
+      link.source < 0 ||
+      link.target < 0 ||
+      link.source >= data.nodes.length ||
+      link.target >= data.nodes.length
+    ) {
+      return [];
+    }
     const flowKey = `flow:${linkIndex}`;
     const sourceDepth = depths[link.source] ?? 0;
     const targetDepth = depths[link.target] ?? sourceDepth + 1;
@@ -231,6 +244,7 @@ function reorderLayers(
   data: FlowSankeyRenderData,
   layers: number[][],
   { incoming, outgoing }: NeighbourMaps,
+  transpose = true,
 ) {
   for (const layer of layers.slice(1)) {
     reorderLayer(layer, nodePositions(layers), incoming);
@@ -238,33 +252,14 @@ function reorderLayers(
   for (const layer of layers.slice(0, -1).reverse()) {
     reorderLayer(layer, nodePositions(layers), outgoing);
   }
-  transposeLayers(data, layers);
+  if (transpose) transposeLayers(data, layers);
 }
 
-export function minimizeFlowSankeyCrossings(
+function remapFlowSankeyData(
   data: FlowSankeyRenderData,
+  layers: number[][],
 ): FlowSankeyRenderData {
-  const depths = nodeDepths(data);
-  const maxDepth = Math.max(0, ...depths);
-  const layers = Array.from({ length: maxDepth + 1 }, () => [] as number[]);
-  for (const [nodeIndex, depth] of depths.entries()) {
-    layers[depth]?.push(nodeIndex);
-  }
-  transposeLayers(data, layers);
-  let bestLayers = cloneLayers(layers);
-  let bestWeight = crossingWeight(data, layers);
-  const neighbours = neighbourMaps(data);
-
-  for (let pass = 0; pass < 8 && bestWeight > 0; pass += 1) {
-    reorderLayers(data, layers, neighbours);
-    const weight = crossingWeight(data, layers);
-    if (weight < bestWeight) {
-      bestWeight = weight;
-      bestLayers = cloneLayers(layers);
-    }
-  }
-
-  const orderedNodeIndexes = bestLayers.flat();
+  const orderedNodeIndexes = layers.flat();
   const remappedIndexes = new Map(
     orderedNodeIndexes.map((nodeIndex, nextIndex) => [nodeIndex, nextIndex]),
   );
@@ -281,6 +276,46 @@ export function minimizeFlowSankeyCrossings(
   };
 }
 
+export function minimizeFlowSankeyCrossings(
+  data: FlowSankeyRenderData,
+): FlowSankeyRenderData {
+  const depths = nodeDepths(data);
+  const maxDepth = Math.max(0, ...depths);
+  const layers = Array.from({ length: maxDepth + 1 }, () => [] as number[]);
+  for (const [nodeIndex, depth] of depths.entries()) {
+    layers[depth]?.push(nodeIndex);
+  }
+  const neighbours = neighbourMaps(data);
+
+  if (data.links.length > MAX_EXACT_CROSSING_LINKS) {
+    for (let pass = 0; pass < MAX_BARYCENTRIC_PASSES; pass += 1) {
+      const previousOrder = layers.flat().join(",");
+      reorderLayers(data, layers, neighbours, false);
+      if (layers.flat().join(",") === previousOrder) break;
+    }
+    return remapFlowSankeyData(data, layers);
+  }
+
+  transposeLayers(data, layers);
+  let bestLayers = cloneLayers(layers);
+  let bestWeight = crossingWeight(data, layers);
+
+  for (
+    let pass = 0;
+    pass < MAX_BARYCENTRIC_PASSES && bestWeight > 0;
+    pass += 1
+  ) {
+    reorderLayers(data, layers, neighbours);
+    const weight = crossingWeight(data, layers);
+    if (weight < bestWeight) {
+      bestWeight = weight;
+      bestLayers = cloneLayers(layers);
+    }
+  }
+
+  return remapFlowSankeyData(data, bestLayers);
+}
+
 export function prepareFlowSankeyData(
   data: FlowSankeyData,
 ): FlowSankeyRenderData {
@@ -289,8 +324,10 @@ export function prepareFlowSankeyData(
 
 export function flowKeysForNode(
   data: FlowSankeyRenderData,
-  nodeIndex: number,
+  nodeId: string,
 ): Set<string> {
+  const nodeIndex = data.nodes.findIndex((node) => node.id === nodeId);
+  if (nodeIndex < 0) return new Set();
   return new Set(
     data.links.flatMap((link) =>
       link.source === nodeIndex || link.target === nodeIndex
@@ -298,6 +335,21 @@ export function flowKeysForNode(
         : [],
     ),
   );
+}
+
+export function nodeIdsForFlow(
+  data: FlowSankeyRenderData,
+  flowKey: string,
+): Set<string> {
+  const nodeIds = new Set<string>();
+  for (const link of data.links) {
+    if (link.flowKey !== flowKey) continue;
+    for (const nodeIndex of [link.source, link.target]) {
+      const node = data.nodes[nodeIndex];
+      if (node && !node.isWaypoint) nodeIds.add(node.id);
+    }
+  }
+  return nodeIds;
 }
 
 export function getFlowSankeyLayout(
@@ -320,20 +372,34 @@ export function getFlowSankeyLayout(
     containerWidth >= MIN_LABELED_WIDTH &&
     (maxDepth <= 1 || middleLabelWidth >= MIN_LABEL_WIDTH);
   const margin = showLabels ? LABELED_MARGIN : COMPACT_MARGIN;
-  const nodePadding = showLabels ? LABELED_NODE_PADDING : COMPACT_NODE_PADDING;
+  const preferredNodePadding = showLabels
+    ? LABELED_NODE_PADDING
+    : COMPACT_NODE_PADDING;
   const nodesPerDepth = new Map<number, number>();
   for (const depth of depths) {
     nodesPerDepth.set(depth, (nodesPerDepth.get(depth) ?? 0) + 1);
   }
   const busiestDepth = Math.max(1, ...nodesPerDepth.values());
+  const maximumInnerHeight = MAX_CHART_HEIGHT - margin.top - margin.bottom;
+  const availableNodePadding =
+    busiestDepth <= 1
+      ? preferredNodePadding
+      : Math.floor(
+          (maximumInnerHeight - busiestDepth * MIN_NODE_HEIGHT) /
+            (busiestDepth - 1),
+        );
+  const nodePadding = Math.max(
+    0,
+    Math.min(preferredNodePadding, availableNodePadding),
+  );
   const minimumInnerHeight =
     (busiestDepth - 1) * nodePadding + busiestDepth * MIN_NODE_HEIGHT;
   const baseHeight = showLabels ? LABELED_BASE_HEIGHT : COMPACT_BASE_HEIGHT;
 
   return {
-    chartHeight: Math.max(
-      baseHeight,
-      minimumInnerHeight + margin.top + margin.bottom,
+    chartHeight: Math.min(
+      MAX_CHART_HEIGHT,
+      Math.max(baseHeight, minimumInnerHeight + margin.top + margin.bottom),
     ),
     labelWidths: {
       left: LABELED_MARGIN.left - LABEL_GAP * 2,
