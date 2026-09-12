@@ -26,6 +26,7 @@ public:
 
   void attach(SimulationTransport& transport);
   void beginFrame(const SimulationFrame& frame);
+  void releasePending();
   void endFrame() const;
   void broadcast(NodeId sender, const Message& message);
   void reset(NodeId node_id);
@@ -44,7 +45,6 @@ private:
   };
 
   void deliver(NodeId sender, NodeId recipient, const Message& message);
-  void deliverPending();
   void recordDeliveryEvent(SimulationEventType type, NodeId sender, NodeId recipient,
                            const Message& message, uint32_t deliver_at_ms = 0U,
                            MessageDropReason drop_reason = MessageDropReason::Scripted);
@@ -102,7 +102,6 @@ void SimulationBus::beginFrame(const SimulationFrame& frame) {
     event.connected = update.connected;
     events_.push_back(event);
   }
-  deliverPending();
 }
 
 void SimulationBus::endFrame() const {
@@ -141,20 +140,25 @@ DeliveryFault* SimulationBus::matchingFault(NodeId sender, NodeId recipient,
 }
 
 void SimulationBus::deliver(NodeId sender, NodeId recipient, const Message& message) {
+  const DeliveryFault* const fault = matchingFault(sender, recipient, message.type);
+  const bool has_fault = fault != nullptr;
+  DeliveryFault selected;
+  if (has_fault) {
+    selected = *fault;
+    delivery_faults_.erase(delivery_faults_.begin() + (fault - delivery_faults_.data()));
+  }
+
   if (!links_[sender][recipient]) {
     recordDeliveryEvent(SimulationEventType::MessageDropped, sender, recipient, message, 0U,
                         MessageDropReason::LinkUnavailable);
     return;
   }
 
-  const DeliveryFault* const fault = matchingFault(sender, recipient, message.type);
-  if (fault == nullptr) {
+  if (!has_fault) {
     transports_.at(static_cast<std::size_t>(recipient))->deliver(message);
     return;
   }
 
-  const DeliveryFault selected = *fault;
-  delivery_faults_.erase(delivery_faults_.begin() + (fault - delivery_faults_.data()));
   switch (selected.type) {
   case DeliveryFaultType::Drop:
     recordDeliveryEvent(SimulationEventType::MessageDropped, sender, recipient, message);
@@ -174,7 +178,7 @@ void SimulationBus::deliver(NodeId sender, NodeId recipient, const Message& mess
   }
 }
 
-void SimulationBus::deliverPending() {
+void SimulationBus::releasePending() {
   auto pending = pending_deliveries_.begin();
   while (pending != pending_deliveries_.end()) {
     const uint32_t elapsed_since_delivery = now_ms_ - pending->deliver_at_ms;
@@ -404,6 +408,7 @@ SimulationResult runSimulationTrace(const SimulationTrace& trace) {
       event.current_state = controllers[index]->state();
       result.events.push_back(event);
     }
+    bus.releasePending();
     for (const MissionCommand& command : frame.mission_commands) {
       SimulationEvent event;
       event.type = SimulationEventType::MissionCommand;

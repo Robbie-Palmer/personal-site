@@ -11,11 +11,16 @@ constexpr uint8_t kBrowserSimulationSchemaVersion = 2U;
 
 enum class BrowserScenario : uint8_t { Nominal = 0U, LostAssignment = 1U };
 
-SimulationTrace makeBrowserDemonstrationTrace(Coordinate objective,
-                                              BrowserScenario scenario = BrowserScenario::Nominal);
+struct BrowserSimulation {
+  BrowserScenario scenario = BrowserScenario::Nominal;
+  SimulationTrace trace;
+};
 
-std::string serializeBrowserSimulation(const SimulationTrace& trace, const SimulationResult& result,
-                                       BrowserScenario scenario = BrowserScenario::Nominal);
+BrowserSimulation makeBrowserDemonstration(Coordinate objective,
+                                           BrowserScenario scenario = BrowserScenario::Nominal);
+
+std::string serializeBrowserSimulation(const BrowserSimulation& simulation,
+                                       const SimulationResult& result);
 
 std::string runBrowserDemonstration(Coordinate objective,
                                     BrowserScenario scenario = BrowserScenario::Nominal);

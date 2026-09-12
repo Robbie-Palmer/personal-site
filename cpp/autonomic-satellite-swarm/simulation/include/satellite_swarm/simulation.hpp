@@ -57,9 +57,11 @@ struct SimulationFrame {
   uint32_t now_ms = 0U;
   std::vector<SatelliteUpdate> satellite_updates;
   std::vector<HealthUpdate> health_updates;
-  // Link changes take effect before delayed messages are released and controllers run.
+  // Link changes take effect before resets, delayed-message release, and controller updates.
   std::vector<LinkUpdate> link_updates;
+  // Link availability takes precedence over a matching directive, which is still consumed.
   std::vector<DeliveryFault> delivery_faults;
+  // Resets complete before due delayed messages are released to the replacement controller.
   std::vector<NodeReset> node_resets;
   std::vector<MissionCommand> mission_commands;
 };

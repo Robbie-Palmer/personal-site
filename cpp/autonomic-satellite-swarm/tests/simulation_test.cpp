@@ -203,36 +203,39 @@ TEST_CASE("trace time supports one unsigned clock rollover") {
 
 TEST_CASE("the browser demonstration accepts a caller-provided objective") {
   const Coordinate objective(18.25F, -34.5F);
-  const SimulationTrace trace = makeBrowserDemonstrationTrace(objective);
+  const BrowserSimulation simulation = makeBrowserDemonstration(objective);
+  const SimulationTrace& trace = simulation.trace;
 
   REQUIRE_FALSE(trace.frames.empty());
   REQUIRE(trace.frames.front().mission_commands.size() == 1U);
   CHECK(trace.frames.front().mission_commands.front().objective.longitude_degrees == 18.25F);
   CHECK(trace.frames.front().mission_commands.front().objective.latitude_degrees == -34.5F);
 
-  const std::string json = serializeBrowserSimulation(trace, runSimulationTrace(trace));
+  const std::string json = serializeBrowserSimulation(simulation, runSimulationTrace(trace));
   CHECK(json.find(R"("scenario": "three-node-objective-pass")") != std::string::npos);
   CHECK(json.find(R"("longitudeDegrees":18.25,"latitudeDegrees":-34.5)") != std::string::npos);
 }
 
 TEST_CASE("browser serialization rejects incomplete traces and results") {
-  SimulationTrace trace = makeBrowserDemonstrationTrace(Coordinate(0.0F, -90.0F));
+  BrowserSimulation simulation = makeBrowserDemonstration(Coordinate(0.0F, -90.0F));
+  SimulationTrace& trace = simulation.trace;
   const SimulationResult complete_result = runSimulationTrace(trace);
 
   SECTION("missing command") {
     trace.frames.front().mission_commands.clear();
-    CHECK_THROWS_AS(serializeBrowserSimulation(trace, complete_result), std::invalid_argument);
+    CHECK_THROWS_AS(serializeBrowserSimulation(simulation, complete_result), std::invalid_argument);
   }
 
   SECTION("missing sampled frame") {
     SimulationResult incomplete_result = complete_result;
     incomplete_result.frames.resize(12U);
-    CHECK_THROWS_AS(serializeBrowserSimulation(trace, incomplete_result), std::invalid_argument);
+    CHECK_THROWS_AS(serializeBrowserSimulation(simulation, incomplete_result),
+                    std::invalid_argument);
   }
 }
 
 TEST_CASE("the browser demonstration rejects an invalid objective") {
-  CHECK_THROWS_AS(makeBrowserDemonstrationTrace(Coordinate(0.0F, 91.0F)), std::invalid_argument);
+  CHECK_THROWS_AS(makeBrowserDemonstration(Coordinate(0.0F, 91.0F)), std::invalid_argument);
 }
 
 TEST_CASE("a scripted assignment loss preserves each node's conflicting knowledge") {
@@ -287,6 +290,31 @@ TEST_CASE("delayed messages are released on a later frame in replay order") {
   CHECK(result.frames.back().nodes[1].state == ControllerState::Active);
 }
 
+TEST_CASE("a reset completes before a due delayed message reaches the replacement controller") {
+  SimulationTrace trace = demonstrationTrace();
+  trace.frames[0].delivery_faults.push_back(
+      {0U, 1U, MessageType::MissionRequest, DeliveryFaultType::Delay, 10U});
+  trace.frames[1].node_resets.push_back({1U});
+
+  const SimulationResult result = runSimulationTrace(trace);
+
+  CHECK(result.frames[1].nodes[1].state == ControllerState::AwaitingAcknowledgement);
+  std::size_t reset_index = result.events.size();
+  std::size_t delivery_index = result.events.size();
+  for (std::size_t index = 0U; index < result.events.size(); ++index) {
+    const SimulationEvent& event = result.events[index];
+    if (event.now_ms == 10U && event.type == SimulationEventType::NodeReset &&
+        event.node_id == 1U) {
+      reset_index = index;
+    }
+    if (event.now_ms == 10U && event.type == SimulationEventType::DelayedMessageDelivered &&
+        event.node_id == 0U && event.recipient_node == 1U) {
+      delivery_index = index;
+    }
+  }
+  CHECK(reset_index < delivery_index);
+}
+
 TEST_CASE("a duplicated delivery is replayable without duplicating the send") {
   SimulationTrace trace = demonstrationTrace();
   trace.frames[0].delivery_faults.push_back(
@@ -335,6 +363,33 @@ TEST_CASE("directed link changes model an asymmetric partition") {
     }
   }
   CHECK(found_link_drop);
+}
+
+TEST_CASE("link loss takes precedence while consuming a matching delivery fault") {
+  SimulationTrace trace = demonstrationTrace();
+  trace.frames[0].link_updates.push_back({0U, 1U, false});
+  trace.frames[0].delivery_faults.push_back(
+      {0U, 1U, MessageType::MissionRequest, DeliveryFaultType::Duplicate, 0U});
+
+  const SimulationResult result = runSimulationTrace(trace);
+
+  std::size_t link_drops = 0U;
+  std::size_t duplicates = 0U;
+  for (const SimulationEvent& event : result.events) {
+    if (event.node_id != 0U || event.recipient_node != 1U ||
+        event.message.type != MessageType::MissionRequest) {
+      continue;
+    }
+    if (event.type == SimulationEventType::MessageDropped &&
+        event.drop_reason == MessageDropReason::LinkUnavailable) {
+      ++link_drops;
+    }
+    if (event.type == SimulationEventType::MessageDuplicated) {
+      ++duplicates;
+    }
+  }
+  CHECK(link_drops == 1U);
+  CHECK(duplicates == 0U);
 }
 
 TEST_CASE("node reset records the current protocol's loss of latched state") {
@@ -388,7 +443,8 @@ TEST_CASE("invalid network fault inputs fail deterministically") {
 }
 
 TEST_CASE("browser serialization preserves every network fault event") {
-  SimulationTrace trace = makeBrowserDemonstrationTrace(Coordinate(0.0F, -90.0F));
+  BrowserSimulation simulation = makeBrowserDemonstration(Coordinate(0.0F, -90.0F));
+  SimulationTrace& trace = simulation.trace;
   trace.frames[0].delivery_faults = {
       {0U, 2U, MessageType::MissionRequest, DeliveryFaultType::Duplicate, 0U},
       {1U, 0U, MessageType::Candidacy, DeliveryFaultType::Delay, 20U},
@@ -398,7 +454,7 @@ TEST_CASE("browser serialization preserves every network fault event") {
   trace.frames[3].link_updates.push_back({1U, 0U, true});
   trace.frames[12].node_resets.push_back({1U});
 
-  const std::string json = serializeBrowserSimulation(trace, runSimulationTrace(trace));
+  const std::string json = serializeBrowserSimulation(simulation, runSimulationTrace(trace));
 
   CHECK(json.find(R"("type":"message-delayed")") != std::string::npos);
   CHECK(json.find(R"("deliverAtMs":20)") != std::string::npos);
@@ -412,12 +468,12 @@ TEST_CASE("browser serialization preserves every network fault event") {
 }
 
 TEST_CASE("the browser assignment-loss scenario records the dropped delivery") {
-  const SimulationTrace trace =
-      makeBrowserDemonstrationTrace(Coordinate(0.0F, -90.0F), BrowserScenario::LostAssignment);
-  const SimulationResult result = runSimulationTrace(trace);
-  const std::string json =
-      serializeBrowserSimulation(trace, result, BrowserScenario::LostAssignment);
+  const BrowserSimulation simulation =
+      makeBrowserDemonstration(Coordinate(0.0F, -90.0F), BrowserScenario::LostAssignment);
+  const SimulationResult result = runSimulationTrace(simulation.trace);
+  const std::string json = serializeBrowserSimulation(simulation, result);
 
+  CHECK(simulation.scenario == BrowserScenario::LostAssignment);
   CHECK(json.find(R"("scenario": "three-node-assignment-loss")") != std::string::npos);
   CHECK(json.find(R"("type":"message-dropped")") != std::string::npos);
   CHECK(json.find(R"("recipientNode":1,"reason":"scripted-drop")") != std::string::npos);

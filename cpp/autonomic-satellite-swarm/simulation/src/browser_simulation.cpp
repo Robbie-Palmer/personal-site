@@ -152,12 +152,14 @@ void writeBrowserEvent(std::ostream& output, const SimulationEvent& event) {
 
 } // namespace
 
-SimulationTrace makeBrowserDemonstrationTrace(Coordinate objective, BrowserScenario scenario) {
+BrowserSimulation makeBrowserDemonstration(Coordinate objective, BrowserScenario scenario) {
   if (!isValid(objective)) {
     throw std::invalid_argument("mission objective is outside the coordinate bounds");
   }
 
-  SimulationTrace trace;
+  BrowserSimulation simulation;
+  simulation.scenario = scenario;
+  SimulationTrace& trace = simulation.trace;
   trace.controller.response_window_ms = 100U;
   trace.nodes = {
       {0U, satelliteAt(-0.5F, 60.0F)},
@@ -184,11 +186,12 @@ SimulationTrace makeBrowserDemonstrationTrace(Coordinate objective, BrowserScena
     }
     trace.frames.push_back(frame);
   }
-  return trace;
+  return simulation;
 }
 
-std::string serializeBrowserSimulation(const SimulationTrace& trace, const SimulationResult& result,
-                                       BrowserScenario scenario) {
+std::string serializeBrowserSimulation(const BrowserSimulation& simulation,
+                                       const SimulationResult& result) {
+  const SimulationTrace& trace = simulation.trace;
   if (trace.frames.empty() || trace.frames.front().mission_commands.empty()) {
     throw std::invalid_argument("browser simulation requires a mission command");
   }
@@ -207,8 +210,8 @@ std::string serializeBrowserSimulation(const SimulationTrace& trace, const Simul
   "traceVersion": )"
          << static_cast<unsigned int>(trace.version) << R"(,
   "scenario": ")"
-         << (scenario == BrowserScenario::LostAssignment ? "three-node-assignment-loss"
-                                                         : "three-node-objective-pass")
+         << (simulation.scenario == BrowserScenario::LostAssignment ? "three-node-assignment-loss"
+                                                                    : "three-node-objective-pass")
          << R"(",
   "source": "portable C++ SimulationTrace",
   "positionModel": "scripted simulation data; not orbit propagation",
@@ -241,8 +244,8 @@ std::string serializeBrowserSimulation(const SimulationTrace& trace, const Simul
 }
 
 std::string runBrowserDemonstration(Coordinate objective, BrowserScenario scenario) {
-  const SimulationTrace trace = makeBrowserDemonstrationTrace(objective, scenario);
-  return serializeBrowserSimulation(trace, runSimulationTrace(trace), scenario);
+  const BrowserSimulation simulation = makeBrowserDemonstration(objective, scenario);
+  return serializeBrowserSimulation(simulation, runSimulationTrace(simulation.trace));
 }
 
 } // namespace satellite_swarm::simulation
