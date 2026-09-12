@@ -15,7 +15,7 @@ import {
   cookingLogResponse,
   decodeCookingLogCursor,
 } from "./cooking-reads";
-import { readPantry } from "./pantry";
+import { MAX_PANTRY_ITEMS, readPantry } from "./pantry";
 import { readableRecipeFilter } from "./recipe-access";
 import { inspectRecipeDataset } from "./recipe-dataset";
 
@@ -190,12 +190,12 @@ const pantrySnapshotSchema = {
     revision: { type: "string", pattern: "^[0-9]+$" },
     stock: {
       type: "object",
-      maxProperties: 500,
+      maxProperties: MAX_PANTRY_ITEMS,
       additionalProperties: { enum: schema.pantryLocationEnum.enumValues },
     },
     itemVersions: {
       type: "object",
-      maxProperties: 500,
+      maxProperties: MAX_PANTRY_ITEMS,
       additionalProperties: { type: "string", pattern: "^[0-9]+$" },
     },
   },

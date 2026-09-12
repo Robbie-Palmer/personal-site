@@ -89,6 +89,7 @@ import {
 } from "./notifications";
 import {
   findPantryAggregate,
+  MAX_PANTRY_ITEMS,
   pantryAggregateScopeFilter,
   type PantryLocation,
   type PantryResponse,
@@ -423,8 +424,8 @@ const pantryStockBodySchema = z
   .object({
     stock: z
       .record(pantryIngredientSlugSchema, pantryLocationSchema)
-      .refine((stock) => Object.keys(stock).length <= 500, {
-        message: "A pantry can contain at most 500 ingredients",
+      .refine((stock) => Object.keys(stock).length <= MAX_PANTRY_ITEMS, {
+        message: `A pantry can contain at most ${MAX_PANTRY_ITEMS} ingredients`,
       }),
   })
   .strict();
@@ -1541,6 +1542,24 @@ class UnknownPantryIngredientError extends Error {
   }
 }
 
+class PantryItemLimitError extends Error {
+  constructor() {
+    super(`A pantry can contain at most ${MAX_PANTRY_ITEMS} ingredients`);
+  }
+}
+
+async function enforcePantryItemLimit(
+  tx: DbTransaction,
+  scope: PantryScope,
+): Promise<void> {
+  const items = await tx
+    .select({ ingredientSlug: schema.pantryItem.ingredientSlug })
+    .from(schema.pantryItem)
+    .where(pantryScopeFilter(scope))
+    .limit(MAX_PANTRY_ITEMS + 1);
+  if (items.length > MAX_PANTRY_ITEMS) throw new PantryItemLimitError();
+}
+
 function pantryOperationId(c: Context<AppEnv>): string | Response {
   const supplied = c.req.header("Idempotency-Key");
   if (!supplied) return crypto.randomUUID();
@@ -1600,6 +1619,7 @@ async function executePantryOperation(
     }
 
     await mutate(tx, scope);
+    await enforcePantryItemLimit(tx, scope);
     const [updatedAggregate] = await tx
       .update(schema.pantryAggregate)
       .set({
@@ -1769,6 +1789,9 @@ function pantryMutationErrorResponse(c: Context<AppEnv>, error: unknown) {
   }
   if (error instanceof UnknownPantryIngredientError) {
     return c.json({ error: error.message }, 400);
+  }
+  if (error instanceof PantryItemLimitError) {
+    return c.json({ error: error.message }, 409);
   }
   return undefined;
 }

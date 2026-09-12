@@ -2,6 +2,8 @@ import { asc, eq, type SQL } from "drizzle-orm";
 import type { Db } from "recipe-db";
 import * as schema from "recipe-db/schema";
 
+export const MAX_PANTRY_ITEMS = 500;
+
 export type PantryLocation =
   (typeof schema.pantryLocationEnum.enumValues)[number];
 

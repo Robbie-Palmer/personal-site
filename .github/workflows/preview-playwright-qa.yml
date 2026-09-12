@@ -12,8 +12,9 @@ permissions:
   contents: read
 
 concurrency:
-  group: preview-playwright-qa-${{ github.event.workflow_run.id }}
-  cancel-in-progress: true
+  # One shared identity is rotated per run, so preview QA jobs must not overlap.
+  group: preview-playwright-qa
+  cancel-in-progress: false
 
 jobs:
   preflight:
@@ -84,22 +85,24 @@ jobs:
     permissions:
       contents: read
     steps:
-      # Resolve the privileged Doppler token before checkout. Later steps
-      # receive only the preview Access token.
-      - name: Load preview Access credentials
+      - name: Issue a one-run preview Access credential
         env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           DOPPLER_AGENT_CONFIG: ${{ vars.DOPPLER_AGENT_CONFIG }}
           DOPPLER_PROJECT: ${{ vars.DOPPLER_PROJECT }}
           DOPPLER_SERVICE_TOKEN: ${{ secrets.DOPPLER_SERVICE_TOKEN }}
           PR_NUMBER: ${{ needs.preflight.outputs.pr_number }}
         run: |
           set -euo pipefail
+          : "${CLOUDFLARE_ACCOUNT_ID:?CLOUDFLARE_ACCOUNT_ID is required}"
+          : "${CLOUDFLARE_API_TOKEN:?CLOUDFLARE_API_TOKEN is required}"
           : "${DOPPLER_AGENT_CONFIG:?DOPPLER_AGENT_CONFIG is required}"
           : "${DOPPLER_PROJECT:?DOPPLER_PROJECT is required}"
           : "${DOPPLER_SERVICE_TOKEN:?DOPPLER_SERVICE_TOKEN is required}"
           [[ "$PR_NUMBER" =~ ^[1-9][0-9]*$ ]]
 
-          credentials=$(curl \
+          config=$(curl \
             --disable \
             --connect-timeout 10 \
             --fail \
@@ -113,25 +116,50 @@ jobs:
             --data-urlencode "project=$DOPPLER_PROJECT" \
             --data-urlencode "config=$DOPPLER_AGENT_CONFIG" \
             --data-urlencode "format=json" \
-            --data-urlencode "secrets=CF_ACCESS_CLIENT_ID,CF_ACCESS_CLIENT_SECRET,CLOUDFLARE_PAGES_HOST")
-          client_id=$(jq -er '.CF_ACCESS_CLIENT_ID' <<< "$credentials")
-          client_secret=$(jq -er '.CF_ACCESS_CLIENT_SECRET' <<< "$credentials")
-          pages_host=$(jq -er '.CLOUDFLARE_PAGES_HOST' <<< "$credentials")
+            --data-urlencode "secrets=CLOUDFLARE_PAGES_HOST")
+          pages_host=$(jq -er '.CLOUDFLARE_PAGES_HOST' <<< "$config")
+          [[ "$pages_host" =~ ^[a-z0-9][a-z0-9.-]*[a-z0-9]$ ]]
 
-          if [[ "$client_id" == *$'\n'* || "$client_secret" == *$'\n'* || "$pages_host" == *$'\n'* ]]; then
-            echo "Doppler returned an invalid multiline preview credential." >&2
+          service_tokens=$(curl \
+            --disable \
+            --connect-timeout 10 \
+            --fail \
+            --max-time 30 \
+            --proto '=https' \
+            --silent \
+            --show-error \
+            --url "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/access/service_tokens" \
+            --header "Authorization: Bearer $CLOUDFLARE_API_TOKEN")
+          token_name=personal-site-preview-qa-workflow
+          match_count=$(jq --arg name "$token_name" '[.result[] | select(.name == $name)] | length' <<< "$service_tokens")
+          if [[ "$match_count" -ne 1 ]]; then
+            echo "Expected exactly one Cloudflare service token named '$token_name'; found $match_count." >&2
             exit 1
           fi
-          if [[ ! "$pages_host" =~ ^[a-z0-9][a-z0-9.-]*[a-z0-9]$ ]]; then
-            echo "Doppler returned an invalid preview Pages host." >&2
-            exit 1
-          fi
+
+          token_id=$(jq -er --arg name "$token_name" '.result[] | select(.name == $name) | .id' <<< "$service_tokens")
+          rotation=$(curl \
+            --disable \
+            --connect-timeout 10 \
+            --fail \
+            --max-time 30 \
+            --proto '=https' \
+            --silent \
+            --show-error \
+            --request POST \
+            --url "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/access/service_tokens/$token_id/rotate" \
+            --header "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+            --header "Content-Type: application/json" \
+            --data-binary '{}')
+          client_id=$(jq -er '.result.client_id' <<< "$rotation")
+          client_secret=$(jq -er '.result.client_secret' <<< "$rotation")
 
           echo "::add-mask::$client_id"
           echo "::add-mask::$client_secret"
           {
             echo "CF_ACCESS_CLIENT_ID=$client_id"
             echo "CF_ACCESS_CLIENT_SECRET=$client_secret"
+            echo "CF_ACCESS_SERVICE_TOKEN_ID=$token_id"
             echo "CLOUDFLARE_PAGES_HOST=$pages_host"
             echo "PREVIEW_SITE_URL=https://pr-$PR_NUMBER.$pages_host"
           } >> "$GITHUB_ENV"
@@ -148,6 +176,32 @@ jobs:
 
       - name: Run Playwright against the protected preview
         run: mise run //ui:test:e2e:preview
+
+      - name: Revoke the one-run preview Access credential
+        if: always()
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${CF_ACCESS_SERVICE_TOKEN_ID:-}" ]]; then
+            echo "No preview Access credential was issued."
+            exit 0
+          fi
+          curl \
+            --disable \
+            --connect-timeout 10 \
+            --fail \
+            --max-time 30 \
+            --proto '=https' \
+            --silent \
+            --show-error \
+            --output /dev/null \
+            --request POST \
+            --url "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/access/service_tokens/$CF_ACCESS_SERVICE_TOKEN_ID/rotate" \
+            --header "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+            --header "Content-Type: application/json" \
+            --data-binary '{}'
 
   report:
     needs: [preflight, qa]

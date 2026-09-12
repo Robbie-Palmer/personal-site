@@ -4793,6 +4793,36 @@ describe("pantry mutation flows", () => {
     expect(dbMock.state.pantryItems).toEqual([]);
   });
 
+  it("rejects a single-item write that would exceed pantry capacity", async () => {
+    dbMock.state.pantryItems.push(
+      ...Array.from({ length: 500 }, (_, index) => ({
+        id: crypto.randomUUID(),
+        userId: "owner-user",
+        organizationId: null,
+        ingredientSlug: `existing-${index}`,
+        location: "cupboards" as const,
+        version: 1n,
+        createdAt: dbMock.date,
+        updatedAt: dbMock.date,
+      })),
+    );
+
+    const response = await app.request(
+      "/pantry/items/onion",
+      {
+        method: "PUT",
+        headers: mutationHeaders,
+        body: JSON.stringify({ location: "fresh" }),
+      },
+      env,
+    );
+
+    expect(response.status).toBe(409);
+    expect(await response.json()).toEqual({
+      error: "A pantry can contain at most 500 ingredients",
+    });
+  });
+
   it("publishes the committed household revision through one derived room", async () => {
     seedHousehold();
     const operationId = "0198f1f0-1111-7111-8111-111111111111";
