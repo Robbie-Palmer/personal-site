@@ -27,6 +27,26 @@ export type RecipeApiProxyContext = {
   };
 };
 
+export function proxyLeaf(
+  segment: string,
+  label: string,
+  description: string,
+): (context: RecipeApiProxyContext) => Promise<Response> {
+  const pagesPrefix = `/api/${segment}`;
+  const workerPrefix = `/${segment}`;
+
+  return (context) =>
+    proxyRecipeApiRequest(
+      context,
+      `${description} are available on the canonical PR preview URL only`,
+      label,
+      (path) =>
+        path === pagesPrefix || path.startsWith(`${pagesPrefix}/`)
+          ? `${workerPrefix}${path.slice(pagesPrefix.length)}`
+          : "",
+    );
+}
+
 const MAX_PROXY_PATH_LENGTH = 2_048;
 const ENCODED_PATH_OCTET = /%[0-9a-f]{2}/i;
 
