@@ -147,9 +147,11 @@ function MissionControls({
         <span>Network scenario</span>
         <Select
           value={scenario}
-          onValueChange={(value) =>
-            onScenarioChange(value as SatelliteSwarmScenario)
-          }
+          onValueChange={(value) => {
+            if (value === "nominal" || value === "lost-assignment") {
+              onScenarioChange(value);
+            }
+          }}
         >
           <SelectTrigger id="satellite-swarm-scenario" className="w-full">
             <SelectValue />
