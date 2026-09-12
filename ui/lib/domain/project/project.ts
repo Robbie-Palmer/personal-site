@@ -70,6 +70,7 @@ export const ProjectSchema = z.object({
   demoUrl: z.string().url().optional(),
   productUrl: z.string().url().optional(),
   paperUrl: z.url().optional(),
+  paperTitle: z.string().min(1).optional(),
   pitch: PitchDeckSchema.optional(),
   content: z.string(),
 });

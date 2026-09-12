@@ -115,6 +115,24 @@ function addAdrNodes(
   }
 }
 
+function addResearchPaperNodes(
+  repository: DomainRepository,
+  state: GraphBuildState,
+): void {
+  for (const [projectSlug, project] of repository.projects) {
+    if (!project.paperUrl) continue;
+    const paperId = `paper:${projectSlug}`;
+    state.nodes.push({
+      id: paperId,
+      name: project.paperTitle ?? `${project.title} research paper`,
+      type: "paper",
+      href: project.paperUrl,
+      connections: 0,
+    });
+    addEdge(state, `project:${projectSlug}`, paperId, "HAS_RESEARCH_PAPER");
+  }
+}
+
 function addTechnologyAndTagNodes(
   repository: DomainRepository,
   state: GraphBuildState,
@@ -309,6 +327,7 @@ export function extractGraphData(repository: DomainRepository): GraphData {
     connectionCounts: new Map(),
   };
   addContentNodes(repository, state);
+  addResearchPaperNodes(repository, state);
   addAdrNodes(repository, state);
   const connectedTechs = addTechnologyAndTagNodes(repository, state);
   addTechnologyEdges(repository, state, connectedTechs);

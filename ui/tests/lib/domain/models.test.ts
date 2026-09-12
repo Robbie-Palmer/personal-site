@@ -269,6 +269,7 @@ describe("Domain Model Schemas", () => {
         repoUrl: "https://github.com/user/repo",
         demoUrl: "https://example.com",
         paperUrl: "https://doi.org/10.1000/example",
+        paperTitle: "A Complete Project Paper",
         content: "# Overview",
         relations: {
           technologies: ["nextjs", "react", "typescript"],

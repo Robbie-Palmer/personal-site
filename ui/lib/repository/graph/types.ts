@@ -15,6 +15,7 @@ export type NodeType =
   | "adr"
   | "blog"
   | "role"
+  | "paper"
   | "technology";
 
 export type NodeId =
@@ -24,6 +25,7 @@ export type NodeId =
   | `adr:${string}`
   | `blog:${string}`
   | `role:${string}`
+  | `paper:${string}`
   | `technology:${string}`;
 
 export type EdgeType =
@@ -35,6 +37,7 @@ export type EdgeType =
   | "CONTRIBUTES_TO_INITIATIVE"
   | "CREATED_AT_ROLE"
   | "WRITTEN_AT_ROLE"
+  | "HAS_RESEARCH_PAPER"
   | "REFERENCES_IDEA"
   | "HAS_IDEA"
   | "RELATED_IDEA";

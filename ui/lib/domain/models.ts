@@ -123,6 +123,7 @@ export const ProjectSchema = z.object({
   repoUrl: z.string().url().optional(),
   demoUrl: z.string().url().optional(),
   paperUrl: z.url().optional(),
+  paperTitle: z.string().min(1).optional(),
   content: z.string(),
 
   relations: z
