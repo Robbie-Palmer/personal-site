@@ -2135,7 +2135,9 @@ describe("HTTP Worker", () => {
     );
     expect(githubFetch).toHaveBeenCalledTimes(2);
     expect(githubFetch).toHaveBeenLastCalledWith(
-      "https://api.github.com/repos/Robbie-Palmer/personal-site/pulls/comments/902/reactions",
+      new URL(
+        "https://api.github.com/repos/Robbie-Palmer/personal-site/pulls/comments/902/reactions",
+      ),
       expect.objectContaining({
         method: "POST",
         body: JSON.stringify({ content: "+1" }),

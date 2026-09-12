@@ -3,6 +3,7 @@ import {
   markdownText,
   type MergedFinding,
 } from "ai-review-domain/reviewer";
+import { githubApiClientFromToken } from "./github-app";
 
 export const FINDING_MARKER_PREFIX = "ai-review-finding:";
 const FINDING_MARKER_PATTERN =
@@ -90,16 +91,6 @@ function lineIsAddressable(
       finding.line >= hunk.newStart &&
       finding.line < hunk.newStart + hunk.newLines,
   );
-}
-
-function githubClient(token: string): JsonClient {
-  return new JsonClient("https://api.github.com", {
-    Authorization: `Bearer ${token}`,
-    Accept: "application/vnd.github+json",
-    "Content-Type": "application/json",
-    "User-Agent": "personal-site-ai-review/1",
-    "X-GitHub-Api-Version": "2022-11-28",
-  });
 }
 
 async function existingFindingComments(options: {
@@ -223,7 +214,7 @@ export async function publishFindingComments(options: {
     newLines: number;
   }>;
 }): Promise<FindingPublication[]> {
-  const client = githubClient(options.token);
+  const client = githubApiClientFromToken(options.token);
   const existing = await existingFindingComments({ ...options, client });
   const publications: FindingPublication[] = [];
   const processed = new Set<string>();

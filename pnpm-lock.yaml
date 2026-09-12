@@ -923,6 +923,9 @@ importers:
       recipe-parsing:
         specifier: workspace:*
         version: link:../../packages/recipe-parsing
+      ts-base:
+        specifier: workspace:*
+        version: link:../../packages/ts-base
     devDependencies:
       '@cloudflare/workers-types':
         specifier: ^5.0.0
