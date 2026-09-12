@@ -500,6 +500,19 @@ test("the pilot overlay renders two distinct workspaces", () => {
       periodSeconds: 5,
       timeoutSeconds: 3,
     },
+    livenessProbe: {
+      exec: {
+        command: [
+          "docker",
+          "--host=tcp://127.0.0.1:2375",
+          "info",
+        ],
+      },
+      failureThreshold: 3,
+      initialDelaySeconds: 15,
+      periodSeconds: 20,
+      timeoutSeconds: 5,
+    },
     resources: {
       limits: { cpu: "1", memory: "1Gi" },
       requests: { cpu: "100m", memory: "256Mi" },
@@ -519,8 +532,21 @@ test("the pilot overlay renders two distinct workspaces", () => {
       },
     ],
   });
+  const operatorVolumes = valueAt(operatorDeployment, [
+    "spec",
+    "template",
+    "spec",
+    "volumes",
+  ]);
+  assert.ok(Array.isArray(operatorVolumes));
+  const dockerDataVolume = operatorVolumes.find(
+    (candidate: unknown) =>
+      typeof candidate === "object" &&
+      candidate !== null &&
+      (candidate as Record<string, unknown>).name === "docker-data",
+  );
   assert.deepEqual(
-    valueAt(operatorDeployment, ["spec", "template", "spec", "volumes", 0]),
+    dockerDataVolume,
     { emptyDir: { sizeLimit: "10Gi" }, name: "docker-data" },
   );
   assert.equal(
