@@ -229,6 +229,30 @@ describe("Vale producer", () => {
     )).toEqual(result);
   });
 
+  it("rejects producer summaries that disagree with their artifacts", () => {
+    const temporary = temporaryDirectory("writing-vale-summary-");
+    const options = fixture(temporary);
+    const result = runValeProducer({
+      ...options,
+      configFile: path.join(repositoryRoot, ".vale.ini"),
+      stylesDirectory: path.join(repositoryRoot, ".vale/styles/Unslop"),
+      valeBinary: "vale",
+    });
+    const mutations = [
+      (value: typeof result) => value.summary.artifacts += 1,
+      (value: typeof result) => value.summary.artifactsWithFindings = 0,
+      (value: typeof result) => value.summary.findings += 1,
+      (value: typeof result) => value.summary.bySeverity.warning += 1,
+      (value: typeof result) => value.summary.byCheck = [{ check: "Other.Rule", count: 1 }],
+    ];
+
+    for (const mutate of mutations) {
+      const tampered = structuredClone(result);
+      mutate(tampered);
+      expect(() => ValeProducerRunSchema.parse(tampered)).toThrow();
+    }
+  });
+
   it("stops when the installed Vale version differs from the pinned version", () => {
     const temporary = temporaryDirectory("writing-vale-version-");
     const options = fixture(temporary);

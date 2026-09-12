@@ -46,8 +46,8 @@ stages:
       size: 1652
     - path: src/schemas.ts
       hash: md5
-      md5: a24c32aa13a005e4d8faabccb39a459e
-      size: 15904
+      md5: a289d1db7e9d57d033c3174acf5227bc
+      size: 19061
     outs:
     - path: data/corpus
       hash: md5
@@ -96,8 +96,8 @@ stages:
       size: 7898
     - path: src/schemas.ts
       hash: md5
-      md5: a24c32aa13a005e4d8faabccb39a459e
-      size: 15904
+      md5: a289d1db7e9d57d033c3174acf5227bc
+      size: 19061
     params:
       params.yaml:
         cohort:
@@ -179,12 +179,12 @@ stages:
       size: 2954
     - path: src/run-vale.ts
       hash: md5
-      md5: 6e4c23c5adcca52ecedd4e040bfddb9e
-      size: 12814
+      md5: cc35322334ef3d1015cf39edcd906f56
+      size: 11943
     - path: src/schemas.ts
       hash: md5
-      md5: a24c32aa13a005e4d8faabccb39a459e
-      size: 15904
+      md5: a289d1db7e9d57d033c3174acf5227bc
+      size: 19061
     params:
       params.yaml:
         producers.vale:
@@ -250,8 +250,8 @@ stages:
       size: 13353
     - path: src/schemas.ts
       hash: md5
-      md5: a24c32aa13a005e4d8faabccb39a459e
-      size: 15904
+      md5: a289d1db7e9d57d033c3174acf5227bc
+      size: 19061
     params:
       params.yaml:
         matching.characterDiff:

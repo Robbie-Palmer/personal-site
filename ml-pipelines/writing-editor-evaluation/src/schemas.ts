@@ -232,7 +232,51 @@ const FindingCountSchema = z.object({
   count: z.number().int().positive(),
 }).strict();
 
-export const ValeProducerRunSchema = z.object({
+const ValeSummarySchema = z.object({
+  artifacts: z.number().int().positive(),
+  artifactsWithFindings: z.number().int().nonnegative(),
+  findings: z.number().int().nonnegative(),
+  bySeverity: z.object({
+    error: z.number().int().nonnegative(),
+    warning: z.number().int().nonnegative(),
+    suggestion: z.number().int().nonnegative(),
+  }).strict(),
+  byCheck: z.array(FindingCountSchema),
+}).strict();
+type ValeSummary = z.infer<typeof ValeSummarySchema>;
+
+export function summarizeValeArtifacts(
+  artifacts: z.infer<typeof ValeArtifactResultSchema>[],
+): ValeSummary {
+  const findings = artifacts.flatMap((artifact) => artifact.findings);
+  const bySeverity = { error: 0, warning: 0, suggestion: 0 };
+  const checks = new Map<string, number>();
+  for (const record of findings) {
+    bySeverity[record.severity] += 1;
+    const provenance = record.finding.producer.provenance;
+    if (provenance.kind !== "rule") {
+      throw new Error("Vale finding has non-rule provenance");
+    }
+    checks.set(provenance.ruleId, (checks.get(provenance.ruleId) ?? 0) + 1);
+  }
+  return {
+    artifacts: artifacts.length,
+    artifactsWithFindings: artifacts.filter(({ findings: records }) => records.length > 0).length,
+    findings: findings.length,
+    bySeverity,
+    byCheck: [...checks.entries()]
+      .sort(([left], [right]) => compareStrings(left, right))
+      .map(([check, count]) => ({ check, count })),
+  };
+}
+
+function compareStrings(left: string, right: string): number {
+  if (left < right) return -1;
+  if (left > right) return 1;
+  return 0;
+}
+
+const ValeProducerRunBaseSchema = z.object({
   schemaVersion: z.literal(1),
   recordType: z.literal("writing-editor-vale-producer-run"),
   runId: z.string().regex(/^producer-run:v1:[a-f0-9]{64}$/),
@@ -243,18 +287,14 @@ export const ValeProducerRunSchema = z.object({
     ruleSetHash: ContentHashSchema,
   }).strict(),
   artifacts: z.array(ValeArtifactResultSchema).min(1),
-  summary: z.object({
-    artifacts: z.number().int().positive(),
-    artifactsWithFindings: z.number().int().nonnegative(),
-    findings: z.number().int().nonnegative(),
-    bySeverity: z.object({
-      error: z.number().int().nonnegative(),
-      warning: z.number().int().nonnegative(),
-      suggestion: z.number().int().nonnegative(),
-    }).strict(),
-    byCheck: z.array(FindingCountSchema),
-  }).strict(),
-}).strict().superRefine((run, context) => {
+  summary: ValeSummarySchema,
+}).strict();
+type ValeProducerRunInput = z.infer<typeof ValeProducerRunBaseSchema>;
+
+function validateProducerArtifactIds(
+  run: ValeProducerRunInput,
+  context: z.RefinementCtx,
+): void {
   const artifactIds = run.artifacts.map(({ artifactId }) => artifactId);
   if (new Set(artifactIds).size !== artifactIds.length) {
     context.addIssue({
@@ -263,6 +303,12 @@ export const ValeProducerRunSchema = z.object({
       path: ["artifacts"],
     });
   }
+}
+
+function validateFindingProducers(
+  run: ValeProducerRunInput,
+  context: z.RefinementCtx,
+): void {
   for (const [artifactIndex, artifact] of run.artifacts.entries()) {
     for (const [findingIndex, { finding }] of artifact.findings.entries()) {
       if (
@@ -277,6 +323,60 @@ export const ValeProducerRunSchema = z.object({
       }
     }
   }
+}
+
+function validateValeSummary(
+  run: ValeProducerRunInput,
+  context: z.RefinementCtx,
+): void {
+  let expectedSummary: ValeSummary;
+  try {
+    expectedSummary = summarizeValeArtifacts(run.artifacts);
+  } catch (error) {
+    context.addIssue({
+      code: "custom",
+      message: error instanceof Error ? error.message : String(error),
+      path: ["artifacts"],
+    });
+    return;
+  }
+  for (const field of ["artifacts", "artifactsWithFindings", "findings"] as const) {
+    if (run.summary[field] !== expectedSummary[field]) {
+      context.addIssue({
+        code: "custom",
+        message: `summary ${field} must equal ${expectedSummary[field]}`,
+        path: ["summary", field],
+      });
+    }
+  }
+  for (const severity of ["error", "warning", "suggestion"] as const) {
+    if (run.summary.bySeverity[severity] !== expectedSummary.bySeverity[severity]) {
+      context.addIssue({
+        code: "custom",
+        message: `summary ${severity} count must equal ${expectedSummary.bySeverity[severity]}`,
+        path: ["summary", "bySeverity", severity],
+      });
+    }
+  }
+  if (
+    run.summary.byCheck.length !== expectedSummary.byCheck.length ||
+    run.summary.byCheck.some(({ check, count }, index) =>
+      check !== expectedSummary.byCheck[index]?.check ||
+      count !== expectedSummary.byCheck[index]?.count
+    )
+  ) {
+    context.addIssue({
+      code: "custom",
+      message: "summary byCheck must match deterministic artifact counts",
+      path: ["summary", "byCheck"],
+    });
+  }
+}
+
+export const ValeProducerRunSchema = ValeProducerRunBaseSchema.superRefine((run, context) => {
+  validateProducerArtifactIds(run, context);
+  validateFindingProducers(run, context);
+  validateValeSummary(run, context);
 });
 export type ValeProducerRun = z.infer<typeof ValeProducerRunSchema>;
 

@@ -25,6 +25,7 @@ import {
   ValeProducerRunSchema,
   type ValeProducerRun,
   ValeSeveritySchema,
+  summarizeValeArtifacts,
 } from "./schemas";
 
 const ValeCliOptionsSchema = z.object({
@@ -264,27 +265,6 @@ function compareFindingRecords(left: ValeFindingRecord, right: ValeFindingRecord
     compareAscending(left.severity, right.severity);
 }
 
-function summary(artifacts: ValeProducerRun["artifacts"]): ValeProducerRun["summary"] {
-  const findings = artifacts.flatMap((artifact) => artifact.findings);
-  const bySeverity = { error: 0, warning: 0, suggestion: 0 };
-  const checks = new Map<string, number>();
-  for (const record of findings) {
-    bySeverity[record.severity] += 1;
-    const provenance = record.finding.producer.provenance;
-    if (provenance.kind !== "rule") throw new Error("Vale finding has non-rule provenance");
-    checks.set(provenance.ruleId, (checks.get(provenance.ruleId) ?? 0) + 1);
-  }
-  return {
-    artifacts: artifacts.length,
-    artifactsWithFindings: artifacts.filter(({ findings }) => findings.length > 0).length,
-    findings: findings.length,
-    bySeverity,
-    byCheck: [...checks.entries()]
-      .sort(([left], [right]) => compareAscending(left, right))
-      .map(([check, count]) => ({ check, count })),
-  };
-}
-
 export function runValeProducer(options: RunValeOptions): ValeProducerRun {
   const cohort = FrozenCohortSchema.parse(readJson(options.cohortFile));
   const params = PipelineParamsSchema.parse(readJson(options.paramsFile));
@@ -360,7 +340,7 @@ export function runValeProducer(options: RunValeOptions): ValeProducerRun {
     producer,
     vale: { binaryVersion, ruleSetHash: rulesHash },
     artifacts,
-    summary: summary(artifacts),
+    summary: summarizeValeArtifacts(artifacts),
   });
   writeJson(options.outputFile, result);
   return result;
