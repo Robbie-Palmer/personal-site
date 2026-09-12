@@ -1,9 +1,9 @@
 name: Preview Playwright QA
 
-# This privileged follow-up uses the default-branch workflow definition. It
-# resolves Doppler before checkout, exposes only preview Access credentials to
-# PR code, grants that job no write token, and restores no untrusted cache.
-on: # zizmor: ignore[dangerous-triggers] untrusted code receives only preview Access credentials
+# This privileged follow-up uses the default-branch workflow and test harness.
+# PR code runs only as browser content at the preview origin; it never executes
+# on the runner that can resolve the preview Access credentials.
+on: # zizmor: ignore[dangerous-triggers] only trusted default-branch code runs on the runner
   workflow_run:
     workflows: [Preview Environment]
     types: [completed]
@@ -84,8 +84,8 @@ jobs:
     permissions:
       contents: read
     steps:
-      # Resolve the privileged Doppler token before checking out or executing
-      # PR-controlled code. Later steps receive only the preview Access token.
+      # Resolve the privileged Doppler token before checkout. Later steps
+      # receive only the preview Access token.
       - name: Load preview Access credentials
         env:
           DOPPLER_AGENT_CONFIG: ${{ vars.DOPPLER_AGENT_CONFIG }}
@@ -138,7 +138,6 @@ jobs:
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ needs.preflight.outputs.head_sha }}
           persist-credentials: false
 
       - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
