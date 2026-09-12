@@ -107,6 +107,11 @@ Projects combine these layers independently. A layer may explicitly extend
 another layer where the dependency is universal. Otherwise projects select
 both layers.
 
+Represent each extension as a dated relationship record with the child layer,
+parent layer, `effective_from`, optional `effective_until`, and deciding ADR.
+Changing layer composition closes the old relationship and creates another.
+It must not rewrite the meaning of the earlier relationship.
+
 The list is open-ended. A new layer is justified when it groups defaults with
 the same applicability. The manifests describe current policy rather than the
 complete package inventory of a built artifact.
@@ -132,7 +137,8 @@ A slot may declare prerequisites on another slot or selection. For example,
 the Neon hosting default applies only when `database.relational-engine`
 selects PostgreSQL.
 
-Each stable slot has one of two activation modes:
+At any point in time, a dated layer-slot policy assigns a stable slot to a
+layer with one of two activation modes:
 
 * `required` means every project using the layer receives the technology in
   its effective stack; and
@@ -180,15 +186,20 @@ override of `project.primary-language`; the resolved Python selection activates
 the Python layer instead. A project may still declare supplemental languages
 directly without replacing its primary language.
 
-The slot remains stable when the selected technology changes. Each slot
-records its owning layer and activation mode. Each selection is a first-class,
-dated record with at least:
+The slot remains stable when the selected technology changes. A layer-slot
+policy records the owning layer, activation mode, `effective_from`, optional
+`effective_until`, and deciding ADR. Changing the owner or mode closes that
+policy period and creates another. Each technology selection is also a
+first-class, dated record with at least:
 
 ```yaml
 slot:
   slug: "backend-api.runtime"
-  layer: "backend-api"
-  mode: "preferred"
+policies:
+  - layer: "backend-api"
+    mode: "preferred"
+    effective_from: "2025-11-12"
+    decision: "personal-engineering-platform:020-cloudflare-functions"
 selections:
   - technology: "cloudflare-functions"
     status: "Accepted"
@@ -199,10 +210,16 @@ selections:
 
 Selection status uses the existing ADR vocabulary: `Proposed`, `Accepted`,
 `Rejected`, and `Deprecated`. A `Proposed` selection is visible as a candidate
-but does not replace the current default. A non-superseded `Accepted` selection
-is current. `Deprecated` withdraws a selection from new resolution without
-requiring a replacement. `Superseded` is derived when a later selection or its
-ADR points back through `supersedes`.
+but does not replace the current default. Accepting a later selection requires
+it to identify the current selection through `supersedes`. The replacement's
+`effective_from` closes the earlier selection's effective period.
+
+Validation enforces exactly one non-superseded `Accepted` selection for every
+active slot policy that expresses a default. It rejects overlapping effective
+periods and multiple unlinked accepted selections. `Deprecated` closes a
+selection's effective period and may leave the slot with no current default.
+That empty state must be explicit. `Superseded` is derived when a later
+selection or its ADR points back through `supersedes`.
 
 The slot may have its own lifecycle if the platform stops expressing an
 opinion about that architectural role. That lifecycle is separate from the
@@ -238,7 +255,10 @@ language choice.
 An open relationship tracks current accepted defaults. A completed or frozen
 project closes the relationship with `until` and sets `tracking` to `false`.
 Historical queries resolve the defaults that were effective during that
-period. Later platform decisions do not alter the completed project's stack.
+period. Resolution includes the layer extensions, layer-slot policies,
+technology selections, project layer uses, and project slot uses effective at
+the query timestamp. The final stack for a completed or frozen project uses
+its closure timestamp. Later platform decisions do not alter it.
 Preferred-slot activation also carries an adoption date and optional end date
 when it differs from the containing layer's usage period. The database example
 therefore resolves PostgreSQL and Neon while leaving DuckDB and Weaviate as
@@ -271,14 +291,18 @@ activates the Python layer without changing the default for other projects.
 
 ### Preserve provenance in derived graph relationships
 
-Extend the content graph with first-class platform layer, default slot, default
-selection, project layer-use, and project slot-use records. Add relationships
-equivalent to:
+Extend the content graph with first-class platform layer, layer-extension,
+default slot, layer-slot-policy, default-selection, project-layer-use, and
+project-slot-use records. Add relationships equivalent to:
 
 ```text
 Platform OWNS_LAYER Layer
-Layer EXTENDS_LAYER Layer
-Layer HAS_SLOT DefaultSlot
+Layer HAS_EXTENSION LayerExtension
+LayerExtension EXTENDS_LAYER Layer
+LayerExtension ESTABLISHED_BY ADR
+Layer HAS_SLOT_POLICY LayerSlotPolicy
+LayerSlotPolicy OF_SLOT DefaultSlot
+LayerSlotPolicy ESTABLISHED_BY ADR
 DefaultSlot HAS_SELECTION DefaultSelection
 DefaultSelection SELECTS_TECHNOLOGY Technology
 DefaultSelection ESTABLISHED_BY ADR
@@ -290,16 +314,17 @@ SlotUse OF_SLOT DefaultSlot
 ProjectADR OVERRIDES_DEFAULT DefaultSlot
 ```
 
-Default selections, layer uses, and slot uses need identity because they carry
-status or time. The serialized visualization may render them as labelled edges
-or hide them at broad zoom levels rather than showing every association as a
-node.
+Layer extensions, layer-slot policies, default selections, layer uses, and slot
+uses need identity because they carry status or time. The serialized
+visualization may render them as labelled edges or hide them at broad zoom
+levels rather than showing every association as a node.
 
-An effective project stack combines directly declared project technologies,
-required selections from applicable layers, applicable preferred selections,
-and local overrides. Every derived technology relation retains its source
-layer, slot, selection, and deciding ADR. Direct and derived use must remain
-distinguishable in graph queries and views.
+At a given timestamp, an effective project stack combines directly declared
+project technologies, required selections from applicable layer-slot policies,
+applicable preferred selections, and local overrides. Every derived technology
+relation retains its source layer, extension path, slot policy, selection, and
+deciding ADR. Direct and derived use must remain distinguishable in graph
+queries and views.
 
 ### Borrow selectively from adjacent models
 
@@ -441,8 +466,9 @@ use as different facts.
 
 ### Negative
 
-* Layer uses and default selections become association records with their own
-  schemas, validation, indexes, and queries.
+* Layer extensions, slot policies, layer uses, and default selections become
+  association records with their own schemas, validation, indexes, and
+  queries.
 * Temporal resolution is more complex than copying technology slugs onto each
   project.
 * Layer boundaries and slot scope require editorial judgment. A slot that is
@@ -458,14 +484,17 @@ use as different facts.
 This ADR remains Proposed until a representative migration proves all of the
 following:
 
-1. Schemas validate platform layers, stable slots, slot prerequisites, default
-   selections, selection status, supersession, language-layer activation, and
-   dated project layer and slot uses.
-2. Graph queries resolve the current default for a slot without allowing a
-   proposed, rejected, deprecated, or superseded selection to replace the
-   active accepted selection.
-3. Historical queries keep completed projects fixed at their final platform
-   state and do not link pre-platform or organisation-governed projects
+1. Schemas validate platform layers, stable slots, dated layer extensions,
+   dated layer-slot policies, slot prerequisites, default selections,
+   selection status, supersession, language-layer activation, and dated project
+   layer and slot uses.
+2. Graph queries resolve exactly one current default for an active opinionated
+   slot. Accepting a replacement requires a `supersedes` link, closes the prior
+   effective period, and cannot create overlapping or unlinked current
+   selections.
+3. Historical queries resolve layer extensions, slot policies, selections, and
+   project uses at the requested timestamp. They keep completed projects fixed
+   at closure and do not link pre-platform or organisation-governed projects
    implicitly.
 4. Effective technology queries distinguish project-specific, required-layer,
    preferred-layer, and override sources.
