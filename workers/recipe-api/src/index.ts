@@ -740,6 +740,11 @@ export const routeMetadata = {
 } as const satisfies Record<RouteKey, RouteMetadata>;
 
 type RegisteredRouteKey = keyof typeof routeMetadata;
+type RegisteredRouteArguments = {
+  [Key in RegisteredRouteKey]: Key extends `${infer Method extends Uppercase<RouteMethod>} ${infer Path}`
+    ? [method: Lowercase<Method>, path: Path, handler: Handler<AppEnv>]
+    : never;
+}[RegisteredRouteKey];
 
 function openApiPath(path: string): string {
   return path.replace(/:(\w+)/g, "{$1}");
@@ -846,12 +851,9 @@ function securityFor(path: string): NonNullable<RouteConfig["security"]> {
 }
 
 function registerRoute(
-  key: RegisteredRouteKey,
-  handler: Handler<AppEnv>,
+  ...[method, path, handler]: RegisteredRouteArguments
 ): void {
-  const separator = key.indexOf(" ");
-  const method = key.slice(0, separator).toLowerCase() as RouteMethod;
-  const path = key.slice(separator + 1);
+  const key = `${method.toUpperCase()} ${path}` as RegisteredRouteKey;
   const metadata: RouteMetadata = routeMetadata[key];
   const isAgentConfiguration =
     key === "GET /.well-known/agent-configuration";
@@ -973,9 +975,9 @@ app.openAPIRegistry.registerComponent("securitySchemes", "cloudflareAccess", {
 
 app.notFound((c) => c.json({ error: "Not found" }, 404));
 
-registerRoute("GET /health", (c) => c.json({ status: "ok" }));
+registerRoute("get", "/health", (c) => c.json({ status: "ok" }));
 
-registerRoute("GET /.well-known/agent-configuration", async (c) => {
+registerRoute("get", "/.well-known/agent-configuration", async (c) => {
   if (!hasAuthConfiguration(c.env)) {
     return c.json({ error: "Auth configuration is incomplete" }, 503);
   }
@@ -3059,7 +3061,7 @@ async function hasPreviewAccess(request: Request, env: Bindings) {
   return isPreviewAuthEnabled(env) && verifyCloudflareAccess(request, env);
 }
 
-registerRoute("GET /api/auth/preview/scenarios", async (c) => {
+registerRoute("get", "/api/auth/preview/scenarios", async (c) => {
   if (!isPreviewAuthEnabled(c.env)) return c.notFound();
   if (!hasAuthConfiguration(c.env)) {
     return c.json({ error: "Preview auth configuration is incomplete" }, 503);
@@ -3077,7 +3079,7 @@ registerRoute("GET /api/auth/preview/scenarios", async (c) => {
   );
 });
 
-registerRoute("POST /api/auth/preview/sign-up", async (c) => {
+registerRoute("post", "/api/auth/preview/sign-up", async (c) => {
   if (!isPreviewAuthEnabled(c.env)) return c.notFound();
   if (!hasAuthConfiguration(c.env)) {
     return c.json({ error: "Preview auth configuration is incomplete" }, 503);
@@ -3117,7 +3119,7 @@ registerRoute("POST /api/auth/preview/sign-up", async (c) => {
   }
 });
 
-registerRoute("POST /api/auth/preview/sign-in", async (c) => {
+registerRoute("post", "/api/auth/preview/sign-in", async (c) => {
   if (!isPreviewAuthEnabled(c.env)) return c.notFound();
   if (!hasAuthConfiguration(c.env)) {
     return c.json({ error: "Preview auth configuration is incomplete" }, 503);
@@ -3215,7 +3217,7 @@ app.on(["POST", "GET"], "/api/auth/*", async (c) => {
   }
 });
 
-registerRoute("GET /api/profile/diet", async (c) => {
+registerRoute("get", "/api/profile/diet", async (c) => {
   return withRecipeSession(
     c,
     "query",
@@ -3229,7 +3231,7 @@ registerRoute("GET /api/profile/diet", async (c) => {
   );
 });
 
-registerRoute("GET /api/profile/diet/options", async (c) => {
+registerRoute("get", "/api/profile/diet/options", async (c) => {
   return withRecipeSession(
     c,
     "query",
@@ -3238,7 +3240,7 @@ registerRoute("GET /api/profile/diet/options", async (c) => {
   );
 });
 
-registerRoute("PUT /api/profile/diet", async (c) => {
+registerRoute("put", "/api/profile/diet", async (c) => {
   const csrfFailure = validateCsrf(c);
   if (csrfFailure) return csrfFailure;
 
@@ -3342,7 +3344,7 @@ registerRoute("PUT /api/profile/diet", async (c) => {
   );
 });
 
-registerRoute("GET /api/profile/recipe-box", async (c) => {
+registerRoute("get", "/api/profile/recipe-box", async (c) => {
   return withRecipeSession(
     c,
     "query",
@@ -3351,7 +3353,7 @@ registerRoute("GET /api/profile/recipe-box", async (c) => {
   );
 });
 
-registerRoute("GET /api/profile/bootstrap", async (c) => {
+registerRoute("get", "/api/profile/bootstrap", async (c) => {
   return withRecipeSession(
     c,
     "query",
@@ -3403,7 +3405,7 @@ registerRoute("GET /api/profile/bootstrap", async (c) => {
   );
 });
 
-registerRoute("PUT /api/profile/recipe-box", async (c) => {
+registerRoute("put", "/api/profile/recipe-box", async (c) => {
   const csrfFailure = validateCsrf(c);
   if (csrfFailure) return csrfFailure;
 
@@ -3441,7 +3443,7 @@ registerRoute("PUT /api/profile/recipe-box", async (c) => {
   );
 });
 
-registerRoute("GET /api/profile/cooking-insights", async (c) => {
+registerRoute("get", "/api/profile/cooking-insights", async (c) => {
   return withRecipeSession(
     c,
     "query",
@@ -3451,7 +3453,7 @@ registerRoute("GET /api/profile/cooking-insights", async (c) => {
   );
 });
 
-registerRoute("POST /api/profile/cooking-sessions", async (c) => {
+registerRoute("post", "/api/profile/cooking-sessions", async (c) => {
   const csrfFailure = validateCsrf(c);
   if (csrfFailure) return csrfFailure;
 
@@ -3517,7 +3519,7 @@ registerRoute("POST /api/profile/cooking-sessions", async (c) => {
   );
 });
 
-registerRoute("GET /shopping-lists/current", async (c) => {
+registerRoute("get", "/shopping-lists/current", async (c) => {
   return withRecipeSession(
     c,
     "query",
@@ -3529,7 +3531,7 @@ registerRoute("GET /shopping-lists/current", async (c) => {
   );
 });
 
-registerRoute("PUT /shopping-lists/current", async (c) => {
+registerRoute("put", "/shopping-lists/current", async (c) => {
   const csrfFailure = validateCsrf(c);
   if (csrfFailure) return csrfFailure;
 
@@ -3578,7 +3580,7 @@ registerRoute("PUT /shopping-lists/current", async (c) => {
   );
 });
 
-registerRoute("POST /shopping-lists", async (c) => {
+registerRoute("post", "/shopping-lists", async (c) => {
   const csrfFailure = validateCsrf(c);
   if (csrfFailure) return csrfFailure;
 
@@ -3623,7 +3625,7 @@ registerRoute("POST /shopping-lists", async (c) => {
   );
 });
 
-registerRoute("GET /pantry", async (c) => {
+registerRoute("get", "/pantry", async (c) => {
   return withRecipeSession(
     c,
     "query",
@@ -3640,7 +3642,7 @@ registerRoute("GET /pantry", async (c) => {
   );
 });
 
-registerRoute("GET /pantry/realtime", async (c) => {
+registerRoute("get", "/pantry/realtime", async (c) => {
   if (c.req.header("upgrade")?.toLowerCase() !== "websocket") {
     return c.json({ error: "WebSocket upgrade required" }, 426);
   }
@@ -3709,7 +3711,7 @@ registerRoute("GET /pantry/realtime", async (c) => {
   );
 });
 
-registerRoute("PUT /pantry", async (c) => {
+registerRoute("put", "/pantry", async (c) => {
   const csrfFailure = validateCsrf(c);
   if (csrfFailure) return csrfFailure;
   const operationId = pantryOperationId(c);
@@ -3794,7 +3796,7 @@ registerRoute("PUT /pantry", async (c) => {
   );
 });
 
-registerRoute("PATCH /pantry", async (c) => {
+registerRoute("patch", "/pantry", async (c) => {
   const csrfFailure = validateCsrf(c);
   if (csrfFailure) return csrfFailure;
   const operationId = pantryOperationId(c);
@@ -3849,7 +3851,7 @@ registerRoute("PATCH /pantry", async (c) => {
   );
 });
 
-registerRoute("PUT /pantry/items/:ingredientSlug", async (c) => {
+registerRoute("put", "/pantry/items/:ingredientSlug", async (c) => {
   const csrfFailure = validateCsrf(c);
   if (csrfFailure) return csrfFailure;
   const operationId = pantryOperationId(c);
@@ -3917,7 +3919,7 @@ registerRoute("PUT /pantry/items/:ingredientSlug", async (c) => {
   );
 });
 
-registerRoute("DELETE /pantry/items/:ingredientSlug", async (c) => {
+registerRoute("delete", "/pantry/items/:ingredientSlug", async (c) => {
   const csrfFailure = validateCsrf(c);
   if (csrfFailure) return csrfFailure;
   const operationId = pantryOperationId(c);
@@ -3963,7 +3965,7 @@ registerRoute("DELETE /pantry/items/:ingredientSlug", async (c) => {
   );
 });
 
-registerRoute("GET /households", async (c) => {
+registerRoute("get", "/households", async (c) => {
   return withRecipeSession(
     c,
     "query",
@@ -3997,7 +3999,7 @@ registerRoute("GET /households", async (c) => {
   );
 });
 
-registerRoute("GET /households/invitations", async (c) => {
+registerRoute("get", "/households/invitations", async (c) => {
   return withRecipeSession(
     c,
     "query",
@@ -4037,7 +4039,7 @@ registerRoute("GET /households/invitations", async (c) => {
   );
 });
 
-registerRoute("POST /households", async (c) => {
+registerRoute("post", "/households", async (c) => {
   const csrfFailure = validateCsrf(c);
   if (csrfFailure) return csrfFailure;
 
@@ -4113,7 +4115,7 @@ registerRoute("POST /households", async (c) => {
   );
 });
 
-registerRoute("PATCH /households/:householdId", async (c) => {
+registerRoute("patch", "/households/:householdId", async (c) => {
   const householdId = uuidParam(c, "householdId", "household ID");
   if (householdId instanceof Response) return householdId;
   const csrfFailure = validateCsrf(c);
@@ -4147,7 +4149,7 @@ registerRoute("PATCH /households/:householdId", async (c) => {
   );
 });
 
-registerRoute("GET /households/:householdId/members", async (c) => {
+registerRoute("get", "/households/:householdId/members", async (c) => {
   const householdId = uuidParam(c, "householdId", "household ID");
   if (householdId instanceof Response) return householdId;
   return withRecipeSession(
@@ -4186,7 +4188,7 @@ registerRoute("GET /households/:householdId/members", async (c) => {
   );
 });
 
-registerRoute("GET /households/:householdId/invitations", async (c) => {
+registerRoute("get", "/households/:householdId/invitations", async (c) => {
   const householdId = uuidParam(c, "householdId", "household ID");
   if (householdId instanceof Response) return householdId;
   return withRecipeSession(
@@ -4218,7 +4220,7 @@ registerRoute("GET /households/:householdId/invitations", async (c) => {
   );
 });
 
-registerRoute("POST /households/:householdId/invitations", async (c) => {
+registerRoute("post", "/households/:householdId/invitations", async (c) => {
   const householdId = uuidParam(c, "householdId", "household ID");
   if (householdId instanceof Response) return householdId;
   const csrfFailure = validateCsrf(c);
@@ -4307,7 +4309,7 @@ registerRoute("POST /households/:householdId/invitations", async (c) => {
   );
 });
 
-registerRoute("POST /households/invitations/:invitationId/accept", async (c) => {
+registerRoute("post", "/households/invitations/:invitationId/accept", async (c) => {
   const invitationId = uuidParam(c, "invitationId", "invitation ID");
   if (invitationId instanceof Response) return invitationId;
   const csrfFailure = validateCsrf(c);
@@ -4333,7 +4335,7 @@ registerRoute("POST /households/invitations/:invitationId/accept", async (c) => 
   );
 });
 
-registerRoute("POST /households/invitations/:invitationId/decline", async (c) => {
+registerRoute("post", "/households/invitations/:invitationId/decline", async (c) => {
   const invitationId = uuidParam(c, "invitationId", "invitation ID");
   if (invitationId instanceof Response) return invitationId;
   const csrfFailure = validateCsrf(c);
@@ -4357,7 +4359,8 @@ registerRoute("POST /households/invitations/:invitationId/decline", async (c) =>
 });
 
 registerRoute(
-  "DELETE /households/:householdId/invitations/:invitationId",
+  "delete",
+  "/households/:householdId/invitations/:invitationId",
   async (c) => {
     const householdId = uuidParam(c, "householdId", "household ID");
     if (householdId instanceof Response) return householdId;
@@ -4414,7 +4417,7 @@ registerRoute(
   },
 );
 
-registerRoute("DELETE /households/:householdId/members/:memberId", async (c) => {
+registerRoute("delete", "/households/:householdId/members/:memberId", async (c) => {
   const householdId = uuidParam(c, "householdId", "household ID");
   if (householdId instanceof Response) return householdId;
   const memberId = uuidParam(c, "memberId", "member ID");
@@ -4490,7 +4493,7 @@ registerRoute("DELETE /households/:householdId/members/:memberId", async (c) => 
   );
 });
 
-registerRoute("POST /households/:householdId/leave", async (c) => {
+registerRoute("post", "/households/:householdId/leave", async (c) => {
   const householdId = uuidParam(c, "householdId", "household ID");
   if (householdId instanceof Response) return householdId;
   const csrfFailure = validateCsrf(c);
@@ -4555,7 +4558,7 @@ registerRoute("POST /households/:householdId/leave", async (c) => {
   );
 });
 
-registerRoute("DELETE /households/:householdId", async (c) => {
+registerRoute("delete", "/households/:householdId", async (c) => {
   const householdId = uuidParam(c, "householdId", "household ID");
   if (householdId instanceof Response) return householdId;
   const csrfFailure = validateCsrf(c);
@@ -4689,7 +4692,7 @@ async function countUnreadNotifications(db: Db, userId: string) {
   return unread?.value ?? 0;
 }
 
-registerRoute("GET /notifications/unread-count", async (c) => {
+registerRoute("get", "/notifications/unread-count", async (c) => {
   return withRecipeSession(
     c,
     "query",
@@ -4703,7 +4706,7 @@ registerRoute("GET /notifications/unread-count", async (c) => {
   );
 });
 
-registerRoute("GET /notifications", async (c) => {
+registerRoute("get", "/notifications", async (c) => {
   const offset = Number(c.req.query("offset") ?? "0");
   if (!Number.isSafeInteger(offset) || offset < 0) {
     return c.json({ error: "Invalid notification offset" }, 400);
@@ -4793,10 +4796,10 @@ async function mutateAllNotifications(
   );
 }
 
-registerRoute("POST /notifications/read-all", (c) => mutateAllNotifications(c, "read"));
-registerRoute("POST /notifications/clear-all", (c) => mutateAllNotifications(c, "clear"));
+registerRoute("post", "/notifications/read-all", (c) => mutateAllNotifications(c, "read"));
+registerRoute("post", "/notifications/clear-all", (c) => mutateAllNotifications(c, "clear"));
 
-registerRoute("POST /notifications/:notificationId/actions/:actionKey", async (c) => {
+registerRoute("post", "/notifications/:notificationId/actions/:actionKey", async (c) => {
   const csrfFailure = validateCsrf(c);
   if (csrfFailure) return csrfFailure;
   const action = c.req.param("actionKey");
@@ -4866,7 +4869,7 @@ registerRoute("POST /notifications/:notificationId/actions/:actionKey", async (c
   );
 });
 
-registerRoute("PATCH /notifications/:notificationId", async (c) => {
+registerRoute("patch", "/notifications/:notificationId", async (c) => {
   const csrfFailure = validateCsrf(c);
   if (csrfFailure) return csrfFailure;
   const notificationId = uuidParam(c, "notificationId", "notification ID");
@@ -4907,7 +4910,7 @@ registerRoute("PATCH /notifications/:notificationId", async (c) => {
   );
 });
 
-registerRoute("GET /recipes", async (c) => {
+registerRoute("get", "/recipes", async (c) => {
   const scope = c.req.query("scope");
   if (scope && scope !== "owned") {
     return c.json({ error: "Invalid recipe scope" }, 400);
@@ -4971,7 +4974,7 @@ registerRoute("GET /recipes", async (c) => {
   );
 });
 
-registerRoute("GET /recipes/discover/feed", async (c) => {
+registerRoute("get", "/recipes/discover/feed", async (c) => {
   const scope = feedScopeSchema.safeParse(c.req.query("scope") ?? "public");
   const limit = feedLimitSchema.safeParse(c.req.query("limit"));
   const cursorValue = c.req.query("cursor");
@@ -5116,7 +5119,7 @@ async function cookConnections(db: Db, cookId: string) {
   };
 }
 
-registerRoute("GET /recipes/cooks", async (c) => {
+registerRoute("get", "/recipes/cooks", async (c) => {
   const cookValue = c.req.query("cook");
   const cookId =
     cookValue === undefined ? null : publicCookIdSchema.safeParse(cookValue);
@@ -5191,7 +5194,7 @@ registerRoute("GET /recipes/cooks", async (c) => {
   );
 });
 
-registerRoute("GET /recipes/cooks/me/connections", async (c) => {
+registerRoute("get", "/recipes/cooks/me/connections", async (c) => {
   return withRecipeSession(
     c,
     "query",
@@ -5201,7 +5204,7 @@ registerRoute("GET /recipes/cooks/me/connections", async (c) => {
   );
 });
 
-registerRoute("GET /recipes/cooks/:cookId/follow", async (c) => {
+registerRoute("get", "/recipes/cooks/:cookId/follow", async (c) => {
   const cookId = publicCookIdSchema.safeParse(c.req.param("cookId"));
   if (!cookId.success) return c.json({ error: "Invalid cook ID" }, 400);
 
@@ -5234,7 +5237,7 @@ registerRoute("GET /recipes/cooks/:cookId/follow", async (c) => {
   );
 });
 
-registerRoute("PUT /recipes/cooks/:cookId/follow", async (c) => {
+registerRoute("put", "/recipes/cooks/:cookId/follow", async (c) => {
   const csrfFailure = validateCsrf(c);
   if (csrfFailure) return csrfFailure;
   const cookId = publicCookIdSchema.safeParse(c.req.param("cookId"));
@@ -5266,7 +5269,7 @@ registerRoute("PUT /recipes/cooks/:cookId/follow", async (c) => {
   );
 });
 
-registerRoute("DELETE /recipes/cooks/:cookId/follow", async (c) => {
+registerRoute("delete", "/recipes/cooks/:cookId/follow", async (c) => {
   const csrfFailure = validateCsrf(c);
   if (csrfFailure) return csrfFailure;
   const cookId = publicCookIdSchema.safeParse(c.req.param("cookId"));
@@ -5293,7 +5296,7 @@ registerRoute("DELETE /recipes/cooks/:cookId/follow", async (c) => {
   );
 });
 
-registerRoute("POST /recipe-drafts/url", async (c) => {
+registerRoute("post", "/recipe-drafts/url", async (c) => {
   const csrfFailure = validateCsrf(c);
   if (csrfFailure) return csrfFailure;
 
@@ -5345,7 +5348,7 @@ registerRoute("POST /recipe-drafts/url", async (c) => {
   );
 });
 
-registerRoute("POST /recipe-drafts/file", async (c) => {
+registerRoute("post", "/recipe-drafts/file", async (c) => {
   const csrfFailure = validateCsrf(c);
   if (csrfFailure) return csrfFailure;
 
@@ -5393,7 +5396,7 @@ registerRoute("POST /recipe-drafts/file", async (c) => {
   );
 });
 
-registerRoute("GET /recipes/:slug", async (c) => {
+registerRoute("get", "/recipes/:slug", async (c) => {
   const slug = parseRecipeSlug(c);
   if (!slug.success) return slug.response;
 
@@ -5449,7 +5452,7 @@ registerRoute("GET /recipes/:slug", async (c) => {
   );
 });
 
-registerRoute("POST /recipes/:slug/recommendations", async (c) => {
+registerRoute("post", "/recipes/:slug/recommendations", async (c) => {
   const csrfFailure = validateCsrf(c);
   if (csrfFailure) return csrfFailure;
   const slug = parseRecipeSlug(c);
@@ -5531,7 +5534,7 @@ registerRoute("POST /recipes/:slug/recommendations", async (c) => {
   );
 });
 
-registerRoute("POST /recipes", async (c) => {
+registerRoute("post", "/recipes", async (c) => {
   const csrfFailure = validateCsrf(c);
   if (csrfFailure) return csrfFailure;
 
@@ -5578,7 +5581,7 @@ registerRoute("POST /recipes", async (c) => {
   );
 });
 
-registerRoute("PATCH /recipes/:slug", async (c) => {
+registerRoute("patch", "/recipes/:slug", async (c) => {
   const slug = parseRecipeSlug(c);
   if (!slug.success) return slug.response;
 
@@ -5630,7 +5633,7 @@ registerRoute("PATCH /recipes/:slug", async (c) => {
   );
 });
 
-registerRoute("POST /recipes/:slug/household-share", async (c) => {
+registerRoute("post", "/recipes/:slug/household-share", async (c) => {
   const slug = parseRecipeSlug(c);
   if (!slug.success) return slug.response;
 
@@ -5674,7 +5677,7 @@ registerRoute("POST /recipes/:slug/household-share", async (c) => {
   );
 });
 
-registerRoute("DELETE /recipes/:slug/household-share", async (c) => {
+registerRoute("delete", "/recipes/:slug/household-share", async (c) => {
   const slug = parseRecipeSlug(c);
   if (!slug.success) return slug.response;
 
@@ -5717,7 +5720,7 @@ registerRoute("DELETE /recipes/:slug/household-share", async (c) => {
   );
 });
 
-registerRoute("DELETE /recipes/:slug", async (c) => {
+registerRoute("delete", "/recipes/:slug", async (c) => {
   const slug = parseRecipeSlug(c);
   if (!slug.success) return slug.response;
 
@@ -5867,7 +5870,7 @@ async function parseImportImages(
   return { success: true, images };
 }
 
-registerRoute("POST /recipe-imports", async (c) => {
+registerRoute("post", "/recipe-imports", async (c) => {
   const csrfFailure = validateCsrf(c);
   if (csrfFailure) return csrfFailure;
 
@@ -6028,7 +6031,7 @@ registerRoute("POST /recipe-imports", async (c) => {
   );
 });
 
-registerRoute("GET /recipe-imports", async (c) => {
+registerRoute("get", "/recipe-imports", async (c) => {
   return withRecipeSession(
     c,
     "lookup",
@@ -6046,7 +6049,7 @@ registerRoute("GET /recipe-imports", async (c) => {
   );
 });
 
-registerRoute("GET /recipe-imports/:jobId", async (c) => {
+registerRoute("get", "/recipe-imports/:jobId", async (c) => {
   const jobId = recipeImportIdSchema.safeParse(c.req.param("jobId"));
   if (!jobId.success) return c.json({ error: "Import not found" }, 404);
 
