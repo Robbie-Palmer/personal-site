@@ -2,6 +2,9 @@
 # e.g. `mise run //homelab:status`. Must be run on the hosting machine.
 
 [tools]
+python = "3.12.14"
+"aqua:abiosoft/colima" = "0.10.3"
+"aqua:lima-vm/lima" = "2.2.0"
 "pipx:ansible-core" = "2.21.4"
 "pipx:ansible-lint" = "26.8.0"
 "aqua:kubernetes/kubernetes/kubectl" = "1.37.0"
@@ -58,9 +61,14 @@ dir = "ansible"
 run = "ansible-playbook playbooks/configure-mac.yml --check --diff"
 
 [tasks.ansible-configure-mac]
-description = "Apply permanent Mac host configuration one host at a time"
+description = "Apply Mac host and isolated K3s pilot configuration"
 dir = "ansible"
 run = "ansible-playbook playbooks/configure-mac.yml --diff"
+
+[tasks.ansible-verify-ente-fail-closed]
+description = "Prove the Ente wrapper rejects an absent volume and enforces its runtime limit"
+dir = "ansible"
+run = "ansible-playbook playbooks/verify-ente-fail-closed.yml"
 
 [tasks.doppler-check]
 description = "Verify access to the homelab production secret config without printing values"
@@ -257,7 +265,7 @@ run = '''
 export KUBECONFIG="${HOME_KUBECONFIG:-$HOME/.kube/config}"
 bash scripts/apply-kustomize-overlay \
   k3s/overlays/home \
-  "${HOME_KUBE_CONTEXT:-homelab-home}" \
+  "${HOME_KUBE_CONTEXT:-colima-homelab-k3s}" \
   home \
   dry-run
 '''
@@ -290,7 +298,7 @@ run = '''
 export KUBECONFIG="${HOME_KUBECONFIG:-$HOME/.kube/config}"
 bash scripts/apply-kustomize-overlay \
   k3s/overlays/home \
-  "${HOME_KUBE_CONTEXT:-homelab-home}" \
+  "${HOME_KUBE_CONTEXT:-colima-homelab-k3s}" \
   home \
   apply
 '''

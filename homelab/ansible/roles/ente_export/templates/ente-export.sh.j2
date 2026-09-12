@@ -3,12 +3,12 @@ set -euo pipefail
 
 export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
 
-ENTE_BIN="/opt/homebrew/bin/ente"
+ENTE_BIN="{{ ente_cli_binary_path }}"
 CONFIG_PATH="{{ ente_cli_config_path }}"
 MOUNT_PATH="{{ ente_export_mount_path }}"
 EXPECTED_VOLUME_UUID="{{ ente_export_mount_uuid }}"
 EXPORT_PATH="{{ ente_export_path }}"
-STATE_DIR="{{ ansible_facts.env.HOME }}/Library/Application Support/homelab/ente-export"
+STATE_DIR="{{ ente_export_state_dir }}"
 LOCK_FILE="${STATE_DIR}/run.lock"
 SUCCESS_MARKER="${STATE_DIR}/last-success"
 FAILURE_MARKER="${STATE_DIR}/last-failure"
@@ -57,7 +57,47 @@ RUN_OUTPUT="$(/usr/bin/mktemp "${STATE_DIR}/run.XXXXXX")"
 echo "[$(timestamp)] starting Ente export"
 
 set +e
-/usr/bin/perl -e 'alarm shift; exec @ARGV' "$MAX_RUNTIME_SECONDS" "$ENTE_BIN" export \
+/usr/bin/perl -e '
+  use strict;
+  use warnings;
+  use Errno qw(EINTR);
+
+  my $timeout = shift @ARGV;
+  my $child = fork();
+  die "could not fork Ente CLI: $!\n" unless defined $child;
+
+  if ($child == 0) {
+    exec @ARGV;
+    die "could not execute Ente CLI: $!\n";
+  }
+
+  my $timed_out = 0;
+  $SIG{ALRM} = sub {
+    if ($timed_out) {
+      kill "KILL", $child;
+      return;
+    }
+
+    $timed_out = 1;
+    kill "TERM", $child;
+    alarm 5;
+  };
+
+  alarm $timeout;
+  my $waited;
+  while (1) {
+    $waited = waitpid($child, 0);
+    last if $waited == $child;
+    next if $waited == -1 && $! == EINTR;
+    die "could not wait for Ente CLI: $!\n";
+  }
+  my $status = $?;
+  alarm 0;
+
+  exit 142 if $timed_out;
+  exit 128 + ($status & 127) if $status & 127;
+  exit $status >> 8;
+' "$MAX_RUNTIME_SECONDS" "$ENTE_BIN" export \
   2>&1 | /usr/bin/tee "$RUN_OUTPUT"
 export_status="${PIPESTATUS[0]}"
 set -e
