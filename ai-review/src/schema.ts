@@ -359,6 +359,14 @@ function assertRecordedName(
   }
 }
 
+function assertMigrationApplied(
+  sql: SqlStorage,
+  migration: SchemaMigration,
+  message: string,
+): void {
+  if (!migrationApplied(sql, migration)) throw new Error(message);
+}
+
 function applyUnrecordedMigration(
   sql: SqlStorage,
   migration: SchemaMigration,
@@ -366,12 +374,12 @@ function applyUnrecordedMigration(
   if (!migrationApplied(sql, migration)) {
     for (const statement of migration.up) sql.exec(statement);
   }
-  if (!migrationApplied(sql, migration)) {
-    throw new Error(
-      `Schema migration ${migration.version} (${migration.name}) did not ` +
-        "produce its expected schema",
-    );
-  }
+  assertMigrationApplied(
+    sql,
+    migration,
+    `Schema migration ${migration.version} (${migration.name}) did not ` +
+      "produce its expected schema",
+  );
 
   sql.exec(
     "INSERT INTO _migrations (version, name) VALUES (?, ?)",
@@ -387,6 +395,12 @@ function applyMigration(
 ): void {
   if (recordedName !== undefined) {
     assertRecordedName(migration, recordedName);
+    assertMigrationApplied(
+      sql,
+      migration,
+      `Recorded schema migration ${migration.version} (${migration.name}) ` +
+        "does not satisfy its expected schema",
+    );
     return;
   }
   applyUnrecordedMigration(sql, migration);

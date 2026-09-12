@@ -85,6 +85,28 @@ function coordinatorFixture(
         if (query.includes("FROM _migrations")) {
           return [...SCHEMA_MIGRATION_HISTORY];
         }
+        if (query.includes("FROM sqlite_schema")) {
+          return [{ present: 1 }];
+        }
+        if (query.includes("PRAGMA table_info(review_runs)")) {
+          return [
+            { name: "completion_hash" },
+            { name: "finding_resolutions_json" },
+          ];
+        }
+        if (query.includes("PRAGMA table_info(review_findings)")) {
+          return [
+            { name: "disposition" },
+            { name: "disposition_reason" },
+          ];
+        }
+        if (query.includes("PRAGMA table_info(review_finding_outcomes)")) {
+          return [
+            { name: "confidence" },
+            { name: "evaluator_version" },
+            { name: "manual_override" },
+          ];
+        }
         if (
           query.includes("FROM webhook_deliveries") &&
           existingDeliveries.includes(event.deliveryId)

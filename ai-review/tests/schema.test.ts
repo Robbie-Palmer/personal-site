@@ -124,6 +124,18 @@ describe("runMigrations", () => {
     });
   });
 
+  it("rejects recorded migrations whose schema is missing", () => {
+    withDatabase((database) => {
+      const sql = sqliteStorage(database);
+      runMigrations(sql);
+      database.exec("DROP TABLE review_hunks");
+
+      expect(() => runMigrations(sql)).toThrow(
+        "Recorded schema migration 4 (review-identities) does not satisfy",
+      );
+    });
+  });
+
   it("fails when migration SQL does not produce the declared schema", () => {
     withDatabase((database) => {
       const sql = sqliteStorage(database, "ADD COLUMN completion_hash");
