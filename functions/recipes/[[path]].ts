@@ -173,6 +173,11 @@ export const onRequest = async (context: Context): Promise<Response> => {
       });
     if (isPublic) {
       rewriter = rewriter
+        .on('link[rel="canonical"]', {
+          element(element) {
+            element.remove();
+          },
+        })
         .on('meta[name="robots"]', {
           element(element) {
             element.remove();
