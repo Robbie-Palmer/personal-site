@@ -659,7 +659,7 @@ async function forwardToCoordinator(
 export class PullRequestCoordinator extends DurableObject<Env> {
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
-    runMigrations(this.ctx.storage.sql);
+    runMigrations(this.ctx.storage);
   }
 
   async fetch(request: Request): Promise<Response> {

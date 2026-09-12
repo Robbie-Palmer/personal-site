@@ -144,8 +144,8 @@ describe("PullRequestCoordinator in workerd", () => {
         "2026-08-01T00:00:00Z",
       );
 
-      runMigrations(sql);
-      runMigrations(sql);
+      runMigrations(state.storage);
+      runMigrations(state.storage);
 
       expect(
         sql

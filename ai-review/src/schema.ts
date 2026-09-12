@@ -1,4 +1,5 @@
 type SqlStorage = DurableObjectStorage["sql"];
+type SchemaStorage = Pick<DurableObjectStorage, "sql" | "transactionSync">;
 
 type SchemaRequirement =
   | { kind: "table"; name: string }
@@ -368,31 +369,35 @@ function assertMigrationApplied(
 }
 
 function applyUnrecordedMigration(
-  sql: SqlStorage,
+  storage: SchemaStorage,
   migration: SchemaMigration,
 ): void {
-  if (!migrationApplied(sql, migration)) {
-    for (const statement of migration.up) sql.exec(statement);
-  }
-  assertMigrationApplied(
-    sql,
-    migration,
-    `Schema migration ${migration.version} (${migration.name}) did not ` +
-      "produce its expected schema",
-  );
+  storage.transactionSync(() => {
+    const { sql } = storage;
+    if (!migrationApplied(sql, migration)) {
+      for (const statement of migration.up) sql.exec(statement);
+    }
+    assertMigrationApplied(
+      sql,
+      migration,
+      `Schema migration ${migration.version} (${migration.name}) did not ` +
+        "produce its expected schema",
+    );
 
-  sql.exec(
-    "INSERT INTO _migrations (version, name) VALUES (?, ?)",
-    migration.version,
-    migration.name,
-  );
+    sql.exec(
+      "INSERT INTO _migrations (version, name) VALUES (?, ?)",
+      migration.version,
+      migration.name,
+    );
+  });
 }
 
 function applyMigration(
-  sql: SqlStorage,
+  storage: SchemaStorage,
   migration: SchemaMigration,
   recordedName: string | undefined,
 ): void {
+  const { sql } = storage;
   if (recordedName !== undefined) {
     assertRecordedName(migration, recordedName);
     assertMigrationApplied(
@@ -403,10 +408,11 @@ function applyMigration(
     );
     return;
   }
-  applyUnrecordedMigration(sql, migration);
+  applyUnrecordedMigration(storage, migration);
 }
 
-export function runMigrations(sql: SqlStorage): void {
+export function runMigrations(storage: SchemaStorage): void {
+  const { sql } = storage;
   sql.exec(`CREATE TABLE IF NOT EXISTS _migrations (
     version INTEGER PRIMARY KEY,
     name TEXT NOT NULL,
@@ -425,6 +431,6 @@ export function runMigrations(sql: SqlStorage): void {
   assertMigrationOrder();
 
   for (const migration of migrations) {
-    applyMigration(sql, migration, recorded.get(migration.version));
+    applyMigration(storage, migration, recorded.get(migration.version));
   }
 }
