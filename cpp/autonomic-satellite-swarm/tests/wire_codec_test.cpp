@@ -7,6 +7,20 @@
 using Catch::Matchers::WithinAbs;
 using namespace satellite_swarm;
 
+namespace {
+uint8_t packetChecksum(const uint8_t* bytes, size_t size) {
+  uint8_t crc = 0U;
+  for (size_t index = 0U; index < size; ++index) {
+    crc ^= bytes[index];
+    for (uint8_t bit = 0U; bit < 8U; ++bit) {
+      const auto shifted = static_cast<uint8_t>(static_cast<uint16_t>(crc) << 1U);
+      crc = (crc & 0x80U) != 0U ? static_cast<uint8_t>(shifted ^ uint8_t{0x07}) : shifted;
+    }
+  }
+  return crc;
+}
+} // namespace
+
 TEST_CASE("the wire codec round-trips every message field") {
   const MissionKey mission_key(7U, 0x12345678U, 0x9ABCU);
   const Message original = Message::missionRequest(7U, mission_key, Coordinate(-123.45F, 67.89F));
@@ -81,6 +95,8 @@ TEST_CASE("the wire codec rejects an absent mission identity and nonzero reserve
 
   const Message valid = Message::missionRequest(0U, MissionKey(0U, 1U, 1U), Coordinate());
   REQUIRE(WireCodec::encode(valid, packet.data(), packet.size()));
+  REQUIRE(packet[17] == packetChecksum(packet.data(), packet.size() - 1U));
   packet[16] = 1U;
+  packet[17] = packetChecksum(packet.data(), packet.size() - 1U);
   CHECK_FALSE(WireCodec::decode(packet.data(), packet.size(), invalid));
 }

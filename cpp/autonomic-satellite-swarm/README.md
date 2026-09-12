@@ -27,7 +27,8 @@ explicit.
 - Deterministic trace inputs can drop, delay, or duplicate deliveries, change directed links, and
   reset a node so protocol failures can be replayed exactly.
 - Missions use `{origin node, boot epoch, mission sequence}` keys, so messages from different nodes
-  or leader boots cannot alias the same mission.
+  cannot alias the same mission. Preventing aliases across leader resets also requires each node to
+  durably advance its boot epoch before restarting its mission sequence.
 
 ## Quick start
 
