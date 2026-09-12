@@ -31,6 +31,10 @@ describe("sitemap", () => {
       "https://robbiepalmer.me/ideas/context-engineering",
     );
     expect(ideaUrls).toContain("https://robbiepalmer.me/ideas/commit-log");
-    expect(ideaUrls).toHaveLength(27);
+    expect(ideaUrls).toContain(
+      "https://robbiepalmer.me/ideas/adaptive-planning",
+    );
+    expect(ideaUrls).toContain("https://robbiepalmer.me/ideas/epistemology");
+    expect(ideaUrls).toHaveLength(29);
   });
 });
