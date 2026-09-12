@@ -19,7 +19,7 @@ const project = {
   adrSlugs: [],
   adrs: [],
   tags: ["research"],
-} as Project;
+} satisfies Project;
 
 describe("ProjectCard", () => {
   it("links to a project's published research paper", () => {
