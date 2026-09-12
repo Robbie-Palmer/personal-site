@@ -1,19 +1,17 @@
 import {
-  expect,
-  test,
   type Browser,
   type BrowserContext,
+  expect,
   type Page,
+  test,
   type WebSocket,
 } from "@playwright/test";
-import { requiredEnv } from "node-base/env";
+import {
+  createPreviewContext,
+  previewSiteURL,
+  signInPreviewScenario,
+} from "./preview-test-helpers";
 
-const previewSiteURL = new URL(requiredEnv("PREVIEW_SITE_URL"));
-const pagesHost = requiredEnv("CLOUDFLARE_PAGES_HOST");
-const accessHeaders = {
-  "CF-Access-Client-Id": requiredEnv("CF_ACCESS_CLIENT_ID"),
-  "CF-Access-Client-Secret": requiredEnv("CF_ACCESS_CLIENT_SECRET"),
-};
 const pantryRealtimePath = "/api/pantry/realtime";
 const realtimeTimeoutMs = 10_000;
 const visibleConvergenceTimeoutMs = 1_000;
@@ -26,23 +24,6 @@ type ScenarioSession = {
   context: BrowserContext;
   page: Page;
 };
-
-function assertCanonicalPreviewURL(): void {
-  const previewLabel = previewSiteURL.hostname.split(".", 1)[0];
-  if (
-    previewSiteURL.protocol !== "https:" ||
-    previewSiteURL.origin !== previewSiteURL.href.replace(/\/$/, "") ||
-    !previewLabel ||
-    !/^pr-[1-9]\d*$/.test(previewLabel) ||
-    previewSiteURL.hostname !== `${previewLabel}.${pagesHost}`
-  ) {
-    throw new Error(
-      "PREVIEW_SITE_URL must be the canonical HTTPS PR alias for CLOUDFLARE_PAGES_HOST",
-    );
-  }
-}
-
-assertCanonicalPreviewURL();
 
 function parseFrame(payload: string | Buffer): Record<string, unknown> | null {
   try {
@@ -59,64 +40,35 @@ async function createScenarioSession(
   browser: Browser,
   scenario: Scenario,
 ): Promise<ScenarioSession> {
-  const context = await browser.newContext({
-    baseURL: previewSiteURL.origin,
-  });
+  const context = await createPreviewContext(browser);
 
   try {
-    await context.addInitScript(({ realtimePath }) => {
-      const NativeWebSocket = window.WebSocket;
-      Object.defineProperty(window, "WebSocket", {
-        configurable: true,
-        writable: true,
-        value: class extends NativeWebSocket {
-          constructor(url: string | URL, protocols?: string | string[]) {
-            if (protocols === undefined) super(url);
-            else super(url, protocols);
+    await context.addInitScript(
+      ({ realtimePath }) => {
+        const NativeWebSocket = window.WebSocket;
+        Object.defineProperty(window, "WebSocket", {
+          configurable: true,
+          writable: true,
+          value: class extends NativeWebSocket {
+            constructor(url: string | URL, protocols?: string | string[]) {
+              if (protocols === undefined) super(url);
+              else super(url, protocols);
 
-            if (new URL(this.url).pathname === realtimePath) {
-              Object.defineProperty(window, "__closePantryRealtimeSocket", {
-                configurable: true,
-                value: () => this.close(4_000, "Playwright disconnect"),
-              });
+              if (new URL(this.url).pathname === realtimePath) {
+                Object.defineProperty(window, "__closePantryRealtimeSocket", {
+                  configurable: true,
+                  value: () => this.close(4_000, "Playwright disconnect"),
+                });
+              }
             }
-          }
-        },
-      });
-    }, { realtimePath: pantryRealtimePath });
-
-    // Prime the Access application cookie before the browser opens the page.
-    // Sending the service-token headers only on this exact-origin request keeps
-    // them away from redirects and any third-party resources loaded by the UI.
-    // The resulting cookie is available to the page's WebSocket handshake.
-    const accessResponse = await context.request.get(
-      `${previewSiteURL.origin}/recipes`,
-      {
-        headers: accessHeaders,
-        maxRedirects: 0,
+          },
+        });
       },
+      { realtimePath: pantryRealtimePath },
     );
-    const accessResponseURL = new URL(accessResponse.url());
-    if (
-      !accessResponse.ok() ||
-      accessResponseURL.origin !== previewSiteURL.origin
-    ) {
-      throw new Error(
-        `Cloudflare Access did not authorize the preview (${accessResponse.status()} ${accessResponse.url()})`,
-      );
-    }
-    await accessResponse.dispose();
 
     const page = await context.newPage();
-    await page.goto("/recipes");
-    await expect(page).toHaveURL(`${previewSiteURL.origin}/recipes`);
-    await page.getByRole("button", { name: "Log in", exact: true }).click();
-    await page
-      .getByRole("button", { name: new RegExp(scenario.name) })
-      .click();
-    await expect(
-      page.getByRole("button", { name: `Account for ${scenario.name}` }),
-    ).toBeVisible();
+    await signInPreviewScenario(page, scenario.name);
 
     return { context, page };
   } catch (error) {
@@ -180,7 +132,8 @@ async function disconnectPantrySocket(page: Page): Promise<void> {
         __closePantryRealtimeSocket?: () => void;
       }
     ).__closePantryRealtimeSocket;
-    if (!closeSocket) throw new Error("Pantry WebSocket test control is absent");
+    if (!closeSocket)
+      throw new Error("Pantry WebSocket test control is absent");
     closeSocket();
   });
 }
@@ -239,10 +192,7 @@ test.describe("deployed household pantry realtime", () => {
       sessions.push(member);
       await restoreGarlic(owner.context);
 
-      await Promise.all([
-        openKitchen(owner),
-        openKitchen(member),
-      ]);
+      await Promise.all([openKitchen(owner), openKitchen(member)]);
       await expect(
         owner.page.getByRole("button", { name: "Remove Garlic" }),
       ).toBeVisible();
@@ -250,9 +200,7 @@ test.describe("deployed household pantry realtime", () => {
         member.page.getByRole("button", { name: "Remove Garlic" }),
       ).toBeVisible();
 
-      await owner.page
-        .getByRole("button", { name: "Remove Garlic" })
-        .click();
+      await owner.page.getByRole("button", { name: "Remove Garlic" }).click();
       pantryWasChanged = true;
       await expect(
         member.page.getByRole("button", { name: "Remove Garlic" }),
@@ -291,9 +239,7 @@ test.describe("deployed household pantry realtime", () => {
       await member.context.setOffline(true);
       await disconnectPantrySocket(member.page);
       await memberDisconnected;
-      await owner.page
-        .getByRole("button", { name: "Remove Garlic" })
-        .click();
+      await owner.page.getByRole("button", { name: "Remove Garlic" }).click();
       pantryWasChanged = true;
       await expect(
         owner.page.getByRole("button", { name: "Remove Garlic" }),

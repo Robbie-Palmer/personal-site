@@ -1,6 +1,9 @@
 # Authenticated preview tests
 
-These Playwright tests run against a deployed pull-request preview. The pantry
+These Playwright tests run against a deployed pull-request preview. The Agent
+Auth test registers an agent, approves its delegated capabilities through the
+real settings UI, reads seeded private data, and revokes the agent. Agent calls
+use a separate browser context with no Better Auth user session. The pantry
 tests use two isolated browser contexts so the household owner and household
 member have separate sessions while sharing the same seeded pantry. The recipe
 PWA tests sign in as the household owner, wait for the offline caches, disable
@@ -11,9 +14,10 @@ the realtime protocol, including the event resource, revision, operation ID,
 and change kind. Keeping those checks out of this suite avoids making browser
 QA the only evidence that the backend fan-out works.
 
-The pantry tests intentionally mutate the seeded `Garlic` item and restore it
-during cleanup. The PWA tests only change browser-local storage and network
-emulation. Do not point this suite at production.
+The Agent Auth test leaves a revoked test agent and host in the disposable
+preview database. The pantry tests intentionally mutate the seeded `Garlic`
+item and restore it during cleanup. The PWA tests only change browser-local
+storage and network emulation. Do not point this suite at production.
 
 ## Run
 

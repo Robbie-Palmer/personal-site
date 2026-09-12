@@ -1,72 +1,32 @@
 import {
-  expect,
-  test,
   type Browser,
   type BrowserContext,
+  expect,
   type Page,
+  test,
 } from "@playwright/test";
-import { requiredEnv } from "node-base/env";
-
-const previewSiteURL = new URL(requiredEnv("PREVIEW_SITE_URL"));
-const pagesHost = requiredEnv("CLOUDFLARE_PAGES_HOST");
-const accessHeaders = {
-  "CF-Access-Client-Id": requiredEnv("CF_ACCESS_CLIENT_ID"),
-  "CF-Access-Client-Secret": requiredEnv("CF_ACCESS_CLIENT_SECRET"),
-};
+import {
+  createPreviewContext,
+  previewSiteURL,
+  signInPreviewScenario,
+} from "./preview-test-helpers";
 
 type PreviewSession = {
   context: BrowserContext;
   page: Page;
 };
 
-function assertCanonicalPreviewURL(): void {
-  const previewLabel = previewSiteURL.hostname.split(".", 1)[0];
-  if (
-    previewSiteURL.protocol !== "https:" ||
-    previewSiteURL.origin !== previewSiteURL.href.replace(/\/$/, "") ||
-    !previewLabel ||
-    !/^pr-[1-9]\d*$/.test(previewLabel) ||
-    previewSiteURL.hostname !== `${previewLabel}.${pagesHost}`
-  ) {
-    throw new Error(
-      "PREVIEW_SITE_URL must be the canonical HTTPS PR alias for CLOUDFLARE_PAGES_HOST",
-    );
-  }
-}
-
-assertCanonicalPreviewURL();
-
 async function openOwnerRecipeSession(
   browser: Browser,
 ): Promise<PreviewSession> {
-  const context = await browser.newContext({ baseURL: previewSiteURL.origin });
+  const context = await createPreviewContext(browser);
 
   try {
-    const accessResponse = await context.request.get(
-      `${previewSiteURL.origin}/recipes`,
-      { headers: accessHeaders, maxRedirects: 0 },
-    );
-    const accessResponseURL = new URL(accessResponse.url());
-    if (
-      !accessResponse.ok() ||
-      accessResponseURL.origin !== previewSiteURL.origin
-    ) {
-      throw new Error(
-        `Cloudflare Access did not authorize the preview (${accessResponse.status()} ${accessResponse.url()})`,
-      );
-    }
-    await accessResponse.dispose();
-
     const page = await context.newPage();
-    await page.goto("/recipes");
-    await page.getByRole("button", { name: "Log in", exact: true }).click();
-    await page
-      .getByRole("button", { name: /Household owner/ })
-      .click();
+    await signInPreviewScenario(page, "Household owner");
     await expect(
-      page.getByRole("button", { name: "Account for Household owner" }),
+      page.getByText("Your recipe box", { exact: true }),
     ).toBeVisible();
-    await expect(page.getByText("Your recipe box", { exact: true })).toBeVisible();
 
     return { context, page };
   } catch (error) {
@@ -82,7 +42,8 @@ async function waitForOfflineRecipeData(page: Page): Promise<void> {
 
     await new Promise<void>((resolve, reject) => {
       const timeout = window.setTimeout(
-        () => reject(new Error("The recipe service worker did not take control")),
+        () =>
+          reject(new Error("The recipe service worker did not take control")),
         10_000,
       );
       navigator.serviceWorker.addEventListener(
