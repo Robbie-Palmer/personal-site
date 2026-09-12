@@ -21,6 +21,7 @@ const data = parseSatelliteSwarmSimulation({
   traceVersion: 2,
   scenario: "test",
   source: "portable C++ SimulationTrace",
+  sourceRevision: "0123456789abcdef0123456789abcdef01234567",
   positionModel: "scripted",
   objective: { longitudeDegrees: 4, latitudeDegrees: -90 },
   frames: [

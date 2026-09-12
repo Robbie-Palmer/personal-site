@@ -149,6 +149,7 @@ const simulationSchema = z.object({
   scenario: z.string().min(1),
   schemaVersion: z.literal(2),
   source: z.literal("portable C++ SimulationTrace"),
+  sourceRevision: z.string().regex(/^[0-9a-f]{40}$/),
   traceVersion: z.literal(2),
 });
 

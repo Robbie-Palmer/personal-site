@@ -22,6 +22,9 @@ import {
 } from "@/lib/api/satellite-swarm-simulation";
 import { LazySatelliteSwarmGlobe } from "./lazy-satellite-swarm-globe";
 
+const SOURCE_REPOSITORY_URL =
+  "https://github.com/Robbie-Palmer/personal-site/commit";
+
 function useReducedMotion(): boolean {
   const [reduced, setReduced] = useState(false);
   useEffect(() => {
@@ -322,7 +325,16 @@ export function SatelliteSwarmSimulation({
       <div className="border-t bg-amber-500/5 px-4 py-3 text-xs text-muted-foreground">
         {data.positionModel}. The score is the preserved historical heuristic,
         not validated astrodynamics. "Safe-disabled" is software state, not a
-        physical deorbit action.{" "}
+        physical deorbit action. Wasm source:{" "}
+        <a
+          className="font-mono underline underline-offset-4"
+          href={`${SOURCE_REPOSITORY_URL}/${data.sourceRevision}`}
+          rel="noopener noreferrer"
+          target="_blank"
+        >
+          {data.sourceRevision.slice(0, 12)}
+        </a>
+        .{" "}
         {executionMode === "webassembly"
           ? "The coordination code ran as WebAssembly in a module worker."
           : "This view displays a recorded output from the native runner."}
