@@ -52,6 +52,14 @@ RUN test -n "${MISE_VERSION}" \
     && ln --force \
       /usr/local/lib/t3-code/node_modules/@pnpm/exe.linux-x64/pnpm \
       /usr/local/lib/t3-code/node_modules/pnpm/pnpm \
+    && ln --symbolic \
+      /usr/local/lib/t3-code/node_modules/.bin/claude \
+      /usr/local/lib/t3-code/node_modules/.bin/codex \
+      /usr/local/lib/t3-code/node_modules/.bin/grok \
+      /usr/local/lib/t3-code/node_modules/.bin/opencode \
+      /usr/local/lib/t3-code/node_modules/.bin/pnpm \
+      /usr/local/lib/t3-code/node_modules/.bin/t3 \
+      /usr/local/bin/ \
     && node /usr/local/lib/node_modules/npm/node_modules/node-gyp/bin/node-gyp.js rebuild \
       --directory /usr/local/lib/t3-code/node_modules/node-pty \
     && npm cache clean --force \
@@ -83,7 +91,7 @@ ENV T3CODE_PORT=3773
 ENV T3CODE_NO_BROWSER=true
 ENV MISE_EXPERIMENTAL=1
 ENV MISE_TRUSTED_CONFIG_PATHS=/data/workspaces:/data/home/.t3/worktrees
-ENV PATH=/data/home/.local/share/mise/shims:/usr/local/lib/t3-code/node_modules/.bin:${PATH}
+ENV PATH=/data/home/.local/share/mise/shims:${PATH}
 ENV PLAYWRIGHT_BROWSERS_PATH=/data/home/.cache/ms-playwright
 ENV PUPPETEER_CACHE_DIR=/data/home/.cache/puppeteer
 ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
