@@ -505,7 +505,6 @@ test("the pilot overlay renders two distinct workspaces", () => {
       requests: { cpu: "100m", memory: "256Mi" },
     },
     securityContext: {
-      allowPrivilegeEscalation: true,
       privileged: true,
       readOnlyRootFilesystem: false,
       runAsGroup: 1000,
