@@ -488,6 +488,18 @@ test("the pilot overlay renders two distinct workspaces", () => {
     image:
       "docker:29.8.0-dind-rootless@sha256:e17fa54c2ffd511d8407c746eec77f7814e6f74fe20caf822dad1870599984c0",
     name: "docker",
+    startupProbe: {
+      exec: {
+        command: [
+          "docker",
+          "--host=tcp://127.0.0.1:2375",
+          "info",
+        ],
+      },
+      failureThreshold: 30,
+      periodSeconds: 2,
+      timeoutSeconds: 2,
+    },
     readinessProbe: {
       exec: {
         command: [
@@ -509,7 +521,6 @@ test("the pilot overlay renders two distinct workspaces", () => {
         ],
       },
       failureThreshold: 3,
-      initialDelaySeconds: 15,
       periodSeconds: 20,
       timeoutSeconds: 5,
     },

@@ -61,6 +61,15 @@ spec:
             - dockerd
             - --host=tcp://0.0.0.0:2375
             - --tls=false
+          startupProbe:
+            exec:
+              command:
+                - docker
+                - --host=tcp://127.0.0.1:2375
+                - info
+            failureThreshold: 30
+            periodSeconds: 2
+            timeoutSeconds: 2
           readinessProbe:
             exec:
               command:
@@ -77,7 +86,6 @@ spec:
                 - --host=tcp://127.0.0.1:2375
                 - info
             failureThreshold: 3
-            initialDelaySeconds: 15
             periodSeconds: 20
             timeoutSeconds: 5
           resources:

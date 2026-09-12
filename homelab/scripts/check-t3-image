@@ -8,8 +8,8 @@ docker_data_volume="personal-site-rootless-docker-data-check-$$"
 docker_image=docker:29.8.0-dind-rootless@sha256:e17fa54c2ffd511d8407c746eec77f7814e6f74fe20caf822dad1870599984c0
 
 cleanup() {
-  docker stop "${container}" >/dev/null 2>&1 || true
-  docker stop "${docker_container}" >/dev/null 2>&1 || true
+  docker rm --force "${container}" >/dev/null 2>&1 || true
+  docker rm --force "${docker_container}" >/dev/null 2>&1 || true
   docker volume rm "${docker_data_volume}" >/dev/null 2>&1 || true
 }
 trap cleanup EXIT
