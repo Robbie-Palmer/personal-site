@@ -141,6 +141,17 @@ export const technologies: TechnologyContent[] = [
     type: "library",
   },
   {
+    name: "jsdiff",
+    added: "2026-09-11",
+    description:
+      "Text differencing library with character, word, line, and structured patch APIs",
+    overview: `jsdiff compares text at several token granularities and returns ordered runs of unchanged, inserted, and removed content. Its character mode treats Unicode code points as tokens.
+
+Diff operations can set an edit-distance or time limit. The function returns no result when it reaches that limit, which lets batch pipelines bound difficult comparisons explicitly. Version 8 and later include TypeScript definitions.`,
+    website: "https://github.com/kpdecker/jsdiff",
+    type: "library",
+  },
+  {
     name: "Zod",
     added: "2026-01-04",
     description: "TypeScript-first schema validation",

@@ -5,8 +5,8 @@ stages:
     deps:
     - path: ../../packages/writing-editor-domain/package.json
       hash: md5
-      md5: bd37123edaa1f4a52ecb578c5ce07486
-      size: 728
+      md5: 9e1385bf0bb13eada79607c5126dbf4b
+      size: 767
     - path: ../../packages/writing-editor-domain/src/canonical-json.ts
       hash: md5
       md5: f713bc7d6da316d2ebfeb10a77e0fb31
@@ -17,16 +17,16 @@ stages:
       size: 6579
     - path: ../../pnpm-lock.yaml
       hash: md5
-      md5: e47c1aa1335e4876644732e1b9e655c2
-      size: 525181
+      md5: 65baed628bc0321f32b3b975da70942f
+      size: 530989
     - path: corpus-manifest.json
       hash: md5
       md5: ee9a5210e9de02e1aad874cb1153aa48
       size: 3310
     - path: package.json
       hash: md5
-      md5: 9e7c9f8d9fb3f8ac0b2c96e79a06df6e
-      size: 491
+      md5: c6fd5991eb42dbfd3b0e5d088ca06c32
+      size: 513
     - path: scripts/extract.sh
       hash: md5
       md5: 511691310e70457553ae2dc270e1b4b1
@@ -38,16 +38,16 @@ stages:
       size: 4790
     - path: src/files.ts
       hash: md5
-      md5: c37f764483386db1371ef118837e2a88
-      size: 1759
+      md5: fce85952c262353a104b1705fc30ddc6
+      size: 2954
     - path: src/git-revisions.ts
       hash: md5
       md5: 1bc9c69107afca3955ed1e82db0d9695
       size: 1652
     - path: src/schemas.ts
       hash: md5
-      md5: 7a2f220aa84f90c988789b58252afdb8
-      size: 5520
+      md5: a289d1db7e9d57d033c3174acf5227bc
+      size: 19061
     outs:
     - path: data/corpus
       hash: md5
@@ -59,8 +59,8 @@ stages:
     deps:
     - path: ../../packages/writing-editor-domain/package.json
       hash: md5
-      md5: bd37123edaa1f4a52ecb578c5ce07486
-      size: 728
+      md5: 9e1385bf0bb13eada79607c5126dbf4b
+      size: 767
     - path: ../../packages/writing-editor-domain/src/canonical-json.ts
       hash: md5
       md5: f713bc7d6da316d2ebfeb10a77e0fb31
@@ -71,16 +71,16 @@ stages:
       size: 6579
     - path: ../../pnpm-lock.yaml
       hash: md5
-      md5: e47c1aa1335e4876644732e1b9e655c2
-      size: 525181
+      md5: 65baed628bc0321f32b3b975da70942f
+      size: 530989
     - path: data/corpus/manifest.json
       hash: md5
       md5: 82a6c5d9fc9c80a25c9e2e29cdfb73a9
       size: 6763
     - path: package.json
       hash: md5
-      md5: 9e7c9f8d9fb3f8ac0b2c96e79a06df6e
-      size: 491
+      md5: c6fd5991eb42dbfd3b0e5d088ca06c32
+      size: 513
     - path: scripts/freeze.sh
       hash: md5
       md5: a25cbd5f2aaac5c55bd6fbb71e515ad6
@@ -88,16 +88,16 @@ stages:
       isexec: true
     - path: src/files.ts
       hash: md5
-      md5: c37f764483386db1371ef118837e2a88
-      size: 1759
+      md5: fce85952c262353a104b1705fc30ddc6
+      size: 2954
     - path: src/freeze-cohort.ts
       hash: md5
       md5: 85905c8bcf9ee66051efb3a2f1a01796
       size: 7898
     - path: src/schemas.ts
       hash: md5
-      md5: 7a2f220aa84f90c988789b58252afdb8
-      size: 5520
+      md5: a289d1db7e9d57d033c3174acf5227bc
+      size: 19061
     params:
       params.yaml:
         cohort:
@@ -123,3 +123,141 @@ stages:
       hash: md5
       md5: e139cf817f13d3f47355f91b16a31781
       size: 624
+  run_vale:
+    cmd: bash scripts/run-vale.sh
+    deps:
+    - path: ../../.vale.ini
+      hash: md5
+      md5: 1acb6180bad445baf61645d349c2bc6c
+      size: 488
+    - path: ../../.vale/styles/Unslop
+      hash: md5
+      md5: 41a256bf9080486840836d143a9eb78b.dir
+      size: 3319
+      nfiles: 16
+    - path: ../../packages/writing-editor-domain/package.json
+      hash: md5
+      md5: 9e1385bf0bb13eada79607c5126dbf4b
+      size: 767
+    - path: ../../packages/writing-editor-domain/src/canonical-json.ts
+      hash: md5
+      md5: f713bc7d6da316d2ebfeb10a77e0fb31
+      size: 1638
+    - path: ../../packages/writing-editor-domain/src/findings.ts
+      hash: md5
+      md5: 5bb634381e00b3c01794f50b67e21095
+      size: 4629
+    - path: ../../packages/writing-editor-domain/src/suggestions.ts
+      hash: md5
+      md5: d0d064a3be87e2ce1256b3c17b004405
+      size: 6579
+    - path: ../../pnpm-lock.yaml
+      hash: md5
+      md5: 65baed628bc0321f32b3b975da70942f
+      size: 530989
+    - path: data/corpus
+      hash: md5
+      md5: fcf34283092033752f464264434c0174.dir
+      size: 450418
+      nfiles: 19
+    - path: outputs/frozen/cohort.json
+      hash: md5
+      md5: 93ffa2cb3c14d709261afad2e3e56490
+      size: 7040
+    - path: package.json
+      hash: md5
+      md5: c6fd5991eb42dbfd3b0e5d088ca06c32
+      size: 513
+    - path: scripts/run-vale.sh
+      hash: md5
+      md5: cd5003ff889b2fdd098bd64011065f3b
+      size: 268
+      isexec: true
+    - path: src/files.ts
+      hash: md5
+      md5: fce85952c262353a104b1705fc30ddc6
+      size: 2954
+    - path: src/run-vale.ts
+      hash: md5
+      md5: cc35322334ef3d1015cf39edcd906f56
+      size: 11943
+    - path: src/schemas.ts
+      hash: md5
+      md5: a289d1db7e9d57d033c3174acf5227bc
+      size: 19061
+    params:
+      params.yaml:
+        producers.vale:
+          binaryVersion: 3.20.0
+          timeoutMs: 300000
+    outs:
+    - path: outputs/producers/vale.json
+      hash: md5
+      md5: 738169103b5b7fb19c576725d2049c85
+      size: 46348
+  match_edits:
+    cmd: bash scripts/match-edits.sh
+    deps:
+    - path: ../../packages/writing-editor-domain/package.json
+      hash: md5
+      md5: 9e1385bf0bb13eada79607c5126dbf4b
+      size: 767
+    - path: ../../packages/writing-editor-domain/src/canonical-json.ts
+      hash: md5
+      md5: f713bc7d6da316d2ebfeb10a77e0fb31
+      size: 1638
+    - path: ../../packages/writing-editor-domain/src/findings.ts
+      hash: md5
+      md5: 5bb634381e00b3c01794f50b67e21095
+      size: 4629
+    - path: ../../packages/writing-editor-domain/src/suggestions.ts
+      hash: md5
+      md5: d0d064a3be87e2ce1256b3c17b004405
+      size: 6579
+    - path: ../../pnpm-lock.yaml
+      hash: md5
+      md5: 65baed628bc0321f32b3b975da70942f
+      size: 530989
+    - path: data/corpus
+      hash: md5
+      md5: fcf34283092033752f464264434c0174.dir
+      size: 450418
+      nfiles: 19
+    - path: outputs/frozen/cohort.json
+      hash: md5
+      md5: 93ffa2cb3c14d709261afad2e3e56490
+      size: 7040
+    - path: outputs/producers/vale.json
+      hash: md5
+      md5: 738169103b5b7fb19c576725d2049c85
+      size: 46348
+    - path: package.json
+      hash: md5
+      md5: c6fd5991eb42dbfd3b0e5d088ca06c32
+      size: 513
+    - path: scripts/match-edits.sh
+      hash: md5
+      md5: a7af8b2496e3e3fad8bf89e59f8384b5
+      size: 244
+      isexec: true
+    - path: src/files.ts
+      hash: md5
+      md5: fce85952c262353a104b1705fc30ddc6
+      size: 2954
+    - path: src/match-edits.ts
+      hash: md5
+      md5: 1f85bda15bea599b998ca5a847417af8
+      size: 13570
+    - path: src/schemas.ts
+      hash: md5
+      md5: a289d1db7e9d57d033c3174acf5227bc
+      size: 19061
+    params:
+      params.yaml:
+        matching.characterDiff:
+          maxEditLength: 10000
+    outs:
+    - path: outputs/matched/vale.json
+      hash: md5
+      md5: 6f6c99d8b416337298f9aca7ab2af3d0
+      size: 213429

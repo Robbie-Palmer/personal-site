@@ -8,5 +8,16 @@
       "holdout": 0.2
     },
     "requiredArtifactTypes": ["adr", "project-page"]
+  },
+  "producers": {
+    "vale": {
+      "binaryVersion": "3.20.0",
+      "timeoutMs": 300000
+    }
+  },
+  "matching": {
+    "characterDiff": {
+      "maxEditLength": 10000
+    }
   }
 }

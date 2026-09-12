@@ -8,6 +8,7 @@
     ".": "./src/index.ts",
     "./canonical-json": "./src/canonical-json.ts",
     "./decisions": "./src/decisions.ts",
+    "./findings": "./src/findings.ts",
     "./proposals": "./src/proposals.ts",
     "./suggestions": "./src/suggestions.ts"
   },

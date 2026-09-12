@@ -332,6 +332,9 @@ importers:
 
   ml-pipelines/writing-editor-evaluation:
     dependencies:
+      diff:
+        specifier: ^9.0.0
+        version: 9.0.0
       writing-editor-domain:
         specifier: workspace:*
         version: link:../../packages/writing-editor-domain
@@ -4599,6 +4602,10 @@ packages:
 
   devtools-protocol@0.0.1666840:
     resolution: {integrity: sha512-gCcO42XCHKEs7Ag0S7aGYsnJ7hlgrO3qderYqeiY0Eqk+0GFfuvT13IA0hHreJTa2KCdDVyGMeOhdMNmrrTjVg==}
+
+  diff@9.0.0:
+    resolution: {integrity: sha512-svtcdpS8CgJyqAjEQIXdb3OjhFVVYjzGAPO8WGCmRbrml64SPw/jJD4GoE98aR7r25A0XcgrK3F02yw9R/vhQw==}
+    engines: {node: '>=0.3.1'}
 
   dir-glob@3.0.1:
     resolution: {integrity: sha512-WkrWp9GR4KXfKGYzOLmTuGVi1UWFfws377n9cc55/tb6DuqyF6pcQ5AbiHEshaDpY9v6oaSr2XCDidGmMwdzIA==}
@@ -11375,6 +11382,8 @@ snapshots:
   devtools-protocol@0.0.1663043: {}
 
   devtools-protocol@0.0.1666840: {}
+
+  diff@9.0.0: {}
 
   dir-glob@3.0.1:
     dependencies:
