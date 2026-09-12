@@ -211,6 +211,7 @@ TEST_CASE("baseline records that reset clears the safe-disabled latch") {
   trace.frames[0].health_updates.push_back({1U, HealthStatus::Fatal});
   trace.frames[1].health_updates.push_back({1U, HealthStatus::Nominal});
   trace.frames[1].node_resets.push_back({1U});
+  const BootEpoch initial_boot_epoch = trace.nodes[1].boot_epoch;
 
   const SimulationResult result = runSimulationTrace(trace);
   const bool safe_disabled_survives_reset =
@@ -219,7 +220,7 @@ TEST_CASE("baseline records that reset clears the safe-disabled latch") {
   REQUIRE(result.frames[0].nodes[1].state == ControllerState::SafeDisabled);
   CHECK_FALSE(safe_disabled_survives_reset);
   CHECK(result.frames[1].nodes[1].state == ControllerState::Idle);
-  CHECK(result.frames[1].nodes[1].boot_epoch == 22U);
+  CHECK(result.frames[1].nodes[1].boot_epoch == initial_boot_epoch + 1U);
 }
 
 TEST_CASE("baseline records that delayed mission requests have no expiry") {
