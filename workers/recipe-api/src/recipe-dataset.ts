@@ -14,6 +14,24 @@ type Frequency = {
   recipes: Set<string>;
 };
 
+type SavedRecipePayload = ReturnType<typeof SavedRecipePayloadSchema.parse>;
+
+type RecipeSampleRow = {
+  id: string;
+  body: string | null;
+};
+
+function parseRecipeBody(body: string | null) {
+  let decoded: unknown;
+  try {
+    decoded = body ? JSON.parse(body) : undefined;
+  } catch {
+    return undefined;
+  }
+  const payload = SavedRecipePayloadSchema.safeParse(decoded);
+  return payload.success ? payload.data : undefined;
+}
+
 function recordFrequency(
   frequencies: Map<string, Frequency>,
   label: string,
@@ -48,6 +66,66 @@ function topFrequencies(
     .slice(0, limit);
 }
 
+function recordRecipeSample(
+  aggregation: ReturnType<typeof createSampleAggregation>,
+  recipeId: string,
+  payload: SavedRecipePayload,
+) {
+  aggregation.parseQuality.validPayloads += 1;
+  if (payload.recipe.instructionSdk) {
+    aggregation.parseQuality.withInstructionSdk += 1;
+  }
+  if (payload.recipe.canonical) aggregation.provenance.withCanonicalUrl += 1;
+  else aggregation.provenance.withoutCanonicalUrl += 1;
+
+  const recipeIngredients = new Set(
+    payload.recipe.ingredientGroups.flatMap((group) =>
+      group.items.map((item) => item.ingredient),
+    ),
+  );
+  if (recipeIngredients.size > 0) aggregation.coverage.withIngredients += 1;
+  if (payload.recipe.cuisine.length > 0) aggregation.coverage.withCuisine += 1;
+  if (payload.recipe.cookware.length > 0) aggregation.coverage.withCookware += 1;
+
+  for (const ingredient of recipeIngredients) {
+    recordFrequency(aggregation.ingredients, ingredient, recipeId);
+  }
+  for (const cuisine of new Set(payload.recipe.cuisine)) {
+    recordFrequency(aggregation.cuisines, cuisine, recipeId);
+  }
+}
+
+function createSampleAggregation() {
+  return {
+    parseQuality: {
+      validPayloads: 0,
+      invalidPayloads: 0,
+      withInstructionSdk: 0,
+    },
+    provenance: { withCanonicalUrl: 0, withoutCanonicalUrl: 0 },
+    coverage: {
+      withCuisine: 0,
+      withIngredients: 0,
+      withCookware: 0,
+    },
+    ingredients: new Map<string, Frequency>(),
+    cuisines: new Map<string, Frequency>(),
+  };
+}
+
+function inspectRecipeSample(rows: RecipeSampleRow[]) {
+  const aggregation = createSampleAggregation();
+  for (const row of rows) {
+    const payload = parseRecipeBody(row.body);
+    if (!payload) {
+      aggregation.parseQuality.invalidPayloads += 1;
+      continue;
+    }
+    recordRecipeSample(aggregation, row.id, payload);
+  }
+  return aggregation;
+}
+
 export async function inspectRecipeDataset(
   db: Db,
   userId: string,
@@ -79,58 +157,8 @@ export async function inspectRecipeDataset(
         .where(visibilityFilter)
         .orderBy(desc(schema.recipe.updatedAt), desc(schema.recipe.id))
         .limit(options.sampleSize);
-
-      const parseQuality = {
-        validPayloads: 0,
-        invalidPayloads: 0,
-        withInstructionSdk: 0,
-      };
-      const provenance = { withCanonicalUrl: 0, withoutCanonicalUrl: 0 };
-      const coverage = {
-        withCuisine: 0,
-        withIngredients: 0,
-        withCookware: 0,
-      };
-      const ingredients = new Map<string, Frequency>();
-      const cuisines = new Map<string, Frequency>();
-
-      for (const row of rows) {
-        let decoded: unknown;
-        try {
-          decoded = row.body ? JSON.parse(row.body) : undefined;
-        } catch {
-          parseQuality.invalidPayloads += 1;
-          continue;
-        }
-        const payload = SavedRecipePayloadSchema.safeParse(decoded);
-        if (!payload.success) {
-          parseQuality.invalidPayloads += 1;
-          continue;
-        }
-
-        parseQuality.validPayloads += 1;
-        if (payload.data.recipe.instructionSdk) {
-          parseQuality.withInstructionSdk += 1;
-        }
-        if (payload.data.recipe.canonical) provenance.withCanonicalUrl += 1;
-        else provenance.withoutCanonicalUrl += 1;
-
-        const recipeIngredients = new Set(
-          payload.data.recipe.ingredientGroups.flatMap((group) =>
-            group.items.map((item) => item.ingredient),
-          ),
-        );
-        if (recipeIngredients.size > 0) coverage.withIngredients += 1;
-        if (payload.data.recipe.cuisine.length > 0) coverage.withCuisine += 1;
-        if (payload.data.recipe.cookware.length > 0) coverage.withCookware += 1;
-
-        for (const ingredient of recipeIngredients) {
-          recordFrequency(ingredients, ingredient, row.id);
-        }
-        for (const cuisine of new Set(payload.data.recipe.cuisine)) {
-          recordFrequency(cuisines, cuisine, row.id);
-        }
-      }
+      const { parseQuality, provenance, coverage, ingredients, cuisines } =
+        inspectRecipeSample(rows);
 
       return {
         population: {
