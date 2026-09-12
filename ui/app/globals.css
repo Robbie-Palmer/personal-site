@@ -395,6 +395,7 @@ code[data-line-numbers-max-digits="3"] > [data-line]::before {
   .home-project-artifact {
     opacity: 0.29;
     animation: none;
+    will-change: auto;
   }
 
   .artifact-capture__bar {
@@ -487,6 +488,7 @@ code[data-line-numbers-max-digits="3"] > [data-line]::before {
 
   .home-project-artifact {
     animation: none;
+    will-change: auto;
   }
 }
 
