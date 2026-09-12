@@ -1,7 +1,7 @@
 ---
 title: "ADR 022: Ansible as a bridge to K3s"
 date: "2026-09-01"
-status: "Proposed"
+status: "Accepted"
 tech_stack: ["Ansible"]
 ---
 
@@ -222,26 +222,6 @@ as encoded blobs.
    K3s agent. Do not make it an etcd member while it uses the SD card.
 7. Remove bridge roles when NixOS, nix-darwin, Colima configuration, or K3s
    manifests take over their state.
-
-## Pilot acceptance criteria
-
-Keep this ADR Proposed until the bridge proves these points:
-
-* Inventory reaches the Mac mini, Raspberry Pi, and Asus desktop by tailnet
-  name and names each missing prerequisite.
-* A read-only command reports the health of both DNS resolvers, CUPS, Netdata,
-  the latest Ente export, other Mac workloads, and the Asus GPU path.
-* The Ente wrapper and launchd definition are reproducible without committing
-  credentials, and the job refuses to start when the 10 TB destination is not
-  mounted.
-* Ansible can reproduce the Mac prerequisites for the isolated K3s pilot.
-* The Asus play deploys an exact flake revision and verifies a CUDA 12
-  container without restating NixOS configuration.
-* A second run against stable state reports zero changes.
-* No K3s workload has two competing definitions in Ansible and Kubernetes.
-* Each temporary role names the event that allows its deletion.
-* The bridge removes at least one existing bootstrap script.
-* Normal and verbose logs expose no secret.
 
 # Alternatives considered
 

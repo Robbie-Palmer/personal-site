@@ -97,11 +97,86 @@
   loop_control:
     label: "{{ item.path }}"
 
+- name: Inspect the isolated Colima K3s profile configuration
+  ansible.builtin.stat:
+    path: "{{ ansible_facts.env.HOME }}/.colima/{{ colima_k3s_profile }}/colima.yaml"
+  register: colima_k3s_profile_config_file
+
+- name: Initialize the isolated Colima K3s profile configuration
+  ansible.builtin.set_fact:
+    colima_k3s_existing_profile_config: {}
+
+- name: Read the isolated Colima K3s profile configuration
+  ansible.builtin.slurp:
+    src: "{{ ansible_facts.env.HOME }}/.colima/{{ colima_k3s_profile }}/colima.yaml"
+  register: colima_k3s_profile_config_content
+  when: colima_k3s_profile_config_file.stat.exists
+
+- name: Parse the isolated Colima K3s profile configuration
+  ansible.builtin.set_fact:
+    colima_k3s_existing_profile_config: >-
+      {{ colima_k3s_profile_config_content.content | b64decode | from_yaml }}
+  when: colima_k3s_profile_config_file.stat.exists
+
+- name: Render the managed Colima K3s profile configuration
+  ansible.builtin.set_fact:
+    colima_k3s_desired_profile_config: >-
+      {{ lookup('ansible.builtin.template', 'colima.yaml.j2') | from_yaml }}
+
+# Colima writes its default fields and comments back into this file on startup.
+# Compare only the values owned by the compact template to avoid a restart loop.
+- name: Determine whether the isolated Colima K3s profile needs an update
+  ansible.builtin.set_fact:
+    colima_k3s_profile_needs_update: >-
+      {{
+        not colima_k3s_profile_config_file.stat.exists
+        or colima_k3s_profile_config_file.stat.mode != '0600'
+        or colima_k3s_existing_profile_config.get('cpu')
+          != colima_k3s_desired_profile_config.get('cpu')
+        or colima_k3s_existing_profile_config.get('disk')
+          != colima_k3s_desired_profile_config.get('disk')
+        or colima_k3s_existing_profile_config.get('memory')
+          != colima_k3s_desired_profile_config.get('memory')
+        or colima_k3s_existing_profile_config.get('arch')
+          != colima_k3s_desired_profile_config.get('arch')
+        or colima_k3s_existing_profile_config.get('runtime')
+          != colima_k3s_desired_profile_config.get('runtime')
+        or colima_k3s_existing_profile_config.get('hostname')
+          != colima_k3s_desired_profile_config.get('hostname')
+        or colima_k3s_existing_profile_config.get('vmType')
+          != colima_k3s_desired_profile_config.get('vmType')
+        or colima_k3s_existing_profile_config.get('mountType')
+          != colima_k3s_desired_profile_config.get('mountType')
+        or colima_k3s_existing_profile_config.get('portForwarder')
+          != colima_k3s_desired_profile_config.get('portForwarder')
+        or colima_k3s_existing_profile_config.get('autoActivate')
+          != colima_k3s_desired_profile_config.get('autoActivate')
+        or colima_k3s_existing_profile_config.get('forwardAgent')
+          != colima_k3s_desired_profile_config.get('forwardAgent')
+        or colima_k3s_existing_profile_config.get('sshConfig')
+          != colima_k3s_desired_profile_config.get('sshConfig')
+        or colima_k3s_existing_profile_config.get('network', {}).get('address')
+          != colima_k3s_desired_profile_config.get('network', {}).get('address')
+        or colima_k3s_existing_profile_config.get('network', {}).get('mode')
+          != colima_k3s_desired_profile_config.get('network', {}).get('mode')
+        or colima_k3s_existing_profile_config.get('mounts', [])
+          != colima_k3s_desired_profile_config.get('mounts', [])
+        or colima_k3s_existing_profile_config.get('kubernetes', {}).get('enabled')
+          != colima_k3s_desired_profile_config.get('kubernetes', {}).get('enabled')
+        or colima_k3s_existing_profile_config.get('kubernetes', {}).get('version')
+          != colima_k3s_desired_profile_config.get('kubernetes', {}).get('version')
+        or colima_k3s_existing_profile_config.get('kubernetes', {}).get('port')
+          != colima_k3s_desired_profile_config.get('kubernetes', {}).get('port')
+        or colima_k3s_existing_profile_config.get('kubernetes', {}).get('k3sArgs', [])
+          != colima_k3s_desired_profile_config.get('kubernetes', {}).get('k3sArgs', [])
+      }}
+
 - name: Install the isolated Colima K3s profile
   ansible.builtin.template:
     src: colima.yaml.j2
     dest: "{{ ansible_facts.env.HOME }}/.colima/{{ colima_k3s_profile }}/colima.yaml"
     mode: "0600"
+  when: colima_k3s_profile_needs_update
   notify: Restart the managed Colima K3s profile
 
 - name: Install the Colima K3s launch wrapper
@@ -178,7 +253,7 @@
   retries: 60
   until: >-
     colima_k3s_nodes.rc == 0
-    and (colima_k3s_nodes.stdout | from_json).items | length == 1
+    and ((colima_k3s_nodes.stdout | from_json)['items'] | length) == 1
   when: not ansible_check_mode
 
 - name: Wait for the K3s node to become ready
@@ -215,7 +290,7 @@
 - name: Require one ready K3s control-plane node
   ansible.builtin.assert:
     that:
-      - (colima_k3s_ready_nodes.stdout | from_json).items | length == 1
+      - ((colima_k3s_ready_nodes.stdout | from_json)['items'] | length) == 1
     fail_msg: The isolated Colima profile must have exactly one K3s control-plane node.
   when: not ansible_check_mode
 
@@ -227,7 +302,7 @@
       - "{{ colima_k3s_context }}"
       - label
       - node
-      - "{{ (colima_k3s_ready_nodes.stdout | from_json).items[0].metadata.name }}"
+      - "{{ (colima_k3s_ready_nodes.stdout | from_json)['items'][0].metadata.name }}"
       - "{{ item.key }}={{ item.value }}"
       - --overwrite
   changed_when: true
@@ -237,7 +312,7 @@
   when:
     - not ansible_check_mode
     - >-
-      (colima_k3s_ready_nodes.stdout | from_json).items[0].metadata.labels[item.key]
+      (colima_k3s_ready_nodes.stdout | from_json)['items'][0].metadata.labels[item.key]
       | default('') != item.value
 
 - name: Inspect the reconciled K3s node
@@ -259,7 +334,7 @@
   ansible.builtin.assert:
     that:
       - >-
-        (colima_k3s_reconciled_nodes.stdout | from_json).items[0].metadata.labels[item.key]
+        (colima_k3s_reconciled_nodes.stdout | from_json)['items'][0].metadata.labels[item.key]
         | default('') == item.value
     fail_msg: "The Colima K3s node is missing {{ item.key }}={{ item.value }}."
   loop: "{{ colima_k3s_node_labels | dict2items }}"

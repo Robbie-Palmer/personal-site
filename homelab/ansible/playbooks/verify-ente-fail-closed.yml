@@ -1,5 +1,5 @@
 ---
-- name: Verify that Ente export fails before execution without its expected volume
+- name: Verify the Ente export safety guards
   hosts: mac-mini
   gather_facts: true
   tasks:
@@ -61,6 +61,73 @@
               - "'expected export volume is not mounted' in ente_fail_closed_result.stderr"
               - not ente_fail_closed_success_marker.stat.exists
             fail_msg: The Ente wrapper did not fail closed when its expected volume was absent.
+
+        - name: Inspect the root volume identifier
+          ansible.builtin.command:
+            argv:
+              - /usr/sbin/diskutil
+              - info
+              - -plist
+              - /
+          changed_when: false
+          register: ente_timeout_mount_info
+
+        - name: Read the root volume UUID
+          ansible.builtin.command:
+            argv:
+              - /usr/bin/plutil
+              - -extract
+              - VolumeUUID
+              - raw
+              - "-"
+            stdin: "{{ ente_timeout_mount_info.stdout }}"
+          changed_when: false
+          register: ente_timeout_mount_uuid
+
+        - name: Install an Ente fixture that ignores inherited alarms
+          ansible.builtin.copy:
+            dest: "{{ ente_fail_closed_directory.path }}/fake-ente.sh"
+            mode: "0700"
+            content: |
+              #!/bin/bash
+              trap '' ALRM
+              /bin/sleep 5
+
+        - name: Render the production wrapper with a timeout fixture
+          ansible.builtin.template:
+            src: "{{ playbook_dir }}/../roles/ente_export/templates/ente-export.sh.j2"
+            dest: "{{ ente_fail_closed_directory.path }}/ente-export-timeout.sh"
+            mode: "0700"
+            validate: /bin/bash -n %s
+          vars:
+            ente_cli_binary_path: "{{ ente_fail_closed_directory.path }}/fake-ente.sh"
+            ente_cli_config_path: "{{ ente_fail_closed_directory.path }}/ente-cli.db"
+            ente_export_mount_path: /
+            ente_export_mount_uuid: "{{ ente_timeout_mount_uuid.stdout }}"
+            ente_export_path: "{{ ente_fail_closed_directory.path }}/export"
+            ente_export_state_dir: "{{ ente_fail_closed_directory.path }}/timeout-state"
+            ente_export_max_runtime_seconds: 1
+
+        - name: Run the wrapper against the timeout fixture
+          ansible.builtin.command:
+            argv:
+              - "{{ ente_fail_closed_directory.path }}/ente-export-timeout.sh"
+          changed_when: false
+          failed_when: false
+          register: ente_timeout_result
+
+        - name: Inspect the timeout fixture success marker
+          ansible.builtin.stat:
+            path: "{{ ente_fail_closed_directory.path }}/timeout-state/last-success"
+          register: ente_timeout_success_marker
+
+        - name: Require the wrapper to enforce its runtime limit
+          ansible.builtin.assert:
+            that:
+              - ente_timeout_result.rc != 0
+              - "'exceeded the 1-second runtime limit' in ente_timeout_result.stderr"
+              - not ente_timeout_success_marker.stat.exists
+            fail_msg: The Ente wrapper did not terminate an export that ignored inherited alarms.
       always:
         - name: Remove disposable Ente verification state
           ansible.builtin.file:

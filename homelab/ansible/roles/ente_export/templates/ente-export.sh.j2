@@ -57,7 +57,47 @@ RUN_OUTPUT="$(/usr/bin/mktemp "${STATE_DIR}/run.XXXXXX")"
 echo "[$(timestamp)] starting Ente export"
 
 set +e
-/usr/bin/perl -e 'alarm shift; exec @ARGV' "$MAX_RUNTIME_SECONDS" "$ENTE_BIN" export \
+/usr/bin/perl -e '
+  use strict;
+  use warnings;
+  use Errno qw(EINTR);
+
+  my $timeout = shift @ARGV;
+  my $child = fork();
+  die "could not fork Ente CLI: $!\n" unless defined $child;
+
+  if ($child == 0) {
+    exec @ARGV;
+    exit 127;
+  }
+
+  my $timed_out = 0;
+  $SIG{ALRM} = sub {
+    if ($timed_out) {
+      kill "KILL", $child;
+      return;
+    }
+
+    $timed_out = 1;
+    kill "TERM", $child;
+    alarm 5;
+  };
+
+  alarm $timeout;
+  my $waited;
+  while (1) {
+    $waited = waitpid($child, 0);
+    last if $waited == $child;
+    next if $waited == -1 && $! == EINTR;
+    die "could not wait for Ente CLI: $!\n";
+  }
+  my $status = $?;
+  alarm 0;
+
+  exit 142 if $timed_out;
+  exit 128 + ($status & 127) if $status & 127;
+  exit $status >> 8;
+' "$MAX_RUNTIME_SECONDS" "$ENTE_BIN" export \
   2>&1 | /usr/bin/tee "$RUN_OUTPUT"
 export_status="${PIPESTATUS[0]}"
 set -e

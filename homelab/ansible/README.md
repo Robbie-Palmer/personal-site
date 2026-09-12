@@ -60,6 +60,10 @@ an atomic process lock, caps each run at 30 minutes, and writes non-secret
 success and failure timestamps. The health job sends mount, freshness, and
 last-run gauges to Netdata once per minute.
 
+The `ente_export` role is temporary. Delete it after the export schedule,
+mount guard, runtime watchdog, and monitoring are owned by a K3s CronJob or
+another checked-in host configuration and the launchd jobs have been retired.
+
 The verification playbook reads marker metadata only. Normal and verbose
 Ansible output does not print the launchd job, mount table, or marker path.
 
@@ -106,9 +110,10 @@ mise run //homelab:ansible-verify
 ```
 
 The second configuration run must report `changed=0`. The fail-closed test
-uses a disposable directory, dummy configuration, `/usr/bin/false` in place
-of Ente, and an impossible volume UUID. It neither unmounts the photo disk nor
-starts an export.
+uses disposable directories and dummy configuration to exercise the absent
+volume guard and the runtime limit. Its timeout fixture ignores inherited
+`SIGALRM`, proving that the parent watchdog terminates the export. The test
+neither unmounts the photo disk nor starts a real export.
 
 Before changing ADR 022 to Accepted, run the two verification playbooks in
 verbose mode and inspect the output for account identifiers, tokens, and

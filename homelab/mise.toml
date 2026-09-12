@@ -66,7 +66,7 @@ dir = "ansible"
 run = "ansible-playbook playbooks/configure-mac.yml --diff"
 
 [tasks.ansible-verify-ente-fail-closed]
-description = "Prove the Ente wrapper stops before export when its expected volume is absent"
+description = "Prove the Ente wrapper rejects an absent volume and enforces its runtime limit"
 dir = "ansible"
 run = "ansible-playbook playbooks/verify-ente-fail-closed.yml"
 
