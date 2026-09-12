@@ -89,7 +89,9 @@ async function waitForImagery(requests, page) {
     if (requests.some(({ category }) => category === "imagery")) return;
     await page.waitForTimeout(100);
   }
-  throw new Error("Cesium did not request its self-hosted Natural Earth imagery");
+  throw new Error(
+    "Cesium did not request its self-hosted Natural Earth imagery",
+  );
 }
 
 async function responseSize(response) {
@@ -204,7 +206,9 @@ async function auditProfile(browser, profile) {
     captureSimulationResources = true;
     const startedAt = await page.evaluate(() => performance.now());
     await page.getByRole("button", { name: "Load simulation" }).click();
-    await page.getByText("South Pole mission replay", { exact: true }).waitFor();
+    await page
+      .getByText("South Pole mission replay", { exact: true })
+      .waitFor();
     await page.locator(".cesium-widget canvas").waitFor({ state: "visible" });
     await waitForImagery(requests, page);
     const firstGlobeMs = await page.evaluate(
@@ -223,7 +227,9 @@ async function auditProfile(browser, profile) {
       !sourceRevisionPattern.test(fullRevision) ||
       sourceRevision !== fullRevision.slice(0, 12)
     ) {
-      throw new Error("The simulation did not display its exact source revision");
+      throw new Error(
+        "The simulation did not display its exact source revision",
+      );
     }
     if (expectedSourceRevision && fullRevision !== expectedSourceRevision) {
       throw new Error(
@@ -269,7 +275,9 @@ async function auditProfile(browser, profile) {
 
     const resources = Object.fromEntries(
       ["javaScript", "webAssembly", "imagery"].map((category) => {
-        const matching = requests.filter((request) => request.category === category);
+        const matching = requests.filter(
+          (request) => request.category === category,
+        );
         return [
           category,
           {

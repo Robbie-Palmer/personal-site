@@ -12,6 +12,7 @@
       "components/**",
       "content/**",
       "!content/projects/*/designs",
+      "e2e/**",
       "hooks/**",
       "lib/**",
       "tests/**",

@@ -87,6 +87,20 @@ import {
   markInvitationNotificationRead,
   notifyAgentRegistrationApproval,
 } from "./notifications";
+import {
+  findPantryAggregate,
+  MAX_PANTRY_ITEMS,
+  pantryAggregateScopeFilter,
+  type PantryLocation,
+  type PantryResponse,
+  pantryResourceId,
+  pantryResponseForScope,
+  type PantryScope,
+  pantryScopeFilter,
+  readPantry,
+  resolvePantryScope,
+} from "./pantry";
+import { readableRecipeFilter } from "./recipe-access";
 import { fetchRecipePage, RecipeUrlImportError } from "./recipe-url-import";
 import {
   type PantryChangeKind,
@@ -130,24 +144,6 @@ type RecipeImportJob = typeof schema.recipeImportJob.$inferSelect;
 type Household = typeof schema.organization.$inferSelect;
 type HouseholdMember = typeof schema.member.$inferSelect;
 type HouseholdInvitation = typeof schema.invitation.$inferSelect;
-type PantryLocation = (typeof schema.pantryLocationEnum.enumValues)[number];
-type PantryScope =
-  | { type: "personal"; userId: string }
-  | {
-      type: "household";
-      householdId: string;
-      householdName: string;
-    };
-type PantryResponse = {
-  resourceId: string;
-  revision: string;
-  operationId?: string;
-  scope:
-    | { type: "personal" }
-    | { type: "household"; household: { id: string; name: string } };
-  stock: Record<string, PantryLocation>;
-  itemVersions: Record<string, string>;
-};
 type ShoppingListSnapshot = typeof schema.shoppingList.$inferInsert.snapshot;
 type ShoppingListResponse = {
   id: string;
@@ -428,8 +424,8 @@ const pantryStockBodySchema = z
   .object({
     stock: z
       .record(pantryIngredientSlugSchema, pantryLocationSchema)
-      .refine((stock) => Object.keys(stock).length <= 500, {
-        message: "A pantry can contain at most 500 ingredients",
+      .refine((stock) => Object.keys(stock).length <= MAX_PANTRY_ITEMS, {
+        message: `A pantry can contain at most ${MAX_PANTRY_ITEMS} ingredients`,
       }),
   })
   .strict();
@@ -1360,37 +1356,6 @@ async function findRecipeBySlug(
   return recipe;
 }
 
-async function readableRecipeFilter(
-  db: Db,
-  userId: string | undefined,
-): Promise<SQL | undefined> {
-  if (!userId) return eq(schema.recipe.visibility, "public");
-
-  const householdMembership = await findUserHouseholdMembership(db, userId);
-  const householdMemberIds = householdMembership
-    ? await findHouseholdMemberUserIds(
-        db,
-        householdMembership.organizationId,
-      )
-    : [];
-
-  const householdFilter =
-    householdMemberIds.length > 0
-      ? and(
-          eq(schema.recipe.visibility, "household"),
-          inArray(schema.recipe.userId, householdMemberIds),
-        )
-      : undefined;
-
-  return householdFilter
-    ? or(
-        eq(schema.recipe.visibility, "public"),
-        eq(schema.recipe.userId, userId),
-        householdFilter,
-      )
-    : or(eq(schema.recipe.visibility, "public"), eq(schema.recipe.userId, userId));
-}
-
 async function listRecipesPage(
   db: Db,
   visibilityFilter: SQL | undefined,
@@ -1496,49 +1461,6 @@ async function lockHousehold(
   return Boolean(household);
 }
 
-async function resolvePantryScope(
-  db: Pick<Db, "select">,
-  userId: string,
-): Promise<PantryScope> {
-  const [scope] = await db
-    .select({
-      householdId: schema.organization.id,
-      householdName: schema.organization.name,
-    })
-    .from(schema.member)
-    .leftJoin(
-      schema.organization,
-      eq(schema.member.organizationId, schema.organization.id),
-    )
-    .where(eq(schema.member.userId, userId))
-    .limit(1);
-  if (!scope) return { type: "personal", userId };
-  if (!scope.householdId || !scope.householdName) {
-    throw new Error("Household membership has no household");
-  }
-  return {
-    type: "household",
-    householdId: scope.householdId,
-    householdName: scope.householdName,
-  };
-}
-
-function pantryScopeFilter(scope: PantryScope): SQL {
-  return scope.type === "household"
-    ? eq(schema.pantryItem.organizationId, scope.householdId)
-    : eq(schema.pantryItem.userId, scope.userId);
-}
-
-function pantryAggregateScopeFilter(scope: PantryScope): SQL {
-  return scope.type === "household"
-    ? eq(schema.pantryAggregate.organizationId, scope.householdId)
-    : eq(schema.pantryAggregate.userId, scope.userId);
-}
-
-function pantryResourceId(scope: PantryScope): string {
-  return scope.type === "household" ? scope.householdId : scope.userId;
-}
-
 const EMPTY_SHOPPING_LIST: ShoppingListSnapshot = {
   recipes: [],
   checked: [],
@@ -1634,21 +1556,6 @@ async function lockPantryScope(
   return scope;
 }
 
-async function findPantryAggregate(
-  db: Pick<Db, "select">,
-  scope: PantryScope,
-) {
-  const [aggregate] = await db
-    .select({
-      id: schema.pantryAggregate.id,
-      revision: schema.pantryAggregate.revision,
-    })
-    .from(schema.pantryAggregate)
-    .where(pantryAggregateScopeFilter(scope))
-    .limit(1);
-  return aggregate;
-}
-
 async function ensurePantryAggregate(tx: DbTransaction, scope: PantryScope) {
   const [created] = await tx
     .insert(schema.pantryAggregate)
@@ -1687,57 +1594,6 @@ async function clearPantryOperationsForScope(
     .where(eq(schema.pantryOperation.aggregateId, aggregate.id));
 }
 
-async function pantryResponseForScope(
-  db: Pick<Db, "select">,
-  scope: PantryScope,
-  options: { operationId?: string; revision?: bigint } = {},
-): Promise<PantryResponse> {
-  const items = await db
-    .select({
-      ingredientSlug: schema.pantryItem.ingredientSlug,
-      location: schema.pantryItem.location,
-      version: schema.pantryItem.version,
-    })
-    .from(schema.pantryItem)
-    .where(pantryScopeFilter(scope));
-
-  const revision =
-    options.revision ?? (await findPantryAggregate(db, scope))?.revision ?? 0n;
-
-  return {
-    resourceId: pantryResourceId(scope),
-    revision: revision.toString(),
-    ...(options.operationId ? { operationId: options.operationId } : {}),
-    scope:
-      scope.type === "household"
-        ? {
-            type: scope.type,
-            household: {
-              id: scope.householdId,
-              name: scope.householdName,
-            },
-          }
-        : { type: scope.type },
-    stock: Object.fromEntries(
-      items.map(({ ingredientSlug, location }) => [ingredientSlug, location]),
-    ) as Record<string, PantryLocation>,
-    itemVersions: Object.fromEntries(
-      items.map(({ ingredientSlug, version }) => [
-        ingredientSlug,
-        version.toString(),
-      ]),
-    ),
-  };
-}
-
-async function pantryResponse(db: Db, userId: string) {
-  return db.transaction(
-    async (tx) =>
-      pantryResponseForScope(tx, await resolvePantryScope(tx, userId)),
-    { accessMode: "read only", isolationLevel: "repeatable read" },
-  );
-}
-
 class PantryOperationConflictError extends Error {
   constructor() {
     super("Operation ID was already used for a different pantry command");
@@ -1748,6 +1604,24 @@ class UnknownPantryIngredientError extends Error {
   constructor(readonly ingredientSlug: string) {
     super(`Unknown ingredient: ${ingredientSlug}`);
   }
+}
+
+class PantryItemLimitError extends Error {
+  constructor() {
+    super(`A pantry can contain at most ${MAX_PANTRY_ITEMS} ingredients`);
+  }
+}
+
+async function enforcePantryItemLimit(
+  tx: DbTransaction,
+  scope: PantryScope,
+): Promise<void> {
+  const items = await tx
+    .select({ ingredientSlug: schema.pantryItem.ingredientSlug })
+    .from(schema.pantryItem)
+    .where(pantryScopeFilter(scope))
+    .limit(MAX_PANTRY_ITEMS + 1);
+  if (items.length > MAX_PANTRY_ITEMS) throw new PantryItemLimitError();
 }
 
 function pantryOperationId(c: Context<AppEnv>): string | Response {
@@ -1809,6 +1683,7 @@ async function executePantryOperation(
     }
 
     await mutate(tx, scope);
+    await enforcePantryItemLimit(tx, scope);
     const [updatedAggregate] = await tx
       .update(schema.pantryAggregate)
       .set({
@@ -1978,6 +1853,9 @@ function pantryMutationErrorResponse(c: Context<AppEnv>, error: unknown) {
   }
   if (error instanceof UnknownPantryIngredientError) {
     return c.json({ error: error.message }, 400);
+  }
+  if (error instanceof PantryItemLimitError) {
+    return c.json({ error: error.message }, 409);
   }
   return undefined;
 }
@@ -3362,9 +3240,6 @@ registerRoute("get", "/api/profile/bootstrap", async (c) => {
       c.header("Cache-Control", "private, no-store");
       const userId = session.user.id;
       const visibilityFilter = await readableRecipeFilter(db, userId);
-      if (!visibilityFilter) {
-        throw new Error("Authenticated recipe visibility filter is missing");
-      }
 
       const [
         ownedRecipes,
@@ -3633,7 +3508,7 @@ registerRoute("get", "/pantry", async (c) => {
     async ({ db, session }) => {
       c.header("Cache-Control", "private, no-store");
       const pantry = await withRecipeApiSpan(c, "pantry.read.query", () =>
-        pantryResponse(db, session.user.id),
+        readPantry(db, session.user.id),
       );
       return withRecipeApiSpan(c, "http.response.serialize", async () =>
         c.json(pantry),

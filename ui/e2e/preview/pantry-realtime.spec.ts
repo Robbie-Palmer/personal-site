@@ -1,19 +1,17 @@
 import {
-  expect,
-  test,
   type Browser,
   type BrowserContext,
+  expect,
   type Page,
+  test,
   type WebSocket,
 } from "@playwright/test";
-import { requiredEnv } from "node-base/env";
+import {
+  createPreviewContext,
+  previewSiteURL,
+  signInPreviewScenario,
+} from "./preview-test-helpers";
 
-const previewSiteURL = new URL(requiredEnv("PREVIEW_SITE_URL"));
-const pagesHost = requiredEnv("CLOUDFLARE_PAGES_HOST");
-const accessHeaders = {
-  "CF-Access-Client-Id": requiredEnv("CF_ACCESS_CLIENT_ID"),
-  "CF-Access-Client-Secret": requiredEnv("CF_ACCESS_CLIENT_SECRET"),
-};
 const pantryRealtimePath = "/api/pantry/realtime";
 const realtimeTimeoutMs = 10_000;
 const visibleConvergenceTimeoutMs = 1_000;
@@ -26,23 +24,6 @@ type ScenarioSession = {
   context: BrowserContext;
   page: Page;
 };
-
-function assertCanonicalPreviewURL(): void {
-  const previewLabel = previewSiteURL.hostname.split(".", 1)[0];
-  if (
-    previewSiteURL.protocol !== "https:" ||
-    previewSiteURL.origin !== previewSiteURL.href.replace(/\/$/, "") ||
-    !previewLabel ||
-    !/^pr-[1-9]\d*$/.test(previewLabel) ||
-    previewSiteURL.hostname !== `${previewLabel}.${pagesHost}`
-  ) {
-    throw new Error(
-      "PREVIEW_SITE_URL must be the canonical HTTPS PR alias for CLOUDFLARE_PAGES_HOST",
-    );
-  }
-}
-
-assertCanonicalPreviewURL();
 
 function parseFrame(payload: string | Buffer): Record<string, unknown> | null {
   try {
@@ -59,64 +40,35 @@ async function createScenarioSession(
   browser: Browser,
   scenario: Scenario,
 ): Promise<ScenarioSession> {
-  const context = await browser.newContext({
-    baseURL: previewSiteURL.origin,
-  });
+  const context = await createPreviewContext(browser);
 
   try {
-    await context.addInitScript(({ realtimePath }) => {
-      const NativeWebSocket = window.WebSocket;
-      Object.defineProperty(window, "WebSocket", {
-        configurable: true,
-        writable: true,
-        value: class extends NativeWebSocket {
-          constructor(url: string | URL, protocols?: string | string[]) {
-            if (protocols === undefined) super(url);
-            else super(url, protocols);
+    await context.addInitScript(
+      ({ realtimePath }) => {
+        const NativeWebSocket = window.WebSocket;
+        Object.defineProperty(window, "WebSocket", {
+          configurable: true,
+          writable: true,
+          value: class extends NativeWebSocket {
+            constructor(url: string | URL, protocols?: string | string[]) {
+              if (protocols === undefined) super(url);
+              else super(url, protocols);
 
-            if (new URL(this.url).pathname === realtimePath) {
-              Object.defineProperty(window, "__closePantryRealtimeSocket", {
-                configurable: true,
-                value: () => this.close(4_000, "Playwright disconnect"),
-              });
+              if (new URL(this.url).pathname === realtimePath) {
+                Object.defineProperty(window, "__closePantryRealtimeSocket", {
+                  configurable: true,
+                  value: () => this.close(4_000, "Playwright disconnect"),
+                });
+              }
             }
-          }
-        },
-      });
-    }, { realtimePath: pantryRealtimePath });
-
-    // Prime the Access application cookie before the browser opens the page.
-    // Sending the service-token headers only on this exact-origin request keeps
-    // them away from redirects and any third-party resources loaded by the UI.
-    // The resulting cookie is available to the page's WebSocket handshake.
-    const accessResponse = await context.request.get(
-      `${previewSiteURL.origin}/recipes`,
-      {
-        headers: accessHeaders,
-        maxRedirects: 0,
+          },
+        });
       },
+      { realtimePath: pantryRealtimePath },
     );
-    const accessResponseURL = new URL(accessResponse.url());
-    if (
-      !accessResponse.ok() ||
-      accessResponseURL.origin !== previewSiteURL.origin
-    ) {
-      throw new Error(
-        `Cloudflare Access did not authorize the preview (${accessResponse.status()} ${accessResponse.url()})`,
-      );
-    }
-    await accessResponse.dispose();
 
     const page = await context.newPage();
-    await page.goto("/recipes");
-    await expect(page).toHaveURL(`${previewSiteURL.origin}/recipes`);
-    await page.getByRole("button", { name: "Log in", exact: true }).click();
-    await page
-      .getByRole("button", { name: new RegExp(scenario.name) })
-      .click();
-    await expect(
-      page.getByRole("button", { name: `Account for ${scenario.name}` }),
-    ).toBeVisible();
+    await signInPreviewScenario(page, scenario.name);
 
     return { context, page };
   } catch (error) {
@@ -127,10 +79,23 @@ async function createScenarioSession(
 
 function waitForPantrySubscription(page: Page): Promise<WebSocket> {
   return new Promise((resolve, reject) => {
-    const timeout = setTimeout(() => {
-      cleanup();
-      reject(new Error("Pantry WebSocket did not become ready"));
-    }, realtimeTimeoutMs);
+    let settled = false;
+    const listeners = new Map<
+      WebSocket,
+      {
+        onClose: () => void;
+        onFrame: (event: { payload: string | Buffer }) => void;
+        onSocketError: (error: string) => void;
+      }
+    >();
+
+    const timeout = setTimeout(
+      () =>
+        finish(() =>
+          reject(new Error("Pantry WebSocket did not become ready")),
+        ),
+      realtimeTimeoutMs,
+    );
 
     const onWebSocket = (socket: WebSocket) => {
       if (new URL(socket.url()).pathname !== pantryRealtimePath) return;
@@ -141,26 +106,40 @@ function waitForPantrySubscription(page: Page): Promise<WebSocket> {
           message?.type === "subscription.ready" &&
           message.resourceType === "pantry"
         ) {
-          cleanup();
-          resolve(socket);
+          finish(() => resolve(socket));
         }
       };
+      const onSocketError = (error: string) => {
+        finish(() => reject(new Error(`Pantry WebSocket failed: ${error}`)));
+      };
+      const onClose = () => {
+        finish(() =>
+          reject(new Error("Pantry WebSocket closed before becoming ready")),
+        );
+      };
+      listeners.set(socket, { onClose, onFrame, onSocketError });
       socket.on("framereceived", onFrame);
-      socket.on("socketerror", (error) => {
-        cleanup();
-        reject(new Error(`Pantry WebSocket failed: ${error}`));
-      });
-
-      function cleanup() {
-        clearTimeout(timeout);
-        page.off("websocket", onWebSocket);
-        socket.off("framereceived", onFrame);
-      }
+      socket.on("socketerror", onSocketError);
+      socket.on("close", onClose);
+      if (socket.isClosed()) onClose();
     };
+
+    function finish(callback: () => void) {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      callback();
+    }
 
     function cleanup() {
       clearTimeout(timeout);
       page.off("websocket", onWebSocket);
+      for (const [socket, handlers] of listeners) {
+        socket.off("framereceived", handlers.onFrame);
+        socket.off("socketerror", handlers.onSocketError);
+        socket.off("close", handlers.onClose);
+      }
+      listeners.clear();
     }
 
     page.on("websocket", onWebSocket);
@@ -173,6 +152,142 @@ function waitForSocketClose(socket: WebSocket): Promise<void> {
     .then(() => undefined);
 }
 
+function waitForPantryChange(
+  socket: WebSocket,
+  operationId: Promise<string>,
+  changeKind: string,
+  ingredientSlug: string,
+  expectedLocation: string | undefined,
+): Promise<void> {
+  return new Promise((resolve, reject) => {
+    let expectedOperationId: string | undefined;
+    let settled = false;
+    const pendingFrames: Record<string, unknown>[] = [];
+    const expectedState = expectedLocation ?? "absent";
+    const timeout = setTimeout(
+      () =>
+        finish(() =>
+          reject(
+            new Error(
+              `Pantry WebSocket did not receive ${changeKind} for ${ingredientSlug} (${expectedState})`,
+            ),
+          ),
+        ),
+      realtimeTimeoutMs,
+    );
+
+    const matchesExpectedChange = (
+      message: Record<string, unknown>,
+      expectedOperationId: string,
+    ) => {
+      if (message.operationId !== expectedOperationId) return false;
+      if (
+        !message.pantry ||
+        typeof message.pantry !== "object" ||
+        !("stock" in message.pantry) ||
+        !message.pantry.stock ||
+        typeof message.pantry.stock !== "object" ||
+        Array.isArray(message.pantry.stock)
+      ) {
+        return false;
+      }
+      const stock = message.pantry.stock as Record<string, unknown>;
+      return expectedLocation === undefined
+        ? !Object.hasOwn(stock, ingredientSlug)
+        : stock[ingredientSlug] === expectedLocation;
+    };
+
+    const onFrame = ({ payload }: { payload: string | Buffer }) => {
+      const message = parseFrame(payload);
+      if (
+        message?.type !== "resource.changed" ||
+        message.resourceType !== "pantry" ||
+        message.changeKind !== changeKind
+      ) {
+        return;
+      }
+      if (expectedOperationId === undefined) {
+        pendingFrames.push(message);
+        return;
+      }
+      if (!matchesExpectedChange(message, expectedOperationId)) return;
+      finish(resolve);
+    };
+    const onSocketError = (error: string) => {
+      finish(() => reject(new Error(`Pantry WebSocket failed: ${error}`)));
+    };
+    const onClose = () => {
+      finish(() =>
+        reject(new Error("Pantry WebSocket closed before receiving a change")),
+      );
+    };
+
+    function finish(callback: () => void) {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      callback();
+    }
+
+    function cleanup() {
+      clearTimeout(timeout);
+      socket.off("framereceived", onFrame);
+      socket.off("socketerror", onSocketError);
+      socket.off("close", onClose);
+    }
+
+    socket.on("framereceived", onFrame);
+    socket.on("socketerror", onSocketError);
+    socket.on("close", onClose);
+    if (socket.isClosed()) onClose();
+
+    void operationId.then(
+      (value) => {
+        if (settled) return;
+        if (!value) {
+          finish(() =>
+            reject(new Error("Pantry request omitted its operation ID")),
+          );
+          return;
+        }
+        expectedOperationId = value;
+        const matchingFrame = pendingFrames.find((message) =>
+          matchesExpectedChange(message, value),
+        );
+        if (matchingFrame) finish(resolve);
+      },
+      (error: unknown) => {
+        finish(() =>
+          reject(
+            error instanceof Error
+              ? error
+              : new Error("Could not observe the pantry request"),
+          ),
+        );
+      },
+    );
+  });
+}
+
+function waitForPantryOperationId(
+  page: Page,
+  method: string,
+  path: string,
+): Promise<string> {
+  return page
+    .waitForRequest(
+      (request) =>
+        request.method() === method && new URL(request.url()).pathname === path,
+      { timeout: realtimeTimeoutMs },
+    )
+    .then((request) => {
+      const operationId = request.headers()["idempotency-key"];
+      if (!operationId)
+        throw new Error("Pantry request omitted its operation ID");
+      return operationId;
+    });
+}
+
 async function disconnectPantrySocket(page: Page): Promise<void> {
   await page.evaluate(() => {
     const closeSocket = (
@@ -180,7 +295,8 @@ async function disconnectPantrySocket(page: Page): Promise<void> {
         __closePantryRealtimeSocket?: () => void;
       }
     ).__closePantryRealtimeSocket;
-    if (!closeSocket) throw new Error("Pantry WebSocket test control is absent");
+    if (!closeSocket)
+      throw new Error("Pantry WebSocket test control is absent");
     closeSocket();
   });
 }
@@ -197,11 +313,14 @@ async function openKitchen(session: ScenarioSession): Promise<WebSocket> {
   return socket;
 }
 
-async function restoreGarlic(context: BrowserContext): Promise<void> {
+async function restoreGarlic(
+  context: BrowserContext,
+  operationId = crypto.randomUUID(),
+): Promise<void> {
   const response = await context.request.put("/api/pantry/items/garlic", {
     data: { location: "fresh" },
     headers: {
-      "idempotency-key": crypto.randomUUID(),
+      "idempotency-key": operationId,
       origin: previewSiteURL.origin,
     },
   });
@@ -239,7 +358,7 @@ test.describe("deployed household pantry realtime", () => {
       sessions.push(member);
       await restoreGarlic(owner.context);
 
-      await Promise.all([
+      const [ownerSocket, memberSocket] = await Promise.all([
         openKitchen(owner),
         openKitchen(member),
       ]);
@@ -250,15 +369,35 @@ test.describe("deployed household pantry realtime", () => {
         member.page.getByRole("button", { name: "Remove Garlic" }),
       ).toBeVisible();
 
-      await owner.page
-        .getByRole("button", { name: "Remove Garlic" })
-        .click();
+      const removalOperationId = waitForPantryOperationId(
+        owner.page,
+        "DELETE",
+        "/api/pantry/items/garlic",
+      );
+      const memberRemoval = waitForPantryChange(
+        memberSocket,
+        removalOperationId,
+        "pantry.item-removed",
+        "garlic",
+        undefined,
+      );
+      await owner.page.getByRole("button", { name: "Remove Garlic" }).click();
       pantryWasChanged = true;
+      await memberRemoval;
       await expect(
         member.page.getByRole("button", { name: "Remove Garlic" }),
       ).toHaveCount(0, { timeout: visibleConvergenceTimeoutMs });
 
-      await restoreGarlic(member.context);
+      const restorationOperationId = crypto.randomUUID();
+      const ownerRestoration = waitForPantryChange(
+        ownerSocket,
+        Promise.resolve(restorationOperationId),
+        "pantry.item-set",
+        "garlic",
+        "fresh",
+      );
+      await restoreGarlic(member.context, restorationOperationId);
+      await ownerRestoration;
       await expect(
         owner.page.getByRole("button", { name: "Remove Garlic" }),
       ).toBeVisible({ timeout: visibleConvergenceTimeoutMs });
@@ -291,9 +430,7 @@ test.describe("deployed household pantry realtime", () => {
       await member.context.setOffline(true);
       await disconnectPantrySocket(member.page);
       await memberDisconnected;
-      await owner.page
-        .getByRole("button", { name: "Remove Garlic" })
-        .click();
+      await owner.page.getByRole("button", { name: "Remove Garlic" }).click();
       pantryWasChanged = true;
       await expect(
         owner.page.getByRole("button", { name: "Remove Garlic" }),

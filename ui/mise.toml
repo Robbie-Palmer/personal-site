@@ -40,14 +40,19 @@ run = "pnpm test:integration"
 depends = ["//ui:build"]
 
 [tasks."test:e2e:preview"]
-description = "Run Playwright realtime QA against an authenticated PR preview"
-depends = ["//ui:test:e2e:install"]
+description = "Run Playwright QA against an authenticated PR preview"
+depends = ["//ui:test:e2e:install", "//ui:test:e2e:typecheck"]
 run = "pnpm test:e2e:preview"
 
 [tasks."test:e2e:install"]
 description = "Install Chromium for Playwright preview tests"
 depends = ["//ui:install"]
 run = "pnpm exec playwright install chromium"
+
+[tasks."test:e2e:typecheck"]
+description = "Typecheck the Playwright preview tests"
+depends = ["//ui:install"]
+run = "pnpm exec tsc --project tsconfig.preview-e2e.json"
 
 [tasks."audit:satellite-swarm"]
 description = "Audit satellite-swarm payloads, rendering, provenance, and offline requests"

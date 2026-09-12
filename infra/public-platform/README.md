@@ -110,8 +110,9 @@ PR infrastructure uses the `preview-*` environments with least-privilege
 credentials. Follow the
 [preview environment runbook](../docs/preview-environments.md); do not copy the
 production Cloudflare token or production database URL into them.
-`preview-agent-access` is used only to rotate the preview Access secret into
-Doppler. Restrict it to the default branch and follow the same runbook.
+`preview-agent-access` is used only by trusted default-branch workflows to
+rotate the coding-agent Access secret and issue short-lived preview QA
+credentials. Restrict it to the default branch and follow the same runbook.
 
 ### Terraform Cloud Workspace
 

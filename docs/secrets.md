@@ -40,7 +40,7 @@ Configs are split by environment and runtime/control boundary:
 | `stg_pages_env` | Shared PR preview runtime env vars | `preview-site-ui`, `preview-recipe-api` |
 | `stg_site_ui` | PR preview UI deploy credentials | `preview-site-ui` |
 | `stg_recipe_api` | PR preview Worker/API automation config | `preview-recipe-api` |
-| `ops_preview_agent_access` | Quarterly Access credential rotation | `preview-agent-access` |
+| `ops_preview_agent_access` | Access credential rotation and preview Playwright QA | `preview-agent-access` |
 | `prd_pages_env` | Shared production runtime env vars | `production-site-ui`, `production-recipe-api`, `production-recipe-ingest` |
 | `prd_site_ui` | Production UI deploy credentials | `production-site-ui`, `production-recipe-api`, `production-recipe-ingest` |
 | `prd_recipe_api` | Production Worker/API/DB/OAuth config | `production-recipe-api` |
@@ -205,7 +205,7 @@ Name GitHub environments after runtime or job boundaries:
 | --- | --- | --- |
 | `preview-recipe-api` | `stg_recipe_api`, `stg_pages_env` | PR preview Worker/database jobs and preview cleanup |
 | `preview-site-ui` | `stg_site_ui`, `stg_pages_env` | PR preview Pages build/deploy and preview comment |
-| `preview-agent-access` | `ops_preview_agent_access` | Quarterly and on-demand coding-agent Access secret rotation |
+| `preview-agent-access` | `ops_preview_agent_access` | Coding-agent credential rotation and one-run preview Playwright credentials |
 | `production-recipe-api` | `prd_recipe_api`, `prd_site_ui`, `prd_pages_env` | Production recipe API deploy |
 | `production-recipe-ingest` | `prd_recipe_ingest`, `prd_site_ui`, `prd_pages_env` | Production recipe ingest Worker deploy |
 | `production-site-ui` | `prd_site_ui`, `prd_pages_env` | Production UI CI/CD and Cloudflare Images health check |

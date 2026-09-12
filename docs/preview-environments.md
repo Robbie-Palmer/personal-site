@@ -78,7 +78,8 @@ In Cloudflare:
    ```
 
 The human allow policy remains intact. Terraform adds a separate
-application-scoped `Service Auth` policy for the coding-agent identity.
+application-scoped `Service Auth` policy for the coding-agent and preview-QA
+identities.
 
 ### 2. Apply Terraform and distribute the agent credential
 
@@ -116,6 +117,13 @@ deployment itself.
 The preview Worker verifies the `Cf-Access-Jwt-Assertion` itself. Calling its
 public `workers.dev` URL therefore cannot bypass Pages Access for test login.
 
+Terraform also creates `personal-site-preview-qa-workflow`, a separate Access
+identity used only by automatic preview Playwright runs. The trusted follow-up
+workflow rotates that identity before each serialized run and rotates it again
+in an `always()` cleanup step. PR-controlled Pages code can therefore see at
+most a credential that is invalidated as soon as its test run finishes; the
+long-lived coding-agent credential is never sent to a PR preview.
+
 Automated HTTP clients authenticate with:
 
 ```text
@@ -150,11 +158,11 @@ can also be run on demand:
 gh workflow run rotate-preview-access-token.yml
 ```
 
-The rotation workflow uses a dedicated `preview-agent-access` GitHub
-environment populated from `ops_preview_agent_access`. Restrict that environment
-to the default branch. Its Cloudflare token needs only **Access: Service Tokens:
-Read** and **Edit**; its Doppler service token needs read/write access only to
-`dev_agent`.
+The credential rotation and preview Playwright workflows use a dedicated
+`preview-agent-access` GitHub environment populated from
+`ops_preview_agent_access`. Restrict that environment to the default branch.
+Its Cloudflare token needs only **Access: Service Tokens: Read** and **Edit**;
+its Doppler service token needs read/write access only to `dev_agent`.
 
 ### 3. Create least-privilege Cloudflare tokens
 
@@ -172,7 +180,8 @@ account-level only and cannot be narrowed to the `personal-site` project, so
 account scope is the tightest available. Do not reuse a global or DNS-capable
 production token.
 
-Create a separate rotation token for `ops_preview_agent_access` with only
+Create a separate Access-credential automation token for
+`ops_preview_agent_access` with only
 **Access: Service Tokens: Read** and **Access: Service Tokens: Edit**. It cannot
 deploy Workers, edit Pages projects, change policies, or touch DNS.
 
@@ -294,7 +303,9 @@ open or update an internal PR. The workflow runs from `main`. Confirm:
 5. The sign-in menu offers the empty, populated, administrator, and paired
    household (owner and member) scenarios.
 6. The onboarding sign-up button creates a new empty QA account on every use.
-7. Closing the PR removes both the Neon branch and Worker.
+7. The successful backend and frontend preview jobs automatically trigger the
+   `Preview Playwright QA` workflow, which passes its Agent Auth checks.
+8. Closing the PR removes both the Neon branch and Worker.
 
 If event-driven cleanup fails, run the **Preview Environment Cleanup** workflow
 manually with the PR number. Neon branch expiry is an additional database-only
