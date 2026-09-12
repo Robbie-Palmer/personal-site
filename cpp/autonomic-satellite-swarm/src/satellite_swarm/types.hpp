@@ -21,10 +21,17 @@ struct MissionKey {
   MissionKey() = default;
   MissionKey(NodeId origin, BootEpoch epoch, MissionSequence mission_sequence)
       : origin_node(origin), boot_epoch(epoch), sequence(mission_sequence) {}
+
+  friend bool operator==(const MissionKey& left, const MissionKey& right) {
+    return left.origin_node == right.origin_node && left.boot_epoch == right.boot_epoch &&
+           left.sequence == right.sequence;
+  }
+
+  friend bool operator!=(const MissionKey& left, const MissionKey& right) {
+    return !(left == right);
+  }
 };
 
-bool operator==(const MissionKey& left, const MissionKey& right);
-bool operator!=(const MissionKey& left, const MissionKey& right);
 bool isValid(const MissionKey& mission_key);
 
 struct Coordinate {

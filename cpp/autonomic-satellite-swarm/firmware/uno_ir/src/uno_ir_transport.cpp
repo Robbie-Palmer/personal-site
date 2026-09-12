@@ -61,7 +61,7 @@ bool UnoInfraredTransport::receive(satellite_swarm::Message& message) {
   received_chunks_ |= static_cast<uint8_t>(1U << chunk);
   last_chunk_at_ms_ = now_ms;
 
-  constexpr uint8_t kCompleteAssembly = static_cast<uint8_t>((1U << kChunkCount) - 1U);
+  constexpr auto kCompleteAssembly = static_cast<uint8_t>((1U << kChunkCount) - 1U);
   if (received_chunks_ != kCompleteAssembly) {
     return false;
   }

@@ -4,13 +4,6 @@
 
 namespace satellite_swarm {
 
-bool operator==(const MissionKey& left, const MissionKey& right) {
-  return left.origin_node == right.origin_node && left.boot_epoch == right.boot_epoch &&
-         left.sequence == right.sequence;
-}
-
-bool operator!=(const MissionKey& left, const MissionKey& right) { return !(left == right); }
-
 bool isValid(const MissionKey& mission_key) {
   return mission_key.origin_node < kMaximumNodes && mission_key.boot_epoch != 0U &&
          mission_key.sequence != 0U;
