@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-image=ghcr.io/robbie-palmer/t3-code:0.0.38-agent-tools-8
+image=ghcr.io/robbie-palmer/t3-code:0.0.38-agent-tools-9
 container="personal-site-t3-image-check-$$"
 docker_container="personal-site-rootless-docker-check-$$"
 docker_data_volume="personal-site-rootless-docker-data-check-$$"

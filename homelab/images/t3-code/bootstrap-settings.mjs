@@ -4,6 +4,7 @@ import {
   mkdirSync,
   readFileSync,
   renameSync,
+  rmSync,
   writeFileSync,
 } from "node:fs";
 import { dirname } from "node:path";
@@ -71,8 +72,12 @@ settings.providerInstances = {
 };
 
 const temporaryPath = `${settingsPath}.tmp-${process.pid}`;
-writeFileSync(temporaryPath, `${JSON.stringify(settings, null, 2)}\n`, {
-  mode: 0o600,
-});
-renameSync(temporaryPath, settingsPath);
+try {
+  writeFileSync(temporaryPath, `${JSON.stringify(settings, null, 2)}\n`, {
+    mode: 0o600,
+  });
+  renameSync(temporaryPath, settingsPath);
+} finally {
+  rmSync(temporaryPath, { force: true });
+}
 chmodSync(settingsPath, 0o600);
