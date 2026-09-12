@@ -128,6 +128,8 @@ function waitForSocketClose(socket: WebSocket): Promise<void> {
 function waitForPantryChange(
   socket: WebSocket,
   changeKind: string,
+  ingredientSlug: string,
+  expectedLocation: string | undefined,
 ): Promise<void> {
   return new Promise((resolve, reject) => {
     const timeout = setTimeout(() => {
@@ -140,10 +142,21 @@ function waitForPantryChange(
       if (
         message?.type !== "resource.changed" ||
         message.resourceType !== "pantry" ||
-        message.changeKind !== changeKind
+        message.changeKind !== changeKind ||
+        !message.pantry ||
+        typeof message.pantry !== "object" ||
+        !("stock" in message.pantry) ||
+        !message.pantry.stock ||
+        typeof message.pantry.stock !== "object"
       ) {
         return;
       }
+      const stock = message.pantry.stock as Record<string, unknown>;
+      const matchesIngredient =
+        expectedLocation === undefined
+          ? !Object.hasOwn(stock, ingredientSlug)
+          : stock[ingredientSlug] === expectedLocation;
+      if (!matchesIngredient) return;
       cleanup();
       resolve();
     };
@@ -250,6 +263,8 @@ test.describe("deployed household pantry realtime", () => {
       const memberRemoval = waitForPantryChange(
         memberSocket,
         "pantry.item-removed",
+        "garlic",
+        undefined,
       );
       await owner.page.getByRole("button", { name: "Remove Garlic" }).click();
       pantryWasChanged = true;
@@ -261,6 +276,8 @@ test.describe("deployed household pantry realtime", () => {
       const ownerRestoration = waitForPantryChange(
         ownerSocket,
         "pantry.item-set",
+        "garlic",
+        "fresh",
       );
       await restoreGarlic(member.context);
       await ownerRestoration;
