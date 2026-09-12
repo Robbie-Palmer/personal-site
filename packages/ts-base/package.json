@@ -6,6 +6,7 @@
   "type": "module",
   "exports": {
     "./errors": "./src/errors.ts",
+    "./layered-graph": "./src/layered-graph.ts",
     "./records": "./src/records.ts",
     "./urls": "./src/urls.ts"
   },

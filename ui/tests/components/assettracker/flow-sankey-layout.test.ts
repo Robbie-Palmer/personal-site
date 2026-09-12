@@ -3,7 +3,6 @@ import {
   addFlowSankeyWaypoints,
   flowKeysForNode,
   getFlowSankeyLayout,
-  minimizeFlowSankeyCrossings,
   nodeIdsForFlow,
   prepareFlowSankeyData,
 } from "@/components/assettracker/flow-sankey-layout";
@@ -81,37 +80,6 @@ describe("getFlowSankeyLayout", () => {
     ]);
   });
 
-  it("orders a crossed graph with isolated and zero-weight neighbours", () => {
-    const nodes = [
-      "source-a",
-      "source-b",
-      "zero-source",
-      "isolated",
-      "target-a",
-      "target-b",
-      "zero-target",
-    ].map((id) => ({ id, name: id, color: "blue" }));
-    const link = (source: number, target: number, value = 1) => ({
-      source,
-      target,
-      value,
-      label: "Fixture flow",
-      sourceName: nodes[source]?.name ?? "Source",
-      targetName: nodes[target]?.name ?? "Target",
-    });
-    const data: FlowSankeyData = {
-      nodes,
-      links: [link(0, 4), link(0, 5), link(1, 4), link(1, 5), link(2, 6, 0)],
-    };
-
-    const prepared = prepareFlowSankeyData(data);
-
-    expect(prepared.nodes.map((node) => node.id).sort()).toEqual(
-      nodes.map((node) => node.id).sort(),
-    );
-    expect(prepared.links).toHaveLength(data.links.length);
-  });
-
   it("filters imported links that reference missing nodes", () => {
     const data: FlowSankeyData = {
       nodes: [{ id: "source", name: "Source", color: "blue" }],
@@ -139,44 +107,6 @@ describe("getFlowSankeyLayout", () => {
 
     expect(routed.nodes).toEqual(data.nodes);
     expect(routed.links).toEqual([]);
-  });
-
-  it("orders adjacent layers to remove avoidable crossings", () => {
-    const data: FlowSankeyData = {
-      nodes: [
-        { id: "top-source", name: "Top source", color: "blue" },
-        { id: "bottom-source", name: "Bottom source", color: "blue" },
-        { id: "top-target", name: "Top target", color: "blue" },
-        { id: "bottom-target", name: "Bottom target", color: "blue" },
-      ],
-      links: [
-        {
-          source: 0,
-          target: 3,
-          value: 100,
-          label: "Down",
-          sourceName: "Top source",
-          targetName: "Bottom target",
-        },
-        {
-          source: 1,
-          target: 2,
-          value: 100,
-          label: "Up",
-          sourceName: "Bottom source",
-          targetName: "Top target",
-        },
-      ],
-    };
-
-    const ordered = minimizeFlowSankeyCrossings(addFlowSankeyWaypoints(data));
-    const nodeOrder = ordered.nodes.map((node) => node.id);
-    const sourceOrder =
-      nodeOrder.indexOf("top-source") - nodeOrder.indexOf("bottom-source");
-    const targetOrder =
-      nodeOrder.indexOf("bottom-target") - nodeOrder.indexOf("top-target");
-
-    expect(Math.sign(sourceOrder)).toBe(Math.sign(targetOrder));
   });
 
   it("reserves a lane when a flow skips intermediate columns", () => {
@@ -266,16 +196,5 @@ describe("getFlowSankeyLayout", () => {
 
     expect(layout.chartHeight).toBe(720);
     expect(layout.nodePadding).toBe(0);
-  });
-
-  it("uses bounded barycentric ordering for dense link sets", () => {
-    const data = flowFixture([1, 120]);
-    const ordered = minimizeFlowSankeyCrossings(addFlowSankeyWaypoints(data));
-
-    expect(ordered.nodes).toHaveLength(data.nodes.length);
-    expect(ordered.links).toHaveLength(data.links.length);
-    expect(
-      ordered.links.every((link) => link.flowKey.startsWith("flow:")),
-    ).toBe(true);
   });
 });
