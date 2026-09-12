@@ -32,6 +32,11 @@ doppler run --project personal-site --config dev_agent -- \
 
 The mise task installs the required Chromium build when needed.
 
+PRs with a backend preview run this suite automatically after both the isolated
+backend and canonical Pages frontend finish deploying. The workflow reads only
+the preview Access credentials from the scoped `preview-agent-access` GitHub
+environment.
+
 Agent launchers that already inject `dev_agent` can run the mise task directly
 with only `PREVIEW_SITE_URL` set.
 

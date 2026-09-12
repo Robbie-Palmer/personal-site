@@ -286,7 +286,21 @@ jobs:
       name: preview-site-ui
     permissions:
       contents: read
+    outputs:
+      pages_host: ${{ steps.preview-location.outputs.pages_host }}
+      site_url: ${{ steps.preview-location.outputs.site_url }}
     steps:
+      - name: Set preview location
+        id: preview-location
+        env:
+          PAGES_HOST: ${{ vars.CLOUDFLARE_PAGES_HOST }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+          : "${PAGES_HOST:?CLOUDFLARE_PAGES_HOST is required}"
+          echo "pages_host=$PAGES_HOST" >> "$GITHUB_OUTPUT"
+          echo "site_url=https://pr-$PR_NUMBER.$PAGES_HOST" >> "$GITHUB_OUTPUT"
+
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.event.pull_request.head.sha }}
@@ -337,6 +351,77 @@ jobs:
           DEPLOY_BRANCH: pr-${{ github.event.pull_request.number }}
           NEXT_PUBLIC_CF_IMAGES_ACCOUNT_HASH: ${{ vars.CF_IMAGES_ACCOUNT_HASH }}
           NEXT_PUBLIC_PREVIEW_BACKEND: ${{ needs.detect.outputs.backend }}
+
+  preview-qa:
+    needs: [detect, backend, frontend]
+    if: >
+      needs.detect.outputs.backend == 'true'
+      && needs.backend.result == 'success'
+      && needs.frontend.result == 'success'
+    runs-on: ubuntu-latest
+    environment:
+      name: preview-agent-access
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+
+      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
+        with:
+          version: "2026.9.1"
+          experimental: true
+          minimum_release_age: 24h
+
+      - name: Get pnpm store directory
+        id: pnpm-store
+        shell: bash
+        run: echo "dir=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ steps.pnpm-store.outputs.dir }}
+          key: pnpm-store-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: pnpm-store-${{ runner.os }}-
+
+      - name: Run Playwright against the protected preview
+        env:
+          CLOUDFLARE_PAGES_HOST: ${{ needs.frontend.outputs.pages_host }}
+          DOPPLER_AGENT_CONFIG: ${{ vars.DOPPLER_AGENT_CONFIG }}
+          DOPPLER_PROJECT: ${{ vars.DOPPLER_PROJECT }}
+          DOPPLER_SERVICE_TOKEN: ${{ secrets.DOPPLER_SERVICE_TOKEN }}
+          PREVIEW_SITE_URL: ${{ needs.frontend.outputs.site_url }}
+        run: |
+          set -euo pipefail
+          : "${DOPPLER_AGENT_CONFIG:?DOPPLER_AGENT_CONFIG is required}"
+          : "${DOPPLER_PROJECT:?DOPPLER_PROJECT is required}"
+          : "${DOPPLER_SERVICE_TOKEN:?DOPPLER_SERVICE_TOKEN is required}"
+
+          credentials=$(curl \
+            --disable \
+            --connect-timeout 10 \
+            --fail \
+            --max-time 30 \
+            --proto '=https' \
+            --silent \
+            --show-error \
+            --get \
+            --url "https://api.doppler.com/v3/configs/config/secrets/download" \
+            --header "Authorization: Bearer $DOPPLER_SERVICE_TOKEN" \
+            --data-urlencode "project=$DOPPLER_PROJECT" \
+            --data-urlencode "config=$DOPPLER_AGENT_CONFIG" \
+            --data-urlencode "format=json" \
+            --data-urlencode "secrets=CF_ACCESS_CLIENT_ID,CF_ACCESS_CLIENT_SECRET")
+          CF_ACCESS_CLIENT_ID=$(jq -er '.CF_ACCESS_CLIENT_ID' <<< "$credentials")
+          CF_ACCESS_CLIENT_SECRET=$(jq -er '.CF_ACCESS_CLIENT_SECRET' <<< "$credentials")
+          echo "::add-mask::$CF_ACCESS_CLIENT_ID"
+          echo "::add-mask::$CF_ACCESS_CLIENT_SECRET"
+          export CF_ACCESS_CLIENT_ID CF_ACCESS_CLIENT_SECRET
+
+          unset credentials DOPPLER_SERVICE_TOKEN
+          mise run //ui:test:e2e:preview
 
   comment:
     needs: [detect, backend, frontend]
