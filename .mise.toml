@@ -195,7 +195,7 @@ depends = ["//:install"]
 
 [tasks.dev]
 description = "Start full local dev: Next.js (with auth rewrite) + recipe-api Worker"
-depends = ["//:install"]
+depends = ["//:install", "//cpp/autonomic-satellite-swarm:browser:build"]
 run = """
 #!/usr/bin/env bash
 set -e
