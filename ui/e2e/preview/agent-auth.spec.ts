@@ -25,6 +25,8 @@ const requestedCapabilities = [
   "recipes.dataset.inspect",
   "pantry.read",
 ] as const;
+const jwtClockSkewSeconds = 5;
+const jwtExpirationSeconds = 60;
 
 type SigningIdentity = {
   kid: string;
@@ -88,8 +90,8 @@ function signedJWT(input: {
   const payload = encodedJSON({
     ...input.payload,
     aud: input.audience,
-    exp: now + 45,
-    iat: now,
+    exp: now + jwtExpirationSeconds,
+    iat: now - jwtClockSkewSeconds,
     iss: input.issuer,
     jti: randomUUID(),
     ...(input.subject ? { sub: input.subject } : {}),
@@ -202,8 +204,7 @@ test.describe("deployed delegated Agent Auth", () => {
     test.setTimeout(60_000);
     const userContext = await createPreviewContext(browser);
     let agentContext: BrowserContext | undefined;
-    let agentId: string | undefined;
-    let revoked = false;
+    let hostId: string | undefined;
 
     try {
       agentContext = await createPreviewContext(browser);
@@ -233,6 +234,7 @@ test.describe("deployed delegated Agent Auth", () => {
           },
         },
       );
+      hostId = host.hostId;
       expect(host.status).toBe("active");
 
       const registrationToken = hostJWT(
@@ -259,7 +261,6 @@ test.describe("deployed delegated Agent Auth", () => {
           },
         },
       );
-      agentId = registration.agent_id;
       expect(registration.status).toBe("pending");
       expect(registration.approval.method).toBe("device_authorization");
 
@@ -433,8 +434,6 @@ test.describe("deployed delegated Agent Auth", () => {
       await expect(
         agentCard.getByText("Revoked", { exact: true }),
       ).toBeVisible();
-      revoked = true;
-
       const revokedToken = agentJWT(
         agentIdentity,
         registration,
@@ -456,13 +455,13 @@ test.describe("deployed delegated Agent Auth", () => {
       expect(revokedExecution.status()).toBe(403);
       await revokedExecution.dispose();
     } finally {
-      if (agentId && !revoked) {
+      if (hostId) {
         const cleanup = await previewRequest(
           userContext,
-          "/api/auth/agent/revoke",
+          "/api/auth/host/revoke",
           {
             method: "POST",
-            data: { agent_id: agentId },
+            data: { host_id: hostId },
           },
         ).catch(() => undefined);
         await cleanup?.dispose();
