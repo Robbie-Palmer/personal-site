@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "recordType": "gector-model-manifest",
+  "modelId": "gector-2024-roberta-large",
+  "source": {
+    "repository": "https://github.com/grammarly/pillars-of-gec",
+    "revision": "1014de0bc90faddba0032acb5dec762c6c85d2e1"
+  },
+  "checkpoint": {
+    "url": "https://grammarly-nlp-data-public.s3.amazonaws.com/GECToR-2024/gector-2024-roberta-large.th",
+    "filename": "gector-2024-roberta-large.th",
+    "bytes": 1442177179,
+    "contentHash": "sha256:77e1c9e0d7ad5507c16509fd765283dbce5221552aa7a90c37d143f1aeaddb10"
+  },
+  "usage": "evaluation-only",
+  "checkpointLicense": "not-stated-by-upstream"
+}

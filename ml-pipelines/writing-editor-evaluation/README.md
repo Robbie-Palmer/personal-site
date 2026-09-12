@@ -44,6 +44,18 @@ producer keeps that report beside the exact marked-up source bytes. It fails on
 stale source hashes, invalid locations, an unexpected Vale version, or output
 that does not satisfy the runtime schema.
 
+The `prepare_gector_model` stage acquires Grammarly's official GECToR-2024
+RoBERTa-large checkpoint without putting it in Git. The committed model
+manifest pins the upstream repository commit, download URL, exact byte count,
+and SHA-256 content hash. Downloads resume after an interruption. The stage
+refuses a checkpoint whose size or digest does not match and writes a
+deterministic receipt beside the verified weights.
+
+The upstream checkpoint does not state a license. Keep it restricted to this
+evaluation project and its private DVC remote until that ambiguity is resolved.
+This stage prepares the model artifact only; inference and the locked modern
+GPU runtime remain follow-up work.
+
 These records are findings because the active Vale rules identify passages but
 cannot rewrite them safely. They contain no replacement text. A later rewrite
 producer will turn selected findings into suggestions and proposals.
@@ -76,13 +88,24 @@ mise run //ml-pipelines/writing-editor-evaluation:run:vale
 mise run //ml-pipelines/writing-editor-evaluation:match:edits
 ```
 
+On the GPU laptop, download, verify, and upload the checkpoint to the private
+DVC remote in one command:
+
+```bash
+mise run //ml-pipelines/writing-editor-evaluation:model:publish
+```
+
+The command needs the repository's ML-pipeline Doppler access for the DVC push.
+It updates `dvc.lock`; commit that change after the upload so later clean
+checkouts can use the normal `pull` task instead of downloading from upstream.
+
 With access to the ML pipeline credentials, reproduce them through DVC:
 
 ```bash
 mise run //ml-pipelines/writing-editor-evaluation:repro
 ```
 
-The rewrite producer remains an open design choice. Model baselines remain
-blocked until the project records their immutable revisions, runtime locks,
-and weights. The diff alignment can support that later evaluation without
-pretending the published text came from a model that did not exist.
+The rewrite producer remains an open design choice. The GECToR model identity
+and weights are pinned, while its inference adapter and runtime lock remain
+open. The diff alignment can support that later evaluation without pretending
+the published text came from a model that did not exist.
