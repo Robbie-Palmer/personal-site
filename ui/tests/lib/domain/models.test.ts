@@ -314,8 +314,8 @@ describe("Domain Model Schemas", () => {
         description: "Desc",
         date: "2025-01-01",
         status: "live" as const,
-        repoUrl: "not-a-url",
-        demoUrl: "also-not-a-url",
+        repoUrl: "https://github.com/user/repo",
+        demoUrl: "https://example.com",
         paperUrl: "not-a-paper-url",
         content: "Content",
         relations: {
