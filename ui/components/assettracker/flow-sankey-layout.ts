@@ -90,8 +90,10 @@ export function addFlowSankeyWaypoints(
       const target = nodes.length;
       const idPrefix = `__flow_waypoint:${linkIndex}:${depth}`;
       let id = idPrefix;
-      for (let suffix = 1; nodeIds.has(id); suffix += 1) {
+      let suffix = 1;
+      while (nodeIds.has(id)) {
         id = `${idPrefix}:${suffix}`;
+        suffix += 1;
       }
       nodeIds.add(id);
       nodes.push({
