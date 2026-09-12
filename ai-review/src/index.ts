@@ -52,6 +52,7 @@ import {
   parseReviewEvent,
   verifyGitHubSignature,
 } from "./webhook";
+import { runMigrations } from "./schema";
 
 const JSON_HEADERS = {
   "cache-control": "no-store",
@@ -86,129 +87,6 @@ type PendingOutcomeEvaluation = {
   dueAt: number;
   event: PullRequestFinalizationEvent;
 };
-const CREATE_WEBHOOK_DELIVERIES_TABLE =
-  "CREATE TABLE IF NOT EXISTS webhook_deliveries (" +
-  "delivery_id TEXT PRIMARY KEY, " +
-  "event_name TEXT NOT NULL, " +
-  "action TEXT NOT NULL, " +
-  "repository TEXT NOT NULL, " +
-  "pull_request_number INTEGER NOT NULL, " +
-  "head_sha TEXT, " +
-  "received_at TEXT NOT NULL)";
-const CREATE_REVIEW_RUNS_TABLE =
-  "CREATE TABLE IF NOT EXISTS review_runs (" +
-  "run_id TEXT PRIMARY KEY, " +
-  "head_sha TEXT NOT NULL, " +
-  "diff_fingerprint TEXT NOT NULL, " +
-  "config_fingerprint TEXT NOT NULL, " +
-  "status TEXT NOT NULL, " +
-  "force_run INTEGER NOT NULL, " +
-  "started_at TEXT NOT NULL, " +
-  "completed_at TEXT, " +
-  "cost_usd REAL NOT NULL DEFAULT 0, " +
-  "comment_id INTEGER, " +
-  "findings_json TEXT, " +
-  "finding_resolutions_json TEXT, " +
-  "completion_hash TEXT, " +
-  "error TEXT)";
-const CREATE_REVIEW_HUNKS_TABLE =
-  "CREATE TABLE IF NOT EXISTS review_hunks (" +
-  "hunk_id TEXT PRIMARY KEY, " +
-  "fingerprint TEXT NOT NULL, " +
-  "file_path TEXT NOT NULL, " +
-  "first_seen_head_sha TEXT NOT NULL, " +
-  "last_seen_head_sha TEXT NOT NULL, " +
-  "first_seen_at TEXT NOT NULL, " +
-  "last_seen_at TEXT NOT NULL)";
-const CREATE_REVIEW_RUN_HUNKS_TABLE =
-  "CREATE TABLE IF NOT EXISTS review_run_hunks (" +
-  "run_id TEXT NOT NULL, " +
-  "hunk_id TEXT NOT NULL, " +
-  "reviewed INTEGER NOT NULL, " +
-  "PRIMARY KEY (run_id, hunk_id))";
-const CREATE_REVIEW_FINDINGS_TABLE =
-  "CREATE TABLE IF NOT EXISTS review_findings (" +
-  "finding_id TEXT PRIMARY KEY, " +
-  "file_path TEXT NOT NULL, " +
-  "title TEXT NOT NULL, " +
-  "status TEXT NOT NULL, " +
-  "first_seen_head_sha TEXT NOT NULL, " +
-  "last_seen_head_sha TEXT NOT NULL, " +
-  "first_seen_run_id TEXT NOT NULL, " +
-  "last_seen_run_id TEXT NOT NULL, " +
-  "first_seen_at TEXT NOT NULL, " +
-  "last_seen_at TEXT NOT NULL)";
-const CREATE_REVIEW_FINDING_HUNKS_TABLE =
-  "CREATE TABLE IF NOT EXISTS review_finding_hunks (" +
-  "finding_id TEXT NOT NULL, " +
-  "hunk_id TEXT NOT NULL, " +
-  "PRIMARY KEY (finding_id, hunk_id))";
-const CREATE_REVIEW_FINDING_COMMENTS_TABLE =
-  "CREATE TABLE IF NOT EXISTS review_finding_comments (" +
-  "comment_id INTEGER PRIMARY KEY, " +
-  "finding_id TEXT NOT NULL UNIQUE, " +
-  "head_sha TEXT NOT NULL, " +
-  "file_path TEXT NOT NULL, " +
-  "line INTEGER, " +
-  "created_at TEXT NOT NULL, " +
-  "updated_at TEXT NOT NULL)";
-const CREATE_REVIEW_FINDING_EVENTS_TABLE =
-  "CREATE TABLE IF NOT EXISTS review_finding_events (" +
-  "delivery_id TEXT PRIMARY KEY, " +
-  "schema_version INTEGER NOT NULL, " +
-  "evidence_version INTEGER NOT NULL, " +
-  "finding_id TEXT NOT NULL, " +
-  "event_type TEXT NOT NULL, " +
-  "action TEXT NOT NULL, " +
-  "actor TEXT NOT NULL, " +
-  "payload_json TEXT NOT NULL, " +
-  "occurred_at TEXT NOT NULL, " +
-  "recorded_at TEXT NOT NULL, " +
-  "r2_recorded INTEGER NOT NULL DEFAULT 0)";
-const CREATE_REVIEW_FINDING_OUTCOMES_TABLE =
-  "CREATE TABLE IF NOT EXISTS review_finding_outcomes (" +
-  "finding_id TEXT NOT NULL, " +
-  "outcome_version INTEGER NOT NULL, " +
-  "outcome TEXT NOT NULL, " +
-  "basis TEXT NOT NULL, " +
-  "confidence REAL NOT NULL, " +
-  "evaluator_version TEXT NOT NULL, " +
-  "manual_override INTEGER NOT NULL DEFAULT 0, " +
-  "source_id TEXT NOT NULL UNIQUE, " +
-  "payload_json TEXT NOT NULL, " +
-  "occurred_at TEXT NOT NULL, " +
-  "recorded_at TEXT NOT NULL, " +
-  "r2_recorded INTEGER NOT NULL DEFAULT 0, " +
-  "PRIMARY KEY (finding_id, outcome_version))";
-const CREATE_REVIEW_FINDING_EVALUATIONS_TABLE =
-  "CREATE TABLE IF NOT EXISTS review_finding_evaluations (" +
-  "evaluation_id TEXT PRIMARY KEY, " +
-  "finding_id TEXT NOT NULL, " +
-  "trigger_type TEXT NOT NULL, " +
-  "status TEXT NOT NULL, " +
-  "evaluator_version TEXT NOT NULL, " +
-  "evidence_json TEXT NOT NULL, " +
-  "evaluated_at TEXT NOT NULL)";
-const CREATE_REVIEW_MODEL_HEALTH_TABLE =
-  "CREATE TABLE IF NOT EXISTS review_model_health (" +
-  "model TEXT NOT NULL, " +
-  "provider TEXT NOT NULL, " +
-  "consecutive_failures INTEGER NOT NULL DEFAULT 0, " +
-  "total_failures INTEGER NOT NULL DEFAULT 0, " +
-  "total_successes INTEGER NOT NULL DEFAULT 0, " +
-  "cooldown_until_ms INTEGER, " +
-  "last_error TEXT, " +
-  "updated_at TEXT NOT NULL, " +
-  "PRIMARY KEY (provider, model))";
-const CREATE_REVIEW_MODEL_HEALTH_OBSERVATIONS_TABLE =
-  "CREATE TABLE IF NOT EXISTS review_model_health_observations (" +
-  "observation_id TEXT NOT NULL, " +
-  "model TEXT NOT NULL, " +
-  "provider TEXT NOT NULL, " +
-  "ok INTEGER NOT NULL, " +
-  "error TEXT, " +
-  "observed_at TEXT NOT NULL, " +
-  "PRIMARY KEY (observation_id, provider, model))";
 const DEFAULT_DEBOUNCE_DELAY_MS = 120_000;
 const MINIMUM_DEBOUNCE_DELAY_MS = 1_000;
 const MAXIMUM_DEBOUNCE_DELAY_MS = 3_600_000;
@@ -781,64 +659,7 @@ async function forwardToCoordinator(
 export class PullRequestCoordinator extends DurableObject<Env> {
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
-    this.ctx.storage.sql.exec(CREATE_WEBHOOK_DELIVERIES_TABLE);
-    this.ctx.storage.sql.exec(CREATE_REVIEW_RUNS_TABLE);
-    const reviewRunColumns = this.ctx.storage.sql
-      .exec<{ name: string }>("PRAGMA table_info(review_runs)")
-      .toArray();
-    if (!reviewRunColumns.some(({ name }) => name === "completion_hash")) {
-      this.ctx.storage.sql.exec(
-        "ALTER TABLE review_runs ADD COLUMN completion_hash TEXT",
-      );
-    }
-    if (
-      !reviewRunColumns.some(({ name }) => name === "finding_resolutions_json")
-    ) {
-      this.ctx.storage.sql.exec(
-        "ALTER TABLE review_runs ADD COLUMN finding_resolutions_json TEXT",
-      );
-    }
-    this.ctx.storage.sql.exec(CREATE_REVIEW_HUNKS_TABLE);
-    this.ctx.storage.sql.exec(CREATE_REVIEW_RUN_HUNKS_TABLE);
-    this.ctx.storage.sql.exec(CREATE_REVIEW_FINDINGS_TABLE);
-    const findingColumns = this.ctx.storage.sql
-      .exec<{ name: string }>("PRAGMA table_info(review_findings)")
-      .toArray();
-    if (!findingColumns.some(({ name }) => name === "disposition")) {
-      this.ctx.storage.sql.exec(
-        "ALTER TABLE review_findings ADD COLUMN disposition TEXT",
-      );
-    }
-    if (!findingColumns.some(({ name }) => name === "disposition_reason")) {
-      this.ctx.storage.sql.exec(
-        "ALTER TABLE review_findings ADD COLUMN disposition_reason TEXT",
-      );
-    }
-    this.ctx.storage.sql.exec(CREATE_REVIEW_FINDING_HUNKS_TABLE);
-    this.ctx.storage.sql.exec(CREATE_REVIEW_FINDING_COMMENTS_TABLE);
-    this.ctx.storage.sql.exec(CREATE_REVIEW_FINDING_EVENTS_TABLE);
-    this.ctx.storage.sql.exec(CREATE_REVIEW_FINDING_OUTCOMES_TABLE);
-    const outcomeColumns = this.ctx.storage.sql
-      .exec<{ name: string }>("PRAGMA table_info(review_finding_outcomes)")
-      .toArray();
-    if (!outcomeColumns.some(({ name }) => name === "confidence")) {
-      this.ctx.storage.sql.exec(
-        "ALTER TABLE review_finding_outcomes ADD COLUMN confidence REAL NOT NULL DEFAULT 1",
-      );
-    }
-    if (!outcomeColumns.some(({ name }) => name === "evaluator_version")) {
-      this.ctx.storage.sql.exec(
-        "ALTER TABLE review_finding_outcomes ADD COLUMN evaluator_version TEXT NOT NULL DEFAULT 'legacy-v1'",
-      );
-    }
-    if (!outcomeColumns.some(({ name }) => name === "manual_override")) {
-      this.ctx.storage.sql.exec(
-        "ALTER TABLE review_finding_outcomes ADD COLUMN manual_override INTEGER NOT NULL DEFAULT 0",
-      );
-    }
-    this.ctx.storage.sql.exec(CREATE_REVIEW_FINDING_EVALUATIONS_TABLE);
-    this.ctx.storage.sql.exec(CREATE_REVIEW_MODEL_HEALTH_TABLE);
-    this.ctx.storage.sql.exec(CREATE_REVIEW_MODEL_HEALTH_OBSERVATIONS_TABLE);
+    runMigrations(this.ctx.storage);
   }
 
   async fetch(request: Request): Promise<Response> {
