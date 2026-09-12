@@ -20,9 +20,6 @@ concurrency:
   group: sonarqube-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
-env:
-  MISE_VERSION: "2026.9.1"
-
 jobs:
   coverage:
     name: Tests and coverage
@@ -35,11 +32,7 @@ jobs:
           persist-credentials: false
 
       - name: Setup mise
-        uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
-        with:
-          version: ${{ env.MISE_VERSION }}
-          experimental: true
-          minimum_release_age: 24h
+        uses: $/.github/actions/setup-mise
 
       - name: Get pnpm store directory
         id: pnpm-store
@@ -62,21 +55,40 @@ jobs:
       - name: Test Kubernetes manifests
         run: mise run //homelab:k3s-test-remote
 
+      - name: Resolve C++ toolchain cache paths
+        id: cpp-toolchain
+        shell: bash
+        run: |
+          paths="$(
+            mise ls --current --json --cd cpp/autonomic-satellite-swarm |
+              jq --raw-output --arg prefix "$GITHUB_WORKSPACE/cpp/" '
+                [
+                  to_entries[].value[]
+                  | select(.source.type == "mise.toml")
+                  | select(.source.path | startswith($prefix))
+                  | .install_path
+                ]
+                | unique[]
+              '
+          )"
+
+          if [ -z "$paths" ]; then
+            echo "::error::mise did not resolve any C++ toolchain cache paths"
+            exit 1
+          fi
+
+          {
+            echo 'paths<<MISE_PATHS'
+            echo "$paths"
+            echo 'MISE_PATHS'
+          } >> "$GITHUB_OUTPUT"
+
       - name: Restore C++ toolchain cache
         id: cpp-toolchain-cache
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          path: |
-            ~/.local/share/mise/installs/arduino-cli
-            ~/.local/share/mise/installs/cmake
-            ~/.local/share/mise/installs/conda-gxx
-            ~/.local/share/mise/installs/ninja
-            ~/.local/share/mise/installs/pipx-clang-format
-            ~/.local/share/mise/installs/pipx-clang-tidy
-            ~/.local/share/mise/installs/pipx-gcovr
-            ~/.local/share/mise/installs/python
-            ~/.local/share/mise/installs/uv
-          key: mise-cpp-v2-mise-${{ env.MISE_VERSION }}-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('cpp/mise.toml', 'cpp/autonomic-satellite-swarm/mise.toml') }}
+          path: ${{ steps.cpp-toolchain.outputs.paths }}
+          key: mise-cpp-v3-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('.github/actions/setup-mise/**', 'cpp/**/mise.toml') }}
 
       - name: Install coverage toolchain
         shell: bash
@@ -98,16 +110,7 @@ jobs:
         if: steps.cpp-toolchain-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          path: |
-            ~/.local/share/mise/installs/arduino-cli
-            ~/.local/share/mise/installs/cmake
-            ~/.local/share/mise/installs/conda-gxx
-            ~/.local/share/mise/installs/ninja
-            ~/.local/share/mise/installs/pipx-clang-format
-            ~/.local/share/mise/installs/pipx-clang-tidy
-            ~/.local/share/mise/installs/pipx-gcovr
-            ~/.local/share/mise/installs/python
-            ~/.local/share/mise/installs/uv
+          path: ${{ steps.cpp-toolchain.outputs.paths }}
           key: ${{ steps.cpp-toolchain-cache.outputs.cache-primary-key }}
 
       - name: Generate coverage reports
@@ -162,11 +165,7 @@ jobs:
           key: sonar-${{ runner.os }}-${{ runner.arch }}-v2
 
       - name: Setup mise
-        uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
-        with:
-          version: ${{ env.MISE_VERSION }}
-          experimental: true
-          minimum_release_age: 24h
+        uses: $/.github/actions/setup-mise
 
       - name: Get pnpm store directory
         id: pnpm-store
