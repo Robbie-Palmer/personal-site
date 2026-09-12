@@ -39,6 +39,7 @@ tech_stack:
 repo_url: "https://github.com/..." # Optional
 demo_url: "https://demo..." # Optional
 product_url: "https://product..." # Optional
+paper_title: "Published paper title" # Required with paper_url; labels the graph node
 paper_url: "https://doi.org/..." # Optional, published research paper
 role: "terminal-industries" # Optional - link to job role slug
 initiatives: # Optional - projects may contribute to more than one initiative

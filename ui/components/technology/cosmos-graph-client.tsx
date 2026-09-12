@@ -50,6 +50,7 @@ const NODE_COLORS: Record<string, string> = {
   project: "#3b82f6",
   blog: "#f97316",
   role: "#a855f7",
+  paper: "#ef4444",
   adr: "#64748b",
   technology: "#22c55e",
   tag: "#eab308",
@@ -61,6 +62,7 @@ const NODE_TYPE_LABELS: Record<string, string> = {
   project: "Projects",
   blog: "Blog posts",
   role: "Roles",
+  paper: "Research papers",
   adr: "ADRs",
   technology: "Technologies",
   tag: "Tags",
@@ -700,8 +702,8 @@ export function CosmosGraphClient({ data }: Readonly<{ data: GraphData }>) {
           <div>
             <h3 className="mt-0 text-lg font-semibold">Knowledge graph</h3>
             <p className="text-sm text-muted-foreground">
-              Explore projects, decisions, writing, roles, and the technology
-              connecting them.
+              Explore projects, research papers, decisions, writing, roles, and
+              the technology connecting them.
             </p>
           </div>
           {!isMobile && (
