@@ -572,13 +572,19 @@ test("the pilot overlay renders two distinct workspaces", () => {
     ).includes("/data/home/.t3/worktrees"),
   );
 
-  const dockerDataInit = valueAt(operatorDeployment, [
+  const initContainers = valueAt(operatorDeployment, [
     "spec",
     "template",
     "spec",
     "initContainers",
-    1,
   ]);
+  assert.ok(Array.isArray(initContainers));
+  const dockerDataInit = initContainers.find(
+    (container) =>
+      typeof container === "object" &&
+      container !== null &&
+      container.name === "prepare-docker-data",
+  );
   assert.deepEqual(dockerDataInit, {
     command: [
       "/bin/sh",
