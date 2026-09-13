@@ -1,6 +1,8 @@
 ---
-inherits_from: "homelab:023-k3s-declarative-workloads"
 title: "ADR 002: K3s for workspace workloads"
+date: "2026-09-06"
+status: "Proposed"
+tech_stack: ["K3s"]
 ---
 
 # Project-specific context
@@ -42,7 +44,7 @@ replacement, or autoscaling.
 
 # Project checks
 
-Keep this inherited decision Proposed until the workspace pilot proves that:
+Keep this decision Proposed until the workspace pilot proves that:
 
 * checked-in manifests converge without unexplained changes;
 * persistent state survives pod and K3s restarts;

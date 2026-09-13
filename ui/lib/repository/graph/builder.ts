@@ -2,6 +2,11 @@ import type { ADRRef } from "@/lib/domain/adr/adr";
 import type { BlogSlug } from "@/lib/domain/blog/blogPost";
 import type { IdeaSlug } from "@/lib/domain/idea/idea";
 import type { InitiativeSlug } from "@/lib/domain/initiative/initiative";
+import type {
+  DefaultOverride,
+  PlatformManifest,
+  ProjectLayerUse,
+} from "@/lib/domain/platform/platform";
 import type { ProjectSlug } from "@/lib/domain/project/project";
 import type { RoleSlug } from "@/lib/domain/role/jobRole";
 import type { TechnologySlug } from "@/lib/domain/technology/technology";
@@ -26,6 +31,9 @@ export interface RelationData {
   projectIdeas: Map<ProjectSlug, IdeaSlug[]>;
   technologyIdeas: Map<TechnologySlug, IdeaSlug[]>;
   ideaRelatedIdeas: Map<IdeaSlug, IdeaSlug[]>;
+  platformManifest?: PlatformManifest;
+  projectLayerUses: Map<ProjectSlug, ProjectLayerUse[]>;
+  adrOverridesDefault: Map<ADRRef, DefaultOverride>;
 }
 
 export function createEmptyRelationData(): RelationData {
@@ -48,6 +56,9 @@ export function createEmptyRelationData(): RelationData {
     projectIdeas: new Map(),
     technologyIdeas: new Map(),
     ideaRelatedIdeas: new Map(),
+    platformManifest: undefined,
+    projectLayerUses: new Map(),
+    adrOverridesDefault: new Map(),
   };
 }
 
@@ -81,6 +92,12 @@ export function buildContentGraph(input: BuildGraphInput): ContentGraph {
       referencesIdea: new Map(),
       technologyIdeas: new Map(),
       relatedIdea: new Map(),
+      platformOwnsLayer: new Map(),
+      layerSlotPolicies: new Map(),
+      defaultSelections: new Map(),
+      projectLayerUses: new Map(),
+      projectSlotUses: new Map(),
+      adrOverridesDefault: new Map(),
     },
     reverse: {
       technologyUsedBy: new Map(),
@@ -93,6 +110,9 @@ export function buildContentGraph(input: BuildGraphInput): ContentGraph {
       roleBlogs: new Map(),
       ideaReferencedBy: new Map(),
       ideaTechnologies: new Map(),
+      layerOwnedBy: new Map(),
+      layerUsers: new Map(),
+      slotOverrides: new Map(),
     },
   };
 
@@ -196,6 +216,47 @@ export function buildContentGraph(input: BuildGraphInput): ContentGraph {
       graph.reverse.roleBlogs.set(roleSlug, new Set());
     }
     graph.reverse.roleBlogs.get(roleSlug)?.add(blogSlug);
+  }
+
+  const manifest = relations.platformManifest;
+  if (manifest) {
+    graph.edges.platformOwnsLayer.set(
+      manifest.project,
+      new Set(manifest.layers.map((layer) => layer.slug)),
+    );
+    for (const layer of manifest.layers) {
+      graph.reverse.layerOwnedBy.set(layer.slug, manifest.project);
+      graph.reverse.layerUsers.set(layer.slug, new Set());
+    }
+    for (const policy of manifest.policies) {
+      graph.edges.layerSlotPolicies.set(policy.id, policy);
+    }
+    for (const selection of manifest.selections) {
+      graph.edges.defaultSelections.set(selection.id, selection);
+    }
+  }
+
+  for (const [project, uses] of relations.projectLayerUses) {
+    for (const [useIndex, use] of uses.entries()) {
+      const useId = `${project}:${use.layer}:${useIndex}`;
+      graph.edges.projectLayerUses.set(useId, { project, use });
+      graph.reverse.layerUsers.get(use.layer)?.add(project);
+      for (const [slotIndex, slotUse] of use.slots.entries()) {
+        graph.edges.projectSlotUses.set(`${useId}:${slotIndex}`, {
+          project,
+          layer: use.layer,
+          use: slotUse,
+        });
+      }
+    }
+  }
+
+  for (const [adrRef, override] of relations.adrOverridesDefault) {
+    graph.edges.adrOverridesDefault.set(adrRef, override);
+    const overrides =
+      graph.reverse.slotOverrides.get(override.slot) ?? new Set();
+    overrides.add(adrRef);
+    graph.reverse.slotOverrides.set(override.slot, overrides);
   }
 
   return graph;
