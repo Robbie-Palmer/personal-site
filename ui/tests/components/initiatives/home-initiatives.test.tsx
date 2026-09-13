@@ -187,5 +187,26 @@ describe("HomeInitiatives", () => {
     expect(omittedProjects.compareDocumentPosition(fourthProject)).toBe(
       Node.DOCUMENT_POSITION_FOLLOWING,
     );
+    expect(screen.getByText("•••")).toHaveAttribute("aria-hidden", "true");
+  });
+
+  it("truncates a four-project path at the boundary", () => {
+    const initiative = initiativeFixture();
+    const project = initiative.projects[0];
+    if (!project) throw new Error("Expected an initiative project fixture");
+    initiative.projects = [
+      { ...project, slug: "first", title: "First", date: "2018-01-01" },
+      { ...project, slug: "omitted", title: "Omitted", date: "2019-01-01" },
+      { ...project, slug: "recent", title: "Recent", date: "2020-01-01" },
+      { ...project, slug: "latest", title: "Latest", date: "2021-01-01" },
+    ];
+
+    render(<HomeInitiatives initiatives={[initiative]} />);
+
+    expect(screen.getByRole("link", { name: "First" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Recent" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Latest" })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Omitted" })).toBeNull();
+    expect(screen.getByText("1 project not shown")).toBeInTheDocument();
   });
 });
