@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { extractGraphData } from "@/lib/api/graph-data";
 import type { DomainRepository } from "@/lib/domain";
+import { loadDomainRepository } from "@/lib/repository";
+import {
+  getOverridesForDefaultSlot,
+  getPlatformLayersForProject,
+  getProjectsForPlatformLayer,
+} from "@/lib/repository/graph/queries";
 
 describe("extractGraphData", () => {
   it("skips ADR nodes when project mapping is missing", () => {
@@ -131,6 +137,96 @@ describe("extractGraphData", () => {
     ).toHaveLength(1);
     expect(data.edges).not.toContainEqual(
       expect.objectContaining({ target: "idea:missing-idea" }),
+    );
+  });
+
+  it("presents platform policy as direct project-layer-technology edges", () => {
+    const repository = loadDomainRepository();
+    const data = extractGraphData(repository);
+    const implementationNodePrefixes = [
+      "default-slot:",
+      "layer-extension:",
+      "layer-slot-policy:",
+      "default-selection:",
+      "project-layer-use:",
+      "project-slot-use:",
+    ];
+
+    expect(
+      data.nodes.some((node) =>
+        implementationNodePrefixes.some((prefix) => node.id.startsWith(prefix)),
+      ),
+    ).toBe(false);
+    expect(data.edges).toContainEqual(
+      expect.objectContaining({
+        source: "project:agentic-code-review",
+        target: "platform-layer:observability",
+        type: "USES_PLATFORM_LAYER",
+      }),
+    );
+    expect(data.edges).toContainEqual(
+      expect.objectContaining({
+        source: "platform-layer:backend-api",
+        target: "technology:cloudflare-workers",
+        type: "PREFERS_TECHNOLOGY",
+      }),
+    );
+    expect(
+      data.edges.filter(
+        (edge) =>
+          edge.source ===
+            "adr:personal-engineering-platform:001-language-defaults" &&
+          edge.target === "project:personal-site" &&
+          edge.type === "DRIVEN_BY",
+      ),
+    ).toHaveLength(1);
+    expect(
+      getPlatformLayersForProject(repository.graph, "recipe-site"),
+    ).toContain("backend-api");
+    expect(getProjectsForPlatformLayer(repository.graph, "base")).toContain(
+      "personal-site",
+    );
+    expect(
+      getOverridesForDefaultSlot(repository.graph, "project.primary-language"),
+    ).toContain("agent-first-writing:009-primary-language-python");
+  });
+
+  it("uses effective layer-use provenance after re-adoption", () => {
+    const repository = loadDomainRepository();
+    const projectLayerUses = new Map(repository.platform.projectLayerUses);
+    const existingUses = projectLayerUses.get("personal-site") ?? [];
+    projectLayerUses.set("personal-site", [
+      ...existingUses.filter((use) => use.layer !== "base"),
+      {
+        layer: "base",
+        adopted: "2026-09-12T00:00:00Z",
+        until: "2026-09-13T00:00:00Z",
+        tracking: false,
+        slots: [],
+      },
+      {
+        layer: "base",
+        adopted: "2026-09-13T00:00:00Z",
+        tracking: true,
+        slots: [],
+      },
+    ]);
+
+    const data = extractGraphData({
+      ...repository,
+      platform: { ...repository.platform, projectLayerUses },
+    });
+
+    expect(data.edges).toContainEqual(
+      expect.objectContaining({
+        source: "project:personal-site",
+        target: "platform-layer:base",
+        type: "USES_PLATFORM_LAYER",
+        provenance: expect.objectContaining({
+          adopted: "2026-09-13T00:00:00Z",
+          tracking: true,
+        }),
+      }),
     );
   });
 });

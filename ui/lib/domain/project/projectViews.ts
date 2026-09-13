@@ -1,4 +1,12 @@
 import type { ADRCardView } from "../adr/adrViews";
+import type {
+  DefaultSelection,
+  DefaultSlot,
+  LayerSlotPolicy,
+  LayerSlug,
+  PlatformLayer,
+} from "../platform/platform";
+import type { EffectiveTechnologySource } from "../platform/platformQueries";
 import type { RoleListItemView } from "../role/roleViews";
 import type { TechnologyBadgeView } from "../technology/technologyViews";
 import type { PitchDeck } from "./pitchDeck";
@@ -67,6 +75,36 @@ export type ProjectWithADRsView = {
   adrs: ADRCardView[];
   role?: RoleListItemView;
   tags: string[];
+  builtOn?: Array<{
+    slug: LayerSlug;
+    title: string;
+    adopted: string;
+    until?: string;
+    tracking: boolean;
+  }>;
+  platformTechnologies?: Array<
+    TechnologyBadgeView & {
+      source: Exclude<EffectiveTechnologySource, "project-specific">;
+      layer?: LayerSlug;
+      slot?: string;
+      decision?: string;
+    }
+  >;
+  platformManifest?: {
+    layers: PlatformLayer[];
+    policies: LayerSlotPolicy[];
+    slots: Array<
+      DefaultSlot & {
+        selections: Array<
+          DefaultSelection & {
+            lifecycleStatus: DefaultSelection["status"] | "Superseded";
+          }
+        >;
+        users: string[];
+        overrides: string[];
+      }
+    >;
+  };
 };
 
 export function toProjectCardView(

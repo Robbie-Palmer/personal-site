@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { ProjectLayerUseSchema } from "../platform/platform";
 import type { ProjectSlug } from "../slugs";
 import {
   ADRRefSchema,
@@ -101,6 +102,13 @@ export const ProjectRelationsSchema = z.object({
   initiatives: z.array(InitiativeSlugSchema).default([]),
   role: RoleSlugSchema.optional(),
   tags: z.array(z.string()).default([]),
+  platformLayers: z.array(ProjectLayerUseSchema).default([]),
 });
 
-export type ProjectRelations = z.infer<typeof ProjectRelationsSchema>;
+type ParsedProjectRelations = z.infer<typeof ProjectRelationsSchema>;
+export type ProjectRelations = Omit<
+  ParsedProjectRelations,
+  "platformLayers"
+> & {
+  platformLayers?: ParsedProjectRelations["platformLayers"];
+};

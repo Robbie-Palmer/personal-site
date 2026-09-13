@@ -50,6 +50,7 @@ vi.mock("@/content/experience", () => experienceContentMock);
 
 // Import after mocks are hoisted
 import * as fs from "node:fs";
+import { PlatformManifestSchema } from "@/lib/domain/platform";
 import {
   loadADRs,
   loadBlogPosts,
@@ -378,7 +379,7 @@ We decided to use React.`;
       );
     });
 
-    it("should derive inherited ADR stub content from source ADR", () => {
+    it("should turn an inherited ADR stub into a legacy alias", () => {
       const sourceADR = `---
 title: "ADR 002: React"
 date: "2025-10-18"
@@ -416,17 +417,14 @@ Recipe-site note: this is adopted as-is for now.
       });
 
       const result = loadADRs();
-      const inherited = result.entities.get("recipe-site:000-react");
-      expect(inherited).toBeDefined();
-      expect(inherited?.inheritsFrom).toBe("personal-site:002-react");
-      expect(inherited?.title).toBe("ADR 002: React");
-      expect(inherited?.content).toContain("Recipe-site note:");
-      expect(
-        result.relations.get("recipe-site:000-react")?.technologies,
-      ).toEqual(["react"]);
+      expect(result.entities.has("recipe-site:000-react")).toBe(false);
+      expect(result.relations.has("recipe-site:000-react")).toBe(false);
+      expect(result.aliases.get("recipe-site:000-react")).toBe(
+        "personal-site:002-react",
+      );
     });
 
-    it("should allow an inherited ADR to override its local display title", () => {
+    it("should ignore a legacy alias display title", () => {
       const sourceADR = `---
 title: "ADR 049: Cloudflare Workflows for Source Domain"
 date: "2026-07-08"
@@ -463,14 +461,12 @@ Project-specific orchestration notes.`;
       });
 
       const result = loadADRs();
-      const inherited = result.entities.get("target:014-cloudflare-workflows");
-
-      expect(inherited?.title).toBe("Cloudflare Workflows");
-      expect(inherited?.status).toBe("Accepted");
-      expect(inherited?.inheritsFrom).toBe("source:049-cloudflare-workflows");
-      expect(
-        result.relations.get("target:014-cloudflare-workflows")?.technologies,
-      ).toEqual(["cloudflare-workflows"]);
+      expect(result.entities.has("target:014-cloudflare-workflows")).toBe(
+        false,
+      );
+      expect(result.aliases.get("target:014-cloudflare-workflows")).toBe(
+        "source:049-cloudflare-workflows",
+      );
     });
 
     it.each([
@@ -1032,6 +1028,143 @@ Content`;
         expect(errors.length).toBeGreaterThan(0);
         expect(errors[0]?.type).toBe("missing_reference");
         expect(errors[0]?.field).toBe("project");
+      });
+
+      it("rejects a slot use outside its layer policy period", () => {
+        const platformManifest = PlatformManifestSchema.parse({
+          project: "platform",
+          layers: [
+            { slug: "base", title: "Base", description: "Shared defaults" },
+          ],
+          slots: [
+            {
+              slug: "tool.runner",
+              title: "Task runner",
+              description: "Runs project tasks",
+              rationale: "Several task runners can fill this role",
+              opinionated: true,
+              noDefaultFrom: "2026-01-02T00:00:00Z",
+            },
+          ],
+          policies: [
+            {
+              id: "base-runner",
+              layer: "base",
+              slot: "tool.runner",
+              mode: "preferred",
+              effectiveFrom: "2026-01-01T00:00:00Z",
+              effectiveUntil: "2026-01-02T00:00:00Z",
+              decision: "platform:001-runner",
+              prerequisites: [],
+            },
+          ],
+          selections: [
+            {
+              id: "runner",
+              slot: "tool.runner",
+              technology: "task-runner",
+              status: "Accepted",
+              effectiveFrom: "2026-01-01T00:00:00Z",
+              effectiveUntil: "2026-01-02T00:00:00Z",
+              decision: "platform:001-runner",
+              originProjects: [],
+            },
+          ],
+        });
+        const projects = new Map([
+          [
+            "platform",
+            {
+              slug: "platform",
+              title: "Platform",
+              description: "Desc",
+              date: "2026-01-01",
+              status: "live" as const,
+              content: "Content",
+            },
+          ],
+          [
+            "test-project",
+            {
+              slug: "test-project",
+              title: "Test",
+              description: "Desc",
+              date: "2026-01-01",
+              status: "live" as const,
+              content: "Content",
+            },
+          ],
+        ]);
+        const projectRelations = new Map([
+          [
+            "test-project",
+            {
+              technologies: [],
+              ideas: [],
+              adrs: [],
+              initiatives: [],
+              tags: [],
+              platformLayers: [
+                {
+                  layer: "base",
+                  adopted: "2026-01-03T00:00:00Z",
+                  tracking: true,
+                  slots: [
+                    {
+                      slot: "tool.runner",
+                      adopted: "2026-01-03T00:00:00Z",
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        ]);
+
+        const errors = validateReferentialIntegrity({
+          technologies: new Map([
+            [
+              "task-runner",
+              {
+                slug: "task-runner",
+                name: "Task runner",
+                website: "",
+                ideas: [],
+              },
+            ],
+          ]),
+          initiatives: new Map(),
+          adrs: new Map([
+            [
+              "platform:001-runner",
+              {
+                adrRef: "platform:001-runner",
+                slug: "001-runner",
+                projectSlug: "platform",
+                title: "Choose runner",
+                date: "2026-01-01",
+                status: "Accepted" as const,
+                content: "Content",
+                readingTime: "1 min",
+              },
+            ],
+          ]),
+          projects,
+          blogRelations: new Map(),
+          projectRelations,
+          adrRelations: new Map(),
+          roleRelations: new Map(),
+          platformManifest,
+        });
+
+        expect(errors).toContainEqual(
+          expect.objectContaining({
+            type: "invalid_reference",
+            entity: "Project[test-project]",
+            field: "platformLayers.slots",
+            value: "tool.runner",
+          }),
+        );
       });
     });
   });

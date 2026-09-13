@@ -2,6 +2,15 @@ import type { ADRRef } from "@/lib/domain/adr/adr";
 import type { BlogSlug } from "@/lib/domain/blog/blogPost";
 import type { IdeaSlug } from "@/lib/domain/idea/idea";
 import type { InitiativeSlug } from "@/lib/domain/initiative/initiative";
+import type {
+  DefaultOverride,
+  DefaultSelection,
+  DefaultSlotSlug,
+  LayerSlotPolicy,
+  LayerSlug,
+  ProjectLayerUse,
+  ProjectSlotUse,
+} from "@/lib/domain/platform/platform";
 import type { ProjectSlug } from "@/lib/domain/project/project";
 import type { RoleSlug } from "@/lib/domain/role/jobRole";
 import type { TechnologySlug } from "@/lib/domain/technology/technology";
@@ -16,6 +25,7 @@ export type NodeType =
   | "blog"
   | "role"
   | "paper"
+  | "platform-layer"
   | "technology";
 
 export type NodeId =
@@ -26,6 +36,7 @@ export type NodeId =
   | `blog:${string}`
   | `role:${string}`
   | `paper:${string}`
+  | `platform-layer:${string}`
   | `technology:${string}`;
 
 export type EdgeType =
@@ -55,6 +66,18 @@ export interface ContentGraph {
     referencesIdea: Map<NodeId, Set<IdeaSlug>>;
     technologyIdeas: Map<TechnologySlug, Set<IdeaSlug>>;
     relatedIdea: Map<IdeaSlug, Set<IdeaSlug>>;
+    platformOwnsLayer: Map<ProjectSlug, Set<LayerSlug>>;
+    layerSlotPolicies: Map<string, LayerSlotPolicy>;
+    defaultSelections: Map<string, DefaultSelection>;
+    projectLayerUses: Map<
+      string,
+      { project: ProjectSlug; use: ProjectLayerUse }
+    >;
+    projectSlotUses: Map<
+      string,
+      { project: ProjectSlug; layer: LayerSlug; use: ProjectSlotUse }
+    >;
+    adrOverridesDefault: Map<ADRRef, DefaultOverride>;
   };
 
   reverse: {
@@ -68,6 +91,9 @@ export interface ContentGraph {
     roleBlogs: Map<RoleSlug, Set<BlogSlug>>;
     ideaReferencedBy: Map<IdeaSlug, Set<NodeId>>;
     ideaTechnologies: Map<IdeaSlug, Set<TechnologySlug>>;
+    layerOwnedBy: Map<LayerSlug, ProjectSlug>;
+    layerUsers: Map<LayerSlug, Set<ProjectSlug>>;
+    slotOverrides: Map<DefaultSlotSlug, Set<ADRRef>>;
   };
 }
 

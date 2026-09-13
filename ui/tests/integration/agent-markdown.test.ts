@@ -103,6 +103,21 @@ describe("agent markdown generation", () => {
     );
   });
 
+  it("includes the platform manifest and selection history in its project twin", () => {
+    const platform = read("projects/personal-engineering-platform.md");
+    expect(platform).toContain("## Current layer manifest");
+    expect(platform).toContain("### Backend API");
+    expect(platform).toContain("backend-api.runtime: preferred");
+    expect(platform).toContain("## Default history");
+    expect(platform).toContain("### Primary language");
+    expect(platform).toContain(
+      "/projects/personal-engineering-platform/adrs/001-language-defaults.md",
+    );
+    expect(platform).toContain(
+      "driven by [personal-site](https://robbiepalmer.me/projects/personal-site.md)",
+    );
+  });
+
   it("generates a markdown twin for every project HTML page", () => {
     const projectDirs = fs
       .readdirSync(path.join(OUT_DIR, "projects"), { withFileTypes: true })
@@ -228,15 +243,13 @@ describe("agent markdown generation", () => {
     }
   });
 
-  it("renders inherited ADR notes once", () => {
-    const inheritedAdr = read(
+  it("renders migrated project ADRs as local records", () => {
+    const localAdr = read(
       "projects/agent-friendly-remote-development/adrs/001-nixos-host.md",
     );
-    expect(inheritedAdr).toContain("## Source summary");
-    expect(inheritedAdr).toContain(
-      "## Notes for Agent-friendly Remote Development",
-    );
-    expect(inheritedAdr.match(/# Project-specific context/g)).toHaveLength(1);
+    expect(localAdr).not.toContain("## Source summary");
+    expect(localAdr).not.toContain("Inherited from project");
+    expect(localAdr.match(/# Project-specific context/g)).toHaveLength(1);
   });
 
   it("advertises markdown alternates for entry pages in _headers", () => {
