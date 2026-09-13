@@ -4,9 +4,9 @@
 
 This working implementation brief records the agreed MVP behaviour so
 implementation can proceed without losing the reasoning that led to it.
-[Personal Engineering Platform PR #1299](https://github.com/Robbie-Palmer/personal-site/pull/1299)
-landed on 13 September 2026. The project now adopts its platform layers and
-keeps Work Graph-specific choices in local ADRs.
+The project adopts the layers defined by the
+[Personal Engineering Platform](../ui/content/projects/personal-engineering-platform/index.mdx)
+and keeps Work Graph-specific choices in local ADRs.
 
 ## Goal
 
@@ -105,8 +105,10 @@ ready -> in progress -> waiting on children -> ready -> released
 ```
 
 A work item with no children can be executed. Adding children makes the parent
-wait. When every direct child is released or cancelled, the parent becomes
-ready again for synthesis, verification, or completion.
+wait. When every direct child is released or cancelled, the parent remains
+`open` in stored lifecycle and projects as `ready` for explicit synthesis,
+verification, or completion. Terminating the last child never terminates the
+parent automatically.
 
 The hierarchy must remain acyclic. Reparenting retains item identity, notes,
 events, and prior leases.
@@ -177,9 +179,9 @@ numeric formula changes after dogfooding:
 - filtering by initiative, project, parent work item, or other semantic fields
   does not change relative order within the result.
 
-The exact weighting formula needs a small fixture-driven prototype before it
-is fixed in a migration or public API. Ordinal ranks should not accidentally
-gain misleading arithmetic meaning.
+No weighting formula may become part of a migration or public API until
+fixture-driven tests compare it with realistic queue-ordering cases. Ordinal
+ranks must not accidentally gain misleading arithmetic meaning.
 
 Once work is claimed, a newly higher-priority item does not pre-empt it. The
 worker continues until it releases, cancels, decomposes, requests attention,
@@ -244,6 +246,12 @@ Project the operational board stage from lifecycle state plus related records:
 - `released`; and
 - `cancelled`.
 
+`released` and `cancelled` are the canonical terminal work-item values shared
+by stored lifecycle and projected stage. A lease may record either value as its
+outcome when that lease performed the terminal transition. The lease outcome
+remains immutable history rather than another source of current work-item
+state.
+
 This avoids contradictory combinations such as a stored `ready` state with an
 unresolved blocker. Event history explains every transition.
 
@@ -266,8 +274,8 @@ planner to fill every category. Present the item's own brief first, followed by
 nearest parent context, ADRs, project and initiative sources, current pull
 requests, and supplemental references.
 
-Do not add arbitrary labels in the MVP. Add fields with scheduling or workflow
-meaning as needs emerge.
+Do not add arbitrary labels. Add a semantic field only when its scheduling,
+workflow, or query meaning is understood.
 
 ### Pull requests
 
@@ -351,7 +359,7 @@ Pure domain scenarios should cover:
 - an unblocked childless item becoming ready;
 - dependencies and unfinished children blocking work;
 - decomposition making children actionable and the parent non-actionable;
-- terminal children making their parent ready again;
+- terminal children making their parent ready again without terminating it;
 - cancellation satisfying a dependency;
 - replacement work requiring a new dependency edge;
 - reparenting retaining item history;
@@ -415,7 +423,7 @@ before the headless workflow is useful.
 9. [ ] Add manual PR links and snapshot refresh. Automate GitHub events only after
    manual use shows which events matter.
 
-## Deferred without closing the door
+## Deferred
 
 - Continuity scoring after attention resolution.
 - MCP exposure.
@@ -423,10 +431,13 @@ before the headless workflow is useful.
 - GitHub webhooks and automatic task release.
 - Formal API versioning.
 - Multiple owners, teams, and policy domains.
+
+## Explicit exclusions
+
 - Arbitrary labels.
 - Delivery forecasting and estimates.
 - Automatic completion of parents when their last child terminates.
-- A fixed priority-weighting formula before fixture-driven testing.
+- A priority-weighting formula chosen without fixture-driven testing.
 
 ## MVP completion check
 

@@ -1,7 +1,11 @@
+export const TERMINAL_WORK_ITEM_STATES = ["released", "cancelled"] as const;
+
+export type TerminalWorkItemState =
+  (typeof TERMINAL_WORK_ITEM_STATES)[number];
+
 export const WORK_ITEM_LIFECYCLES = [
   "open",
-  "released",
-  "cancelled",
+  ...TERMINAL_WORK_ITEM_STATES,
 ] as const;
 
 export type WorkItemLifecycle = (typeof WORK_ITEM_LIFECYCLES)[number];
@@ -12,15 +16,13 @@ export const WORK_STAGES = [
   "in_progress",
   "stale",
   "needs_attention",
-  "released",
-  "cancelled",
+  ...TERMINAL_WORK_ITEM_STATES,
 ] as const;
 
 export type WorkStage = (typeof WORK_STAGES)[number];
 
 export const LEASE_OUTCOMES = [
-  "released",
-  "cancelled",
+  ...TERMINAL_WORK_ITEM_STATES,
   "decomposed",
   "attention_requested",
   "expired",

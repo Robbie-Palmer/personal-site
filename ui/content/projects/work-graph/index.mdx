@@ -165,8 +165,9 @@ affected branch, retain its history, and explain the evidence behind the change.
 
 The graph should expose critical paths and opportunities to parallelise work,
 then help reduce lead times by removing waits and dependencies. Forecasting is
-limited to the delivery of an individual item once picked up. Queued work does
-not acquire a delivery commitment merely because it appears in the plan.
+outside its scope. It does not store estimates or predict delivery dates for
+queued or active work. Workers can report progress and blockers without
+turning either into a forecast.
 
 The Work Graph records those assumptions, commitments, and revisions. The
 [wider initiative](/initiatives/semi-autonomous-software-development#an-adaptive-model-of-the-organisation)
@@ -196,7 +197,8 @@ The first schema should stay small:
 Executability is derived. An open item is ready when it has no active lease,
 unresolved attention, unsatisfied dependency, or non-terminal direct child.
 Adding children to claimed work makes the parent wait. Once those children
-terminate, the parent can be claimed again for synthesis or completion.
+terminate, the parent can be claimed again for synthesis or completion. The
+system never terminates the parent automatically.
 
 The system needs a history of changes even if the main interface shows only
 current state. Otherwise an expired lease or rewritten plan can erase the
@@ -323,6 +325,10 @@ check whether people can keep moving when downstream work is uncertain.
 
 * Scheduling models or managing their capacity
 * Storing private operational telemetry in the public graph
-* Predicting delivery dates through estimates disguised as certainty
+* Arbitrary labels in place of fields with defined scheduling, workflow, or
+  query meaning
+* Delivery forecasting and estimates
+* Automatically terminating a parent when its last child terminates
+* Choosing a priority-weighting formula without fixture-driven tests
 * Maximizing task throughput without regard for outcomes
 * Replacing owner judgment with one fixed risk policy
