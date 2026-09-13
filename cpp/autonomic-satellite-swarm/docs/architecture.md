@@ -80,6 +80,8 @@ for a benchtop swarm demonstration; it is not proposed as a spacecraft communica
 - Each update processes a configurable bounded number of received messages.
 - Each controller keeps at most 16 telemetry records. A higher-priority record may evict an older,
   lower-priority record, and every loss increments a saturating drop counter.
+- The Uno firmware build reserves at least 768 bytes of SRAM beyond global allocation for local
+  variables and the runtime stack.
 - One controller negotiates one mission at a time.
 - Mission keys combine a provisioned node ID, a 32-bit boot epoch, and a 16-bit sequence. Sequence
   wrap is forbidden.

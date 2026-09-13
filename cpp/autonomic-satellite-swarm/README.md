@@ -117,7 +117,9 @@ mise run firmware:esp32
 
 The Uno adapter uses six NEC infrared frames for each validated protocol packet. The ESP32 adapter
 uses ESP-NOW broadcast packets. Both are compile-tested; neither has been exercised on physical
-hardware during the revival because the original equipment is no longer available.
+hardware during the revival because the original equipment is no longer available. The Uno task
+also requires at least 768 bytes of its 2 KB SRAM to remain available for local variables and the
+runtime stack after global allocation.
 
 The compile checks use reference node ID `0`. Set a distinct ID for each physical board at build
 time; the task rejects values outside the core's configured `0..15` range:
