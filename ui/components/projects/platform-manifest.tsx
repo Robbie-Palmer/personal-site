@@ -94,7 +94,9 @@ export function PlatformManifest({
                       >
                         {selection.technology}
                       </Link>{" "}
-                      <Badge variant="secondary">{selection.status}</Badge>{" "}
+                      <Badge variant="secondary">
+                        {selection.lifecycleStatus}
+                      </Badge>{" "}
                       <span className="text-muted-foreground">
                         {selection.effectiveFrom}
                         {selection.effectiveUntil

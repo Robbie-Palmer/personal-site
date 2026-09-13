@@ -95,7 +95,11 @@ export type ProjectWithADRsView = {
     policies: LayerSlotPolicy[];
     slots: Array<
       DefaultSlot & {
-        selections: DefaultSelection[];
+        selections: Array<
+          DefaultSelection & {
+            lifecycleStatus: DefaultSelection["status"] | "Superseded";
+          }
+        >;
         users: string[];
         overrides: string[];
       }

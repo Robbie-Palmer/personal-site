@@ -103,6 +103,18 @@ describe("agent markdown generation", () => {
     );
   });
 
+  it("includes the platform manifest and selection history in its project twin", () => {
+    const platform = read("projects/personal-engineering-platform.md");
+    expect(platform).toContain("## Current layer manifest");
+    expect(platform).toContain("### Backend API");
+    expect(platform).toContain("backend-api.runtime: preferred");
+    expect(platform).toContain("## Default history");
+    expect(platform).toContain("### Primary language");
+    expect(platform).toContain(
+      "/projects/personal-engineering-platform/adrs/001-language-defaults.md",
+    );
+  });
+
   it("generates a markdown twin for every project HTML page", () => {
     const projectDirs = fs
       .readdirSync(path.join(OUT_DIR, "projects"), { withFileTypes: true })

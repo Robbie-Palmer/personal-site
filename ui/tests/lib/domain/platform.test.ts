@@ -10,6 +10,7 @@ import {
   resolveEffectiveProjectStack,
   UtcInstantSchema,
 } from "@/lib/domain/platform";
+import { getProjectWithADRs } from "@/lib/domain/project/projectQueries";
 import { loadDomainRepository } from "@/lib/repository";
 
 function sameDayManifest(linkReplacement = true) {
@@ -180,6 +181,19 @@ describe("temporal platform layers", () => {
         }),
       ]),
     );
+  });
+
+  it("derives stable adoption dates for activated language layers", () => {
+    const repository = loadDomainRepository();
+    const recipe = getProjectWithADRs(repository, "recipe-site");
+    const writing = getProjectWithADRs(repository, "agent-first-writing");
+
+    expect(
+      recipe?.builtOn?.find((layer) => layer.slug === "typescript")?.adopted,
+    ).toBe("2026-09-12T00:00:00Z");
+    expect(
+      writing?.builtOn?.find((layer) => layer.slug === "python")?.adopted,
+    ).toBe("2026-09-12T00:00:00Z");
   });
 
   it("keeps inherited ADR aliases out of local project histories", () => {

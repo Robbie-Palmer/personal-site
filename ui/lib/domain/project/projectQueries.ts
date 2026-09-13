@@ -10,7 +10,15 @@ import {
 } from "@/lib/repository";
 import { parseADRRef } from "../adr/adr";
 import { getADRsForProject } from "../adr/adrQueries";
-import { resolveEffectiveProjectStack } from "../platform/platformQueries";
+import {
+  compareUtcInstants,
+  getSelectionLifecycleStatus,
+  type LayerSlug,
+} from "../platform/platform";
+import {
+  type EffectiveProjectStack,
+  resolveEffectiveProjectStack,
+} from "../platform/platformQueries";
 import type { RoleSlug } from "../role/jobRole";
 import type { RoleListItemView } from "../role/roleViews";
 import { toRoleListItemView } from "../role/roleViews";
@@ -196,17 +204,20 @@ export function getProjectWithADRs(
   const manifest = repository.platform.manifest;
   const stack = resolveEffectiveProjectStack(repository, slug);
   const layerUses = repository.platform.projectLayerUses.get(slug) ?? [];
-  const builtOn = stack.layers.map((layerSlug) => ({
-    slug: layerSlug,
-    title:
-      manifest?.layers.find((layer) => layer.slug === layerSlug)?.title ??
-      layerSlug,
-    adopted:
-      layerUses.find((use) => use.layer === layerSlug)?.adopted ?? stack.at,
-    until: layerUses.find((use) => use.layer === layerSlug)?.until,
-    tracking:
-      layerUses.find((use) => use.layer === layerSlug)?.tracking ?? true,
-  }));
+  const builtOn = stack.layers.map((layerSlug) => {
+    const explicitUse = layerUses.find((use) => use.layer === layerSlug);
+    return {
+      slug: layerSlug,
+      title:
+        manifest?.layers.find((layer) => layer.slug === layerSlug)?.title ??
+        layerSlug,
+      adopted:
+        explicitUse?.adopted ??
+        getActivatedLayerAdoptionInstant(repository, stack, layerSlug),
+      until: explicitUse?.until,
+      tracking: explicitUse?.tracking ?? true,
+    };
+  });
   const platformTechnologies = stack.technologies
     .filter(
       (
@@ -238,9 +249,15 @@ export function getProjectWithADRs(
           policies: manifest.policies,
           slots: manifest.slots.map((slot) => ({
             ...slot,
-            selections: manifest.selections.filter(
-              (selection) => selection.slot === slot.slug,
-            ),
+            selections: manifest.selections
+              .filter((selection) => selection.slot === slot.slug)
+              .map((selection) => ({
+                ...selection,
+                lifecycleStatus: getSelectionLifecycleStatus(
+                  manifest,
+                  selection,
+                ),
+              })),
             users: Array.from(
               new Set(
                 manifest.policies
@@ -283,6 +300,55 @@ export function getProjectWithADRs(
     platformTechnologies,
     platformManifest,
   };
+}
+
+function getActivatedLayerAdoptionInstant(
+  repository: DomainRepository,
+  stack: EffectiveProjectStack,
+  layerSlug: LayerSlug,
+): string {
+  const manifest = repository.platform.manifest;
+  const activation = manifest?.layers.find(
+    (layer) => layer.slug === layerSlug,
+  )?.activatedBy;
+  const technologyUse = activation
+    ? stack.technologies.find(
+        (use) =>
+          use.slot === activation.slot &&
+          use.technology === activation.technology,
+      )
+    : undefined;
+  if (!manifest || !technologyUse) {
+    throw new Error(
+      `Cannot derive adoption time for platform layer '${layerSlug}'`,
+    );
+  }
+  const selection = manifest.selections.find(
+    (candidate) => candidate.id === technologyUse.selection,
+  );
+  const override = technologyUse.decision
+    ? repository.platform.adrOverrides.get(technologyUse.decision)
+    : undefined;
+  const policy = manifest.policies.find(
+    (candidate) => candidate.id === technologyUse.policy,
+  );
+  const dates = [
+    selection?.effectiveFrom,
+    override?.adopted,
+    policy?.effectiveFrom,
+    policy
+      ? repository.platform.projectLayerUses
+          .get(stack.project)
+          ?.find((use) => use.layer === policy.layer)?.adopted
+      : undefined,
+  ].filter((date): date is string => date !== undefined);
+  const adopted = dates.toSorted(compareUtcInstants).at(-1);
+  if (!adopted) {
+    throw new Error(
+      `Cannot derive adoption time for platform layer '${layerSlug}'`,
+    );
+  }
+  return adopted;
 }
 
 export function getRoleProjects(
