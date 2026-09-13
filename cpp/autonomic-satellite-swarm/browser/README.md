@@ -5,23 +5,26 @@ C++ runner. The coordination algorithm remains in the portable core.
 
 ## Boundary
 
-The exported C ABI has four functions:
+The exported C ABI has five functions:
 
-- `satellite_swarm_browser_api_version()` reports worker-facing API version 5.
+- `satellite_swarm_browser_api_version()` reports worker-facing API version 6.
 - `satellite_swarm_source_revision()` reports the exact Git revision embedded at configure time.
 - `satellite_swarm_run_demonstration(longitude, latitude, scenario)` runs the deterministic
   three-node trace and returns a pointer to its JSON result. Scenario `0` uses connected links;
   scenario `1` drops the winning node's assignment.
+- `satellite_swarm_run_fair_allocation_evidence()` runs six equal-score missions and returns the
+  assignment telemetry and per-node counts.
 - `satellite_swarm_last_error()` returns the last adapter error when a run fails.
 
 Returned pointers refer to adapter-owned strings and remain valid until the next call. The worker
 copies each string into JavaScript before making another call. The adapter catches C++ exceptions so
 none cross the C boundary.
 
-The worker protocol and JSON display record are at version `4`; the C ABI is at version `5`, and the
-simulation trace remains at version `3`. These independent version fields prevent a change to one
+The worker protocol and JSON display record are at version `4`; the C ABI is at version `6`, and the
+simulation trace is at version `4`. These independent version fields prevent a change to one
 boundary from silently reinterpreting another. Display version 4 adds typed controller telemetry
-and per-node drop counts.
+and per-node drop counts. Trace version 4 adds explicit mission-completion commands for repeated
+workloads.
 
 ## Build and parity check
 
@@ -33,8 +36,9 @@ mise run browser:parity
 
 The task pins Emscripten, configures the CMake browser target, copies its `.mjs` and `.wasm` outputs
 to the site's public simulation directory, and runs the Node parity test. The test requires the
-South Pole result to match the native fixture byte for byte. It also exercises a custom coordinate,
-the error path, and the deployed worker's protocol and module paths through a worker-thread bridge.
+South Pole result to match the native fixture byte for byte. It also requires the native and Wasm
+equal-score evidence to match, exercises a custom coordinate and the error path, and checks the
+deployed worker's protocol and module paths through a worker-thread bridge.
 
 The generated files are ignored by Git. The UI's mise build and development tasks compile them from
 source with the pinned Emscripten toolchain before Next.js starts.

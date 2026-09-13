@@ -31,7 +31,7 @@ const validResult = {
   scenario: "three-node-objective-pass",
   schemaVersion: 4,
   source: "portable C++ SimulationTrace",
-  traceVersion: 3,
+  traceVersion: 4,
 };
 
 type WorkerListener = (event: MessageEvent<unknown> | ErrorEvent) => void;

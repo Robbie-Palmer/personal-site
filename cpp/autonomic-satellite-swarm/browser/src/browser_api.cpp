@@ -1,6 +1,7 @@
 #include "satellite_swarm/browser_api.hpp"
 
 #include "satellite_swarm/browser_simulation.hpp"
+#include "satellite_swarm/fair_allocation_simulation.hpp"
 
 #include <exception>
 #include <stdexcept>
@@ -19,7 +20,7 @@
 
 namespace {
 
-constexpr uint32_t kBrowserApiVersion = 5U;
+constexpr uint32_t kBrowserApiVersion = 6U;
 
 satellite_swarm::simulation::BrowserScenario parseScenario(uint32_t scenario) {
   if (scenario == static_cast<uint32_t>(satellite_swarm::simulation::BrowserScenario::Nominal)) {
@@ -59,6 +60,24 @@ satellite_swarm_run_demonstration(float longitude_degrees, float latitude_degree
   try {
     state.result = satellite_swarm::simulation::runBrowserDemonstration(
         satellite_swarm::Coordinate(longitude_degrees, latitude_degrees), parseScenario(scenario));
+    state.error.clear();
+    return state.result.c_str();
+  } catch (const std::exception& error) {
+    state.result.clear();
+    state.error = error.what();
+    return nullptr;
+  } catch (...) {
+    state.result.clear();
+    state.error = "unknown simulation error";
+    return nullptr;
+  }
+}
+
+extern "C" SATELLITE_SWARM_KEEPALIVE const char*
+satellite_swarm_run_fair_allocation_evidence() noexcept {
+  auto& state = browserState();
+  try {
+    state.result = satellite_swarm::simulation::runFairAllocationEvidence();
     state.error.clear();
     return state.result.c_str();
   } catch (const std::exception& error) {

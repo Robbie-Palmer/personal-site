@@ -21,6 +21,8 @@ add_library(
   src/satellite_swarm/controller.cpp
   src/satellite_swarm/historical_orbital_scorer.cpp
   src/satellite_swarm/telemetry.cpp
+  src/satellite_swarm/telemetry_codec.cpp
+  src/satellite_swarm/telemetry_transmitter.cpp
   src/satellite_swarm/types.cpp
   src/satellite_swarm/wire_codec.cpp)
 add_library(satellite_swarm::coordination ALIAS satellite_swarm)
@@ -56,6 +58,7 @@ if(SATELLITE_SWARM_BUILD_SIMULATION)
   add_library(
     satellite_swarm_simulation
     simulation/src/browser_simulation.cpp
+    simulation/src/fair_allocation_simulation.cpp
     simulation/src/simulation.cpp)
   add_library(satellite_swarm::simulation ALIAS satellite_swarm_simulation)
   target_include_directories(
@@ -85,12 +88,19 @@ if(SATELLITE_SWARM_BUILD_SIMULATION)
       NAME satellite_swarm_browser_fixture
       COMMAND autonomic-satellite-swarm-simulation --json)
     add_test(
+      NAME satellite_swarm_fair_allocation
+      COMMAND autonomic-satellite-swarm-simulation --fairness-json)
+    add_test(
       NAME satellite_swarm_invalid_arguments
       COMMAND autonomic-satellite-swarm-simulation --unsupported)
     set_tests_properties(
       satellite_swarm_browser_fixture
       PROPERTIES PASS_REGULAR_EXPRESSION
                  "\"source\": \"portable C\\+\\+ SimulationTrace\".*\"events\"")
+    set_tests_properties(
+      satellite_swarm_fair_allocation
+      PROPERTIES PASS_REGULAR_EXPRESSION
+                 "\"policy\": \"mission-keyed-cyclic-equal-score\".*\"assignmentCounts\"")
     set_tests_properties(satellite_swarm_invalid_arguments PROPERTIES WILL_FAIL TRUE)
   endif()
 endif()
@@ -157,7 +167,9 @@ if(BUILD_TESTING)
     tests/controller_test.cpp
     tests/historical_orbital_scorer_test.cpp
     tests/invariant_test.cpp
+    tests/telemetry_codec_test.cpp
     tests/telemetry_test.cpp
+    tests/telemetry_transmitter_test.cpp
     tests/wire_codec_test.cpp)
   if(SATELLITE_SWARM_BUILD_SIMULATION)
     target_sources(

@@ -33,6 +33,8 @@ const char* eventName(SimulationEventType type) {
   switch (type) {
   case SimulationEventType::MissionCommand:
     return "mission-command";
+  case SimulationEventType::MissionCompletion:
+    return "mission-completion";
   case SimulationEventType::MessageSent:
     return "message-sent";
   case SimulationEventType::MessageDropped:
@@ -208,6 +210,8 @@ void writeBrowserEvent(std::ostream& output, const SimulationEvent& event) {
   if (event.type == SimulationEventType::MissionCommand) {
     output << R"(,"accepted":)" << (event.accepted ? "true" : "false") << R"(,"objective":)";
     writeCoordinate(output, event.objective);
+  } else if (event.type == SimulationEventType::MissionCompletion) {
+    output << R"(,"accepted":)" << (event.accepted ? "true" : "false");
   } else if (event.type == SimulationEventType::MessageSent) {
     output << R"(,"message":)";
     writeMessage(output, event.message);

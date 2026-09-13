@@ -1,4 +1,5 @@
 #include "satellite_swarm/browser_simulation.hpp"
+#include "satellite_swarm/fair_allocation_simulation.hpp"
 
 #include <exception>
 #include <iostream>
@@ -29,7 +30,12 @@ const char* stateName(ControllerState state) {
   return "unknown";
 }
 
-int runSimulation(bool json) {
+int runSimulation(bool json, bool fairness_json) {
+  if (fairness_json) {
+    std::cout << runFairAllocationEvidence();
+    return 0;
+  }
+
   const Coordinate kSouthPole(0.0F, -90.0F);
   const BrowserSimulation simulation = makeBrowserDemonstration(kSouthPole);
   const SimulationResult result = runSimulationTrace(simulation.trace);
@@ -56,11 +62,12 @@ int runSimulation(bool json) {
 int main(int argc, char* argv[]) {
   try {
     const bool json = argc == 2 && std::string_view(argv[1]) == "--json";
-    if (argc > 2 || (argc == 2 && !json)) {
-      std::cerr << "usage: autonomic-satellite-swarm-simulation [--json]\n";
+    const bool fairness_json = argc == 2 && std::string_view(argv[1]) == "--fairness-json";
+    if (argc > 2 || (argc == 2 && !json && !fairness_json)) {
+      std::cerr << "usage: autonomic-satellite-swarm-simulation [--json|--fairness-json]\n";
       return 2;
     }
-    return runSimulation(json);
+    return runSimulation(json, fairness_json);
   } catch (const std::exception& error) {
     std::cerr << "simulation setup failed: " << error.what() << '\n';
     return 1;

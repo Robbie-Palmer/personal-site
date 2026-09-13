@@ -64,6 +64,8 @@ struct TelemetryEvent {
 class BoundedTelemetryBuffer {
 public:
   bool record(const TelemetryEvent& event);
+  bool peek(TelemetryEvent& event) const;
+  bool discard();
   bool read(TelemetryEvent& event);
 
   uint8_t size() const { return size_; }

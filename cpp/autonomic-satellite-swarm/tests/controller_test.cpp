@@ -92,6 +92,64 @@ TEST_CASE("a leader collects scores and deterministically assigns the strongest 
   CHECK(transport.sent.back().target == 1U);
 }
 
+TEST_CASE("equal top scores rotate across responders and emit allocation telemetry") {
+  FakeTransport transport;
+  FakeHealthMonitor health;
+  FixedScorer scorer(80U);
+  SwarmController controller(0U, 1U, SatelliteSnapshot(), transport, health, scorer, fastConfig());
+  std::array<uint8_t, 3U> assignment_counts{};
+
+  for (MissionSequence sequence = 1U; sequence <= 6U; ++sequence) {
+    const uint32_t started_at_ms = (sequence - 1U) * 200U;
+    REQUIRE(controller.initiateMission(Coordinate(), started_at_ms));
+    CHECK(controller.currentMissionKey() == MissionKey(0U, 1U, sequence));
+
+    transport.deliver(Message::candidacy(1U, 0U, controller.currentMissionKey(), 80U));
+    transport.deliver(Message::candidacy(2U, 0U, controller.currentMissionKey(), 80U));
+    controller.update(started_at_ms + 1U);
+    controller.update(started_at_ms + fastConfig().response_window_ms);
+
+    const NodeId assigned = controller.assignedNode();
+    REQUIRE(assigned < assignment_counts.size());
+    ++assignment_counts[assigned];
+
+    bool found_assignment_telemetry = false;
+    TelemetryEvent telemetry;
+    while (controller.readTelemetry(telemetry)) {
+      if (telemetry.type == TelemetryEventType::MissionAssigned &&
+          telemetry.reason == TelemetryReason::AssignmentBroadcast) {
+        CHECK(telemetry.mission_key == MissionKey(0U, 1U, sequence));
+        CHECK(telemetry.related_node == assigned);
+        CHECK(telemetry.value == 80U);
+        found_assignment_telemetry = true;
+      }
+    }
+    CHECK(found_assignment_telemetry);
+
+    if (controller.state() == ControllerState::Active) {
+      controller.completeMission(started_at_ms + fastConfig().response_window_ms + 1U);
+    }
+    CHECK(controller.state() == ControllerState::Idle);
+  }
+
+  CHECK(assignment_counts == std::array<uint8_t, 3U>{2U, 2U, 2U});
+}
+
+TEST_CASE("a higher candidacy score overrides the cyclic tie-break order") {
+  FakeTransport transport;
+  FakeHealthMonitor health;
+  FixedScorer scorer(80U);
+  SwarmController controller(0U, 1U, SatelliteSnapshot(), transport, health, scorer, fastConfig());
+
+  REQUIRE(controller.initiateMission(Coordinate(), 0U));
+  transport.deliver(Message::candidacy(1U, 0U, controller.currentMissionKey(), 79U));
+  transport.deliver(Message::candidacy(2U, 0U, controller.currentMissionKey(), 81U));
+  controller.update(1U);
+  controller.update(fastConfig().response_window_ms);
+
+  CHECK(controller.assignedNode() == 2U);
+}
+
 TEST_CASE("a candidate progresses from request to acknowledgement to assignment") {
   FakeTransport transport;
   FakeHealthMonitor health;

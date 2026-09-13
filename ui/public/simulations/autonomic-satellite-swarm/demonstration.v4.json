@@ -1,6 +1,6 @@
 {
   "schemaVersion": 4,
-  "traceVersion": 3,
+  "traceVersion": 4,
   "scenario": "three-node-objective-pass",
   "source": "portable C++ SimulationTrace",
   "positionModel": "scripted simulation data; not orbit propagation",
@@ -34,7 +34,7 @@
     {"type":"controller-telemetry","timeMs":10,"nodeId":2,"bootEpoch":1,"sequence":3,"droppedBefore":0,"event":"state-transition","reason":"acknowledgement-received","priority":"operational","missionKey":{"originNode":0,"bootEpoch":1,"sequence":1},"relatedNode":null,"value":0,"previousState":"awaiting acknowledgement","currentState":"awaiting assignment"},
     {"type":"state-changed","timeMs":10,"nodeId":2,"previousState":"awaiting acknowledgement","currentState":"awaiting assignment"},
     {"type":"message-sent","timeMs":100,"nodeId":0,"message":{"type":"mission-assignment","sender":0,"target":1,"missionKey":{"originNode":0,"bootEpoch":1,"sequence":1},"score":0}},
-    {"type":"controller-telemetry","timeMs":100,"nodeId":0,"bootEpoch":1,"sequence":5,"droppedBefore":0,"event":"mission-assigned","reason":"assignment-broadcast","priority":"critical","missionKey":{"originNode":0,"bootEpoch":1,"sequence":1},"relatedNode":1,"value":0,"previousState":"leading","currentState":"leading"},
+    {"type":"controller-telemetry","timeMs":100,"nodeId":0,"bootEpoch":1,"sequence":5,"droppedBefore":0,"event":"mission-assigned","reason":"assignment-broadcast","priority":"critical","missionKey":{"originNode":0,"bootEpoch":1,"sequence":1},"relatedNode":1,"value":72,"previousState":"leading","currentState":"leading"},
     {"type":"controller-telemetry","timeMs":100,"nodeId":0,"bootEpoch":1,"sequence":6,"droppedBefore":0,"event":"state-transition","reason":"assignment-broadcast","priority":"critical","missionKey":{"originNode":0,"bootEpoch":1,"sequence":1},"relatedNode":null,"value":0,"previousState":"leading","currentState":"idle"},
     {"type":"state-changed","timeMs":100,"nodeId":0,"previousState":"leading","currentState":"idle"},
     {"type":"controller-telemetry","timeMs":100,"nodeId":1,"bootEpoch":1,"sequence":4,"droppedBefore":0,"event":"mission-assigned","reason":"assignment-received","priority":"critical","missionKey":{"originNode":0,"bootEpoch":1,"sequence":1},"relatedNode":1,"value":0,"previousState":"awaiting assignment","currentState":"awaiting assignment"},

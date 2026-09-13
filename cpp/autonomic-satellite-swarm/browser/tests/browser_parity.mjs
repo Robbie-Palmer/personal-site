@@ -1,11 +1,12 @@
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
 import { once } from "node:events";
 import { readFile } from "node:fs/promises";
 import { Worker } from "node:worker_threads";
 import createSatelliteSwarmModule from "../../build/browser/browser/satellite-swarm.mjs";
 
 const module = await createSatelliteSwarmModule();
-assert.equal(module._satellite_swarm_browser_api_version(), 5);
+assert.equal(module._satellite_swarm_browser_api_version(), 6);
 const sourceRevision = module.UTF8ToString(
   module._satellite_swarm_source_revision(),
 );
@@ -54,6 +55,25 @@ assert.equal(faultResult.frames.at(-1).nodes[1].state, "idle");
 assert.throws(
   () => run(181, 0),
   /mission objective is outside the coordinate bounds/,
+);
+
+const nativeFairnessEvidence = execFileSync(
+  "./build/dev/autonomic-satellite-swarm-simulation",
+  ["--fairness-json"],
+  { encoding: "utf8" },
+);
+const wasmFairnessPointer = module._satellite_swarm_run_fair_allocation_evidence();
+assert.notEqual(wasmFairnessPointer, 0);
+const wasmFairnessEvidence = module.UTF8ToString(wasmFairnessPointer);
+assert.equal(wasmFairnessEvidence, nativeFairnessEvidence);
+const fairness = JSON.parse(wasmFairnessEvidence);
+assert.deepEqual(
+  fairness.missions.map((mission) => mission.assignedNode),
+  [0, 1, 2, 0, 1, 2],
+);
+assert.deepEqual(
+  fairness.assignmentCounts.map(({ missions }) => missions),
+  [2, 2, 2],
 );
 
 const productionWorker = new Worker(

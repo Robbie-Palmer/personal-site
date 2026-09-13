@@ -21,6 +21,10 @@ explicit.
 - A temporary leader broadcasts a mission objective.
 - Available nodes calculate a replaceable candidacy score.
 - The leader acknowledges responses and deterministically assigns the strongest candidate.
+- Equal top scores rotate across the stable responder set using the mission key, without allocation
+  history or another wire field.
+- A separate transmitter exports fixed telemetry frames at a bounded rate and retains a record when
+  its sink rejects the write.
 - A busy node does not accept more work.
 - Health policy can place a node into reversible quiescence or a safe-disabled state latched for the controller lifetime.
 - Repeated failure to receive acknowledgements can trigger the historical "death by default" rule.
@@ -43,6 +47,7 @@ mise install
 mise run test
 mise run simulate
 mise run simulate:json
+mise run simulate:fairness
 ```
 
 The simulation should assign the southern-latitude mission to node 1:
@@ -62,6 +67,10 @@ network-fault record consumed by the CesiumJS view. The paths come from scripted
 Orbit propagation remains outside this demo. The browser can compare the connected mission with a
 run where node 1's winning assignment is dropped.
 
+`simulate:fairness` runs six missions where all three nodes score 100. It prints assignment evidence
+derived from the leader's bounded telemetry. The expected order is `0, 1, 2, 0, 1, 2`, with two
+missions per node and no dropped records.
+
 Build the browser module and compare its default output with the native fixture:
 
 ```shell
@@ -69,7 +78,8 @@ mise run browser:parity
 ```
 
 The task pins Emscripten, writes the untracked deployable `.mjs` and `.wasm` files under `ui/public`,
-checks a custom objective, and verifies invalid-input handling. The UI build runs the same task so
+checks a custom objective, compares the equal-score evidence byte for byte, and verifies
+invalid-input handling. The UI build runs the same task so
 deployments compile the browser module from source. The worker API is versioned separately from the
 simulation trace and display schema.
 
@@ -96,11 +106,12 @@ tests/                     host-side behavior and characterization tests
 docs/                      architecture, protocol, and modernization notes
 ```
 
-The core depends on three interfaces:
+The core depends on four interfaces:
 
 - `Transport` moves semantic messages without exposing radio details.
 - `HealthMonitor` maps platform observations to nominal, quiescent, or fatal health.
 - `CandidacyScorer` ranks a satellite for a mission objective.
+- `TelemetrySink` accepts a diagnostic record when the platform grants output-channel access.
 
 See [Architecture](docs/architecture.md) and [Wire protocol](docs/wire-protocol.md) for the detailed
 contracts.
@@ -120,6 +131,11 @@ uses ESP-NOW broadcast packets. Both are compile-tested; neither has been exerci
 hardware during the revival because the original equipment is no longer available. The Uno task
 also requires at least 768 bytes of its 2 KB SRAM to remain available for local variables and the
 runtime stack after global allocation. This compile-time guard measures static allocation only.
+
+Both sketches also send 34-byte telemetry frames over their serial diagnostic link at no more than
+one frame per second. Coordination remains on IR or ESP-NOW. The one-second interval applies only to
+the bench experiment.
+
 Worst-case stack safety under interrupt nesting and physical-target stack behavior remain
 unverified.
 

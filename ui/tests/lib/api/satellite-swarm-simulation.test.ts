@@ -7,7 +7,7 @@ import {
 
 const validRecord = {
   schemaVersion: 4,
-  traceVersion: 3,
+  traceVersion: 4,
   scenario: "test",
   source: "portable C++ SimulationTrace",
   sourceRevision: "0123456789abcdef0123456789abcdef01234567",
@@ -134,6 +134,12 @@ describe("satellite swarm simulation records", () => {
           type: "mission-command",
         },
         {
+          accepted: true,
+          nodeId: 1,
+          timeMs: 5,
+          type: "mission-completion",
+        },
+        {
           currentState: "idle",
           nodeId: 1,
           previousState: "safe-disabled",
@@ -244,6 +250,7 @@ describe("satellite swarm simulation records", () => {
       record.events.map((event) => describeSatelliteSwarmEvent(event)),
     ).toEqual([
       "Node 0 rejected the mission command.",
+      "Node 1 completed its active mission.",
       "Node 1 reset from safe-disabled to idle.",
       "Link 0 to node 1 disconnected.",
       "Link 0 to node 1 connected.",

@@ -45,6 +45,10 @@ use a nominal monitor because there is no current hardware against which to cali
 heuristic and its example outputs, with validation and defined edge cases. A future flight-dynamics
 model can replace it behind the same interface.
 
+`TelemetrySink` accepts diagnostic records outside the controller. `TelemetryTransmitter` grants it
+at most one record per configured interval and only when the platform says the output channel is
+available. A rejected record stays in the bounded queue.
+
 ### Wire codec
 
 `WireCodec` converts messages to a fixed 18-byte representation. It explicitly controls byte order,
@@ -56,14 +60,14 @@ mission's origin node, that node's boot epoch, and a sequence within the epoch.
 
 The simulation layer runs the portable controllers from a versioned sequence of fixed-time frames.
 Each frame applies directed-link changes, explicit delivery faults, health and satellite updates,
-and node resets before mission commands and controller updates. A delivery directive can drop,
-delay, or duplicate the next matching sender-to-recipient message. The runner records each applied
-fault alongside messages and state changes, then captures every node's state, score, and satellite
-snapshot. The command-line demonstration uses this runner. An Emscripten target exposes the same
-browser serializer through a versioned C ABI, and a module worker invokes it without moving
-coordination rules into TypeScript. Native and WebAssembly results are compared byte for byte for
-the default scenario. A reset increments the simulated node's boot epoch before constructing its
-replacement controller.
+node resets, and mission completions before mission commands and controller updates. A delivery
+directive can drop, delay, or duplicate the next matching sender-to-recipient message. The runner
+records each applied fault alongside messages and state changes, then captures every node's state,
+score, and satellite snapshot. The command-line demonstration uses this runner. An Emscripten target
+exposes the same browser serializer through a versioned C ABI, and a module worker invokes it without
+moving coordination rules into TypeScript. Native and WebAssembly results are compared byte for byte for
+the default scenario and a repeated equal-score allocation run. A reset increments the simulated
+node's boot epoch before constructing its replacement controller.
 
 ### Hardware adapters
 
@@ -80,12 +84,16 @@ for a benchtop swarm demonstration; it is not proposed as a spacecraft communica
 - Each update processes a configurable bounded number of received messages.
 - Each controller keeps at most 16 telemetry records. A higher-priority record may evict an older,
   lower-priority record, and every loss increments a saturating drop counter.
+- Telemetry export attempts one record per configured interval. The reference firmware uses a
+  dedicated serial link at one frame per second; shared-radio scheduling remains unimplemented.
 - The Uno firmware build reserves at least 768 bytes of SRAM beyond global allocation for local
   variables and the runtime stack. This static-allocation threshold provides headroom; worst-case
   stack and interrupt-nesting behavior remain unverified.
 - One controller negotiates one mission at a time.
 - Mission keys combine a provisioned node ID, a 32-bit boot epoch, and a 16-bit sequence. Sequence
   wrap is forbidden.
+- Equal top scores rotate across the sorted tied set using a phase derived from the mission origin
+  and boot epoch, then advanced by the mission sequence. The policy stores no allocation history.
 - The simulator advances boot epochs. The compile-tested firmware accepts a build-time epoch but has
   no durable epoch store.
 - The reference transport is unauthenticated and unencrypted.
@@ -101,10 +109,11 @@ A credible next research iteration would add:
 
 1. A validated orbital propagation and maneuver-cost model.
 2. Durable boot-epoch, assignment, and safe-state storage with explicit recovery rules.
-3. Fair, lifetime-aware allocation instead of a fixed node-ID tie-break.
+3. Validated resource and lifetime inputs for candidacy scoring before the existing cyclic
+   equal-score tie-break.
 4. A mission executor interface with progress, cancellation, and failure semantics, plus an
    idempotent platform hook for physical safe-state actions.
-5. A transport and time-based rate policy for the implemented bounded telemetry queue.
+5. Measured shared-radio scheduling, delivery, and duty-cycle rules for telemetry export.
 6. Authenticated messages with replay protection before enabling remote intervention.
 7. Property-based and model-checked invariants beyond the deterministic regression scenarios.
 8. Hardware-in-the-loop tests for a selected board and radio.

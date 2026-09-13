@@ -44,6 +44,13 @@ const missionCommandEventSchema = z.object({
   type: z.literal("mission-command"),
 });
 
+const missionCompletionEventSchema = z.object({
+  accepted: z.boolean(),
+  nodeId: z.number().int().min(0).max(15),
+  timeMs: z.number().int().nonnegative(),
+  type: z.literal("mission-completion"),
+});
+
 const messageFields = {
   missionKey: missionKeySchema,
   score: candidacyScoreSchema,
@@ -219,6 +226,7 @@ const simulationSchema = z.object({
   events: z.array(
     z.union([
       missionCommandEventSchema,
+      missionCompletionEventSchema,
       messageSentEventSchema,
       messageDroppedEventSchema,
       messageDelayedEventSchema,
@@ -244,7 +252,7 @@ const simulationSchema = z.object({
   schemaVersion: z.literal(4),
   source: z.literal("portable C++ SimulationTrace"),
   sourceRevision: z.string().regex(/^[0-9a-f]{40}$/),
-  traceVersion: z.literal(3),
+  traceVersion: z.literal(4),
 });
 
 export type SatelliteSwarmSimulation = z.infer<typeof simulationSchema>;
@@ -263,6 +271,8 @@ export function describeSatelliteSwarmEvent(
   switch (event.type) {
     case "mission-command":
       return `Node ${event.nodeId} ${event.accepted ? "accepted" : "rejected"} the mission command.`;
+    case "mission-completion":
+      return `Node ${event.nodeId} ${event.accepted ? "completed its active mission" : "rejected the completion command"}.`;
     case "state-changed":
       return `Node ${event.nodeId} changed from ${event.previousState} to ${event.currentState}.`;
     case "node-reset":
