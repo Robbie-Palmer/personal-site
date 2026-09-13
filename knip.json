@@ -6,6 +6,7 @@
     ".": {
       "entry": [
         "functions/**/*.ts",
+        "api-governance/spectral-functions/*.js",
         "cpp/autonomic-satellite-swarm/browser/tests/browser_parity.mjs",
         "homelab/images/t3-code/bootstrap-settings.mjs",
         "homelab/tests/**/*.test.ts",
@@ -23,6 +24,9 @@
       "ignoreDependencies": ["cloudflare"]
     },
     "packages/ai-review-domain": {},
+    "packages/work-graph-domain": {
+      "ignoreBinaries": ["vitest"]
+    },
     "packages/writing-editor-domain": {},
     "ui": {
       "ignore": [
@@ -35,8 +39,7 @@
     "workers/recipe-api": {
       "entry": [
         "vitest.integration.config.ts",
-        "scripts/**/*.ts",
-        "spectral-functions/*.js"
+        "scripts/**/*.ts"
       ],
       "ignoreDependencies": ["@stoplight/spectral-owasp-ruleset"]
     },
