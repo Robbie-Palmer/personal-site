@@ -88,6 +88,43 @@ describe("temporal platform layers", () => {
     ).toBe(true);
   });
 
+  it("rejects prerequisite selections outside the policy period", () => {
+    const manifest = sameDayManifest();
+    manifest.slots.push({
+      slug: "tool.database",
+      title: "Database",
+      description: "Stores task state",
+      rationale: "Several databases address the same requirement",
+      opinionated: false,
+    });
+    manifest.selections.push({
+      id: "database-old",
+      slot: "tool.database",
+      technology: "old-database",
+      status: "Accepted",
+      effectiveFrom: "2026-09-12T07:00:00Z",
+      effectiveUntil: "2026-09-12T08:00:00Z",
+      decision: "platform:000-database",
+      originProjects: [],
+    });
+    const policy = manifest.policies[0];
+    expect(policy).toBeDefined();
+    if (!policy) return;
+    manifest.policies[0] = {
+      ...policy,
+      prerequisites: [{ slot: "tool.database", technology: "old-database" }],
+    };
+
+    const result = PlatformManifestSchema.safeParse(manifest);
+
+    expect(result.success).toBe(false);
+    expect(
+      result.error?.issues.some((issue) =>
+        issue.message.includes("technology not selected by prerequisite"),
+      ),
+    ).toBe(true);
+  });
+
   it("rejects gaps in a closed historical policy period", () => {
     const manifest = sameDayManifest();
     const policy = manifest.policies[0];

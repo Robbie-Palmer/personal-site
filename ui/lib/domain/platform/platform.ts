@@ -104,6 +104,18 @@ function addManifestIssue(context: z.RefinementCtx, message: string): void {
   context.addIssue({ code: "custom", message });
 }
 
+function effectivePeriodsOverlap(
+  left: EffectivePeriod,
+  right: EffectivePeriod,
+): boolean {
+  return (
+    (left.effectiveUntil === undefined ||
+      compareUtcInstants(right.effectiveFrom, left.effectiveUntil) < 0) &&
+    (right.effectiveUntil === undefined ||
+      compareUtcInstants(left.effectiveFrom, right.effectiveUntil) < 0)
+  );
+}
+
 function validatePolicyReferences(
   manifest: PlatformManifestInput,
   layerSlugs: ReadonlySet<string>,
@@ -127,7 +139,8 @@ function validatePolicyReferences(
       const hasSelection = manifest.selections.some(
         (selection) =>
           selection.slot === prerequisite.slot &&
-          selection.technology === prerequisite.technology,
+          selection.technology === prerequisite.technology &&
+          effectivePeriodsOverlap(policy, selection),
       );
       if (prerequisite.technology && !hasSelection) {
         addManifestIssue(
