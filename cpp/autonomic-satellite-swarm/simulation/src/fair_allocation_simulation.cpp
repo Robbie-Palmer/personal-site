@@ -62,7 +62,7 @@ std::string serializeFairAllocationEvidence(const SimulationResult& result) {
   constexpr std::size_t kExpectedMissions = 6U;
   constexpr std::size_t kExpectedNodes = 3U;
   std::array<uint8_t, kExpectedNodes> assignment_counts{};
-  std::array<const TelemetryEvent*, kExpectedMissions> assignments{};
+  std::array<TelemetryEvent, kExpectedMissions> assignments{};
   std::size_t assignment_count = 0U;
 
   for (const SimulationEvent& event : result.events) {
@@ -76,7 +76,7 @@ std::string serializeFairAllocationEvidence(const SimulationResult& result) {
         event.telemetry.value != 100U) {
       throw std::invalid_argument("fair-allocation trace contains invalid assignment telemetry");
     }
-    assignments[assignment_count] = &event.telemetry;
+    assignments[assignment_count] = event.telemetry;
     ++assignment_counts[event.telemetry.related_node];
     ++assignment_count;
   }
@@ -99,7 +99,7 @@ std::string serializeFairAllocationEvidence(const SimulationResult& result) {
   "missions": [
 )";
   for (std::size_t index = 0U; index < assignments.size(); ++index) {
-    const TelemetryEvent& telemetry = *assignments[index];
+    const TelemetryEvent& telemetry = assignments[index];
     output << R"(    {"missionKey":)";
     writeMissionKey(output, telemetry.mission_key);
     output << R"(,"score":)" << static_cast<unsigned int>(telemetry.value) << R"(,"assignedNode":)"
