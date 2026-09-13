@@ -5,7 +5,7 @@
     "@anthropic-ai/claude-code": "2.1.263",
     "@openai/codex": "0.153.4",
     "@xai-official/grok": "1.0.21",
-    "opencode-ai": "1.18.27",
+    "opencode-ai": "1.18.29",
     "pnpm": "12.2.1",
     "t3": "0.0.38"
   }
