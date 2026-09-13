@@ -92,6 +92,7 @@ const FORWARDED_REQUEST_HEADERS = [
   "cf-connecting-ip",
   "content-type",
   "cookie",
+  "idempotency-key",
   "origin",
   "traceparent",
   "tracestate",
