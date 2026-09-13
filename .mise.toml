@@ -348,6 +348,7 @@ depends = [
     "//packages/observability:test:coverage",
     "//packages/recipe-parsing:test:coverage",
     "//packages/ts-base:test:coverage",
+    "//packages/work-graph-domain:test:coverage",
     "//packages/writing-editor-domain:test:coverage",
     "//ml-pipelines/recipe-parsing:test:coverage",
     "//ml-pipelines/ai-review-evaluation:test:coverage",
