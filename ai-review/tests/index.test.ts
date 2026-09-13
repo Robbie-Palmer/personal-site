@@ -703,6 +703,17 @@ describe("PullRequestCoordinator", () => {
     ["a fractional run limit", { maxRuns: 1.5 }],
     ["an unsafe run limit", { maxRuns: Number.MAX_SAFE_INTEGER + 1 }],
     ["a negative cost limit", { maxCostUsd: -0.01 }],
+    ["an empty run ID", { runId: "" }],
+    ["an oversized run ID", { runId: "x".repeat(256) }],
+    ["an empty head SHA", { headSha: "" }],
+    ["an oversized head SHA", { headSha: "x".repeat(65) }],
+    ["an empty diff fingerprint", { diffFingerprint: "" }],
+    ["an oversized diff fingerprint", { diffFingerprint: "x".repeat(65) }],
+    ["an empty config fingerprint", { configFingerprint: "" }],
+    [
+      "an oversized config fingerprint",
+      { configFingerprint: "x".repeat(65) },
+    ],
   ])("rejects review claims with %s", async (_label, override) => {
     const { coordinator } = coordinatorFixture();
     const response = await coordinator.fetch(
@@ -1504,6 +1515,38 @@ describe("PullRequestCoordinator", () => {
       );
       expect(response.status).toBe(400);
     }
+  });
+
+  it.each([
+    ["an empty run ID", { runId: "" }],
+    ["an oversized run ID", { runId: "x".repeat(256) }],
+    ["an empty head SHA", { headSha: "" }],
+    ["an oversized head SHA", { headSha: "x".repeat(65) }],
+    ["a zero comment ID", { commentId: 0 }],
+    ["a fractional comment ID", { commentId: 1.5 }],
+    ["an unsafe comment ID", { commentId: Number.MAX_SAFE_INTEGER + 1 }],
+  ])("rejects review completions with %s", async (_label, override) => {
+    const { coordinator } = coordinatorFixture();
+    const response = await coordinator.fetch(
+      new Request("https://coordinator.test/reviews/complete", {
+        method: "POST",
+        body: JSON.stringify({
+          repository: event.repository,
+          pullRequestNumber: event.pullRequestNumber,
+          runId: "review-delivery-123",
+          headSha: event.headSha,
+          costUsd: 0.42,
+          hunks: [],
+          findings: [],
+          ...override,
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      error: "Invalid review completion",
+    });
   });
 
   it("rejects an incomplete identified finding at the completion boundary", async () => {

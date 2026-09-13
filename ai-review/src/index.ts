@@ -346,9 +346,17 @@ function isReviewClaim(value: unknown): value is ReviewClaim {
   return (
     isRecord(value) &&
     typeof value.runId === "string" &&
+    value.runId.length > 0 &&
+    value.runId.length <= 255 &&
     typeof value.headSha === "string" &&
+    value.headSha.length > 0 &&
+    value.headSha.length <= 64 &&
     typeof value.diffFingerprint === "string" &&
+    value.diffFingerprint.length > 0 &&
+    value.diffFingerprint.length <= 64 &&
     typeof value.configFingerprint === "string" &&
+    value.configFingerprint.length > 0 &&
+    value.configFingerprint.length <= 64 &&
     typeof value.force === "boolean" &&
     typeof value.maxRuns === "number" &&
     Number.isSafeInteger(value.maxRuns) &&
@@ -379,11 +387,18 @@ function isReviewCompletion(value: unknown): value is ReviewCompletion {
     Number.isSafeInteger(value.pullRequestNumber) &&
     value.pullRequestNumber > 0 &&
     typeof value.runId === "string" &&
+    value.runId.length > 0 &&
+    value.runId.length <= 255 &&
     typeof value.headSha === "string" &&
+    value.headSha.length > 0 &&
+    value.headSha.length <= 64 &&
     typeof value.costUsd === "number" &&
     Number.isFinite(value.costUsd) &&
     value.costUsd >= 0 &&
-    (value.commentId === undefined || typeof value.commentId === "number") &&
+    (value.commentId === undefined ||
+      (typeof value.commentId === "number" &&
+        Number.isSafeInteger(value.commentId) &&
+        value.commentId > 0)) &&
     Array.isArray(value.hunks) &&
     value.hunks.every(isReviewHunk) &&
     (value.currentHunks === undefined ||
