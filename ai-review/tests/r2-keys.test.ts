@@ -45,4 +45,17 @@ describe("AI review R2 keys", () => {
       }),
     ).toBe("v2/acme/widgets/pr-7/head-1/run-1/published.json");
   });
+
+  it.each([
+    "acme",
+    "acme/widgets/extra",
+    "/widgets",
+    "acme/",
+    "acme/../widgets",
+    " acme/widgets",
+  ])("rejects a non-canonical repository path: %s", (repository) => {
+    expect(() =>
+      findingRecordsPrefix({ ...pullRequest, repository }),
+    ).toThrow("repository must use the canonical owner/name form");
+  });
 });

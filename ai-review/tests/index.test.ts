@@ -413,6 +413,7 @@ describe("PullRequestCoordinator", () => {
       { ...validObservation, policy: null },
       { ...validObservation, policy: { ...policy, version: 1 } },
       { ...validObservation, policy: { ...policy, version: "" } },
+      { ...validObservation, policy: { ...policy, version: "   " } },
       {
         ...validObservation,
         policy: { ...policy, consecutiveFailureThreshold: "2" },
@@ -695,6 +696,35 @@ describe("PullRequestCoordinator", () => {
         String(query).includes("INSERT INTO review_finding_comments"),
       ),
     ).toBe(true);
+  });
+
+  it.each([
+    ["a negative run limit", { maxRuns: -1 }],
+    ["a fractional run limit", { maxRuns: 1.5 }],
+    ["an unsafe run limit", { maxRuns: Number.MAX_SAFE_INTEGER + 1 }],
+    ["a negative cost limit", { maxCostUsd: -0.01 }],
+  ])("rejects review claims with %s", async (_label, override) => {
+    const { coordinator } = coordinatorFixture();
+    const response = await coordinator.fetch(
+      new Request("https://coordinator.test/reviews/claim", {
+        method: "POST",
+        body: JSON.stringify({
+          runId: "review-invalid-limits",
+          headSha: event.headSha,
+          diffFingerprint: "diff-hash",
+          configFingerprint: "config-hash",
+          force: false,
+          maxRuns: 20,
+          maxCostUsd: 5,
+          ...override,
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      error: "Invalid review claim",
+    });
   });
 
   it("does not mint a confirmed fix from model replay alone", async () => {

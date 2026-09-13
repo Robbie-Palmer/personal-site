@@ -327,7 +327,7 @@ function isModelAvailabilityObservation(
     value.observationId.length > 0 &&
     value.observationId.length <= 255 &&
     typeof policy.version === "string" &&
-    policy.version.length > 0 &&
+    policy.version.trim().length > 0 &&
     typeof policy.consecutiveFailureThreshold === "number" &&
     Number.isSafeInteger(policy.consecutiveFailureThreshold) &&
     policy.consecutiveFailureThreshold >= 1 &&
@@ -351,9 +351,11 @@ function isReviewClaim(value: unknown): value is ReviewClaim {
     typeof value.configFingerprint === "string" &&
     typeof value.force === "boolean" &&
     typeof value.maxRuns === "number" &&
-    Number.isFinite(value.maxRuns) &&
+    Number.isSafeInteger(value.maxRuns) &&
+    value.maxRuns >= 0 &&
     typeof value.maxCostUsd === "number" &&
-    Number.isFinite(value.maxCostUsd)
+    Number.isFinite(value.maxCostUsd) &&
+    value.maxCostUsd >= 0
   );
 }
 
