@@ -181,12 +181,14 @@ describe("HomeInitiatives", () => {
     expect(screen.getByRole("link", { name: "Last" })).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Second" })).toBeNull();
     expect(screen.queryByRole("link", { name: "Middle" })).toBeNull();
-    expect(firstProject.compareDocumentPosition(omittedProjects)).toBe(
-      Node.DOCUMENT_POSITION_FOLLOWING,
-    );
-    expect(omittedProjects.compareDocumentPosition(fourthProject)).toBe(
-      Node.DOCUMENT_POSITION_FOLLOWING,
-    );
+    expect(
+      firstProject.compareDocumentPosition(omittedProjects) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).not.toBe(0);
+    expect(
+      omittedProjects.compareDocumentPosition(fourthProject) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).not.toBe(0);
     expect(screen.getByText("•••")).toHaveAttribute("aria-hidden", "true");
   });
 
