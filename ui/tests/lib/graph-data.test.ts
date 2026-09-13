@@ -229,4 +229,22 @@ describe("extractGraphData", () => {
       }),
     );
   });
+
+  it("can render a deterministic historical platform snapshot", () => {
+    const repository = loadDomainRepository();
+    const data = extractGraphData(repository, "2026-09-11T23:59:59Z");
+
+    expect(data.edges).not.toContainEqual(
+      expect.objectContaining({
+        source: "platform-layer:backend-api",
+        type: "PREFERS_TECHNOLOGY",
+      }),
+    );
+    expect(data.edges).not.toContainEqual(
+      expect.objectContaining({
+        source: "project:personal-site",
+        type: "USES_PLATFORM_LAYER",
+      }),
+    );
+  });
 });

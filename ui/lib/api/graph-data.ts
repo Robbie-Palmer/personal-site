@@ -378,10 +378,10 @@ function addPlatformLayerOwnershipEdges(
 function addPlatformPolicyEdges(
   repository: DomainRepository,
   state: GraphBuildState,
+  instant: string,
 ): void {
   const manifest = repository.platform?.manifest;
   if (!manifest) return;
-  const instant = new Date().toISOString();
   for (const policy of manifest.policies) {
     if (!isEffectiveAt(policy, instant)) continue;
     const selection = manifest.selections.find(
@@ -436,10 +436,11 @@ function addPlatformOriginEdges(
 function addProjectPlatformLayerEdges(
   repository: DomainRepository,
   state: GraphBuildState,
+  instant: string,
 ): void {
   if (!repository.platform) return;
   for (const project of repository.platform.projectLayerUses.keys()) {
-    const stack = resolveEffectiveProjectStack(repository, project);
+    const stack = resolveEffectiveProjectStack(repository, project, instant);
     for (const layer of stack.layers) {
       const use = repository.platform.projectLayerUses
         .get(project)
@@ -468,11 +469,12 @@ function addProjectPlatformLayerEdges(
 function addPlatformEdges(
   repository: DomainRepository,
   state: GraphBuildState,
+  instant: string,
 ): void {
   addPlatformLayerOwnershipEdges(repository, state);
-  addPlatformPolicyEdges(repository, state);
+  addPlatformPolicyEdges(repository, state, instant);
   addPlatformOriginEdges(repository, state);
-  addProjectPlatformLayerEdges(repository, state);
+  addProjectPlatformLayerEdges(repository, state, instant);
 }
 
 function addTagEdges(
@@ -486,7 +488,10 @@ function addTagEdges(
   }
 }
 
-export function extractGraphData(repository: DomainRepository): GraphData {
+export function extractGraphData(
+  repository: DomainRepository,
+  instant = new Date().toISOString(),
+): GraphData {
   const state: GraphBuildState = {
     nodes: [],
     edges: [],
@@ -499,7 +504,7 @@ export function extractGraphData(repository: DomainRepository): GraphData {
   const connectedTechs = addTechnologyAndTagNodes(repository, state);
   addTechnologyEdges(repository, state, connectedTechs);
   addRelationshipEdges(repository, state);
-  addPlatformEdges(repository, state);
+  addPlatformEdges(repository, state, instant);
   addTagEdges(repository, state);
 
   for (const node of state.nodes) {
