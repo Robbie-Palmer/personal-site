@@ -105,9 +105,10 @@ ready -> in progress -> waiting on children -> ready -> released
 ```
 
 A work item with no children can be executed. Adding children makes the parent
-wait. When every direct child is released or cancelled, the parent becomes
-ready again for explicit synthesis, verification, or completion. Terminating
-the last child never terminates the parent automatically.
+wait. When every direct child is released or cancelled, the parent remains
+`open` in stored lifecycle and projects as `ready` for explicit synthesis,
+verification, or completion. Terminating the last child never terminates the
+parent automatically.
 
 The hierarchy must remain acyclic. Reparenting retains item identity, notes,
 events, and prior leases.
