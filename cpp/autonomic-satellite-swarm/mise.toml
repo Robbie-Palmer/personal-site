@@ -1,5 +1,7 @@
 [tools]
 arduino-cli = "1.5.1"
+"npm:@types/node" = "24.13.4"
+"npm:typescript" = "5.9.3"
 
 [tasks.configure]
 description = "Configure the host build"
@@ -125,84 +127,23 @@ run = [
 
 [tasks."firmware:uno"]
 description = "Compile the legacy Arduino Uno infrared firmware"
-run = '''
-node_id=${SATELLITE_SWARM_NODE_ID:-0}
-boot_epoch=${SATELLITE_SWARM_BOOT_EPOCH:-1}
-case "$node_id" in
-  ''|*[!0-9]*) echo "SATELLITE_SWARM_NODE_ID must be an integer from 0 to 15" >&2; exit 2 ;;
-esac
-if [ "$node_id" -gt 15 ]; then
-  echo "SATELLITE_SWARM_NODE_ID must be an integer from 0 to 15" >&2
-  exit 2
-fi
-case "$boot_epoch" in
-  ''|*[!0-9]*) echo "SATELLITE_SWARM_BOOT_EPOCH must be an integer from 1 to 4294967295" >&2; exit 2 ;;
-esac
-if [ "$boot_epoch" -eq 0 ] || [ "$boot_epoch" -gt 4294967295 ]; then
-  echo "SATELLITE_SWARM_BOOT_EPOCH must be an integer from 1 to 4294967295" >&2
-  exit 2
-fi
-uno_compile_report=$(mktemp)
-trap 'cmake -E rm -f "$uno_compile_report"' EXIT
-arduino-cli compile --json --profile uno \
-  --build-property "build.extra_flags=-DSATELLITE_SWARM_NODE_ID=$node_id -DSATELLITE_SWARM_BOOT_EPOCH=$boot_epoch" firmware/uno_ir \
-  > "$uno_compile_report"
-node - "$uno_compile_report" <<'NODE'
-const fs = require("node:fs");
-
-let report;
-try {
-  report = JSON.parse(fs.readFileSync(process.argv[2], "utf8"));
-} catch (error) {
-  const detail = error instanceof Error ? error.message : String(error);
-  console.error(`Unable to parse the Arduino CLI JSON report: ${detail}`);
-  process.exit(1);
-}
-process.stdout.write(report.compiler_out ?? "");
-process.stderr.write(report.compiler_err ?? "");
-
-const dataSection = report.builder_result?.executable_sections_size?.find(
-  (section) => section.name === "data",
-);
-if (!report.success || !dataSection) {
-  console.error("Arduino CLI did not report a successful Uno SRAM measurement.");
-  process.exit(1);
-}
-
-const minimumFreeBytes = 768;
-const freeBytes = dataSection.max_size - dataSection.size;
-console.log(
-  `Uno SRAM budget: ${freeBytes} bytes free; minimum ${minimumFreeBytes} bytes.`,
-);
-if (freeBytes < minimumFreeBytes) {
-  console.error("Uno firmware exceeds the static SRAM budget.");
-  process.exit(1);
-}
-NODE
-'''
+run = "node scripts/compile-firmware.ts uno"
 
 [tasks."firmware:esp32"]
 description = "Compile the modern ESP32 ESP-NOW firmware"
-run = '''
-node_id=${SATELLITE_SWARM_NODE_ID:-0}
-boot_epoch=${SATELLITE_SWARM_BOOT_EPOCH:-1}
-case "$node_id" in
-  ''|*[!0-9]*) echo "SATELLITE_SWARM_NODE_ID must be an integer from 0 to 15" >&2; exit 2 ;;
-esac
-if [ "$node_id" -gt 15 ]; then
-  echo "SATELLITE_SWARM_NODE_ID must be an integer from 0 to 15" >&2
-  exit 2
-fi
-case "$boot_epoch" in
-  ''|*[!0-9]*) echo "SATELLITE_SWARM_BOOT_EPOCH must be an integer from 1 to 4294967295" >&2; exit 2 ;;
-esac
-if [ "$boot_epoch" -eq 0 ] || [ "$boot_epoch" -gt 4294967295 ]; then
-  echo "SATELLITE_SWARM_BOOT_EPOCH must be an integer from 1 to 4294967295" >&2
-  exit 2
-fi
-arduino-cli compile --profile esp32 \
-  --build-property "build.extra_flags=-DSATELLITE_SWARM_NODE_ID=$node_id -DSATELLITE_SWARM_BOOT_EPOCH=$boot_epoch" firmware/esp32_espnow
-'''
+run = "node scripts/compile-firmware.ts esp32"
+
+[tasks."scripts:typecheck"]
+description = "Type-check firmware task scripts"
+run = 'tsc --typeRoots "$(mise where npm:@types/node)/node_modules/@types" --project tsconfig.scripts.json'
+
+[tasks."scripts:test"]
+description = "Test firmware task scripts"
+run = "node --test scripts/*.test.ts"
+
+[tasks."scripts:check"]
+description = "Type-check and test firmware task scripts"
+depends = ["scripts:typecheck", "scripts:test"]
 
 [tasks."lint:typos"]
 description = "Check spelling in the project"
@@ -218,6 +159,7 @@ depends = [
   "coverage",
   "firmware:uno",
   "firmware:esp32",
+  "scripts:check",
   "browser:fixture:check",
   "browser:parity",
   "lint:typos",
