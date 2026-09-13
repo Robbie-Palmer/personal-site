@@ -24,6 +24,7 @@
       "ignoreDependencies": ["cloudflare"]
     },
     "packages/ai-review-domain": {},
+    "packages/work-graph-domain": {},
     "packages/writing-editor-domain": {},
     "ui": {
       "ignore": [
