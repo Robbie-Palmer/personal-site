@@ -150,7 +150,14 @@ arduino-cli compile --json --profile uno \
 node - "$uno_compile_report" <<'NODE'
 const fs = require("node:fs");
 
-const report = JSON.parse(fs.readFileSync(process.argv[2], "utf8"));
+let report;
+try {
+  report = JSON.parse(fs.readFileSync(process.argv[2], "utf8"));
+} catch (error) {
+  const detail = error instanceof Error ? error.message : String(error);
+  console.error(`Unable to parse the Arduino CLI JSON report: ${detail}`);
+  process.exit(1);
+}
 process.stdout.write(report.compiler_out ?? "");
 process.stderr.write(report.compiler_err ?? "");
 

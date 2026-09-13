@@ -24,6 +24,10 @@ The sequence advances for every attempted record, including a record rejected by
 Consumers can therefore detect a gap. `droppedTelemetryEvents()` exposes the count immediately,
 even when no later record has entered the queue.
 
+`CandidacySent` records cover both the initial successful transmission and successful retries. For
+one mission and node, the first such record is the initial transmission and each later record is a
+retry. Failed transmissions instead produce `TransportFailure` records.
+
 Sequence zero is reserved. After record `4,294,967,295`, the buffer stops storing telemetry and
 counts later attempts as drops, up to the saturating drop-counter limit. This preserves unique
 record identities within a boot without widening every record on SRAM-constrained targets.

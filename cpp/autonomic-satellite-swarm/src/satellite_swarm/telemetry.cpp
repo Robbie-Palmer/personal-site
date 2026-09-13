@@ -18,7 +18,7 @@ void BoundedTelemetryBuffer::erase(uint8_t index) {
   --size_;
 }
 
-bool BoundedTelemetryBuffer::record(TelemetryEvent event) {
+bool BoundedTelemetryBuffer::record(const TelemetryEvent& event) {
   // Zero is reserved. Failing closed here preserves record identity within a boot without
   // widening every buffered record on SRAM-constrained targets.
   if (next_sequence_ == 0U) {
@@ -26,7 +26,7 @@ bool BoundedTelemetryBuffer::record(TelemetryEvent event) {
     return false;
   }
 
-  event.sequence = next_sequence_;
+  const uint32_t sequence = next_sequence_;
   next_sequence_ = next_sequence_ == UINT32_MAX ? 0U : next_sequence_ + 1U;
 
   if (size_ == kTelemetryBufferCapacity) {
@@ -47,8 +47,9 @@ bool BoundedTelemetryBuffer::record(TelemetryEvent event) {
     countDrop();
   }
 
-  event.dropped_before = dropped_events_;
   events_[size_] = event;
+  events_[size_].sequence = sequence;
+  events_[size_].dropped_before = dropped_events_;
   ++size_;
   return true;
 }

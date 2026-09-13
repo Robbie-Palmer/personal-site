@@ -62,7 +62,7 @@ struct TelemetryEvent {
 // dropped. Sequence gaps and dropped_before make either case visible to a consumer.
 class BoundedTelemetryBuffer {
 public:
-  bool record(TelemetryEvent event);
+  bool record(const TelemetryEvent& event);
   bool read(TelemetryEvent& event);
 
   uint8_t size() const { return size_; }
