@@ -1,12 +1,13 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
   "exclude": ["exports", "types", "nsExports", "nsTypes", "enumMembers"],
-  "ignoreBinaries": ["mise", "typecheck", "wrangler", "duckdb", "flux-schema"],
+  "ignoreBinaries": ["mise", "typecheck", "wrangler", "duckdb", "flux-schema", "arduino-cli"],
   "workspaces": {
     ".": {
       "entry": [
         "functions/**/*.ts",
         "cpp/autonomic-satellite-swarm/browser/tests/browser_parity.mjs",
+        "cpp/autonomic-satellite-swarm/scripts/*.ts",
         "homelab/images/t3-code/bootstrap-settings.mjs",
         "homelab/tests/**/*.test.ts",
         "scripts/prose-lint.ts"
