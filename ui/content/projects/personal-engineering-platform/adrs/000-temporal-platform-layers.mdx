@@ -1,0 +1,23 @@
+---
+title: "ADR 000: Temporal platform layers"
+date: "2026-09-12"
+status: "Accepted"
+---
+
+## Context
+
+Shared ADR stubs made project histories read like dependency manifests and
+could not preserve which default applied before a project was completed.
+
+## Decision
+
+Own shared defaults in this project. Record slot policy, technology selection,
+and project adoption as separate dated records with half-open UTC periods.
+Projects explicitly adopt each independent layer they use and keep local ADRs
+for their own choices and overrides.
+
+## Consequences
+
+Queries can explain an effective stack and keep completed projects fixed. The
+temporal records remain available to those queries, while reader-facing graph
+views present direct project-to-layer and layer-to-technology relationships.

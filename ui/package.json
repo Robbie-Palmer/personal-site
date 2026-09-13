@@ -82,6 +82,7 @@
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.3.1",
     "vaul": "^1.1.2",
+    "yaml": "2.9.0",
     "ts-base": "workspace:*",
     "zod": "^4.2.1"
   },

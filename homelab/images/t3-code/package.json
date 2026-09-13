@@ -6,7 +6,7 @@
     "@openai/codex": "0.153.4",
     "@xai-official/grok": "1.0.21",
     "opencode-ai": "1.18.29",
-    "pnpm": "12.2.1",
+    "pnpm": "12.4.0",
     "t3": "0.0.38"
   }
 }

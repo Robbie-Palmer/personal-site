@@ -5,6 +5,39 @@ date: "2026-02-14"
 repo_url: "https://github.com/Robbie-Palmer/personal-site"
 demo_url: "https://robbiepalmer.me/recipes"
 status: "in_progress"
+platform_layers:
+  - layer: "base"
+    adopted: "2026-09-12T00:00:00Z"
+    tracking: true
+  - layer: "web-app"
+    adopted: "2026-09-12T00:00:00Z"
+    tracking: true
+  - layer: "backend-api"
+    adopted: "2026-09-12T00:00:00Z"
+    tracking: true
+    slots:
+      - slot: "backend-api.runtime"
+        adopted: "2026-09-12T00:00:00Z"
+  - layer: "database"
+    adopted: "2026-09-12T00:00:00Z"
+    tracking: true
+    slots:
+      - slot: "database.relational-engine"
+        adopted: "2026-09-12T00:00:00Z"
+      - slot: "database.relational-host"
+        adopted: "2026-09-12T00:00:00Z"
+  - layer: "infrastructure"
+    adopted: "2026-09-12T00:00:00Z"
+    tracking: true
+    slots:
+      - slot: "infrastructure.provisioner"
+        adopted: "2026-09-12T00:00:00Z"
+  - layer: "observability"
+    adopted: "2026-09-12T00:00:00Z"
+    tracking: true
+    slots:
+      - slot: "observability.application-telemetry"
+        adopted: "2026-09-12T00:00:00Z"
 initiatives:
   - "digital-twins-for-everyday-life"
 ideas:

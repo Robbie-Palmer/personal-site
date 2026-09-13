@@ -60,6 +60,20 @@ export const technologies: TechnologyContent[] = [
     type: "language",
   },
   {
+    name: "Pydantic",
+    added: "2026-09-12",
+    description: "Typed data validation and settings management for Python",
+    website: "https://docs.pydantic.dev",
+    type: "library",
+  },
+  {
+    name: "pytest-cases",
+    added: "2026-09-12",
+    description: "Reusable test cases and fixtures for pytest",
+    website: "https://smarie.github.io/python-pytest-cases/",
+    type: "library",
+  },
+  {
     name: "pnpm",
     added: "2026-01-04",
     description: "Fast, disk space efficient package manager",

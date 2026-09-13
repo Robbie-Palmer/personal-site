@@ -43,7 +43,11 @@ import {
   mdxToAgentMarkdown,
   renderPage,
 } from "@/lib/content/agent-markdown";
-import { loadDomainRepository } from "@/lib/domain";
+import {
+  compareUtcInstants,
+  isEffectiveAt,
+  loadDomainRepository,
+} from "@/lib/domain";
 import {
   countPitchSlides,
   pitchDeckToAgentMarkdown,
@@ -99,6 +103,20 @@ function projectFacts(project: ProjectWithADRs): [string, string][] {
       "Technologies",
       project.technologies.map((tech) => tech.name).join(", "),
     ]);
+  }
+  if ((project.builtOn?.length ?? 0) > 0) {
+    facts.push(
+      [
+        "Built on",
+        project.builtOn?.map((layer) => layer.title).join(", ") ?? "",
+      ],
+      [
+        "Platform technologies",
+        (project.platformTechnologies ?? [])
+          .map((technology) => technology.name)
+          .join(", "),
+      ],
+    );
   }
   const ideas = getIdeasForProject(project.slug);
   if (ideas.length > 0) {
@@ -231,6 +249,7 @@ function buildProjectPage(
           }),
         ]
       : [];
+  const platformSection = buildPlatformManifestSection(project);
   return {
     htmlPath: `/projects/${project.slug}`,
     filePath: `projects/${project.slug}.md`,
@@ -239,11 +258,99 @@ function buildProjectPage(
     content: [
       ...pitchSection,
       convert(project.content).trim(),
+      ...platformSection,
       ...initiativeSection,
       ...adrSection,
     ].join("\n"),
     facts: projectFacts(project),
   };
+}
+
+function buildPlatformManifestSection(project: ProjectWithADRs): string[] {
+  const manifest = project.platformManifest;
+  if (!manifest) return [];
+  const instant = new Date().toISOString();
+  const layers = manifest.layers.flatMap((layer) => {
+    const policies = manifest.policies.filter(
+      (policy) =>
+        policy.layer === layer.slug && isEffectiveAt(policy, instant),
+    );
+    const activation = layer.activatedBy
+      ? ` Activated when ${layer.activatedBy.slot} resolves to ${layer.activatedBy.technology}.`
+      : "";
+    return [
+      `### ${layer.title}`,
+      "",
+      `${layer.description}${activation}`,
+      "",
+      ...policies.map((policy) => `- ${policy.slot}: ${policy.mode}`),
+      ...(policies.length > 0 ? [""] : []),
+    ];
+  });
+  const slots = manifest.slots.flatMap((slot) => [
+    `### ${slot.title}`,
+    "",
+    slot.description,
+    "",
+    ...slot.selections
+      .toSorted((left, right) =>
+        compareUtcInstants(right.effectiveFrom, left.effectiveFrom),
+      )
+      .map((selection) => {
+        const [projectSlug, adrSlug] = selection.decision.split(":");
+        const until = selection.effectiveUntil ?? "present";
+        const decisionUrl = markdownUrl(
+          routePath("projects", projectSlug ?? "", "adrs", adrSlug ?? ""),
+        );
+        const origins =
+          selection.originProjects.length > 0
+            ? `; driven by ${selection.originProjects
+                .map(
+                  (slug) =>
+                    `[${slug}](${markdownUrl(routePath("projects", slug))})`,
+                )
+                .join(", ")}`
+            : "";
+        return `- [${selection.technology}](${markdownUrl(routePath("technologies", selection.technology))}): ${selection.lifecycleStatus}, ${selection.effectiveFrom} to ${until}; [decision](${decisionUrl})${origins}`;
+      }),
+    ...(slot.users.length > 0
+      ? [
+          `- Users: ${slot.users
+            .map(
+              (slug) =>
+                `[${slug}](${markdownUrl(routePath("projects", slug))})`,
+            )
+            .join(", ")}`,
+        ]
+      : []),
+    ...(slot.overrides.length > 0
+      ? [
+          `- Overrides: ${slot.overrides
+            .map((ref) => {
+              const [projectSlug, adrSlug] = ref.split(":");
+              return `[${ref}](${markdownUrl(
+                routePath(
+                  "projects",
+                  projectSlug ?? "",
+                  "adrs",
+                  adrSlug ?? "",
+                ),
+              )})`;
+            })
+            .join(", ")}`,
+        ]
+      : []),
+    "",
+  ]);
+  return [
+    "",
+    "## Current layer manifest",
+    "",
+    ...layers,
+    "## Default history",
+    "",
+    ...slots,
+  ];
 }
 
 function buildPitchDeckPage(project: ProjectWithADRs): GeneratedPage | null {
