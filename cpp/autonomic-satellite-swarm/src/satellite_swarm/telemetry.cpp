@@ -9,6 +9,9 @@ void BoundedTelemetryBuffer::countDrop() {
 }
 
 void BoundedTelemetryBuffer::erase(uint8_t index) {
+  if (index >= size_) {
+    return;
+  }
   for (uint8_t current = index; current + 1U < size_; ++current) {
     events_[current] = events_[static_cast<uint8_t>(current + 1U)];
   }

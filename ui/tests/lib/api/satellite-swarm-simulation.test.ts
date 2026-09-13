@@ -384,5 +384,29 @@ describe("satellite swarm simulation records", () => {
       "Telemetry 1:1:8 records health change health-quiescent.",
       "Telemetry 1:1:9 records a send failure for mission 0:1:1.",
     ]);
+
+    expect(() =>
+      parseSatelliteSwarmSimulation({
+        ...validRecord,
+        events: [{ ...telemetry, droppedBefore: 4_294_967_296 }],
+      }),
+    ).toThrow();
+  });
+
+  it("bounds per-node telemetry drops to an unsigned 32-bit counter", () => {
+    const frame = validRecord.frames[0];
+    const node = frame.nodes[0];
+
+    expect(() =>
+      parseSatelliteSwarmSimulation({
+        ...validRecord,
+        frames: [
+          {
+            ...frame,
+            nodes: [{ ...node, telemetryDrops: 4_294_967_296 }],
+          },
+        ],
+      }),
+    ).toThrow();
   });
 });

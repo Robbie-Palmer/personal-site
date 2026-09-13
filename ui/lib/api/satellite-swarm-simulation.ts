@@ -5,6 +5,8 @@ const coordinateSchema = z.object({
   longitudeDegrees: z.number().min(-180).max(180),
 });
 
+const uint32Schema = z.number().int().min(0).max(4_294_967_295);
+
 const controllerStateSchema = z.enum([
   "idle",
   "leading",
@@ -30,7 +32,7 @@ const nodeSchema = z.object({
   orbitalRadiusMetres: z.number().positive(),
   position: coordinateSchema,
   state: controllerStateSchema,
-  telemetryDrops: z.number().int().nonnegative(),
+  telemetryDrops: uint32Schema,
 });
 
 const missionCommandEventSchema = z.object({
@@ -133,7 +135,7 @@ const nodeResetEventSchema = z.object({
 const controllerTelemetryEventSchema = z.object({
   bootEpoch: z.number().int().min(1).max(4_294_967_295),
   currentState: controllerStateSchema,
-  droppedBefore: z.number().int().nonnegative(),
+  droppedBefore: uint32Schema,
   event: z.enum([
     "state-transition",
     "mission-proposed",

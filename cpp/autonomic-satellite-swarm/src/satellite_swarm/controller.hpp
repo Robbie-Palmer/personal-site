@@ -44,7 +44,8 @@ public:
     return node_id_ < kMaximumNodes ? candidates_[node_id_].score : 0U;
   }
   uint8_t consecutiveCommunicationFailures() const { return communication_failures_; }
-  // Hardware adapters can drain this queue without blocking controller progress.
+  // A successful read removes the oldest event. Hardware adapters can drain this queue without
+  // blocking controller progress.
   bool readTelemetry(TelemetryEvent& event) { return telemetry_.read(event); }
   uint8_t pendingTelemetryEvents() const { return telemetry_.size(); }
   uint32_t droppedTelemetryEvents() const { return telemetry_.droppedEvents(); }
