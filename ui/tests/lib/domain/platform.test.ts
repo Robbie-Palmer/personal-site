@@ -78,6 +78,19 @@ describe("temporal platform layers", () => {
     );
   });
 
+  it("accepts semantically equal replacement boundary representations", () => {
+    const manifest = sameDayManifest();
+    const firstSelection = manifest.selections[0];
+    expect(firstSelection).toBeDefined();
+    if (!firstSelection) return;
+    manifest.selections[0] = {
+      ...firstSelection,
+      effectiveUntil: "2026-09-12T12:00:00.0Z",
+    };
+
+    expect(PlatformManifestSchema.safeParse(manifest).success).toBe(true);
+  });
+
   it("rejects unlinked accepted replacements", () => {
     const result = PlatformManifestSchema.safeParse(sameDayManifest(false));
     expect(result.success).toBe(false);

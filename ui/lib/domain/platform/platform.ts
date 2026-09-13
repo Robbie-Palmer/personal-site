@@ -187,7 +187,10 @@ function validateSelectionReferences(
         context,
         `Selection '${selection.id}' supersedes a missing selection or one from another slot`,
       );
-    } else if (previous.effectiveUntil !== selection.effectiveFrom) {
+    } else if (
+      previous.effectiveUntil === undefined ||
+      compareUtcInstants(previous.effectiveUntil, selection.effectiveFrom) !== 0
+    ) {
       addManifestIssue(
         context,
         `Selection '${selection.id}' must start at the superseded selection's exclusive boundary`,
@@ -245,7 +248,7 @@ function validateDefaultCoverage(
         }
       }
     }
-    for (const instant of boundaries) {
+    for (const instant of Array.from(boundaries).toSorted(compareUtcInstants)) {
       const acceptedCount = manifest.selections.filter(
         (selection) =>
           selection.slot === policy.slot &&
@@ -479,6 +482,7 @@ function parseUtcInstant(value: string): {
 }
 
 function isValidUtcInstant(value: string): boolean {
+  if (!UTC_INSTANT_PATTERN.test(value)) return false;
   const timestamp = Date.parse(value);
   if (Number.isNaN(timestamp)) return false;
   const [datePart, timePart] = value.split("T");
