@@ -47,7 +47,11 @@ import {
   type ReviewHunk,
   type ScoutRun,
 } from "./review-engine";
-import { findingEvidenceKey, findingOutcomeKey } from "./r2-keys";
+import {
+  findingEvidenceKey,
+  findingOutcomeKey,
+  isCanonicalRepository,
+} from "./r2-keys";
 import {
   parseFindingInteraction,
   parsePullRequestFinalization,
@@ -68,6 +72,7 @@ const PENDING_OUTCOME_EVALUATION_KEY = "pending-outcome-evaluation";
 const DEFAULT_OUTCOME_WINDOW_MS = 7 * 24 * 60 * 60 * 1_000;
 const MINIMUM_OUTCOME_WINDOW_MS = 1_000;
 const MAXIMUM_OUTCOME_WINDOW_MS = 90 * 24 * 60 * 60 * 1_000;
+const MAX_REVIEW_COMPLETION_ITEMS = 10_000;
 type FindingOutcomeFlushRetry = {
   kind: "finding-outcomes";
   repository: string;
@@ -328,6 +333,7 @@ function isModelAvailabilityObservation(
     value.observationId.length <= 255 &&
     typeof policy.version === "string" &&
     policy.version.trim().length > 0 &&
+    policy.version.trim() === policy.version &&
     typeof policy.consecutiveFailureThreshold === "number" &&
     Number.isSafeInteger(policy.consecutiveFailureThreshold) &&
     policy.consecutiveFailureThreshold >= 1 &&
@@ -381,8 +387,7 @@ function isReviewBaselineRequest(
 function isReviewCompletion(value: unknown): value is ReviewCompletion {
   return (
     isRecord(value) &&
-    typeof value.repository === "string" &&
-    value.repository.length > 0 &&
+    isCanonicalRepository(value.repository) &&
     typeof value.pullRequestNumber === "number" &&
     Number.isSafeInteger(value.pullRequestNumber) &&
     value.pullRequestNumber > 0 &&
@@ -400,17 +405,22 @@ function isReviewCompletion(value: unknown): value is ReviewCompletion {
         Number.isSafeInteger(value.commentId) &&
         value.commentId > 0)) &&
     Array.isArray(value.hunks) &&
+    value.hunks.length <= MAX_REVIEW_COMPLETION_ITEMS &&
     value.hunks.every(isReviewHunk) &&
     (value.currentHunks === undefined ||
       (Array.isArray(value.currentHunks) &&
+        value.currentHunks.length <= MAX_REVIEW_COMPLETION_ITEMS &&
         value.currentHunks.every(isReviewHunk))) &&
     Array.isArray(value.findings) &&
+    value.findings.length <= MAX_REVIEW_COMPLETION_ITEMS &&
     value.findings.every(isIdentifiedFinding) &&
     (value.findingResolutions === undefined ||
       (Array.isArray(value.findingResolutions) &&
+        value.findingResolutions.length <= MAX_REVIEW_COMPLETION_ITEMS &&
         value.findingResolutions.every(isFindingResolution))) &&
     (value.findingPublications === undefined ||
       (Array.isArray(value.findingPublications) &&
+        value.findingPublications.length <= MAX_REVIEW_COMPLETION_ITEMS &&
         value.findingPublications.every(isFindingPublication)))
   );
 }
@@ -419,7 +429,11 @@ function isReviewFailure(value: unknown): value is ReviewFailure {
   return (
     isRecord(value) &&
     typeof value.runId === "string" &&
+    value.runId.length > 0 &&
+    value.runId.length <= 255 &&
     typeof value.error === "string" &&
+    value.error.length > 0 &&
+    value.error.length <= 4_000 &&
     typeof value.costUsd === "number" &&
     Number.isFinite(value.costUsd) &&
     value.costUsd >= 0

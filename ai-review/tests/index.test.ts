@@ -5,6 +5,8 @@ import type { Env, ReviewWorkflowParams } from "../src/env";
 import worker, { PullRequestCoordinator, ReviewWorkflow } from "../src/index";
 import { SCHEMA_MIGRATION_HISTORY } from "../src/schema";
 
+const MAX_REVIEW_COMPLETION_ITEMS_FOR_TEST = 10_000;
+
 const event: ReviewWorkflowParams = {
   deliveryId: "delivery-123",
   eventName: "pull_request",
@@ -414,6 +416,8 @@ describe("PullRequestCoordinator", () => {
       { ...validObservation, policy: { ...policy, version: 1 } },
       { ...validObservation, policy: { ...policy, version: "" } },
       { ...validObservation, policy: { ...policy, version: "   " } },
+      { ...validObservation, policy: { ...policy, version: " version" } },
+      { ...validObservation, policy: { ...policy, version: "version " } },
       {
         ...validObservation,
         policy: { ...policy, consecutiveFailureThreshold: "2" },
@@ -1511,6 +1515,65 @@ describe("PullRequestCoordinator", () => {
         new Request(`https://coordinator.test${path}`, {
           method: "POST",
           body: "{}",
+        }),
+      );
+      expect(response.status).toBe(400);
+    }
+  });
+
+  it.each([
+    ["an empty run ID", { runId: "" }],
+    ["an oversized run ID", { runId: "x".repeat(256) }],
+    ["an empty error", { error: "" }],
+    ["an oversized error", { error: "x".repeat(4_001) }],
+    ["a negative cost", { costUsd: -0.01 }],
+    ["a nonnumeric cost", { costUsd: "0.1" }],
+  ])("rejects review failures with %s", async (_label, override) => {
+    const { coordinator } = coordinatorFixture();
+    const response = await coordinator.fetch(
+      new Request("https://coordinator.test/reviews/fail", {
+        method: "POST",
+        body: JSON.stringify({
+          runId: "review-delivery-123",
+          error: "Model request failed",
+          costUsd: 0.1,
+          ...override,
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      error: "Invalid review failure",
+    });
+  });
+
+  it("caps review completion collections", async () => {
+    const { coordinator } = coordinatorFixture();
+    const oversized = Array.from(
+      { length: MAX_REVIEW_COMPLETION_ITEMS_FOR_TEST + 1 },
+      () => null,
+    );
+    for (const field of [
+      "hunks",
+      "currentHunks",
+      "findings",
+      "findingResolutions",
+      "findingPublications",
+    ]) {
+      const response = await coordinator.fetch(
+        new Request("https://coordinator.test/reviews/complete", {
+          method: "POST",
+          body: JSON.stringify({
+            repository: event.repository,
+            pullRequestNumber: event.pullRequestNumber,
+            runId: "review-delivery-123",
+            headSha: event.headSha,
+            costUsd: 0.42,
+            hunks: [],
+            findings: [],
+            [field]: oversized,
+          }),
         }),
       );
       expect(response.status).toBe(400);

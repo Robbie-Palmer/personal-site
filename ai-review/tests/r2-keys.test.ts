@@ -35,6 +35,19 @@ describe("AI review R2 keys", () => {
     ).toBe("v2/acme/widgets/pr-7/findings/f_fixed/evidence/delivery-1.json");
   });
 
+  it.each(["", ".", "..", " delivery", "delivery ", "delivery/1"])(
+    "rejects an unsafe delivery ID segment: %s",
+    (deliveryId) => {
+      expect(() =>
+        findingEvidenceKey({
+          ...pullRequest,
+          findingId: "f_fixed",
+          deliveryId,
+        }),
+      ).toThrow("deliveryId must be a single R2 key segment");
+    },
+  );
+
   it("keeps terminal records on the scorecard fixture path", () => {
     expect(
       reviewRunTerminalKey({

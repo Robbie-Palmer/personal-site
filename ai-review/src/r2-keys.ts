@@ -9,21 +9,41 @@ interface PullRequestKeyParts {
   pullRequestNumber: number;
 }
 
-function repositoryKeyPath(repository: string): string {
+export function isCanonicalRepository(
+  repository: unknown,
+): repository is string {
+  if (typeof repository !== "string" || repository.length > 255) return false;
   const segments = repository.split("/");
-  if (
-    segments.length !== 2 ||
-    segments.some(
+  return (
+    segments.length === 2 &&
+    segments.every(
       (segment) =>
-        segment.length === 0 ||
-        segment.trim() !== segment ||
-        segment === "." ||
-        segment === "..",
+        segment.length > 0 &&
+        segment.trim() === segment &&
+        segment !== "." &&
+        segment !== "..",
     )
-  ) {
+  );
+}
+
+function repositoryKeyPath(repository: string): string {
+  if (!isCanonicalRepository(repository)) {
     throw new TypeError("repository must use the canonical owner/name form");
   }
   return repository;
+}
+
+function keySegment(name: string, value: string): string {
+  if (
+    value.length === 0 ||
+    value.trim() !== value ||
+    value.includes("/") ||
+    value === "." ||
+    value === ".."
+  ) {
+    throw new TypeError(`${name} must be a single R2 key segment`);
+  }
+  return value;
 }
 
 export function findingRecordsPrefix(parts: PullRequestKeyParts): string {
@@ -59,7 +79,7 @@ export function findingEvidenceKey(
     findingRecordsPrefix(parts),
     parts.findingId,
     "evidence",
-    `${parts.deliveryId}.json`,
+    `${keySegment("deliveryId", parts.deliveryId)}.json`,
   ].join("/");
 }
 
