@@ -187,15 +187,11 @@ export function HomeInitiatives({
                               className="absolute bottom-[-1.25rem] left-[5px] top-3 w-px bg-border sm:bottom-auto sm:left-3 sm:right-[-1.25rem] sm:top-[5px] sm:h-px sm:w-auto"
                             />
                             {index === 0 && omittedProjectCount > 0 && (
-                              <span className="absolute bottom-[-1.125rem] left-[5px] z-20 -translate-x-1/2 bg-background px-1 font-mono text-[0.625rem] tracking-widest text-muted-foreground sm:bottom-auto sm:left-[calc(50%+0.375rem)] sm:top-[5px] sm:-translate-y-1/2">
-                                <span aria-hidden="true">•••</span>
-                                <span className="sr-only">
-                                  {omittedProjectCount}{" "}
-                                  {omittedProjectCount === 1
-                                    ? "project"
-                                    : "projects"}{" "}
-                                  not shown
-                                </span>
+                              <span
+                                aria-hidden="true"
+                                className="absolute bottom-[-1.125rem] left-[5px] z-20 -translate-x-1/2 bg-background px-1 font-mono text-[0.625rem] tracking-widest text-muted-foreground sm:bottom-auto sm:left-[calc(50%+0.375rem)] sm:top-[5px] sm:-translate-y-1/2"
+                              >
+                                •••
                               </span>
                             )}
                           </>
@@ -221,6 +217,15 @@ export function HomeInitiatives({
                             status={project.status}
                             className="mt-2 px-1.5 py-0 text-[0.625rem]"
                           />
+                          {index === 0 && omittedProjectCount > 0 && (
+                            <span className="sr-only">
+                              {omittedProjectCount}{" "}
+                              {omittedProjectCount === 1
+                                ? "project"
+                                : "projects"}{" "}
+                              not shown
+                            </span>
+                          )}
                         </div>
                       </li>
                     ))}

@@ -172,11 +172,20 @@ describe("HomeInitiatives", () => {
 
     render(<HomeInitiatives initiatives={[initiative]} />);
 
-    expect(screen.getByRole("link", { name: "First" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Fourth" })).toBeInTheDocument();
+    const firstProject = screen.getByRole("link", { name: "First" });
+    const fourthProject = screen.getByRole("link", { name: "Fourth" });
+    const omittedProjects = screen.getByText("2 projects not shown");
+
+    expect(firstProject).toBeInTheDocument();
+    expect(fourthProject).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Last" })).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Second" })).toBeNull();
     expect(screen.queryByRole("link", { name: "Middle" })).toBeNull();
-    expect(screen.getByText("2 projects not shown")).toBeInTheDocument();
+    expect(firstProject.compareDocumentPosition(omittedProjects)).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
+    expect(omittedProjects.compareDocumentPosition(fourthProject)).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
   });
 });
