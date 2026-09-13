@@ -26,7 +26,7 @@ describe("project platform components", () => {
     expect(screen.getByRole("heading", { name: "Backend API" })).toBeVisible();
     expect(screen.getAllByText("preferred").length).toBeGreaterThan(0);
     expect(screen.getAllByText(/Users:/).length).toBeGreaterThan(0);
-    expect(screen.getAllByRole("link", { name: "decision" }).length).toBe(
+    expect(screen.getAllByRole("link", { name: "decision" })).toHaveLength(
       project.platformManifest.slots.flatMap((slot) => slot.selections).length,
     );
   });
