@@ -572,6 +572,50 @@ test("the pilot overlay renders two distinct workspaces", () => {
     ).includes("/data/home/.t3/worktrees"),
   );
 
+  const initContainers = valueAt(operatorDeployment, [
+    "spec",
+    "template",
+    "spec",
+    "initContainers",
+  ]);
+  assert.ok(Array.isArray(initContainers));
+  const dockerDataInit = initContainers.find(
+    (container) =>
+      typeof container === "object" &&
+      container !== null &&
+      container.name === "prepare-docker-data",
+  );
+  assert.deepEqual(dockerDataInit, {
+    command: [
+      "/bin/sh",
+      "-eu",
+      "-c",
+      "chown 1000:1000 /home/rootless/.local/share/docker",
+    ],
+    image:
+      "docker:29.8.0-dind-rootless@sha256:e17fa54c2ffd511d8407c746eec77f7814e6f74fe20caf822dad1870599984c0",
+    name: "prepare-docker-data",
+    resources: {
+      limits: { cpu: "100m", memory: "64Mi" },
+      requests: { cpu: "10m", memory: "16Mi" },
+    },
+    securityContext: {
+      allowPrivilegeEscalation: false,
+      capabilities: { add: ["CHOWN"], drop: ["ALL"] },
+      readOnlyRootFilesystem: true,
+      runAsGroup: 0,
+      runAsNonRoot: false,
+      runAsUser: 0,
+      seccompProfile: { type: "RuntimeDefault" },
+    },
+    volumeMounts: [
+      {
+        mountPath: "/home/rootless/.local/share/docker",
+        name: "docker-data",
+      },
+    ],
+  });
+
   const dockerSidecar = valueAt(operatorDeployment, [
     "spec",
     "template",

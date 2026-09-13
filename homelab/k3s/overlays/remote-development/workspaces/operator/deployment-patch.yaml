@@ -8,6 +8,38 @@ metadata:
 spec:
   template:
     spec:
+      initContainers:
+        - name: prepare-data-directories
+        - name: prepare-docker-data
+          image: docker:29.8.0-dind-rootless@sha256:e17fa54c2ffd511d8407c746eec77f7814e6f74fe20caf822dad1870599984c0
+          command:
+            - /bin/sh
+            - -eu
+            - -c
+            - chown 1000:1000 /home/rootless/.local/share/docker
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+            limits:
+              cpu: 100m
+              memory: 64Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+              add:
+                - CHOWN
+            readOnlyRootFilesystem: true
+            runAsGroup: 0
+            runAsNonRoot: false
+            runAsUser: 0
+            seccompProfile:
+              type: RuntimeDefault
+          volumeMounts:
+            - name: docker-data
+              mountPath: /home/rootless/.local/share/docker
       nodeSelector:
         homelab.dev/capability: agent-workspace
         homelab.dev/location: cloud
