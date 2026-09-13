@@ -1,6 +1,6 @@
 [tasks.install]
 description = "Install Work Graph domain dependencies"
-run = "pnpm install --frozen-lockfile --filter work-graph-domain..."
+depends = ["//:install"]
 
 [tasks.typecheck]
 description = "Typecheck the Work Graph domain package"
