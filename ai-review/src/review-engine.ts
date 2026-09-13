@@ -52,6 +52,7 @@ import {
   inferOriginatingAgent,
   inferPullRequestTaskType,
 } from "ai-review-domain/pull-request-metadata";
+import { sha256Hex as sha256 } from "ts-base/crypto";
 import { createInstallationToken } from "./github-app";
 import {
   publishFindingComments,
@@ -59,6 +60,10 @@ import {
   type FindingPublication,
 } from "./finding-lifecycle";
 import { persistReplayInput } from "./replay-input";
+import {
+  reviewRunTerminalKey,
+  type ReviewRunTerminalStatus,
+} from "./r2-keys";
 
 export type {
   ChangeProfile,
@@ -219,7 +224,7 @@ export interface ReviewPublication {
   findings: FindingPublication[];
 }
 
-export type ReviewRecordStatus = "denied" | "failed" | "published" | "skipped";
+export type ReviewRecordStatus = ReviewRunTerminalStatus;
 
 function coverageStatement(coverage: ReviewCoverage): string {
   let label = "Skipped coverage";
@@ -321,16 +326,6 @@ async function installationToken(env: Env): Promise<string> {
     installationId: env.AI_REVIEW_APP_INSTALLATION_ID,
     privateKey: env.AI_REVIEW_APP_PRIVATE_KEY,
   });
-}
-
-async function sha256(value: string): Promise<string> {
-  const digest = await crypto.subtle.digest(
-    "SHA-256",
-    new TextEncoder().encode(value),
-  );
-  return [...new Uint8Array(digest)]
-    .map((byte) => byte.toString(16).padStart(2, "0"))
-    .join("");
 }
 
 const EXTENSION_LANGUAGE: Record<string, string> = {
@@ -1781,14 +1776,13 @@ export async function recordReviewTerminal(options: {
     publication,
   } = options;
   const headSha = prepared?.headSha ?? params.headSha ?? "unknown-head";
-  const key = [
-    "v2",
-    params.repository,
-    `pr-${params.pullRequestNumber}`,
+  const key = reviewRunTerminalKey({
+    repository: params.repository,
+    pullRequestNumber: params.pullRequestNumber,
     headSha,
     instanceId,
-    `${status}.json`,
-  ].join("/");
+    status,
+  });
   const summary =
     merged && typeof merged.result.summary === "string"
       ? merged.result.summary
