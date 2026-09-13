@@ -391,6 +391,36 @@ describe("satellite swarm simulation records", () => {
         events: [{ ...telemetry, droppedBefore: 4_294_967_296 }],
       }),
     ).toThrow();
+
+    for (const event of [
+      "mission-proposed",
+      "candidacy-sent",
+      "candidacy-accepted",
+      "mission-assigned",
+      "mission-completed",
+      "mission-failed",
+      "transport-failure",
+    ] as const) {
+      expect(() =>
+        parseSatelliteSwarmSimulation({
+          ...validRecord,
+          events: [{ ...telemetry, event, missionKey: null }],
+        }),
+      ).toThrow();
+    }
+
+    for (const event of [
+      "candidacy-sent",
+      "candidacy-accepted",
+      "mission-assigned",
+    ] as const) {
+      expect(() =>
+        parseSatelliteSwarmSimulation({
+          ...validRecord,
+          events: [{ ...telemetry, event, missionKey, relatedNode: null }],
+        }),
+      ).toThrow();
+    }
   });
 
   it("bounds per-node telemetry drops to an unsigned 32-bit counter", () => {

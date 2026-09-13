@@ -132,21 +132,10 @@ const nodeResetEventSchema = z.object({
   type: z.literal("node-reset"),
 });
 
-const controllerTelemetryEventSchema = z.object({
+const controllerTelemetryEventFields = {
   bootEpoch: z.number().int().min(1).max(4_294_967_295),
   currentState: controllerStateSchema,
   droppedBefore: uint32Schema,
-  event: z.enum([
-    "state-transition",
-    "mission-proposed",
-    "candidacy-sent",
-    "candidacy-accepted",
-    "mission-assigned",
-    "mission-completed",
-    "mission-failed",
-    "health-changed",
-    "transport-failure",
-  ]),
   missionKey: missionKeySchema.nullable(),
   nodeId: z.number().int().min(0).max(15),
   previousState: controllerStateSchema,
@@ -172,11 +161,60 @@ const controllerTelemetryEventSchema = z.object({
   timeMs: z.number().int().nonnegative(),
   type: z.literal("controller-telemetry"),
   value: z.number().int().min(0).max(255),
-});
+};
+
+const controllerTelemetryEventSchema = z.discriminatedUnion("event", [
+  z.object({
+    ...controllerTelemetryEventFields,
+    event: z.literal("state-transition"),
+  }),
+  z.object({
+    ...controllerTelemetryEventFields,
+    event: z.literal("mission-proposed"),
+    missionKey: missionKeySchema,
+  }),
+  z.object({
+    ...controllerTelemetryEventFields,
+    event: z.literal("candidacy-sent"),
+    missionKey: missionKeySchema,
+    relatedNode: z.number().int().min(0).max(15),
+  }),
+  z.object({
+    ...controllerTelemetryEventFields,
+    event: z.literal("candidacy-accepted"),
+    missionKey: missionKeySchema,
+    relatedNode: z.number().int().min(0).max(15),
+  }),
+  z.object({
+    ...controllerTelemetryEventFields,
+    event: z.literal("mission-assigned"),
+    missionKey: missionKeySchema,
+    relatedNode: z.number().int().min(0).max(15),
+  }),
+  z.object({
+    ...controllerTelemetryEventFields,
+    event: z.literal("mission-completed"),
+    missionKey: missionKeySchema,
+  }),
+  z.object({
+    ...controllerTelemetryEventFields,
+    event: z.literal("mission-failed"),
+    missionKey: missionKeySchema,
+  }),
+  z.object({
+    ...controllerTelemetryEventFields,
+    event: z.literal("health-changed"),
+  }),
+  z.object({
+    ...controllerTelemetryEventFields,
+    event: z.literal("transport-failure"),
+    missionKey: missionKeySchema,
+  }),
+]);
 
 const simulationSchema = z.object({
   events: z.array(
-    z.discriminatedUnion("type", [
+    z.union([
       missionCommandEventSchema,
       messageSentEventSchema,
       messageDroppedEventSchema,
