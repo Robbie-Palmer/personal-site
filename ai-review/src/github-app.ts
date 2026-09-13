@@ -1,4 +1,5 @@
 import { createAppAuth } from "@octokit/auth-app";
+import { request as octokitRequest } from "@octokit/request";
 import { JsonClient } from "ai-review-domain/reviewer";
 import type { Env } from "./env";
 
@@ -22,10 +23,23 @@ export function createGitHubAppAuth(options: {
       "GitHub App private key must be unencrypted PKCS#8 PEM; convert GitHub's PKCS#1 download before deployment",
     );
   }
+  const request = octokitRequest.defaults({
+    request: {
+      fetch: (
+        input: Parameters<typeof fetch>[0],
+        init?: Parameters<typeof fetch>[1],
+      ) =>
+        fetch(input, {
+          ...init,
+          signal: AbortSignal.timeout(GITHUB_API_TIMEOUT_MS),
+        }),
+    },
+  });
   return createAppAuth({
     appId: options.appId,
     installationId: Number(options.installationId),
     privateKey: options.privateKey,
+    request,
   });
 }
 
@@ -52,7 +66,7 @@ export function githubApiClientFromToken(
       "User-Agent": "personal-site-ai-review/1",
       "X-GitHub-Api-Version": "2022-11-28",
     },
-    { timeoutMs: GITHUB_API_TIMEOUT_MS, ...options },
+    { timeoutMs: GITHUB_API_TIMEOUT_MS, retries: options.retries },
   );
 }
 

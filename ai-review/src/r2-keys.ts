@@ -63,7 +63,7 @@ export function findingOutcomeKey(
 ): string {
   return [
     findingRecordsPrefix(parts),
-    parts.findingId,
+    keySegment("findingId", parts.findingId),
     "outcomes",
     `v${parts.outcomeVersion}.json`,
   ].join("/");
@@ -77,7 +77,7 @@ export function findingEvidenceKey(
 ): string {
   return [
     findingRecordsPrefix(parts),
-    parts.findingId,
+    keySegment("findingId", parts.findingId),
     "evidence",
     `${keySegment("deliveryId", parts.deliveryId)}.json`,
   ].join("/");
@@ -94,8 +94,8 @@ export function reviewRunTerminalKey(
     "v2",
     repositoryKeyPath(parts.repository),
     `pr-${parts.pullRequestNumber}`,
-    parts.headSha,
-    parts.instanceId,
+    keySegment("headSha", parts.headSha),
+    keySegment("instanceId", parts.instanceId),
     `${parts.status}.json`,
   ].join("/");
 }

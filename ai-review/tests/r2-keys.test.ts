@@ -48,6 +48,26 @@ describe("AI review R2 keys", () => {
     },
   );
 
+  it.each(["", ".", "..", " finding", "finding ", "finding/1"])(
+    "rejects an unsafe finding ID segment: %s",
+    (findingId) => {
+      expect(() =>
+        findingOutcomeKey({
+          ...pullRequest,
+          findingId,
+          outcomeVersion: 1,
+        }),
+      ).toThrow("findingId must be a single R2 key segment");
+      expect(() =>
+        findingEvidenceKey({
+          ...pullRequest,
+          findingId,
+          deliveryId: "delivery-1",
+        }),
+      ).toThrow("findingId must be a single R2 key segment");
+    },
+  );
+
   it("keeps terminal records on the scorecard fixture path", () => {
     expect(
       reviewRunTerminalKey({
@@ -57,6 +77,22 @@ describe("AI review R2 keys", () => {
         status: "published",
       }),
     ).toBe("v2/acme/widgets/pr-7/head-1/run-1/published.json");
+  });
+
+  it.each([
+    ["headSha", ""],
+    ["headSha", "../head"],
+    ["instanceId", "."],
+    ["instanceId", "run/1"],
+  ] as const)("rejects an unsafe %s segment", (name, value) => {
+    expect(() =>
+      reviewRunTerminalKey({
+        ...pullRequest,
+        headSha: name === "headSha" ? value : "head-1",
+        instanceId: name === "instanceId" ? value : "run-1",
+        status: "published",
+      }),
+    ).toThrow(`${name} must be a single R2 key segment`);
   });
 
   it.each([

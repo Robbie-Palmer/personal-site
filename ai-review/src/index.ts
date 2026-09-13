@@ -52,6 +52,7 @@ import {
   findingOutcomeKey,
   isCanonicalRepository,
 } from "./r2-keys";
+import { stableJson } from "./replay-input";
 import {
   parseFindingInteraction,
   parsePullRequestFinalization,
@@ -1995,6 +1996,12 @@ export class PullRequestCoordinator extends DurableObject<Env> {
       completionFindings.map((finding) => [finding.findingId, finding]),
     );
     const findingPublications = body.findingPublications ?? [];
+    const findingPublicationsById = new Map(
+      findingPublications.map((publication) => [
+        publication.findingId,
+        publication,
+      ]),
+    );
     const findingResolutions = body.findingResolutions ?? [];
     const findingResolutionsById = new Map(
       findingResolutions.map((resolution) => [resolution.findingId, resolution]),
@@ -2002,6 +2009,8 @@ export class PullRequestCoordinator extends DurableObject<Env> {
     if (
       completionHunkIds.size !== reviewedHunks.length ||
       currentHunksById.size !== currentHunks.length ||
+      completionFindingsById.size !== completionFindings.length ||
+      findingPublicationsById.size !== findingPublications.length ||
       findingResolutionsById.size !== findingResolutions.length ||
       reviewedHunks.some((hunk) => {
         const current = currentHunksById.get(hunk.hunkId);
@@ -2022,7 +2031,7 @@ export class PullRequestCoordinator extends DurableObject<Env> {
       return errorResponse("Invalid review completion");
     }
     const completionHash = await sha256Hex(
-      JSON.stringify({
+      stableJson({
         headSha: body.headSha,
         costUsd: body.costUsd,
         commentId: body.commentId ?? null,

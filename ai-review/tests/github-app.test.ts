@@ -40,6 +40,7 @@ describe("createInstallationToken", () => {
       expect.stringContaining("/app/installations/456/access_tokens"),
       expect.objectContaining({
         method: "POST",
+        signal: expect.any(AbortSignal),
         headers: expect.objectContaining({
           authorization: expect.stringMatching(/^bearer [^.]+\.[^.]+\.[^.]+$/i),
         }),

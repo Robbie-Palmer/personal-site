@@ -1708,6 +1708,90 @@ describe("PullRequestCoordinator", () => {
     });
   });
 
+  it("rejects duplicate finding identifiers in completion collections", async () => {
+    const validPublication = {
+      findingId: identifiedFinding.findingId,
+      delivery: "line",
+      commentId: 654,
+      reconciled: false,
+      path: identifiedFinding.file,
+      line: identifiedFinding.line,
+    };
+    const validResolution = {
+      findingId: identifiedFinding.findingId,
+      verdict: "fixed",
+      evidence: "The later diff fixes the finding.",
+    };
+    const duplicateCollections = [
+      { findings: [identifiedFinding, identifiedFinding] },
+      {
+        findings: [identifiedFinding],
+        findingPublications: [validPublication, validPublication],
+      },
+      {
+        findings: [identifiedFinding],
+        findingResolutions: [validResolution, validResolution],
+      },
+    ];
+
+    for (const duplicateCollection of duplicateCollections) {
+      const { coordinator } = coordinatorFixture();
+      const response = await coordinator.fetch(
+        new Request("https://coordinator.test/reviews/complete", {
+          method: "POST",
+          body: JSON.stringify({
+            repository: event.repository,
+            pullRequestNumber: event.pullRequestNumber,
+            runId: "review-delivery-123",
+            headSha: event.headSha,
+            costUsd: 0.42,
+            hunks: [identifiedHunk],
+            ...duplicateCollection,
+          }),
+        }),
+      );
+
+      expect(response.status).toBe(400);
+      await expect(response.json()).resolves.toEqual({
+        error: "Invalid review completion",
+      });
+    }
+  });
+
+  it("hashes equivalent completion objects independently of key order", async () => {
+    const reorderedFinding = Object.fromEntries(
+      Object.entries(identifiedFinding).reverse(),
+    );
+    const completionHashes: unknown[] = [];
+
+    for (const finding of [identifiedFinding, reorderedFinding]) {
+      const { coordinator, sqlExec } = coordinatorFixture();
+      const response = await coordinator.fetch(
+        new Request("https://coordinator.test/reviews/complete", {
+          method: "POST",
+          body: JSON.stringify({
+            repository: event.repository,
+            pullRequestNumber: event.pullRequestNumber,
+            runId: "review-delivery-123",
+            headSha: event.headSha,
+            costUsd: 0.42,
+            hunks: [identifiedHunk],
+            findings: [finding],
+          }),
+        }),
+      );
+
+      expect(response.status).toBe(200);
+      const completionUpdate = sqlExec.mock.calls.find(([query]) =>
+        String(query).includes("SET status = 'completed'"),
+      );
+      completionHashes.push(completionUpdate?.[6]);
+    }
+
+    expect(completionHashes[0]).toMatch(/^[a-f0-9]{64}$/);
+    expect(completionHashes[1]).toBe(completionHashes[0]);
+  });
+
   it("rejects inconsistent finding publication mappings", async () => {
     const { coordinator } = coordinatorFixture();
     const validPublication = {
