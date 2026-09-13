@@ -7,6 +7,18 @@ uint8_t boundedScore(uint8_t score) {
   return score > kMaximumCandidacyScore ? kMaximumCandidacyScore : score;
 }
 
+TelemetryReason healthReason(HealthStatus health) {
+  switch (health) {
+  case HealthStatus::Nominal:
+    return TelemetryReason::HealthRecovered;
+  case HealthStatus::Quiescent:
+    return TelemetryReason::HealthQuiescent;
+  case HealthStatus::Fatal:
+    return TelemetryReason::HealthFatal;
+  }
+  return TelemetryReason::None;
+}
+
 } // namespace
 
 SwarmController::SwarmController(NodeId node_id, BootEpoch boot_epoch,
@@ -305,14 +317,11 @@ void SwarmController::observeHealth(HealthStatus health, uint32_t now_ms) {
   if (health == last_health_) {
     return;
   }
-  recordTelemetry(
-      TelemetryEventType::HealthChanged,
-      health == HealthStatus::Fatal
-          ? TelemetryReason::HealthFatal
-          : (health == HealthStatus::Quiescent ? TelemetryReason::HealthQuiescent
-                                               : TelemetryReason::HealthRecovered),
-      health == HealthStatus::Fatal ? TelemetryPriority::Critical : TelemetryPriority::Operational,
-      now_ms, current_mission_.mission_key, kBroadcastNode, static_cast<uint8_t>(health));
+  recordTelemetry(TelemetryEventType::HealthChanged, healthReason(health),
+                  health == HealthStatus::Fatal ? TelemetryPriority::Critical
+                                                : TelemetryPriority::Operational,
+                  now_ms, current_mission_.mission_key, kBroadcastNode,
+                  static_cast<uint8_t>(health));
   last_health_ = health;
 }
 

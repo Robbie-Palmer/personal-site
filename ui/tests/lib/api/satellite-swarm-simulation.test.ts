@@ -307,4 +307,82 @@ describe("satellite swarm simulation records", () => {
       }).events,
     ).toHaveLength(1);
   });
+
+  it("describes every controller telemetry variant", () => {
+    const missionKey = { bootEpoch: 1, originNode: 0, sequence: 1 };
+    const telemetry = {
+      bootEpoch: 1,
+      currentState: "idle",
+      droppedBefore: 0,
+      missionKey: null,
+      nodeId: 1,
+      previousState: "idle",
+      priority: "operational",
+      reason: "none",
+      relatedNode: null,
+      sequence: 1,
+      timeMs: 0,
+      type: "controller-telemetry",
+      value: 0,
+    } as const;
+    const record = parseSatelliteSwarmSimulation({
+      ...validRecord,
+      events: [
+        { ...telemetry, event: "state-transition", reason: "health-recovered" },
+        { ...telemetry, event: "mission-proposed", missionKey, sequence: 2 },
+        {
+          ...telemetry,
+          event: "candidacy-sent",
+          missionKey,
+          relatedNode: 0,
+          sequence: 3,
+          value: 72,
+        },
+        {
+          ...telemetry,
+          event: "candidacy-accepted",
+          missionKey,
+          relatedNode: 2,
+          sequence: 4,
+          value: 61,
+        },
+        {
+          ...telemetry,
+          event: "mission-assigned",
+          missionKey,
+          relatedNode: 1,
+          sequence: 5,
+        },
+        { ...telemetry, event: "mission-completed", missionKey, sequence: 6 },
+        {
+          ...telemetry,
+          event: "mission-failed",
+          missionKey,
+          reason: "retry-limit-reached",
+          sequence: 7,
+        },
+        {
+          ...telemetry,
+          event: "health-changed",
+          reason: "health-quiescent",
+          sequence: 8,
+        },
+        { ...telemetry, event: "transport-failure", missionKey, sequence: 9 },
+      ],
+    });
+
+    expect(
+      record.events.map((event) => describeSatelliteSwarmEvent(event)),
+    ).toEqual([
+      "Telemetry 1:1:1 records idle to idle because of health-recovered.",
+      "Telemetry 1:1:2 records proposed mission 0:1:1.",
+      "Telemetry 1:1:3 records score 72 sent to node 0 for mission 0:1:1.",
+      "Telemetry 1:1:4 records score 61 from node 2 for mission 0:1:1.",
+      "Telemetry 1:1:5 records mission 0:1:1 assigned to node 1.",
+      "Telemetry 1:1:6 records mission 0:1:1 completed.",
+      "Telemetry 1:1:7 records mission 0:1:1 failed because of retry-limit-reached.",
+      "Telemetry 1:1:8 records health change health-quiescent.",
+      "Telemetry 1:1:9 records a send failure for mission 0:1:1.",
+    ]);
+  });
 });
