@@ -86,6 +86,7 @@ describe("HomeInitiatives", () => {
     expect(screen.getByText("1 project")).toBeInTheDocument();
     expect(screen.getByText("2017 to 2021")).toBeInTheDocument();
     expect(screen.getByText("Project path")).toBeInTheDocument();
+    expect(screen.getByText("Completed")).toBeInTheDocument();
     expect(screen.getByText("2019").closest("time")).toHaveAttribute(
       "datetime",
       "2019-01-01",
@@ -157,7 +158,7 @@ describe("HomeInitiatives", () => {
     ).toHaveLength(1);
   });
 
-  it("samples the beginning, middle, and end of a longer project path", () => {
+  it("shows the first and most recent projects with a gap in a longer path", () => {
     const initiative = initiativeFixture();
     const project = initiative.projects[0];
     if (!project) throw new Error("Expected an initiative project fixture");
@@ -172,9 +173,10 @@ describe("HomeInitiatives", () => {
     render(<HomeInitiatives initiatives={[initiative]} />);
 
     expect(screen.getByRole("link", { name: "First" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Middle" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Fourth" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Last" })).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Second" })).toBeNull();
-    expect(screen.queryByRole("link", { name: "Fourth" })).toBeNull();
+    expect(screen.queryByRole("link", { name: "Middle" })).toBeNull();
+    expect(screen.getByText("2 projects not shown")).toBeInTheDocument();
   });
 });
