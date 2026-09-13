@@ -71,6 +71,40 @@ raw frame whose high byte is `0xD0 | chunk_index`. The receiver accepts chunks `
 chunk `0`, and discards incomplete packets after 250 ms. The packet CRC detects corruption and most
 mixed assemblies.
 
+## Telemetry framing
+
+Telemetry does not use the coordination message format. `TelemetryCodec` writes a fixed 34-byte
+frame:
+
+| Offset | Size | Field | Encoding |
+| --- | ---: | --- | --- |
+| 0 | 1 | Magic and version | `0xB1`: family `B`, version `1` |
+| 1 | 1 | Event type | `TelemetryEventType` value |
+| 2 | 1 | Reason | `TelemetryReason` value |
+| 3 | 1 | Priority | Routine `0`, operational `1`, critical `2` |
+| 4 | 1 | Emitter node | `0..15` |
+| 5 | 1 | Related node | Node ID or broadcast `255` |
+| 6 | 1 | Previous state | `ControllerState` value |
+| 7 | 1 | Current state | `ControllerState` value |
+| 8 | 1 | Event value | Type-specific unsigned value |
+| 9 | 4 | Emitter boot epoch | Unsigned integer, big-endian |
+| 13 | 4 | Record sequence | Nonzero unsigned integer, big-endian |
+| 17 | 4 | Timestamp | Monotonic milliseconds, big-endian |
+| 21 | 4 | Dropped before | Cumulative unsigned count, big-endian |
+| 25 | 1 | Mission origin | Node ID or `255` when absent |
+| 26 | 4 | Mission boot epoch | Unsigned integer, big-endian, zero when absent |
+| 30 | 2 | Mission sequence | Unsigned integer, big-endian, zero when absent |
+| 32 | 1 | Reserved | Must be zero |
+| 33 | 1 | Checksum | CRC-8, polynomial `0x07`, over bytes `0..32` |
+
+The mission key must be valid or entirely absent as `{255, 0, 0}`. The decoder rejects unknown enum
+values, invalid nodes, malformed mission keys, a nonzero reserved byte, and checksum failure.
+
+The reference firmware sends these frames over its serial diagnostic link at a configured maximum
+rate. It does not send them over the IR or ESP-NOW coordination transport. The format detects
+corruption and version mismatch but supplies no acknowledgement, routing, authentication,
+encryption, or replay protection.
+
 ## Security and reliability
 
 CRC detects transmission errors. It provides no authentication. ESP-NOW broadcast and the infrared

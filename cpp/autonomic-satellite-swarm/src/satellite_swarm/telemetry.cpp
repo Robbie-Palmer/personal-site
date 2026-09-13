@@ -55,10 +55,24 @@ bool BoundedTelemetryBuffer::record(const TelemetryEvent& event) {
 }
 
 bool BoundedTelemetryBuffer::read(TelemetryEvent& event) {
+  if (!peek(event)) {
+    return false;
+  }
+  return discard();
+}
+
+bool BoundedTelemetryBuffer::peek(TelemetryEvent& event) const {
   if (size_ == 0U) {
     return false;
   }
   event = events_[0];
+  return true;
+}
+
+bool BoundedTelemetryBuffer::discard() {
+  if (size_ == 0U) {
+    return false;
+  }
   erase(0U);
   return true;
 }

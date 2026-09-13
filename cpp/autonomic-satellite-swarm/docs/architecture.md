@@ -45,6 +45,10 @@ use a nominal monitor because there is no current hardware against which to cali
 heuristic and its example outputs, with validation and defined edge cases. A future flight-dynamics
 model can replace it behind the same interface.
 
+`TelemetrySink` accepts diagnostic records outside the controller. `TelemetryTransmitter` grants it
+at most one record per configured interval and only when the platform says the output channel is
+available. A rejected record stays in the bounded queue.
+
 ### Wire codec
 
 `WireCodec` converts messages to a fixed 18-byte representation. It explicitly controls byte order,
@@ -80,6 +84,8 @@ for a benchtop swarm demonstration; it is not proposed as a spacecraft communica
 - Each update processes a configurable bounded number of received messages.
 - Each controller keeps at most 16 telemetry records. A higher-priority record may evict an older,
   lower-priority record, and every loss increments a saturating drop counter.
+- Telemetry export attempts one record per configured interval. The reference firmware uses a
+  dedicated serial link at one frame per second; shared-radio scheduling remains unimplemented.
 - The Uno firmware build reserves at least 768 bytes of SRAM beyond global allocation for local
   variables and the runtime stack. This static-allocation threshold provides headroom; worst-case
   stack and interrupt-nesting behavior remain unverified.
@@ -107,7 +113,7 @@ A credible next research iteration would add:
    equal-score tie-break.
 4. A mission executor interface with progress, cancellation, and failure semantics, plus an
    idempotent platform hook for physical safe-state actions.
-5. A transport and time-based rate policy for the implemented bounded telemetry queue.
+5. Measured shared-radio scheduling, delivery, and duty-cycle rules for telemetry export.
 6. Authenticated messages with replay protection before enabling remote intervention.
 7. Property-based and model-checked invariants beyond the deterministic regression scenarios.
 8. Hardware-in-the-loop tests for a selected board and radio.

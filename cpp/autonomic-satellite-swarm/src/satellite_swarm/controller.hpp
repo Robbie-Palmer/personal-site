@@ -47,6 +47,9 @@ public:
   // A successful read removes the oldest event. Hardware adapters can drain this queue without
   // blocking controller progress.
   bool readTelemetry(TelemetryEvent& event) { return telemetry_.read(event); }
+  // Transmission adapters can inspect the oldest event and remove it only after a sink accepts it.
+  bool peekTelemetry(TelemetryEvent& event) const { return telemetry_.peek(event); }
+  bool discardTelemetry() { return telemetry_.discard(); }
   uint8_t pendingTelemetryEvents() const { return telemetry_.size(); }
   uint32_t droppedTelemetryEvents() const { return telemetry_.droppedEvents(); }
 

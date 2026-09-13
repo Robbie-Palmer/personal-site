@@ -5,8 +5,7 @@ mission outcomes, health changes, and transport failures. This is diagnostic evi
 research prototype. It is not a flight telemetry protocol.
 
 Each controller owns a fixed 16-record queue. Recording and reading allocate no memory and do not
-perform I/O. A hardware adapter can call `readTelemetry()` and choose when and how to transmit a
-record. Failure to drain the queue never blocks coordination or health handling. The queue is
+perform I/O. Failure to drain the queue never blocks coordination or health handling. The queue is
 single-context code: it does not synchronize concurrent access, so an interrupt handler must not
 read or record telemetry while the main loop is accessing it.
 
@@ -48,14 +47,31 @@ record can displace the oldest record at the lowest priority beneath its own. Ot
 drops the incoming record. Mission outcomes and entry into safe-disabled are critical, so routine
 candidacy evidence cannot displace them.
 
-This policy bounds storage and the work needed to admit one record. It does not yet rate-limit
-records over time. A later hardware experiment must set transmission rates and byte budgets,
-measure their effect on coordination traffic, and decide whether records need a separate wire
-envelope. The current coordination wire format does not carry telemetry.
+This policy bounds storage and the work needed to admit one record.
+
+## Rate-limited export
+
+`TelemetryTransmitter` peeks at the oldest record and asks a platform `TelemetrySink` to publish it.
+It attempts at most one record per call and one per configured interval. Failed publication leaves
+the record queued and delays another attempt until the next interval. Attempt, success, and rejection
+counters saturate at their 32-bit limit.
+
+The caller supplies `channel_available` on every update. A platform sharing one physical channel must
+set it to false while coordination or safety traffic needs that channel. The transmitter does no work
+and consumes no record while access is withheld. The Uno and ESP32 reference sketches use a
+dedicated serial diagnostic channel, call the controller first, and grant telemetry afterward. They
+attempt one frame per second.
+
+Export uses a fixed 34-byte binary frame identified by `0xB1`. It contains every record field in
+big-endian order, one reserved zero byte, and a CRC-8. This is separate from the 18-byte coordination
+packet. The serial experiment has no delivery acknowledgement, authentication, encryption, replay
+protection, or routing. A parser must use the magic byte and checksum to find frames after startup
+text or a partial read.
 
 ## Deterministic replay
 
 The simulation drains every controller after each command or update and adds the records to its
-ordered event stream. Browser schema version 4 exposes the same records and each node's cumulative
-drop count. The replay log can now distinguish a state change inferred by the simulator from the
-controller's own reason for that change.
+ordered event stream. It intentionally bypasses the transmitter because the replay captures complete
+internal evidence rather than modelling a downlink. Browser schema version 4 exposes the records and
+each node's cumulative drop count. The replay log can distinguish a state change inferred by the
+simulator from the controller's own reason for that change.

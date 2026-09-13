@@ -1,8 +1,8 @@
 # Next research cycle
 
-**Status:** In progress. Bounded controller telemetry and deterministic equal-score rotation are
-implemented; transport, time-based rate limits, resource evidence, and durable journals remain
-proposed.
+**Status:** In progress. Bounded controller telemetry, rate-limited serial export, and deterministic
+equal-score rotation are implemented; shared-radio budgets, resource evidence, and durable journals
+remain proposed.
 
 This document records research directions, not flight-software claims. The next cycle should make
 autonomy observable and governable without making local coordination depend on a continuously
@@ -30,9 +30,12 @@ drop counts. Critical records can displace older lower-priority evidence. The de
 simulation drains the same queue used by firmware builds and includes the records in browser
 replay. See [Bounded telemetry](telemetry.md) for the exact admission policy.
 
-Hardware adapters still need a rate-limited transmission policy below coordination and safety
-traffic. Resource and actuator evidence also await platform interfaces. Losing mission control does
-not stop local behavior because the core only enqueues records and never performs telemetry I/O.
+The portable transmitter now limits attempts, waits for platform-granted channel access, and retains
+a record when its sink rejects publication. The reference adapters send one fixed telemetry frame
+per second over a dedicated serial link after controller work. They do not send telemetry over IR or
+ESP-NOW. A shared-radio policy still needs measured capacity and duty-cycle limits. Resource and
+actuator evidence also await platform interfaces. Losing mission control does not stop local behavior
+because the controller only enqueues records and never performs telemetry I/O.
 
 ## Mission-control observation and intervention
 
