@@ -59,7 +59,8 @@ struct TelemetryEvent {
 
 // A fixed-capacity, non-blocking queue for controller evidence. When full, a higher-priority
 // record displaces the oldest record at the lowest available priority. Other incoming records are
-// dropped. Sequence gaps and dropped_before make either case visible to a consumer.
+// dropped. Sequence gaps and dropped_before make either case visible to a consumer. The queue has
+// no synchronization; record and read must run in one execution context.
 class BoundedTelemetryBuffer {
 public:
   bool record(const TelemetryEvent& event);

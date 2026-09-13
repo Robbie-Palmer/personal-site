@@ -6,7 +6,9 @@ research prototype. It is not a flight telemetry protocol.
 
 Each controller owns a fixed 16-record queue. Recording and reading allocate no memory and do not
 perform I/O. A hardware adapter can call `readTelemetry()` and choose when and how to transmit a
-record. Failure to drain the queue never blocks coordination or health handling.
+record. Failure to drain the queue never blocks coordination or health handling. The queue is
+single-context code: it does not synchronize concurrent access, so an interrupt handler must not
+read or record telemetry while the main loop is accessing it.
 
 ## Record identity
 

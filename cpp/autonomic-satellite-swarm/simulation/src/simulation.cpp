@@ -425,7 +425,6 @@ SimulationResult runSimulationTrace(const SimulationTrace& trace) {
       controllers[index] = std::make_unique<SwarmController>(
           reset.node_id, boot_epochs[index], satellite, *transports[index], *health_monitors[index],
           scorer, controller_config);
-      drainTelemetry(result.events, *controllers[index]);
 
       SimulationEvent event;
       event.type = SimulationEventType::NodeReset;
@@ -434,6 +433,7 @@ SimulationResult runSimulationTrace(const SimulationTrace& trace) {
       event.previous_state = previous;
       event.current_state = controllers[index]->state();
       result.events.push_back(event);
+      drainTelemetry(result.events, *controllers[index]);
     }
     bus.releasePending();
     for (const MissionCommand& command : frame.mission_commands) {

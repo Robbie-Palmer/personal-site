@@ -305,6 +305,17 @@ TEST_CASE("repeated unacknowledged candidacy triggers a latched safe-disabled st
   controller.update(50U);
   CHECK(controller.state() == ControllerState::SafeDisabled);
 
+  uint8_t failure_transitions = 0U;
+  TelemetryEvent telemetry;
+  while (controller.readTelemetry(telemetry)) {
+    if (telemetry.type == TelemetryEventType::StateTransition &&
+        telemetry.reason == TelemetryReason::RetryLimitReached) {
+      CHECK(telemetry.priority == TelemetryPriority::Critical);
+      ++failure_transitions;
+    }
+  }
+  CHECK(failure_transitions == 2U);
+
   health.current = HealthStatus::Nominal;
   controller.update(1000U);
   CHECK(controller.state() == ControllerState::SafeDisabled);

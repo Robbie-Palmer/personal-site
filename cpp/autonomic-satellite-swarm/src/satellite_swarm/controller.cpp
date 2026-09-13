@@ -109,7 +109,8 @@ void SwarmController::update(uint32_t now_ms) {
              elapsed(now_ms, phase_started_at_ms_, config_.response_window_ms)) {
     recordTelemetry(TelemetryEventType::MissionFailed, TelemetryReason::AssignmentWindowExpired,
                     TelemetryPriority::Critical, now_ms, current_mission_.mission_key);
-    transitionTo(ControllerState::Idle, TelemetryReason::AssignmentWindowExpired, now_ms);
+    transitionTo(ControllerState::Idle, TelemetryReason::AssignmentWindowExpired, now_ms,
+                 TelemetryPriority::Critical);
   }
 
   Message incoming;
@@ -252,7 +253,8 @@ void SwarmController::finishLeading(uint32_t now_ms) {
     recordTelemetry(TelemetryEventType::MissionFailed, TelemetryReason::SendFailed,
                     TelemetryPriority::Critical, now_ms, current_mission_.mission_key, chosen);
     assigned_node_ = kBroadcastNode;
-    transitionTo(ControllerState::Idle, TelemetryReason::SendFailed, now_ms);
+    transitionTo(ControllerState::Idle, TelemetryReason::SendFailed, now_ms,
+                 TelemetryPriority::Critical);
     return;
   }
 
@@ -272,7 +274,8 @@ void SwarmController::abandonUnacknowledgedMission(uint32_t now_ms) {
     transitionTo(ControllerState::SafeDisabled, TelemetryReason::RetryLimitReached, now_ms,
                  TelemetryPriority::Critical);
   } else {
-    transitionTo(ControllerState::Idle, TelemetryReason::RetryLimitReached, now_ms);
+    transitionTo(ControllerState::Idle, TelemetryReason::RetryLimitReached, now_ms,
+                 TelemetryPriority::Critical);
   }
 }
 
