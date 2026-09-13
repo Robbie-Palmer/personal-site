@@ -281,10 +281,15 @@ function shouldRecommendUpgrade(
   );
   if (!usesPrevious) return false;
   const hasOverride = Array.from(repository.platform.adrOverrides).some(
-    ([adrRef, value]) =>
-      repository.adrs.get(adrRef)?.projectSlug === project &&
-      value.slot === replacement.slot &&
-      isUseEffectiveAt(value, at),
+    ([adrRef, value]) => {
+      const adr = repository.adrs.get(adrRef);
+      return (
+        adr?.projectSlug === project &&
+        adr.status === "Accepted" &&
+        value.slot === replacement.slot &&
+        isUseEffectiveAt(value, at)
+      );
+    },
   );
   return !hasOverride;
 }

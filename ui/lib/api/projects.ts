@@ -40,10 +40,15 @@ export function getAllProjectSlugs(): string[] {
 export function getAllLegacyADRPaths(): Array<{
   projectSlug: string;
   adrSlug: string;
+  lastModified: string;
 }> {
-  return Array.from(repository.adrAliases.keys()).map((ref) =>
-    parseADRRef(ref),
-  );
+  return Array.from(repository.adrAliases).map(([alias, target]) => {
+    const adr = repository.adrs.get(target);
+    if (!adr) {
+      throw new Error(`Legacy ADR target not found: ${target}`);
+    }
+    return { ...parseADRRef(alias), lastModified: adr.date };
+  });
 }
 
 export function getProject(slug: string): ProjectWithADRs {

@@ -113,6 +113,9 @@ describe("agent markdown generation", () => {
     expect(platform).toContain(
       "/projects/personal-engineering-platform/adrs/001-language-defaults.md",
     );
+    expect(platform).toContain(
+      "driven by [personal-site](https://robbiepalmer.me/projects/personal-site.md)",
+    );
   });
 
   it("generates a markdown twin for every project HTML page", () => {

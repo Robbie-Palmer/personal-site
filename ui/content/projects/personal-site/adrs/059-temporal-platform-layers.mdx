@@ -199,13 +199,13 @@ policies:
   - layer: "backend-api"
     mode: "preferred"
     effective_from: "2025-11-12T00:00:00Z"
-    decision: "personal-engineering-platform:020-cloudflare-workers"
+    decision: "personal-engineering-platform:002-cloudflare-workers"
 selections:
   - technology: "cloudflare-workers"
     status: "Accepted"
     effective_from: "2025-11-12T00:00:00Z"
-    decision: "personal-engineering-platform:020-cloudflare-workers"
-    origin_project: "personal-site"
+    decision: "personal-engineering-platform:002-cloudflare-workers"
+    origin_projects: ["personal-site"]
 ```
 
 Selection status uses the existing ADR vocabulary: `Proposed`, `Accepted`,

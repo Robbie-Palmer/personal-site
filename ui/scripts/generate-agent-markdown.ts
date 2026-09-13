@@ -43,7 +43,11 @@ import {
   mdxToAgentMarkdown,
   renderPage,
 } from "@/lib/content/agent-markdown";
-import { compareUtcInstants, loadDomainRepository } from "@/lib/domain";
+import {
+  compareUtcInstants,
+  isEffectiveAt,
+  loadDomainRepository,
+} from "@/lib/domain";
 import {
   countPitchSlides,
   pitchDeckToAgentMarkdown,
@@ -265,9 +269,11 @@ function buildProjectPage(
 function buildPlatformManifestSection(project: ProjectWithADRs): string[] {
   const manifest = project.platformManifest;
   if (!manifest) return [];
+  const instant = new Date().toISOString();
   const layers = manifest.layers.flatMap((layer) => {
     const policies = manifest.policies.filter(
-      (policy) => policy.layer === layer.slug && !policy.effectiveUntil,
+      (policy) =>
+        policy.layer === layer.slug && isEffectiveAt(policy, instant),
     );
     const activation = layer.activatedBy
       ? ` Activated when ${layer.activatedBy.slot} resolves to ${layer.activatedBy.technology}.`
@@ -296,7 +302,16 @@ function buildPlatformManifestSection(project: ProjectWithADRs): string[] {
         const decisionUrl = markdownUrl(
           routePath("projects", projectSlug ?? "", "adrs", adrSlug ?? ""),
         );
-        return `- [${selection.technology}](${markdownUrl(routePath("technologies", selection.technology))}): ${selection.lifecycleStatus}, ${selection.effectiveFrom} to ${until}; [decision](${decisionUrl})`;
+        const origins =
+          selection.originProjects.length > 0
+            ? `; driven by ${selection.originProjects
+                .map(
+                  (slug) =>
+                    `[${slug}](${markdownUrl(routePath("projects", slug))})`,
+                )
+                .join(", ")}`
+            : "";
+        return `- [${selection.technology}](${markdownUrl(routePath("technologies", selection.technology))}): ${selection.lifecycleStatus}, ${selection.effectiveFrom} to ${until}; [decision](${decisionUrl})${origins}`;
       }),
     ...(slot.users.length > 0
       ? [

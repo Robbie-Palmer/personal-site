@@ -208,34 +208,47 @@ function validateAcceptedSelectionChains(
   }
 }
 
-function validateCurrentDefaults(
+function validateDefaultCoverage(
   manifest: PlatformManifestInput,
   slots: ReadonlyMap<string, PlatformManifestInput["slots"][number]>,
   context: z.RefinementCtx,
 ): void {
-  const currentInstant = "9999-12-31T23:59:59Z";
-  for (const policy of manifest.policies.filter((candidate) =>
-    isEffectiveAt(candidate, currentInstant),
-  )) {
+  for (const policy of manifest.policies) {
     const slot = slots.get(policy.slot);
     if (!slot?.opinionated) continue;
-    const currentAccepted = manifest.selections.filter(
-      (selection) =>
-        selection.slot === policy.slot &&
-        selection.status === "Accepted" &&
-        isEffectiveAt(selection, currentInstant),
-    );
-    const explicitEmpty =
-      slot.noDefaultFrom !== undefined &&
-      compareUtcInstants(slot.noDefaultFrom, currentInstant) <= 0;
-    const validCount =
-      currentAccepted.length === 1 ||
-      (explicitEmpty && currentAccepted.length === 0);
-    if (!validCount) {
+    const boundaries = new Set<string>([policy.effectiveFrom]);
+    if (slot.noDefaultFrom && isEffectiveAt(policy, slot.noDefaultFrom)) {
+      boundaries.add(slot.noDefaultFrom);
+    }
+    for (const selection of manifest.selections) {
+      if (selection.slot !== policy.slot) continue;
+      for (const boundary of [
+        selection.effectiveFrom,
+        selection.effectiveUntil,
+      ]) {
+        if (boundary && isEffectiveAt(policy, boundary)) {
+          boundaries.add(boundary);
+        }
+      }
+    }
+    for (const instant of boundaries) {
+      const acceptedCount = manifest.selections.filter(
+        (selection) =>
+          selection.slot === policy.slot &&
+          selection.status === "Accepted" &&
+          isEffectiveAt(selection, instant),
+      ).length;
+      const explicitEmpty =
+        slot.noDefaultFrom !== undefined &&
+        compareUtcInstants(slot.noDefaultFrom, instant) <= 0;
+      if (acceptedCount === 1 || (explicitEmpty && acceptedCount === 0)) {
+        continue;
+      }
       addManifestIssue(
         context,
-        `Opinionated slot '${policy.slot}' must have exactly one current accepted selection`,
+        `Opinionated slot '${policy.slot}' must have exactly one accepted selection at '${instant}'`,
       );
+      break;
     }
   }
 }
@@ -299,7 +312,7 @@ function validatePlatformManifest(
     "accepted selections",
     context,
   );
-  validateCurrentDefaults(manifest, slots, context);
+  validateDefaultCoverage(manifest, slots, context);
   validateSlotNames(manifest, context);
 }
 
@@ -366,7 +379,8 @@ export function getSelectionLifecycleStatus(
   selection: DefaultSelection,
 ): DefaultSelection["status"] | "Superseded" {
   return manifest.selections.some(
-    (candidate) => candidate.supersedes === selection.id,
+    (candidate) =>
+      candidate.status === "Accepted" && candidate.supersedes === selection.id,
   )
     ? "Superseded"
     : selection.status;

@@ -2,6 +2,7 @@ import type { DomainRepository } from "@/lib/domain";
 import { normalizeADRTitle, parseADRRef } from "@/lib/domain/adr/adr";
 import {
   isEffectiveAt,
+  isUseEffectiveAt,
   resolveEffectiveProjectStack,
 } from "@/lib/domain/platform";
 import type { NodeType } from "@/lib/repository/graph";
@@ -442,7 +443,10 @@ function addProjectPlatformLayerEdges(
     for (const layer of stack.layers) {
       const use = repository.platform.projectLayerUses
         .get(project)
-        ?.find((candidate) => candidate.layer === layer);
+        ?.find(
+          (candidate) =>
+            candidate.layer === layer && isUseEffectiveAt(candidate, stack.at),
+        );
       addEdge(
         state,
         `project:${project}`,

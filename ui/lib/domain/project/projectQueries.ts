@@ -13,6 +13,7 @@ import { getADRsForProject } from "../adr/adrQueries";
 import {
   compareUtcInstants,
   getSelectionLifecycleStatus,
+  isUseEffectiveAt,
   type LayerSlug,
 } from "../platform/platform";
 import {
@@ -205,7 +206,9 @@ export function getProjectWithADRs(
   const stack = resolveEffectiveProjectStack(repository, slug);
   const layerUses = repository.platform.projectLayerUses.get(slug) ?? [];
   const builtOn = stack.layers.map((layerSlug) => {
-    const explicitUse = layerUses.find((use) => use.layer === layerSlug);
+    const explicitUse = layerUses.find(
+      (use) => use.layer === layerSlug && isUseEffectiveAt(use, stack.at),
+    );
     return {
       slug: layerSlug,
       title:
@@ -339,7 +342,10 @@ function getActivatedLayerAdoptionInstant(
     policy
       ? repository.platform.projectLayerUses
           .get(stack.project)
-          ?.find((use) => use.layer === policy.layer)?.adopted
+          ?.find(
+            (use) =>
+              use.layer === policy.layer && isUseEffectiveAt(use, stack.at),
+          )?.adopted
       : undefined,
   ].filter((date): date is string => date !== undefined);
   const adopted = dates.toSorted(compareUtcInstants).at(-1);

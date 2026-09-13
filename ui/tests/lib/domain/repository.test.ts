@@ -50,6 +50,7 @@ vi.mock("@/content/experience", () => experienceContentMock);
 
 // Import after mocks are hoisted
 import * as fs from "node:fs";
+import { PlatformManifestSchema } from "@/lib/domain/platform";
 import {
   loadADRs,
   loadBlogPosts,
@@ -1027,6 +1028,143 @@ Content`;
         expect(errors.length).toBeGreaterThan(0);
         expect(errors[0]?.type).toBe("missing_reference");
         expect(errors[0]?.field).toBe("project");
+      });
+
+      it("rejects a slot use outside its layer policy period", () => {
+        const platformManifest = PlatformManifestSchema.parse({
+          project: "platform",
+          layers: [
+            { slug: "base", title: "Base", description: "Shared defaults" },
+          ],
+          slots: [
+            {
+              slug: "tool.runner",
+              title: "Task runner",
+              description: "Runs project tasks",
+              rationale: "Several task runners can fill this role",
+              opinionated: true,
+              noDefaultFrom: "2026-01-02T00:00:00Z",
+            },
+          ],
+          policies: [
+            {
+              id: "base-runner",
+              layer: "base",
+              slot: "tool.runner",
+              mode: "preferred",
+              effectiveFrom: "2026-01-01T00:00:00Z",
+              effectiveUntil: "2026-01-02T00:00:00Z",
+              decision: "platform:001-runner",
+              prerequisites: [],
+            },
+          ],
+          selections: [
+            {
+              id: "runner",
+              slot: "tool.runner",
+              technology: "task-runner",
+              status: "Accepted",
+              effectiveFrom: "2026-01-01T00:00:00Z",
+              effectiveUntil: "2026-01-02T00:00:00Z",
+              decision: "platform:001-runner",
+              originProjects: [],
+            },
+          ],
+        });
+        const projects = new Map([
+          [
+            "platform",
+            {
+              slug: "platform",
+              title: "Platform",
+              description: "Desc",
+              date: "2026-01-01",
+              status: "live" as const,
+              content: "Content",
+            },
+          ],
+          [
+            "test-project",
+            {
+              slug: "test-project",
+              title: "Test",
+              description: "Desc",
+              date: "2026-01-01",
+              status: "live" as const,
+              content: "Content",
+            },
+          ],
+        ]);
+        const projectRelations = new Map([
+          [
+            "test-project",
+            {
+              technologies: [],
+              ideas: [],
+              adrs: [],
+              initiatives: [],
+              tags: [],
+              platformLayers: [
+                {
+                  layer: "base",
+                  adopted: "2026-01-03T00:00:00Z",
+                  tracking: true,
+                  slots: [
+                    {
+                      slot: "tool.runner",
+                      adopted: "2026-01-03T00:00:00Z",
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        ]);
+
+        const errors = validateReferentialIntegrity({
+          technologies: new Map([
+            [
+              "task-runner",
+              {
+                slug: "task-runner",
+                name: "Task runner",
+                website: "",
+                ideas: [],
+              },
+            ],
+          ]),
+          initiatives: new Map(),
+          adrs: new Map([
+            [
+              "platform:001-runner",
+              {
+                adrRef: "platform:001-runner",
+                slug: "001-runner",
+                projectSlug: "platform",
+                title: "Choose runner",
+                date: "2026-01-01",
+                status: "Accepted" as const,
+                content: "Content",
+                readingTime: "1 min",
+              },
+            ],
+          ]),
+          projects,
+          blogRelations: new Map(),
+          projectRelations,
+          adrRelations: new Map(),
+          roleRelations: new Map(),
+          platformManifest,
+        });
+
+        expect(errors).toContainEqual(
+          expect.objectContaining({
+            type: "invalid_reference",
+            entity: "Project[test-project]",
+            field: "platformLayers.slots",
+            value: "tool.runner",
+          }),
+        );
       });
     });
   });

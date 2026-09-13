@@ -32,6 +32,7 @@ import {
   type InitiativeSlug,
 } from "../domain/initiative/initiative";
 import {
+  compareUtcInstants,
   type DefaultOverride,
   DefaultOverrideSchema,
   type PlatformManifest,
@@ -928,6 +929,18 @@ type TechnologyReferenceCheck = (
   field: string,
 ) => void;
 
+function periodsOverlap(
+  left: { adopted: string; until?: string },
+  right: { effectiveFrom: string; effectiveUntil?: string },
+): boolean {
+  return (
+    (right.effectiveUntil === undefined ||
+      compareUtcInstants(left.adopted, right.effectiveUntil) < 0) &&
+    (left.until === undefined ||
+      compareUtcInstants(right.effectiveFrom, left.until) < 0)
+  );
+}
+
 function validatePlatformDecisions(
   input: ValidationInput,
   manifest: PlatformManifest,
@@ -1013,7 +1026,10 @@ function validateProjectLayerUse(
       });
     }
     const belongsToLayer = manifest.policies.some(
-      (policy) => policy.layer === use.layer && policy.slot === slotUse.slot,
+      (policy) =>
+        policy.layer === use.layer &&
+        policy.slot === slotUse.slot &&
+        periodsOverlap(slotUse, policy),
     );
     if (!belongsToLayer) {
       errors.push({

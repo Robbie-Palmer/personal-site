@@ -5,6 +5,7 @@ import {
   getSelectionLifecycleStatus,
   getUpgradeRecommendations,
   isUseEffectiveAt,
+  type PlatformManifest,
   PlatformManifestSchema,
   ProjectLayerUseSchema,
   resolveEffectiveProjectStack,
@@ -13,7 +14,7 @@ import {
 import { getProjectWithADRs } from "@/lib/domain/project/projectQueries";
 import { loadDomainRepository } from "@/lib/repository";
 
-function sameDayManifest(linkReplacement = true) {
+function sameDayManifest(linkReplacement = true): PlatformManifest {
   return {
     project: "platform",
     layers: [{ slug: "base", title: "Base", description: "Shared defaults" }],
@@ -83,6 +84,70 @@ describe("temporal platform layers", () => {
         issue.message.includes("must supersede"),
       ),
     ).toBe(true);
+  });
+
+  it("rejects gaps in a closed historical policy period", () => {
+    const manifest = sameDayManifest();
+    const policy = manifest.policies[0];
+    expect(policy).toBeDefined();
+    if (!policy) return;
+    manifest.policies[0] = {
+      ...policy,
+      effectiveFrom: "2026-09-12T08:00:00Z",
+      effectiveUntil: "2026-09-12T14:00:00Z",
+    };
+
+    const result = PlatformManifestSchema.safeParse(manifest);
+
+    expect(result.success).toBe(false);
+    expect(
+      result.error?.issues.some((issue) =>
+        issue.message.includes("must have exactly one accepted selection"),
+      ),
+    ).toBe(true);
+  });
+
+  it("allows an explicit empty default after the last accepted selection", () => {
+    const manifest = sameDayManifest();
+    const slot = manifest.slots[0];
+    const firstSelection = manifest.selections[0];
+    expect(slot).toBeDefined();
+    expect(firstSelection).toBeDefined();
+    if (!slot || !firstSelection) return;
+    manifest.slots[0] = {
+      ...slot,
+      noDefaultFrom: "2026-09-12T12:00:00Z",
+    };
+    manifest.selections = [firstSelection];
+
+    expect(PlatformManifestSchema.safeParse(manifest).success).toBe(true);
+  });
+
+  it("does not mark a selection superseded by a proposed candidate", () => {
+    const manifest = sameDayManifest();
+    const slot = manifest.slots[0];
+    const candidate = manifest.selections[1];
+    expect(slot).toBeDefined();
+    expect(candidate).toBeDefined();
+    if (!slot || !candidate) return;
+    manifest.slots[0] = {
+      ...slot,
+      noDefaultFrom: "2026-09-12T12:00:00Z",
+    };
+    manifest.selections[1] = {
+      ...candidate,
+      status: "Proposed",
+    };
+    const result = PlatformManifestSchema.safeParse(manifest);
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+    const firstSelection = result.data.selections[0];
+    expect(firstSelection).toBeDefined();
+    if (!firstSelection) return;
+
+    expect(getSelectionLifecycleStatus(result.data, firstSelection)).toBe(
+      "Accepted",
+    );
   });
 
   it("rejects date-only temporal values", () => {
@@ -194,6 +259,42 @@ describe("temporal platform layers", () => {
     expect(
       writing?.builtOn?.find((layer) => layer.slug === "python")?.adopted,
     ).toBe("2026-09-12T00:00:00Z");
+  });
+
+  it("uses the effective record when a project re-adopts a layer", () => {
+    const repository = loadDomainRepository();
+    const projectLayerUses = new Map(repository.platform.projectLayerUses);
+    const existingUses = projectLayerUses.get("personal-site") ?? [];
+    projectLayerUses.set("personal-site", [
+      ...existingUses.filter((use) => use.layer !== "base"),
+      {
+        layer: "base",
+        adopted: "2026-09-12T00:00:00Z",
+        until: "2026-09-13T00:00:00Z",
+        tracking: false,
+        slots: [],
+      },
+      {
+        layer: "base",
+        adopted: "2026-09-13T00:00:00Z",
+        tracking: true,
+        slots: [],
+      },
+    ]);
+    const project = getProjectWithADRs(
+      {
+        ...repository,
+        platform: { ...repository.platform, projectLayerUses },
+      },
+      "personal-site",
+    );
+
+    expect(project?.builtOn?.find((layer) => layer.slug === "base")).toEqual(
+      expect.objectContaining({
+        adopted: "2026-09-13T00:00:00Z",
+        tracking: true,
+      }),
+    );
   });
 
   it("keeps inherited ADR aliases out of local project histories", () => {
@@ -312,6 +413,35 @@ describe("temporal platform layers", () => {
     expect(projects).toContain("recipe-site");
     expect(projects).not.toContain("agent-first-writing");
     expect(projects).not.toContain("genomic-prediction");
+
+    const overrideRef = "personal-site:059-temporal-platform-layers";
+    const overrideADR = repository.adrs.get(overrideRef);
+    expect(overrideADR).toBeDefined();
+    if (!overrideADR) return;
+    const adrs = new Map(repositoryAfterReplacement.adrs);
+    adrs.set(overrideRef, { ...overrideADR, status: "Proposed" });
+    const adrOverrides = new Map(
+      repositoryAfterReplacement.platform.adrOverrides,
+    );
+    adrOverrides.set(overrideRef, {
+      slot: replacement.slot,
+      technology: "zod",
+      adopted: replacement.effectiveFrom,
+    });
+    const withProposedOverride = getUpgradeRecommendations(
+      {
+        ...repositoryAfterReplacement,
+        adrs,
+        platform: {
+          ...repositoryAfterReplacement.platform,
+          adrOverrides,
+        },
+      },
+      replacement,
+    );
+    expect(
+      withProposedOverride.map((recommendation) => recommendation.project),
+    ).toContain("personal-site");
   });
 
   it("does not recommend a preferred-slot change to a project that never activated the slot", () => {

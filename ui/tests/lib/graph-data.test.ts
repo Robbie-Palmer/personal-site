@@ -190,4 +190,43 @@ describe("extractGraphData", () => {
       getOverridesForDefaultSlot(repository.graph, "project.primary-language"),
     ).toContain("agent-first-writing:009-primary-language-python");
   });
+
+  it("uses effective layer-use provenance after re-adoption", () => {
+    const repository = loadDomainRepository();
+    const projectLayerUses = new Map(repository.platform.projectLayerUses);
+    const existingUses = projectLayerUses.get("personal-site") ?? [];
+    projectLayerUses.set("personal-site", [
+      ...existingUses.filter((use) => use.layer !== "base"),
+      {
+        layer: "base",
+        adopted: "2026-09-12T00:00:00Z",
+        until: "2026-09-13T00:00:00Z",
+        tracking: false,
+        slots: [],
+      },
+      {
+        layer: "base",
+        adopted: "2026-09-13T00:00:00Z",
+        tracking: true,
+        slots: [],
+      },
+    ]);
+
+    const data = extractGraphData({
+      ...repository,
+      platform: { ...repository.platform, projectLayerUses },
+    });
+
+    expect(data.edges).toContainEqual(
+      expect.objectContaining({
+        source: "project:personal-site",
+        target: "platform-layer:base",
+        type: "USES_PLATFORM_LAYER",
+        provenance: expect.objectContaining({
+          adopted: "2026-09-13T00:00:00Z",
+          tracking: true,
+        }),
+      }),
+    );
+  });
 });

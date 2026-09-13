@@ -54,9 +54,9 @@ export default function sitemap(): MetadataRoute.Sitemap {
     })),
   );
   const legacyAdrPages = getAllLegacyADRPaths().map(
-    ({ projectSlug, adrSlug }) => ({
+    ({ projectSlug, adrSlug, lastModified }) => ({
       url: `${siteConfig.url}/projects/${projectSlug}/adrs/${adrSlug}`,
-      lastModified: new Date().toISOString(),
+      lastModified,
       priority: 0.1,
     }),
   );

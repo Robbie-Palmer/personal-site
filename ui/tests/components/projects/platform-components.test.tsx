@@ -48,6 +48,38 @@ describe("project platform components", () => {
     expect(container.querySelectorAll("a").length).toBeGreaterThan(1);
   });
 
+  it("does not present a future policy as current", () => {
+    const project = getProjectWithADRs(
+      loadDomainRepository(),
+      "personal-engineering-platform",
+    );
+    expect(project?.platformManifest).toBeDefined();
+    if (!project?.platformManifest) return;
+    const layer = project.platformManifest.layers[0];
+    const policy = project.platformManifest.policies[0];
+    expect(layer).toBeDefined();
+    expect(policy).toBeDefined();
+    if (!layer || !policy) return;
+
+    render(
+      <PlatformManifest
+        manifest={{
+          layers: [layer],
+          policies: [
+            {
+              ...policy,
+              layer: layer.slug,
+              effectiveFrom: "2099-01-01T00:00:00Z",
+            },
+          ],
+          slots: [],
+        }}
+      />,
+    );
+
+    expect(screen.queryByText(policy.mode)).not.toBeInTheDocument();
+  });
+
   it("omits the summary when no platform layer is adopted", () => {
     const { container } = render(<PlatformSummary />);
     expect(container).toBeEmptyDOMElement();

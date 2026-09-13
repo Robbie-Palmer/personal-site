@@ -1,5 +1,9 @@
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
+import {
+  compareUtcInstants,
+  isEffectiveAt,
+} from "@/lib/domain/platform/platform";
 import type { ProjectWithADRsView } from "@/lib/domain/project/projectViews";
 
 type Manifest = NonNullable<ProjectWithADRsView["platformManifest"]>;
@@ -7,6 +11,7 @@ type Manifest = NonNullable<ProjectWithADRsView["platformManifest"]>;
 export function PlatformManifest({
   manifest,
 }: Readonly<{ manifest: Manifest }>) {
+  const instant = new Date().toISOString();
   return (
     <section className="space-y-8" aria-labelledby="platform-manifest-heading">
       <div>
@@ -16,7 +21,8 @@ export function PlatformManifest({
         <div className="mt-4 grid gap-4 md:grid-cols-2">
           {manifest.layers.map((layer) => {
             const policies = manifest.policies.filter(
-              (policy) => policy.layer === layer.slug && !policy.effectiveUntil,
+              (policy) =>
+                policy.layer === layer.slug && isEffectiveAt(policy, instant),
             );
             return (
               <article
@@ -84,7 +90,7 @@ export function PlatformManifest({
               <ol className="mt-3 space-y-2 text-sm">
                 {slot.selections
                   .toSorted((left, right) =>
-                    right.effectiveFrom.localeCompare(left.effectiveFrom),
+                    compareUtcInstants(right.effectiveFrom, left.effectiveFrom),
                   )
                   .map((selection) => (
                     <li key={selection.id}>
