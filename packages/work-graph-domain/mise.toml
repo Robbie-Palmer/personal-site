@@ -14,8 +14,10 @@ run = "pnpm test"
 
 [tasks."test:coverage"]
 description = "Test the Work Graph domain package with coverage"
-depends = ["install"]
-run = "pnpm test:coverage"
+run = """
+pnpm install --frozen-lockfile --filter work-graph-domain...
+pnpm test:coverage
+"""
 
 [tasks.check]
 description = "Check the Work Graph domain package"
