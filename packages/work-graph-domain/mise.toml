@@ -14,10 +14,8 @@ run = "pnpm test"
 
 [tasks."test:coverage"]
 description = "Test the Work Graph domain package with coverage"
-run = """
-pnpm install --frozen-lockfile --filter work-graph-domain...
-pnpm test:coverage
-"""
+depends = ["//:install"]
+run = "pnpm --filter ui exec vitest run --root ../packages/work-graph-domain --coverage --config ../packages/work-graph-domain/vitest.config.ts"
 
 [tasks.check]
 description = "Check the Work Graph domain package"
