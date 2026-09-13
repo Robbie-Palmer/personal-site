@@ -1,5 +1,3 @@
-import { describe, it } from "vitest";
-
 describe("execution leases", () => {
   it.todo("creates a lease only for eligible work");
   it.todo("prevents another active lease on the same work item");

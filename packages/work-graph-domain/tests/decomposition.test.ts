@@ -1,5 +1,3 @@
-import { describe, it } from "vitest";
-
 describe("decomposition and hierarchy", () => {
   it.todo("turns an in-progress item into a parent of newly discovered work");
   it.todo("ends the current lease with a decomposed outcome");

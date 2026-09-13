@@ -1,5 +1,3 @@
-import { describe, it } from "vitest";
-
 describe("work-item readiness", () => {
   it.todo("makes an unblocked childless open item ready");
   it.todo("blocks an item with an unsatisfied dependency");

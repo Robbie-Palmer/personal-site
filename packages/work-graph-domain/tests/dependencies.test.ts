@@ -1,5 +1,3 @@
-import { describe, it } from "vitest";
-
 describe("work-item dependencies", () => {
   it.todo("makes released blocker work satisfy its downstream dependencies");
   it.todo("makes cancelled blocker work satisfy its downstream dependencies");

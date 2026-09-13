@@ -1,5 +1,3 @@
-import { describe, it } from "vitest";
-
 describe("priority projection", () => {
   it.todo("includes ancestor priority when ordering descendant work");
   it.todo("respects explicit local rank between siblings");

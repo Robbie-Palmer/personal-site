@@ -1,5 +1,3 @@
-import { describe, it } from "vitest";
-
 describe("attention requests", () => {
   it.todo("ends the requesting worker's lease with an attention-requested outcome");
   it.todo("removes work from the ready queue while blocking attention remains unresolved");
