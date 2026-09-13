@@ -99,50 +99,47 @@ TEST_CASE("browser serialization names every telemetry event, reason, priority, 
       TelemetryEventType::MissionFailed,   TelemetryEventType::HealthChanged,
       TelemetryEventType::TransportFailure};
   constexpr std::array<const char*, 9> kEventNames = {
-      "state-transition", "mission-proposed",  "candidacy-sent",
+      "state-transition",   "mission-proposed", "candidacy-sent",
       "candidacy-accepted", "mission-assigned", "mission-completed",
-      "mission-failed", "health-changed", "transport-failure"};
-  constexpr std::array<TelemetryReason, 14> kReasons = {
-      TelemetryReason::None,
-      TelemetryReason::MissionInitiated,
-      TelemetryReason::MissionRequestAccepted,
-      TelemetryReason::AcknowledgementReceived,
-      TelemetryReason::AssignmentReceived,
-      TelemetryReason::AssignmentBroadcast,
-      TelemetryReason::AssignmentWindowExpired,
-      TelemetryReason::RetryLimitReached,
-      TelemetryReason::MissionCompleted,
-      TelemetryReason::HealthQuiescent,
-      TelemetryReason::HealthRecovered,
-      TelemetryReason::HealthFatal,
-      TelemetryReason::SendFailed,
-      TelemetryReason::InvalidConfiguration};
-  constexpr std::array<const char*, 14> kReasonNames = {
-      "none",
-      "mission-initiated",
-      "mission-request-accepted",
-      "acknowledgement-received",
-      "assignment-received",
-      "assignment-broadcast",
-      "assignment-window-expired",
-      "retry-limit-reached",
-      "mission-completed",
-      "health-quiescent",
-      "health-recovered",
-      "health-fatal",
-      "send-failed",
-      "invalid-configuration"};
+      "mission-failed",     "health-changed",   "transport-failure"};
+  constexpr std::array<TelemetryReason, 14> kReasons = {TelemetryReason::None,
+                                                        TelemetryReason::MissionInitiated,
+                                                        TelemetryReason::MissionRequestAccepted,
+                                                        TelemetryReason::AcknowledgementReceived,
+                                                        TelemetryReason::AssignmentReceived,
+                                                        TelemetryReason::AssignmentBroadcast,
+                                                        TelemetryReason::AssignmentWindowExpired,
+                                                        TelemetryReason::RetryLimitReached,
+                                                        TelemetryReason::MissionCompleted,
+                                                        TelemetryReason::HealthQuiescent,
+                                                        TelemetryReason::HealthRecovered,
+                                                        TelemetryReason::HealthFatal,
+                                                        TelemetryReason::SendFailed,
+                                                        TelemetryReason::InvalidConfiguration};
+  constexpr std::array<const char*, 14> kReasonNames = {"none",
+                                                        "mission-initiated",
+                                                        "mission-request-accepted",
+                                                        "acknowledgement-received",
+                                                        "assignment-received",
+                                                        "assignment-broadcast",
+                                                        "assignment-window-expired",
+                                                        "retry-limit-reached",
+                                                        "mission-completed",
+                                                        "health-quiescent",
+                                                        "health-recovered",
+                                                        "health-fatal",
+                                                        "send-failed",
+                                                        "invalid-configuration"};
   constexpr std::array<TelemetryPriority, 3> kPriorities = {
       TelemetryPriority::Routine, TelemetryPriority::Operational, TelemetryPriority::Critical};
   constexpr std::array<const char*, 3> kPriorityNames = {"routine", "operational", "critical"};
-  constexpr std::array<ControllerState, 7> kStates = {
-      ControllerState::Idle,
-      ControllerState::Leading,
-      ControllerState::AwaitingAcknowledgement,
-      ControllerState::AwaitingAssignment,
-      ControllerState::Active,
-      ControllerState::Quiescent,
-      ControllerState::SafeDisabled};
+  constexpr std::array<ControllerState, 7> kStates = {ControllerState::Idle,
+                                                      ControllerState::Leading,
+                                                      ControllerState::AwaitingAcknowledgement,
+                                                      ControllerState::AwaitingAssignment,
+                                                      ControllerState::Active,
+                                                      ControllerState::Quiescent,
+                                                      ControllerState::SafeDisabled};
 
   for (std::size_t index = 0U; index < kReasons.size(); ++index) {
     SimulationEvent event;

@@ -317,11 +317,10 @@ void SwarmController::observeHealth(HealthStatus health, uint32_t now_ms) {
   if (health == last_health_) {
     return;
   }
-  recordTelemetry(TelemetryEventType::HealthChanged, healthReason(health),
-                  health == HealthStatus::Fatal ? TelemetryPriority::Critical
-                                                : TelemetryPriority::Operational,
-                  now_ms, current_mission_.mission_key, kBroadcastNode,
-                  static_cast<uint8_t>(health));
+  recordTelemetry(
+      TelemetryEventType::HealthChanged, healthReason(health),
+      health == HealthStatus::Fatal ? TelemetryPriority::Critical : TelemetryPriority::Operational,
+      now_ms, current_mission_.mission_key, kBroadcastNode, static_cast<uint8_t>(health));
   last_health_ = health;
 }
 
