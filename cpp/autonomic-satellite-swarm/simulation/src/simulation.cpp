@@ -343,6 +343,18 @@ void recordStateChange(std::vector<SimulationEvent>& events, uint32_t now_ms, No
   events.push_back(event);
 }
 
+void drainTelemetry(std::vector<SimulationEvent>& events, SwarmController& controller) {
+  TelemetryEvent telemetry;
+  while (controller.readTelemetry(telemetry)) {
+    SimulationEvent event;
+    event.type = SimulationEventType::ControllerTelemetry;
+    event.now_ms = telemetry.timestamp_ms;
+    event.node_id = telemetry.node_id;
+    event.telemetry = telemetry;
+    events.push_back(event);
+  }
+}
+
 NodeObservation observe(const SwarmController& controller) {
   NodeObservation observation;
   observation.node_id = controller.nodeId();
@@ -353,6 +365,7 @@ NodeObservation observe(const SwarmController& controller) {
   observation.assigned_node = controller.assignedNode();
   observation.candidacy_score = controller.currentCandidacyScore();
   observation.communication_failures = controller.consecutiveCommunicationFailures();
+  observation.telemetry_drops = controller.droppedTelemetryEvents();
   return observation;
 }
 
@@ -420,6 +433,7 @@ SimulationResult runSimulationTrace(const SimulationTrace& trace) {
       event.previous_state = previous;
       event.current_state = controllers[index]->state();
       result.events.push_back(event);
+      drainTelemetry(result.events, *controllers[index]);
     }
     bus.releasePending();
     for (const MissionCommand& command : frame.mission_commands) {
@@ -434,12 +448,14 @@ SimulationResult runSimulationTrace(const SimulationTrace& trace) {
       const ControllerState previous = controller.state();
       result.events[event_index].accepted =
           controller.initiateMission(command.objective, frame.now_ms);
+      drainTelemetry(result.events, controller);
       recordStateChange(result.events, frame.now_ms, command.leader, previous, controller.state());
     }
 
     for (const std::unique_ptr<SwarmController>& controller : controllers) {
       const ControllerState previous = controller->state();
       controller->update(frame.now_ms);
+      drainTelemetry(result.events, *controller);
       recordStateChange(result.events, frame.now_ms, controller->nodeId(), previous,
                         controller->state());
     }

@@ -20,6 +20,7 @@ add_library(
   satellite_swarm
   src/satellite_swarm/controller.cpp
   src/satellite_swarm/historical_orbital_scorer.cpp
+  src/satellite_swarm/telemetry.cpp
   src/satellite_swarm/types.cpp
   src/satellite_swarm/wire_codec.cpp)
 add_library(satellite_swarm::coordination ALIAS satellite_swarm)
@@ -156,6 +157,7 @@ if(BUILD_TESTING)
     tests/controller_test.cpp
     tests/historical_orbital_scorer_test.cpp
     tests/invariant_test.cpp
+    tests/telemetry_test.cpp
     tests/wire_codec_test.cpp)
   if(SATELLITE_SWARM_BUILD_SIMULATION)
     target_sources(

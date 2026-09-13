@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
   describeSatelliteSwarmEvent,
@@ -5,7 +6,7 @@ import {
 } from "@/lib/api/satellite-swarm-simulation";
 
 const validRecord = {
-  schemaVersion: 3,
+  schemaVersion: 4,
   traceVersion: 3,
   scenario: "test",
   source: "portable C++ SimulationTrace",
@@ -23,6 +24,7 @@ const validRecord = {
           position: { longitudeDegrees: 0, latitudeDegrees: 10 },
           orbitalRadiusMetres: 6_750_000,
           candidacyScore: 81,
+          telemetryDrops: 0,
           missionKey: { bootEpoch: 1, originNode: 0, sequence: 1 },
           assignedNode: null,
         },
@@ -46,6 +48,22 @@ const validRecord = {
 } as const;
 
 describe("satellite swarm simulation records", () => {
+  it("accepts the committed native fixture", () => {
+    const fixture = JSON.parse(
+      readFileSync(
+        "public/simulations/autonomic-satellite-swarm/demonstration.v4.json",
+        "utf8",
+      ),
+    );
+
+    expect(
+      parseSatelliteSwarmSimulation({
+        ...fixture,
+        sourceRevision: validRecord.sourceRevision,
+      }).events.some((event) => event.type === "controller-telemetry"),
+    ).toBe(true);
+  });
+
   it("accepts the versioned portable trace contract", () => {
     const parsed = parseSatelliteSwarmSimulation(validRecord);
     const event = parsed.events[0];
@@ -203,6 +221,22 @@ describe("satellite swarm simulation records", () => {
           timeMs: 120,
           type: "message-sent",
         },
+        {
+          bootEpoch: 1,
+          currentState: "active",
+          droppedBefore: 2,
+          event: "mission-assigned",
+          missionKey: message.missionKey,
+          nodeId: 1,
+          previousState: "idle",
+          priority: "critical",
+          reason: "assignment-received",
+          relatedNode: 1,
+          sequence: 7,
+          timeMs: 130,
+          type: "controller-telemetry",
+          value: 0,
+        },
       ],
     });
 
@@ -222,6 +256,7 @@ describe("satellite swarm simulation records", () => {
       "Node 0 acknowledged node 1.",
       "Node 0 assigned mission 0:1:1 to node 1.",
       "Node 0 broadcast mission 0:1:1.",
+      "Telemetry 1:1:7 records mission 0:1:1 assigned to node 1. 2 earlier records had been dropped.",
     ]);
   });
 
@@ -271,5 +306,148 @@ describe("satellite swarm simulation records", () => {
         ],
       }).events,
     ).toHaveLength(1);
+  });
+
+  it("describes every controller telemetry variant", () => {
+    const missionKey = { bootEpoch: 1, originNode: 0, sequence: 1 };
+    const telemetry = {
+      bootEpoch: 1,
+      currentState: "idle",
+      droppedBefore: 0,
+      missionKey: null,
+      nodeId: 1,
+      previousState: "idle",
+      priority: "operational",
+      reason: "none",
+      relatedNode: null,
+      sequence: 1,
+      timeMs: 0,
+      type: "controller-telemetry",
+      value: 0,
+    } as const;
+    const record = parseSatelliteSwarmSimulation({
+      ...validRecord,
+      events: [
+        { ...telemetry, event: "state-transition", reason: "health-recovered" },
+        { ...telemetry, event: "mission-proposed", missionKey, sequence: 2 },
+        {
+          ...telemetry,
+          event: "candidacy-sent",
+          missionKey,
+          relatedNode: 0,
+          sequence: 3,
+          value: 72,
+        },
+        {
+          ...telemetry,
+          event: "candidacy-accepted",
+          missionKey,
+          relatedNode: 2,
+          sequence: 4,
+          value: 61,
+        },
+        {
+          ...telemetry,
+          event: "mission-assigned",
+          missionKey,
+          relatedNode: 1,
+          sequence: 5,
+        },
+        { ...telemetry, event: "mission-completed", missionKey, sequence: 6 },
+        {
+          ...telemetry,
+          event: "mission-failed",
+          missionKey,
+          reason: "retry-limit-reached",
+          sequence: 7,
+        },
+        {
+          ...telemetry,
+          event: "health-changed",
+          reason: "health-quiescent",
+          sequence: 8,
+        },
+        { ...telemetry, event: "transport-failure", missionKey, sequence: 9 },
+      ],
+    });
+
+    expect(
+      record.events.map((event) => describeSatelliteSwarmEvent(event)),
+    ).toEqual([
+      "Telemetry 1:1:1 records idle to idle because of health-recovered.",
+      "Telemetry 1:1:2 records proposed mission 0:1:1.",
+      "Telemetry 1:1:3 records score 72 sent to node 0 for mission 0:1:1.",
+      "Telemetry 1:1:4 records score 61 from node 2 for mission 0:1:1.",
+      "Telemetry 1:1:5 records mission 0:1:1 assigned to node 1.",
+      "Telemetry 1:1:6 records mission 0:1:1 completed.",
+      "Telemetry 1:1:7 records mission 0:1:1 failed because of retry-limit-reached.",
+      "Telemetry 1:1:8 records health change health-quiescent.",
+      "Telemetry 1:1:9 records a send failure for mission 0:1:1.",
+    ]);
+
+    expect(() =>
+      parseSatelliteSwarmSimulation({
+        ...validRecord,
+        events: [{ ...telemetry, droppedBefore: 4_294_967_296 }],
+      }),
+    ).toThrow();
+
+    for (const event of [
+      "mission-proposed",
+      "candidacy-sent",
+      "candidacy-accepted",
+      "mission-assigned",
+      "mission-completed",
+      "mission-failed",
+      "transport-failure",
+    ] as const) {
+      expect(() =>
+        parseSatelliteSwarmSimulation({
+          ...validRecord,
+          events: [{ ...telemetry, event, missionKey: null }],
+        }),
+      ).toThrow();
+    }
+
+    for (const event of [
+      "candidacy-sent",
+      "candidacy-accepted",
+      "mission-assigned",
+    ] as const) {
+      expect(() =>
+        parseSatelliteSwarmSimulation({
+          ...validRecord,
+          events: [{ ...telemetry, event, missionKey, relatedNode: null }],
+        }),
+      ).toThrow();
+    }
+
+    for (const event of ["candidacy-sent", "candidacy-accepted"] as const) {
+      expect(() =>
+        parseSatelliteSwarmSimulation({
+          ...validRecord,
+          events: [
+            { ...telemetry, event, missionKey, relatedNode: 0, value: 101 },
+          ],
+        }),
+      ).toThrow();
+    }
+  });
+
+  it("bounds per-node telemetry drops to an unsigned 32-bit counter", () => {
+    const frame = validRecord.frames[0];
+    const node = frame.nodes[0];
+
+    expect(() =>
+      parseSatelliteSwarmSimulation({
+        ...validRecord,
+        frames: [
+          {
+            ...frame,
+            nodes: [{ ...node, telemetryDrops: 4_294_967_296 }],
+          },
+        ],
+      }),
+    ).toThrow();
   });
 });

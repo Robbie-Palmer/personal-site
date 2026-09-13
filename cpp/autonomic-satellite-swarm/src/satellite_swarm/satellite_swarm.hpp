@@ -4,6 +4,7 @@
 #include "satellite_swarm/controller.hpp"
 #include "satellite_swarm/historical_orbital_scorer.hpp"
 #include "satellite_swarm/interfaces.hpp"
+#include "satellite_swarm/telemetry.hpp"
 #include "satellite_swarm/types.hpp"
 #include "satellite_swarm/wire_codec.hpp"
 

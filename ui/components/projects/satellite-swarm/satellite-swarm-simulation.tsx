@@ -123,7 +123,8 @@ export function SatelliteSwarmSimulation({
         </div>
         <p className="text-sm text-muted-foreground">
           The portable C++ trace runner produced these states, scores, messages,
-          and positions. Cesium draws the result but does not calculate it.
+          bounded telemetry, and positions. Cesium draws the result but does not
+          calculate it.
           {isSouthPoleMission &&
             " The exact pole is a deliberate coordinate edge case."}
           {hasLostAssignment &&
@@ -261,6 +262,7 @@ export function SatelliteSwarmSimulation({
                     <th className="pb-2 font-medium">State</th>
                     <th className="pb-2 text-right font-medium">Score</th>
                     <th className="pb-2 text-right font-medium">Assigned</th>
+                    <th className="pb-2 text-right font-medium">Drops</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -284,6 +286,9 @@ export function SatelliteSwarmSimulation({
                         {node.assignedNode === null
                           ? "None"
                           : `Node ${node.assignedNode}`}
+                      </td>
+                      <td className="py-2 text-right tabular-nums">
+                        {node.telemetryDrops}
                       </td>
                     </tr>
                   ))}

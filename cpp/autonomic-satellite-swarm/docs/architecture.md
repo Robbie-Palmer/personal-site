@@ -78,6 +78,11 @@ for a benchtop swarm demonstration; it is not proposed as a spacecraft communica
 - Node IDs are currently `0..15`, with `255` reserved for broadcast.
 - Candidate storage is statically bounded at 16 nodes.
 - Each update processes a configurable bounded number of received messages.
+- Each controller keeps at most 16 telemetry records. A higher-priority record may evict an older,
+  lower-priority record, and every loss increments a saturating drop counter.
+- The Uno firmware build reserves at least 768 bytes of SRAM beyond global allocation for local
+  variables and the runtime stack. This static-allocation threshold provides headroom; worst-case
+  stack and interrupt-nesting behavior remain unverified.
 - One controller negotiates one mission at a time.
 - Mission keys combine a provisioned node ID, a 32-bit boot epoch, and a 16-bit sequence. Sequence
   wrap is forbidden.
@@ -99,7 +104,7 @@ A credible next research iteration would add:
 3. Fair, lifetime-aware allocation instead of a fixed node-ID tie-break.
 4. A mission executor interface with progress, cancellation, and failure semantics, plus an
    idempotent platform hook for physical safe-state actions.
-5. Bounded, prioritized telemetry keyed by stable node and mission identity.
+5. A transport and time-based rate policy for the implemented bounded telemetry queue.
 6. Authenticated messages with replay protection before enabling remote intervention.
 7. Property-based and model-checked invariants beyond the deterministic regression scenarios.
 8. Hardware-in-the-loop tests for a selected board and radio.

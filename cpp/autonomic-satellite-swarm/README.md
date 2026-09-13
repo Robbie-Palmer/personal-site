@@ -29,6 +29,9 @@ explicit.
 - Missions use `{origin node, boot epoch, mission sequence}` keys, so messages from different nodes
   cannot alias the same mission. Preventing aliases across leader resets also requires each node to
   durably advance its boot epoch before restarting its mission sequence.
+- Each controller records typed mission, state, health, and send-failure evidence in a fixed
+  16-record queue. Priorities protect mission outcomes and safe-disable transitions from routine
+  records, while sequence gaps and drop counts expose lost evidence.
 
 ## Quick start
 
@@ -54,10 +57,10 @@ node 2: idle
 The [browser demonstration](https://robbiepalmer.me/satellite-swarm) runs the portable controller
 as WebAssembly in a module worker and draws the result on a self-hosted CesiumJS globe.
 
-`simulate:json` prints the versioned state, position, message, transition, and network-fault record
-consumed by the CesiumJS view. The paths come from scripted simulation inputs. Orbit propagation
-remains outside this demo. The browser can compare the connected mission with a run where node 1's
-winning assignment is dropped.
+`simulate:json` prints the versioned state, position, message, controller-telemetry, transition, and
+network-fault record consumed by the CesiumJS view. The paths come from scripted simulation inputs.
+Orbit propagation remains outside this demo. The browser can compare the connected mission with a
+run where node 1's winning assignment is dropped.
 
 Build the browser module and compare its default output with the native fixture:
 
@@ -114,7 +117,11 @@ mise run firmware:esp32
 
 The Uno adapter uses six NEC infrared frames for each validated protocol packet. The ESP32 adapter
 uses ESP-NOW broadcast packets. Both are compile-tested; neither has been exercised on physical
-hardware during the revival because the original equipment is no longer available.
+hardware during the revival because the original equipment is no longer available. The Uno task
+also requires at least 768 bytes of its 2 KB SRAM to remain available for local variables and the
+runtime stack after global allocation. This compile-time guard measures static allocation only.
+Worst-case stack safety under interrupt nesting and physical-target stack behavior remain
+unverified.
 
 The compile checks use reference node ID `0`. Set a distinct ID for each physical board at build
 time; the task rejects values outside the core's configured `0..15` range:
@@ -134,6 +141,7 @@ persistence, and a genuine guidance/navigation/control implementation.
 
 - [Architecture](docs/architecture.md)
 - [Wire protocol](docs/wire-protocol.md)
+- [Bounded telemetry](docs/telemetry.md)
 - [Coordination invariant baseline](docs/invariant-baseline.md)
 - [Revival notes and corrected defects](docs/revival-notes.md)
 - [Next research cycle](docs/next-research-cycle.md)
