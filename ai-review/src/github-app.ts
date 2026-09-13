@@ -1,6 +1,16 @@
 import { createAppAuth } from "@octokit/auth-app";
+import { JsonClient } from "ai-review-domain/reviewer";
+import type { Env } from "./env";
 
 const PKCS8_HEADER = "-----BEGIN PRIVATE KEY-----";
+export const GITHUB_API_TIMEOUT_MS = 10_000;
+
+type GitHubAppEnv = Pick<
+  Env,
+  | "AI_REVIEW_APP_ID"
+  | "AI_REVIEW_APP_INSTALLATION_ID"
+  | "AI_REVIEW_APP_PRIVATE_KEY"
+>;
 
 export function createGitHubAppAuth(options: {
   appId: string;
@@ -27,4 +37,33 @@ export async function createInstallationToken(options: {
   const auth = createGitHubAppAuth(options);
   const authentication = await auth({ type: "installation" });
   return authentication.token;
+}
+
+export function githubApiClientFromToken(
+  token: string,
+  options: { retries?: number } = {},
+): JsonClient {
+  return new JsonClient(
+    "https://api.github.com",
+    {
+      Authorization: `Bearer ${token}`,
+      Accept: "application/vnd.github+json",
+      "Content-Type": "application/json",
+      "User-Agent": "personal-site-ai-review/1",
+      "X-GitHub-Api-Version": "2022-11-28",
+    },
+    { timeoutMs: GITHUB_API_TIMEOUT_MS, ...options },
+  );
+}
+
+export async function githubApiClient(
+  env: GitHubAppEnv,
+  options: { retries?: number } = {},
+): Promise<JsonClient> {
+  const token = await createInstallationToken({
+    appId: env.AI_REVIEW_APP_ID,
+    installationId: env.AI_REVIEW_APP_INSTALLATION_ID,
+    privateKey: env.AI_REVIEW_APP_PRIVATE_KEY,
+  });
+  return githubApiClientFromToken(token, options);
 }

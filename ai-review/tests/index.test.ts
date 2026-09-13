@@ -5,6 +5,8 @@ import type { Env, ReviewWorkflowParams } from "../src/env";
 import worker, { PullRequestCoordinator, ReviewWorkflow } from "../src/index";
 import { SCHEMA_MIGRATION_HISTORY } from "../src/schema";
 
+const MAX_REVIEW_COMPLETION_ITEMS_FOR_TEST = 10_000;
+
 const event: ReviewWorkflowParams = {
   deliveryId: "delivery-123",
   eventName: "pull_request",
@@ -413,6 +415,9 @@ describe("PullRequestCoordinator", () => {
       { ...validObservation, policy: null },
       { ...validObservation, policy: { ...policy, version: 1 } },
       { ...validObservation, policy: { ...policy, version: "" } },
+      { ...validObservation, policy: { ...policy, version: "   " } },
+      { ...validObservation, policy: { ...policy, version: " version" } },
+      { ...validObservation, policy: { ...policy, version: "version " } },
       {
         ...validObservation,
         policy: { ...policy, consecutiveFailureThreshold: "2" },
@@ -695,6 +700,46 @@ describe("PullRequestCoordinator", () => {
         String(query).includes("INSERT INTO review_finding_comments"),
       ),
     ).toBe(true);
+  });
+
+  it.each([
+    ["a negative run limit", { maxRuns: -1 }],
+    ["a fractional run limit", { maxRuns: 1.5 }],
+    ["an unsafe run limit", { maxRuns: Number.MAX_SAFE_INTEGER + 1 }],
+    ["a negative cost limit", { maxCostUsd: -0.01 }],
+    ["an empty run ID", { runId: "" }],
+    ["an oversized run ID", { runId: "x".repeat(256) }],
+    ["an empty head SHA", { headSha: "" }],
+    ["an oversized head SHA", { headSha: "x".repeat(65) }],
+    ["an empty diff fingerprint", { diffFingerprint: "" }],
+    ["an oversized diff fingerprint", { diffFingerprint: "x".repeat(65) }],
+    ["an empty config fingerprint", { configFingerprint: "" }],
+    [
+      "an oversized config fingerprint",
+      { configFingerprint: "x".repeat(65) },
+    ],
+  ])("rejects review claims with %s", async (_label, override) => {
+    const { coordinator } = coordinatorFixture();
+    const response = await coordinator.fetch(
+      new Request("https://coordinator.test/reviews/claim", {
+        method: "POST",
+        body: JSON.stringify({
+          runId: "review-invalid-limits",
+          headSha: event.headSha,
+          diffFingerprint: "diff-hash",
+          configFingerprint: "config-hash",
+          force: false,
+          maxRuns: 20,
+          maxCostUsd: 5,
+          ...override,
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      error: "Invalid review claim",
+    });
   });
 
   it("does not mint a confirmed fix from model replay alone", async () => {
@@ -1476,6 +1521,97 @@ describe("PullRequestCoordinator", () => {
     }
   });
 
+  it.each([
+    ["an empty run ID", { runId: "" }],
+    ["an oversized run ID", { runId: "x".repeat(256) }],
+    ["an empty error", { error: "" }],
+    ["an oversized error", { error: "x".repeat(4_001) }],
+    ["a negative cost", { costUsd: -0.01 }],
+    ["a nonnumeric cost", { costUsd: "0.1" }],
+  ])("rejects review failures with %s", async (_label, override) => {
+    const { coordinator } = coordinatorFixture();
+    const response = await coordinator.fetch(
+      new Request("https://coordinator.test/reviews/fail", {
+        method: "POST",
+        body: JSON.stringify({
+          runId: "review-delivery-123",
+          error: "Model request failed",
+          costUsd: 0.1,
+          ...override,
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      error: "Invalid review failure",
+    });
+  });
+
+  it("caps review completion collections", async () => {
+    const { coordinator } = coordinatorFixture();
+    const oversized = Array.from(
+      { length: MAX_REVIEW_COMPLETION_ITEMS_FOR_TEST + 1 },
+      () => null,
+    );
+    for (const field of [
+      "hunks",
+      "currentHunks",
+      "findings",
+      "findingResolutions",
+      "findingPublications",
+    ]) {
+      const response = await coordinator.fetch(
+        new Request("https://coordinator.test/reviews/complete", {
+          method: "POST",
+          body: JSON.stringify({
+            repository: event.repository,
+            pullRequestNumber: event.pullRequestNumber,
+            runId: "review-delivery-123",
+            headSha: event.headSha,
+            costUsd: 0.42,
+            hunks: [],
+            findings: [],
+            [field]: oversized,
+          }),
+        }),
+      );
+      expect(response.status).toBe(400);
+    }
+  });
+
+  it.each([
+    ["an empty run ID", { runId: "" }],
+    ["an oversized run ID", { runId: "x".repeat(256) }],
+    ["an empty head SHA", { headSha: "" }],
+    ["an oversized head SHA", { headSha: "x".repeat(65) }],
+    ["a zero comment ID", { commentId: 0 }],
+    ["a fractional comment ID", { commentId: 1.5 }],
+    ["an unsafe comment ID", { commentId: Number.MAX_SAFE_INTEGER + 1 }],
+  ])("rejects review completions with %s", async (_label, override) => {
+    const { coordinator } = coordinatorFixture();
+    const response = await coordinator.fetch(
+      new Request("https://coordinator.test/reviews/complete", {
+        method: "POST",
+        body: JSON.stringify({
+          repository: event.repository,
+          pullRequestNumber: event.pullRequestNumber,
+          runId: "review-delivery-123",
+          headSha: event.headSha,
+          costUsd: 0.42,
+          hunks: [],
+          findings: [],
+          ...override,
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      error: "Invalid review completion",
+    });
+  });
+
   it("rejects an incomplete identified finding at the completion boundary", async () => {
     const { coordinator } = coordinatorFixture();
     const { evidence: _evidence, ...incompleteFinding } = identifiedFinding;
@@ -2135,7 +2271,9 @@ describe("HTTP Worker", () => {
     );
     expect(githubFetch).toHaveBeenCalledTimes(2);
     expect(githubFetch).toHaveBeenLastCalledWith(
-      "https://api.github.com/repos/Robbie-Palmer/personal-site/pulls/comments/902/reactions",
+      new URL(
+        "https://api.github.com/repos/Robbie-Palmer/personal-site/pulls/comments/902/reactions",
+      ),
       expect.objectContaining({
         method: "POST",
         body: JSON.stringify({ content: "+1" }),
