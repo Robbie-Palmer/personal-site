@@ -213,8 +213,10 @@ force a long handoff report for small work.
 
 Opening a blocking attention request ends the execution lease with
 `attention_requested` as its outcome. The work projects as `needs_attention`
-while any blocking request remains unresolved. Resolving all such requests
-returns it to `ready`.
+while any blocking request remains unresolved. After the last blocking request
+is resolved, recompute the normal readiness predicates. The item returns to
+`ready` only when its dependencies are satisfied and it has no non-terminal
+direct children; otherwise it projects as `blocked`.
 
 The item becomes claimable by any worker immediately after resolution. The
 lease history retains the previous worker ID, so later scheduling can prefer
@@ -358,7 +360,7 @@ Pure domain scenarios should cover:
 - stable ordering inside filtered scopes;
 - sparse tickets remaining valid;
 - claim context ordering only the context that exists;
-- attention removal from and return to the ready queue;
+- attention removal from and readiness recomputation before queue return;
 - retention of the previous worker after attention resolution; and
 - pull requests informing work without becoming dependency edges.
 
