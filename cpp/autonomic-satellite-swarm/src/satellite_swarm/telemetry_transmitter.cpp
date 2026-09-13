@@ -15,8 +15,7 @@ TelemetryTransmitResult TelemetryTransmitter::update(uint32_t now_ms, bool chann
   if (!channel_available) {
     return TelemetryTransmitResult::ChannelUnavailable;
   }
-  if (has_attempted_ &&
-      static_cast<uint32_t>(now_ms - last_attempt_at_ms_) < minimum_interval_ms_) {
+  if (has_attempted_ && now_ms - last_attempt_at_ms_ < minimum_interval_ms_) {
     return TelemetryTransmitResult::RateLimited;
   }
 
