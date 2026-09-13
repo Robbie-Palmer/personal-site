@@ -1,7 +1,8 @@
 # Next research cycle
 
-**Status:** In progress. Bounded controller telemetry is implemented; transport, time-based rate
-limits, resource evidence, and durable journals remain proposed.
+**Status:** In progress. Bounded controller telemetry and deterministic equal-score rotation are
+implemented; transport, time-based rate limits, resource evidence, and durable journals remain
+proposed.
 
 This document records research directions, not flight-software claims. The next cycle should make
 autonomy observable and governable without making local coordination depend on a continuously
@@ -64,15 +65,18 @@ score alone invites reward hacking and can move risk between nodes without impro
 
 ## Fair and resource-aware allocation
 
-The current lowest-ID tie-break is reproducible but repeatedly burdens the same node. Uniform
-random selection removes that fixed bias, yet it introduces entropy and replay concerns and still
-ignores each node's remaining resources.
+The controller now retains the highest-score rule and uses a mission-keyed cyclic order only among
+equal top-scoring responders. It hashes the origin and boot epoch into a starting phase, while each
+consecutive mission sequence advances one place. Six equal-score missions over three stable
+responders produce two assignments per node in both native and WebAssembly runs. The simulator
+derives that result from the leader's bounded assignment telemetry.
 
-A stronger policy should rank candidates by mission suitability and lifetime cost, then use a
-deterministic rotation or a mission-keyed hash only as the final tie-break. Useful evidence may
-include recent duty cycle, completed missions, energy reserves, thermal margin, actuator budget,
-and cumulative wear. Each additional field has bandwidth, privacy, trust, and spoofing costs that
-must be measured rather than assumed away.
+This is fair only within a stable tie. A higher score always wins, changing eligibility or scores
+changes the rotation, and different leaders keep independent phases. The next policy experiment
+should rank candidates by measured mission suitability and lifetime cost before applying the cyclic
+tie-break. Useful evidence may include recent duty cycle, completed missions, energy reserves,
+thermal margin, actuator budget, and cumulative wear. Each additional field has bandwidth, privacy,
+trust, and spoofing costs that must be measured rather than assumed away.
 
 ## Physical safe-state action
 

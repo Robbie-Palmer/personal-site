@@ -8,7 +8,7 @@
 
 namespace satellite_swarm::simulation {
 
-constexpr uint8_t kSimulationTraceVersion = 3U;
+constexpr uint8_t kSimulationTraceVersion = 4U;
 
 struct NodeConfiguration {
   NodeId node_id = 0U;
@@ -29,6 +29,10 @@ struct HealthUpdate {
 struct MissionCommand {
   NodeId leader = 0U;
   Coordinate objective{};
+};
+
+struct MissionCompletion {
+  NodeId node_id = 0U;
 };
 
 enum class DeliveryFaultType : uint8_t { Drop, Delay, Duplicate };
@@ -64,6 +68,8 @@ struct SimulationFrame {
   std::vector<DeliveryFault> delivery_faults;
   // Resets complete before due delayed messages are released to the replacement controller.
   std::vector<NodeReset> node_resets;
+  // Completions run before new mission commands, so a node can finish and lead within one frame.
+  std::vector<MissionCompletion> mission_completions;
   std::vector<MissionCommand> mission_commands;
 };
 
@@ -78,6 +84,7 @@ struct SimulationTrace {
 
 enum class SimulationEventType : uint8_t {
   MissionCommand,
+  MissionCompletion,
   MessageSent,
   MessageDropped,
   MessageDelayed,

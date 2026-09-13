@@ -30,6 +30,11 @@ even when no later record has entered the queue.
 one mission and node, the first such record is the initial transmission and each later record is a
 retry. Failed transmissions instead produce `TransportFailure` records.
 
+On the leader, an `AssignmentBroadcast` record stores the chosen node in `related_node` and its
+candidacy score in `value`. The repeated equal-score simulation counts these records to assess the
+allocation policy. A receiving node records the assignee but leaves `value` at zero because the
+assignment wire message does not carry the winning score.
+
 Sequence zero is reserved. After record `4,294,967,295`, the buffer stops storing telemetry and
 counts later attempts as drops, up to the saturating drop-counter limit. This preserves unique
 record identities within a boot without widening every record on SRAM-constrained targets.

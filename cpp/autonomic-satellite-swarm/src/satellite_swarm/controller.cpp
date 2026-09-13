@@ -7,6 +7,34 @@ uint8_t boundedScore(uint8_t score) {
   return score > kMaximumCandidacyScore ? kMaximumCandidacyScore : score;
 }
 
+uint32_t missionLineageHash(const MissionKey& mission_key) {
+  constexpr uint32_t kFnvOffsetBasis = 2166136261U;
+  constexpr uint32_t kFnvPrime = 16777619U;
+  uint32_t hash = kFnvOffsetBasis;
+  const uint8_t bytes[] = {
+      mission_key.origin_node,
+      static_cast<uint8_t>(mission_key.boot_epoch >> 24U),
+      static_cast<uint8_t>(mission_key.boot_epoch >> 16U),
+      static_cast<uint8_t>(mission_key.boot_epoch >> 8U),
+      static_cast<uint8_t>(mission_key.boot_epoch),
+  };
+  for (const uint8_t value : bytes) {
+    hash ^= value;
+    hash *= kFnvPrime;
+  }
+  return hash;
+}
+
+uint8_t cyclicTieIndex(const MissionKey& mission_key, uint8_t tied_candidates) {
+  if (tied_candidates == 0U) {
+    return 0U;
+  }
+  const uint32_t lineage_offset = missionLineageHash(mission_key) % tied_candidates;
+  const uint32_t sequence_offset =
+      static_cast<uint32_t>(mission_key.sequence - 1U) % tied_candidates;
+  return static_cast<uint8_t>((lineage_offset + sequence_offset) % tied_candidates);
+}
+
 TelemetryReason healthReason(HealthStatus health) {
   switch (health) {
   case HealthStatus::Nominal:
@@ -239,11 +267,30 @@ bool SwarmController::sendCandidacy(uint32_t now_ms) {
 }
 
 void SwarmController::finishLeading(uint32_t now_ms) {
-  NodeId chosen = node_id_;
+  uint8_t highest_score = 0U;
+  uint8_t tied_candidates = 0U;
   for (NodeId candidate = 0; candidate < config_.node_capacity; ++candidate) {
-    if (candidates_[candidate].received &&
-        candidates_[candidate].score > candidates_[chosen].score) {
-      chosen = candidate;
+    if (!candidates_[candidate].received) {
+      continue;
+    }
+    if (tied_candidates == 0U || candidates_[candidate].score > highest_score) {
+      highest_score = candidates_[candidate].score;
+      tied_candidates = 1U;
+    } else if (candidates_[candidate].score == highest_score) {
+      ++tied_candidates;
+    }
+  }
+
+  const uint8_t selected_tie_index = cyclicTieIndex(current_mission_.mission_key, tied_candidates);
+  NodeId chosen = node_id_;
+  uint8_t tie_index = 0U;
+  for (NodeId candidate = 0; candidate < config_.node_capacity; ++candidate) {
+    if (candidates_[candidate].received && candidates_[candidate].score == highest_score) {
+      if (tie_index == selected_tie_index) {
+        chosen = candidate;
+        break;
+      }
+      ++tie_index;
     }
   }
 
@@ -260,7 +307,8 @@ void SwarmController::finishLeading(uint32_t now_ms) {
 
   assigned_node_ = chosen;
   recordTelemetry(TelemetryEventType::MissionAssigned, TelemetryReason::AssignmentBroadcast,
-                  TelemetryPriority::Critical, now_ms, current_mission_.mission_key, chosen);
+                  TelemetryPriority::Critical, now_ms, current_mission_.mission_key, chosen,
+                  highest_score);
   transitionTo(chosen == node_id_ ? ControllerState::Active : ControllerState::Idle,
                TelemetryReason::AssignmentBroadcast, now_ms, TelemetryPriority::Critical);
 }

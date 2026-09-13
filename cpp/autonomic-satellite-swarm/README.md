@@ -21,6 +21,8 @@ explicit.
 - A temporary leader broadcasts a mission objective.
 - Available nodes calculate a replaceable candidacy score.
 - The leader acknowledges responses and deterministically assigns the strongest candidate.
+- Equal top scores rotate across the stable responder set using the mission key, without allocation
+  history or another wire field.
 - A busy node does not accept more work.
 - Health policy can place a node into reversible quiescence or a safe-disabled state latched for the controller lifetime.
 - Repeated failure to receive acknowledgements can trigger the historical "death by default" rule.
@@ -43,6 +45,7 @@ mise install
 mise run test
 mise run simulate
 mise run simulate:json
+mise run simulate:fairness
 ```
 
 The simulation should assign the southern-latitude mission to node 1:
@@ -62,6 +65,10 @@ network-fault record consumed by the CesiumJS view. The paths come from scripted
 Orbit propagation remains outside this demo. The browser can compare the connected mission with a
 run where node 1's winning assignment is dropped.
 
+`simulate:fairness` runs six missions where all three nodes score 100. It prints assignment evidence
+derived from the leader's bounded telemetry. The expected order is `0, 1, 2, 0, 1, 2`, with two
+missions per node and no dropped records.
+
 Build the browser module and compare its default output with the native fixture:
 
 ```shell
@@ -69,7 +76,8 @@ mise run browser:parity
 ```
 
 The task pins Emscripten, writes the untracked deployable `.mjs` and `.wasm` files under `ui/public`,
-checks a custom objective, and verifies invalid-input handling. The UI build runs the same task so
+checks a custom objective, compares the equal-score evidence byte for byte, and verifies
+invalid-input handling. The UI build runs the same task so
 deployments compile the browser module from source. The worker API is versioned separately from the
 simulation trace and display schema.
 

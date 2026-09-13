@@ -31,6 +31,11 @@ description = "Print the browser visualization fixture from the native trace run
 depends = ["build"]
 run = "./build/dev/autonomic-satellite-swarm-simulation --json"
 
+[tasks."simulate:fairness"]
+description = "Print telemetry evidence from six equal-score missions"
+depends = ["build"]
+run = "./build/dev/autonomic-satellite-swarm-simulation --fairness-json"
+
 [tasks."browser:fixture:check"]
 description = "Check that the committed browser fixture matches the native trace runner"
 depends = ["build"]
@@ -135,7 +140,7 @@ run = 'node scripts/compile-firmware.ts esp32 "$(mise where arduino-cli)/arduino
 
 [tasks."scripts:typecheck"]
 description = "Type-check firmware task scripts"
-run = 'tsc --typeRoots "$(mise where npm:@types/node)/node_modules/@types" --project tsconfig.scripts.json'
+run = 'tsc --typeRoots "$(mise where npm:@types/node)/lib/node_modules/@types" --project tsconfig.scripts.json'
 
 [tasks."scripts:test"]
 description = "Test firmware task scripts"

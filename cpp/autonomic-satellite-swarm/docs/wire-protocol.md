@@ -57,7 +57,12 @@ their node-local mission ID cannot be mapped to a stable key after receipt.
 Every transition matches the complete mission key. An acknowledgement or assignment from an earlier
 leader boot cannot complete a later negotiation that reused the same sequence.
 
-The lowest node ID wins an equal score. This makes replayed simulations deterministic.
+The highest score wins. When multiple received candidates share that score, the leader orders them
+by node ID and chooses a mission-keyed cyclic index. It hashes the origin node and boot epoch into a
+starting phase, then advances one place for each mission sequence. A stable set of equal top-scoring
+candidates therefore receives one assignment each per complete rotation. The rule changes no wire
+field. It does not account for resource or lifetime cost, and changing the tied set changes the
+rotation.
 
 ## Infrared framing
 

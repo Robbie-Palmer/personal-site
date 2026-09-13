@@ -292,6 +292,9 @@ void validateFrame(const SimulationFrame& frame, std::size_t node_count) {
       throw std::invalid_argument("simulation frame has an invalid mission objective");
     }
   }
+  for (const MissionCompletion& completion : frame.mission_completions) {
+    validateNodeId(completion.node_id, node_count);
+  }
 }
 
 void validateTrace(const SimulationTrace& trace) {
@@ -436,6 +439,21 @@ SimulationResult runSimulationTrace(const SimulationTrace& trace) {
       drainTelemetry(result.events, *controllers[index]);
     }
     bus.releasePending();
+    for (const MissionCompletion& completion : frame.mission_completions) {
+      SimulationEvent event;
+      event.type = SimulationEventType::MissionCompletion;
+      event.now_ms = frame.now_ms;
+      event.node_id = completion.node_id;
+      result.events.push_back(event);
+      const std::size_t event_index = result.events.size() - 1U;
+      SwarmController& controller = *controllers.at(static_cast<std::size_t>(completion.node_id));
+      const ControllerState previous = controller.state();
+      result.events[event_index].accepted = previous == ControllerState::Active;
+      controller.completeMission(frame.now_ms);
+      drainTelemetry(result.events, controller);
+      recordStateChange(result.events, frame.now_ms, completion.node_id, previous,
+                        controller.state());
+    }
     for (const MissionCommand& command : frame.mission_commands) {
       SimulationEvent event;
       event.type = SimulationEventType::MissionCommand;

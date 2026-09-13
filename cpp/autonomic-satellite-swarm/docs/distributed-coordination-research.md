@@ -209,7 +209,7 @@ to avoid treating packet delivery as plan agreement.
 
 DARPA's [OFFSET program](https://www.darpa.mil/research/programs/offensive-swarm-enabled-tactics)
 worked at a different scale, with up to 250 air and ground systems, an open architecture, simulated
-environments, and a human-swarm interface. This connects directly to the proposed bounded telemetry:
+environments, and a human-swarm interface. This connects directly to the implemented bounded telemetry:
 an operator needs to reconstruct what the swarm believed, which decisions it made, and where agents
 disagreed. That view must remain an observer during autonomous operation. Its loss cannot stop local
 safety behavior. OFFSET's terrestrial tactical network does not answer the orbital contact and

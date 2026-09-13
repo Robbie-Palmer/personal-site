@@ -1,4 +1,5 @@
 #include "satellite_swarm/browser_simulation.hpp"
+#include "satellite_swarm/fair_allocation_simulation.hpp"
 #include "satellite_swarm/simulation.hpp"
 
 #include <array>
@@ -285,6 +286,12 @@ TEST_CASE("malformed simulation traces fail before a controller runs") {
     trace.frames[0].mission_commands.push_back({1U, Coordinate(181.0F, 0.0F)});
     CHECK_THROWS_AS(runSimulationTrace(trace), std::invalid_argument);
   }
+
+  SECTION("unknown mission completion node") {
+    SimulationTrace trace = demonstrationTrace();
+    trace.frames[0].mission_completions.push_back({9U});
+    CHECK_THROWS_AS(runSimulationTrace(trace), std::invalid_argument);
+  }
 }
 
 TEST_CASE("trace frames record health changes and rejected mission commands") {
@@ -307,6 +314,59 @@ TEST_CASE("trace frames record health changes and rejected mission commands") {
   }
   CHECK(accepted_commands == 1U);
   CHECK(rejected_commands == 1U);
+}
+
+TEST_CASE("trace frames complete active missions before accepting new commands") {
+  SimulationTrace trace = demonstrationTrace();
+  trace.frames.resize(12U);
+  SimulationFrame& final_frame = trace.frames.back();
+  final_frame.now_ms = 110U;
+  final_frame.mission_completions.push_back({1U});
+  final_frame.mission_commands.push_back({1U, Coordinate(10.0F, 20.0F)});
+
+  const SimulationResult result = runSimulationTrace(trace);
+
+  CHECK(result.frames.back().nodes[1].state == ControllerState::Leading);
+  std::size_t completion_index = result.events.size();
+  std::size_t command_index = result.events.size();
+  for (std::size_t index = 0U; index < result.events.size(); ++index) {
+    const SimulationEvent& event = result.events[index];
+    if (event.type == SimulationEventType::MissionCompletion && event.node_id == 1U) {
+      CHECK(event.accepted);
+      completion_index = index;
+    }
+    if (event.type == SimulationEventType::MissionCommand && event.node_id == 1U &&
+        event.now_ms == 110U) {
+      CHECK(event.accepted);
+      command_index = index;
+    }
+  }
+  CHECK(completion_index < command_index);
+}
+
+TEST_CASE("fair-allocation evidence is derived from six equal-score mission telemetry records") {
+  const SimulationTrace trace = makeFairAllocationTrace();
+  const SimulationResult result = runSimulationTrace(trace);
+  std::array<uint8_t, 3U> assignment_counts{};
+  std::vector<NodeId> assignments;
+
+  for (const SimulationEvent& event : result.events) {
+    if (event.type == SimulationEventType::ControllerTelemetry && event.node_id == 0U &&
+        event.telemetry.type == TelemetryEventType::MissionAssigned &&
+        event.telemetry.reason == TelemetryReason::AssignmentBroadcast) {
+      REQUIRE(event.telemetry.related_node < assignment_counts.size());
+      CHECK(event.telemetry.value == 100U);
+      CHECK(event.telemetry.dropped_before == 0U);
+      ++assignment_counts[event.telemetry.related_node];
+      assignments.push_back(event.telemetry.related_node);
+    }
+  }
+
+  CHECK(assignments == std::vector<NodeId>{0U, 1U, 2U, 0U, 1U, 2U});
+  CHECK(assignment_counts == std::array<uint8_t, 3U>{2U, 2U, 2U});
+  const std::string json = serializeFairAllocationEvidence(result);
+  CHECK(json.find(R"("schemaVersion": 1)") != std::string::npos);
+  CHECK(json.find(R"("traceVersion": 4)") != std::string::npos);
 }
 
 TEST_CASE("trace time supports one unsigned clock rollover") {
