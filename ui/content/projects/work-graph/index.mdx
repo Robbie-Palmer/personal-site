@@ -2,7 +2,47 @@
 title: "Work Graph"
 description: "A public source of truth for outcomes, dependencies, evidence, leases, and the human decisions that keep work moving"
 date: "2026-09-04"
-status: "idea"
+updated: "2026-09-13"
+status: "in_progress"
+repo_url: "https://github.com/Robbie-Palmer/personal-site"
+tech_stack:
+  - "Cloudflare Access"
+  - "Drizzle"
+  - "Hono"
+  - "Hyperdrive"
+  - "OpenAPI"
+  - "Spectral"
+  - "oasdiff"
+platform_layers:
+  - layer: "base"
+    adopted: "2026-09-13T00:00:00Z"
+    tracking: true
+  - layer: "backend-api"
+    adopted: "2026-09-13T00:00:00Z"
+    tracking: true
+    slots:
+      - slot: "backend-api.runtime"
+        adopted: "2026-09-13T00:00:00Z"
+  - layer: "database"
+    adopted: "2026-09-13T00:00:00Z"
+    tracking: true
+    slots:
+      - slot: "database.relational-engine"
+        adopted: "2026-09-13T00:00:00Z"
+      - slot: "database.relational-host"
+        adopted: "2026-09-13T00:00:00Z"
+  - layer: "infrastructure"
+    adopted: "2026-09-13T00:00:00Z"
+    tracking: true
+    slots:
+      - slot: "infrastructure.provisioner"
+        adopted: "2026-09-13T00:00:00Z"
+  - layer: "observability"
+    adopted: "2026-09-13T00:00:00Z"
+    tracking: true
+    slots:
+      - slot: "observability.application-telemetry"
+        adopted: "2026-09-13T00:00:00Z"
 initiatives:
   - "semi-autonomous-software-development"
 ideas:
@@ -24,7 +64,7 @@ The graph should answer five questions:
 * What outcome matters most?
 * Which work is ready now?
 * What blocks the critical path?
-* Who currently holds each task?
+* Who currently holds each work item?
 * What evidence would prove it complete?
 
 The first user is me, across the projects in this repository. The first test is
@@ -69,38 +109,44 @@ without making any of them authoritative.
 
 # Responsibilities
 
+The public knowledge graph owns initiative and project prose and their
+long-lived relationships. Work Graph keeps operational mirrors of those scopes
+so they can carry rank and weight without becoming a second prose source of
+truth.
+
 The Work Graph owns:
 
-* initiatives, projects, outcomes, tasks, and their dependencies;
+* flexible work items, their parent-child hierarchy, and dependencies;
+* operational scope rank and priority weight;
 * owner-defined priority and policy;
-* acceptance criteria and completion evidence;
-* task state and the currently active lease;
+* optional briefs, acceptance criteria, context links, and completion evidence;
+* work state and the currently active lease;
 * blockers and attention requests;
 * plan revisions, including split, replacement, invalidation, and newly
   discovered work; and
 * projections for people, agents, and external tools.
 
 It does not choose the model, machine, subscription, or person that should do a
-task. The [Agent Coordinator](/projects/agent-coordinator) owns that concern.
+work item. The [Agent Coordinator](/projects/agent-coordinator) owns that concern.
 
 # A constrained but adaptable graph
 
 Agents should be able to change the plan when execution teaches them something.
-They may split a task that exceeds its intended scope, add a missing dependency,
+They may split work that exceeds its intended scope, add a missing dependency,
 mark earlier work as invalid, or propose a different route to the outcome.
 Allowing arbitrary
 workflows invented during every session would make state hard to query and
 unsafe to automate.
 
-Owners should define which node types, transitions, evidence requirements, and
-plan changes are allowed. Projects with low risk can grant broad authority.
-Production systems can require review at specific boundaries.
+Owners should define which transitions, evidence requirements, and plan changes
+are allowed. Projects with low risk can grant broad authority. Production
+systems can require review at specific boundaries.
 
 # Adaptive planning
 
 The graph should support [adaptive planning](/ideas/adaptive-planning) towards a
 fixed goal. Expect the plan to be wrong and revise it as evidence arrives.
-Knowledge work changes what we know, including whether a planned task still
+Knowledge work changes what we know, including whether a planned item still
 helps reach that goal. [Epistemology](/ideas/epistemology) informs how we assess
 the evidence behind those decisions.
 
@@ -112,14 +158,14 @@ confidence. The graph should record the assumptions that make a branch useful
 and the evidence that could invalidate it.
 
 Only work in flight is committed. Regularly replenish and reprioritise the ready
-queue, then pull its highest-priority eligible task when capacity becomes
+queue, then pull its highest-priority eligible item when capacity becomes
 available. Interrupting active work is expensive and needs a reason strong
 enough to justify the lost progress and context. A revision should identify the
 affected branch, retain its history, and explain the evidence behind the change.
 
 The graph should expose critical paths and opportunities to parallelise work,
 then help reduce lead times by removing waits and dependencies. Forecasting is
-limited to the delivery of an individual task once picked up. Queued work does
+limited to the delivery of an individual item once picked up. Queued work does
 not acquire a delivery commitment merely because it appears in the plan.
 
 The Work Graph records those assumptions, commitments, and revisions. The
@@ -131,19 +177,26 @@ propose better plans. The Agent Coordinator continues to own actor selection.
 
 The first schema should stay small:
 
-* An **initiative** defines a long-running outcome shared by multiple projects.
-* A **project** owns a coherent product or body of work.
-* An **outcome** states an observable change in the world.
-* A **task** is an executable piece of research, discovery, prototyping,
-  implementation, refactoring, deployment, or validation.
+* A **knowledge scope** mirrors an initiative or project and owns operational
+  rank while the knowledge graph remains authoritative for its meaning.
+* A **work item** is the only recursive unit of planned work. It may be
+  childless, gain children during execution, or become executable again after
+  its children terminate. Epic, task, and subtask are presentation labels.
 * A **dependency** determines when work becomes ready and exposes the critical
-  path.
+  path. Released and cancelled blockers both satisfy it.
 * A **lease** gives one actor temporary ownership without making abandoned work
-  disappear.
-* **Evidence** explains why a task can close. Depending on context, that may be
-  accepted research, an ADR, passing checks, a merge, or a healthy deployment.
+  disappear. Its epoch fences requests from an actor whose stale lease was
+  reclaimed.
+* **Context** links a work item to a knowledge scope, governing or background
+  ADR, pull request, note, or supplemental reference without pretending those
+  relationships have equal workflow meaning.
 * An **attention request** asks a person for a decision, authority, access,
   review, or help after the actor exhausts the allowed alternatives.
+
+Executability is derived. An open item is ready when it has no active lease,
+unresolved attention, unsatisfied dependency, or non-terminal direct child.
+Adding children to claimed work makes the parent wait. Once those children
+terminate, the parent can be claimed again for synthesis or completion.
 
 The system needs a history of changes even if the main interface shows only
 current state. Otherwise an expired lease or rewritten plan can erase the
@@ -151,13 +204,14 @@ context needed by the next actor.
 
 # Leases and handoff
 
-Only one actor should hold a task at a time. A lease can be renewed while work
+Only one actor should hold a work item at a time. A lease can be renewed while work
 continues and expires when an agent runs out of time, focus, or usage allowance.
-Expiry returns the task to the ready pool.
+Expiry makes the item reclaimable. A monotonically increasing lease epoch
+prevents a delayed request from the previous worker changing it after takeover.
 
 A useful handoff should preserve findings, artifacts, attempts, unresolved
 problems, and the recommended next action. The exact contract should emerge
-from personal use rather than demand a long report for every small task.
+from personal use rather than demand a long report for every small item.
 
 # Attention inbox
 
@@ -172,11 +226,13 @@ It should collect:
 
 Each item should include the decision needed, why it is needed now, options the
 actor considered, the affected critical path, and the consequence of waiting.
-A response should update the graph and allow eligible work to resume.
+A response should update the graph and allow eligible work to resume. The
+previous worker remains visible in lease history so a later scheduler can
+prefer continuity without reserving the work indefinitely.
 
 # Public work, private telemetry
 
-The work DAG should normally be public. Public tasks let contributors and agents
+The work DAG should normally be public. Public work lets contributors and agents
 understand the same plan without translating it into a second tracker.
 
 Execution telemetry does not belong there. Token usage, model calls, retries,
@@ -211,7 +267,7 @@ the number of unsuspended users. The grant does not recur monthly.
 The Work Graph should not exist merely because paid task trackers exist. It must
 beat Linear plus its MCP interface for my real workflow. Different people and
 agents should be able to find ready work, hold leases, change the plan within
-policy, and attach the evidence needed to close a task. The graph must also work
+policy, and attach the evidence needed to close an item. The graph must also work
 across repositories and long-running environments without making one
 coding-session provider authoritative.
 
@@ -222,21 +278,22 @@ more. Those behaviours support a price. A feature comparison does not.
 
 # First useful release
 
-1. Model one initiative, its projects, outcomes, tasks, dependencies, evidence,
-   leases, and attention requests.
-2. Import one live personal plan and make the Work Graph authoritative for it.
-3. Expose a narrow agent interface for reading ready work and proposing graph
-   changes, including the assumptions and evidence behind a revision.
-4. Add claim, renew, release, expire, block, and complete operations with
-   optimistic concurrency and an auditable history.
-5. Build a read-only public DAG view with the critical path and blockers.
-6. Build the smallest attention inbox that can answer a request and unblock the
-   graph.
-7. Connect one external source, likely GitHub or PostHog, as events rather than
-   a competing source of truth.
-8. Run real projects through it before adding the Agent Coordinator.
-   Test whether discoveries can replace a provisional branch while unrelated
-   committed work continues.
+1. Model knowledge scopes, flexible work items, dependencies, leases, notes,
+   attention requests, typed context, and an immutable event history.
+2. Produce a deterministic ready queue globally and within an initiative,
+   project, or parent item. Propagate blocked descendant urgency to blockers.
+3. Atomically claim the next eligible item or a chosen item, renew its lease,
+   and reclaim it after expiry with fencing against the old worker.
+4. Let a worker release, cancel, or decompose claimed work. Decomposition adds a
+   child DAG and makes its ready leaves inherit the parent's priority position.
+5. Expose the workflow through an unversioned REST API and installable
+   TypeScript CLI. Keep MCP as a later adapter over the same application layer.
+6. Attach initiative, project, ADR, pull-request, note, and reference context
+   without demanding a long ticket template.
+7. Deploy the service behind Cloudflare Access with service-token credentials
+   for headless workers.
+8. Enter the remaining Work Graph plan into the service and use it to complete
+   its own MVP.
 
 # Later work
 
@@ -246,12 +303,14 @@ more. Those behaviours support a price. A feature comparison does not.
   credible systemic fix
 * Team ownership and multiple policy domains
 * Projections into GitHub, Shortcut, or chat where they help people work
+* A public DAG view and dedicated human attention inbox
+* MCP access after the CLI has proved the application operations
 * Automatic merge and deployment when required evidence and owner policy agree
 * Public contributor workflows for Open Collective Development
 
 # Success
 
-The Work Graph succeeds when the next useful task is visible without
+The Work Graph succeeds when the next useful item is visible without
 reconstructing the plan from tools scattered across the workflow, expired work
 can be resumed by another actor, and human attention goes to decisions rather
 than ticket administration.

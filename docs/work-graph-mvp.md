@@ -3,14 +3,10 @@
 ## Status
 
 This working implementation brief records the agreed MVP behaviour so
-implementation can start without losing the reasoning that led to it. Final
-architecture decisions belong in later ADRs.
-
-Do not add Work Graph ADRs until
+implementation can proceed without losing the reasoning that led to it.
 [Personal Engineering Platform PR #1299](https://github.com/Robbie-Palmer/personal-site/pull/1299)
-lands. Reconcile this brief with the platform manifest before recording final
-architecture decisions. The public Work Graph project page also needs updating
-after that merge because it still describes the older, fixed ontology.
+landed on 13 September 2026. The project now adopts its platform layers and
+keeps Work Graph-specific choices in local ADRs.
 
 ## Goal
 
@@ -45,8 +41,9 @@ adapter exposes the same operations to more agents.
 
 ## Working architecture
 
-These choices remain provisional until PR #1299 lands and the relevant ADRs
-can be written:
+The project inherits TypeScript, Zod, Cloudflare Workers, Terraform,
+PostgreSQL, Neon, and PostHog from the Personal Engineering Platform. Local
+ADRs record the Work Graph-specific choices:
 
 - TypeScript service using Hono on Cloudflare Workers.
 - A dedicated Neon PostgreSQL project reached through Hyperdrive.
@@ -148,10 +145,11 @@ reaches a satisfying terminal state.
   edges.
 - A dependency attached to a parent constrains its descendants.
 
-Dependency writes must reject cycles. PostgreSQL should serialize graph edits
-with a transaction-scoped advisory lock, run a recursive reachability check,
-and insert the edge in the same transaction. A check performed outside that
-serialized transaction can admit a cycle through concurrent write skew.
+Dependency writes must reject cycles. PostgreSQL should serialize dependency
+edits with a `SHARE ROW EXCLUSIVE` table lock, run a recursive reachability
+check, and insert the edge in the same transaction. Hyperdrive does not support
+PostgreSQL advisory locks. A check performed outside the serialized transaction
+can admit a cycle through concurrent write skew.
 
 Hierarchy-cycle and dependency-cycle checks are separate because the two
 relationships have different meanings.
