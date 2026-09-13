@@ -140,7 +140,15 @@ run = 'node scripts/compile-firmware.ts esp32 "$(mise where arduino-cli)/arduino
 
 [tasks."scripts:typecheck"]
 description = "Type-check firmware task scripts"
-run = 'tsc --typeRoots "$(mise where npm:@types/node)/lib/node_modules/@types" --project tsconfig.scripts.json'
+run = '''
+types_install_root="$(mise where npm:@types/node)"
+types_root=$(find "$types_install_root" -maxdepth 4 -type d -path '*/node_modules/@types' -print -quit)
+if [ -z "$types_root" ]; then
+  echo "Node.js type definitions not found below $types_install_root" >&2
+  exit 1
+fi
+tsc --typeRoots "$types_root" --project tsconfig.scripts.json
+'''
 
 [tasks."scripts:test"]
 description = "Test firmware task scripts"
