@@ -145,14 +145,19 @@ reaches a satisfying terminal state.
   edges.
 - A dependency attached to a parent constrains its descendants.
 
-Dependency writes must reject cycles. PostgreSQL should serialize dependency
-edits with a `SHARE ROW EXCLUSIVE` table lock, run a recursive reachability
-check, and insert the edge in the same transaction. Hyperdrive does not support
-PostgreSQL advisory locks. A check performed outside the serialized transaction
-can admit a cycle through concurrent write skew.
+Graph writes must reject cycles. PostgreSQL should serialize hierarchy and
+dependency edits by locking one well-known graph-mutation row with `FOR UPDATE`,
+run a recursive reachability check, and write the change in the same
+transaction. The check must include the effective waits-for edges from both
+relationships: a parent waits for its unfinished children, and downstream work
+waits for its blockers. Checking either relation alone would admit deadlocks
+such as a child that depends on its own parent. Hyperdrive does not support
+PostgreSQL advisory locks, and a check outside the serialized transaction can
+admit a cycle through concurrent write skew.
 
-Hierarchy-cycle and dependency-cycle checks are separate because the two
-relationships have different meanings.
+Hierarchy and dependency records remain separate because the relationships
+have different meanings even though cycle validation considers their combined
+effect.
 
 ## Priority and queue projection
 
@@ -290,6 +295,7 @@ The likely minimum relational model is:
 - `work_items`
 - `work_item_contexts`
 - `work_item_dependencies`
+- `graph_mutation_locks`
 - `leases`
 - `notes`
 - `attention_requests`
@@ -347,7 +353,7 @@ Pure domain scenarios should cover:
 - cancellation satisfying a dependency;
 - replacement work requiring a new dependency edge;
 - reparenting retaining item history;
-- rejection of hierarchy and dependency cycles;
+- rejection of hierarchy, dependency, and combined waits-for cycles;
 - ancestor, sibling, and blocker priority propagation;
 - stable ordering inside filtered scopes;
 - sparse tickets remaining valid;
@@ -363,7 +369,8 @@ PostgreSQL integration scenarios should cover:
 - `SKIP LOCKED` allowing workers to claim different ready items;
 - stale lease reclamation;
 - rejection of a delayed mutation carrying an old lease epoch;
-- concurrent dependency insertions failing to create a cycle;
+- concurrent hierarchy and dependency edits failing to create a combined
+  cycle;
 - atomic decomposition with no partially created child graph; and
 - idempotent retry after a lost HTTP response.
 

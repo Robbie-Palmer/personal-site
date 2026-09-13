@@ -29,11 +29,15 @@ types. Derive executability from current graph state. An open item is claimable
 when it has no active lease, unresolved blocking attention, unsatisfied
 dependency, or non-terminal direct child.
 
-Model containment and blocking as separate acyclic relationships. Containment
-organises and ranks work. Dependencies decide whether it can proceed. Released
-and cancelled blockers satisfy dependencies because neither remains required.
-Replacement work needs a new edge. A dependency on a parent constrains its
-descendants unless the plan moves that dependency to narrower work.
+Model containment and blocking as separate relationships. Containment organises
+and ranks work. Dependencies decide whether it can proceed. Their combined
+waits-for projection must be acyclic: parents wait for unfinished children, and
+downstream work waits for blockers. This also rejects a child depending on its
+own parent even though neither stored relationship contains a cycle by itself.
+Released and cancelled blockers satisfy dependencies because neither remains
+required. Replacement work needs a new edge. A dependency on a parent
+constrains its descendants unless the plan moves that dependency to narrower
+work.
 
 When a worker decomposes claimed work, create the child items and dependency
 edges atomically, end the current lease, and let the children inherit the
