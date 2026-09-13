@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { getADRsForProject } from "@/lib/domain/adr/adrQueries";
 import {
+  compareUtcInstants,
   type DefaultSelection,
   getSelectionLifecycleStatus,
   getUpgradeRecommendations,
@@ -8,6 +9,7 @@ import {
   type PlatformManifest,
   PlatformManifestSchema,
   ProjectLayerUseSchema,
+  previousUtcInstant,
   resolveEffectiveProjectStack,
   UtcInstantSchema,
 } from "@/lib/domain/platform";
@@ -178,6 +180,18 @@ describe("temporal platform layers", () => {
         "2026-09-12T12:00:00.250Z",
       ),
     ).toBe(true);
+    expect(
+      compareUtcInstants(
+        "2026-09-12T12:00:00.000000001Z",
+        "2026-09-12T12:00:00Z",
+      ),
+    ).toBeGreaterThan(0);
+    expect(previousUtcInstant("2026-09-12T12:00:00Z")).toBe(
+      "2026-09-12T11:59:59.999999999Z",
+    );
+    expect(() =>
+      compareUtcInstants("not-an-instant", "2026-09-12T12:00:00Z"),
+    ).toThrow("Invalid RFC 3339 UTC instant");
   });
 
   it("resolves required, preferred, and overridden technologies", () => {
@@ -360,7 +374,7 @@ describe("temporal platform layers", () => {
       "personal-site",
       "2026-10-02T00:00:00Z",
     );
-    expect(stack.at).toBe("2026-09-19T23:59:59.999Z");
+    expect(stack.at).toBe("2026-09-19T23:59:59.999999999Z");
     expect(stack.layers).toContain("typescript");
     expect(stack.layers).not.toContain("python");
   });

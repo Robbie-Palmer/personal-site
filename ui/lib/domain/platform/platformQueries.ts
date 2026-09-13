@@ -13,6 +13,7 @@ import {
   type LayerSlug,
   type PlatformManifest,
   type ProjectLayerUse,
+  previousUtcInstant,
 } from "./platform";
 
 export type EffectiveTechnologySource =
@@ -50,7 +51,7 @@ function resolutionInstant(
     .at(-1);
   if (!closedAt || compareUtcInstants(requested, closedAt) < 0)
     return requested;
-  return new Date(Date.parse(closedAt) - 1).toISOString();
+  return previousUtcInstant(closedAt);
 }
 
 function currentSelection(
@@ -312,9 +313,7 @@ export function getUpgradeRecommendations(
   if (!policy) return [];
 
   const recommendations: UpgradeRecommendation[] = [];
-  const priorInstant = new Date(
-    Date.parse(replacement.effectiveFrom) - 1,
-  ).toISOString();
+  const priorInstant = previousUtcInstant(replacement.effectiveFrom);
   const context: UpgradeContext = {
     repository,
     layer: policy.layer,
