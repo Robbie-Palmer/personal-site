@@ -7,7 +7,7 @@ C++ runner. The coordination algorithm remains in the portable core.
 
 The exported C ABI has four functions:
 
-- `satellite_swarm_browser_api_version()` reports the worker-facing API version.
+- `satellite_swarm_browser_api_version()` reports worker-facing API version 5.
 - `satellite_swarm_source_revision()` reports the exact Git revision embedded at configure time.
 - `satellite_swarm_run_demonstration(longitude, latitude, scenario)` runs the deterministic
   three-node trace and returns a pointer to its JSON result. Scenario `0` uses connected links;
@@ -18,9 +18,10 @@ Returned pointers refer to adapter-owned strings and remain valid until the next
 copies each string into JavaScript before making another call. The adapter catches C++ exceptions so
 none cross the C boundary.
 
-The worker protocol and C ABI are at version `3`; the simulation trace and JSON display record are
-at version `2`. These independent version fields prevent a change to one boundary from silently
-reinterpreting another.
+The worker protocol and JSON display record are at version `4`; the C ABI is at version `5`, and the
+simulation trace remains at version `3`. These independent version fields prevent a change to one
+boundary from silently reinterpreting another. Display version 4 adds typed controller telemetry
+and per-node drop counts.
 
 ## Build and parity check
 

@@ -19,7 +19,7 @@
 
 namespace {
 
-constexpr uint32_t kBrowserApiVersion = 4U;
+constexpr uint32_t kBrowserApiVersion = 5U;
 
 satellite_swarm::simulation::BrowserScenario parseScenario(uint32_t scenario) {
   if (scenario == static_cast<uint32_t>(satellite_swarm::simulation::BrowserScenario::Nominal)) {

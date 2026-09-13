@@ -30,6 +30,7 @@ const nodeSchema = z.object({
   orbitalRadiusMetres: z.number().positive(),
   position: coordinateSchema,
   state: controllerStateSchema,
+  telemetryDrops: z.number().int().nonnegative(),
 });
 
 const missionCommandEventSchema = z.object({
@@ -129,6 +130,48 @@ const nodeResetEventSchema = z.object({
   type: z.literal("node-reset"),
 });
 
+const controllerTelemetryEventSchema = z.object({
+  bootEpoch: z.number().int().min(1).max(4_294_967_295),
+  currentState: controllerStateSchema,
+  droppedBefore: z.number().int().nonnegative(),
+  event: z.enum([
+    "state-transition",
+    "mission-proposed",
+    "candidacy-sent",
+    "candidacy-accepted",
+    "mission-assigned",
+    "mission-completed",
+    "mission-failed",
+    "health-changed",
+    "transport-failure",
+  ]),
+  missionKey: missionKeySchema.nullable(),
+  nodeId: z.number().int().min(0).max(15),
+  previousState: controllerStateSchema,
+  priority: z.enum(["routine", "operational", "critical"]),
+  reason: z.enum([
+    "none",
+    "mission-initiated",
+    "mission-request-accepted",
+    "acknowledgement-received",
+    "assignment-received",
+    "assignment-broadcast",
+    "assignment-window-expired",
+    "retry-limit-reached",
+    "mission-completed",
+    "health-quiescent",
+    "health-recovered",
+    "health-fatal",
+    "send-failed",
+    "invalid-configuration",
+  ]),
+  relatedNode: z.number().int().min(0).max(15).nullable(),
+  sequence: z.number().int().min(1).max(4_294_967_295),
+  timeMs: z.number().int().nonnegative(),
+  type: z.literal("controller-telemetry"),
+  value: z.number().int().min(0).max(255),
+});
+
 const simulationSchema = z.object({
   events: z.array(
     z.discriminatedUnion("type", [
@@ -141,6 +184,7 @@ const simulationSchema = z.object({
       linkChangedEventSchema,
       nodeResetEventSchema,
       stateChangedEventSchema,
+      controllerTelemetryEventSchema,
     ]),
   ),
   frames: z
@@ -154,7 +198,7 @@ const simulationSchema = z.object({
   objective: coordinateSchema,
   positionModel: z.string().min(1),
   scenario: z.string().min(1),
-  schemaVersion: z.literal(3),
+  schemaVersion: z.literal(4),
   source: z.literal("portable C++ SimulationTrace"),
   sourceRevision: z.string().regex(/^[0-9a-f]{40}$/),
   traceVersion: z.literal(3),
@@ -195,8 +239,44 @@ export function describeSatelliteSwarmEvent(
       return `Node ${event.nodeId}'s ${event.message.type} was delivered twice to node ${event.recipientNode}.`;
     case "delayed-message-delivered":
       return `Node ${event.nodeId}'s delayed ${event.message.type} reached node ${event.recipientNode}.`;
+    case "controller-telemetry":
+      return describeControllerTelemetryEvent(event);
     case "message-sent":
       return describeMessageSentEvent(event);
+  }
+}
+
+function describeControllerTelemetryEvent(
+  event: Extract<SatelliteSwarmEvent, { type: "controller-telemetry" }>,
+): string {
+  const sequence = `Telemetry ${event.nodeId}:${event.bootEpoch}:${event.sequence}`;
+  const mission = event.missionKey
+    ? ` mission ${formatMissionKey(event.missionKey)}`
+    : "";
+  const dropped =
+    event.droppedBefore > 0
+      ? ` ${event.droppedBefore} earlier records had been dropped.`
+      : "";
+
+  switch (event.event) {
+    case "state-transition":
+      return `${sequence} records ${event.previousState} to ${event.currentState} because of ${event.reason}.${dropped}`;
+    case "mission-proposed":
+      return `${sequence} records proposed${mission}.${dropped}`;
+    case "candidacy-sent":
+      return `${sequence} records score ${event.value} sent to node ${event.relatedNode} for${mission}.${dropped}`;
+    case "candidacy-accepted":
+      return `${sequence} records score ${event.value} from node ${event.relatedNode} for${mission}.${dropped}`;
+    case "mission-assigned":
+      return `${sequence} records${mission} assigned to node ${event.relatedNode}.${dropped}`;
+    case "mission-completed":
+      return `${sequence} records${mission} completed.${dropped}`;
+    case "mission-failed":
+      return `${sequence} records${mission} failed because of ${event.reason}.${dropped}`;
+    case "health-changed":
+      return `${sequence} records health change ${event.reason}.${dropped}`;
+    case "transport-failure":
+      return `${sequence} records a send failure for${mission}.${dropped}`;
   }
 }
 

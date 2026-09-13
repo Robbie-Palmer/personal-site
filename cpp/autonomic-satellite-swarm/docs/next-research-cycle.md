@@ -1,6 +1,7 @@
 # Next research cycle
 
-**Status:** Proposed research; not implemented.
+**Status:** In progress. Bounded controller telemetry is implemented; transport, time-based rate
+limits, resource evidence, and durable journals remain proposed.
 
 This document records research directions, not flight-software claims. The next cycle should make
 autonomy observable and governable without making local coordination depend on a continuously
@@ -22,11 +23,15 @@ Each node should emit bounded, typed telemetry for:
 - relevant energy, thermal, computation, storage, and actuator budgets; and
 - safe-state requests, acceptance, execution, and results.
 
-The telemetry path should be non-blocking, allocation-free in the embedded core, rate-limited, and
-lower priority than coordination and safety traffic. Sequence numbers, timestamps, and drop
-counters should make missing evidence visible. A fixed-size event buffer can tolerate intermittent
-links, but losing mission control must not stop safe local behavior. Hardware adapters should own
-the transmission mechanism so the coordination core remains network-independent.
+The controller now writes typed records to an allocation-free, non-blocking 16-record queue.
+Records have per-boot sequence numbers, timestamps, priorities, stable mission keys, and cumulative
+drop counts. Critical records can displace older lower-priority evidence. The deterministic
+simulation drains the same queue used by firmware builds and includes the records in browser
+replay. See [Bounded telemetry](telemetry.md) for the exact admission policy.
+
+Hardware adapters still need a rate-limited transmission policy below coordination and safety
+traffic. Resource and actuator evidence also await platform interfaces. Losing mission control does
+not stop local behavior because the core only enqueues records and never performs telemetry I/O.
 
 ## Mission-control observation and intervention
 

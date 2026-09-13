@@ -85,7 +85,8 @@ enum class SimulationEventType : uint8_t {
   DelayedMessageDelivered,
   LinkChanged,
   NodeReset,
-  StateChanged
+  StateChanged,
+  ControllerTelemetry
 };
 
 struct SimulationEvent {
@@ -101,6 +102,7 @@ struct SimulationEvent {
   Message message{};
   ControllerState previous_state = ControllerState::Idle;
   ControllerState current_state = ControllerState::Idle;
+  TelemetryEvent telemetry{};
 };
 
 struct NodeObservation {
@@ -112,6 +114,7 @@ struct NodeObservation {
   NodeId assigned_node = kBroadcastNode;
   uint8_t candidacy_score = 0U;
   uint8_t communication_failures = 0U;
+  uint32_t telemetry_drops = 0U;
 };
 
 struct FrameObservation {

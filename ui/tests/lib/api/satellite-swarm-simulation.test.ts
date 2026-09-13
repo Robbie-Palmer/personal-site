@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
   describeSatelliteSwarmEvent,
@@ -5,7 +6,7 @@ import {
 } from "@/lib/api/satellite-swarm-simulation";
 
 const validRecord = {
-  schemaVersion: 3,
+  schemaVersion: 4,
   traceVersion: 3,
   scenario: "test",
   source: "portable C++ SimulationTrace",
@@ -23,6 +24,7 @@ const validRecord = {
           position: { longitudeDegrees: 0, latitudeDegrees: 10 },
           orbitalRadiusMetres: 6_750_000,
           candidacyScore: 81,
+          telemetryDrops: 0,
           missionKey: { bootEpoch: 1, originNode: 0, sequence: 1 },
           assignedNode: null,
         },
@@ -46,6 +48,22 @@ const validRecord = {
 } as const;
 
 describe("satellite swarm simulation records", () => {
+  it("accepts the committed native fixture", () => {
+    const fixture = JSON.parse(
+      readFileSync(
+        "public/simulations/autonomic-satellite-swarm/demonstration.v4.json",
+        "utf8",
+      ),
+    );
+
+    expect(
+      parseSatelliteSwarmSimulation({
+        ...fixture,
+        sourceRevision: validRecord.sourceRevision,
+      }).events.some((event) => event.type === "controller-telemetry"),
+    ).toBe(true);
+  });
+
   it("accepts the versioned portable trace contract", () => {
     const parsed = parseSatelliteSwarmSimulation(validRecord);
     const event = parsed.events[0];
@@ -203,6 +221,22 @@ describe("satellite swarm simulation records", () => {
           timeMs: 120,
           type: "message-sent",
         },
+        {
+          bootEpoch: 1,
+          currentState: "active",
+          droppedBefore: 2,
+          event: "mission-assigned",
+          missionKey: message.missionKey,
+          nodeId: 1,
+          previousState: "idle",
+          priority: "critical",
+          reason: "assignment-received",
+          relatedNode: 1,
+          sequence: 7,
+          timeMs: 130,
+          type: "controller-telemetry",
+          value: 0,
+        },
       ],
     });
 
@@ -222,6 +256,7 @@ describe("satellite swarm simulation records", () => {
       "Node 0 acknowledged node 1.",
       "Node 0 assigned mission 0:1:1 to node 1.",
       "Node 0 broadcast mission 0:1:1.",
+      "Telemetry 1:1:7 records mission 0:1:1 assigned to node 1. 2 earlier records had been dropped.",
     ]);
   });
 

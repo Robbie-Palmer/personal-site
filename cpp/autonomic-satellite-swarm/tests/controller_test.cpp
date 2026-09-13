@@ -114,8 +114,75 @@ TEST_CASE("a candidate progresses from request to acknowledgement to assignment"
   CHECK(controller.state() == ControllerState::Active);
   CHECK(controller.assignedNode() == 2U);
 
-  controller.completeMission();
+  controller.completeMission(8U);
   CHECK(controller.state() == ControllerState::Idle);
+}
+
+TEST_CASE("controller telemetry identifies mission decisions with stable keys") {
+  FakeTransport transport;
+  FakeHealthMonitor health;
+  FixedScorer scorer(73U);
+  SwarmController controller(2U, 4U, SatelliteSnapshot(), transport, health, scorer, fastConfig());
+  const MissionKey key = mission(0U, 17U, 9U);
+
+  transport.deliver(Message::missionRequest(0U, key, Coordinate()));
+  controller.update(5U);
+  transport.deliver(Message::acknowledgement(0U, 2U, key));
+  controller.update(6U);
+  transport.deliver(Message::assignment(0U, 2U, key));
+  controller.update(7U);
+  controller.completeMission(8U);
+
+  REQUIRE(controller.pendingTelemetryEvents() == 7U);
+  TelemetryEvent telemetry;
+  REQUIRE(controller.readTelemetry(telemetry));
+  CHECK(telemetry.sequence == 1U);
+  CHECK(telemetry.boot_epoch == 4U);
+  CHECK(telemetry.type == TelemetryEventType::CandidacySent);
+  CHECK(telemetry.mission_key == key);
+  CHECK(telemetry.related_node == 0U);
+  CHECK(telemetry.value == 73U);
+
+  while (telemetry.type != TelemetryEventType::MissionCompleted) {
+    REQUIRE(controller.readTelemetry(telemetry));
+  }
+  CHECK(telemetry.timestamp_ms == 8U);
+  CHECK(telemetry.priority == TelemetryPriority::Critical);
+  CHECK(telemetry.mission_key == key);
+  CHECK(telemetry.related_node == 2U);
+}
+
+TEST_CASE("controller telemetry records health reasons and drop accounting") {
+  FakeTransport transport;
+  FakeHealthMonitor health;
+  FixedScorer scorer(50U);
+  SwarmController controller(0U, 1U, SatelliteSnapshot(), transport, health, scorer, fastConfig());
+
+  for (uint32_t cycle = 0U; cycle < 12U; ++cycle) {
+    health.current = cycle % 2U == 0U ? HealthStatus::Quiescent : HealthStatus::Nominal;
+    controller.update(cycle);
+  }
+  CHECK(controller.pendingTelemetryEvents() == kTelemetryBufferCapacity);
+  CHECK(controller.droppedTelemetryEvents() == 8U);
+
+  health.current = HealthStatus::Fatal;
+  controller.update(20U);
+  CHECK(controller.state() == ControllerState::SafeDisabled);
+  CHECK(controller.pendingTelemetryEvents() == kTelemetryBufferCapacity);
+  CHECK(controller.droppedTelemetryEvents() == 10U);
+
+  bool saw_fatal_transition = false;
+  TelemetryEvent telemetry;
+  while (controller.readTelemetry(telemetry)) {
+    if (telemetry.type == TelemetryEventType::StateTransition &&
+        telemetry.current_state == ControllerState::SafeDisabled) {
+      CHECK(telemetry.reason == TelemetryReason::HealthFatal);
+      CHECK(telemetry.priority == TelemetryPriority::Critical);
+      CHECK(telemetry.dropped_before == 10U);
+      saw_fatal_transition = true;
+    }
+  }
+  CHECK(saw_fatal_transition);
 }
 
 TEST_CASE("a direct assignment completes the negotiation and clears earlier failures") {
@@ -310,7 +377,7 @@ TEST_CASE("mission sequences stop instead of wrapping within one boot epoch") {
     REQUIRE(controller.initiateMission(Coordinate(), sequence));
     controller.update(sequence);
     REQUIRE(controller.state() == ControllerState::Active);
-    controller.completeMission();
+    controller.completeMission(sequence);
   }
 
   CHECK(controller.currentMissionKey() == MissionKey(0U, 7U, UINT16_MAX));
@@ -383,6 +450,12 @@ TEST_CASE("transport rejection does not masquerade as protocol progress") {
   CHECK_FALSE(controller.initiateMission(Coordinate(), 0U));
   CHECK(controller.state() == ControllerState::Idle);
   CHECK_FALSE(isValid(controller.currentMissionKey()));
+  TelemetryEvent telemetry;
+  REQUIRE(controller.readTelemetry(telemetry));
+  CHECK(telemetry.type == TelemetryEventType::TransportFailure);
+  CHECK(telemetry.reason == TelemetryReason::SendFailed);
+  CHECK(telemetry.mission_key == mission(0U, 1U));
+  CHECK(telemetry.timestamp_ms == 0U);
 
   transport.deliver(Message::missionRequest(1, mission(1, 17), Coordinate()));
   controller.update(1U);
@@ -404,6 +477,22 @@ TEST_CASE("a failed assignment send aborts the local negotiation") {
 
   CHECK(controller.state() == ControllerState::Idle);
   CHECK(controller.assignedNode() == kBroadcastNode);
+
+  bool saw_transport_failure = false;
+  bool saw_mission_failure = false;
+  TelemetryEvent telemetry;
+  while (controller.readTelemetry(telemetry)) {
+    if (telemetry.type == TelemetryEventType::TransportFailure) {
+      saw_transport_failure = true;
+    }
+    if (telemetry.type == TelemetryEventType::MissionFailed) {
+      CHECK(telemetry.reason == TelemetryReason::SendFailed);
+      CHECK(telemetry.priority == TelemetryPriority::Critical);
+      saw_mission_failure = true;
+    }
+  }
+  CHECK(saw_transport_failure);
+  CHECK(saw_mission_failure);
 }
 
 TEST_CASE("messages queued at or after a phase deadline are ignored") {

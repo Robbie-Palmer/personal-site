@@ -67,7 +67,7 @@ vi.mock("@/lib/browser/satellite-swarm-worker-client", () => ({
 }));
 
 const data = parseSatelliteSwarmSimulation({
-  schemaVersion: 3,
+  schemaVersion: 4,
   traceVersion: 3,
   scenario: "test",
   source: "portable C++ SimulationTrace",
@@ -85,6 +85,7 @@ const data = parseSatelliteSwarmSimulation({
           position: { longitudeDegrees: 0, latitudeDegrees: 10 },
           orbitalRadiusMetres: 6_750_000,
           candidacyScore: 60,
+          telemetryDrops: 0,
           missionKey: { bootEpoch: 1, originNode: 0, sequence: 1 },
           assignedNode: null,
         },
@@ -95,6 +96,7 @@ const data = parseSatelliteSwarmSimulation({
           position: { longitudeDegrees: 1, latitudeDegrees: 0 },
           orbitalRadiusMetres: 6_750_000,
           candidacyScore: 81,
+          telemetryDrops: 0,
           missionKey: { bootEpoch: 1, originNode: 0, sequence: 1 },
           assignedNode: null,
         },
@@ -110,6 +112,7 @@ const data = parseSatelliteSwarmSimulation({
           position: { longitudeDegrees: 0, latitudeDegrees: 9 },
           orbitalRadiusMetres: 6_750_000,
           candidacyScore: 60,
+          telemetryDrops: 0,
           missionKey: { bootEpoch: 1, originNode: 0, sequence: 1 },
           assignedNode: 1,
         },
@@ -120,6 +123,7 @@ const data = parseSatelliteSwarmSimulation({
           position: { longitudeDegrees: 1, latitudeDegrees: -1 },
           orbitalRadiusMetres: 6_750_000,
           candidacyScore: 81,
+          telemetryDrops: 0,
           missionKey: { bootEpoch: 1, originNode: 0, sequence: 1 },
           assignedNode: 1,
         },

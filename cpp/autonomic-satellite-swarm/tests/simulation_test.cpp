@@ -1,6 +1,7 @@
 #include "satellite_swarm/browser_simulation.hpp"
 #include "satellite_swarm/simulation.hpp"
 
+#include <array>
 #include <catch2/catch_test_macros.hpp>
 #include <cstdint>
 #include <limits>
@@ -64,6 +65,25 @@ TEST_CASE("a versioned trace reproduces the three-node mission in an ordered eve
   CHECK(sent_messages[3] == MessageType::Acknowledgement);
   CHECK(sent_messages[4] == MessageType::Acknowledgement);
   CHECK(sent_messages[5] == MessageType::MissionAssignment);
+
+  std::array<uint32_t, 3U> previous_sequences{};
+  std::size_t telemetry_events = 0U;
+  for (const SimulationEvent& event : result.events) {
+    if (event.type != SimulationEventType::ControllerTelemetry) {
+      continue;
+    }
+    const std::size_t node = static_cast<std::size_t>(event.node_id);
+    CHECK(event.telemetry.sequence == previous_sequences[node] + 1U);
+    CHECK(event.telemetry.node_id == event.node_id);
+    CHECK(event.telemetry.boot_epoch == 1U);
+    CHECK(event.telemetry.dropped_before == 0U);
+    previous_sequences[node] = event.telemetry.sequence;
+    ++telemetry_events;
+  }
+  CHECK(telemetry_events > 0U);
+  CHECK(final_frame.nodes[0].telemetry_drops == 0U);
+  CHECK(final_frame.nodes[1].telemetry_drops == 0U);
+  CHECK(final_frame.nodes[2].telemetry_drops == 0U);
 }
 
 TEST_CASE("a frame snapshot feeds both candidacy scoring and node observation") {

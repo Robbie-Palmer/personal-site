@@ -29,7 +29,8 @@ SwarmController::SwarmController(NodeId node_id, BootEpoch boot_epoch,
   }
   resetCandidates();
   if (node_id_ >= config_.node_capacity || boot_epoch_ == 0U) {
-    state_ = ControllerState::SafeDisabled;
+    transitionTo(ControllerState::SafeDisabled, TelemetryReason::InvalidConfiguration, 0U,
+                 TelemetryPriority::Critical);
   }
 }
 
@@ -42,6 +43,8 @@ bool SwarmController::initiateMission(const Coordinate& objective, uint32_t now_
   const MissionKey mission_key(node_id_, boot_epoch_, next_mission_sequence_);
   const Message mission = Message::missionRequest(node_id_, mission_key, objective);
   if (!transport_.send(mission)) {
+    recordTelemetry(TelemetryEventType::TransportFailure, TelemetryReason::SendFailed,
+                    TelemetryPriority::Operational, now_ms, mission_key);
     return false;
   }
 
@@ -55,40 +58,46 @@ bool SwarmController::initiateMission(const Coordinate& objective, uint32_t now_
   candidates_[node_id_].score = boundedScore(scorer_.score(satellite_, objective));
   assigned_node_ = kBroadcastNode;
   phase_started_at_ms_ = now_ms;
-  state_ = ControllerState::Leading;
+  recordTelemetry(TelemetryEventType::MissionProposed, TelemetryReason::MissionInitiated,
+                  TelemetryPriority::Operational, now_ms, mission_key);
+  transitionTo(ControllerState::Leading, TelemetryReason::MissionInitiated, now_ms);
   return true;
 }
 
 void SwarmController::update(uint32_t now_ms) {
   const HealthStatus health = health_monitor_.poll();
+  observeHealth(health, now_ms);
   if (health == HealthStatus::Fatal) {
-    state_ = ControllerState::SafeDisabled;
+    transitionTo(ControllerState::SafeDisabled, TelemetryReason::HealthFatal, now_ms,
+                 TelemetryPriority::Critical);
     return;
   }
   if (state_ == ControllerState::SafeDisabled) {
     return;
   }
   if (health == HealthStatus::Quiescent) {
-    state_ = ControllerState::Quiescent;
+    transitionTo(ControllerState::Quiescent, TelemetryReason::HealthQuiescent, now_ms);
     return;
   }
   if (state_ == ControllerState::Quiescent) {
-    state_ = ControllerState::Idle;
+    transitionTo(ControllerState::Idle, TelemetryReason::HealthRecovered, now_ms);
   }
 
   if (state_ == ControllerState::Leading &&
       elapsed(now_ms, phase_started_at_ms_, config_.response_window_ms)) {
-    finishLeading();
+    finishLeading(now_ms);
   } else if (state_ == ControllerState::AwaitingAcknowledgement &&
              elapsed(now_ms, last_attempt_at_ms_, config_.retry_interval_ms)) {
     if (attempts_ >= config_.maximum_attempts) {
-      abandonUnacknowledgedMission();
+      abandonUnacknowledgedMission(now_ms);
     } else {
       sendCandidacy(now_ms);
     }
   } else if (state_ == ControllerState::AwaitingAssignment &&
              elapsed(now_ms, phase_started_at_ms_, config_.response_window_ms)) {
-    state_ = ControllerState::Idle;
+    recordTelemetry(TelemetryEventType::MissionFailed, TelemetryReason::AssignmentWindowExpired,
+                    TelemetryPriority::Critical, now_ms, current_mission_.mission_key);
+    transitionTo(ControllerState::Idle, TelemetryReason::AssignmentWindowExpired, now_ms);
   }
 
   Message incoming;
@@ -103,10 +112,13 @@ void SwarmController::update(uint32_t now_ms) {
   }
 }
 
-void SwarmController::completeMission() {
+void SwarmController::completeMission(uint32_t now_ms) {
   if (state_ == ControllerState::Active) {
-    state_ = ControllerState::Idle;
+    recordTelemetry(TelemetryEventType::MissionCompleted, TelemetryReason::MissionCompleted,
+                    TelemetryPriority::Critical, now_ms, current_mission_.mission_key, node_id_);
     assigned_node_ = kBroadcastNode;
+    transitionTo(ControllerState::Idle, TelemetryReason::MissionCompleted, now_ms,
+                 TelemetryPriority::Critical);
   }
 }
 
@@ -144,7 +156,15 @@ void SwarmController::process(const Message& message, uint32_t now_ms) {
         message.score <= kMaximumCandidacyScore) {
       candidates_[message.sender].received = true;
       candidates_[message.sender].score = message.score;
-      transport_.send(Message::acknowledgement(node_id_, message.sender, message.mission_key));
+      recordTelemetry(TelemetryEventType::CandidacyAccepted, TelemetryReason::None,
+                      TelemetryPriority::Routine, now_ms, message.mission_key, message.sender,
+                      message.score);
+      if (!transport_.send(
+              Message::acknowledgement(node_id_, message.sender, message.mission_key))) {
+        recordTelemetry(TelemetryEventType::TransportFailure, TelemetryReason::SendFailed,
+                        TelemetryPriority::Operational, now_ms, message.mission_key,
+                        message.sender);
+      }
     }
     break;
   case MessageType::Acknowledgement:
@@ -152,7 +172,8 @@ void SwarmController::process(const Message& message, uint32_t now_ms) {
         matchesCurrentMission(message)) {
       communication_failures_ = 0U;
       phase_started_at_ms_ = now_ms;
-      state_ = ControllerState::AwaitingAssignment;
+      transitionTo(ControllerState::AwaitingAssignment, TelemetryReason::AcknowledgementReceived,
+                   now_ms);
     }
     break;
   case MessageType::MissionAssignment:
@@ -161,7 +182,10 @@ void SwarmController::process(const Message& message, uint32_t now_ms) {
         message.target < config_.node_capacity && matchesCurrentMission(message)) {
       communication_failures_ = 0U;
       assigned_node_ = message.target;
-      state_ = message.target == node_id_ ? ControllerState::Active : ControllerState::Idle;
+      recordTelemetry(TelemetryEventType::MissionAssigned, TelemetryReason::AssignmentReceived,
+                      TelemetryPriority::Critical, now_ms, message.mission_key, message.target);
+      transitionTo(message.target == node_id_ ? ControllerState::Active : ControllerState::Idle,
+                   TelemetryReason::AssignmentReceived, now_ms, TelemetryPriority::Critical);
     }
     break;
   }
@@ -177,7 +201,7 @@ void SwarmController::acceptMissionRequest(const Message& request, uint32_t now_
   phase_started_at_ms_ = now_ms;
   candidates_[node_id_].score = boundedScore(scorer_.score(satellite_, request.objective));
   if (!sendCandidacy(now_ms)) {
-    state_ = ControllerState::Idle;
+    transitionTo(ControllerState::Idle, TelemetryReason::SendFailed, now_ms);
   }
 }
 
@@ -188,12 +212,20 @@ bool SwarmController::sendCandidacy(uint32_t now_ms) {
   ++attempts_;
   last_attempt_at_ms_ = now_ms;
   if (sent) {
-    state_ = ControllerState::AwaitingAcknowledgement;
+    recordTelemetry(TelemetryEventType::CandidacySent, TelemetryReason::MissionRequestAccepted,
+                    TelemetryPriority::Routine, now_ms, current_mission_.mission_key,
+                    current_mission_.mission_key.origin_node, candidates_[node_id_].score);
+    transitionTo(ControllerState::AwaitingAcknowledgement, TelemetryReason::MissionRequestAccepted,
+                 now_ms);
+  } else {
+    recordTelemetry(TelemetryEventType::TransportFailure, TelemetryReason::SendFailed,
+                    TelemetryPriority::Operational, now_ms, current_mission_.mission_key,
+                    current_mission_.mission_key.origin_node);
   }
   return sent;
 }
 
-void SwarmController::finishLeading() {
+void SwarmController::finishLeading(uint32_t now_ms) {
   NodeId chosen = node_id_;
   for (NodeId candidate = 0; candidate < config_.node_capacity; ++candidate) {
     if (candidates_[candidate].received &&
@@ -203,22 +235,85 @@ void SwarmController::finishLeading() {
   }
 
   if (!transport_.send(Message::assignment(node_id_, chosen, current_mission_.mission_key))) {
+    recordTelemetry(TelemetryEventType::TransportFailure, TelemetryReason::SendFailed,
+                    TelemetryPriority::Operational, now_ms, current_mission_.mission_key, chosen);
+    recordTelemetry(TelemetryEventType::MissionFailed, TelemetryReason::SendFailed,
+                    TelemetryPriority::Critical, now_ms, current_mission_.mission_key, chosen);
     assigned_node_ = kBroadcastNode;
-    state_ = ControllerState::Idle;
+    transitionTo(ControllerState::Idle, TelemetryReason::SendFailed, now_ms);
     return;
   }
 
   assigned_node_ = chosen;
-  state_ = chosen == node_id_ ? ControllerState::Active : ControllerState::Idle;
+  recordTelemetry(TelemetryEventType::MissionAssigned, TelemetryReason::AssignmentBroadcast,
+                  TelemetryPriority::Critical, now_ms, current_mission_.mission_key, chosen);
+  transitionTo(chosen == node_id_ ? ControllerState::Active : ControllerState::Idle,
+               TelemetryReason::AssignmentBroadcast, now_ms, TelemetryPriority::Critical);
 }
 
-void SwarmController::abandonUnacknowledgedMission() {
+void SwarmController::abandonUnacknowledgedMission(uint32_t now_ms) {
   ++communication_failures_;
+  recordTelemetry(TelemetryEventType::MissionFailed, TelemetryReason::RetryLimitReached,
+                  TelemetryPriority::Critical, now_ms, current_mission_.mission_key,
+                  current_mission_.mission_key.origin_node, communication_failures_);
   if (communication_failures_ >= config_.failed_missions_before_safe_disable) {
-    state_ = ControllerState::SafeDisabled;
+    transitionTo(ControllerState::SafeDisabled, TelemetryReason::RetryLimitReached, now_ms,
+                 TelemetryPriority::Critical);
   } else {
-    state_ = ControllerState::Idle;
+    transitionTo(ControllerState::Idle, TelemetryReason::RetryLimitReached, now_ms);
   }
+}
+
+void SwarmController::recordTelemetry(TelemetryEventType type, TelemetryReason reason,
+                                      TelemetryPriority priority, uint32_t now_ms,
+                                      MissionKey mission_key, NodeId related_node, uint8_t value) {
+  TelemetryEvent event;
+  event.timestamp_ms = now_ms;
+  event.boot_epoch = boot_epoch_;
+  event.mission_key = mission_key;
+  event.node_id = node_id_;
+  event.related_node = related_node;
+  event.type = type;
+  event.reason = reason;
+  event.priority = priority;
+  event.previous_state = state_;
+  event.current_state = state_;
+  event.value = value;
+  telemetry_.record(event);
+}
+
+void SwarmController::transitionTo(ControllerState state, TelemetryReason reason, uint32_t now_ms,
+                                   TelemetryPriority priority) {
+  if (state_ == state) {
+    return;
+  }
+  TelemetryEvent event;
+  event.timestamp_ms = now_ms;
+  event.boot_epoch = boot_epoch_;
+  event.mission_key = current_mission_.mission_key;
+  event.node_id = node_id_;
+  event.type = TelemetryEventType::StateTransition;
+  event.reason = reason;
+  event.priority = priority;
+  event.previous_state = state_;
+  event.current_state = state;
+  telemetry_.record(event);
+  state_ = state;
+}
+
+void SwarmController::observeHealth(HealthStatus health, uint32_t now_ms) {
+  if (health == last_health_) {
+    return;
+  }
+  recordTelemetry(
+      TelemetryEventType::HealthChanged,
+      health == HealthStatus::Fatal
+          ? TelemetryReason::HealthFatal
+          : (health == HealthStatus::Quiescent ? TelemetryReason::HealthQuiescent
+                                               : TelemetryReason::HealthRecovered),
+      health == HealthStatus::Fatal ? TelemetryPriority::Critical : TelemetryPriority::Operational,
+      now_ms, current_mission_.mission_key, kBroadcastNode, static_cast<uint8_t>(health));
+  last_health_ = health;
 }
 
 bool SwarmController::matchesCurrentMission(const Message& message) const {

@@ -29,6 +29,9 @@ explicit.
 - Missions use `{origin node, boot epoch, mission sequence}` keys, so messages from different nodes
   cannot alias the same mission. Preventing aliases across leader resets also requires each node to
   durably advance its boot epoch before restarting its mission sequence.
+- Each controller records typed mission, state, health, and send-failure evidence in a fixed
+  16-record queue. Priorities protect mission outcomes and safe-disable transitions from routine
+  records, while sequence gaps and drop counts expose lost evidence.
 
 ## Quick start
 
@@ -54,10 +57,10 @@ node 2: idle
 The [browser demonstration](https://robbiepalmer.me/satellite-swarm) runs the portable controller
 as WebAssembly in a module worker and draws the result on a self-hosted CesiumJS globe.
 
-`simulate:json` prints the versioned state, position, message, transition, and network-fault record
-consumed by the CesiumJS view. The paths come from scripted simulation inputs. Orbit propagation
-remains outside this demo. The browser can compare the connected mission with a run where node 1's
-winning assignment is dropped.
+`simulate:json` prints the versioned state, position, message, controller-telemetry, transition, and
+network-fault record consumed by the CesiumJS view. The paths come from scripted simulation inputs.
+Orbit propagation remains outside this demo. The browser can compare the connected mission with a
+run where node 1's winning assignment is dropped.
 
 Build the browser module and compare its default output with the native fixture:
 
@@ -134,6 +137,7 @@ persistence, and a genuine guidance/navigation/control implementation.
 
 - [Architecture](docs/architecture.md)
 - [Wire protocol](docs/wire-protocol.md)
+- [Bounded telemetry](docs/telemetry.md)
 - [Coordination invariant baseline](docs/invariant-baseline.md)
 - [Revival notes and corrected defects](docs/revival-notes.md)
 - [Next research cycle](docs/next-research-cycle.md)
