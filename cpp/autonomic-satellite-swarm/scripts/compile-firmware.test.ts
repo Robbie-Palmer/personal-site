@@ -6,6 +6,7 @@ import {
   enforceUnoSramBudget,
   parseCompileReport,
   unoFreeBytes,
+  validatedArduinoCliPath,
 } from "./compile-firmware.ts";
 
 describe("boundedInteger", () => {
@@ -25,6 +26,22 @@ describe("boundedInteger", () => {
         message,
       });
     }
+  });
+});
+
+describe("validatedArduinoCliPath", () => {
+  it("accepts an absolute path to the expected executable", () => {
+    assert.equal(
+      validatedArduinoCliPath("/opt/mise/arduino-cli/1.5.1/arduino-cli"),
+      "/opt/mise/arduino-cli/1.5.1/arduino-cli",
+    );
+  });
+
+  it("rejects PATH lookup and a different executable", () => {
+    const message =
+      "Mise must provide the absolute path to its pinned arduino-cli executable";
+    assert.throws(() => validatedArduinoCliPath("arduino-cli"), { message });
+    assert.throws(() => validatedArduinoCliPath("/usr/bin/other"), { message });
   });
 });
 

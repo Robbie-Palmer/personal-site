@@ -127,11 +127,11 @@ run = [
 
 [tasks."firmware:uno"]
 description = "Compile the legacy Arduino Uno infrared firmware"
-run = "node scripts/compile-firmware.ts uno"
+run = 'node scripts/compile-firmware.ts uno "$(mise where arduino-cli)/arduino-cli"'
 
 [tasks."firmware:esp32"]
 description = "Compile the modern ESP32 ESP-NOW firmware"
-run = "node scripts/compile-firmware.ts esp32"
+run = 'node scripts/compile-firmware.ts esp32 "$(mise where arduino-cli)/arduino-cli"'
 
 [tasks."scripts:typecheck"]
 description = "Type-check firmware task scripts"

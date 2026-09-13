@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { dirname, resolve } from "node:path";
+import { basename, dirname, isAbsolute, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 export const minimumUnoFreeBytes = 768;
@@ -141,6 +141,20 @@ export function boundedInteger(
   return parsed;
 }
 
+export function validatedArduinoCliPath(value: string | undefined): string {
+  if (
+    value === undefined ||
+    !isAbsolute(value) ||
+    basename(value) !== "arduino-cli"
+  ) {
+    throw new ConfigurationError(
+      "Mise must provide the absolute path to its pinned arduino-cli executable",
+    );
+  }
+
+  return value;
+}
+
 function compileArguments(
   target: FirmwareTarget,
   environment: NodeJS.ProcessEnv,
@@ -183,12 +197,15 @@ export function run(
   environment: NodeJS.ProcessEnv,
 ): number {
   const target = arguments_[0];
-  if (!isFirmwareTarget(target) || arguments_.length !== 1) {
-    throw new ConfigurationError("Usage: compile-firmware.ts <uno|esp32>");
+  if (!isFirmwareTarget(target) || arguments_.length !== 2) {
+    throw new ConfigurationError(
+      "Usage: compile-firmware.ts <uno|esp32> <absolute-arduino-cli-path>",
+    );
   }
+  const arduinoCliPath = validatedArduinoCliPath(arguments_[1]);
 
   const compileResult = spawnSync(
-    "arduino-cli",
+    arduinoCliPath,
     compileArguments(target, environment),
     {
       cwd: projectDirectory,
