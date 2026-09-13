@@ -89,184 +89,223 @@ export const DefaultSelectionSchema = TemporalPeriodSchema.extend({
   supersedes: z.string().min(1).optional(),
 });
 
-export const PlatformManifestSchema = z
-  .object({
-    project: ProjectSlugSchema,
-    layers: z.array(PlatformLayerSchema).min(1),
-    slots: z.array(DefaultSlotSchema).min(1),
-    policies: z.array(LayerSlotPolicySchema).min(1),
-    selections: z.array(DefaultSelectionSchema).min(1),
-  })
-  .superRefine((manifest, context) => {
-    const layerSlugs = new Set(manifest.layers.map((layer) => layer.slug));
-    const slots = new Map(manifest.slots.map((slot) => [slot.slug, slot]));
-    const policies = new Map(
-      manifest.policies.map((policy) => [policy.id, policy]),
-    );
-    const selections = new Map(
-      manifest.selections.map((selection) => [selection.id, selection]),
-    );
+const PlatformManifestFieldsSchema = z.object({
+  project: ProjectSlugSchema,
+  layers: z.array(PlatformLayerSchema).min(1),
+  slots: z.array(DefaultSlotSchema).min(1),
+  policies: z.array(LayerSlotPolicySchema).min(1),
+  selections: z.array(DefaultSelectionSchema).min(1),
+});
 
-    addDuplicateIssues(manifest.layers, (item) => item.slug, "layers", context);
-    addDuplicateIssues(manifest.slots, (item) => item.slug, "slots", context);
-    addDuplicateIssues(
-      manifest.policies,
-      (item) => item.id,
-      "policies",
-      context,
-    );
-    addDuplicateIssues(
-      manifest.selections,
-      (item) => item.id,
-      "selections",
-      context,
-    );
+type PlatformManifestInput = z.infer<typeof PlatformManifestFieldsSchema>;
 
-    for (const policy of policies.values()) {
-      if (!layerSlugs.has(policy.layer) || !slots.has(policy.slot)) {
-        context.addIssue({
-          code: "custom",
-          message: `Slot policy '${policy.id}' references an unknown layer or slot`,
-        });
-      }
-      for (const prerequisite of policy.prerequisites) {
-        if (!slots.has(prerequisite.slot)) {
-          context.addIssue({
-            code: "custom",
-            message: `Slot policy '${policy.id}' references unknown prerequisite '${prerequisite.slot}'`,
-          });
-        }
-        if (
-          prerequisite.technology &&
-          !manifest.selections.some(
-            (selection) =>
-              selection.slot === prerequisite.slot &&
-              selection.technology === prerequisite.technology,
-          )
-        ) {
-          context.addIssue({
-            code: "custom",
-            message: `Slot policy '${policy.id}' references a technology not selected by prerequisite '${prerequisite.slot}'`,
-          });
-        }
-      }
-    }
+function addManifestIssue(context: z.RefinementCtx, message: string): void {
+  context.addIssue({ code: "custom", message });
+}
 
-    for (const layer of manifest.layers) {
-      if (layer.activatedBy && !slots.has(layer.activatedBy.slot)) {
-        context.addIssue({
-          code: "custom",
-          message: `Layer '${layer.slug}' is activated by unknown slot '${layer.activatedBy.slot}'`,
-        });
-      }
-    }
-
-    for (const selection of selections.values()) {
-      if (!slots.has(selection.slot)) {
-        context.addIssue({
-          code: "custom",
-          message: `Selection '${selection.id}' references unknown slot '${selection.slot}'`,
-        });
-      }
-      if (selection.supersedes) {
-        const previous = selections.get(selection.supersedes);
-        if (!previous || previous.slot !== selection.slot) {
-          context.addIssue({
-            code: "custom",
-            message: `Selection '${selection.id}' supersedes a missing selection or one from another slot`,
-          });
-        } else if (previous.effectiveUntil !== selection.effectiveFrom) {
-          context.addIssue({
-            code: "custom",
-            message: `Selection '${selection.id}' must start at the superseded selection's exclusive boundary`,
-          });
-        }
-      }
-    }
-
-    for (const slot of manifest.slots) {
-      const accepted = manifest.selections
-        .filter(
-          (selection) =>
-            selection.slot === slot.slug && selection.status === "Accepted",
-        )
-        .toSorted((left, right) =>
-          compareUtcInstants(left.effectiveFrom, right.effectiveFrom),
-        );
-      for (let index = 1; index < accepted.length; index += 1) {
-        const previous = accepted[index - 1];
-        const current = accepted[index];
-        if (current?.supersedes !== previous?.id) {
-          context.addIssue({
-            code: "custom",
-            message: `Accepted selection '${current?.id}' must supersede '${previous?.id}'`,
-          });
-        }
-      }
-    }
-
-    validateNoOverlaps(
-      manifest.policies,
-      (item) => item.slot,
-      "slot policies",
-      context,
-    );
-    validateNoOverlaps(
-      manifest.selections.filter(
-        (selection) => selection.status === "Accepted",
-      ),
-      (item) => item.slot,
-      "accepted selections",
-      context,
-    );
-
-    const currentInstant = "9999-12-31T23:59:59Z";
-    const currentPolicies = manifest.policies.filter((policy) =>
-      isEffectiveAt(policy, currentInstant),
-    );
-    for (const policy of currentPolicies) {
-      const slot = slots.get(policy.slot);
-      if (!slot?.opinionated) continue;
-      const currentAccepted = manifest.selections.filter(
-        (selection) =>
-          selection.slot === policy.slot &&
-          selection.status === "Accepted" &&
-          isEffectiveAt(selection, currentInstant),
+function validatePolicyReferences(
+  manifest: PlatformManifestInput,
+  layerSlugs: ReadonlySet<string>,
+  slots: ReadonlyMap<string, unknown>,
+  context: z.RefinementCtx,
+): void {
+  for (const policy of manifest.policies) {
+    if (!layerSlugs.has(policy.layer) || !slots.has(policy.slot)) {
+      addManifestIssue(
+        context,
+        `Slot policy '${policy.id}' references an unknown layer or slot`,
       );
-      const explicitEmpty =
-        slot.noDefaultFrom !== undefined &&
-        compareUtcInstants(slot.noDefaultFrom, currentInstant) <= 0;
-      if (
-        currentAccepted.length !== 1 &&
-        !(explicitEmpty && currentAccepted.length === 0)
-      ) {
-        context.addIssue({
-          code: "custom",
-          message: `Opinionated slot '${policy.slot}' must have exactly one current accepted selection`,
-        });
+    }
+    for (const prerequisite of policy.prerequisites) {
+      if (!slots.has(prerequisite.slot)) {
+        addManifestIssue(
+          context,
+          `Slot policy '${policy.id}' references unknown prerequisite '${prerequisite.slot}'`,
+        );
+      }
+      const hasSelection = manifest.selections.some(
+        (selection) =>
+          selection.slot === prerequisite.slot &&
+          selection.technology === prerequisite.technology,
+      );
+      if (prerequisite.technology && !hasSelection) {
+        addManifestIssue(
+          context,
+          `Slot policy '${policy.id}' references a technology not selected by prerequisite '${prerequisite.slot}'`,
+        );
       }
     }
+  }
+}
 
-    for (const slot of manifest.slots) {
-      const suffix = slot.slug.split(".").at(-1) ?? "";
-      if (suffix === "engine" && slot.slug === "database.engine") {
-        context.addIssue({
-          code: "custom",
-          message:
-            "Slot 'database.engine' is too broad to compare technologies with different requirements",
-        });
-      }
-      const selectedNames = manifest.selections
-        .filter((selection) => selection.slot === slot.slug)
-        .map((selection) => selection.technology.replace(/[^a-z0-9]/g, ""));
-      if (selectedNames.includes(suffix.replace(/[^a-z0-9]/g, ""))) {
-        context.addIssue({
-          code: "custom",
-          message: `Slot '${slot.slug}' is named after its selected technology`,
-        });
+function validateLayerReferences(
+  manifest: PlatformManifestInput,
+  slots: ReadonlyMap<string, unknown>,
+  context: z.RefinementCtx,
+): void {
+  for (const layer of manifest.layers) {
+    if (layer.activatedBy && !slots.has(layer.activatedBy.slot)) {
+      addManifestIssue(
+        context,
+        `Layer '${layer.slug}' is activated by unknown slot '${layer.activatedBy.slot}'`,
+      );
+    }
+  }
+}
+
+function validateSelectionReferences(
+  manifest: PlatformManifestInput,
+  slots: ReadonlyMap<string, unknown>,
+  selections: ReadonlyMap<string, PlatformManifestInput["selections"][number]>,
+  context: z.RefinementCtx,
+): void {
+  for (const selection of manifest.selections) {
+    if (!slots.has(selection.slot)) {
+      addManifestIssue(
+        context,
+        `Selection '${selection.id}' references unknown slot '${selection.slot}'`,
+      );
+    }
+    if (!selection.supersedes) continue;
+    const previous = selections.get(selection.supersedes);
+    if (previous?.slot !== selection.slot) {
+      addManifestIssue(
+        context,
+        `Selection '${selection.id}' supersedes a missing selection or one from another slot`,
+      );
+    } else if (previous.effectiveUntil !== selection.effectiveFrom) {
+      addManifestIssue(
+        context,
+        `Selection '${selection.id}' must start at the superseded selection's exclusive boundary`,
+      );
+    }
+  }
+}
+
+function validateAcceptedSelectionChains(
+  manifest: PlatformManifestInput,
+  context: z.RefinementCtx,
+): void {
+  for (const slot of manifest.slots) {
+    const accepted = manifest.selections
+      .filter(
+        (selection) =>
+          selection.slot === slot.slug && selection.status === "Accepted",
+      )
+      .toSorted((left, right) =>
+        compareUtcInstants(left.effectiveFrom, right.effectiveFrom),
+      );
+    for (let index = 1; index < accepted.length; index += 1) {
+      const previous = accepted[index - 1];
+      const current = accepted[index];
+      if (current?.supersedes !== previous?.id) {
+        addManifestIssue(
+          context,
+          `Accepted selection '${current?.id}' must supersede '${previous?.id}'`,
+        );
       }
     }
-  });
+  }
+}
+
+function validateCurrentDefaults(
+  manifest: PlatformManifestInput,
+  slots: ReadonlyMap<string, PlatformManifestInput["slots"][number]>,
+  context: z.RefinementCtx,
+): void {
+  const currentInstant = "9999-12-31T23:59:59Z";
+  for (const policy of manifest.policies.filter((candidate) =>
+    isEffectiveAt(candidate, currentInstant),
+  )) {
+    const slot = slots.get(policy.slot);
+    if (!slot?.opinionated) continue;
+    const currentAccepted = manifest.selections.filter(
+      (selection) =>
+        selection.slot === policy.slot &&
+        selection.status === "Accepted" &&
+        isEffectiveAt(selection, currentInstant),
+    );
+    const explicitEmpty =
+      slot.noDefaultFrom !== undefined &&
+      compareUtcInstants(slot.noDefaultFrom, currentInstant) <= 0;
+    const validCount =
+      currentAccepted.length === 1 ||
+      (explicitEmpty && currentAccepted.length === 0);
+    if (!validCount) {
+      addManifestIssue(
+        context,
+        `Opinionated slot '${policy.slot}' must have exactly one current accepted selection`,
+      );
+    }
+  }
+}
+
+function validateSlotNames(
+  manifest: PlatformManifestInput,
+  context: z.RefinementCtx,
+): void {
+  for (const slot of manifest.slots) {
+    const suffix = slot.slug.split(".").at(-1) ?? "";
+    if (suffix === "engine" && slot.slug === "database.engine") {
+      addManifestIssue(
+        context,
+        "Slot 'database.engine' is too broad to compare technologies with different requirements",
+      );
+    }
+    const selectedNames = manifest.selections
+      .filter((selection) => selection.slot === slot.slug)
+      .map((selection) => selection.technology.replace(/[^a-z0-9]/g, ""));
+    if (selectedNames.includes(suffix.replace(/[^a-z0-9]/g, ""))) {
+      addManifestIssue(
+        context,
+        `Slot '${slot.slug}' is named after its selected technology`,
+      );
+    }
+  }
+}
+
+function validatePlatformManifest(
+  manifest: PlatformManifestInput,
+  context: z.RefinementCtx,
+): void {
+  const layerSlugs = new Set(manifest.layers.map((layer) => layer.slug));
+  const slots = new Map(manifest.slots.map((slot) => [slot.slug, slot]));
+  const selections = new Map(
+    manifest.selections.map((selection) => [selection.id, selection]),
+  );
+
+  addDuplicateIssues(manifest.layers, (item) => item.slug, "layers", context);
+  addDuplicateIssues(manifest.slots, (item) => item.slug, "slots", context);
+  addDuplicateIssues(manifest.policies, (item) => item.id, "policies", context);
+  addDuplicateIssues(
+    manifest.selections,
+    (item) => item.id,
+    "selections",
+    context,
+  );
+  validatePolicyReferences(manifest, layerSlugs, slots, context);
+  validateLayerReferences(manifest, slots, context);
+  validateSelectionReferences(manifest, slots, selections, context);
+  validateAcceptedSelectionChains(manifest, context);
+  validateNoOverlaps(
+    manifest.policies,
+    (item) => item.slot,
+    "slot policies",
+    context,
+  );
+  validateNoOverlaps(
+    manifest.selections.filter((selection) => selection.status === "Accepted"),
+    (item) => item.slot,
+    "accepted selections",
+    context,
+  );
+  validateCurrentDefaults(manifest, slots, context);
+  validateSlotNames(manifest, context);
+}
+
+export const PlatformManifestSchema = PlatformManifestFieldsSchema.superRefine(
+  validatePlatformManifest,
+);
 
 export type PlatformLayer = z.infer<typeof PlatformLayerSchema>;
 export type DefaultSlot = z.infer<typeof DefaultSlotSchema>;

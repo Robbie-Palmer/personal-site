@@ -2,6 +2,11 @@ import { describe, expect, it } from "vitest";
 import { extractGraphData } from "@/lib/api/graph-data";
 import type { DomainRepository } from "@/lib/domain";
 import { loadDomainRepository } from "@/lib/repository";
+import {
+  getOverridesForDefaultSlot,
+  getPlatformLayersForProject,
+  getProjectsForPlatformLayer,
+} from "@/lib/repository/graph/queries";
 
 describe("extractGraphData", () => {
   it("skips ADR nodes when project mapping is missing", () => {
@@ -136,7 +141,8 @@ describe("extractGraphData", () => {
   });
 
   it("presents platform policy as direct project-layer-technology edges", () => {
-    const data = extractGraphData(loadDomainRepository());
+    const repository = loadDomainRepository();
+    const data = extractGraphData(repository);
     const implementationNodePrefixes = [
       "default-slot:",
       "layer-extension:",
@@ -174,5 +180,14 @@ describe("extractGraphData", () => {
           edge.type === "DRIVEN_BY",
       ),
     ).toHaveLength(1);
+    expect(
+      getPlatformLayersForProject(repository.graph, "recipe-site"),
+    ).toContain("backend-api");
+    expect(getProjectsForPlatformLayer(repository.graph, "base")).toContain(
+      "personal-site",
+    );
+    expect(
+      getOverridesForDefaultSlot(repository.graph, "project.primary-language"),
+    ).toContain("agent-first-writing:009-primary-language-python");
   });
 });

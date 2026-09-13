@@ -9,6 +9,7 @@ import {
   type DefaultSlotSlug,
   isEffectiveAt,
   isUseEffectiveAt,
+  type LayerSlotPolicy,
   type LayerSlug,
   type PlatformManifest,
   type ProjectLayerUse,
@@ -79,6 +80,120 @@ function prerequisitesMet(
   });
 }
 
+type ProjectOverride = { technology: TechnologySlug; decision: ADRRef };
+
+function getProjectOverrides(
+  repository: DomainRepository,
+  projectSlug: ProjectSlug,
+  instant: string,
+): Map<DefaultSlotSlug, ProjectOverride> {
+  const overrides = new Map<DefaultSlotSlug, ProjectOverride>();
+  for (const [adrRef, override] of repository.platform.adrOverrides) {
+    const adr = repository.adrs.get(adrRef);
+    if (
+      adr?.projectSlug === projectSlug &&
+      adr.status === "Accepted" &&
+      isUseEffectiveAt(override, instant)
+    ) {
+      overrides.set(override.slot, {
+        technology: override.technology,
+        decision: adrRef,
+      });
+    }
+  }
+  return overrides;
+}
+
+interface ResolutionState {
+  manifest: PlatformManifest;
+  instant: string;
+  effectiveUses: ProjectLayerUse[];
+  layers: Set<LayerSlug>;
+  overrides: ReadonlyMap<DefaultSlotSlug, ProjectOverride>;
+  resolvedSlots: Map<DefaultSlotSlug, TechnologySlug>;
+  technologies: EffectiveTechnologyUse[];
+}
+
+function hasPreferredSlotUse(
+  policy: LayerSlotPolicy,
+  effectiveUses: ProjectLayerUse[],
+  instant: string,
+): boolean {
+  return effectiveUses
+    .flatMap((use) => use.slots)
+    .some((use) => use.slot === policy.slot && isUseEffectiveAt(use, instant));
+}
+
+function technologySource(
+  policy: LayerSlotPolicy,
+  override: ProjectOverride | undefined,
+): EffectiveTechnologySource {
+  if (override) return "override";
+  return policy.mode === "required" ? "required-layer" : "preferred-layer";
+}
+
+function resolvePolicy(
+  policy: LayerSlotPolicy,
+  state: ResolutionState,
+): EffectiveTechnologyUse | undefined {
+  if (!state.layers.has(policy.layer) || !isEffectiveAt(policy, state.instant))
+    return undefined;
+  if (
+    policy.mode === "preferred" &&
+    !hasPreferredSlotUse(policy, state.effectiveUses, state.instant)
+  )
+    return undefined;
+  if (!prerequisitesMet(policy.prerequisites, state.resolvedSlots))
+    return undefined;
+  if (state.resolvedSlots.has(policy.slot)) return undefined;
+
+  const override = state.overrides.get(policy.slot);
+  const selection = currentSelection(
+    state.manifest,
+    policy.slot,
+    state.instant,
+  );
+  const technology = override?.technology ?? selection?.technology;
+  if (!technology) return undefined;
+  return {
+    technology,
+    source: technologySource(policy, override),
+    layer: policy.layer,
+    slot: policy.slot,
+    policy: policy.id,
+    selection: override ? undefined : selection?.id,
+    decision: override?.decision ?? selection?.decision,
+  };
+}
+
+function activateDependentLayers(
+  policy: LayerSlotPolicy,
+  technology: TechnologySlug,
+  state: ResolutionState,
+): void {
+  for (const layer of state.manifest.layers) {
+    if (
+      layer.activatedBy?.slot === policy.slot &&
+      layer.activatedBy.technology === technology
+    ) {
+      state.layers.add(layer.slug);
+    }
+  }
+}
+
+function applyResolutionPass(state: ResolutionState): boolean {
+  let resolvedAny = false;
+  for (const policy of state.manifest.policies) {
+    const technologyUse = resolvePolicy(policy, state);
+    if (!technologyUse) continue;
+    state.resolvedSlots.set(policy.slot, technologyUse.technology);
+    state.technologies.push(technologyUse);
+    activateDependentLayers(policy, technologyUse.technology, state);
+    resolvedAny = true;
+  }
+  return resolvedAny;
+}
+
 export function resolveEffectiveProjectStack(
   repository: DomainRepository,
   projectSlug: ProjectSlug,
@@ -106,70 +221,19 @@ export function resolveEffectiveProjectStack(
     layers.add(use.layer);
   }
 
-  const overrides = new Map<
-    DefaultSlotSlug,
-    { technology: TechnologySlug; decision: ADRRef }
-  >();
-  for (const [adrRef, override] of repository.platform.adrOverrides) {
-    if (
-      repository.adrs.get(adrRef)?.projectSlug === projectSlug &&
-      repository.adrs.get(adrRef)?.status === "Accepted" &&
-      isUseEffectiveAt(override, instant)
-    ) {
-      overrides.set(override.slot, {
-        technology: override.technology,
-        decision: adrRef,
-      });
-    }
-  }
-
+  const overrides = getProjectOverrides(repository, projectSlug, instant);
   const resolvedSlots = new Map<DefaultSlotSlug, TechnologySlug>();
-  let changed = true;
-  while (changed) {
-    changed = false;
-    for (const policy of manifest.policies) {
-      if (!layers.has(policy.layer) || !isEffectiveAt(policy, instant))
-        continue;
-      const preferredUse = effectiveUses
-        .flatMap((use) => use.slots)
-        .find(
-          (use) => use.slot === policy.slot && isUseEffectiveAt(use, instant),
-        );
-      if (policy.mode === "preferred" && !preferredUse) continue;
-      if (!prerequisitesMet(policy.prerequisites, resolvedSlots)) continue;
-      if (resolvedSlots.has(policy.slot)) continue;
-
-      const override = overrides.get(policy.slot);
-      const selection = currentSelection(manifest, policy.slot, instant);
-      const technology = override?.technology ?? selection?.technology;
-      if (!technology) continue;
-      resolvedSlots.set(policy.slot, technology);
-      changed = true;
-      const source = override
-        ? "override"
-        : policy.mode === "required"
-          ? "required-layer"
-          : "preferred-layer";
-      technologies.push({
-        technology,
-        source,
-        layer: policy.layer,
-        slot: policy.slot,
-        policy: policy.id,
-        selection: override ? undefined : selection?.id,
-        decision: override?.decision ?? selection?.decision,
-      });
-      for (const layer of manifest.layers) {
-        if (
-          layer.activatedBy?.slot === policy.slot &&
-          layer.activatedBy.technology === technology &&
-          !layers.has(layer.slug)
-        ) {
-          layers.add(layer.slug);
-          changed = true;
-        }
-      }
-    }
+  const state: ResolutionState = {
+    manifest,
+    instant,
+    effectiveUses,
+    layers,
+    overrides,
+    resolvedSlots,
+    technologies,
+  };
+  while (applyResolutionPass(state)) {
+    // Resolve prerequisite chains until a pass adds no technologies.
   }
 
   return {
@@ -187,6 +251,42 @@ export interface UpgradeRecommendation {
   from: DefaultSelection;
   to: DefaultSelection;
   decidingADRs: ADRRef[];
+}
+
+interface UpgradeContext {
+  repository: DomainRepository;
+  layer: LayerSlug;
+  replacement: DefaultSelection;
+  previous: DefaultSelection;
+  at: string;
+  priorInstant: string;
+}
+
+function shouldRecommendUpgrade(
+  context: UpgradeContext,
+  project: ProjectSlug,
+  uses: ProjectLayerUse[],
+): boolean {
+  const { repository, layer, replacement, previous, at, priorInstant } =
+    context;
+  const entity = repository.projects.get(project);
+  if (!entity || entity.status === "completed") return false;
+  if (repository.graph.edges.createdAtRole.has(project)) return false;
+  if (!uses.some((use) => use.tracking && isUseEffectiveAt(use, at)))
+    return false;
+  const stack = resolveEffectiveProjectStack(repository, project, priorInstant);
+  if (!stack.layers.includes(layer)) return false;
+  const usesPrevious = stack.technologies.some(
+    (use) => use.slot === replacement.slot && use.selection === previous.id,
+  );
+  if (!usesPrevious) return false;
+  const hasOverride = Array.from(repository.platform.adrOverrides).some(
+    ([adrRef, value]) =>
+      repository.adrs.get(adrRef)?.projectSlug === project &&
+      value.slot === replacement.slot &&
+      isUseEffectiveAt(value, at),
+  );
+  return !hasOverride;
 }
 
 export function getUpgradeRecommendations(
@@ -210,31 +310,16 @@ export function getUpgradeRecommendations(
   const priorInstant = new Date(
     Date.parse(replacement.effectiveFrom) - 1,
   ).toISOString();
+  const context: UpgradeContext = {
+    repository,
+    layer: policy.layer,
+    replacement,
+    previous,
+    at,
+    priorInstant,
+  };
   for (const [project, uses] of repository.platform.projectLayerUses) {
-    const entity = repository.projects.get(project);
-    if (!entity || entity.status === "completed") continue;
-    if (repository.graph.edges.createdAtRole.has(project)) continue;
-    if (!uses.some((use) => use.tracking && isUseEffectiveAt(use, at)))
-      continue;
-    const stack = resolveEffectiveProjectStack(
-      repository,
-      project,
-      priorInstant,
-    );
-    if (!stack.layers.includes(policy.layer)) continue;
-    if (
-      !stack.technologies.some(
-        (use) => use.slot === replacement.slot && use.selection === previous.id,
-      )
-    )
-      continue;
-    const override = Array.from(repository.platform.adrOverrides).some(
-      ([adrRef, value]) =>
-        repository.adrs.get(adrRef)?.projectSlug === project &&
-        value.slot === replacement.slot &&
-        isUseEffectiveAt(value, at),
-    );
-    if (override) continue;
+    if (!shouldRecommendUpgrade(context, project, uses)) continue;
     recommendations.push({
       project,
       layer: policy.layer,

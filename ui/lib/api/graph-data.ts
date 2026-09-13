@@ -358,7 +358,7 @@ function addRelationshipEdges(
   addIdeaEdges(repository, state);
 }
 
-function addPlatformEdges(
+function addPlatformLayerOwnershipEdges(
   repository: DomainRepository,
   state: GraphBuildState,
 ): void {
@@ -372,6 +372,14 @@ function addPlatformEdges(
       "OWNS_LAYER",
     );
   }
+}
+
+function addPlatformPolicyEdges(
+  repository: DomainRepository,
+  state: GraphBuildState,
+): void {
+  const manifest = repository.platform?.manifest;
+  if (!manifest) return;
   const instant = new Date().toISOString();
   for (const policy of manifest.policies) {
     if (!isEffectiveAt(policy, instant)) continue;
@@ -400,6 +408,14 @@ function addPlatformEdges(
       },
     );
   }
+}
+
+function addPlatformOriginEdges(
+  repository: DomainRepository,
+  state: GraphBuildState,
+): void {
+  const manifest = repository.platform?.manifest;
+  if (!manifest) return;
   const linkedProjects = new Set<string>();
   for (const selection of manifest.selections) {
     for (const project of selection.originProjects) {
@@ -414,6 +430,13 @@ function addPlatformEdges(
       );
     }
   }
+}
+
+function addProjectPlatformLayerEdges(
+  repository: DomainRepository,
+  state: GraphBuildState,
+): void {
+  if (!repository.platform) return;
   for (const project of repository.platform.projectLayerUses.keys()) {
     const stack = resolveEffectiveProjectStack(repository, project);
     for (const layer of stack.layers) {
@@ -436,6 +459,16 @@ function addPlatformEdges(
       );
     }
   }
+}
+
+function addPlatformEdges(
+  repository: DomainRepository,
+  state: GraphBuildState,
+): void {
+  addPlatformLayerOwnershipEdges(repository, state);
+  addPlatformPolicyEdges(repository, state);
+  addPlatformOriginEdges(repository, state);
+  addProjectPlatformLayerEdges(repository, state);
 }
 
 function addTagEdges(

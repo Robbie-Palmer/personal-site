@@ -109,7 +109,7 @@ export default async function ADRPage({ params }: Readonly<PageProps>) {
     currentIndex >= 0 && currentIndex < project.adrs.length - 1
       ? project.adrs[currentIndex + 1]
       : undefined;
-  const requestedIndex = Number.parseInt(adrSlug.match(/^\d+/)?.[0] ?? "0", 10);
+  const requestedIndex = Number.parseInt(/^\d+/.exec(adrSlug)?.[0] ?? "0", 10);
   const displayIndex =
     currentIndex >= 0
       ? formatADRIndex(currentIndex)

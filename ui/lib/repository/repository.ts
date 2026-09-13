@@ -922,6 +922,214 @@ interface ValidationInput {
   platformManifest?: PlatformManifest;
 }
 
+type TechnologyReferenceCheck = (
+  slug: TechnologySlug,
+  entity: string,
+  field: string,
+) => void;
+
+function validatePlatformDecisions(
+  input: ValidationInput,
+  manifest: PlatformManifest,
+  errors: ReferentialIntegrityError[],
+): void {
+  for (const decision of [
+    ...manifest.policies.map((record) => record.decision),
+    ...manifest.selections.map((record) => record.decision),
+  ]) {
+    if (!input.adrs.has(decision)) {
+      errors.push({
+        type: "missing_reference",
+        entity: "PlatformManifest",
+        field: "decision",
+        value: decision,
+        message: `Platform record references missing ADR '${decision}'`,
+      });
+    }
+  }
+}
+
+function validatePlatformSelections(
+  input: ValidationInput,
+  manifest: PlatformManifest,
+  errors: ReferentialIntegrityError[],
+  checkTech: TechnologyReferenceCheck,
+): void {
+  for (const selection of manifest.selections) {
+    checkTech(
+      selection.technology,
+      `DefaultSelection[${selection.id}]`,
+      "technology",
+    );
+    for (const projectSlug of selection.originProjects) {
+      if (!input.projects.has(projectSlug)) {
+        errors.push({
+          type: "missing_reference",
+          entity: `DefaultSelection[${selection.id}]`,
+          field: "originProjects",
+          value: projectSlug,
+          message: `Selection '${selection.id}' references missing origin project '${projectSlug}'`,
+        });
+      }
+    }
+  }
+}
+
+function validateProjectLayerUse(
+  input: ValidationInput,
+  manifest: PlatformManifest,
+  projectSlug: ProjectSlug,
+  use: ProjectLayerUse,
+  layerSlugs: ReadonlySet<string>,
+  slotSlugs: ReadonlySet<string>,
+  errors: ReferentialIntegrityError[],
+): void {
+  if (!layerSlugs.has(use.layer)) {
+    errors.push({
+      type: "missing_reference",
+      entity: `Project[${projectSlug}]`,
+      field: "platformLayers",
+      value: use.layer,
+      message: `Project '${projectSlug}' references missing platform layer '${use.layer}'`,
+    });
+  }
+  if (input.projects.get(projectSlug)?.status === "completed" && use.tracking) {
+    errors.push({
+      type: "invalid_reference",
+      entity: `Project[${projectSlug}]`,
+      field: "platformLayers",
+      value: use.layer,
+      message: `Completed project '${projectSlug}' cannot track current platform defaults`,
+    });
+  }
+  for (const slotUse of use.slots) {
+    if (!slotSlugs.has(slotUse.slot)) {
+      errors.push({
+        type: "missing_reference",
+        entity: `Project[${projectSlug}]`,
+        field: "platformLayers.slots",
+        value: slotUse.slot,
+        message: `Project '${projectSlug}' references missing default slot '${slotUse.slot}'`,
+      });
+    }
+    const belongsToLayer = manifest.policies.some(
+      (policy) => policy.layer === use.layer && policy.slot === slotUse.slot,
+    );
+    if (!belongsToLayer) {
+      errors.push({
+        type: "invalid_reference",
+        entity: `Project[${projectSlug}]`,
+        field: "platformLayers.slots",
+        value: slotUse.slot,
+        message: `Project '${projectSlug}' activates slot '${slotUse.slot}' outside layer '${use.layer}'`,
+      });
+    }
+  }
+}
+
+function validateProjectPlatformUses(
+  input: ValidationInput,
+  manifest: PlatformManifest,
+  layerSlugs: ReadonlySet<string>,
+  slotSlugs: ReadonlySet<string>,
+  errors: ReferentialIntegrityError[],
+): void {
+  input.projectRelations.forEach((relations, projectSlug) => {
+    if ((relations.platformLayers?.length ?? 0) > 0 && relations.role) {
+      errors.push({
+        type: "invalid_reference",
+        entity: `Project[${projectSlug}]`,
+        field: "platformLayers",
+        value: relations.role,
+        message: `Organisation-governed project '${projectSlug}' cannot adopt the personal platform`,
+      });
+    }
+    for (const use of relations.platformLayers ?? []) {
+      validateProjectLayerUse(
+        input,
+        manifest,
+        projectSlug,
+        use,
+        layerSlugs,
+        slotSlugs,
+        errors,
+      );
+    }
+  });
+}
+
+function validatePlatformOverrides(
+  input: ValidationInput,
+  manifest: PlatformManifest,
+  slotSlugs: ReadonlySet<string>,
+  errors: ReferentialIntegrityError[],
+  checkTech: TechnologyReferenceCheck,
+): void {
+  input.adrs.forEach((adr, adrRef) => {
+    const override = adr.overridesDefault;
+    if (!override) return;
+    if (!slotSlugs.has(override.slot)) {
+      errors.push({
+        type: "missing_reference",
+        entity: `ADR[${adrRef}]`,
+        field: "overridesDefault",
+        value: override.slot,
+        message: `ADR '${adrRef}' overrides missing slot '${override.slot}'`,
+      });
+    }
+    checkTech(override.technology, `ADR[${adrRef}]`, "overridesDefault");
+    const owningLayers = new Set(
+      manifest.policies
+        .filter((policy) => policy.slot === override.slot)
+        .map((policy) => policy.layer),
+    );
+    const projectLayers = input.projectRelations.get(
+      adr.projectSlug,
+    )?.platformLayers;
+    if (!projectLayers?.some((use) => owningLayers.has(use.layer))) {
+      errors.push({
+        type: "invalid_reference",
+        entity: `ADR[${adrRef}]`,
+        field: "overridesDefault",
+        value: override.slot,
+        message: `ADR '${adrRef}' cannot override a slot from a layer the project has not adopted`,
+      });
+    }
+  });
+}
+
+function validatePlatformReferences(
+  input: ValidationInput,
+  manifest: PlatformManifest,
+  errors: ReferentialIntegrityError[],
+  checkTech: TechnologyReferenceCheck,
+): void {
+  const layerSlugs = new Set(manifest.layers.map((layer) => layer.slug));
+  const slotSlugs = new Set(manifest.slots.map((slot) => slot.slug));
+  if (!input.projects.has(manifest.project)) {
+    errors.push({
+      type: "missing_reference",
+      entity: "PlatformManifest",
+      field: "project",
+      value: manifest.project,
+      message: `Platform project '${manifest.project}' does not exist`,
+    });
+  }
+  validatePlatformDecisions(input, manifest, errors);
+  validatePlatformSelections(input, manifest, errors, checkTech);
+  for (const layer of manifest.layers) {
+    if (layer.activatedBy) {
+      checkTech(
+        layer.activatedBy.technology,
+        `PlatformLayer[${layer.slug}]`,
+        "activatedBy.technology",
+      );
+    }
+  }
+  validateProjectPlatformUses(input, manifest, layerSlugs, slotSlugs, errors);
+  validatePlatformOverrides(input, manifest, slotSlugs, errors, checkTech);
+}
+
 export function validateReferentialIntegrity(
   input: ValidationInput,
 ): ReferentialIntegrityError[] {
@@ -1163,148 +1371,7 @@ export function validateReferentialIntegrity(
   });
 
   const manifest = input.platformManifest;
-  if (manifest) {
-    const layerSlugs = new Set(manifest.layers.map((layer) => layer.slug));
-    const slotSlugs = new Set(manifest.slots.map((slot) => slot.slug));
-    if (!input.projects.has(manifest.project)) {
-      errors.push({
-        type: "missing_reference",
-        entity: "PlatformManifest",
-        field: "project",
-        value: manifest.project,
-        message: `Platform project '${manifest.project}' does not exist`,
-      });
-    }
-    for (const decision of [
-      ...manifest.policies.map((record) => record.decision),
-      ...manifest.selections.map((record) => record.decision),
-    ]) {
-      if (!input.adrs.has(decision)) {
-        errors.push({
-          type: "missing_reference",
-          entity: "PlatformManifest",
-          field: "decision",
-          value: decision,
-          message: `Platform record references missing ADR '${decision}'`,
-        });
-      }
-    }
-    for (const selection of manifest.selections) {
-      checkTech(
-        selection.technology,
-        `DefaultSelection[${selection.id}]`,
-        "technology",
-      );
-      for (const projectSlug of selection.originProjects) {
-        if (!input.projects.has(projectSlug)) {
-          errors.push({
-            type: "missing_reference",
-            entity: `DefaultSelection[${selection.id}]`,
-            field: "originProjects",
-            value: projectSlug,
-            message: `Selection '${selection.id}' references missing origin project '${projectSlug}'`,
-          });
-        }
-      }
-    }
-    for (const layer of manifest.layers) {
-      if (layer.activatedBy) {
-        checkTech(
-          layer.activatedBy.technology,
-          `PlatformLayer[${layer.slug}]`,
-          "activatedBy.technology",
-        );
-      }
-    }
-    input.projectRelations.forEach((relations, projectSlug) => {
-      if ((relations.platformLayers?.length ?? 0) > 0 && relations.role) {
-        errors.push({
-          type: "invalid_reference",
-          entity: `Project[${projectSlug}]`,
-          field: "platformLayers",
-          value: relations.role,
-          message: `Organisation-governed project '${projectSlug}' cannot adopt the personal platform`,
-        });
-      }
-      for (const use of relations.platformLayers ?? []) {
-        if (!layerSlugs.has(use.layer)) {
-          errors.push({
-            type: "missing_reference",
-            entity: `Project[${projectSlug}]`,
-            field: "platformLayers",
-            value: use.layer,
-            message: `Project '${projectSlug}' references missing platform layer '${use.layer}'`,
-          });
-        }
-        if (
-          input.projects.get(projectSlug)?.status === "completed" &&
-          use.tracking
-        ) {
-          errors.push({
-            type: "invalid_reference",
-            entity: `Project[${projectSlug}]`,
-            field: "platformLayers",
-            value: use.layer,
-            message: `Completed project '${projectSlug}' cannot track current platform defaults`,
-          });
-        }
-        for (const slotUse of use.slots) {
-          if (!slotSlugs.has(slotUse.slot)) {
-            errors.push({
-              type: "missing_reference",
-              entity: `Project[${projectSlug}]`,
-              field: "platformLayers.slots",
-              value: slotUse.slot,
-              message: `Project '${projectSlug}' references missing default slot '${slotUse.slot}'`,
-            });
-          }
-          if (
-            !manifest.policies.some(
-              (policy) =>
-                policy.layer === use.layer && policy.slot === slotUse.slot,
-            )
-          ) {
-            errors.push({
-              type: "invalid_reference",
-              entity: `Project[${projectSlug}]`,
-              field: "platformLayers.slots",
-              value: slotUse.slot,
-              message: `Project '${projectSlug}' activates slot '${slotUse.slot}' outside layer '${use.layer}'`,
-            });
-          }
-        }
-      }
-    });
-    input.adrs.forEach((adr, adrRef) => {
-      const override = adr.overridesDefault;
-      if (!override) return;
-      if (!slotSlugs.has(override.slot)) {
-        errors.push({
-          type: "missing_reference",
-          entity: `ADR[${adrRef}]`,
-          field: "overridesDefault",
-          value: override.slot,
-          message: `ADR '${adrRef}' overrides missing slot '${override.slot}'`,
-        });
-      }
-      checkTech(override.technology, `ADR[${adrRef}]`, "overridesDefault");
-      const owningLayers = manifest.policies
-        .filter((policy) => policy.slot === override.slot)
-        .map((policy) => policy.layer);
-      const projectLayers = input.projectRelations.get(
-        adr.projectSlug,
-      )?.platformLayers;
-      if (!projectLayers?.some((use) => owningLayers.includes(use.layer))) {
-        errors.push({
-          type: "invalid_reference",
-          entity: `ADR[${adrRef}]`,
-          field: "overridesDefault",
-          value: override.slot,
-          message: `ADR '${adrRef}' cannot override a slot from a layer the project has not adopted`,
-        });
-      }
-    });
-  }
+  if (manifest) validatePlatformReferences(input, manifest, errors, checkTech);
 
   return errors;
 }
