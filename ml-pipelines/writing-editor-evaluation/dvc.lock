@@ -261,3 +261,45 @@ stages:
       hash: md5
       md5: 6f6c99d8b416337298f9aca7ab2af3d0
       size: 213429
+  prepare_gector_model:
+    cmd: bash scripts/prepare-gector-model.sh
+    deps:
+    - path: ../../packages/writing-editor-domain/package.json
+      hash: md5
+      md5: 9e1385bf0bb13eada79607c5126dbf4b
+      size: 767
+    - path: ../../packages/writing-editor-domain/src/canonical-json.ts
+      hash: md5
+      md5: f713bc7d6da316d2ebfeb10a77e0fb31
+      size: 1638
+    - path: ../../pnpm-lock.yaml
+      hash: md5
+      md5: 854f0508b9709922f9c9253f187bfded
+      size: 530795
+    - path: model-manifest.json
+      hash: md5
+      md5: 78c3fd0c744d08fd55fdaad114bd2b09
+      size: 625
+    - path: package.json
+      hash: md5
+      md5: c6fd5991eb42dbfd3b0e5d088ca06c32
+      size: 513
+    - path: scripts/prepare-gector-model.sh
+      hash: md5
+      md5: ae8261e68e61310dd3c24b576eb662d3
+      size: 81
+      isexec: true
+    - path: src/files.ts
+      hash: md5
+      md5: fce85952c262353a104b1705fc30ddc6
+      size: 2954
+    - path: src/prepare-gector-model.ts
+      hash: md5
+      md5: 9363325ddf9bb80417df645609462b7f
+      size: 6184
+    outs:
+    - path: data/models/gector-2024
+      hash: md5
+      md5: fd54129528d0d89a001c4cf3f4b2a5b3.dir
+      size: 1442177654
+      nfiles: 2
