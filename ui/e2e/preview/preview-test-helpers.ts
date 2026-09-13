@@ -7,6 +7,7 @@ import {
 import { requiredEnv } from "node-base/env";
 
 export const previewSiteURL = new URL(requiredEnv("PREVIEW_SITE_URL"));
+export const previewReadinessTimeoutMs = 30_000;
 const pagesHost = requiredEnv("CLOUDFLARE_PAGES_HOST").toLowerCase();
 const accessHeaders = {
   "CF-Access-Client-Id": requiredEnv("CF_ACCESS_CLIENT_ID"),
@@ -71,8 +72,19 @@ export async function signInPreviewScenario(
   await page.goto("/recipes");
   await expect(page).toHaveURL(`${previewSiteURL.origin}/recipes`);
   await page.getByRole("button", { name: "Log in", exact: true }).click();
+  const signInResponsePromise = page.waitForResponse((response) => {
+    const request = response.request();
+    return (
+      request.method() === "POST" &&
+      new URL(response.url()).pathname === "/api/auth/preview/sign-in"
+    );
+  });
   await page.getByRole("button", { name: new RegExp(scenarioName) }).click();
+  const signInResponse = await signInResponsePromise;
+  if (!signInResponse.ok()) {
+    throw new Error(`Preview sign-in failed (${signInResponse.status()})`);
+  }
   await expect(
     page.getByRole("button", { name: `Account for ${scenarioName}` }),
-  ).toBeVisible();
+  ).toBeVisible({ timeout: previewReadinessTimeoutMs });
 }
