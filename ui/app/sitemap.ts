@@ -2,7 +2,13 @@ import type { MetadataRoute } from "next";
 import { getAllPosts } from "@/lib/api/blog";
 import { getAllIdeas } from "@/lib/api/ideas";
 import { getAllInitiatives } from "@/lib/api/initiatives";
-import { getAllLegacyADRPaths, getAllProjects } from "@/lib/api/projects";
+import {
+  getAllLegacyADRPaths,
+  getAllProjectAliasADRPaths,
+  getAllProjectAliases,
+  getAllProjects,
+  getProject,
+} from "@/lib/api/projects";
 import { siteConfig } from "@/lib/config/site-config";
 import { getAllTechnologySlugs, loadDomainRepository } from "@/lib/domain";
 
@@ -33,6 +39,14 @@ export default function sitemap(): MetadataRoute.Sitemap {
     lastModified: project.updated || project.date,
     priority: 0.8,
   }));
+  const projectAliasPages = getAllProjectAliases().map(({ alias, target }) => {
+    const project = getProject(target);
+    return {
+      url: `${siteConfig.url}/projects/${alias}`,
+      lastModified: project.updated || project.date,
+      priority: 0.1,
+    };
+  });
 
   const pitchDeckPages = projects.flatMap((project) =>
     project.pitch
@@ -56,6 +70,13 @@ export default function sitemap(): MetadataRoute.Sitemap {
   const legacyAdrPages = getAllLegacyADRPaths().map(
     ({ projectSlug, adrSlug, lastModified }) => ({
       url: `${siteConfig.url}/projects/${projectSlug}/adrs/${adrSlug}`,
+      lastModified,
+      priority: 0.1,
+    }),
+  );
+  const projectAliasAdrPages = getAllProjectAliasADRPaths().map(
+    ({ alias, adrSlug, lastModified }) => ({
+      url: `${siteConfig.url}/projects/${alias}/adrs/${adrSlug}`,
       lastModified,
       priority: 0.1,
     }),
@@ -122,9 +143,11 @@ export default function sitemap(): MetadataRoute.Sitemap {
     ...blogPosts,
     ...initiativePages,
     ...projectPages,
+    ...projectAliasPages,
     ...pitchDeckPages,
     ...adrPages,
     ...legacyAdrPages,
+    ...projectAliasAdrPages,
     ...ideaPages,
     ...technologyPages,
     {

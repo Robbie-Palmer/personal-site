@@ -328,8 +328,8 @@ describe("temporal platform layers", () => {
   it("uses the effective record when a project re-adopts a layer", () => {
     const repository = loadDomainRepository();
     const projectLayerUses = new Map(repository.platform.projectLayerUses);
-    const existingUses = projectLayerUses.get("personal-site") ?? [];
-    projectLayerUses.set("personal-site", [
+    const existingUses = projectLayerUses.get("personal-knowledge-graph") ?? [];
+    projectLayerUses.set("personal-knowledge-graph", [
       ...existingUses.filter((use) => use.layer !== "base"),
       {
         layer: "base",
@@ -350,7 +350,7 @@ describe("temporal platform layers", () => {
         ...repository,
         platform: { ...repository.platform, projectLayerUses },
       },
-      "personal-site",
+      "personal-knowledge-graph",
     );
 
     expect(project?.builtOn?.find((layer) => layer.slug === "base")).toEqual(
@@ -369,7 +369,7 @@ describe("temporal platform layers", () => {
     ).toBe(false);
     expect(
       repository.adrAliases.get("recipe-site:000-github-public-repo"),
-    ).toBe("personal-site:000-github-public-repo");
+    ).toBe("personal-knowledge-graph:000-github-public-repo");
   });
 
   it("freezes a closed project before a later platform replacement", () => {
@@ -405,7 +405,7 @@ describe("temporal platform layers", () => {
         },
         projectLayerUses: new Map([
           [
-            "personal-site",
+            "personal-knowledge-graph",
             [
               {
                 layer: "base",
@@ -421,7 +421,7 @@ describe("temporal platform layers", () => {
     };
     const stack = resolveEffectiveProjectStack(
       frozenRepository,
-      "personal-site",
+      "personal-knowledge-graph",
       "2026-10-02T00:00:00Z",
     );
     expect(stack.at).toBe("2026-09-19T23:59:59.999999999Z");
@@ -473,12 +473,12 @@ describe("temporal platform layers", () => {
     const projects = recommendations.map(
       (recommendation) => recommendation.project,
     );
-    expect(projects).toContain("personal-site");
+    expect(projects).toContain("personal-knowledge-graph");
     expect(projects).toContain("recipe-site");
     expect(projects).not.toContain("agent-first-writing");
     expect(projects).not.toContain("genomic-prediction");
 
-    const overrideRef = "personal-site:059-temporal-platform-layers";
+    const overrideRef = "personal-knowledge-graph:059-temporal-platform-layers";
     const overrideADR = repository.adrs.get(overrideRef);
     expect(overrideADR).toBeDefined();
     if (!overrideADR) return;
@@ -505,7 +505,7 @@ describe("temporal platform layers", () => {
     );
     expect(
       withProposedOverride.map((recommendation) => recommendation.project),
-    ).toContain("personal-site");
+    ).toContain("personal-knowledge-graph");
   });
 
   it("does not recommend a preferred-slot change to a project that never activated the slot", () => {

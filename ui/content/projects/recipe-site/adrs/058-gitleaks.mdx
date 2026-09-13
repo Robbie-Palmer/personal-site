@@ -1,5 +1,5 @@
 ---
-inherits_from: "personal-site:054-gitleaks"
+inherits_from: "personal-knowledge-graph:054-gitleaks"
 ---
 
 # Additional Context for Recipe Site
@@ -10,7 +10,7 @@ login), OpenRouter API keys, and Cloudflare tokens for the Workers. Most of
 these are exactly the shapes GitHub's provider-pattern scanning is weakest on. A Postgres URL
 with an inline password or a better-auth signing secret has no
 vendor-recognisable format, but does trip gitleaks' generic and entropy rules
-(see [personal-site ADR 054](/projects/personal-site/adrs/054-gitleaks)).
+(see [Personal Knowledge Graph ADR 054](/projects/personal-knowledge-graph/adrs/054-gitleaks)).
 
 The financial-risk framing from
 [ADR 035 (application security baseline)](/projects/recipe-site/adrs/035-application-security-baseline)

@@ -17,6 +17,7 @@ import { getIdeasForADR } from "@/lib/api/ideas";
 import {
   type ADRDetailView,
   getAllLegacyADRPaths,
+  getAllProjectAliasADRPaths,
   getAllProjects,
   getProject,
   getProjectADR,
@@ -58,8 +59,12 @@ export async function generateStaticParams() {
       adrSlug: adr.slug,
     })),
   );
+  const projectAliasADRs = getAllProjectAliasADRPaths().map(
+    ({ alias, adrSlug }) => ({ slug: alias, adrSlug }),
+  );
   return [
     ...projectADRs,
+    ...projectAliasADRs,
     ...getAllLegacyADRPaths().map(({ projectSlug, adrSlug }) => ({
       slug: projectSlug,
       adrSlug,

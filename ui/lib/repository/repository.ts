@@ -53,6 +53,7 @@ import {
   type RoleRelations,
   type RoleSlug,
 } from "../domain/role/jobRole";
+import { ProjectSlugSchema } from "../domain/slugs";
 import {
   type Technology,
   TechnologySchema,
@@ -455,14 +456,16 @@ export function validateInitiative(
 interface ProjectLoadResult {
   entities: Map<ProjectSlug, Project>;
   relations: Map<ProjectSlug, ProjectRelations>;
+  aliases: Map<ProjectSlug, ProjectSlug>;
 }
 
 export function loadProjects(): ProjectLoadResult {
   const entities = new Map<ProjectSlug, Project>();
   const relations = new Map<ProjectSlug, ProjectRelations>();
+  const aliases = new Map<ProjectSlug, ProjectSlug>();
 
   if (!fs.existsSync(PROJECTS_DIR)) {
-    return { entities, relations };
+    return { entities, relations, aliases };
   }
   const projectDirs = fs
     .readdirSync(PROJECTS_DIR, { withFileTypes: true })
@@ -525,6 +528,16 @@ export function loadProjects(): ProjectLoadResult {
     const technologies: TechnologySlug[] = (data.tech_stack || []).map(
       (tech: string) => normalizeSlug(tech),
     );
+    const aliasesValidation = ProjectSlugSchema.array().safeParse(
+      data.aliases ?? [],
+    );
+    if (!aliasesValidation.success) {
+      console.error(
+        `Failed to validate aliases for project ${projectSlug}:`,
+        aliasesValidation.error,
+      );
+      throw new Error(`Project ${projectSlug} aliases failed validation`);
+    }
 
     const project: Project = {
       slug: projectSlug,
@@ -598,6 +611,15 @@ export function loadProjects(): ProjectLoadResult {
     if (validation.success) {
       entities.set(projectSlug, validation.data);
       relations.set(projectSlug, projectRelations);
+      for (const alias of aliasesValidation.data) {
+        const existingTarget = aliases.get(alias);
+        if (existingTarget) {
+          throw new Error(
+            `Project alias '${alias}' points to both '${existingTarget}' and '${projectSlug}'`,
+          );
+        }
+        aliases.set(alias, projectSlug);
+      }
     } else {
       console.error(
         `Failed to validate project ${projectSlug}:`,
@@ -607,7 +629,13 @@ export function loadProjects(): ProjectLoadResult {
     }
   });
 
-  return { entities, relations };
+  for (const alias of aliases.keys()) {
+    if (entities.has(alias)) {
+      throw new Error(`Project alias '${alias}' conflicts with a project slug`);
+    }
+  }
+
+  return { entities, relations, aliases };
 }
 
 export function validateProject(
@@ -1398,6 +1426,7 @@ export interface DomainRepository {
   initiatives: Map<InitiativeSlug, Initiative>;
   blogs: Map<BlogSlug, BlogPost>;
   projects: Map<ProjectSlug, Project>;
+  projectAliases: Map<ProjectSlug, ProjectSlug>;
   adrs: Map<ADRRef, ADR>;
   adrAliases: Map<ADRRef, ADRRef>;
   roles: Map<RoleSlug, JobRole>;
@@ -1547,6 +1576,7 @@ function buildDomainRepository(): DomainRepository {
     initiatives: initiativesResult.entities,
     blogs: blogsResult.entities,
     projects: projectsResult.entities,
+    projectAliases: projectsResult.aliases,
     adrs: adrsResult.entities,
     adrAliases: adrsResult.aliases,
     roles: rolesResult.entities,

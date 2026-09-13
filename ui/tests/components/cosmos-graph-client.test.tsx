@@ -101,9 +101,9 @@ const data: GraphData = {
   nodes: [
     {
       id: "project:site",
-      name: "Personal site",
+      name: "Personal Knowledge Graph",
       type: "project",
-      href: "/projects/personal-site",
+      href: "/projects/personal-knowledge-graph",
       connections: 2,
     },
     {
@@ -236,12 +236,12 @@ describe("CosmosGraphClient", () => {
     act(() => inlineGraph.config.onPointClick(0));
     expect(capture).toHaveBeenCalledWith("graph_node_clicked", {
       node_id: "project:site",
-      node_label: "Personal site",
+      node_label: "Personal Knowledge Graph",
       node_type: "project",
     });
     expect(screen.getByRole("link", { name: /open page/i })).toHaveAttribute(
       "href",
-      "/projects/personal-site",
+      "/projects/personal-knowledge-graph",
     );
 
     await user.click(

@@ -16,9 +16,9 @@ tech_stack: ["Spectral", "OpenAPI", "oasdiff", "Hono"]
 The monorepo's quality stack watches almost every axis of the codebase except
 the one that outlives any single file: the **HTTP contract** of the recipe API.
 SonarQube scores health within files
-([ADR 048](/projects/personal-site/adrs/048-sonarqube)), Knip finds unreachable
-code ([ADR 052](/projects/personal-site/adrs/052-knip)), Gitleaks blocks secrets
-([ADR 054](/projects/personal-site/adrs/054-gitleaks)), all of which cover the
+([ADR 048](/projects/personal-knowledge-graph/adrs/048-sonarqube)), Knip finds unreachable
+code ([ADR 052](/projects/personal-knowledge-graph/adrs/052-knip)), Gitleaks blocks secrets
+([ADR 054](/projects/personal-knowledge-graph/adrs/054-gitleaks)), all of which cover the
 recipe-api Worker's code. None of them can see that `POST /recipes/import-url`
 puts a verb in a path, or that a `GET` and a `POST` on the same URL mean two
 unrelated things.
@@ -85,7 +85,7 @@ Enforcement:
 * **`mise run //:lint:api`**, wired into the root `lint` aggregate.
 * A **blocking** CI job on any change under `workers/recipe-api`, justified the
   same way Knip's and zizmor's were
-  ([ADR 049](/projects/personal-site/adrs/049-zizmor)): the baseline is greened
+  ([ADR 049](/projects/personal-knowledge-graph/adrs/049-zizmor)): the baseline is greened
   first. The inconsistencies above are fixed in the adopting change,
   `import-url`/`import-file` renamed to reflect that they return drafts,
   `cooking-insights` `POST` split to `cooking-sessions`, `pantry/restore` folded
@@ -137,7 +137,7 @@ now-empty violation baseline.
 The axis is the **externally-observable HTTP contract**, orthogonal to
 everything already running: file-local health (SonarQube), cross-module
 reachability (Knip), secrets (Gitleaks). On the determinism axis of
-[ADR 048](/projects/personal-site/adrs/048-sonarqube) it lands squarely in the
+[ADR 048](/projects/personal-knowledge-graph/adrs/048-sonarqube) it lands squarely in the
 deterministic column, an AI reviewer *might* notice a singular/plural slip
 inside one diff's blast radius; Spectral fails the same rule on the same path
 every time. Biome, the monorepo's formatter/linter, has no equivalent rules for

@@ -152,14 +152,14 @@ selections:
     status: "Accepted"
     effective_from: "2026-09-12T00:00:00Z"
     decision: "personal-engineering-platform:001-language-defaults"
-    origin_projects: ["personal-site"]
+    origin_projects: ["personal-knowledge-graph"]
   - id: "typescript-schema-validation-zod-2026-09-12"
     slot: "typescript.schema-validation"
     technology: "Zod"
     status: "Accepted"
     effective_from: "2026-09-12T00:00:00Z"
     decision: "personal-engineering-platform:001-language-defaults"
-    origin_projects: ["personal-site"]
+    origin_projects: ["personal-knowledge-graph"]
   - id: "python-data-validation-pydantic-2026-09-12"
     slot: "python.data-validation"
     technology: "Pydantic"
@@ -187,14 +187,14 @@ selections:
     status: "Accepted"
     effective_from: "2026-09-12T00:00:00Z"
     decision: "personal-engineering-platform:003-terraform"
-    origin_projects: ["personal-site"]
+    origin_projects: ["personal-knowledge-graph"]
   - id: "observability-application-telemetry-posthog-2026-09-12"
     slot: "observability.application-telemetry"
     technology: "PostHog"
     status: "Accepted"
     effective_from: "2026-09-12T00:00:00Z"
     decision: "personal-engineering-platform:004-observability"
-    origin_projects: ["personal-site", "recipe-site"]
+    origin_projects: ["personal-knowledge-graph", "recipe-site"]
   - id: "observability-node-monitoring-netdata-2026-09-12"
     slot: "observability.node-monitoring"
     technology: "Netdata"

@@ -114,7 +114,16 @@ describe("agent markdown generation", () => {
       "/projects/personal-engineering-platform/adrs/001-language-defaults.md",
     );
     expect(platform).toContain(
-      "driven by [personal-site](https://robbiepalmer.me/projects/personal-site.md)",
+      "driven by [personal-knowledge-graph](https://robbiepalmer.me/projects/personal-knowledge-graph.md)",
+    );
+  });
+
+  it("keeps Markdown routes for the previous project slug", () => {
+    expect(read("projects/personal-site.md")).toContain(
+      "[Personal Knowledge Graph](https://robbiepalmer.me/projects/personal-knowledge-graph.md)",
+    );
+    expect(read("projects/personal-site/adrs/038-content-graph.md")).toContain(
+      "https://robbiepalmer.me/projects/personal-knowledge-graph/adrs/038-content-graph.md",
     );
   });
 

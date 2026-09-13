@@ -37,6 +37,20 @@ export function getAllProjectSlugs(): string[] {
   return Array.from(repository.projects.keys());
 }
 
+export function getAllProjectAliases(): Array<{
+  alias: string;
+  target: string;
+}> {
+  return Array.from(repository.projectAliases, ([alias, target]) => ({
+    alias,
+    target,
+  }));
+}
+
+function resolveProjectSlug(slug: string): string {
+  return repository.projectAliases.get(slug) ?? slug;
+}
+
 export function getAllLegacyADRPaths(): Array<{
   projectSlug: string;
   adrSlug: string;
@@ -51,8 +65,32 @@ export function getAllLegacyADRPaths(): Array<{
   });
 }
 
+export function getAllProjectAliasADRPaths(): Array<{
+  alias: string;
+  target: string;
+  adrSlug: string;
+  lastModified: string;
+}> {
+  const legacyADRPaths = getAllLegacyADRPaths();
+  return getAllProjectAliases().flatMap(({ alias, target }) => {
+    const project = getProject(target);
+    const adrSlugs = new Set([
+      ...project.adrs.map((adr) => adr.slug),
+      ...legacyADRPaths
+        .filter(({ projectSlug }) => projectSlug === target)
+        .map(({ adrSlug }) => adrSlug),
+    ]);
+    return Array.from(adrSlugs, (adrSlug) => ({
+      alias,
+      target,
+      adrSlug,
+      lastModified: getProjectADR(target, adrSlug).date,
+    }));
+  });
+}
+
 export function getProject(slug: string): ProjectWithADRs {
-  const project = getProjectWithADRs(repository, slug);
+  const project = getProjectWithADRs(repository, resolveProjectSlug(slug));
   if (!project) {
     throw new Error(`Project not found: ${slug}`);
   }
@@ -90,7 +128,11 @@ export function getAllADRs(): ProjectADR[] {
 }
 
 export function getProjectADR(projectSlug: string, adrSlug: string) {
-  const adrView = getADRDetailForProject(repository, projectSlug, adrSlug);
+  const adrView = getADRDetailForProject(
+    repository,
+    resolveProjectSlug(projectSlug),
+    adrSlug,
+  );
   if (!adrView) {
     throw new Error(`ADR not found: ${projectSlug}/${adrSlug}`);
   }
