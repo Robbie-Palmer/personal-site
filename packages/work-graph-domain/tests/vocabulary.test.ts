@@ -1,12 +1,14 @@
 import {
   LEASE_OUTCOMES,
   PULL_REQUEST_ROLES,
+  TERMINAL_WORK_ITEM_STATES,
   WORK_ITEM_LIFECYCLES,
   WORK_STAGES,
 } from "../src/index";
 
 describe("work graph vocabulary", () => {
-  it("keeps lifecycle states distinct from the derived board stages", () => {
+  it("shares canonical terminal values across lifecycle and board stage", () => {
+    expect(TERMINAL_WORK_ITEM_STATES).toEqual(["released", "cancelled"]);
     expect(WORK_ITEM_LIFECYCLES).toEqual(["open", "released", "cancelled"]);
     expect(WORK_STAGES).toEqual([
       "blocked",
@@ -19,7 +21,7 @@ describe("work graph vocabulary", () => {
     ]);
   });
 
-  it("names the terminal lease outcomes", () => {
+  it("keeps lease outcomes as separate historical vocabulary", () => {
     expect(LEASE_OUTCOMES).toEqual([
       "released",
       "cancelled",
