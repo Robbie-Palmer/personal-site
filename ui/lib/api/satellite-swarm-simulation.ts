@@ -6,6 +6,7 @@ const coordinateSchema = z.object({
 });
 
 const uint32Schema = z.number().int().min(0).max(4_294_967_295);
+const candidacyScoreSchema = z.number().int().min(0).max(100);
 
 const controllerStateSchema = z.enum([
   "idle",
@@ -26,7 +27,7 @@ const missionKeySchema = z.object({
 const nodeSchema = z.object({
   assignedNode: z.number().int().min(0).max(15).nullable(),
   bootEpoch: z.number().int().min(1).max(4_294_967_295),
-  candidacyScore: z.number().int().min(0).max(100),
+  candidacyScore: candidacyScoreSchema,
   id: z.number().int().min(0).max(15),
   missionKey: missionKeySchema.nullable(),
   orbitalRadiusMetres: z.number().positive(),
@@ -45,7 +46,7 @@ const missionCommandEventSchema = z.object({
 
 const messageFields = {
   missionKey: missionKeySchema,
-  score: z.number().int().min(0).max(100),
+  score: candidacyScoreSchema,
   sender: z.number().int().min(0).max(15),
 };
 
@@ -178,12 +179,14 @@ const controllerTelemetryEventSchema = z.discriminatedUnion("event", [
     event: z.literal("candidacy-sent"),
     missionKey: missionKeySchema,
     relatedNode: z.number().int().min(0).max(15),
+    value: candidacyScoreSchema,
   }),
   z.object({
     ...controllerTelemetryEventFields,
     event: z.literal("candidacy-accepted"),
     missionKey: missionKeySchema,
     relatedNode: z.number().int().min(0).max(15),
+    value: candidacyScoreSchema,
   }),
   z.object({
     ...controllerTelemetryEventFields,

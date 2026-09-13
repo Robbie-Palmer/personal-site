@@ -19,6 +19,8 @@ void BoundedTelemetryBuffer::erase(uint8_t index) {
 }
 
 bool BoundedTelemetryBuffer::record(TelemetryEvent event) {
+  // Zero is reserved. Failing closed here preserves record identity within a boot without
+  // widening every buffered record on SRAM-constrained targets.
   if (next_sequence_ == 0U) {
     countDrop();
     return false;

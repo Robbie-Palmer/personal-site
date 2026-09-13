@@ -24,6 +24,12 @@ The sequence advances for every attempted record, including a record rejected by
 Consumers can therefore detect a gap. `droppedTelemetryEvents()` exposes the count immediately,
 even when no later record has entered the queue.
 
+Sequence zero is reserved. After record `4,294,967,295`, the buffer stops storing telemetry and
+counts later attempts as drops, up to the saturating drop-counter limit. This preserves unique
+record identities within a boot without widening every record on SRAM-constrained targets.
+Controller coordination and health handling continue after exhaustion; a reboot with a new boot
+epoch starts a new sequence.
+
 ## Admission under pressure
 
 Telemetry has routine, operational, and critical priorities. When the queue is full, an incoming
