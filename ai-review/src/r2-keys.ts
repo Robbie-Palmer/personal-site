@@ -9,10 +9,27 @@ interface PullRequestKeyParts {
   pullRequestNumber: number;
 }
 
+function repositoryKeyPath(repository: string): string {
+  const segments = repository.split("/");
+  if (
+    segments.length !== 2 ||
+    segments.some(
+      (segment) =>
+        segment.length === 0 ||
+        segment.trim() !== segment ||
+        segment === "." ||
+        segment === "..",
+    )
+  ) {
+    throw new TypeError("repository must use the canonical owner/name form");
+  }
+  return repository;
+}
+
 export function findingRecordsPrefix(parts: PullRequestKeyParts): string {
   return [
     "v2",
-    parts.repository,
+    repositoryKeyPath(parts.repository),
     `pr-${parts.pullRequestNumber}`,
     "findings",
   ].join("/");
@@ -55,7 +72,7 @@ export function reviewRunTerminalKey(
 ): string {
   return [
     "v2",
-    parts.repository,
+    repositoryKeyPath(parts.repository),
     `pr-${parts.pullRequestNumber}`,
     parts.headSha,
     parts.instanceId,
