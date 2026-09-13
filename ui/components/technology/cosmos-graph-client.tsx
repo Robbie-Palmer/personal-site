@@ -52,6 +52,7 @@ const NODE_COLORS: Record<string, string> = {
   role: "#a855f7",
   paper: "#ef4444",
   adr: "#64748b",
+  "platform-layer": "#0f766e",
   technology: "#22c55e",
   tag: "#eab308",
 };
@@ -64,6 +65,7 @@ const NODE_TYPE_LABELS: Record<string, string> = {
   role: "Roles",
   paper: "Research papers",
   adr: "ADRs",
+  "platform-layer": "Platform layers",
   technology: "Technologies",
   tag: "Tags",
 };
@@ -72,6 +74,7 @@ const TOP_LABEL_LIMIT = 14;
 const COLLISION_PADDING = 5;
 const FILTER_LAYOUT_DURATION = 650;
 const IGNORE_SELECTION = () => undefined;
+const DEFAULT_HIDDEN_TYPES = new Set<string>();
 
 type SelectedNode = GraphNode & { totalConnections?: number };
 type LabelPosition = { index: number; x: number; y: number };
@@ -606,7 +609,9 @@ export function CosmosGraphClient({ data }: Readonly<{ data: GraphData }>) {
   const isMobile = useMediaQuery("(max-width: 639px)");
   const [explorerOpen, setExplorerOpen] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const [hiddenTypes, setHiddenTypes] = useState<Set<string>>(new Set());
+  const [hiddenTypes, setHiddenTypes] = useState<Set<string>>(
+    () => new Set(DEFAULT_HIDDEN_TYPES),
+  );
   const [minConnections, setMinConnections] = useState(0);
   const [selectedNode, setSelectedNode] = useState<SelectedNode | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -665,7 +670,7 @@ export function CosmosGraphClient({ data }: Readonly<{ data: GraphData }>) {
     explorerOpen ? explorerControlsRef.current : inlineControlsRef.current;
 
   const reset = () => {
-    setHiddenTypes(new Set());
+    setHiddenTypes(new Set(DEFAULT_HIDDEN_TYPES));
     setMinConnections(0);
     setSelectedNode(null);
     setSearchQuery("");

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { extractGraphData } from "@/lib/api/graph-data";
 import type { DomainRepository } from "@/lib/domain";
+import { loadDomainRepository } from "@/lib/repository";
 
 describe("extractGraphData", () => {
   it("skips ADR nodes when project mapping is missing", () => {
@@ -132,5 +133,46 @@ describe("extractGraphData", () => {
     expect(data.edges).not.toContainEqual(
       expect.objectContaining({ target: "idea:missing-idea" }),
     );
+  });
+
+  it("presents platform policy as direct project-layer-technology edges", () => {
+    const data = extractGraphData(loadDomainRepository());
+    const implementationNodePrefixes = [
+      "default-slot:",
+      "layer-extension:",
+      "layer-slot-policy:",
+      "default-selection:",
+      "project-layer-use:",
+      "project-slot-use:",
+    ];
+
+    expect(
+      data.nodes.some((node) =>
+        implementationNodePrefixes.some((prefix) => node.id.startsWith(prefix)),
+      ),
+    ).toBe(false);
+    expect(data.edges).toContainEqual(
+      expect.objectContaining({
+        source: "project:agentic-code-review",
+        target: "platform-layer:observability",
+        type: "USES_PLATFORM_LAYER",
+      }),
+    );
+    expect(data.edges).toContainEqual(
+      expect.objectContaining({
+        source: "platform-layer:backend-api",
+        target: "technology:cloudflare-workers",
+        type: "PREFERS_TECHNOLOGY",
+      }),
+    );
+    expect(
+      data.edges.filter(
+        (edge) =>
+          edge.source ===
+            "adr:personal-engineering-platform:001-language-defaults" &&
+          edge.target === "project:personal-site" &&
+          edge.type === "DRIVEN_BY",
+      ),
+    ).toHaveLength(1);
   });
 });

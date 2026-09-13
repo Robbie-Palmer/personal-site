@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { isValid, parse } from "date-fns";
 import readingTime from "reading-time";
+import { parse as parseYaml } from "yaml";
 import { experiences as definedExperiences } from "../../content/experience";
 import { technologies as definedTechnologies } from "../../content/technologies";
 import { parseFrontmatter } from "../content/frontmatter";
@@ -30,6 +31,13 @@ import {
   InitiativeSchema,
   type InitiativeSlug,
 } from "../domain/initiative/initiative";
+import {
+  type DefaultOverride,
+  DefaultOverrideSchema,
+  type PlatformManifest,
+  PlatformManifestSchema,
+  type ProjectLayerUse,
+} from "../domain/platform/platform";
 import { type PitchDeck, PitchDeckSchema } from "../domain/project/pitchDeck";
 import {
   type Project,
@@ -85,6 +93,11 @@ const PROJECTS_DIR = path.join(CONTENT_DIR, "projects");
 const BUILDING_PHILOSOPHY_PATH = path.join(
   PROJECTS_DIR,
   "building-philosophy.mdx",
+);
+const PLATFORM_MANIFEST_PATH = path.join(
+  PROJECTS_DIR,
+  "personal-engineering-platform",
+  "platform.yaml",
 );
 
 export function loadTechnologies(): Map<TechnologySlug, Technology> {
@@ -493,6 +506,12 @@ export function loadProjects(): ProjectLoadResult {
         .sort((a, b) => a.localeCompare(b, "en"));
       adrFiles.forEach((adrFile) => {
         const adrSlug = adrFile.replace(/\.mdx$/, "");
+        const adrFileContent = fs.readFileSync(
+          path.join(adrsDir, adrFile),
+          "utf-8",
+        );
+        const { data: adrData } = parseFrontmatter(adrFileContent);
+        if (typeof adrData.inherits_from === "string") return;
         adrRefs.push(makeADRRef(projectSlug, adrSlug));
       });
     }
@@ -540,6 +559,30 @@ export function loadProjects(): ProjectLoadResult {
       throw new Error(`Project ${projectSlug} failed validation`);
     }
 
+    const platformLayersValidation =
+      ProjectRelationsSchema.shape.platformLayers.safeParse(
+        (data.platform_layers || []).map((use: Record<string, unknown>) => ({
+          layer: use.layer,
+          adopted: use.adopted,
+          until: use.until,
+          tracking: use.tracking,
+          slots: Array.isArray(use.slots)
+            ? use.slots.map((slot: Record<string, unknown>) => ({
+                slot: slot.slot,
+                adopted: slot.adopted,
+                until: slot.until,
+              }))
+            : [],
+        })),
+      );
+    if (!platformLayersValidation.success) {
+      console.error(
+        `Failed to validate platform layers for ${projectSlug}:`,
+        platformLayersValidation.error,
+      );
+      throw new Error(`Project ${projectSlug} failed validation`);
+    }
+
     const projectRelations: ProjectRelations = {
       technologies,
       ideas: (data.ideas || []).map((idea: string) => normalizeSlug(idea)),
@@ -547,6 +590,7 @@ export function loadProjects(): ProjectLoadResult {
       initiatives: initiativesValidation.data,
       role: data.role ? normalizeSlug(data.role) : undefined,
       tags: data.tags || [],
+      platformLayers: platformLayersValidation.data,
     };
 
     const validation = validateProject(project);
@@ -584,11 +628,13 @@ export function validateProject(
 interface ADRLoadResult {
   entities: Map<ADRRef, ADR>;
   relations: Map<ADRRef, ADRRelations>;
+  aliases: Map<ADRRef, ADRRef>;
 }
 
 export function loadADRs(): ADRLoadResult {
   const entities = new Map<ADRRef, ADR>();
   const relations = new Map<ADRRef, ADRRelations>();
+  const aliases = new Map<ADRRef, ADRRef>();
   const inheritedStubRecords: Array<{
     adrRef: ADRRef;
     slug: string;
@@ -598,7 +644,7 @@ export function loadADRs(): ADRLoadResult {
   }> = [];
 
   if (!fs.existsSync(PROJECTS_DIR)) {
-    return { entities, relations };
+    return { entities, relations, aliases };
   }
   const projectDirs = fs
     .readdirSync(PROJECTS_DIR, { withFileTypes: true })
@@ -642,6 +688,14 @@ export function loadADRs(): ADRLoadResult {
         status: data.status as ADR["status"],
         inheritsFrom: undefined,
         supersedes: data.supersedes as ADRRef | undefined,
+        overridesDefault: data.overrides_default
+          ? DefaultOverrideSchema.parse({
+              slot: data.overrides_default.slot,
+              technology: normalizeSlug(data.overrides_default.technology),
+              adopted: data.overrides_default.adopted,
+              until: data.overrides_default.until,
+            })
+          : undefined,
         content,
         readingTime: readingTime(content).text,
       };
@@ -705,41 +759,10 @@ export function loadADRs(): ADRLoadResult {
       );
     }
 
-    const sourceRelations = relations.get(inheritsFrom);
-    const adr: ADR = {
-      adrRef: record.adrRef,
-      slug: record.slug,
-      projectSlug: record.projectSlug,
-      title:
-        typeof titleOverride === "string"
-          ? titleOverride.trim()
-          : sourceADR.title,
-      date: sourceADR.date,
-      status: sourceADR.status,
-      inheritsFrom,
-      supersedes: record.data.supersedes as ADRRef | undefined,
-      content: record.content,
-      readingTime: readingTime(record.content).text,
-    };
-    const adrRelations: ADRRelations = {
-      project: record.projectSlug,
-      technologies: sourceRelations?.technologies ?? [],
-      ideas: sourceRelations?.ideas ?? [],
-    };
-
-    const validation = validateADR(adr);
-    if (!validation.success) {
-      console.error(
-        `Failed to validate inherited ADR stub ${record.adrRef}:`,
-        validation.schemaErrors,
-      );
-      throw new Error(`ADR ${record.adrRef} failed validation`);
-    }
-    entities.set(record.adrRef, validation.data);
-    relations.set(record.adrRef, adrRelations);
+    aliases.set(record.adrRef, inheritsFrom);
   }
 
-  return { entities, relations };
+  return { entities, relations, aliases };
 }
 
 export function validateADR(adr: unknown): DomainValidationResult<ADR> {
@@ -830,6 +853,60 @@ export function loadBuildingPhilosophy(): string {
   return content;
 }
 
+export function loadPlatformManifest(): PlatformManifest | undefined {
+  if (!fs.existsSync(PLATFORM_MANIFEST_PATH)) return undefined;
+  const fileContent = fs.readFileSync(PLATFORM_MANIFEST_PATH, "utf-8");
+  const parsed = parseYaml(fileContent);
+  const data =
+    parsed && typeof parsed === "object" && !Array.isArray(parsed)
+      ? (parsed as Record<string, unknown>)
+      : {};
+  const records = (value: unknown): Record<string, unknown>[] =>
+    Array.isArray(value) ? (value as Record<string, unknown>[]) : [];
+  const manifest = {
+    project: data.project,
+    layers: records(data.layers).map((layer) => ({
+      ...layer,
+      activatedBy: layer.activated_by
+        ? {
+            ...(layer.activated_by as Record<string, unknown>),
+            technology: normalizeSlug(
+              String(
+                (layer.activated_by as Record<string, unknown>).technology,
+              ),
+            ),
+          }
+        : undefined,
+    })),
+    slots: records(data.slots).map((slot) => ({
+      ...slot,
+      effectiveFrom: slot.effective_from,
+      effectiveUntil: slot.effective_until,
+      noDefaultFrom: slot.no_default_from,
+    })),
+    policies: records(data.policies).map((policy) => ({
+      ...policy,
+      effectiveFrom: policy.effective_from,
+      effectiveUntil: policy.effective_until,
+    })),
+    selections: records(data.selections).map(
+      (selection: Record<string, unknown>) => ({
+        ...selection,
+        technology: normalizeSlug(String(selection.technology)),
+        originProjects: selection.origin_projects ?? [],
+        effectiveFrom: selection.effective_from,
+        effectiveUntil: selection.effective_until,
+      }),
+    ),
+  };
+  const result = PlatformManifestSchema.safeParse(manifest);
+  if (!result.success) {
+    console.error("Failed to validate platform manifest:", result.error);
+    throw new Error("Personal Engineering Platform manifest failed validation");
+  }
+  return result.data;
+}
+
 interface ValidationInput {
   technologies: Map<TechnologySlug, Technology>;
   ideas?: Map<IdeaSlug, Idea>;
@@ -841,6 +918,8 @@ interface ValidationInput {
   projectRelations: Map<ProjectSlug, ProjectRelations>;
   adrRelations: Map<ADRRef, ADRRelations>;
   roleRelations: Map<RoleSlug, RoleRelations>;
+  adrAliases?: Map<ADRRef, ADRRef>;
+  platformManifest?: PlatformManifest;
 }
 
 export function validateReferentialIntegrity(
@@ -1071,6 +1150,162 @@ export function validateReferentialIntegrity(
     });
   });
 
+  input.adrAliases?.forEach((target, alias) => {
+    if (!input.adrs.has(target)) {
+      errors.push({
+        type: "missing_reference",
+        entity: `ADRAlias[${alias}]`,
+        field: "target",
+        value: target,
+        message: `Legacy ADR alias '${alias}' references missing ADR '${target}'`,
+      });
+    }
+  });
+
+  const manifest = input.platformManifest;
+  if (manifest) {
+    const layerSlugs = new Set(manifest.layers.map((layer) => layer.slug));
+    const slotSlugs = new Set(manifest.slots.map((slot) => slot.slug));
+    if (!input.projects.has(manifest.project)) {
+      errors.push({
+        type: "missing_reference",
+        entity: "PlatformManifest",
+        field: "project",
+        value: manifest.project,
+        message: `Platform project '${manifest.project}' does not exist`,
+      });
+    }
+    for (const decision of [
+      ...manifest.policies.map((record) => record.decision),
+      ...manifest.selections.map((record) => record.decision),
+    ]) {
+      if (!input.adrs.has(decision)) {
+        errors.push({
+          type: "missing_reference",
+          entity: "PlatformManifest",
+          field: "decision",
+          value: decision,
+          message: `Platform record references missing ADR '${decision}'`,
+        });
+      }
+    }
+    for (const selection of manifest.selections) {
+      checkTech(
+        selection.technology,
+        `DefaultSelection[${selection.id}]`,
+        "technology",
+      );
+      for (const projectSlug of selection.originProjects) {
+        if (!input.projects.has(projectSlug)) {
+          errors.push({
+            type: "missing_reference",
+            entity: `DefaultSelection[${selection.id}]`,
+            field: "originProjects",
+            value: projectSlug,
+            message: `Selection '${selection.id}' references missing origin project '${projectSlug}'`,
+          });
+        }
+      }
+    }
+    for (const layer of manifest.layers) {
+      if (layer.activatedBy) {
+        checkTech(
+          layer.activatedBy.technology,
+          `PlatformLayer[${layer.slug}]`,
+          "activatedBy.technology",
+        );
+      }
+    }
+    input.projectRelations.forEach((relations, projectSlug) => {
+      if ((relations.platformLayers?.length ?? 0) > 0 && relations.role) {
+        errors.push({
+          type: "invalid_reference",
+          entity: `Project[${projectSlug}]`,
+          field: "platformLayers",
+          value: relations.role,
+          message: `Organisation-governed project '${projectSlug}' cannot adopt the personal platform`,
+        });
+      }
+      for (const use of relations.platformLayers ?? []) {
+        if (!layerSlugs.has(use.layer)) {
+          errors.push({
+            type: "missing_reference",
+            entity: `Project[${projectSlug}]`,
+            field: "platformLayers",
+            value: use.layer,
+            message: `Project '${projectSlug}' references missing platform layer '${use.layer}'`,
+          });
+        }
+        if (
+          input.projects.get(projectSlug)?.status === "completed" &&
+          use.tracking
+        ) {
+          errors.push({
+            type: "invalid_reference",
+            entity: `Project[${projectSlug}]`,
+            field: "platformLayers",
+            value: use.layer,
+            message: `Completed project '${projectSlug}' cannot track current platform defaults`,
+          });
+        }
+        for (const slotUse of use.slots) {
+          if (!slotSlugs.has(slotUse.slot)) {
+            errors.push({
+              type: "missing_reference",
+              entity: `Project[${projectSlug}]`,
+              field: "platformLayers.slots",
+              value: slotUse.slot,
+              message: `Project '${projectSlug}' references missing default slot '${slotUse.slot}'`,
+            });
+          }
+          if (
+            !manifest.policies.some(
+              (policy) =>
+                policy.layer === use.layer && policy.slot === slotUse.slot,
+            )
+          ) {
+            errors.push({
+              type: "invalid_reference",
+              entity: `Project[${projectSlug}]`,
+              field: "platformLayers.slots",
+              value: slotUse.slot,
+              message: `Project '${projectSlug}' activates slot '${slotUse.slot}' outside layer '${use.layer}'`,
+            });
+          }
+        }
+      }
+    });
+    input.adrs.forEach((adr, adrRef) => {
+      const override = adr.overridesDefault;
+      if (!override) return;
+      if (!slotSlugs.has(override.slot)) {
+        errors.push({
+          type: "missing_reference",
+          entity: `ADR[${adrRef}]`,
+          field: "overridesDefault",
+          value: override.slot,
+          message: `ADR '${adrRef}' overrides missing slot '${override.slot}'`,
+        });
+      }
+      checkTech(override.technology, `ADR[${adrRef}]`, "overridesDefault");
+      const owningLayers = manifest.policies
+        .filter((policy) => policy.slot === override.slot)
+        .map((policy) => policy.layer);
+      const projectLayers = input.projectRelations.get(
+        adr.projectSlug,
+      )?.platformLayers;
+      if (!projectLayers?.some((use) => owningLayers.includes(use.layer))) {
+        errors.push({
+          type: "invalid_reference",
+          entity: `ADR[${adrRef}]`,
+          field: "overridesDefault",
+          value: override.slot,
+          message: `ADR '${adrRef}' cannot override a slot from a layer the project has not adopted`,
+        });
+      }
+    });
+  }
+
   return errors;
 }
 
@@ -1081,10 +1316,16 @@ export interface DomainRepository {
   blogs: Map<BlogSlug, BlogPost>;
   projects: Map<ProjectSlug, Project>;
   adrs: Map<ADRRef, ADR>;
+  adrAliases: Map<ADRRef, ADRRef>;
   roles: Map<RoleSlug, JobRole>;
   graph: ContentGraph;
   buildingPhilosophy: string;
   referentialIntegrityErrors: ReferentialIntegrityError[];
+  platform: {
+    manifest?: PlatformManifest;
+    projectLayerUses: Map<ProjectSlug, ProjectLayerUse[]>;
+    adrOverrides: Map<ADRRef, DefaultOverride>;
+  };
 }
 
 interface LoaderResults {
@@ -1154,6 +1395,7 @@ function buildDomainRepository(): DomainRepository {
   const projectsResult = loadProjects();
   const adrsResult = loadADRs();
   const rolesResult = loadJobRoles();
+  const platformManifest = loadPlatformManifest();
   const buildingPhilosophy = loadBuildingPhilosophy();
 
   const referentialIntegrityErrors = validateReferentialIntegrity({
@@ -1167,6 +1409,8 @@ function buildDomainRepository(): DomainRepository {
     projectRelations: projectsResult.relations,
     adrRelations: adrsResult.relations,
     roleRelations: rolesResult.relations,
+    adrAliases: adrsResult.aliases,
+    platformManifest,
   });
 
   if (referentialIntegrityErrors.length > 0) {
@@ -1192,6 +1436,20 @@ function buildDomainRepository(): DomainRepository {
   for (const [slug, technology] of technologies) {
     relations.technologyIdeas.set(slug, technology.ideas);
   }
+  relations.platformManifest = platformManifest;
+  for (const [projectSlug, projectRelations] of projectsResult.relations) {
+    if ((projectRelations.platformLayers?.length ?? 0) > 0) {
+      relations.projectLayerUses.set(
+        projectSlug,
+        projectRelations.platformLayers ?? [],
+      );
+    }
+  }
+  for (const [adrRef, adr] of adrsResult.entities) {
+    if (adr.overridesDefault) {
+      relations.adrOverridesDefault.set(adrRef, adr.overridesDefault);
+    }
+  }
   const graph = buildContentGraph({
     technologySlugs: technologies.keys(),
     projectSlugs: projectsResult.entities.keys(),
@@ -1207,10 +1465,16 @@ function buildDomainRepository(): DomainRepository {
     blogs: blogsResult.entities,
     projects: projectsResult.entities,
     adrs: adrsResult.entities,
+    adrAliases: adrsResult.aliases,
     roles: rolesResult.entities,
     graph,
     buildingPhilosophy,
     referentialIntegrityErrors,
+    platform: {
+      manifest: platformManifest,
+      projectLayerUses: relations.projectLayerUses,
+      adrOverrides: relations.adrOverridesDefault,
+    },
   };
 }
 

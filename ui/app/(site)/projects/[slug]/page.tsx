@@ -9,6 +9,8 @@ import { ADRList } from "@/components/projects/adr-list";
 import { DesignEmbed } from "@/components/projects/design-embed";
 import { EmbeddedPitchDeckContent } from "@/components/projects/pitch-deck/embedded-pitch-deck-content";
 import { LazyProjectPitchDeck } from "@/components/projects/pitch-deck/lazy-project-pitch-deck";
+import { PlatformManifest } from "@/components/projects/platform-manifest";
+import { PlatformSummary } from "@/components/projects/platform-summary";
 import {
   InitiativeProjectNavigation,
   ProjectInitiativeContext,
@@ -127,6 +129,10 @@ export default async function ProjectPage({ params }: Readonly<PageProps>) {
                 }))}
               />
             </div>
+            <PlatformSummary
+              builtOn={project.builtOn ?? []}
+              platformTechnologies={project.platformTechnologies ?? []}
+            />
           </div>
 
           <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
@@ -201,6 +207,10 @@ export default async function ProjectPage({ params }: Readonly<PageProps>) {
         </div>
 
         <Separator className="my-8" />
+
+        {project.platformManifest && (
+          <PlatformManifest manifest={project.platformManifest} />
+        )}
 
         {/* Content Tabs */}
         {project.pitch || project.adrs.length > 0 ? (

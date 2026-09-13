@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { DefaultOverrideSchema } from "../platform/platform";
 import type { ADRRef, ADRSlug, ProjectSlug } from "../slugs";
 import {
   ADRRefSchema,
@@ -55,6 +56,7 @@ export const ADRSchema = z.object({
   status: ADRStatusSchema,
   inheritsFrom: ADRRefSchema.optional(),
   supersedes: ADRRefSchema.optional(),
+  overridesDefault: DefaultOverrideSchema.optional(),
   content: z.string(),
   readingTime: z.string(),
 });

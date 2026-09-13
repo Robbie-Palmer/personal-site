@@ -16,6 +16,7 @@ import { Separator } from "@/components/ui/separator";
 import { getIdeasForADR } from "@/lib/api/ideas";
 import {
   type ADRDetailView,
+  getAllLegacyADRPaths,
   getAllProjects,
   getProject,
   getProjectADR,
@@ -51,12 +52,19 @@ interface PageProps {
 
 export async function generateStaticParams() {
   const projects = getAllProjects();
-  return projects.flatMap((project) =>
+  const projectADRs = projects.flatMap((project) =>
     project.adrs.map((adr) => ({
       slug: project.slug,
       adrSlug: adr.slug,
     })),
   );
+  return [
+    ...projectADRs,
+    ...getAllLegacyADRPaths().map(({ projectSlug, adrSlug }) => ({
+      slug: projectSlug,
+      adrSlug,
+    })),
+  ];
 }
 
 export async function generateMetadata({ params }: PageProps) {
@@ -64,9 +72,12 @@ export async function generateMetadata({ params }: PageProps) {
   try {
     const project = getProject(slug);
     const adr = getProjectADR(slug, adrSlug);
+    const canonicalPath = `/projects/${adr.projectSlug}/adrs/${adr.slug}`;
     return {
       title: `${adr.title} - ${project.title} - ADR`,
       description: `Architecture Decision Record for ${project.title}: ${adr.title}`,
+      alternates:
+        adr.projectSlug === slug ? undefined : { canonical: canonicalPath },
     };
   } catch (_e) {
     return {
@@ -95,10 +106,14 @@ export default async function ADRPage({ params }: Readonly<PageProps>) {
   const currentIndex = project.adrs.findIndex((a) => a.adrRef === adr.adrRef);
   const prevAdr = currentIndex > 0 ? project.adrs[currentIndex - 1] : undefined;
   const nextAdr =
-    currentIndex < project.adrs.length - 1
+    currentIndex >= 0 && currentIndex < project.adrs.length - 1
       ? project.adrs[currentIndex + 1]
       : undefined;
-  const displayIndex = formatADRIndex(currentIndex >= 0 ? currentIndex : 0);
+  const requestedIndex = Number.parseInt(adrSlug.match(/^\d+/)?.[0] ?? "0", 10);
+  const displayIndex =
+    currentIndex >= 0
+      ? formatADRIndex(currentIndex)
+      : formatADRIndex(requestedIndex);
   const displayTitle = normalizeADRTitle(adr.title);
   const ideas = getIdeasForADR(adr.adrRef);
   const supersedesRef = adr.supersedes ? parseADRRef(adr.supersedes) : null;
@@ -193,7 +208,7 @@ export default async function ADRPage({ params }: Readonly<PageProps>) {
               prevIndex={currentIndex > 0 ? currentIndex - 1 : undefined}
               nextAdr={nextAdr}
               nextIndex={
-                currentIndex < project.adrs.length - 1
+                currentIndex >= 0 && currentIndex < project.adrs.length - 1
                   ? currentIndex + 1
                   : undefined
               }
@@ -201,6 +216,21 @@ export default async function ADRPage({ params }: Readonly<PageProps>) {
               className={PAGINATION_CONTAINER_CLASSES}
             />
           </div>
+
+          {adr.projectSlug !== slug && (
+            <div className="rounded-lg border border-sky-200 bg-sky-50 p-4 dark:border-sky-900 dark:bg-sky-950/30">
+              <p className="text-sm text-sky-900 dark:text-sky-100">
+                This legacy URL now resolves to{" "}
+                <Link
+                  href={`/projects/${adr.projectSlug}/adrs/${adr.slug}`}
+                  className="font-semibold underline underline-offset-4"
+                >
+                  the canonical ADR
+                </Link>
+                .
+              </p>
+            </div>
+          )}
 
           {adr.isInherited && (
             <div className="bg-sky-50 dark:bg-sky-950/30 border border-sky-200 dark:border-sky-900 rounded-lg p-4">

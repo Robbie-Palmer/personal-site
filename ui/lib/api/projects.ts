@@ -10,6 +10,7 @@ import {
   type ProjectStatus,
   type ProjectWithADRsView,
 } from "@/lib/domain";
+import { parseADRRef } from "@/lib/domain/adr/adr";
 
 const repository = loadDomainRepository();
 
@@ -34,6 +35,15 @@ export interface ProjectADR extends ADRCardView {
 
 export function getAllProjectSlugs(): string[] {
   return Array.from(repository.projects.keys());
+}
+
+export function getAllLegacyADRPaths(): Array<{
+  projectSlug: string;
+  adrSlug: string;
+}> {
+  return Array.from(repository.adrAliases.keys()).map((ref) =>
+    parseADRRef(ref),
+  );
 }
 
 export function getProject(slug: string): ProjectWithADRs {

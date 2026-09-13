@@ -100,6 +100,18 @@ function projectFacts(project: ProjectWithADRs): [string, string][] {
       project.technologies.map((tech) => tech.name).join(", "),
     ]);
   }
+  if ((project.builtOn?.length ?? 0) > 0) {
+    facts.push([
+      "Built on",
+      project.builtOn?.map((layer) => layer.title).join(", ") ?? "",
+    ]);
+    facts.push([
+      "Platform technologies",
+      (project.platformTechnologies ?? [])
+        .map((technology) => technology.name)
+        .join(", "),
+    ]);
+  }
   const ideas = getIdeasForProject(project.slug);
   if (ideas.length > 0) {
     facts.push([

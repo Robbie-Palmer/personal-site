@@ -228,15 +228,13 @@ describe("agent markdown generation", () => {
     }
   });
 
-  it("renders inherited ADR notes once", () => {
-    const inheritedAdr = read(
+  it("renders migrated project ADRs as local records", () => {
+    const localAdr = read(
       "projects/agent-friendly-remote-development/adrs/001-nixos-host.md",
     );
-    expect(inheritedAdr).toContain("## Source summary");
-    expect(inheritedAdr).toContain(
-      "## Notes for Agent-friendly Remote Development",
-    );
-    expect(inheritedAdr.match(/# Project-specific context/g)).toHaveLength(1);
+    expect(localAdr).not.toContain("## Source summary");
+    expect(localAdr).not.toContain("Inherited from project");
+    expect(localAdr.match(/# Project-specific context/g)).toHaveLength(1);
   });
 
   it("advertises markdown alternates for entry pages in _headers", () => {

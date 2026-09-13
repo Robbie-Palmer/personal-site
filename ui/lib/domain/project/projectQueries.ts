@@ -10,6 +10,7 @@ import {
 } from "@/lib/repository";
 import { parseADRRef } from "../adr/adr";
 import { getADRsForProject } from "../adr/adrQueries";
+import { resolveEffectiveProjectStack } from "../platform/platformQueries";
 import type { RoleSlug } from "../role/jobRole";
 import type { RoleListItemView } from "../role/roleViews";
 import { toRoleListItemView } from "../role/roleViews";
@@ -119,7 +120,21 @@ export function getProjectsUsingTechnology(
     technologySlug,
   );
 
-  return projectSlugs
+  const matchingSlugs = new Set(projectSlugs);
+  for (const project of repository.projects.keys()) {
+    const stack = resolveEffectiveProjectStack(repository, project);
+    if (
+      stack.technologies.some(
+        (use) =>
+          use.source !== "project-specific" &&
+          use.technology === technologySlug,
+      )
+    ) {
+      matchingSlugs.add(project);
+    }
+  }
+
+  return Array.from(matchingSlugs)
     .map((slug) => repository.projects.get(slug))
     .filter(
       (project): project is NonNullable<typeof project> =>
@@ -178,6 +193,72 @@ export function getProjectWithADRs(
   const adrSlugs = getADRSlugsForProject(repository.graph, slug);
   const role = getRoleView(repository, slug);
   const tags = Array.from(getTagsForProject(repository.graph, slug));
+  const manifest = repository.platform.manifest;
+  const stack = resolveEffectiveProjectStack(repository, slug);
+  const layerUses = repository.platform.projectLayerUses.get(slug) ?? [];
+  const builtOn = stack.layers.map((layerSlug) => ({
+    slug: layerSlug,
+    title:
+      manifest?.layers.find((layer) => layer.slug === layerSlug)?.title ??
+      layerSlug,
+    adopted:
+      layerUses.find((use) => use.layer === layerSlug)?.adopted ?? stack.at,
+    until: layerUses.find((use) => use.layer === layerSlug)?.until,
+    tracking:
+      layerUses.find((use) => use.layer === layerSlug)?.tracking ?? true,
+  }));
+  const platformTechnologies = stack.technologies
+    .filter(
+      (
+        use,
+      ): use is typeof use & {
+        source: Exclude<typeof use.source, "project-specific">;
+      } => use.source !== "project-specific",
+    )
+    .flatMap((use) => {
+      const [technology] = resolveTechnologiesToBadgeViews(repository, [
+        use.technology,
+      ]);
+      return technology
+        ? [
+            {
+              ...technology,
+              source: use.source,
+              layer: use.layer,
+              slot: use.slot,
+              decision: use.decision,
+            },
+          ]
+        : [];
+    });
+  const platformManifest =
+    manifest?.project === slug
+      ? {
+          layers: manifest.layers,
+          policies: manifest.policies,
+          slots: manifest.slots.map((slot) => ({
+            ...slot,
+            selections: manifest.selections.filter(
+              (selection) => selection.slot === slot.slug,
+            ),
+            users: Array.from(
+              new Set(
+                manifest.policies
+                  .filter((policy) => policy.slot === slot.slug)
+                  .flatMap((policy) =>
+                    Array.from(
+                      repository.graph.reverse.layerUsers.get(policy.layer) ??
+                        [],
+                    ),
+                  ),
+              ),
+            ),
+            overrides: Array.from(
+              repository.graph.reverse.slotOverrides.get(slot.slug) ?? [],
+            ),
+          })),
+        }
+      : undefined;
 
   return {
     slug: project.slug,
@@ -198,6 +279,9 @@ export function getProjectWithADRs(
     adrs,
     role,
     tags,
+    builtOn,
+    platformTechnologies,
+    platformManifest,
   };
 }
 

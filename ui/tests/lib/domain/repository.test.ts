@@ -378,7 +378,7 @@ We decided to use React.`;
       );
     });
 
-    it("should derive inherited ADR stub content from source ADR", () => {
+    it("should turn an inherited ADR stub into a legacy alias", () => {
       const sourceADR = `---
 title: "ADR 002: React"
 date: "2025-10-18"
@@ -416,17 +416,14 @@ Recipe-site note: this is adopted as-is for now.
       });
 
       const result = loadADRs();
-      const inherited = result.entities.get("recipe-site:000-react");
-      expect(inherited).toBeDefined();
-      expect(inherited?.inheritsFrom).toBe("personal-site:002-react");
-      expect(inherited?.title).toBe("ADR 002: React");
-      expect(inherited?.content).toContain("Recipe-site note:");
-      expect(
-        result.relations.get("recipe-site:000-react")?.technologies,
-      ).toEqual(["react"]);
+      expect(result.entities.has("recipe-site:000-react")).toBe(false);
+      expect(result.relations.has("recipe-site:000-react")).toBe(false);
+      expect(result.aliases.get("recipe-site:000-react")).toBe(
+        "personal-site:002-react",
+      );
     });
 
-    it("should allow an inherited ADR to override its local display title", () => {
+    it("should ignore a legacy alias display title", () => {
       const sourceADR = `---
 title: "ADR 049: Cloudflare Workflows for Source Domain"
 date: "2026-07-08"
@@ -463,14 +460,12 @@ Project-specific orchestration notes.`;
       });
 
       const result = loadADRs();
-      const inherited = result.entities.get("target:014-cloudflare-workflows");
-
-      expect(inherited?.title).toBe("Cloudflare Workflows");
-      expect(inherited?.status).toBe("Accepted");
-      expect(inherited?.inheritsFrom).toBe("source:049-cloudflare-workflows");
-      expect(
-        result.relations.get("target:014-cloudflare-workflows")?.technologies,
-      ).toEqual(["cloudflare-workflows"]);
+      expect(result.entities.has("target:014-cloudflare-workflows")).toBe(
+        false,
+      );
+      expect(result.aliases.get("target:014-cloudflare-workflows")).toBe(
+        "source:049-cloudflare-workflows",
+      );
     });
 
     it.each([

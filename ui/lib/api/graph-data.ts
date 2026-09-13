@@ -1,5 +1,9 @@
 import type { DomainRepository } from "@/lib/domain";
 import { normalizeADRTitle, parseADRRef } from "@/lib/domain/adr/adr";
+import {
+  isEffectiveAt,
+  resolveEffectiveProjectStack,
+} from "@/lib/domain/platform";
 import type { NodeType } from "@/lib/repository/graph";
 
 export const NON_NAVIGABLE_HREF = "#";
@@ -16,6 +20,20 @@ export interface GraphEdge {
   source: string;
   target: string;
   type: string;
+  provenance?: {
+    layer?: string;
+    slot?: string;
+    policy?: string;
+    selection?: string;
+    decision?: string;
+    mode?: "required" | "preferred";
+    status?: string;
+    effectiveFrom?: string;
+    effectiveUntil?: string;
+    adopted?: string;
+    until?: string;
+    tracking?: boolean;
+  };
 }
 
 export interface GraphData {
@@ -38,8 +56,14 @@ function addEdge(
   source: string,
   target: string,
   type: string,
+  provenance?: GraphEdge["provenance"],
 ): void {
-  state.edges.push({ source, target, type });
+  state.edges.push({
+    source,
+    target,
+    type,
+    ...(provenance ? { provenance } : {}),
+  });
   addConnection(state, source);
   addConnection(state, target);
 }
@@ -133,6 +157,23 @@ function addResearchPaperNodes(
   }
 }
 
+function addPlatformNodes(
+  repository: DomainRepository,
+  state: GraphBuildState,
+): void {
+  const manifest = repository.platform?.manifest;
+  if (!manifest) return;
+  for (const layer of manifest.layers) {
+    state.nodes.push({
+      id: `platform-layer:${layer.slug}`,
+      name: layer.title,
+      type: "platform-layer",
+      href: `/projects/${manifest.project}#layer-${layer.slug}`,
+      connections: 0,
+    });
+  }
+}
+
 function addTechnologyAndTagNodes(
   repository: DomainRepository,
   state: GraphBuildState,
@@ -140,7 +181,15 @@ function addTechnologyAndTagNodes(
   const connectedTechs = new Set<string>();
   for (const [techSlug, usedBy] of repository.graph.reverse.technologyUsedBy) {
     const ideas = repository.graph.edges.technologyIdeas.get(techSlug);
-    if (usedBy.size === 0 && (!ideas || ideas.size === 0)) continue;
+    const selectedByPlatform = repository.platform?.manifest?.selections.some(
+      (selection) => selection.technology === techSlug,
+    );
+    if (
+      usedBy.size === 0 &&
+      (!ideas || ideas.size === 0) &&
+      !selectedByPlatform
+    )
+      continue;
     const tech = repository.technologies.get(techSlug);
     if (!tech) continue;
     connectedTechs.add(techSlug);
@@ -309,6 +358,86 @@ function addRelationshipEdges(
   addIdeaEdges(repository, state);
 }
 
+function addPlatformEdges(
+  repository: DomainRepository,
+  state: GraphBuildState,
+): void {
+  const manifest = repository.platform?.manifest;
+  if (!manifest) return;
+  for (const layer of manifest.layers) {
+    addEdge(
+      state,
+      `project:${manifest.project}`,
+      `platform-layer:${layer.slug}`,
+      "OWNS_LAYER",
+    );
+  }
+  const instant = new Date().toISOString();
+  for (const policy of manifest.policies) {
+    if (!isEffectiveAt(policy, instant)) continue;
+    const selection = manifest.selections.find(
+      (candidate) =>
+        candidate.slot === policy.slot &&
+        candidate.status === "Accepted" &&
+        isEffectiveAt(candidate, instant),
+    );
+    if (!selection) continue;
+    addEdge(
+      state,
+      `platform-layer:${policy.layer}`,
+      `technology:${selection.technology}`,
+      policy.mode === "required" ? "REQUIRES_TECHNOLOGY" : "PREFERS_TECHNOLOGY",
+      {
+        layer: policy.layer,
+        slot: policy.slot,
+        policy: policy.id,
+        selection: selection.id,
+        decision: selection.decision,
+        mode: policy.mode,
+        status: selection.status,
+        effectiveFrom: selection.effectiveFrom,
+        effectiveUntil: selection.effectiveUntil,
+      },
+    );
+  }
+  const linkedProjects = new Set<string>();
+  for (const selection of manifest.selections) {
+    for (const project of selection.originProjects) {
+      const edgeKey = `${selection.decision}:${project}`;
+      if (linkedProjects.has(edgeKey)) continue;
+      linkedProjects.add(edgeKey);
+      addEdge(
+        state,
+        `adr:${selection.decision}`,
+        `project:${project}`,
+        "DRIVEN_BY",
+      );
+    }
+  }
+  for (const project of repository.platform.projectLayerUses.keys()) {
+    const stack = resolveEffectiveProjectStack(repository, project);
+    for (const layer of stack.layers) {
+      const use = repository.platform.projectLayerUses
+        .get(project)
+        ?.find((candidate) => candidate.layer === layer);
+      addEdge(
+        state,
+        `project:${project}`,
+        `platform-layer:${layer}`,
+        "USES_PLATFORM_LAYER",
+        use
+          ? {
+              layer,
+              adopted: use.adopted,
+              until: use.until,
+              tracking: use.tracking,
+            }
+          : { layer },
+      );
+    }
+  }
+}
+
 function addTagEdges(
   repository: DomainRepository,
   state: GraphBuildState,
@@ -329,9 +458,11 @@ export function extractGraphData(repository: DomainRepository): GraphData {
   addContentNodes(repository, state);
   addResearchPaperNodes(repository, state);
   addAdrNodes(repository, state);
+  addPlatformNodes(repository, state);
   const connectedTechs = addTechnologyAndTagNodes(repository, state);
   addTechnologyEdges(repository, state, connectedTechs);
   addRelationshipEdges(repository, state);
+  addPlatformEdges(repository, state);
   addTagEdges(repository, state);
 
   for (const node of state.nodes) {
