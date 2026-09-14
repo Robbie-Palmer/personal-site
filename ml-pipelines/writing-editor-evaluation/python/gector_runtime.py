@@ -261,6 +261,23 @@ def edit_action(index: int, label: str, probability: float) -> tuple[int, int, s
     raise ValueError(msg)
 
 
+def record_prediction(
+    sequence_id: int,
+    corrected: list[str],
+    final: list[list[str]],
+    histories: list[list[list[str]]],
+    updates: list[int],
+) -> bool:
+    if corrected == final[sequence_id]:
+        return False
+    final[sequence_id] = corrected
+    updates[sequence_id] += 1
+    if corrected in histories[sequence_id]:
+        return False
+    histories[sequence_id].append(corrected.copy())
+    return True
+
+
 class GectorModel:
     def __init__(self, model_directory: Path, parameters: InferenceParameters) -> None:
         if not torch.cuda.is_available():
@@ -443,12 +460,7 @@ class GectorModel:
                 batch = [final[index] for index in ids]
                 prediction = self._postprocess(batch, *self._predict(batch))
                 for sequence_id, corrected in zip(ids, prediction, strict=True):
-                    if corrected == final[sequence_id]:
-                        continue
-                    final[sequence_id] = corrected
-                    updates[sequence_id] += 1
-                    if corrected not in histories[sequence_id]:
-                        histories[sequence_id].append(corrected.copy())
+                    if record_prediction(sequence_id, corrected, final, histories, updates):
                         next_active.append(sequence_id)
             active = next_active
         return final, updates
@@ -714,6 +726,12 @@ def parse_parameters(params: dict[str, Any]) -> InferenceParameters:
     )
 
 
+def write_result(output_path: Path, result: dict[str, Any]) -> None:
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    serialized = json.dumps(result, sort_keys=True, separators=(",", ":"))
+    output_path.write_text(f"{serialized}\n", encoding="utf-8")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -724,13 +742,10 @@ def main() -> None:
     args = parser.parse_args()
     if args.mode == "runtime-smoke":
         job = read_json(RUNTIME_SMOKE_JOB)
-        output_path = RUNTIME_SMOKE_OUTPUT
     elif args.mode == "adapter-smoke":
         job = frozen_job(ADAPTER_SMOKE_ARTIFACT)
-        output_path = ADAPTER_SMOKE_OUTPUT
     else:
         job = frozen_job()
-        output_path = COHORT_OUTPUT
     result = run_job(
         job,
         MODEL_DIRECTORY,
@@ -742,9 +757,11 @@ def main() -> None:
         if len(result["artifacts"]) != 1 or result["artifacts"][0]["generatedText"] != expected:
             msg = "smoke output does not match the pinned expected correction"
             raise RuntimeError(msg)
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    serialized = json.dumps(result, sort_keys=True, separators=(",", ":"))
-    output_path.write_text(f"{serialized}\n", encoding="utf-8")
+        write_result(RUNTIME_SMOKE_OUTPUT, result)
+    elif args.mode == "adapter-smoke":
+        write_result(ADAPTER_SMOKE_OUTPUT, result)
+    else:
+        write_result(COHORT_OUTPUT, result)
     print(f"Ran GECToR over {len(result['artifacts'])} artifact(s) on CUDA")
 
 

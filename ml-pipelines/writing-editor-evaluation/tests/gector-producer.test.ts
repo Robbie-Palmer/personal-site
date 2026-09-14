@@ -219,5 +219,21 @@ describe("GECToR producer", () => {
     );
     expect(fs.readFileSync(path.join(outputDirectory, "generated/example.md"), "utf8"))
       .toBe("Café is useful.\n");
+
+    const repeatedLine = structuredClone(result);
+    repeatedLine.artifacts[0]!.generated.correctedLines = [1, 1];
+    expect(GectorProducerRunSchema.safeParse(repeatedLine).success).toBe(false);
+
+    const missingSuggestionId = structuredClone(result);
+    missingSuggestionId.artifacts[0]!.suggestionIds = [];
+    expect(GectorProducerRunSchema.safeParse(missingSuggestionId).success).toBe(false);
+
+    const missingProposalId = structuredClone(result);
+    missingProposalId.artifacts[0]!.proposalIds = [];
+    expect(GectorProducerRunSchema.safeParse(missingProposalId).success).toBe(false);
+
+    const wrongSummary = structuredClone(result);
+    wrongSummary.summary.suggestions += 1;
+    expect(GectorProducerRunSchema.safeParse(wrongSummary).success).toBe(false);
   });
 });
