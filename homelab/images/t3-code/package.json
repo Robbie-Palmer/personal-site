@@ -4,7 +4,7 @@
   "dependencies": {
     "@anthropic-ai/claude-code": "2.1.263",
     "@openai/codex": "0.153.4",
-    "@xai-official/grok": "1.0.22",
+    "@xai-official/grok": "1.0.23",
     "opencode-ai": "1.18.29",
     "pnpm": "12.4.1",
     "t3": "0.0.39"
