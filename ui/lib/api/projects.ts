@@ -69,7 +69,6 @@ export function getAllProjectAliasADRPaths(): Array<{
   alias: string;
   target: string;
   adrSlug: string;
-  lastModified: string;
 }> {
   const legacyADRPaths = getAllLegacyADRPaths();
   return getAllProjectAliases().flatMap(({ alias, target }) => {
@@ -80,12 +79,7 @@ export function getAllProjectAliasADRPaths(): Array<{
         .filter(({ projectSlug }) => projectSlug === target)
         .map(({ adrSlug }) => adrSlug),
     ]);
-    return Array.from(adrSlugs, (adrSlug) => ({
-      alias,
-      target,
-      adrSlug,
-      lastModified: getProjectADR(target, adrSlug).date,
-    }));
+    return Array.from(adrSlugs, (adrSlug) => ({ alias, target, adrSlug }));
   });
 }
 

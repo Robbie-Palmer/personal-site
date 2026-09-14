@@ -442,7 +442,11 @@ function buildProjectAliasPages(
 ): GeneratedPage[] {
   return getAllProjectAliases().flatMap(({ alias, target }) => {
     const project = projects.find(({ slug }) => slug === target);
-    if (!project) return [];
+    if (!project) {
+      throw new Error(
+        `Project alias '${alias}' references missing project '${target}'`,
+      );
+    }
     const canonicalProjectUrl = markdownUrl(
       routePath("projects", project.slug),
     );

@@ -47,20 +47,14 @@ describe("sitemap", () => {
     );
   });
 
-  it("includes project aliases and their ADR paths", () => {
-    const entries = sitemap();
+  it("excludes project aliases and their ADR paths", () => {
+    const urls = sitemap().map((entry) => entry.url);
 
-    expect(entries).toContainEqual(
-      expect.objectContaining({
-        url: "https://robbiepalmer.me/projects/personal-site",
-        priority: 0.1,
-      }),
+    expect(urls).not.toContain(
+      "https://robbiepalmer.me/projects/personal-site",
     );
-    expect(entries).toContainEqual(
-      expect.objectContaining({
-        url: "https://robbiepalmer.me/projects/personal-site/adrs/048-sonarqube",
-        priority: 0.1,
-      }),
+    expect(urls).not.toContain(
+      "https://robbiepalmer.me/projects/personal-site/adrs/048-sonarqube",
     );
   });
 });

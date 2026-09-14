@@ -1,10 +1,14 @@
 import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
+import { getAllProjectAliases } from "@/lib/api/projects";
 
 const OUT_DIR = path.resolve(__dirname, "../../out");
 const SITEMAP_PATH = path.join(OUT_DIR, "sitemap.xml");
 const SITE_URL = "https://robbiepalmer.me";
+const PROJECT_ALIAS_PATHS = getAllProjectAliases().map(
+  ({ alias }) => `projects/${alias}`,
+);
 
 // Subdomain projects that have their own routing and should not be in main sitemap
 const SUBDOMAIN_PROJECTS = new Set(["assettracker"]);
@@ -70,6 +74,15 @@ describe("Sitemap Integration Test", () => {
         return;
       }
       if (NOINDEX_PAGES.has(fileNameWithoutExt)) {
+        return;
+      }
+      if (
+        PROJECT_ALIAS_PATHS.some(
+          (aliasPath) =>
+            fileNameWithoutExt === aliasPath ||
+            fileNameWithoutExt.startsWith(`${aliasPath}/`),
+        )
+      ) {
         return;
       }
       if (fileNameWithoutExt.endsWith("/deck/presenter")) {

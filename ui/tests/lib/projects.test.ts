@@ -47,7 +47,6 @@ describe("Projects functions", () => {
         alias: "personal-site",
         target: "personal-knowledge-graph",
         adrSlug: "048-sonarqube",
-        lastModified: "2026-06-26",
       });
     });
 
