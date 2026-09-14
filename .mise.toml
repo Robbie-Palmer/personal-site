@@ -20,6 +20,7 @@ config_roots = [
     "packages/observability",
     "packages/recipe-parsing",
     "packages/ts-base",
+    "packages/work-graph-db",
     "packages/work-graph-domain",
     "packages/writing-editor-domain",
     "ai-review",
@@ -53,7 +54,7 @@ MISE_EXPERIMENTAL = "1"
 # Root-level tasks for repo-wide tooling
 [tasks.lint]
 description = "Lint all files across the entire repo"
-depends = ["//:lint:markdown", "//:lint:mdx", "//:lint:yaml", "//:lint:typos", "//:lint:knip", "//:lint:actions", "//:lint:api", "//:lint:prose", "//packages/ai-review-domain:check", "//packages/browser-base:check", "//packages/node-base:check", "//packages/ts-base:check", "//packages/work-graph-domain:check", "//packages/writing-editor-domain:check", "//ai-review:check", "//ml-pipelines/ai-review-evaluation:check", "//ml-pipelines/writing-editor-evaluation:check", "//ui:lint", "//infra/public-platform:lint", "//infra/public-platform:lint:tflint", "//infra/bootstrap:lint", "//infra/bootstrap:lint:tflint", "//infra/remote-development:lint", "//infra/remote-development:lint:tflint"]
+depends = ["//:lint:markdown", "//:lint:mdx", "//:lint:yaml", "//:lint:typos", "//:lint:knip", "//:lint:actions", "//:lint:api", "//:lint:prose", "//packages/ai-review-domain:check", "//packages/browser-base:check", "//packages/node-base:check", "//packages/ts-base:check", "//packages/work-graph-db:check", "//packages/work-graph-domain:check", "//packages/writing-editor-domain:check", "//ai-review:check", "//ml-pipelines/ai-review-evaluation:check", "//ml-pipelines/writing-editor-evaluation:check", "//ui:lint", "//infra/public-platform:lint", "//infra/public-platform:lint:tflint", "//infra/bootstrap:lint", "//infra/bootstrap:lint:tflint", "//infra/remote-development:lint", "//infra/remote-development:lint:tflint"]
 
 [tasks."lint:api"]
 description = "Generate-check and lint the recipe API OpenAPI contract"
@@ -348,6 +349,7 @@ depends = [
     "//packages/observability:test:coverage",
     "//packages/recipe-parsing:test:coverage",
     "//packages/ts-base:test:coverage",
+    "//packages/work-graph-db:test:coverage",
     "//packages/work-graph-domain:test:coverage",
     "//packages/writing-editor-domain:test:coverage",
     "//ml-pipelines/recipe-parsing:test:coverage",

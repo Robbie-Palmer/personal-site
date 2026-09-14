@@ -411,7 +411,7 @@ before the headless workflow is useful.
    catalogue as `it.todo` tests.
 2. [ ] Implement lifecycle and readiness projection, hierarchy checks, and the
    first deterministic priority policy against in-memory fixtures.
-3. [ ] Add the PostgreSQL schema, migrations, and integration-test database.
+3. [x] Add the PostgreSQL schema, migrations, and integration-test database.
 4. [ ] Build create, list, dependency, claim, renew, release, cancel, note, and
    attention endpoints with generated OpenAPI.
 5. [ ] Add transactional decomposition and stale-lease fencing.
