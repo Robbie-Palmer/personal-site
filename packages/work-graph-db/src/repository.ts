@@ -1,12 +1,14 @@
 import { and, eq, gt, isNull, lte, sql } from "drizzle-orm";
 import {
   createWorkGraph,
+  projectWorkItemStage,
   WorkGraphError,
   type NewWorkItemInput,
   type TerminalWorkItemState,
   type WorkGraph,
   type WorkItem,
   type WorkItemDependency,
+  type WorkStage,
 } from "work-graph-domain";
 import type { Db, DbTransaction } from "./connection";
 import { claimableWorkItemWhere } from "./queries/claimable-work-item";
@@ -44,7 +46,13 @@ export interface RenewLeaseInput {
 export interface TerminateClaimedWorkItemInput {
   readonly leaseId: string;
   readonly epoch: number;
+  readonly workItemId: string;
   readonly outcome: TerminalWorkItemState;
+}
+
+export interface WorkItemReadModel extends WorkItem {
+  readonly stage: WorkStage;
+  readonly currentLease: StoredLease | null;
 }
 
 type DatabaseError = Error & {
@@ -171,38 +179,58 @@ export class WorkGraphRepository {
 
   async load(): Promise<WorkGraph> {
     return this.db.transaction(
-      async (transaction) => {
-        const workItems = await transaction
-          .select({
-            id: workItem.id,
-            title: workItem.title,
-            lifecycle: workItem.lifecycle,
-            parentId: workItemHierarchy.parentWorkItemId,
-          })
-          .from(workItem)
-          .leftJoin(
-            workItemHierarchy,
-            eq(workItemHierarchy.childWorkItemId, workItem.id),
-          )
-          .orderBy(workItem.createdAt, workItem.id);
-        const dependencies = await transaction
-          .select({
-            dependentWorkItemId: workItemDependency.dependentWorkItemId,
-            blockerWorkItemId: workItemDependency.blockerWorkItemId,
-          })
-          .from(workItemDependency)
-          .orderBy(
-            workItemDependency.dependentWorkItemId,
-            workItemDependency.blockerWorkItemId,
-          );
+      (transaction) => this.loadGraph(transaction),
+      {
+        isolationLevel: "repeatable read",
+        accessMode: "read only",
+      },
+    );
+  }
 
-        return createWorkGraph({ workItems, dependencies });
+  async listWorkItems(): Promise<readonly WorkItemReadModel[]> {
+    return this.db.transaction(
+      async (transaction) => {
+        const graph = await this.loadGraph(transaction);
+        const currentLeases = await transaction
+          .select()
+          .from(lease)
+          .where(isNull(lease.endedAt));
+        const now = await readDatabaseClock(transaction);
+        const leasesByWorkItemId = new Map(
+          currentLeases.map((storedLease) => [
+            storedLease.workItemId,
+            storedLease,
+          ]),
+        );
+
+        return graph.workItems.map((item) => {
+          const currentLease = leasesByWorkItemId.get(item.id) ?? null;
+          return {
+            ...item,
+            stage: projectWorkItemStage(graph, item.id, {
+              currentLease: currentLease
+                ? { expiresAt: currentLease.expiresAt.getTime() }
+                : null,
+              now: now.getTime(),
+            }),
+            currentLease,
+          };
+        });
       },
       {
         isolationLevel: "repeatable read",
         accessMode: "read only",
       },
     );
+  }
+
+  async getWorkItem(workItemId: string): Promise<WorkItemReadModel> {
+    requireIdentifier(workItemId, "invalid_work_item_id");
+    const found = (await this.listWorkItems()).find(
+      (item) => item.id === workItemId,
+    );
+    if (!found) throw workItemNotFound(workItemId);
+    return found;
   }
 
   async createWorkItem(input: NewWorkItemInput): Promise<WorkItem> {
@@ -288,7 +316,17 @@ export class WorkGraphRepository {
               .orderBy(workItem.createdAt, workItem.id)
               .limit(1)
               .for("update", { of: workItem, skipLocked: true });
-            if (!candidate) return null;
+            if (!candidate) {
+              if (input.workItemId !== undefined) {
+                const [existing] = await transaction
+                  .select({ id: workItem.id })
+                  .from(workItem)
+                  .where(eq(workItem.id, input.workItemId))
+                  .limit(1);
+                if (!existing) throw workItemNotFound(input.workItemId);
+              }
+              return null;
+            }
 
             // A concurrent claimant can commit between predicate evaluation
             // and row locking. Recheck in a new READ COMMITTED statement after
@@ -417,22 +455,15 @@ export class WorkGraphRepository {
   ): Promise<StoredLease> {
     requireLeaseId(input.leaseId);
     requireLeaseEpoch(input.epoch);
+    requireIdentifier(input.workItemId, "invalid_work_item_id");
 
     return this.db.transaction(async (transaction) => {
-      const [storedLease] = await transaction
-        .select({ workItemId: lease.workItemId })
-        .from(lease)
-        .where(eq(lease.id, input.leaseId))
-        .limit(1);
-      if (!storedLease) {
-        throw leaseNotCurrent(input.leaseId, input.epoch);
-      }
-
-      await transaction
+      const [lockedWorkItem] = await transaction
         .select({ id: workItem.id })
         .from(workItem)
-        .where(eq(workItem.id, storedLease.workItemId))
+        .where(eq(workItem.id, input.workItemId))
         .for("update");
+      if (!lockedWorkItem) throw workItemNotFound(input.workItemId);
 
       const completedAt = await readDatabaseClock(transaction);
 
@@ -442,7 +473,7 @@ export class WorkGraphRepository {
         .where(
           and(
             eq(lease.id, input.leaseId),
-            eq(lease.workItemId, storedLease.workItemId),
+            eq(lease.workItemId, input.workItemId),
             eq(lease.epoch, input.epoch),
             isNull(lease.endedAt),
             gt(lease.expiresAt, completedAt),
@@ -458,7 +489,7 @@ export class WorkGraphRepository {
         .set({ lifecycle: input.outcome })
         .where(
           and(
-            eq(workItem.id, storedLease.workItemId),
+            eq(workItem.id, input.workItemId),
             eq(workItem.lifecycle, "open"),
           ),
         )
@@ -467,11 +498,11 @@ export class WorkGraphRepository {
         const [existing] = await transaction
           .select({ lifecycle: workItem.lifecycle })
           .from(workItem)
-          .where(eq(workItem.id, storedLease.workItemId))
+          .where(eq(workItem.id, input.workItemId))
           .limit(1);
         throw new WorkGraphError(
           "work_item_already_terminal",
-          `Work item ${storedLease.workItemId} is already ${existing?.lifecycle ?? "terminal"}.`,
+          `Work item ${input.workItemId} is already ${existing?.lifecycle ?? "terminal"}.`,
         );
       }
 
@@ -686,6 +717,34 @@ export class WorkGraphRepository {
     if (locked.length !== 1) {
       throw new Error("The global graph mutation lock row is missing.");
     }
+  }
+
+  private async loadGraph(transaction: DbTransaction): Promise<WorkGraph> {
+    const workItems = await transaction
+      .select({
+        id: workItem.id,
+        title: workItem.title,
+        lifecycle: workItem.lifecycle,
+        parentId: workItemHierarchy.parentWorkItemId,
+      })
+      .from(workItem)
+      .leftJoin(
+        workItemHierarchy,
+        eq(workItemHierarchy.childWorkItemId, workItem.id),
+      )
+      .orderBy(workItem.createdAt, workItem.id);
+    const dependencies = await transaction
+      .select({
+        dependentWorkItemId: workItemDependency.dependentWorkItemId,
+        blockerWorkItemId: workItemDependency.blockerWorkItemId,
+      })
+      .from(workItemDependency)
+      .orderBy(
+        workItemDependency.dependentWorkItemId,
+        workItemDependency.blockerWorkItemId,
+      );
+
+    return createWorkGraph({ workItems, dependencies });
   }
 
   private async lockGraphSnapshot(transaction: DbTransaction): Promise<void> {
