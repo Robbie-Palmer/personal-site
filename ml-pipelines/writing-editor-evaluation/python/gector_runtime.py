@@ -32,6 +32,8 @@ LABEL_WEIGHT = "tag_labels_projection_layer._module.weight"
 LABEL_BIAS = "tag_labels_projection_layer._module.bias"
 DETECT_WEIGHT = "tag_detect_projection_layer._module.weight"
 DETECT_BIAS = "tag_detect_projection_layer._module.bias"
+GIT_REVISION_PATTERN = r"^[a-f0-9]{40}$"
+CONTENT_DIGEST_PATTERN = r"^sha256:[a-f0-9]{64}$"
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 MODEL_DIRECTORY = PROJECT_ROOT / "data/models/gector-2024"
 MODEL_MANIFEST = PROJECT_ROOT / "model-manifest.json"
@@ -90,7 +92,7 @@ class TextSegment(ImmutableModel):
 class DescriptorAnnotations(ImmutableModel):
     title: str = Field(alias="org.opencontainers.image.title")
     source: str = Field(alias="org.opencontainers.image.source")
-    revision: str = Field(alias="org.opencontainers.image.revision", pattern=r"^[a-f0-9]{40}$")
+    revision: str = Field(alias="org.opencontainers.image.revision", pattern=GIT_REVISION_PATTERN)
 
 
 class ConfigAnnotations(ImmutableModel):
@@ -101,7 +103,7 @@ class OciConfigDescriptor(ImmutableModel):
     media_type: Literal["application/vnd.robbiepalmer.gector.config.v1+json"] = Field(
         alias="mediaType"
     )
-    digest: str = Field(pattern=r"^sha256:[a-f0-9]{64}$")
+    digest: str = Field(pattern=CONTENT_DIGEST_PATTERN)
     size: Annotated[int, Field(gt=0)]
     data: str
     annotations: ConfigAnnotations
@@ -113,7 +115,7 @@ class OciConfigDescriptor(ImmutableModel):
 
 class OciLayerDescriptor(ImmutableModel):
     media_type: str = Field(alias="mediaType", min_length=1)
-    digest: str = Field(pattern=r"^sha256:[a-f0-9]{64}$")
+    digest: str = Field(pattern=CONTENT_DIGEST_PATTERN)
     size: Annotated[int, Field(gt=0)]
     urls: tuple[str, ...] = Field(min_length=1)
     annotations: DescriptorAnnotations
@@ -132,7 +134,7 @@ class GectorModelConfig(ImmutableModel):
     checkpoint_license: Literal["not-stated-by-upstream"] = Field(alias="checkpointLicense")
     model_id: Literal["gector-2024-roberta-large"] = Field(alias="modelId")
     source_repository: str = Field(alias="sourceRepository")
-    source_revision: str = Field(alias="sourceRevision", pattern=r"^[a-f0-9]{40}$")
+    source_revision: str = Field(alias="sourceRevision", pattern=GIT_REVISION_PATTERN)
     usage: Literal["evaluation-only"]
 
 
@@ -234,9 +236,9 @@ class RawArtifact(ImmutableModel):
 
 class RawModelIdentity(ImmutableModel):
     model_id: Literal["gector-2024-roberta-large"] = Field(alias="modelId")
-    source_revision: str = Field(alias="sourceRevision", pattern=r"^[a-f0-9]{40}$")
+    source_revision: str = Field(alias="sourceRevision", pattern=GIT_REVISION_PATTERN)
     checkpoint_content_hash: str = Field(
-        alias="checkpointContentHash", pattern=r"^sha256:[a-f0-9]{64}$"
+        alias="checkpointContentHash", pattern=CONTENT_DIGEST_PATTERN
     )
 
 
