@@ -47,18 +47,36 @@ that does not satisfy the runtime schema.
 The `prepare_gector_model` stage acquires Grammarly's official GECToR-2024
 RoBERTa-large checkpoint without putting it in Git. The committed model
 manifest pins the upstream repository commit, download URL, exact byte count,
-and SHA-256 content hash. Downloads resume after an interruption. The stage
-refuses a checkpoint whose size or digest does not match and writes a
-deterministic receipt beside the verified weights.
+and SHA-256 content hash. It also pins the RoBERTa tokenizer and config plus the
+GECToR edit and verb vocabularies by repository revision, size, and SHA-256.
+Downloads resume after an interruption. The stage rejects any file whose size
+or digest does not match and writes a deterministic receipt beside the model.
 
 The upstream checkpoint does not state a license. Keep it restricted to this
 evaluation project and its private DVC remote until that ambiguity is resolved.
-This stage prepares the model artifact only; inference and the locked modern
-GPU runtime remain follow-up work.
+`run_gector` uses a Python 3.12 environment locked by `uv.lock`. PyTorch 2.11.0
+comes from the CUDA 12.8 wheel index and runs on the laptop's RTX 40-series
+GPU. The adapter loads the old state dict with `weights_only=True`, maps its
+RoBERTa and projection keys into current Transformers modules, and imports no
+AllenNLP code. Inference stays offline after DVC restores the model directory.
 
-These records are findings because the active Vale rules identify passages but
+The producer skips frontmatter, headings, tables, HTML, and fenced or indented
+code. It joins hard-wrapped prose before inference and divides it at sentence
+boundaries when a segment exceeds the model's 50-token limit. Unchanged source
+whitespace remains intact. The generated Markdown and the producer run live
+under `outputs/producers/gector`, which DVC owns.
+
+The TypeScript boundary converts the generated revision into exact UTF-8 edit
+spans. It creates ADR 003 suggestions with stable IDs and full model
+provenance, then groups edits from the same source line into proposals. Before
+writing output, it verifies each proposal against the frozen source and checks
+that applying all suggestions recreates the generated Markdown byte for byte.
+
+Vale records are findings because the active rules identify passages but
 cannot rewrite them safely. They contain no replacement text. A later rewrite
-producer will turn selected findings into suggestions and proposals.
+producer may turn selected findings into suggestions and proposals. GECToR is
+already a rewrite producer, so its actionable edits use suggestions and
+proposals directly.
 
 `match_edits` compares each source and published revision as Unicode code
 points, then records the resulting edits as exact UTF-8 byte ranges. It labels a
@@ -85,8 +103,15 @@ Run the implemented stages directly:
 mise run //ml-pipelines/writing-editor-evaluation:extract
 mise run //ml-pipelines/writing-editor-evaluation:freeze
 mise run //ml-pipelines/writing-editor-evaluation:run:vale
+mise run //ml-pipelines/writing-editor-evaluation:run:gector:smoke
+mise run //ml-pipelines/writing-editor-evaluation:run:gector
 mise run //ml-pipelines/writing-editor-evaluation:match:edits
 ```
+
+Run `runtime:smoke` first on a newly provisioned GPU laptop. It loads the real
+checkpoint and verifies a known grammatical correction. `run:gector:smoke`
+then exercises one frozen ADR through the ADR 003 adapter. Only after those
+checks should `run:gector` reproduce the full frozen cohort.
 
 On the GPU laptop, download, verify, and upload the checkpoint to the private
 DVC remote in one command:
@@ -105,7 +130,6 @@ With access to the ML pipeline credentials, reproduce them through DVC:
 mise run //ml-pipelines/writing-editor-evaluation:repro
 ```
 
-The rewrite producer remains an open design choice. The GECToR model identity
-and weights are pinned, while its inference adapter and runtime lock remain
-open. The diff alignment can support that later evaluation without pretending
-the published text came from a model that did not exist.
+The GECToR output remains a baseline, not evidence that the published revision
+accepted a model proposal. The separate diff-alignment stage can compare model
+suggestions with recorded outcomes once those outcomes exist.

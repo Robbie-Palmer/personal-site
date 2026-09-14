@@ -51,6 +51,33 @@ stages:
       - data/models/gector-2024:
           persist: true
 
+  run_gector:
+    cmd: bash scripts/run-gector.sh
+    params:
+      - producers.gector
+      - matching.characterDiff.maxEditLength
+    deps:
+      - ../../packages/writing-editor-domain/package.json
+      - ../../packages/writing-editor-domain/src/canonical-json.ts
+      - ../../packages/writing-editor-domain/src/proposals.ts
+      - ../../packages/writing-editor-domain/src/suggestions.ts
+      - ../../pnpm-lock.yaml
+      - data/corpus
+      - data/models/gector-2024
+      - model-manifest.json
+      - package.json
+      - pyproject.toml
+      - python/gector_runtime.py
+      - scripts/run-gector.sh
+      - src/files.ts
+      - src/match-edits.ts
+      - src/run-gector.ts
+      - src/schemas.ts
+      - uv.lock
+      - outputs/frozen/cohort.json
+    outs:
+      - outputs/producers/gector
+
   run_vale:
     cmd: bash scripts/run-vale.sh
     params:

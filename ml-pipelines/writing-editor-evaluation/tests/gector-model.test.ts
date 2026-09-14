@@ -41,6 +41,14 @@ function writeManifest(directory: string, payload: Buffer): string {
       bytes: payload.length,
       contentHash: sha256(payload),
     },
+    runtimeAssets: [{
+      sourceRepository: "https://example.invalid/runtime",
+      sourceRevision: "a".repeat(40),
+      url: "https://example.invalid/runtime.txt",
+      filename: "runtime/runtime.txt",
+      bytes: payload.length,
+      contentHash: sha256(payload),
+    }],
     usage: "evaluation-only",
     checkpointLicense: "not-stated-by-upstream",
   }, null, 2)}\n`);
@@ -67,6 +75,13 @@ describe("GECToR model preparation", () => {
       bytes: 1_442_177_179,
       contentHash: "sha256:77e1c9e0d7ad5507c16509fd765283dbce5221552aa7a90c37d143f1aeaddb10",
     });
+    expect(manifest.runtimeAssets).toHaveLength(9);
+    expect(new Set(manifest.runtimeAssets.map(({ sourceRevision }) => sourceRevision))).toEqual(
+      new Set([
+        "722cf37b1afa9454edce342e7895e588b6ff1d59",
+        "9f699f274dfab524185c27e11fc2cc70f07045f0",
+      ]),
+    );
   });
 
   test("resumes, verifies, and records the declared checkpoint", async () => {
@@ -79,10 +94,9 @@ describe("GECToR model preparation", () => {
     fs.writeFileSync(partialFile, payload.subarray(0, 8));
 
     const download: CheckpointDownloader = async (url, target, options) => {
-      expect(url.toString()).toBe("https://example.invalid/checkpoint.th");
-      expect(target).toBe(partialFile);
       expect(options.expectedBytes).toBe(payload.length);
-      const offset = fs.statSync(target).size;
+      expect(url.hostname).toBe("example.invalid");
+      const offset = fs.existsSync(target) ? fs.statSync(target).size : 0;
       fs.appendFileSync(target, payload.subarray(offset));
     };
     const receipt = await prepareGectorModel({
@@ -98,6 +112,13 @@ describe("GECToR model preparation", () => {
       bytes: payload.length,
       contentHash: sha256(payload),
     });
+    expect(receipt.runtimeAssets).toEqual([{
+      file: "runtime/runtime.txt",
+      bytes: payload.length,
+      contentHash: sha256(payload),
+      sourceRepository: "https://example.invalid/runtime",
+      sourceRevision: "a".repeat(40),
+    }]);
     expect(JSON.parse(fs.readFileSync(path.join(outputDirectory, "receipt.json"), "utf8")))
       .toEqual(receipt);
   });
@@ -191,6 +212,8 @@ describe("GECToR model preparation", () => {
     const outputDirectory = path.join(directory, "model");
     fs.mkdirSync(outputDirectory);
     fs.writeFileSync(path.join(outputDirectory, "checkpoint.th"), payload);
+    fs.mkdirSync(path.join(outputDirectory, "runtime"));
+    fs.writeFileSync(path.join(outputDirectory, "runtime/runtime.txt"), payload);
     const download = vi.fn<CheckpointDownloader>();
 
     const receipt = await prepareGectorModel({ manifestFile, outputDirectory, download });
@@ -214,6 +237,14 @@ describe("GECToR model preparation", () => {
         bytes: 1,
         contentHash: `sha256:${"0".repeat(64)}`,
       },
+      runtimeAssets: [{
+        sourceRepository: "https://example.invalid/runtime",
+        sourceRevision: "a".repeat(40),
+        url: "https://example.invalid/runtime.txt",
+        filename: "runtime.txt",
+        bytes: 1,
+        contentHash: `sha256:${"0".repeat(64)}`,
+      }],
       usage: "evaluation-only",
       checkpointLicense: "not-stated-by-upstream",
     })).toThrow("must use HTTPS");

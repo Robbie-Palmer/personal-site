@@ -89,7 +89,18 @@ function fixture(temporary: string): {
       split: { train: 0.6, validation: 0.2, holdout: 0.2 },
       requiredArtifactTypes: ["adr"],
     },
-    producers: { vale: { binaryVersion: "3.20.0", timeoutMs: 1_000 } },
+    producers: {
+      gector: {
+        batchSize: 8,
+        iterations: 5,
+        maxTokens: 50,
+        minTokens: 3,
+        minErrorProbability: 0.65,
+        minTokenProbability: 0,
+        additionalConfidence: 0.1,
+      },
+      vale: { binaryVersion: "3.20.0", timeoutMs: 1_000 },
+    },
     matching: { characterDiff: { maxEditLength: 1_000 } },
   });
   return { cohortFile, corpusRoot, paramsFile, outputFile };

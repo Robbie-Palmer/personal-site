@@ -105,6 +105,15 @@ function writeParams(file: string, seed = "fixture-seed"): void {
       requiredArtifactTypes: ["adr", "project-page"],
     },
     producers: {
+      gector: {
+        batchSize: 8,
+        iterations: 5,
+        maxTokens: 50,
+        minTokens: 3,
+        minErrorProbability: 0.65,
+        minTokenProbability: 0,
+        additionalConfidence: 0.1,
+      },
       vale: { binaryVersion: "3.20.0", timeoutMs: 1_000 },
     },
     matching: { characterDiff: { maxEditLength: 1_000 } },

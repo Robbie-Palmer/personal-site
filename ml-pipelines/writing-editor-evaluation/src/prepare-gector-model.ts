@@ -9,6 +9,24 @@ import { z } from "zod";
 import { readJson, writeJson } from "./files";
 
 const ContentHashSchema = z.string().regex(/^sha256:[a-f0-9]{64}$/);
+const RelativeFileSchema = z.string().min(1).superRefine((value, context) => {
+  const segments = value.split("/");
+  if (
+    value.startsWith("/") ||
+    value.includes("\\") ||
+    value.includes(":") ||
+    segments.some((segment) => segment === "" || segment === "." || segment === "..")
+  ) {
+    context.addIssue({ code: "custom", message: "must be a safe relative path" });
+  }
+});
+
+const DownloadedArtifactSchema = z.object({
+  url: z.url().refine((url) => url.startsWith("https://"), "must use HTTPS"),
+  filename: RelativeFileSchema,
+  bytes: z.number().int().positive(),
+  contentHash: ContentHashSchema,
+}).strict();
 
 export const GectorModelManifestSchema = z.object({
   schemaVersion: z.literal(1),
@@ -18,12 +36,11 @@ export const GectorModelManifestSchema = z.object({
     repository: z.url(),
     revision: z.string().regex(/^[a-f0-9]{40}$/),
   }).strict(),
-  checkpoint: z.object({
-    url: z.url().refine((url) => url.startsWith("https://"), "must use HTTPS"),
-    filename: z.string().regex(/^[a-zA-Z0-9][a-zA-Z0-9._-]*$/),
-    bytes: z.number().int().positive(),
-    contentHash: ContentHashSchema,
-  }).strict(),
+  checkpoint: DownloadedArtifactSchema,
+  runtimeAssets: z.array(DownloadedArtifactSchema.extend({
+    sourceRepository: z.url(),
+    sourceRevision: z.string().regex(/^[a-f0-9]{40}$/),
+  }).strict()).min(1),
   usage: z.literal("evaluation-only"),
   checkpointLicense: z.literal("not-stated-by-upstream"),
 }).strict();
@@ -64,6 +81,13 @@ export interface GectorModelReceipt {
     bytes: number;
     contentHash: string;
   };
+  runtimeAssets: {
+    file: string;
+    bytes: number;
+    contentHash: string;
+    sourceRepository: string;
+    sourceRevision: string;
+  }[];
   manifestContentHash: string;
 }
 
@@ -121,19 +145,42 @@ export async function downloadCheckpoint(
   process.stdout.write(`Checkpoint download complete; verifying SHA-256\n`);
 }
 
-async function verifyCheckpoint(
+async function verifyArtifact(
   file: string,
   expectedBytes: number,
   expectedHash: string,
+  label: string,
 ): Promise<void> {
   const bytes = fs.statSync(file).size;
   if (bytes !== expectedBytes) {
-    throw new Error(`checkpoint size mismatch: expected ${expectedBytes}, got ${bytes}`);
+    throw new Error(`${label} size mismatch: expected ${expectedBytes}, got ${bytes}`);
   }
   const contentHash = await sha256File(file);
   if (contentHash !== expectedHash) {
-    throw new Error(`checkpoint hash mismatch: expected ${expectedHash}, got ${contentHash}`);
+    throw new Error(`${label} hash mismatch: expected ${expectedHash}, got ${contentHash}`);
   }
+}
+
+async function prepareArtifact(
+  artifact: { url: string; filename: string; bytes: number; contentHash: string },
+  outputDirectory: string,
+  timeoutMs: number,
+  download: CheckpointDownloader,
+  label: string = artifact.filename,
+): Promise<void> {
+  const file = path.join(outputDirectory, artifact.filename);
+  const partialFile = `${file}.partial`;
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  if (fs.existsSync(file)) {
+    await verifyArtifact(file, artifact.bytes, artifact.contentHash, label);
+    return;
+  }
+  await download(new URL(artifact.url), partialFile, {
+    expectedBytes: artifact.bytes,
+    timeoutMs,
+  });
+  await verifyArtifact(partialFile, artifact.bytes, artifact.contentHash, label);
+  fs.renameSync(partialFile, file);
 }
 
 export async function prepareGectorModel(
@@ -142,31 +189,12 @@ export async function prepareGectorModel(
   const manifestBytes = fs.readFileSync(options.manifestFile);
   const manifest = GectorModelManifestSchema.parse(readJson(options.manifestFile));
   const outputDirectory = path.resolve(options.outputDirectory);
-  const checkpointFile = path.join(outputDirectory, manifest.checkpoint.filename);
-  const partialFile = `${checkpointFile}.partial`;
   fs.mkdirSync(outputDirectory, { recursive: true });
-
-  if (fs.existsSync(checkpointFile)) {
-    await verifyCheckpoint(
-      checkpointFile,
-      manifest.checkpoint.bytes,
-      manifest.checkpoint.contentHash,
-    );
-  } else {
-    await (options.download ?? downloadCheckpoint)(
-      new URL(manifest.checkpoint.url),
-      partialFile,
-      {
-        expectedBytes: manifest.checkpoint.bytes,
-        timeoutMs: options.timeoutMs ?? 60_000,
-      },
-    );
-    await verifyCheckpoint(
-      partialFile,
-      manifest.checkpoint.bytes,
-      manifest.checkpoint.contentHash,
-    );
-    fs.renameSync(partialFile, checkpointFile);
+  const download = options.download ?? downloadCheckpoint;
+  const timeoutMs = options.timeoutMs ?? 60_000;
+  await prepareArtifact(manifest.checkpoint, outputDirectory, timeoutMs, download, "checkpoint");
+  for (const artifact of manifest.runtimeAssets) {
+    await prepareArtifact(artifact, outputDirectory, timeoutMs, download);
   }
 
   const receipt: GectorModelReceipt = {
@@ -180,6 +208,13 @@ export async function prepareGectorModel(
       bytes: manifest.checkpoint.bytes,
       contentHash: manifest.checkpoint.contentHash,
     },
+    runtimeAssets: manifest.runtimeAssets.map((asset) => ({
+      file: asset.filename,
+      bytes: asset.bytes,
+      contentHash: asset.contentHash,
+      sourceRepository: asset.sourceRepository,
+      sourceRevision: asset.sourceRevision,
+    })),
     manifestContentHash: sha256Bytes(manifestBytes),
   };
   writeJson(path.join(outputDirectory, "receipt.json"), receipt);
