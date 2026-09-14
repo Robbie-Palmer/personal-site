@@ -5,6 +5,8 @@
 
 namespace satellite_swarm {
 
+struct TelemetryEvent;
+
 class Transport {
 public:
   virtual ~Transport() = default;
@@ -26,6 +28,14 @@ public:
 
   // The controller constrains implementations' results to the protocol's 0..100 score range.
   virtual uint8_t score(const SatelliteSnapshot& satellite, const Coordinate& objective) const = 0;
+};
+
+class TelemetrySink {
+public:
+  virtual ~TelemetrySink() = default;
+
+  // Implementations must copy the event before returning if publication continues asynchronously.
+  virtual bool publish(const TelemetryEvent& event) = 0;
 };
 
 } // namespace satellite_swarm

@@ -48,6 +48,7 @@ jobs:
           mise run //cpp/autonomic-satellite-swarm:test
           mise run //cpp/autonomic-satellite-swarm:sanitize
           mise run //cpp/autonomic-satellite-swarm:coverage
+          mise run //cpp/autonomic-satellite-swarm:scripts:check
           mise run //cpp/autonomic-satellite-swarm:lint:typos
 
   firmware:

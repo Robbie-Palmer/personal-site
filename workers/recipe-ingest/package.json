@@ -17,7 +17,8 @@
     "postgres": "^3.4.5",
     "recipe-db": "workspace:*",
     "recipe-domain": "workspace:*",
-    "recipe-parsing": "workspace:*"
+    "recipe-parsing": "workspace:*",
+    "ts-base": "workspace:*"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^5.0.0",

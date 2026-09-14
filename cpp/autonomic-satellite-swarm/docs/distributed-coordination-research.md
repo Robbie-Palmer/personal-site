@@ -209,7 +209,7 @@ to avoid treating packet delivery as plan agreement.
 
 DARPA's [OFFSET program](https://www.darpa.mil/research/programs/offensive-swarm-enabled-tactics)
 worked at a different scale, with up to 250 air and ground systems, an open architecture, simulated
-environments, and a human-swarm interface. This connects directly to the proposed bounded telemetry:
+environments, and a human-swarm interface. This connects directly to the implemented bounded telemetry:
 an operator needs to reconstruct what the swarm believed, which decisions it made, and where agents
 disagreed. That view must remain an observer during autonomous operation. Its loss cannot stop local
 safety behavior. OFFSET's terrestrial tactical network does not answer the orbital contact and
@@ -353,7 +353,7 @@ one-way links, and node resets. The baseline preserves two failures: safe-disabl
 delayed request has no expiry, so either can start work after the intended boundary.
 
 The [invariant baseline](invariant-baseline.md) answers the sharp question: when the assignment or
-its acknowledgement is lost, what can each node truthfully claim to know? The result leaves bounded
-telemetry as the next implementation slice. Its event records can now use stable mission keys rather
-than the old node-local ID. Operation semantics still need a new design before choosing a quorum
-protocol, a convergent state model, or a DTN routing strategy.
+its acknowledgement is lost, what can each node truthfully claim to know? The next slice added a
+[bounded telemetry queue](telemetry.md) whose records use stable mission keys. Operation semantics
+still need a new design before choosing a quorum protocol, a convergent state model, or a DTN
+routing strategy.

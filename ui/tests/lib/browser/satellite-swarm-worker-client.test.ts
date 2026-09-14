@@ -15,6 +15,7 @@ const validResult = {
           assignedNode: null,
           bootEpoch: 1,
           candidacyScore: 0,
+          telemetryDrops: 0,
           id: 0,
           missionKey: { bootEpoch: 1, originNode: 0, sequence: 1 },
           orbitalRadiusMetres: 6_750_000,
@@ -28,9 +29,9 @@ const validResult = {
   objective: { latitudeDegrees: -90, longitudeDegrees: 0 },
   positionModel: "scripted simulation data; not orbit propagation",
   scenario: "three-node-objective-pass",
-  schemaVersion: 3,
+  schemaVersion: 4,
   source: "portable C++ SimulationTrace",
-  traceVersion: 3,
+  traceVersion: 4,
 };
 
 type WorkerListener = (event: MessageEvent<unknown> | ErrorEvent) => void;

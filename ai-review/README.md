@@ -364,6 +364,10 @@ and inferred TypeScript types from `packages/ai-review-domain`. This keeps repla
 inputs, finding outcomes, coverage, change profiles, model metrics, provider
 names, and experiment contracts identical on both sides of the boundary.
 
+Production R2 paths are built in `src/r2-keys.ts`. The scorecard fixtures mirror
+those paths, and `tests/r2-keys.test.ts` pins the layout so a path change fails
+before the analytics job stops ingesting new records.
+
 Every request must declare model-count, token, cost, provider, privacy,
 timeout, and repetition limits. The default is a dry-run plan, which validates
 the frozen input and reports the full production-to-experiment difference

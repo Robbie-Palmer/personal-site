@@ -2,6 +2,10 @@ import type { ADRRef } from "@/lib/domain/adr/adr";
 import type { BlogSlug } from "@/lib/domain/blog/blogPost";
 import type { IdeaSlug } from "@/lib/domain/idea/idea";
 import type { InitiativeSlug } from "@/lib/domain/initiative/initiative";
+import type {
+  DefaultSlotSlug,
+  LayerSlug,
+} from "@/lib/domain/platform/platform";
 import type { ProjectSlug } from "@/lib/domain/project/project";
 import type { RoleSlug } from "@/lib/domain/role/jobRole";
 import type { TechnologySlug } from "@/lib/domain/technology/technology";
@@ -279,4 +283,29 @@ export function getRelatedIdeas(
     if (targets.has(slug)) related.add(source);
   }
   return related;
+}
+
+export function getPlatformLayersForProject(
+  graph: ContentGraph,
+  slug: ProjectSlug,
+): Set<LayerSlug> {
+  const layers = new Set<LayerSlug>();
+  for (const record of graph.edges.projectLayerUses.values()) {
+    if (record.project === slug) layers.add(record.use.layer);
+  }
+  return layers;
+}
+
+export function getProjectsForPlatformLayer(
+  graph: ContentGraph,
+  slug: LayerSlug,
+): Set<ProjectSlug> {
+  return graph.reverse.layerUsers.get(slug) ?? new Set();
+}
+
+export function getOverridesForDefaultSlot(
+  graph: ContentGraph,
+  slug: DefaultSlotSlug,
+): Set<ADRRef> {
+  return graph.reverse.slotOverrides.get(slug) ?? new Set();
 }

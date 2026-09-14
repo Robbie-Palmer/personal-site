@@ -33,6 +33,8 @@ const char* eventName(SimulationEventType type) {
   switch (type) {
   case SimulationEventType::MissionCommand:
     return "mission-command";
+  case SimulationEventType::MissionCompletion:
+    return "mission-completion";
   case SimulationEventType::MessageSent:
     return "message-sent";
   case SimulationEventType::MessageDropped:
@@ -49,6 +51,78 @@ const char* eventName(SimulationEventType type) {
     return "node-reset";
   case SimulationEventType::StateChanged:
     return "state-changed";
+  case SimulationEventType::ControllerTelemetry:
+    return "controller-telemetry";
+  }
+  return "unknown";
+}
+
+const char* telemetryEventName(TelemetryEventType type) {
+  switch (type) {
+  case TelemetryEventType::StateTransition:
+    return "state-transition";
+  case TelemetryEventType::MissionProposed:
+    return "mission-proposed";
+  case TelemetryEventType::CandidacySent:
+    return "candidacy-sent";
+  case TelemetryEventType::CandidacyAccepted:
+    return "candidacy-accepted";
+  case TelemetryEventType::MissionAssigned:
+    return "mission-assigned";
+  case TelemetryEventType::MissionCompleted:
+    return "mission-completed";
+  case TelemetryEventType::MissionFailed:
+    return "mission-failed";
+  case TelemetryEventType::HealthChanged:
+    return "health-changed";
+  case TelemetryEventType::TransportFailure:
+    return "transport-failure";
+  }
+  return "unknown";
+}
+
+const char* telemetryReasonName(TelemetryReason reason) {
+  switch (reason) {
+  case TelemetryReason::None:
+    return "none";
+  case TelemetryReason::MissionInitiated:
+    return "mission-initiated";
+  case TelemetryReason::MissionRequestAccepted:
+    return "mission-request-accepted";
+  case TelemetryReason::AcknowledgementReceived:
+    return "acknowledgement-received";
+  case TelemetryReason::AssignmentReceived:
+    return "assignment-received";
+  case TelemetryReason::AssignmentBroadcast:
+    return "assignment-broadcast";
+  case TelemetryReason::AssignmentWindowExpired:
+    return "assignment-window-expired";
+  case TelemetryReason::RetryLimitReached:
+    return "retry-limit-reached";
+  case TelemetryReason::MissionCompleted:
+    return "mission-completed";
+  case TelemetryReason::HealthQuiescent:
+    return "health-quiescent";
+  case TelemetryReason::HealthRecovered:
+    return "health-recovered";
+  case TelemetryReason::HealthFatal:
+    return "health-fatal";
+  case TelemetryReason::SendFailed:
+    return "send-failed";
+  case TelemetryReason::InvalidConfiguration:
+    return "invalid-configuration";
+  }
+  return "unknown";
+}
+
+const char* telemetryPriorityName(TelemetryPriority priority) {
+  switch (priority) {
+  case TelemetryPriority::Routine:
+    return "routine";
+  case TelemetryPriority::Operational:
+    return "operational";
+  case TelemetryPriority::Critical:
+    return "critical";
   }
   return "unknown";
 }
@@ -94,7 +168,8 @@ void writeBrowserNode(std::ostream& output, const NodeObservation& node) {
   writeCoordinate(output, node.satellite.coordinate);
   output << R"(,"orbitalRadiusMetres":)" << node.satellite.orbital_radius_metres
          << R"(,"candidacyScore":)" << static_cast<unsigned int>(node.candidacy_score)
-         << R"(,"bootEpoch":)" << node.boot_epoch << R"(,"missionKey":)";
+         << R"(,"telemetryDrops":)" << node.telemetry_drops << R"(,"bootEpoch":)" << node.boot_epoch
+         << R"(,"missionKey":)";
   writeMissionKey(output, node.mission_key);
   output << R"(,"assignedNode":)";
   if (node.assigned_node == kBroadcastNode) {
@@ -135,6 +210,8 @@ void writeBrowserEvent(std::ostream& output, const SimulationEvent& event) {
   if (event.type == SimulationEventType::MissionCommand) {
     output << R"(,"accepted":)" << (event.accepted ? "true" : "false") << R"(,"objective":)";
     writeCoordinate(output, event.objective);
+  } else if (event.type == SimulationEventType::MissionCompletion) {
+    output << R"(,"accepted":)" << (event.accepted ? "true" : "false");
   } else if (event.type == SimulationEventType::MessageSent) {
     output << R"(,"message":)";
     writeMessage(output, event.message);
@@ -156,6 +233,23 @@ void writeBrowserEvent(std::ostream& output, const SimulationEvent& event) {
   } else if (event.type == SimulationEventType::LinkChanged) {
     output << R"(,"recipientNode":)" << static_cast<unsigned int>(event.recipient_node)
            << R"(,"connected":)" << (event.connected ? "true" : "false");
+  } else if (event.type == SimulationEventType::ControllerTelemetry) {
+    const TelemetryEvent& telemetry = event.telemetry;
+    output << R"(,"bootEpoch":)" << telemetry.boot_epoch << R"(,"sequence":)" << telemetry.sequence
+           << R"(,"droppedBefore":)" << telemetry.dropped_before << R"(,"event":")"
+           << telemetryEventName(telemetry.type) << R"(","reason":")"
+           << telemetryReasonName(telemetry.reason) << R"(","priority":")"
+           << telemetryPriorityName(telemetry.priority) << R"(","missionKey":)";
+    writeMissionKey(output, telemetry.mission_key);
+    output << R"(,"relatedNode":)";
+    if (telemetry.related_node == kBroadcastNode) {
+      output << "null";
+    } else {
+      output << static_cast<unsigned int>(telemetry.related_node);
+    }
+    output << R"(,"value":)" << static_cast<unsigned int>(telemetry.value)
+           << R"(,"previousState":")" << stateName(telemetry.previous_state)
+           << R"(","currentState":")" << stateName(telemetry.current_state) << '"';
   } else {
     output << R"(,"previousState":")" << stateName(event.previous_state) << R"(","currentState":")"
            << stateName(event.current_state) << '"';

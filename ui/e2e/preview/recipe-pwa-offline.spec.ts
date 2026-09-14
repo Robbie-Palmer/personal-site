@@ -7,6 +7,7 @@ import {
 } from "@playwright/test";
 import {
   createPreviewContext,
+  previewReadinessTimeoutMs,
   previewSiteURL,
   signInPreviewScenario,
 } from "./preview-test-helpers";
@@ -44,7 +45,7 @@ async function waitForOfflineRecipeData(page: Page): Promise<void> {
       const timeout = window.setTimeout(
         () =>
           reject(new Error("The recipe service worker did not take control")),
-        10_000,
+        previewReadinessTimeoutMs,
       );
       navigator.serviceWorker.addEventListener(
         "controllerchange",
@@ -58,44 +59,46 @@ async function waitForOfflineRecipeData(page: Page): Promise<void> {
   });
 
   await expect
-    .poll(() =>
-      page.evaluate(async () => {
-        const sessionCache = await caches.open("recipe-session-v1");
-        const session = await sessionCache.match(
-          new Request(`${window.location.origin}/recipes/__offline-session`),
-        );
-        if (!session) return false;
+    .poll(
+      () =>
+        page.evaluate(async () => {
+          const sessionCache = await caches.open("recipe-session-v1");
+          const session = await sessionCache.match(
+            new Request(`${window.location.origin}/recipes/__offline-session`),
+          );
+          if (!session) return false;
 
-        const databases = await indexedDB.databases();
-        if (!databases.some(({ name }) => name === "robbies-recipes")) {
-          return false;
-        }
+          const databases = await indexedDB.databases();
+          if (!databases.some(({ name }) => name === "robbies-recipes")) {
+            return false;
+          }
 
-        return new Promise<boolean>((resolve) => {
-          const request = indexedDB.open("robbies-recipes");
-          request.onerror = () => resolve(false);
-          request.onsuccess = () => {
-            const database = request.result;
-            if (!database.objectStoreNames.contains("recipe-snapshots")) {
-              database.close();
-              resolve(false);
-              return;
-            }
-            const count = database
-              .transaction("recipe-snapshots")
-              .objectStore("recipe-snapshots")
-              .count();
-            count.onerror = () => {
-              database.close();
-              resolve(false);
+          return new Promise<boolean>((resolve) => {
+            const request = indexedDB.open("robbies-recipes");
+            request.onerror = () => resolve(false);
+            request.onsuccess = () => {
+              const database = request.result;
+              if (!database.objectStoreNames.contains("recipe-snapshots")) {
+                database.close();
+                resolve(false);
+                return;
+              }
+              const count = database
+                .transaction("recipe-snapshots")
+                .objectStore("recipe-snapshots")
+                .count();
+              count.onerror = () => {
+                database.close();
+                resolve(false);
+              };
+              count.onsuccess = () => {
+                database.close();
+                resolve(count.result > 0);
+              };
             };
-            count.onsuccess = () => {
-              database.close();
-              resolve(count.result > 0);
-            };
-          };
-        });
-      }),
+          });
+        }),
+      { timeout: previewReadinessTimeoutMs },
     )
     .toBe(true);
 }
@@ -123,7 +126,7 @@ async function clearOfflineRecipeSnapshots(page: Page): Promise<void> {
   );
 }
 
-test.describe.configure({ mode: "serial" });
+test.describe.configure({ mode: "serial", timeout: 90_000 });
 
 test.describe("deployed recipe PWA offline navigation", () => {
   test("routes unavailable app navigation through the offline page", async ({

@@ -4,7 +4,7 @@
 #include <string>
 
 TEST_CASE("the browser bridge exposes a versioned JSON result") {
-  CHECK(satellite_swarm_browser_api_version() == 4U);
+  CHECK(satellite_swarm_browser_api_version() == 6U);
   CHECK(std::string(satellite_swarm_source_revision()) == "unknown");
 
   const char* result = satellite_swarm_run_demonstration(12.5F, -45.25F, 0U);
@@ -19,6 +19,17 @@ TEST_CASE("the browser bridge exposes a versioned JSON result") {
   REQUIRE(fault_result != nullptr);
   CHECK(std::string(fault_result).find(R"("scenario": "three-node-assignment-loss")") !=
         std::string::npos);
+}
+
+TEST_CASE("the browser bridge exposes equal-score allocation evidence") {
+  const char* result = satellite_swarm_run_fair_allocation_evidence();
+  REQUIRE(result != nullptr);
+  const std::string json(result);
+  CHECK(json.find(R"("policy": "mission-keyed-cyclic-equal-score")") != std::string::npos);
+  CHECK(json.find(R"({"nodeId":0,"missions":2})") != std::string::npos);
+  CHECK(json.find(R"({"nodeId":1,"missions":2})") != std::string::npos);
+  CHECK(json.find(R"({"nodeId":2,"missions":2})") != std::string::npos);
+  CHECK(std::string(satellite_swarm_last_error()).empty());
 }
 
 TEST_CASE("the browser bridge reports invalid input without unwinding across C") {

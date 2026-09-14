@@ -1,5 +1,7 @@
 [tools]
 arduino-cli = "1.5.1"
+"npm:@types/node" = "24.13.4"
+"npm:typescript" = "5.9.3"
 
 [tasks.configure]
 description = "Configure the host build"
@@ -29,6 +31,11 @@ description = "Print the browser visualization fixture from the native trace run
 depends = ["build"]
 run = "./build/dev/autonomic-satellite-swarm-simulation --json"
 
+[tasks."simulate:fairness"]
+description = "Print telemetry evidence from six equal-score missions"
+depends = ["build"]
+run = "./build/dev/autonomic-satellite-swarm-simulation --fairness-json"
+
 [tasks."browser:fixture:check"]
 description = "Check that the committed browser fixture matches the native trace runner"
 depends = ["build"]
@@ -36,7 +43,7 @@ run = '''
 browser_fixture_check_file=$(mktemp)
 trap 'cmake -E rm -f "$browser_fixture_check_file"' EXIT
 ./build/dev/autonomic-satellite-swarm-simulation --json > "$browser_fixture_check_file"
-diff -u ../../ui/public/simulations/autonomic-satellite-swarm/demonstration.v3.json \
+diff -u ../../ui/public/simulations/autonomic-satellite-swarm/demonstration.v4.json \
   "$browser_fixture_check_file"
 '''
 
@@ -125,49 +132,31 @@ run = [
 
 [tasks."firmware:uno"]
 description = "Compile the legacy Arduino Uno infrared firmware"
-run = '''
-node_id=${SATELLITE_SWARM_NODE_ID:-0}
-boot_epoch=${SATELLITE_SWARM_BOOT_EPOCH:-1}
-case "$node_id" in
-  ''|*[!0-9]*) echo "SATELLITE_SWARM_NODE_ID must be an integer from 0 to 15" >&2; exit 2 ;;
-esac
-if [ "$node_id" -gt 15 ]; then
-  echo "SATELLITE_SWARM_NODE_ID must be an integer from 0 to 15" >&2
-  exit 2
-fi
-case "$boot_epoch" in
-  ''|*[!0-9]*) echo "SATELLITE_SWARM_BOOT_EPOCH must be an integer from 1 to 4294967295" >&2; exit 2 ;;
-esac
-if [ "$boot_epoch" -eq 0 ] || [ "$boot_epoch" -gt 4294967295 ]; then
-  echo "SATELLITE_SWARM_BOOT_EPOCH must be an integer from 1 to 4294967295" >&2
-  exit 2
-fi
-arduino-cli compile --profile uno \
-  --build-property "build.extra_flags=-DSATELLITE_SWARM_NODE_ID=$node_id -DSATELLITE_SWARM_BOOT_EPOCH=$boot_epoch" firmware/uno_ir
-'''
+run = 'node scripts/compile-firmware.ts uno "$(mise where arduino-cli)/arduino-cli"'
 
 [tasks."firmware:esp32"]
 description = "Compile the modern ESP32 ESP-NOW firmware"
+run = 'node scripts/compile-firmware.ts esp32 "$(mise where arduino-cli)/arduino-cli"'
+
+[tasks."scripts:typecheck"]
+description = "Type-check firmware task scripts"
 run = '''
-node_id=${SATELLITE_SWARM_NODE_ID:-0}
-boot_epoch=${SATELLITE_SWARM_BOOT_EPOCH:-1}
-case "$node_id" in
-  ''|*[!0-9]*) echo "SATELLITE_SWARM_NODE_ID must be an integer from 0 to 15" >&2; exit 2 ;;
-esac
-if [ "$node_id" -gt 15 ]; then
-  echo "SATELLITE_SWARM_NODE_ID must be an integer from 0 to 15" >&2
-  exit 2
+types_install_root="$(mise where npm:@types/node)"
+types_root=$(find "$types_install_root" -maxdepth 4 -type d -path '*/node_modules/@types' -print -quit)
+if [ -z "$types_root" ]; then
+  echo "Node.js type definitions not found below $types_install_root" >&2
+  exit 1
 fi
-case "$boot_epoch" in
-  ''|*[!0-9]*) echo "SATELLITE_SWARM_BOOT_EPOCH must be an integer from 1 to 4294967295" >&2; exit 2 ;;
-esac
-if [ "$boot_epoch" -eq 0 ] || [ "$boot_epoch" -gt 4294967295 ]; then
-  echo "SATELLITE_SWARM_BOOT_EPOCH must be an integer from 1 to 4294967295" >&2
-  exit 2
-fi
-arduino-cli compile --profile esp32 \
-  --build-property "build.extra_flags=-DSATELLITE_SWARM_NODE_ID=$node_id -DSATELLITE_SWARM_BOOT_EPOCH=$boot_epoch" firmware/esp32_espnow
+tsc --typeRoots "$types_root" --project tsconfig.scripts.json
 '''
+
+[tasks."scripts:test"]
+description = "Test firmware task scripts"
+run = "node --test scripts/*.test.ts"
+
+[tasks."scripts:check"]
+description = "Type-check and test firmware task scripts"
+depends = ["scripts:typecheck", "scripts:test"]
 
 [tasks."lint:typos"]
 description = "Check spelling in the project"
@@ -183,6 +172,7 @@ depends = [
   "coverage",
   "firmware:uno",
   "firmware:esp32",
+  "scripts:check",
   "browser:fixture:check",
   "browser:parity",
   "lint:typos",

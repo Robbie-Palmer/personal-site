@@ -343,7 +343,7 @@ const memberScenario: Scenario = {
   name: "Household member",
 };
 
-test.describe.configure({ mode: "serial" });
+test.describe.configure({ mode: "serial", timeout: 90_000 });
 
 test.describe("deployed household pantry realtime", () => {
   test("fans a committed pantry change out to another household session", async ({

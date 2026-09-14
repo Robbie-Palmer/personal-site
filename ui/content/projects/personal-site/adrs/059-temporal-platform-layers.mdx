@@ -1,7 +1,7 @@
 ---
 title: "ADR 059: Model Shared Defaults as Temporal Platform Layers"
 date: "2026-09-12"
-status: "Proposed"
+status: "Accepted"
 ---
 
 ## Summary
@@ -103,14 +103,9 @@ Expected areas include:
 * `database` for projects that need one or more forms of data storage or
   retrieval.
 
-Projects combine these layers independently. A layer may explicitly extend
-another layer where the dependency is universal. Otherwise projects select
-both layers.
-
-Represent each extension as a dated relationship record with the child layer,
-parent layer, `effective_from`, optional `effective_until`, and deciding ADR.
-Changing layer composition closes the old relationship and creates another.
-It must not rewrite the meaning of the earlier relationship.
+Projects combine these layers independently and explicitly adopt every layer
+that applies. Layers do not extend one another: sharing one layer never
+silently opts a project into another.
 
 All temporal policy and usage fields, including `effective_from`,
 `effective_until`, `adopted`, and `until`, use RFC 3339 UTC instants rather
@@ -125,11 +120,10 @@ the same applicability. The manifests describe current policy rather than the
 complete package inventory of a built artifact.
 
 For example, the TypeScript layer may require Zod. The Python layer may require
-Pydantic and pytest-cases while preferring Polars when a project needs a
-dataframe library. The infrastructure layer may prefer Terraform for
+Pydantic and pytest-cases. The infrastructure layer may prefer Terraform for
 provisioning. The observability layer may prefer PostHog for application
 telemetry and Netdata for node monitoring. The backend API layer may currently
-prefer Cloudflare Functions.
+prefer Cloudflare Workers.
 
 The database layer groups several conditional choices rather than assuming
 that every database-backed project has the same data model. Its stable slots
@@ -138,8 +132,7 @@ may include:
 * `database.relational-engine`, which may select PostgreSQL;
 * `database.relational-host`, which may select Neon when PostgreSQL needs a
   managed host;
-* `database.olap-engine`, which may select DuckDB; and
-* `database.semantic-search`, which may select Weaviate.
+* `database.olap-engine`, which may select DuckDB.
 
 A slot may declare prerequisites on another slot or selection. For example,
 the Neon hosting default applies only when `database.relational-engine`
@@ -167,13 +160,11 @@ technology or deciding ADR. Example slots include:
 * `typescript.schema-validation`;
 * `python.data-validation`;
 * `python.test-cases`;
-* `python.dataframes`;
 * `project.primary-language`;
 * `backend-api.runtime`;
 * `database.relational-engine`;
 * `database.relational-host`;
-* `database.olap-engine`; and
-* `database.semantic-search`.
+* `database.olap-engine`.
 
 A slot must describe a meaningful choice between credible alternatives. It
 must not be named so narrowly around the selected technology that the choice
@@ -183,16 +174,17 @@ making one of DuckDB's distinguishing properties part of the question.
 
 The opposite error is making a slot so broad that its candidates answer
 different requirements. A single `database.engine` default would conflate
-transactional storage, analytical processing, and semantic retrieval. Choose
-the broadest scope for which the platform can defend one default against real
-alternatives under substantially shared forces.
+transactional storage and analytical processing. Choose the broadest scope for
+which the platform can defend one default against real alternatives under
+substantially shared forces.
 
 The base layer has a required `project.primary-language` slot whose initial
-selection is TypeScript. Selecting TypeScript activates the TypeScript layer.
-A project that needs Python's machine-learning ecosystem records a local
-override of `project.primary-language`; the resolved Python selection activates
-the Python layer instead. A project may still declare supplemental languages
-directly without replacing its primary language.
+selection is TypeScript. The TypeScript layer declares that a resolved
+TypeScript choice activates it. A project that needs Python's machine-learning
+ecosystem records a local override of `project.primary-language`; the Python
+layer declares the corresponding activation condition. A project may still
+declare supplemental languages directly without replacing its primary
+language.
 
 The slot remains stable when the selected technology changes. A layer-slot
 policy records the owning layer, activation mode, `effective_from`, optional
@@ -207,13 +199,13 @@ policies:
   - layer: "backend-api"
     mode: "preferred"
     effective_from: "2025-11-12T00:00:00Z"
-    decision: "personal-engineering-platform:020-cloudflare-functions"
+    decision: "personal-engineering-platform:002-cloudflare-workers"
 selections:
-  - technology: "cloudflare-functions"
+  - technology: "cloudflare-workers"
     status: "Accepted"
     effective_from: "2025-11-12T00:00:00Z"
-    decision: "personal-engineering-platform:020-cloudflare-functions"
-    origin_project: "personal-site"
+    decision: "personal-engineering-platform:002-cloudflare-workers"
+    origin_projects: ["personal-site"]
 ```
 
 Selection status uses the existing ADR vocabulary: `Proposed`, `Accepted`,
@@ -263,14 +255,14 @@ language choice.
 An open relationship tracks current accepted defaults. A completed or frozen
 project closes the relationship with `until` and sets `tracking` to `false`.
 Historical queries resolve the defaults that were effective during that
-period. Resolution includes the layer extensions, layer-slot policies,
-technology selections, project layer uses, and project slot uses effective at
-the query timestamp. The final stack for a completed or frozen project uses
-its closure timestamp. Later platform decisions do not alter it.
+period. Resolution includes the layer-slot policies, technology selections,
+project layer uses, and project slot uses effective at the query timestamp.
+The final stack for a completed or frozen project uses its closure timestamp.
+Later platform decisions do not alter it.
 Preferred-slot activation also carries an adoption date and optional end date
 when it differs from the containing layer's usage period. The database example
-therefore resolves PostgreSQL and Neon while leaving DuckDB and Weaviate as
-unused recommendations.
+therefore resolves PostgreSQL and Neon while leaving DuckDB as an unused
+recommendation.
 
 Projects that predate the platform have no layer relationship unless they
 consciously adopt one later. Work projects also have no personal-platform
@@ -299,40 +291,30 @@ activates the Python layer without changing the default for other projects.
 
 ### Preserve provenance in derived graph relationships
 
-Extend the content graph with first-class platform layer, layer-extension,
-default slot, layer-slot-policy, default-selection, project-layer-use, and
-project-slot-use records. Add relationships equivalent to:
+Keep platform layers and the temporal policy, selection, and usage records in
+the content model so queries retain their dates and provenance. Present the
+reader-facing knowledge graph through direct relationships:
 
 ```text
 Platform OWNS_LAYER Layer
-Layer HAS_EXTENSION LayerExtension
-LayerExtension EXTENDS_LAYER Layer
-LayerExtension ESTABLISHED_BY ADR
-Layer HAS_SLOT_POLICY LayerSlotPolicy
-LayerSlotPolicy OF_SLOT DefaultSlot
-LayerSlotPolicy ESTABLISHED_BY ADR
-DefaultSlot HAS_SELECTION DefaultSelection
-DefaultSelection SELECTS_TECHNOLOGY Technology
-DefaultSelection ESTABLISHED_BY ADR
+Project USES_PLATFORM_LAYER Layer
+Layer REQUIRES_TECHNOLOGY Technology
+Layer PREFERS_TECHNOLOGY Technology
 ADR DRIVEN_BY Project
-Project HAS_LAYER_USE LayerUse
-LayerUse OF_LAYER Layer
-LayerUse HAS_SLOT_USE SlotUse
-SlotUse OF_SLOT DefaultSlot
-ProjectADR OVERRIDES_DEFAULT DefaultSlot
 ```
 
-Layer extensions, layer-slot policies, default selections, layer uses, and slot
-uses need identity because they carry status or time. The serialized
-visualization may render them as labelled edges or hide them at broad zoom
-levels rather than showing every association as a node.
+Layer-slot policies, default selections, layer uses, and slot uses keep their
+identity in the query model because they carry status or time. They are edge
+provenance in the serialized visualization, not graph nodes. This preserves
+the evidence without forcing readers to traverse implementation vocabulary
+such as slot policy, default selection, and layer use.
 
 At a given timestamp, an effective project stack combines directly declared
 project technologies, required selections from applicable layer-slot policies,
 applicable preferred selections, and local overrides. Every derived technology
-relation retains its source layer, extension path, slot policy, selection, and
-deciding ADR. Direct and derived use must remain distinguishable in graph
-queries and views.
+relation retains its source layer, slot policy, selection, and deciding ADR.
+Direct project technologies and platform-provided technologies remain
+distinguishable in queries and views.
 
 ### Borrow selectively from adjacent models
 
@@ -474,9 +456,8 @@ use as different facts.
 
 ### Negative
 
-* Layer extensions, slot policies, layer uses, and default selections become
-  association records with their own schemas, validation, indexes, and
-  queries.
+* Slot policies, layer uses, and default selections become association records
+  with their own schemas, validation, indexes, and queries.
 * Temporal resolution is more complex than copying technology slugs onto each
   project.
 * Layer boundaries and slot scope require editorial judgment. A slot that is
@@ -489,32 +470,30 @@ use as different facts.
 
 ## Validation before acceptance
 
-This ADR remains Proposed until a representative migration proves all of the
-following:
+The representative migration used these acceptance checks:
 
-1. Schemas validate platform layers, stable slots, dated layer extensions,
-   dated layer-slot policies, slot prerequisites, default selections,
-   selection status, supersession, language-layer activation, and dated project
-   layer and slot uses. They reject date-only temporal values.
+1. Schemas validate platform layers, stable slots, dated layer-slot policies,
+   slot prerequisites, default selections, selection status, supersession,
+   language-layer activation, and dated project layer and slot uses. They
+   reject date-only temporal values.
 2. Graph queries resolve exactly one current default for an active opinionated
    slot. Accepting a replacement requires a `supersedes` link, closes the prior
    effective period, and cannot create overlapping or unlinked current
    selections. Tests cover two successive changes on the same calendar day and
    their shared half-open boundary.
-3. Historical queries resolve layer extensions, slot policies, selections, and
-   project uses at the requested timestamp. They keep completed projects fixed
-   at closure and do not link pre-platform or organisation-governed projects
-   implicitly.
+3. Historical queries resolve slot policies, selections, and project uses at
+   the requested timestamp. They keep completed projects fixed at closure and
+   do not link pre-platform or organisation-governed projects implicitly.
 4. Effective technology queries distinguish project-specific, required-layer,
    preferred-layer, and override sources.
 5. The base layer resolves TypeScript as the default primary language and
    activates the TypeScript layer. A project-local primary-language override
    resolves Python and activates the Python layer for a project that needs the
    machine-learning ecosystem.
-6. Database resolution can select PostgreSQL with Neon hosting, DuckDB for
-   OLAP, or Weaviate for semantic search without implying that every
-   database-backed project uses all four technologies. Observability resolution
-   likewise distinguishes application telemetry from node monitoring.
+6. Database resolution can select PostgreSQL with Neon hosting or DuckDB for
+   OLAP without implying that every database-backed project uses all three
+   technologies. Observability resolution likewise distinguishes application
+   telemetry from node monitoring.
 7. Each opinionated slot is reviewed at a scope where credible alternatives
    answer substantially shared requirements. Technology-shaped or excessively
    broad slots fail validation or require an explicit rationale.
@@ -525,7 +504,7 @@ following:
    autonomic satellite swarm have readable project ADR lists after inherited
    platform stubs are removed from the rendered project history.
 10. Project pages show project-specific technology badges separately from a
-    compact `Built on` layer summary and secondary platform-provided
+    quiet `Built on` metadata line and secondary platform-provided
     technologies.
 11. Platform pages show each layer's current manifest and each slot's decision
     history, origin projects, users, and overrides.

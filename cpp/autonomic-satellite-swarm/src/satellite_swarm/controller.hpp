@@ -2,6 +2,7 @@
 #define SATELLITE_SWARM_CONTROLLER_HPP
 
 #include "satellite_swarm/interfaces.hpp"
+#include "satellite_swarm/telemetry.hpp"
 
 #include <stdint.h>
 
@@ -29,7 +30,7 @@ public:
   // comparisons support one clock rollover when configured durations are shorter than that period.
   bool initiateMission(const Coordinate& objective, uint32_t now_ms);
   void update(uint32_t now_ms);
-  void completeMission();
+  void completeMission(uint32_t now_ms);
   // Invalid observations return false and leave the previous snapshot unchanged.
   bool updateSatelliteSnapshot(const SatelliteSnapshot& satellite);
 
@@ -43,6 +44,14 @@ public:
     return node_id_ < kMaximumNodes ? candidates_[node_id_].score : 0U;
   }
   uint8_t consecutiveCommunicationFailures() const { return communication_failures_; }
+  // A successful read removes the oldest event. Hardware adapters can drain this queue without
+  // blocking controller progress.
+  bool readTelemetry(TelemetryEvent& event) { return telemetry_.read(event); }
+  // Transmission adapters can inspect the oldest event and remove it only after a sink accepts it.
+  bool peekTelemetry(TelemetryEvent& event) const { return telemetry_.peek(event); }
+  bool discardTelemetry() { return telemetry_.discard(); }
+  uint8_t pendingTelemetryEvents() const { return telemetry_.size(); }
+  uint32_t droppedTelemetryEvents() const { return telemetry_.droppedEvents(); }
 
 private:
   struct Candidate {
@@ -65,14 +74,22 @@ private:
   uint32_t last_attempt_at_ms_ = 0U;
   uint8_t attempts_ = 0U;
   uint8_t communication_failures_ = 0U;
+  HealthStatus last_health_ = HealthStatus::Nominal;
   Candidate candidates_[kMaximumNodes]{};
+  BoundedTelemetryBuffer telemetry_{};
 
   void resetCandidates();
   void process(const Message& message, uint32_t now_ms);
   void acceptMissionRequest(const Message& request, uint32_t now_ms);
   bool sendCandidacy(uint32_t now_ms);
-  void finishLeading();
-  void abandonUnacknowledgedMission();
+  void finishLeading(uint32_t now_ms);
+  void abandonUnacknowledgedMission(uint32_t now_ms);
+  void recordTelemetry(TelemetryEventType type, TelemetryReason reason, TelemetryPriority priority,
+                       uint32_t now_ms, MissionKey mission_key = MissionKey(),
+                       NodeId related_node = kBroadcastNode, uint8_t value = 0U);
+  void transitionTo(ControllerState state, TelemetryReason reason, uint32_t now_ms,
+                    TelemetryPriority priority = TelemetryPriority::Operational);
+  void observeHealth(HealthStatus health, uint32_t now_ms);
   bool matchesCurrentMission(const Message& message) const;
   bool elapsed(uint32_t now_ms, uint32_t since_ms, uint32_t duration_ms) const;
 };
