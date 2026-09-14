@@ -77,7 +77,7 @@ docker run --rm \
       | grep -F browser-ready >/dev/null
   '
 
-docker run --detach --rm \
+docker run --detach \
   --name "${container}" \
   --tmpfs /data:rw,exec,uid=2000,gid=2000,mode=0750,size=1g \
   --publish 127.0.0.1::3773 \
@@ -85,7 +85,7 @@ docker run --detach --rm \
 
 port=$(docker port "${container}" 3773/tcp | sed 's/.*://')
 server_ready=false
-for _ in $(seq 1 30); do
+for _ in $(seq 1 90); do
   if curl --fail --max-time 2 --silent "http://127.0.0.1:${port}/" >/dev/null; then
     server_ready=true
     break
@@ -108,7 +108,7 @@ docker run --rm \
   "${docker_image}" \
   -eu -c 'chown 1000:2000 /data; chmod 2770 /data'
 
-docker run --detach --rm \
+docker run --detach \
   --name "${docker_container}" \
   --privileged \
   --user 1000:1000 \
@@ -121,7 +121,7 @@ docker run --detach --rm \
   --tls=false >/dev/null
 
 docker_ready=false
-for _ in $(seq 1 30); do
+for _ in $(seq 1 90); do
   if docker run --rm \
     --network "container:${docker_container}" \
     --user 2000:2000 \

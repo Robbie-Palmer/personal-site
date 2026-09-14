@@ -18,11 +18,12 @@ handoff through GitHub branches rather than sharing live application state.
 
 ## Remote development plane
 
-The NixOS host lives under `hosts/remote-development/`. Disko owns only the VPS
-root disk. The attached Hetzner volume is encrypted with LUKS2, mounted at
-`/srv/remote-development`, and holds the K3s data directory, t3-code state,
-coding-agent authentication, repositories, and worktrees. Terraform owns only
-the Hetzner server, firewall, public SSH key, and volume.
+The NixOS host lives under `hosts/remote-development/`. Disko owns the VPS root
+disk, including the K3s datastore and image store. The attached Hetzner volume
+is encrypted with LUKS2, mounted at `/srv/remote-development`, and holds t3-code
+state, coding-agent authentication, repositories, worktrees, and rebuildable
+tool caches. Terraform owns only the Hetzner server, firewall, public SSH key,
+and volume.
 
 The cloud K3s server is independent from the home cluster. The Kustomize base
 under `k3s/base/t3-code/` contains shared workload policy. The `home` and
@@ -191,11 +192,18 @@ so a narrower rule does not override a broader one.
 
 #### Enable project quotas on the existing volume
 
-The NixOS definition mounts the data filesystem with project quotas and gives
-`/srv/remote-development/t3-code-pilot` project ID 2001. A systemd oneshot
-assigns that ID to existing files, makes new descendants inherit it, and sets
-hard limits of 10 GiB and 1,000,000 inodes before K3s starts. The operator
-workspace has no new disk limit.
+The NixOS definition mounts the data filesystem with project quotas. A systemd
+oneshot assigns project IDs to existing files, makes new descendants inherit
+them, and applies these hard limits before K3s starts:
+
+| Path                                         | Contents                        | Limit  | Inodes    |
+| -------------------------------------------- | ------------------------------- | ------ | --------- |
+| `/srv/remote-development/t3-code`            | Durable operator workspace data | 45 GiB | 3,000,000 |
+| `/srv/remote-development/t3-code-cache`      | Rebuildable operator caches     | 30 GiB | 2,000,000 |
+| `/srv/remote-development/t3-code-pilot`      | Pilot workspace data            | 10 GiB | 1,000,000 |
+
+The 98 GiB formatted filesystem retains about 13 GiB outside those quota
+ceilings.
 
 Fresh volumes created by `remote-volume-prepare` have the required ext4
 features from the start. The current volume predates that change. Enabling the
@@ -285,10 +293,10 @@ ssh root@remote-development \
   'repquota --project --verbose --no-names --output=csv /srv/remote-development'
 ```
 
-The report must contain project 2001 with a block hard limit of 10,485,760 KiB
-and a file hard limit of 1,000,000. Keep the undo file until the host has
-rebooted and the health check has passed again. If the NixOS switch fails,
-leave the volume mounted with `prjquota`, start the old `k3s.service` and
+The report must contain projects 2000, 2001, and 2002 with the limits listed
+above. Keep the undo file until the host has rebooted and the health check has
+passed again. If the NixOS switch fails, leave the volume mounted with
+`prjquota`, start the old `k3s.service` and
 `t3-code-tailscale-serve.service`, and investigate before retrying.
 
 #### Deploy the pilot workspace
