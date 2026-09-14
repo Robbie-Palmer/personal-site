@@ -43,9 +43,10 @@ check_project_quota() {
       END { if (!found) exit 1 }'
 }
 
-check_project_quota t3-code-operator /srv/remote-development/t3-code 47185920 3000000
-check_project_quota t3-code-pilot /srv/remote-development/t3-code-pilot 10485760 1000000
+check_project_quota t3-code-operator /srv/remote-development/t3-code 57671680 3000000
 check_project_quota t3-code-cache /srv/remote-development/t3-code-cache 31457280 2000000
+test ! -e /srv/remote-development/t3-code-pilot
+! grep -q '^t3-code-pilot:' /etc/projid
 
 check_disk_headroom() {
   local path=$1
@@ -75,6 +76,9 @@ test -z "$(
 systemctl is-active --quiet tailscaled.service
 systemctl is-active --quiet k3s.service
 tailscale status --json | jq -e '.BackendState == "Running"' >/dev/null
+tailscale serve status --json \
+  | jq -e '.TCP | keys | sort == ["3000", "3001", "3002", "3003", "3004", "443"]' \
+  >/dev/null
 k3s kubectl get node remote-development --output=json \
   | jq -e '
       .status.conditions
@@ -165,15 +169,5 @@ k3s kubectl --namespace t3-code get secret t3-code-preview-access --output=json 
         )
     ' >/dev/null
 echo "operator preview Access credentials are present"
-check_workspace \
-  t3-code-pilot \
-  30774 \
-  t3-code-remote-development-pilot \
-  workspace-default-deny-ingress \
-  workspace-dns \
-  workspace-public-egress
-
-if k3s kubectl --namespace t3-code-pilot get deployment t3-code >/dev/null 2>&1; then
-  test "$(k3s kubectl --namespace t3-code-pilot get resourcequota workspace --output=jsonpath='{.spec.hard.pods}')" = 1
-fi
+! k3s kubectl get namespace t3-code-pilot >/dev/null 2>&1
 REMOTE

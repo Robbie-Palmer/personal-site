@@ -11,20 +11,15 @@ let
   dataKeyFile = "/var/lib/remote-development-secrets/data-volume.key";
   operatorDataPath = "${dataMount}/t3-code";
   cacheDataPath = "${dataMount}/t3-code-cache";
-  pilotDataPath = "${dataMount}/t3-code-pilot";
   operatorProjectId = "2000";
-  pilotProjectId = "2001";
   cacheProjectId = "2002";
-  operatorBlockHardLimit = "45G";
-  operatorBlockHardLimitKiB = "47185920";
+  operatorBlockHardLimit = "55G";
+  operatorBlockHardLimitKiB = "57671680";
   operatorInodeHardLimit = "3000000";
-  pilotBlockHardLimit = "10G";
-  pilotBlockHardLimitKiB = "10485760";
-  pilotInodeHardLimit = "1000000";
   cacheBlockHardLimit = "30G";
   cacheBlockHardLimitKiB = "31457280";
   cacheInodeHardLimit = "2000000";
-  projectQuotaLayoutVersion = "1";
+  projectQuotaLayoutVersion = "2";
   operatorKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIIj4+tNshoonWcOZFnSV0YcXgKuGqfcmn5HyIvLCfdQe robbiepalmer@live.co.uk";
 in
 {
@@ -64,12 +59,10 @@ in
     '';
     projects.text = ''
       ${operatorProjectId}:${operatorDataPath}
-      ${pilotProjectId}:${pilotDataPath}
       ${cacheProjectId}:${cacheDataPath}
     '';
     projid.text = ''
       t3-code-operator:${operatorProjectId}
-      t3-code-pilot:${pilotProjectId}
       t3-code-cache:${cacheProjectId}
     '';
   };
@@ -186,12 +179,6 @@ in
       install -d -m 0750 -o t3code -g t3code ${cacheDataPath}/mise
       install -d -m 0750 -o t3code -g t3code ${cacheDataPath}/pnpm
       install -d -m 0750 -o t3code -g t3code ${cacheDataPath}/arduino15
-      install -d -m 2770 -o t3code -g t3code ${pilotDataPath}
-      install -d -m 0700 -o t3code -g t3code ${pilotDataPath}/home
-      install -d -m 0700 -o t3code -g t3code ${pilotDataPath}/home/.t3
-      install -d -m 0700 -o t3code -g t3code ${pilotDataPath}/home/.codex
-      install -d -m 0700 -o t3code -g t3code ${pilotDataPath}/home/.codex-personal
-      install -d -m 0700 -o t3code -g t3code ${pilotDataPath}/workspaces
     '';
   };
 
@@ -230,23 +217,17 @@ in
       quota_state_file=/var/lib/remote-development/project-quota-layout
       if [ "$(cat "$quota_state_file" 2>/dev/null || true)" != "$quota_state" ]; then
         find ${operatorDataPath} -xdev ! -type l -exec chattr -p ${operatorProjectId} {} +
-        find ${pilotDataPath} -xdev ! -type l -exec chattr -p ${pilotProjectId} {} +
         find ${cacheDataPath} -xdev ! -type l -exec chattr -p ${cacheProjectId} {} +
       fi
 
       chattr +P ${operatorDataPath}
       setquota --project ${operatorProjectId} 0 ${operatorBlockHardLimit} 0 ${operatorInodeHardLimit} ${dataMount}
 
-      chattr +P ${pilotDataPath}
-      setquota --project ${pilotProjectId} 0 ${pilotBlockHardLimit} 0 ${pilotInodeHardLimit} ${dataMount}
-
       chattr +P ${cacheDataPath}
       setquota --project ${cacheProjectId} 0 ${cacheBlockHardLimit} 0 ${cacheInodeHardLimit} ${dataMount}
 
       test "$(lsattr -dp ${operatorDataPath} | awk '{ print $1 }')" = ${operatorProjectId}
       lsattr -d ${operatorDataPath} | awk '{ print $1 }' | grep -F P >/dev/null
-      test "$(lsattr -dp ${pilotDataPath} | awk '{ print $1 }')" = ${pilotProjectId}
-      lsattr -d ${pilotDataPath} | awk '{ print $1 }' | grep -F P >/dev/null
       test "$(lsattr -dp ${cacheDataPath} | awk '{ print $1 }')" = ${cacheProjectId}
       lsattr -d ${cacheDataPath} | awk '{ print $1 }' | grep -F P >/dev/null
       repquota --project --verbose --no-names --output=csv ${dataMount} \
@@ -255,15 +236,11 @@ in
             operator_found = 1
             if ($6 != "${operatorBlockHardLimitKiB}" || $10 != "${operatorInodeHardLimit}") exit 1
           }
-          $1 == "#${pilotProjectId}" {
-            pilot_found = 1
-            if ($6 != "${pilotBlockHardLimitKiB}" || $10 != "${pilotInodeHardLimit}") exit 1
-          }
           $1 == "#${cacheProjectId}" {
             cache_found = 1
             if ($6 != "${cacheBlockHardLimitKiB}" || $10 != "${cacheInodeHardLimit}") exit 1
           }
-          END { if (!operator_found || !pilot_found || !cache_found) exit 1 }'
+          END { if (!operator_found || !cache_found) exit 1 }'
       printf '%s\n' "$quota_state" >"$quota_state_file"
     '';
   };
@@ -348,7 +325,6 @@ in
     script = ''
       if tailscale status --json | jq --exit-status '.BackendState == "Running"' >/dev/null; then
         tailscale serve --bg --https=443 http://127.0.0.1:30773
-        tailscale serve --bg --https=8443 http://127.0.0.1:30774
         tailscale serve --bg --https=3000 http://127.0.0.1:31000
         tailscale serve --bg --https=3001 http://127.0.0.1:31001
         tailscale serve --bg --https=3002 http://127.0.0.1:31002

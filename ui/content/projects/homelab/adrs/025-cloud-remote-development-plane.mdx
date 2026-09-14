@@ -38,11 +38,11 @@ Ansible into another permanent workload or host configuration system.
 
 # Decision
 
-Provision one long-lived Hetzner Cloud VPS as a separate remote-development
-plane. Terraform owns the Hetzner server, firewall, SSH key registration, and
-persistent volume. A NixOS flake owns the operating system, Tailscale, storage
-mounts, and a single-node K3s server. K3s owns t3-code and its supporting
-workloads.
+Provision one long-lived Hetzner Cloud VPS as a separate, single-user
+remote-development plane. Terraform owns the Hetzner server, firewall, SSH key
+registration, and persistent volume. A NixOS flake owns the operating system,
+Tailscale, storage mounts, and a single-node K3s server. K3s owns t3-code and
+its supporting workloads.
 
 The VPS is reproducible but not routinely destroyed. Reproducibility is the
 recovery mechanism: a failed server can be replaced without rebuilding the
@@ -130,11 +130,11 @@ volume must not also exhaust K3s image storage, taint the node with disk
 pressure, and remove the image needed to restart that workspace.
 
 Split the attached volume into project-quota domains. Give the operator's
-durable state 45 GiB, its rebuildable tool and package caches 30 GiB, and the
-pilot workspace 10 GiB. Leave the remaining filesystem capacity unallocated
-so ext4 metadata and quota enforcement have headroom. Kubernetes local volumes
-describe these paths, while ext4 project quotas enforce their limits on the
-single physical filesystem.
+durable state 55 GiB and its rebuildable tool and package caches 30 GiB. Leave
+the remaining filesystem capacity unallocated so ext4 metadata and quota
+enforcement have headroom. Kubernetes local volumes describe these paths,
+while ext4 project quotas enforce their limits on the single physical
+filesystem.
 
 Keep active worktrees, t3-code state, repositories, and agent authentication
 in the durable volume. Put mise installations, the pnpm store, browser caches,
@@ -261,6 +261,8 @@ and limited to the repositories and operations the agents need.
 * A single VPS is not internally highly available. Provider or region failure
   can still stop it, while the home instance provides a separate fallback when
   home connectivity is healthy.
+* The VPS is intentionally single-user. A second person requires separate
+  workspace compute and a recovery design proved outside this host.
 * Coding-harness OAuth sessions require a secure commissioning and recovery
   process beyond ordinary Doppler secrets.
 * Two t3-code installations create operational duplication and require Git
