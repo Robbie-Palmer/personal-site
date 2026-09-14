@@ -35,6 +35,23 @@ const expectWorkGraphError = (
   );
 };
 
+const waitForDatabaseLock = async (): Promise<void> => {
+  for (let attempt = 0; attempt < 100; attempt += 1) {
+    const [result] = await db.execute<{ waiting: boolean }>(sql`
+      select exists (
+        select 1
+        from pg_stat_activity
+        where datname = current_database()
+          and pid <> pg_backend_pid()
+          and wait_event_type = 'Lock'
+      ) as waiting
+    `);
+    if (result?.waiting === true) return;
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+  throw new Error("Timed out waiting for a PostgreSQL lock waiter.");
+};
+
 beforeAll(async () => {
   const [migrationCount] = await db.execute<{ count: number }>(sql`
     select count(*)::integer as count
@@ -226,6 +243,51 @@ describe("lease-backed claiming", () => {
     expect(await repository.listLeases("work")).toHaveLength(1);
   });
 
+  it("starts the lease duration after graph-lock waiting ends", async () => {
+    await repository.createWorkItem({ id: "work", title: "Delayed claim" });
+
+    let announceLock: (() => void) | undefined;
+    const graphLocked = new Promise<void>((resolve) => {
+      announceLock = resolve;
+    });
+    let releaseLock: (() => void) | undefined;
+    const holdLock = new Promise<void>((resolve) => {
+      releaseLock = resolve;
+    });
+    const lockTransaction = db.transaction(async (transaction) => {
+      await transaction
+        .select({ id: schema.graphMutationLock.id })
+        .from(schema.graphMutationLock)
+        .for("update");
+      announceLock?.();
+      await holdLock;
+    });
+    await graphLocked;
+
+    const claim = repository.claimWorkItem({
+      leaseId: leaseId(12),
+      workerId: "worker-a",
+      leaseDurationSeconds: 1,
+      workItemId: "work",
+    });
+    try {
+      await waitForDatabaseLock();
+      await db.execute(sql`select pg_sleep(1.1)`);
+    } finally {
+      releaseLock?.();
+      await lockTransaction;
+    }
+
+    const claimed = await claim;
+    if (!claimed) throw new Error("Expected the delayed claim to succeed.");
+    const [clock] = await db.execute<{ currentTime: string }>(sql`
+      select clock_timestamp() as "currentTime"
+    `);
+    expect(claimed.expiresAt.getTime()).toBeGreaterThan(
+      clock ? new Date(clock.currentTime).getTime() : Number.POSITIVE_INFINITY,
+    );
+  });
+
   it("uses SKIP LOCKED to claim other work while a candidate is held", async () => {
     await repository.createWorkItem({ id: "a", title: "First" });
     await repository.createWorkItem({ id: "b", title: "Second" });
@@ -370,6 +432,59 @@ describe("lease-backed claiming", () => {
       claimed.expiresAt.getTime(),
     );
     expect(renewed.acquiredAt).toEqual(claimed.acquiredAt);
+  });
+
+  it("rejects renewal when a lease expires while waiting for its item lock", async () => {
+    await repository.createWorkItem({ id: "work", title: "Expiring work" });
+    const claimed = await repository.claimWorkItem({
+      leaseId: leaseId(41),
+      workerId: "worker-a",
+      leaseDurationSeconds: 300,
+      workItemId: "work",
+    });
+    if (!claimed) throw new Error("Expected the claim to succeed.");
+    await db
+      .update(schema.lease)
+      .set({ expiresAt: sql`clock_timestamp() + interval '1 second'` })
+      .where(eq(schema.lease.id, claimed.id));
+
+    let announceLock: (() => void) | undefined;
+    const itemLocked = new Promise<void>((resolve) => {
+      announceLock = resolve;
+    });
+    let releaseLock: (() => void) | undefined;
+    const holdLock = new Promise<void>((resolve) => {
+      releaseLock = resolve;
+    });
+    const lockTransaction = db.transaction(async (transaction) => {
+      await transaction
+        .select({ id: schema.workItem.id })
+        .from(schema.workItem)
+        .where(eq(schema.workItem.id, "work"))
+        .for("update");
+      announceLock?.();
+      await holdLock;
+    });
+    await itemLocked;
+
+    const renewalResult = Promise.allSettled([
+      repository.renewLease({
+        leaseId: claimed.id,
+        epoch: claimed.epoch,
+        leaseDurationSeconds: 300,
+      }),
+    ]);
+    try {
+      await waitForDatabaseLock();
+      await db.execute(sql`select pg_sleep(1.1)`);
+    } finally {
+      releaseLock?.();
+      await lockTransaction;
+    }
+
+    const [renewal] = await renewalResult;
+    if (!renewal) throw new Error("Expected one renewal result.");
+    expectWorkGraphError(renewal, "lease_not_current");
   });
 
   it("terminates claimed work and retains the lease outcome", async () => {

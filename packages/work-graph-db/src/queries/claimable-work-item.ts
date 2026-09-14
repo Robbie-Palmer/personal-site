@@ -52,6 +52,6 @@ export const claimableWorkItemWhere = (
       from ${lease}
       where ${lease.workItemId} = ${workItem.id}
         and ${lease.endedAt} is null
-        and ${lease.expiresAt} > now()
+        and ${lease.expiresAt} > clock_timestamp()
     )`,
   );

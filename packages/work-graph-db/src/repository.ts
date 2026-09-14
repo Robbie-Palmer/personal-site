@@ -122,6 +122,34 @@ const leaseNotCurrent = (leaseId: string, epoch: number): WorkGraphError =>
     `Lease ${leaseId} at epoch ${epoch} is not current and active.`,
   );
 
+const readDatabaseClock = async (
+  transaction: DbTransaction,
+): Promise<Date> => {
+  const [clock] = await transaction.execute<{ currentTime: string }>(sql`
+    select clock_timestamp() as "currentTime"
+  `);
+  if (!clock) {
+    throw new Error("Reading the database clock returned no row.");
+  }
+  return new Date(clock.currentTime);
+};
+
+const calculateLeaseExpiry = (
+  acquiredAt: Date,
+  leaseDurationSeconds: number,
+): Date => {
+  const expiresAt = new Date(
+    acquiredAt.getTime() + leaseDurationSeconds * 1_000,
+  );
+  if (Number.isNaN(expiresAt.getTime())) {
+    throw new WorkGraphError(
+      "invalid_lease_duration",
+      "The lease duration exceeds the supported timestamp range.",
+    );
+  }
+  return expiresAt;
+};
+
 const workItemNotFound = (workItemId: string): WorkGraphError =>
   new WorkGraphError(
     "work_item_not_found",
@@ -277,14 +305,20 @@ export class WorkGraphRepository {
             }
           }
 
+          const acquiredAt = await readDatabaseClock(transaction);
+          const expiresAt = calculateLeaseExpiry(
+            acquiredAt,
+            input.leaseDurationSeconds,
+          );
+
           await transaction
             .update(lease)
-            .set({ endedAt: sql`now()`, outcome: "expired" })
+            .set({ endedAt: acquiredAt, outcome: "expired" })
             .where(
               and(
                 eq(lease.workItemId, candidateId),
                 isNull(lease.endedAt),
-                lte(lease.expiresAt, sql`now()`),
+                lte(lease.expiresAt, acquiredAt),
               ),
             );
 
@@ -305,7 +339,8 @@ export class WorkGraphRepository {
               workItemId: candidateId,
               workerId: input.workerId,
               epoch: epochRow.nextEpoch,
-              expiresAt: sql`now() + make_interval(secs => ${input.leaseDurationSeconds})`,
+              acquiredAt,
+              expiresAt,
             })
             .returning();
           if (!claimedLease) {
@@ -351,18 +386,22 @@ export class WorkGraphRepository {
         .where(eq(workItem.id, storedLease.workItemId))
         .for("update");
 
+      const renewedAt = await readDatabaseClock(transaction);
+      const expiresAt = calculateLeaseExpiry(
+        renewedAt,
+        input.leaseDurationSeconds,
+      );
+
       const [renewedLease] = await transaction
         .update(lease)
-        .set({
-          expiresAt: sql`now() + make_interval(secs => ${input.leaseDurationSeconds})`,
-        })
+        .set({ expiresAt })
         .where(
           and(
             eq(lease.id, input.leaseId),
             eq(lease.workItemId, storedLease.workItemId),
             eq(lease.epoch, input.epoch),
             isNull(lease.endedAt),
-            gt(lease.expiresAt, sql`now()`),
+            gt(lease.expiresAt, renewedAt),
           ),
         )
         .returning();
@@ -395,16 +434,18 @@ export class WorkGraphRepository {
         .where(eq(workItem.id, storedLease.workItemId))
         .for("update");
 
+      const completedAt = await readDatabaseClock(transaction);
+
       const [completedLease] = await transaction
         .update(lease)
-        .set({ endedAt: sql`now()`, outcome: input.outcome })
+        .set({ endedAt: completedAt, outcome: input.outcome })
         .where(
           and(
             eq(lease.id, input.leaseId),
             eq(lease.workItemId, storedLease.workItemId),
             eq(lease.epoch, input.epoch),
             isNull(lease.endedAt),
-            gt(lease.expiresAt, sql`now()`),
+            gt(lease.expiresAt, completedAt),
           ),
         )
         .returning();
