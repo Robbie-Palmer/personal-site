@@ -203,6 +203,42 @@ describe("Work Graph PostgreSQL persistence", () => {
 
     expect((await repository.load()).workItems).toEqual([]);
   });
+
+  it("preserves domain errors across database transactions", async () => {
+    await repository.createWorkItem({ id: "existing", title: "Existing" });
+
+    await expect(
+      repository.createWorkItem({ id: "existing", title: "Duplicate" }),
+    ).rejects.toEqual(
+      expect.objectContaining<Partial<WorkGraphError>>({
+        code: "duplicate_work_item",
+      }),
+    );
+    await expect(repository.reparentWorkItem("", null)).rejects.toEqual(
+      expect.objectContaining<Partial<WorkGraphError>>({
+        code: "invalid_work_item_id",
+      }),
+    );
+    await expect(
+      repository.reparentWorkItem("existing", ""),
+    ).rejects.toEqual(
+      expect.objectContaining<Partial<WorkGraphError>>({
+        code: "invalid_parent_id",
+      }),
+    );
+    await expect(repository.releaseWorkItem("missing")).rejects.toEqual(
+      expect.objectContaining<Partial<WorkGraphError>>({
+        code: "work_item_not_found",
+      }),
+    );
+    await expect(
+      repository.addDependency(dependency("existing", "missing")),
+    ).rejects.toEqual(
+      expect.objectContaining<Partial<WorkGraphError>>({
+        code: "work_item_not_found",
+      }),
+    );
+  });
 });
 
 describe("atomic graph mutations", () => {
@@ -233,6 +269,61 @@ describe("atomic graph mutations", () => {
     expect(graph.workItems.find(({ id }) => id === "child")?.parentId).toBe(
       "parent",
     );
+  });
+
+  it("rejects direct constraint violations with domain errors", async () => {
+    await repository.createWorkItem({ id: "a", title: "A" });
+    await repository.createWorkItem({ id: "b", title: "B" });
+
+    await expect(repository.reparentWorkItem("a", "a")).rejects.toEqual(
+      expect.objectContaining<Partial<WorkGraphError>>({ code: "graph_cycle" }),
+    );
+    await expect(
+      repository.addDependency(dependency("a", "a")),
+    ).rejects.toEqual(
+      expect.objectContaining<Partial<WorkGraphError>>({
+        code: "self_dependency",
+      }),
+    );
+
+    const edge = dependency("a", "b");
+    await repository.addDependency(edge);
+    await expect(repository.addDependency(edge)).rejects.toEqual(
+      expect.objectContaining<Partial<WorkGraphError>>({
+        code: "dependency_already_exists",
+      }),
+    );
+  });
+
+  it("can move a child back to the graph root", async () => {
+    await repository.createWorkItem({ id: "parent", title: "Parent" });
+    await repository.createWorkItem({
+      id: "child",
+      title: "Child",
+      parentId: "parent",
+    });
+
+    await repository.reparentWorkItem("child", null);
+
+    expect(
+      (await repository.load()).workItems.find(({ id }) => id === "child")
+        ?.parentId,
+    ).toBeNull();
+  });
+
+  it("fails closed when the graph-mutation lock is missing", async () => {
+    await repository.createWorkItem({ id: "a", title: "A" });
+    await repository.createWorkItem({ id: "b", title: "B" });
+    await db.delete(schema.graphMutationLock);
+
+    try {
+      await expect(
+        repository.addDependency(dependency("a", "b")),
+      ).rejects.toThrow("The global graph mutation lock row is missing.");
+      expect((await repository.load()).dependencies).toEqual([]);
+    } finally {
+      await db.insert(schema.graphMutationLock).values({ id: "global" });
+    }
   });
 
   it("rejects direct and transitive dependency cycles atomically", async () => {
