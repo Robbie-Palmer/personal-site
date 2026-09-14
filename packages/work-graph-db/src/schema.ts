@@ -2,18 +2,23 @@ import { sql } from "drizzle-orm";
 import {
   check,
   index,
+  integer,
   pgEnum,
   pgTable,
   primaryKey,
   text,
   timestamp,
+  uniqueIndex,
+  uuid,
 } from "drizzle-orm/pg-core";
-import { WORK_ITEM_LIFECYCLES } from "work-graph-domain";
+import { LEASE_OUTCOMES, WORK_ITEM_LIFECYCLES } from "work-graph-domain";
 
 export const workItemLifecycleEnum = pgEnum(
   "work_item_lifecycle",
   WORK_ITEM_LIFECYCLES,
 );
+
+export const leaseOutcomeEnum = pgEnum("lease_outcome", LEASE_OUTCOMES);
 
 export const workItem = pgTable(
   "work_items",
@@ -87,3 +92,45 @@ export const workItemDependency = pgTable(
 export const graphMutationLock = pgTable("graph_mutation_locks", {
   id: text().primaryKey(),
 });
+
+export const lease = pgTable(
+  "leases",
+  {
+    id: uuid().primaryKey(),
+    workItemId: text()
+      .notNull()
+      .references(() => workItem.id, { onDelete: "restrict" }),
+    workerId: text().notNull(),
+    epoch: integer().notNull(),
+    acquiredAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    expiresAt: timestamp({ withTimezone: true }).notNull(),
+    endedAt: timestamp({ withTimezone: true }),
+    outcome: leaseOutcomeEnum(),
+  },
+  (table) => [
+    uniqueIndex("leases_work_item_id_epoch_uidx").on(
+      table.workItemId,
+      table.epoch,
+    ),
+    uniqueIndex("leases_one_current_per_work_item_uidx")
+      .on(table.workItemId)
+      .where(sql`${table.endedAt} is null`),
+    check(
+      "leases_worker_id_not_blank_check",
+      sql`btrim(${table.workerId}) <> ''`,
+    ),
+    check("leases_epoch_positive_check", sql`${table.epoch} > 0`),
+    check(
+      "leases_expiry_after_acquisition_check",
+      sql`${table.expiresAt} > ${table.acquiredAt}`,
+    ),
+    check(
+      "leases_end_and_outcome_check",
+      sql`(${table.endedAt} is null) = (${table.outcome} is null)`,
+    ),
+    check(
+      "leases_end_after_acquisition_check",
+      sql`${table.endedAt} is null or ${table.endedAt} >= ${table.acquiredAt}`,
+    ),
+  ],
+);

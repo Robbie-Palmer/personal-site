@@ -412,15 +412,18 @@ before the headless workflow is useful.
 2. [ ] Implement lifecycle and readiness projection, hierarchy checks, and the
    first deterministic priority policy against in-memory fixtures.
 3. [x] Add the PostgreSQL schema, migrations, and integration-test database.
-4. [ ] Build create, list, dependency, claim, renew, release, cancel, note, and
+4. [x] Persist lease history and implement atomic specified and first-eligible
+   claims, renewal, stale recovery, and epoch fencing.
+5. [ ] Build create, list, dependency, claim, renew, release, cancel, note, and
    attention endpoints with generated OpenAPI.
-5. [ ] Add transactional decomposition and stale-lease fencing.
-6. [ ] Build the TypeScript CLI around create, queue, claim, show, note, renew,
+6. [ ] Add transactional decomposition, including ending the current lease and
+   optionally claiming a ready child.
+7. [ ] Build the TypeScript CLI around create, queue, claim, show, note, renew,
    decompose, attention, release, and cancel operations.
-7. [ ] Provision the Worker, Neon project, Hyperdrive, Access application, service
+8. [ ] Provision the Worker, Neon project, Hyperdrive, Access application, service
    token, and secrets through Terraform and Doppler.
-8. [ ] Enter this plan into Work Graph and use it to finish its own MVP.
-9. [ ] Add manual PR links and snapshot refresh. Automate GitHub events only after
+9. [ ] Enter this plan into Work Graph and use it to finish its own MVP.
+10. [ ] Add manual PR links and snapshot refresh. Automate GitHub events only after
    manual use shows which events matter.
 
 ## Deferred

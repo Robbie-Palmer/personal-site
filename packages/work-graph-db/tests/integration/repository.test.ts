@@ -3,7 +3,7 @@ import {
   WorkGraphError,
   type WorkItemDependency,
 } from "work-graph-domain";
-import { sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import {
   closeDb,
   createDb,
@@ -35,6 +35,23 @@ const expectWorkGraphError = (
   );
 };
 
+const waitForDatabaseLock = async (): Promise<void> => {
+  for (let attempt = 0; attempt < 100; attempt += 1) {
+    const [result] = await db.execute<{ waiting: boolean }>(sql`
+      select exists (
+        select 1
+        from pg_stat_activity
+        where datname = current_database()
+          and pid <> pg_backend_pid()
+          and wait_event_type = 'Lock'
+      ) as waiting
+    `);
+    if (result?.waiting === true) return;
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+  throw new Error("Timed out waiting for a PostgreSQL lock waiter.");
+};
+
 beforeAll(async () => {
   const [migrationCount] = await db.execute<{ count: number }>(sql`
     select count(*)::integer as count
@@ -56,10 +73,18 @@ beforeAll(async () => {
     where pg_type.typname = 'work_item_lifecycle'
     order by enumsortorder
   `);
+  const leaseOutcomeValues = await db.execute<{ enumlabel: string }>(sql`
+    select enumlabel
+    from pg_enum
+    join pg_type on pg_type.oid = pg_enum.enumtypid
+    where pg_type.typname = 'lease_outcome'
+    order by enumsortorder
+  `);
 
-  expect(migrationCount?.count).toBe(1);
+  expect(migrationCount?.count).toBe(2);
   expect(tables.map(({ table_name }) => table_name)).toEqual([
     "graph_mutation_locks",
+    "leases",
     "work_item_dependencies",
     "work_item_hierarchy",
     "work_items",
@@ -70,10 +95,18 @@ beforeAll(async () => {
     "released",
     "cancelled",
   ]);
+  expect(leaseOutcomeValues.map(({ enumlabel }) => enumlabel)).toEqual([
+    "released",
+    "cancelled",
+    "decomposed",
+    "attention_requested",
+    "expired",
+  ]);
 });
 
 beforeEach(async () => {
   await db.transaction(async (transaction) => {
+    await transaction.delete(schema.lease);
     await transaction.delete(schema.workItemDependency);
     await transaction.delete(schema.workItemHierarchy);
     await transaction.delete(schema.workItem);
@@ -82,6 +115,591 @@ beforeEach(async () => {
 
 afterAll(async () => {
   await closeDb(db);
+});
+
+describe("lease-backed claiming", () => {
+  const leaseId = (suffix: number): string =>
+    `00000000-0000-4000-8000-${suffix.toString().padStart(12, "0")}`;
+
+  it("creates a lease only for work whose readiness predicates pass", async () => {
+    await repository.createWorkItem({ id: "parent", title: "Parent" });
+    await repository.createWorkItem({
+      id: "child",
+      title: "Child",
+      parentId: "parent",
+    });
+    await repository.createWorkItem({ id: "dependent", title: "Dependent" });
+    await repository.createWorkItem({ id: "blocker", title: "Blocker" });
+    await repository.addDependency(dependency("dependent", "blocker"));
+
+    await expect(
+      repository.claimWorkItem({
+        leaseId: leaseId(1),
+        workerId: "worker-a",
+        leaseDurationSeconds: 300,
+        workItemId: "parent",
+      }),
+    ).resolves.toBeNull();
+    await expect(
+      repository.claimWorkItem({
+        leaseId: leaseId(2),
+        workerId: "worker-a",
+        leaseDurationSeconds: 300,
+        workItemId: "dependent",
+      }),
+    ).resolves.toBeNull();
+
+    await repository.releaseWorkItem("child");
+    await repository.cancelWorkItem("blocker");
+
+    const parentLease = await repository.claimWorkItem({
+      leaseId: leaseId(3),
+      workerId: "worker-a",
+      leaseDurationSeconds: 300,
+      workItemId: "parent",
+    });
+    const dependentLease = await repository.claimWorkItem({
+      leaseId: leaseId(4),
+      workerId: "worker-b",
+      leaseDurationSeconds: 300,
+      workItemId: "dependent",
+    });
+
+    expect(parentLease).toEqual(
+      expect.objectContaining({
+        id: leaseId(3),
+        workItemId: "parent",
+        workerId: "worker-a",
+        epoch: 1,
+        endedAt: null,
+        outcome: null,
+      }),
+    );
+    expect(dependentLease?.workItemId).toBe("dependent");
+    if (!parentLease) throw new Error("Expected the parent claim to succeed.");
+    await expect(repository.getCurrentLease("parent")).resolves.toEqual(
+      parentLease,
+    );
+    expect(
+      projectWorkItemStage(await repository.load(), "parent", {
+        currentLease: { expiresAt: parentLease.expiresAt.getTime() },
+        now: parentLease.acquiredAt.getTime(),
+      }),
+    ).toBe("in_progress");
+  });
+
+  it("inherits dependency readiness from parent work", async () => {
+    await repository.createWorkItem({ id: "parent", title: "Parent" });
+    await repository.createWorkItem({
+      id: "child",
+      title: "Child",
+      parentId: "parent",
+    });
+    await repository.createWorkItem({ id: "blocker", title: "Blocker" });
+    await repository.addDependency(dependency("parent", "blocker"));
+
+    await expect(
+      repository.claimWorkItem({
+        leaseId: leaseId(5),
+        workerId: "worker-a",
+        leaseDurationSeconds: 300,
+        workItemId: "child",
+      }),
+    ).resolves.toBeNull();
+
+    await repository.releaseWorkItem("blocker");
+    await expect(
+      repository.claimWorkItem({
+        leaseId: leaseId(6),
+        workerId: "worker-a",
+        leaseDurationSeconds: 300,
+        workItemId: "child",
+      }),
+    ).resolves.toEqual(
+      expect.objectContaining({ workItemId: "child", epoch: 1 }),
+    );
+  });
+
+  it("lets exactly one worker win a race for a specified item", async () => {
+    await repository.createWorkItem({ id: "work", title: "Contended work" });
+
+    const claims = await Promise.all([
+      repository.claimWorkItem({
+        leaseId: leaseId(10),
+        workerId: "worker-a",
+        leaseDurationSeconds: 300,
+        workItemId: "work",
+      }),
+      repository.claimWorkItem({
+        leaseId: leaseId(11),
+        workerId: "worker-b",
+        leaseDurationSeconds: 300,
+        workItemId: "work",
+      }),
+    ]);
+
+    expect(claims.filter((claim) => claim !== null)).toHaveLength(1);
+    expect(claims.filter((claim) => claim === null)).toHaveLength(1);
+    expect(await repository.listLeases("work")).toHaveLength(1);
+  });
+
+  it("starts the lease duration after graph-lock waiting ends", async () => {
+    await repository.createWorkItem({ id: "work", title: "Delayed claim" });
+
+    let announceLock: (() => void) | undefined;
+    const graphLocked = new Promise<void>((resolve) => {
+      announceLock = resolve;
+    });
+    let releaseLock: (() => void) | undefined;
+    const holdLock = new Promise<void>((resolve) => {
+      releaseLock = resolve;
+    });
+    const lockTransaction = db.transaction(async (transaction) => {
+      await transaction
+        .select({ id: schema.graphMutationLock.id })
+        .from(schema.graphMutationLock)
+        .for("update");
+      announceLock?.();
+      await holdLock;
+    });
+    await graphLocked;
+
+    const claim = repository.claimWorkItem({
+      leaseId: leaseId(12),
+      workerId: "worker-a",
+      leaseDurationSeconds: 1,
+      workItemId: "work",
+    });
+    try {
+      await waitForDatabaseLock();
+      await db.execute(sql`select pg_sleep(1.1)`);
+    } finally {
+      releaseLock?.();
+      await lockTransaction;
+    }
+
+    const claimed = await claim;
+    if (!claimed) throw new Error("Expected the delayed claim to succeed.");
+    const [clock] = await db.execute<{ currentTime: string }>(sql`
+      select clock_timestamp() as "currentTime"
+    `);
+    expect(claimed.expiresAt.getTime()).toBeGreaterThan(
+      clock ? new Date(clock.currentTime).getTime() : Number.POSITIVE_INFINITY,
+    );
+  });
+
+  it("uses SKIP LOCKED to claim other work while a candidate is held", async () => {
+    await repository.createWorkItem({ id: "a", title: "First" });
+    await repository.createWorkItem({ id: "b", title: "Second" });
+
+    let announceLock: (() => void) | undefined;
+    const itemLocked = new Promise<void>((resolve) => {
+      announceLock = resolve;
+    });
+    let releaseLock: (() => void) | undefined;
+    const holdLock = new Promise<void>((resolve) => {
+      releaseLock = resolve;
+    });
+    const lockTransaction = db.transaction(async (transaction) => {
+      await transaction
+        .select({ id: schema.workItem.id })
+        .from(schema.workItem)
+        .where(eq(schema.workItem.id, "a"))
+        .for("update");
+      announceLock?.();
+      await holdLock;
+    });
+    await itemLocked;
+
+    try {
+      await expect(
+        repository.claimWorkItem({
+          leaseId: leaseId(20),
+          workerId: "worker-b",
+          leaseDurationSeconds: 300,
+        }),
+      ).resolves.toEqual(expect.objectContaining({ workItemId: "b" }));
+    } finally {
+      releaseLock?.();
+      await lockTransaction;
+    }
+  });
+
+  it("reclaims stale work with a higher epoch and expires the old lease", async () => {
+    await repository.createWorkItem({ id: "work", title: "Stale work" });
+    const firstLease = await repository.claimWorkItem({
+      leaseId: leaseId(30),
+      workerId: "worker-a",
+      leaseDurationSeconds: 300,
+      workItemId: "work",
+    });
+    if (!firstLease) throw new Error("Expected the first claim to succeed.");
+
+    await db
+      .update(schema.lease)
+      .set({
+        acquiredAt: new Date("2000-01-01T00:00:00Z"),
+        expiresAt: new Date("2000-01-01T00:01:00Z"),
+      })
+      .where(eq(schema.lease.id, firstLease.id));
+
+    const staleGraph = await repository.load();
+    expect(
+      projectWorkItemStage(staleGraph, "work", {
+        currentLease: { expiresAt: 946_684_860_000 },
+        now: Date.now(),
+      }),
+    ).toBe("stale");
+
+    const reclaimed = await repository.claimWorkItem({
+      leaseId: leaseId(31),
+      workerId: "worker-b",
+      leaseDurationSeconds: 300,
+      workItemId: "work",
+    });
+    expect(reclaimed).toEqual(
+      expect.objectContaining({
+        id: leaseId(31),
+        workItemId: "work",
+        workerId: "worker-b",
+        epoch: 2,
+      }),
+    );
+
+    const history = await repository.listLeases("work");
+    expect(history[0]).toEqual(
+      expect.objectContaining({
+        id: firstLease.id,
+        epoch: 1,
+        outcome: "expired",
+      }),
+    );
+    expect(history[0]?.endedAt).toBeInstanceOf(Date);
+    expect(history[1]).toEqual(reclaimed);
+
+    await expect(
+      repository.renewLease({
+        leaseId: firstLease.id,
+        epoch: firstLease.epoch,
+        leaseDurationSeconds: 300,
+      }),
+    ).rejects.toEqual(
+      expect.objectContaining<Partial<WorkGraphError>>({
+        code: "lease_not_current",
+      }),
+    );
+    await expect(
+      repository.terminateClaimedWorkItem({
+        leaseId: firstLease.id,
+        epoch: firstLease.epoch,
+        outcome: "released",
+      }),
+    ).rejects.toEqual(
+      expect.objectContaining<Partial<WorkGraphError>>({
+        code: "lease_not_current",
+      }),
+    );
+  });
+
+  it("renews only the active lease at the current epoch", async () => {
+    await repository.createWorkItem({ id: "work", title: "Renewable work" });
+    const claimed = await repository.claimWorkItem({
+      leaseId: leaseId(40),
+      workerId: "worker-a",
+      leaseDurationSeconds: 60,
+      workItemId: "work",
+    });
+    if (!claimed) throw new Error("Expected the claim to succeed.");
+
+    await expect(
+      repository.renewLease({
+        leaseId: claimed.id,
+        epoch: claimed.epoch + 1,
+        leaseDurationSeconds: 600,
+      }),
+    ).rejects.toEqual(
+      expect.objectContaining<Partial<WorkGraphError>>({
+        code: "lease_not_current",
+      }),
+    );
+
+    const renewed = await repository.renewLease({
+      leaseId: claimed.id,
+      epoch: claimed.epoch,
+      leaseDurationSeconds: 600,
+    });
+    expect(renewed.expiresAt.getTime()).toBeGreaterThan(
+      claimed.expiresAt.getTime(),
+    );
+    expect(renewed.acquiredAt).toEqual(claimed.acquiredAt);
+  });
+
+  it("rejects renewal when a lease expires while waiting for its item lock", async () => {
+    await repository.createWorkItem({ id: "work", title: "Expiring work" });
+    const claimed = await repository.claimWorkItem({
+      leaseId: leaseId(41),
+      workerId: "worker-a",
+      leaseDurationSeconds: 300,
+      workItemId: "work",
+    });
+    if (!claimed) throw new Error("Expected the claim to succeed.");
+    await db
+      .update(schema.lease)
+      .set({ expiresAt: sql`clock_timestamp() + interval '1 second'` })
+      .where(eq(schema.lease.id, claimed.id));
+
+    let announceLock: (() => void) | undefined;
+    const itemLocked = new Promise<void>((resolve) => {
+      announceLock = resolve;
+    });
+    let releaseLock: (() => void) | undefined;
+    const holdLock = new Promise<void>((resolve) => {
+      releaseLock = resolve;
+    });
+    const lockTransaction = db.transaction(async (transaction) => {
+      await transaction
+        .select({ id: schema.workItem.id })
+        .from(schema.workItem)
+        .where(eq(schema.workItem.id, "work"))
+        .for("update");
+      announceLock?.();
+      await holdLock;
+    });
+    await itemLocked;
+
+    const renewalResult = Promise.allSettled([
+      repository.renewLease({
+        leaseId: claimed.id,
+        epoch: claimed.epoch,
+        leaseDurationSeconds: 300,
+      }),
+    ]);
+    try {
+      await waitForDatabaseLock();
+      await db.execute(sql`select pg_sleep(1.1)`);
+    } finally {
+      releaseLock?.();
+      await lockTransaction;
+    }
+
+    const [renewal] = await renewalResult;
+    if (!renewal) throw new Error("Expected one renewal result.");
+    expectWorkGraphError(renewal, "lease_not_current");
+  });
+
+  it("terminates claimed work and retains the lease outcome", async () => {
+    await repository.createWorkItem({ id: "work", title: "Claimed work" });
+    const claimed = await repository.claimWorkItem({
+      leaseId: leaseId(50),
+      workerId: "worker-a",
+      leaseDurationSeconds: 300,
+      workItemId: "work",
+    });
+    if (!claimed) throw new Error("Expected the claim to succeed.");
+
+    await expect(repository.releaseWorkItem("work")).rejects.toEqual(
+      expect.objectContaining<Partial<WorkGraphError>>({
+        code: "work_item_has_current_lease",
+      }),
+    );
+
+    const completed = await repository.terminateClaimedWorkItem({
+      leaseId: claimed.id,
+      epoch: claimed.epoch,
+      outcome: "released",
+    });
+
+    expect(completed.outcome).toBe("released");
+    expect(completed.endedAt).toBeInstanceOf(Date);
+    expect(projectWorkItemStage(await repository.load(), "work")).toBe(
+      "released",
+    );
+    await expect(
+      repository.claimWorkItem({
+        leaseId: leaseId(51),
+        workerId: "worker-b",
+        leaseDurationSeconds: 300,
+        workItemId: "work",
+      }),
+    ).resolves.toBeNull();
+    await expect(
+      repository.terminateClaimedWorkItem({
+        leaseId: claimed.id,
+        epoch: claimed.epoch,
+        outcome: "cancelled",
+      }),
+    ).rejects.toEqual(
+      expect.objectContaining<Partial<WorkGraphError>>({
+        code: "lease_not_current",
+      }),
+    );
+  });
+
+  it("rejects direct termination when a claim commits during its lock wait", async () => {
+    await repository.createWorkItem({ id: "work", title: "Contended work" });
+
+    let announceLock: (() => void) | undefined;
+    const itemLocked = new Promise<void>((resolve) => {
+      announceLock = resolve;
+    });
+    let finishClaim: (() => void) | undefined;
+    const holdClaim = new Promise<void>((resolve) => {
+      finishClaim = resolve;
+    });
+    const claimTransaction = db.transaction(async (transaction) => {
+      await transaction
+        .select({ id: schema.workItem.id })
+        .from(schema.workItem)
+        .where(eq(schema.workItem.id, "work"))
+        .for("update");
+      announceLock?.();
+      await holdClaim;
+      await transaction.insert(schema.lease).values({
+        id: leaseId(52),
+        workItemId: "work",
+        workerId: "worker-a",
+        epoch: 1,
+        expiresAt: sql`clock_timestamp() + interval '5 minutes'`,
+      });
+    });
+    await itemLocked;
+
+    const terminationResult = Promise.allSettled([
+      repository.releaseWorkItem("work"),
+    ]);
+    try {
+      await waitForDatabaseLock();
+    } finally {
+      finishClaim?.();
+    }
+    await claimTransaction;
+
+    const [termination] = await terminationResult;
+    if (!termination) throw new Error("Expected one termination result.");
+    expectWorkGraphError(termination, "work_item_has_current_lease");
+    expect(
+      (await repository.load()).workItems.find(({ id }) => id === "work")
+        ?.lifecycle,
+    ).toBe("open");
+    expect(await repository.getCurrentLease("work")).toEqual(
+      expect.objectContaining({ id: leaseId(52), epoch: 1 }),
+    );
+  });
+
+  it("expires a stale lease before direct termination", async () => {
+    await repository.createWorkItem({ id: "work", title: "Abandoned work" });
+    await db.insert(schema.lease).values({
+      id: leaseId(53),
+      workItemId: "work",
+      workerId: "worker-a",
+      epoch: 1,
+      acquiredAt: new Date(Date.now() - 120_000),
+      expiresAt: new Date(Date.now() - 60_000),
+    });
+
+    await repository.cancelWorkItem("work");
+
+    expect(
+      (await repository.load()).workItems.find(({ id }) => id === "work")
+        ?.lifecycle,
+    ).toBe("cancelled");
+    expect(await repository.getCurrentLease("work")).toBeNull();
+    expect(await repository.listLeases("work")).toEqual([
+      expect.objectContaining({
+        id: leaseId(53),
+        epoch: 1,
+        outcome: "expired",
+        endedAt: expect.any(Date),
+      }),
+    ]);
+  });
+
+  it("fails closed when claim coordination cannot lock the graph", async () => {
+    await repository.createWorkItem({ id: "work", title: "Unclaimable work" });
+    await db.delete(schema.graphMutationLock);
+
+    try {
+      await expect(
+        repository.claimWorkItem({
+          leaseId: leaseId(60),
+          workerId: "worker-a",
+          leaseDurationSeconds: 300,
+        }),
+      ).rejects.toThrow("The global graph mutation lock row is missing.");
+      expect(await repository.listLeases("work")).toEqual([]);
+    } finally {
+      await db.insert(schema.graphMutationLock).values({ id: "global" });
+    }
+  });
+
+  it("rejects malformed lease commands before reaching PostgreSQL", async () => {
+    await repository.createWorkItem({ id: "work", title: "Valid work" });
+
+    await expect(
+      repository.claimWorkItem({
+        leaseId: "not-a-uuid",
+        workerId: "worker-a",
+        leaseDurationSeconds: 300,
+      }),
+    ).rejects.toEqual(
+      expect.objectContaining<Partial<WorkGraphError>>({
+        code: "invalid_lease_id",
+      }),
+    );
+    await expect(
+      repository.claimWorkItem({
+        leaseId: leaseId(70),
+        workerId: " ",
+        leaseDurationSeconds: 300,
+      }),
+    ).rejects.toEqual(
+      expect.objectContaining<Partial<WorkGraphError>>({
+        code: "invalid_worker_id",
+      }),
+    );
+    await expect(
+      repository.claimWorkItem({
+        leaseId: leaseId(71),
+        workerId: "worker-a",
+        leaseDurationSeconds: 0,
+      }),
+    ).rejects.toEqual(
+      expect.objectContaining<Partial<WorkGraphError>>({
+        code: "invalid_lease_duration",
+      }),
+    );
+    await expect(
+      repository.terminateClaimedWorkItem({
+        leaseId: leaseId(72),
+        epoch: 1,
+        outcome: "released",
+      }),
+    ).rejects.toEqual(
+      expect.objectContaining<Partial<WorkGraphError>>({
+        code: "lease_not_current",
+      }),
+    );
+
+    await repository.createWorkItem({ id: "other", title: "Other work" });
+    await repository.claimWorkItem({
+      leaseId: leaseId(73),
+      workerId: "worker-a",
+      leaseDurationSeconds: 300,
+      workItemId: "work",
+    });
+    await expect(
+      repository.claimWorkItem({
+        leaseId: leaseId(73),
+        workerId: "worker-b",
+        leaseDurationSeconds: 300,
+        workItemId: "other",
+      }),
+    ).rejects.toEqual(
+      expect.objectContaining<Partial<WorkGraphError>>({
+        code: "duplicate_lease_id",
+      }),
+    );
+  });
 });
 
 describe("Work Graph PostgreSQL persistence", () => {
