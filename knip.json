@@ -28,6 +28,9 @@
     "packages/work-graph-domain": {
       "ignoreBinaries": ["vitest"]
     },
+    "packages/work-graph-db": {
+      "entry": ["vitest.integration.config.ts"]
+    },
     "packages/writing-editor-domain": {},
     "ui": {
       "ignore": [
