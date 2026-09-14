@@ -1,6 +1,8 @@
 import { sql } from "drizzle-orm";
 import {
+  boolean,
   check,
+  foreignKey,
   index,
   integer,
   pgEnum,
@@ -151,6 +153,88 @@ export const lease = pgTable(
     check(
       "leases_end_after_acquisition_check",
       sql`${table.endedAt} is null or ${table.endedAt} >= ${table.acquiredAt}`,
+    ),
+  ],
+);
+
+export const note = pgTable(
+  "notes",
+  {
+    id: uuid().primaryKey(),
+    workItemId: text()
+      .notNull()
+      .references(() => workItem.id, { onDelete: "restrict" }),
+    leaseId: uuid()
+      .notNull()
+      .references(() => lease.id, { onDelete: "restrict" }),
+    content: text().notNull(),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("notes_work_item_id_created_at_idx").on(
+      table.workItemId,
+      table.createdAt,
+    ),
+    check("notes_content_not_blank_check", sql`btrim(${table.content}) <> ''`),
+  ],
+);
+
+export const attentionRequest = pgTable(
+  "attention_requests",
+  {
+    id: uuid().primaryKey(),
+    workItemId: text()
+      .notNull()
+      .references(() => workItem.id, { onDelete: "restrict" }),
+    requestingLeaseId: uuid()
+      .notNull()
+      .references(() => lease.id, { onDelete: "restrict" }),
+    kind: text().notNull(),
+    question: text().notNull(),
+    note: text(),
+    blocking: boolean().notNull().default(true),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("attention_requests_work_item_id_created_at_idx").on(
+      table.workItemId,
+      table.createdAt,
+    ),
+    check(
+      "attention_requests_kind_not_blank_check",
+      sql`btrim(${table.kind}) <> ''`,
+    ),
+    check(
+      "attention_requests_question_not_blank_check",
+      sql`btrim(${table.question}) <> ''`,
+    ),
+    check(
+      "attention_requests_note_not_blank_check",
+      sql`${table.note} is null or btrim(${table.note}) <> ''`,
+    ),
+  ],
+);
+
+export const attentionResolution = pgTable(
+  "attention_resolutions",
+  {
+    id: uuid().primaryKey(),
+    attentionRequestId: uuid().notNull(),
+    resolution: text().notNull(),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    foreignKey({
+      name: "attention_resolutions_request_id_fk",
+      columns: [table.attentionRequestId],
+      foreignColumns: [attentionRequest.id],
+    }).onDelete("restrict"),
+    uniqueIndex("attention_resolutions_attention_request_id_uidx").on(
+      table.attentionRequestId,
+    ),
+    check(
+      "attention_resolutions_resolution_not_blank_check",
+      sql`btrim(${table.resolution}) <> ''`,
     ),
   ],
 );

@@ -10,9 +10,13 @@ const unavailable = async (): Promise<never> => {
 const app = createWorkGraphApp({
   listWorkItems: unavailable,
   getWorkItem: unavailable,
+  listAttentionRequests: unavailable,
   createWorkItem: unavailable,
   addDependency: unavailable,
   removeDependency: unavailable,
+  createNote: unavailable,
+  createAttentionRequest: unavailable,
+  resolveAttentionRequest: unavailable,
   claimWorkItem: unavailable,
   renewLease: unavailable,
   terminateClaimedWorkItem: unavailable,
@@ -67,13 +71,17 @@ describe("Given the Work Graph route registry", () => {
     ).toEqual(
       [
         "DELETE /api/dependencies",
+        "GET /api/attention-requests",
         "GET /api/work-items",
         "GET /api/work-items/:workItemId",
+        "POST /api/attention-requests",
+        "POST /api/attention-requests/:attentionRequestId/resolutions",
         "POST /api/dependencies",
         "POST /api/leases",
         "POST /api/leases/:leaseId/renewals",
         "POST /api/work-items",
         "POST /api/work-items/:workItemId/cancellations",
+        "POST /api/work-items/:workItemId/notes",
         "POST /api/work-items/:workItemId/releases",
       ].sort(),
     );

@@ -18,6 +18,10 @@ const expiresAt = new Date("2026-09-14T10:05:00.000Z");
 const leaseId = "00000000-0000-4000-8000-000000000001";
 const idempotencyKey = "00000000-0000-4000-8000-000000000002";
 const removeIdempotencyKey = "00000000-0000-4000-8000-000000000003";
+const noteId = "00000000-0000-4000-8000-000000000004";
+const attentionRequestId = "00000000-0000-4000-8000-000000000005";
+const attentionResolutionId = "00000000-0000-4000-8000-000000000006";
+const secondAttentionRequestId = "00000000-0000-4000-8000-000000000007";
 
 const lease = (workItemId = "ready"): StoredLease => ({
   id: leaseId,
@@ -50,6 +54,7 @@ const responseJson = async (response: Response): Promise<unknown> =>
 const buildRepository = (): WorkGraphApiRepository => ({
   listWorkItems: vi.fn(async () => []),
   getWorkItem: vi.fn(async (workItemId) => item(workItemId, "ready")),
+  listAttentionRequests: vi.fn(async () => []),
   createWorkItem: vi.fn(async (input) => ({
     ...input,
     lifecycle: "open" as const,
@@ -57,6 +62,41 @@ const buildRepository = (): WorkGraphApiRepository => ({
   })),
   addDependency: vi.fn(async () => undefined),
   removeDependency: vi.fn(async () => undefined),
+  createNote: vi.fn(async (input) => ({
+    id: input.id,
+    workItemId: input.workItemId,
+    leaseId: input.leaseId,
+    content: input.content,
+    createdAt: acquiredAt,
+  })),
+  createAttentionRequest: vi.fn(async (input) => ({
+    attentionRequest: {
+      id: input.id,
+      workItemId: input.workItemId,
+      requestingLeaseId: input.leaseId,
+      kind: input.kind,
+      question: input.question,
+      note: input.note ?? null,
+      blocking: input.blocking,
+      createdAt: acquiredAt,
+    },
+    endedLease: input.blocking
+      ? {
+          ...lease(input.workItemId),
+          endedAt: acquiredAt,
+          outcome: "attention_requested" as const,
+        }
+      : null,
+  })),
+  resolveAttentionRequest: vi.fn(async (input) => ({
+    resolution: {
+      id: input.id,
+      attentionRequestId: input.attentionRequestId,
+      resolution: input.resolution,
+      createdAt: acquiredAt,
+    },
+    workItemId: "ready",
+  })),
   claimWorkItem: vi.fn(async () => lease()),
   renewLease: vi.fn(async () => lease()),
   terminateClaimedWorkItem: vi.fn(async (input) => ({
@@ -218,6 +258,201 @@ describe("Given idempotent graph mutation requests", () => {
   });
 });
 
+describe("Given a worker recording progress and requesting attention", () => {
+  it("lists unresolved attention by default and can select resolved requests", async () => {
+    const repository = buildRepository();
+    vi.mocked(repository.listAttentionRequests).mockResolvedValue([
+      {
+        id: attentionRequestId,
+        workItemId: "ready",
+        requestingLeaseId: leaseId,
+        kind: "decision",
+        question: "Which contract is canonical?",
+        note: null,
+        blocking: true,
+        createdAt: acquiredAt,
+        resolution: null,
+      },
+      {
+        id: attentionResolutionId,
+        workItemId: "resolved",
+        requestingLeaseId: leaseId,
+        kind: "review",
+        question: "Is the wording clear?",
+        note: null,
+        blocking: false,
+        createdAt: acquiredAt,
+        resolution: {
+          id: noteId,
+          attentionRequestId: attentionResolutionId,
+          resolution: "Yes.",
+          createdAt: expiresAt,
+        },
+      },
+      {
+        id: secondAttentionRequestId,
+        workItemId: "other",
+        requestingLeaseId: leaseId,
+        kind: "input",
+        question: "Which option applies?",
+        note: null,
+        blocking: true,
+        createdAt: expiresAt,
+        resolution: null,
+      },
+    ]);
+    const app = createWorkGraphApp(repository);
+
+    const unresolved = await app.request(
+      "/api/attention-requests?limit=1",
+    );
+    const nextUnresolved = await app.request(
+      `/api/attention-requests?cursor=${attentionRequestId}`,
+    );
+    const resolved = await app.request(
+      "/api/attention-requests?state=resolved&blocking=false",
+    );
+
+    expect(await responseJson(unresolved)).toEqual({
+      items: [
+        expect.objectContaining({
+          id: attentionRequestId,
+          resolution: null,
+        }),
+      ],
+      nextCursor: attentionRequestId,
+    });
+    expect(await responseJson(nextUnresolved)).toEqual({
+      items: [
+        expect.objectContaining({
+          id: secondAttentionRequestId,
+          resolution: null,
+        }),
+      ],
+      nextCursor: null,
+    });
+    expect(await responseJson(resolved)).toEqual({
+      items: [
+        expect.objectContaining({
+          id: attentionResolutionId,
+          resolution: expect.objectContaining({
+            resolution: "Yes.",
+            createdAt: expiresAt.toISOString(),
+          }),
+        }),
+      ],
+      nextCursor: null,
+    });
+  });
+
+  it("records a note only against the work item in the path", async () => {
+    const repository = buildRepository();
+    const app = createWorkGraphApp(repository);
+
+    const response = await app.request("/api/work-items/ready/notes", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "idempotency-key": idempotencyKey,
+      },
+      body: JSON.stringify({
+        id: noteId,
+        leaseId,
+        epoch: 1,
+        content: "Checked the generated contract.",
+      }),
+    });
+
+    expect(response.status).toBe(201);
+    expect(repository.createNote).toHaveBeenCalledWith(
+      {
+        id: noteId,
+        workItemId: "ready",
+        leaseId,
+        epoch: 1,
+        content: "Checked the generated contract.",
+      },
+      { idempotencyKey },
+    );
+    expect(await responseJson(response)).toEqual({
+      id: noteId,
+      workItemId: "ready",
+      leaseId,
+      content: "Checked the generated contract.",
+      createdAt: acquiredAt.toISOString(),
+    });
+  });
+
+  it("ends a lease for blocking attention and returns derived readiness after resolution", async () => {
+    const repository = buildRepository();
+    vi.mocked(repository.getWorkItem)
+      .mockResolvedValueOnce(item("ready", "needs_attention"))
+      .mockResolvedValueOnce(item("ready", "ready"));
+    const app = createWorkGraphApp(repository);
+
+    const opened = await app.request("/api/attention-requests", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "idempotency-key": idempotencyKey,
+      },
+      body: JSON.stringify({
+        id: attentionRequestId,
+        workItemId: "ready",
+        leaseId,
+        epoch: 1,
+        kind: "decision",
+        question: "Which contract should remain canonical?",
+      }),
+    });
+    const resolved = await app.request(
+      `/api/attention-requests/${attentionRequestId}/resolutions`,
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "idempotency-key": removeIdempotencyKey,
+        },
+        body: JSON.stringify({
+          id: attentionResolutionId,
+          resolution: "Keep the generated OpenAPI document canonical.",
+        }),
+      },
+    );
+
+    expect(opened.status).toBe(201);
+    expect(resolved.status).toBe(201);
+    expect(repository.createAttentionRequest).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: attentionRequestId,
+        blocking: true,
+      }),
+      { idempotencyKey },
+    );
+    expect(repository.resolveAttentionRequest).toHaveBeenCalledWith(
+      {
+        id: attentionResolutionId,
+        attentionRequestId,
+        resolution: "Keep the generated OpenAPI document canonical.",
+      },
+      { idempotencyKey: removeIdempotencyKey },
+    );
+    expect(await responseJson(opened)).toEqual(
+      expect.objectContaining({
+        endedLease: expect.objectContaining({
+          outcome: "attention_requested",
+        }),
+        workItem: expect.objectContaining({ stage: "needs_attention" }),
+      }),
+    );
+    expect(await responseJson(resolved)).toEqual(
+      expect.objectContaining({
+        workItem: expect.objectContaining({ stage: "ready" }),
+      }),
+    );
+  });
+});
+
 describe("Given a worker managing a lease", () => {
   it("claims, renews, and releases through noun-based resources", async () => {
     const repository = buildRepository();
@@ -340,6 +575,12 @@ describe("Given a worker managing a lease", () => {
     vi.mocked(repository.getWorkItem).mockRejectedValue(
       new WorkGraphError("work_item_not_found", "The work item is missing."),
     );
+    vi.mocked(repository.resolveAttentionRequest).mockRejectedValue(
+      new WorkGraphError(
+        "attention_request_not_found",
+        "The attention request is missing.",
+      ),
+    );
     const app = createWorkGraphApp(repository);
 
     const renewResponse = await app.request(
@@ -351,12 +592,24 @@ describe("Given a worker managing a lease", () => {
       },
     );
     const readResponse = await app.request("/api/work-items/missing");
+    const resolutionResponse = await app.request(
+      `/api/attention-requests/${attentionRequestId}/resolutions`,
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          id: attentionResolutionId,
+          resolution: "No answer is available.",
+        }),
+      },
+    );
 
     expect(renewResponse.status).toBe(409);
     expect(await responseJson(renewResponse)).toEqual({
       error: { code: "lease_not_current", message: "The lease is stale." },
     });
     expect(readResponse.status).toBe(404);
+    expect(resolutionResponse.status).toBe(404);
   });
 });
 

@@ -26,6 +26,14 @@
       "description": "Serialized work-item dependency changes."
     },
     {
+      "name": "notes",
+      "description": "Lease-fenced work notes."
+    },
+    {
+      "name": "attention",
+      "description": "Requests for human decisions or review."
+    },
+    {
       "name": "leases",
       "description": "Fenced work-item lease coordination."
     }
@@ -292,6 +300,228 @@
           "blockerWorkItemId"
         ]
       },
+      "WorkItemNote": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "maxLength": 36,
+            "format": "uuid"
+          },
+          "workItemId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "leaseId": {
+            "type": "string",
+            "maxLength": 36,
+            "format": "uuid"
+          },
+          "content": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 10000
+          },
+          "createdAt": {
+            "type": "string",
+            "maxLength": 30,
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "workItemId",
+          "leaseId",
+          "content",
+          "createdAt"
+        ]
+      },
+      "AttentionRequestList": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AttentionRequestReadModel"
+            },
+            "maxItems": 100
+          },
+          "nextCursor": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 36,
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "items",
+          "nextCursor"
+        ]
+      },
+      "AttentionRequestReadModel": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/AttentionRequest"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "resolution": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/AttentionResolution"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "resolution"
+            ]
+          }
+        ]
+      },
+      "AttentionResolution": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "maxLength": 36,
+            "format": "uuid"
+          },
+          "attentionRequestId": {
+            "type": "string",
+            "maxLength": 36,
+            "format": "uuid"
+          },
+          "resolution": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 10000
+          },
+          "createdAt": {
+            "type": "string",
+            "maxLength": 30,
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "attentionRequestId",
+          "resolution",
+          "createdAt"
+        ]
+      },
+      "AttentionRequest": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "maxLength": 36,
+            "format": "uuid"
+          },
+          "workItemId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "requestingLeaseId": {
+            "type": "string",
+            "maxLength": 36,
+            "format": "uuid"
+          },
+          "kind": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "question": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 10000
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 10000
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "blocking": {
+            "type": "boolean"
+          },
+          "createdAt": {
+            "type": "string",
+            "maxLength": 30,
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "workItemId",
+          "requestingLeaseId",
+          "kind",
+          "question",
+          "note",
+          "blocking",
+          "createdAt"
+        ]
+      },
+      "AttentionRequestResponse": {
+        "type": "object",
+        "properties": {
+          "attentionRequest": {
+            "$ref": "#/components/schemas/AttentionRequest"
+          },
+          "endedLease": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Lease"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "workItem": {
+            "$ref": "#/components/schemas/WorkItem"
+          }
+        },
+        "required": [
+          "attentionRequest",
+          "endedLease",
+          "workItem"
+        ]
+      },
+      "AttentionResolutionResponse": {
+        "type": "object",
+        "properties": {
+          "resolution": {
+            "$ref": "#/components/schemas/AttentionResolution"
+          },
+          "workItem": {
+            "$ref": "#/components/schemas/WorkItem"
+          }
+        },
+        "required": [
+          "resolution",
+          "workItem"
+        ]
+      },
       "LeaseWithWorkItem": {
         "type": "object",
         "properties": {
@@ -322,6 +552,473 @@
     "parameters": {}
   },
   "paths": {
+    "/api/attention-requests": {
+      "get": {
+        "operationId": "listAttentionRequests",
+        "summary": "List attention requests",
+        "description": "Returns unresolved requests by default in stable request-ID order. Filters can include resolved requests or select blocking and non-blocking work.",
+        "tags": [
+          "attention"
+        ],
+        "security": [
+          {
+            "cloudflareAccessClientId": [],
+            "cloudflareAccessClientSecret": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "unresolved",
+                "resolved"
+              ],
+              "default": "unresolved"
+            },
+            "required": false,
+            "name": "state",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "true",
+                "false"
+              ]
+            },
+            "required": false,
+            "name": "blocking",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50,
+              "format": "int32"
+            },
+            "required": false,
+            "name": "limit",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "maxLength": 36,
+              "format": "uuid"
+            },
+            "required": false,
+            "name": "cursor",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Attention requests in stable request-ID order",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AttentionRequestList"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Cloudflare Access authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Cloudflare Access denied the request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Request conflicts with current Work Graph state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Request validation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "createAttentionRequest",
+        "summary": "Request attention for claimed work",
+        "description": "Records the decision or review needed. A blocking request atomically ends the current lease and removes the work item from the claimable queue.",
+        "tags": [
+          "attention"
+        ],
+        "security": [
+          {
+            "cloudflareAccessClientId": [],
+            "cloudflareAccessClientSecret": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "maxLength": 36,
+              "format": "uuid",
+              "description": "Client-generated mutation ID. Reusing it with the same request replays the committed effect. Reusing it for different input returns a conflict."
+            },
+            "required": false,
+            "description": "Client-generated mutation ID. Reusing it with the same request replays the committed effect. Reusing it for different input returns a conflict.",
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "maxLength": 36,
+                    "format": "uuid"
+                  },
+                  "workItemId": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  "leaseId": {
+                    "type": "string",
+                    "maxLength": 36,
+                    "format": "uuid"
+                  },
+                  "epoch": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 2147483647,
+                    "format": "int32"
+                  },
+                  "kind": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 100
+                  },
+                  "question": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 10000
+                  },
+                  "note": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 10000
+                  },
+                  "blocking": {
+                    "type": "boolean",
+                    "default": true
+                  }
+                },
+                "required": [
+                  "id",
+                  "workItemId",
+                  "leaseId",
+                  "epoch",
+                  "kind",
+                  "question"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Attention request recorded or matching mutation replayed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AttentionRequestResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Cloudflare Access authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Cloudflare Access denied the request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Request conflicts with current Work Graph state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Request validation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/attention-requests/{attentionRequestId}/resolutions": {
+      "post": {
+        "operationId": "createAttentionResolution",
+        "summary": "Resolve an attention request",
+        "description": "Records one resolution and returns the work item's newly derived stage. The item becomes ready only when no other readiness blocker remains.",
+        "tags": [
+          "attention"
+        ],
+        "security": [
+          {
+            "cloudflareAccessClientId": [],
+            "cloudflareAccessClientSecret": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "maxLength": 36,
+              "format": "uuid"
+            },
+            "required": true,
+            "name": "attentionRequestId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "maxLength": 36,
+              "format": "uuid",
+              "description": "Client-generated mutation ID. Reusing it with the same request replays the committed effect. Reusing it for different input returns a conflict."
+            },
+            "required": false,
+            "description": "Client-generated mutation ID. Reusing it with the same request replays the committed effect. Reusing it for different input returns a conflict.",
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "maxLength": 36,
+                    "format": "uuid"
+                  },
+                  "resolution": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 10000
+                  }
+                },
+                "required": [
+                  "id",
+                  "resolution"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Attention request resolved or matching mutation replayed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AttentionResolutionResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Cloudflare Access authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Cloudflare Access denied the request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Request conflicts with current Work Graph state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Request validation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/dependencies": {
       "post": {
         "operationId": "createDependency",
@@ -1327,6 +2024,168 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/LeaseWithWorkItem"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Cloudflare Access authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Cloudflare Access denied the request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Request conflicts with current Work Graph state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Request validation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/work-items/{workItemId}/notes": {
+      "post": {
+        "operationId": "createWorkItemNote",
+        "summary": "Record a note for claimed work",
+        "description": "Records a short or long note only when the supplied lease ID and epoch still own the named work item.",
+        "tags": [
+          "notes"
+        ],
+        "security": [
+          {
+            "cloudflareAccessClientId": [],
+            "cloudflareAccessClientSecret": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "required": true,
+            "name": "workItemId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "maxLength": 36,
+              "format": "uuid",
+              "description": "Client-generated mutation ID. Reusing it with the same request replays the committed effect. Reusing it for different input returns a conflict."
+            },
+            "required": false,
+            "description": "Client-generated mutation ID. Reusing it with the same request replays the committed effect. Reusing it for different input returns a conflict.",
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "maxLength": 36,
+                    "format": "uuid"
+                  },
+                  "leaseId": {
+                    "type": "string",
+                    "maxLength": 36,
+                    "format": "uuid"
+                  },
+                  "epoch": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 2147483647,
+                    "format": "int32"
+                  },
+                  "content": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 10000
+                  }
+                },
+                "required": [
+                  "id",
+                  "leaseId",
+                  "epoch",
+                  "content"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Note recorded or matching mutation replayed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkItemNote"
                 }
               }
             }
