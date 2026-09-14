@@ -195,6 +195,30 @@ Content`;
       expect(result.aliases.get("old-project")).toBe("renamed-project");
     });
 
+    it.each(["Old-Project", " old-project", "old/project"])(
+      "rejects a non-canonical project alias: %s",
+      (alias) => {
+        const mockProjectContent = `---
+title: "Renamed Project"
+description: "A renamed project"
+date: "2025-01-01"
+status: "live"
+aliases: ["${alias}"]
+---
+Content`;
+
+        vi.mocked(fs.readdirSync).mockImplementation(((path: string) => {
+          if (path.endsWith("projects")) return [mockDirent("renamed-project")];
+          return [];
+        }) as unknown as typeof fs.readdirSync);
+        vi.mocked(fs.readFileSync).mockReturnValue(mockProjectContent);
+
+        expect(() => loadProjects()).toThrow(
+          "Project renamed-project aliases failed validation",
+        );
+      },
+    );
+
     it("rejects a project alias that conflicts with a canonical slug", () => {
       vi.mocked(fs.readdirSync).mockImplementation(((path: string) => {
         if (path.endsWith("projects")) {
