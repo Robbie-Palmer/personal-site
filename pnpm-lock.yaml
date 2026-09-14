@@ -592,7 +592,7 @@ importers:
     dependencies:
       drizzle-orm:
         specifier: ^0.45.0
-        version: 0.45.2(@cloudflare/workers-types@5.20260910.1)(@opentelemetry/api@1.9.1)(kysely@0.29.5)(postgres@3.4.9)
+        version: 0.45.2(@cloudflare/workers-types@5.20260911.1)(@opentelemetry/api@1.9.1)(kysely@0.29.5)(postgres@3.4.9)
       postgres:
         specifier: ^3.4.5
         version: 3.4.9
