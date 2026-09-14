@@ -17,6 +17,7 @@ from python.gector_runtime import (
     reconstruct_segment,
     run,
     split_line,
+    verify_file_digest,
 )
 
 
@@ -39,6 +40,19 @@ def test_limits_runtime_paths_to_the_project_root(tmp_path: Path) -> None:
         project_path(tmp_path.parent / "outside.json", tmp_path)
     with pytest.raises(ValueError, match="outside the project root"):
         project_path(tmp_path, tmp_path)
+
+
+def test_verifies_checkpoint_digest_before_loading(tmp_path: Path) -> None:
+    checkpoint = tmp_path / "checkpoint.th"
+    checkpoint.write_bytes(b"checkpoint")
+
+    verify_file_digest(
+        checkpoint,
+        "sha256:47320987f9a49d5b00119b960f247a956773f57543982b8bfcb6da5bb3afd9ef",
+        "checkpoint",
+    )
+    with pytest.raises(RuntimeError, match="checkpoint hash mismatch"):
+        verify_file_digest(checkpoint, f"sha256:{'0' * 64}", "checkpoint")
 
 
 def test_reads_allennlp_padded_vocabulary_indexes(tmp_path: Path) -> None:

@@ -356,6 +356,14 @@ def project_path(path: Path, project_root: Path = PROJECT_ROOT) -> Path:
     return resolved
 
 
+def verify_file_digest(path: Path, expected_digest: str, label: str) -> None:
+    with path.open("rb") as input_file:
+        actual_digest = f"sha256:{hashlib.file_digest(input_file, 'sha256').hexdigest()}"
+    if actual_digest != expected_digest:
+        msg = f"{label} hash mismatch: expected {expected_digest}, got {actual_digest}"
+        raise RuntimeError(msg)
+
+
 def frozen_job(artifact_id: str | None = None) -> InferenceJob:
     cohort = read_model(FROZEN_COHORT, FrozenCohort)
     selected = [
@@ -551,7 +559,12 @@ def record_prediction(
 
 
 class GectorModel:
-    def __init__(self, model_directory: Path, parameters: InferenceParameters) -> None:
+    def __init__(
+        self,
+        model_directory: Path,
+        parameters: InferenceParameters,
+        checkpoint_digest: str,
+    ) -> None:
         if not torch.cuda.is_available():
             msg = "run_gector requires a CUDA GPU"
             raise RuntimeError(msg)
@@ -596,7 +609,9 @@ class GectorModel:
         self.encoder.resize_token_embeddings(len(self.tokenizer), mean_resizing=False)
         self.label_projection = nn.Linear(config.hidden_size, len(self.labels))
         self.detect_projection = nn.Linear(config.hidden_size, len(detect_labels))
-        self._load_checkpoint(project_path(model_directory / "gector-2024-roberta-large.th"))
+        checkpoint = project_path(model_directory / "gector-2024-roberta-large.th")
+        verify_file_digest(checkpoint, checkpoint_digest, "checkpoint")
+        self._load_checkpoint(checkpoint)
         self.encoder.to(self.device).eval()
         self.label_projection.to(self.device).eval()
         self.detect_projection.to(self.device).eval()
@@ -933,7 +948,7 @@ def run_job(
     manifest: GectorModelManifest,
     parameters: InferenceParameters,
 ) -> RawRun:
-    model = GectorModel(model_directory, parameters)
+    model = GectorModel(model_directory, parameters, manifest.checkpoint.digest)
     artifacts = job.artifacts
 
     segments: list[tuple[int, TextSegment]] = []
