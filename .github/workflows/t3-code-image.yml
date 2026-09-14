@@ -31,6 +31,12 @@ jobs:
 
       - uses: $/.github/actions/setup-mise
 
+      - name: Allow rootless container smoke test
+        run: |
+          if [ -e /proc/sys/kernel/apparmor_restrict_unprivileged_userns ]; then
+            sudo sysctl --write kernel.apparmor_restrict_unprivileged_userns=0
+          fi
+
       - name: Build and test image
         run: |
           mise run //homelab:t3-image-build
