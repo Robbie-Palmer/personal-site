@@ -88,6 +88,8 @@
       mode: "0700"
     - path: "{{ colima_k3s_data_path }}"
       mode: "0700"
+    - path: "{{ colima_k3s_media_data_path }}"
+      mode: "0750"
     - path: "{{ ansible_facts.env.HOME }}/.local/bin"
       mode: "0755"
     - path: "{{ ansible_facts.env.HOME }}/Library/LaunchAgents"
