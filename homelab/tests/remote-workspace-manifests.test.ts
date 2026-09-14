@@ -733,6 +733,7 @@ test("the NixOS host publishes, prepares, and limits workspace storage", () => {
   );
   assert.ok(hostDefinition.includes('legacy=${dataMount}/k3s'));
   assert.ok(hostDefinition.includes('test -s "$legacy/server/db/state.db"'));
+  assert.ok(hostDefinition.includes('sync -f "$staging"'));
   assert.ok(hostDefinition.includes('mv -- "$staging" "$target"'));
 
   const volumePreparation = readFileSync(

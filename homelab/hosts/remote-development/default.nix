@@ -225,8 +225,8 @@ in
       quota_state="${projectQuotaLayoutVersion}:$(findmnt --noheadings --output UUID --target ${dataMount} | tr -d ' ')"
       quota_state_file=/var/lib/remote-development/project-quota-layout
       if [ "$(cat "$quota_state_file" 2>/dev/null || true)" != "$quota_state" ]; then
-        find ${operatorDataPath} -xdev ! -type l -exec chattr -p ${operatorProjectId} {} +
-        find ${cacheDataPath} -xdev ! -type l -exec chattr -p ${cacheProjectId} {} +
+        find "${operatorDataPath}" -xdev ! -type l -exec chattr -p "${operatorProjectId}" {} +
+        find "${cacheDataPath}" -xdev ! -type l -exec chattr -p "${cacheProjectId}" {} +
       fi
 
       chattr +P ${operatorDataPath}
@@ -287,6 +287,7 @@ in
       rm -rf -- "$staging"
       cp -a -- "$legacy" "$staging"
       test -s "$staging/server/db/state.db"
+      sync -f "$staging"
       mv -- "$staging" "$target"
     '';
   };
