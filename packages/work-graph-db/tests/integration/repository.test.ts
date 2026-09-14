@@ -81,9 +81,10 @@ beforeAll(async () => {
     order by enumsortorder
   `);
 
-  expect(migrationCount?.count).toBe(2);
+  expect(migrationCount?.count).toBe(3);
   expect(tables.map(({ table_name }) => table_name)).toEqual([
     "graph_mutation_locks",
+    "idempotency_keys",
     "leases",
     "work_item_dependencies",
     "work_item_hierarchy",
@@ -107,6 +108,7 @@ beforeAll(async () => {
 beforeEach(async () => {
   await db.transaction(async (transaction) => {
     await transaction.delete(schema.lease);
+    await transaction.delete(schema.idempotencyKey);
     await transaction.delete(schema.workItemDependency);
     await transaction.delete(schema.workItemHierarchy);
     await transaction.delete(schema.workItem);
@@ -734,6 +736,38 @@ describe("Work Graph PostgreSQL persistence", () => {
     ]);
   });
 
+  it("serializes concurrent retries of one sparse work-item creation", async () => {
+    const key = "00000000-0000-4000-8000-000000000081";
+    const request = () =>
+      repository.createWorkItem(
+        { id: "retried", title: "Created once" },
+        { idempotencyKey: key },
+      );
+
+    const [first, retry] = await Promise.all([request(), request()]);
+
+    expect(first).toEqual(retry);
+    expect((await repository.load()).workItems).toEqual([
+      {
+        id: "retried",
+        title: "Created once",
+        lifecycle: "open",
+        parentId: null,
+      },
+    ]);
+    await expect(
+      repository.createWorkItem(
+        { id: "different", title: "Different input" },
+        { idempotencyKey: key },
+      ),
+    ).rejects.toEqual(
+      expect.objectContaining<Partial<WorkGraphError>>({
+        code: "idempotency_key_reused",
+      }),
+    );
+    expect(await db.select().from(schema.idempotencyKey)).toHaveLength(1);
+  });
+
   it("derives readiness from persisted hierarchy, dependencies, and lifecycle", async () => {
     await repository.createWorkItem({ id: "parent", title: "Parent" });
     await repository.createWorkItem({
@@ -834,6 +868,16 @@ describe("Work Graph PostgreSQL persistence", () => {
     ).rejects.toEqual(
       expect.objectContaining<Partial<WorkGraphError>>({
         code: "duplicate_work_item",
+      }),
+    );
+    await expect(
+      repository.createWorkItem(
+        { id: "invalid-key", title: "Invalid key" },
+        { idempotencyKey: "not-a-uuid" },
+      ),
+    ).rejects.toEqual(
+      expect.objectContaining<Partial<WorkGraphError>>({
+        code: "invalid_idempotency_key",
       }),
     );
     await expect(repository.reparentWorkItem("", null)).rejects.toEqual(
@@ -968,6 +1012,35 @@ describe("atomic graph mutations", () => {
       dependency("a", "b"),
       dependency("b", "c"),
     ]);
+  });
+
+  it("replays dependency additions and removals with separate mutation keys", async () => {
+    await repository.createWorkItem({ id: "a", title: "A" });
+    await repository.createWorkItem({ id: "b", title: "B" });
+    const edge = dependency("a", "b");
+    const addOptions = {
+      idempotencyKey: "00000000-0000-4000-8000-000000000082",
+    };
+    const removeOptions = {
+      idempotencyKey: "00000000-0000-4000-8000-000000000083",
+    };
+
+    await repository.addDependency(edge, addOptions);
+    await repository.addDependency(edge, addOptions);
+    expect((await repository.load()).dependencies).toEqual([edge]);
+
+    await expect(
+      repository.removeDependency(edge, addOptions),
+    ).rejects.toEqual(
+      expect.objectContaining<Partial<WorkGraphError>>({
+        code: "idempotency_key_reused",
+      }),
+    );
+    await repository.removeDependency(edge, removeOptions);
+    await repository.removeDependency(edge, removeOptions);
+
+    expect((await repository.load()).dependencies).toEqual([]);
+    expect(await db.select().from(schema.idempotencyKey)).toHaveLength(2);
   });
 
   it.each([

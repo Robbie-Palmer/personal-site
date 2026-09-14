@@ -10,6 +10,9 @@ const unavailable = async (): Promise<never> => {
 const app = createWorkGraphApp({
   listWorkItems: unavailable,
   getWorkItem: unavailable,
+  createWorkItem: unavailable,
+  addDependency: unavailable,
+  removeDependency: unavailable,
   claimWorkItem: unavailable,
   renewLease: unavailable,
   terminateClaimedWorkItem: unavailable,
@@ -57,8 +60,22 @@ describe("Given the Work Graph route registry", () => {
     });
 
     expect(offenders).toEqual([]);
-    expect(httpRoutes().map(({ path }) => path)).toContain(
-      "/api/work-items/:workItemId/cancellations",
+    expect(
+      httpRoutes()
+        .map(({ method, path }) => `${method} ${path}`)
+        .sort(),
+    ).toEqual(
+      [
+        "DELETE /api/dependencies",
+        "GET /api/work-items",
+        "GET /api/work-items/:workItemId",
+        "POST /api/dependencies",
+        "POST /api/leases",
+        "POST /api/leases/:leaseId/renewals",
+        "POST /api/work-items",
+        "POST /api/work-items/:workItemId/cancellations",
+        "POST /api/work-items/:workItemId/releases",
+      ].sort(),
     );
   });
 });

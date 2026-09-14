@@ -16,6 +16,8 @@ import {
 const acquiredAt = new Date("2026-09-14T10:00:00.000Z");
 const expiresAt = new Date("2026-09-14T10:05:00.000Z");
 const leaseId = "00000000-0000-4000-8000-000000000001";
+const idempotencyKey = "00000000-0000-4000-8000-000000000002";
+const removeIdempotencyKey = "00000000-0000-4000-8000-000000000003";
 
 const lease = (workItemId = "ready"): StoredLease => ({
   id: leaseId,
@@ -48,6 +50,13 @@ const responseJson = async (response: Response): Promise<unknown> =>
 const buildRepository = (): WorkGraphApiRepository => ({
   listWorkItems: vi.fn(async () => []),
   getWorkItem: vi.fn(async (workItemId) => item(workItemId, "ready")),
+  createWorkItem: vi.fn(async (input) => ({
+    ...input,
+    lifecycle: "open" as const,
+    parentId: input.parentId ?? null,
+  })),
+  addDependency: vi.fn(async () => undefined),
+  removeDependency: vi.fn(async () => undefined),
   claimWorkItem: vi.fn(async () => lease()),
   renewLease: vi.fn(async () => lease()),
   terminateClaimedWorkItem: vi.fn(async (input) => ({
@@ -129,6 +138,83 @@ describe("Given work items with derived readiness", () => {
         }),
       }),
     );
+  });
+});
+
+describe("Given idempotent graph mutation requests", () => {
+  it("creates a sparse work item without accepting derived state", async () => {
+    const repository = buildRepository();
+    vi.mocked(repository.getWorkItem).mockResolvedValue({
+      ...item("sparse", "ready"),
+      title: "Sparse work item",
+    });
+    const app = createWorkGraphApp(repository, {
+      createIdempotencyKey: () => idempotencyKey,
+    });
+
+    const response = await app.request("/api/work-items", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ id: "sparse", title: "Sparse work item" }),
+    });
+
+    expect(response.status).toBe(201);
+    expect(repository.createWorkItem).toHaveBeenCalledWith(
+      { id: "sparse", title: "Sparse work item" },
+      { idempotencyKey },
+    );
+    expect(await responseJson(response)).toEqual({
+      id: "sparse",
+      title: "Sparse work item",
+      lifecycle: "open",
+      parentId: null,
+      stage: "ready",
+      currentLease: null,
+    });
+
+    const rejected = await app.request("/api/work-items", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        id: "fixed",
+        title: "Fixed state",
+        stage: "ready",
+      }),
+    });
+    expect(rejected.status).toBe(422);
+  });
+
+  it("adds and removes one dependency with the caller's retry key", async () => {
+    const repository = buildRepository();
+    const app = createWorkGraphApp(repository);
+    const dependency = {
+      dependentWorkItemId: "dependent",
+      blockerWorkItemId: "blocker",
+    };
+    const request = (method: "POST" | "DELETE") =>
+      app.request("/api/dependencies", {
+        method,
+        headers: {
+          "content-type": "application/json",
+          "idempotency-key":
+            method === "POST" ? idempotencyKey : removeIdempotencyKey,
+        },
+        body: JSON.stringify(dependency),
+      });
+
+    const added = await request("POST");
+    const removed = await request("DELETE");
+
+    expect(added.status).toBe(201);
+    expect(removed.status).toBe(200);
+    expect(await responseJson(added)).toEqual(dependency);
+    expect(await responseJson(removed)).toEqual(dependency);
+    expect(repository.addDependency).toHaveBeenCalledWith(dependency, {
+      idempotencyKey,
+    });
+    expect(repository.removeDependency).toHaveBeenCalledWith(dependency, {
+      idempotencyKey: removeIdempotencyKey,
+    });
   });
 });
 
@@ -294,5 +380,25 @@ describe("Given an invalid REST request", () => {
         error: expect.objectContaining({ code: "validation_failed" }),
       }),
     );
+  });
+
+  it("rejects a malformed idempotency key before mutation", async () => {
+    const repository = buildRepository();
+    const app = createWorkGraphApp(repository);
+
+    const response = await app.request("/api/dependencies", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "idempotency-key": "not-a-uuid",
+      },
+      body: JSON.stringify({
+        dependentWorkItemId: "dependent",
+        blockerWorkItemId: "blocker",
+      }),
+    });
+
+    expect(response.status).toBe(422);
+    expect(repository.addDependency).not.toHaveBeenCalled();
   });
 });

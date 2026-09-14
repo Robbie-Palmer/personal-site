@@ -93,6 +93,26 @@ export const graphMutationLock = pgTable("graph_mutation_locks", {
   id: text().primaryKey(),
 });
 
+export const idempotencyKey = pgTable(
+  "idempotency_keys",
+  {
+    id: uuid().primaryKey(),
+    operation: text().notNull(),
+    requestFingerprint: text().notNull(),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    check(
+      "idempotency_keys_operation_not_blank_check",
+      sql`btrim(${table.operation}) <> ''`,
+    ),
+    check(
+      "idempotency_keys_request_fingerprint_not_blank_check",
+      sql`btrim(${table.requestFingerprint}) <> ''`,
+    ),
+  ],
+);
+
 export const lease = pgTable(
   "leases",
   {

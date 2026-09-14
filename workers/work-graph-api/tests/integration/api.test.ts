@@ -17,18 +17,25 @@ const app = createWorkGraphApp(repository);
 
 const requestJson = async (
   path: string,
-  method: "POST" = "POST",
+  method: "POST" | "DELETE" = "POST",
   body?: unknown,
+  idempotencyKey?: string,
 ): Promise<Response> =>
   app.request(path, {
     method,
-    headers: { "content-type": "application/json" },
+    headers: {
+      "content-type": "application/json",
+      ...(idempotencyKey === undefined
+        ? {}
+        : { "idempotency-key": idempotencyKey }),
+    },
     ...(body === undefined ? {} : { body: JSON.stringify(body) }),
   });
 
 beforeEach(async () => {
   await db.transaction(async (transaction) => {
     await transaction.delete(schema.lease);
+    await transaction.delete(schema.idempotencyKey);
     await transaction.delete(schema.workItemDependency);
     await transaction.delete(schema.workItemHierarchy);
     await transaction.delete(schema.workItem);
@@ -112,6 +119,146 @@ describe("Given persisted work with blockers", () => {
       items: [expect.objectContaining({ id: "b-ready" })],
       nextCursor: null,
     });
+  });
+});
+
+describe("Given graph mutations over HTTP", () => {
+  it("replays concurrent sparse work-item creation without a duplicate row", async () => {
+    const key = "00000000-0000-4000-8000-000000000091";
+    const request = () =>
+      requestJson(
+        "/api/work-items",
+        "POST",
+        { id: "sparse", title: "Sparse work item" },
+        key,
+      );
+
+    const [first, retry] = await Promise.all([request(), request()]);
+
+    expect(first.status).toBe(201);
+    expect(retry.status).toBe(201);
+    expect(await retry.json()).toEqual(await first.json());
+    expect((await repository.load()).workItems).toEqual([
+      {
+        id: "sparse",
+        title: "Sparse work item",
+        lifecycle: "open",
+        parentId: null,
+      },
+    ]);
+    expect(await db.select().from(schema.idempotencyKey)).toHaveLength(1);
+  });
+
+  it("adds and removes a dependency idempotently while readiness stays derived", async () => {
+    await repository.createWorkItem({ id: "dependent", title: "Dependent" });
+    await repository.createWorkItem({ id: "blocker", title: "Blocker" });
+    const edge = {
+      dependentWorkItemId: "dependent",
+      blockerWorkItemId: "blocker",
+    };
+    const addKey = "00000000-0000-4000-8000-000000000092";
+    const removeKey = "00000000-0000-4000-8000-000000000093";
+
+    const added = await requestJson(
+      "/api/dependencies",
+      "POST",
+      edge,
+      addKey,
+    );
+    const addRetry = await requestJson(
+      "/api/dependencies",
+      "POST",
+      edge,
+      addKey,
+    );
+    expect(added.status).toBe(201);
+    expect(addRetry.status).toBe(201);
+    expect((await repository.getWorkItem("dependent")).stage).toBe("blocked");
+
+    const removed = await requestJson(
+      "/api/dependencies",
+      "DELETE",
+      edge,
+      removeKey,
+    );
+    const removeRetry = await requestJson(
+      "/api/dependencies",
+      "DELETE",
+      edge,
+      removeKey,
+    );
+    expect(removed.status).toBe(200);
+    expect(removeRetry.status).toBe(200);
+    expect((await repository.getWorkItem("dependent")).stage).toBe("ready");
+    expect((await repository.load()).dependencies).toEqual([]);
+  });
+
+  it("rejects reuse of one idempotency key for different input", async () => {
+    const key = "00000000-0000-4000-8000-000000000094";
+    const first = await requestJson(
+      "/api/work-items",
+      "POST",
+      { id: "first", title: "First" },
+      key,
+    );
+    const conflict = await requestJson(
+      "/api/work-items",
+      "POST",
+      { id: "second", title: "Second" },
+      key,
+    );
+
+    expect(first.status).toBe(201);
+    expect(conflict.status).toBe(409);
+    expect(await conflict.json()).toEqual({
+      error: {
+        code: "idempotency_key_reused",
+        message: `Idempotency key ${key} was already used for a different mutation.`,
+      },
+    });
+    expect((await repository.load()).workItems.map(({ id }) => id)).toEqual([
+      "first",
+    ]);
+  });
+
+  it("serializes concurrent dependency writes against the combined waits-for graph", async () => {
+    await repository.createWorkItem({ id: "parent", title: "Parent" });
+    await repository.createWorkItem({
+      id: "child",
+      title: "Child",
+      parentId: "parent",
+    });
+    await repository.createWorkItem({ id: "middle", title: "Middle" });
+
+    const responses = await Promise.all([
+      requestJson(
+        "/api/dependencies",
+        "POST",
+        {
+          dependentWorkItemId: "child",
+          blockerWorkItemId: "middle",
+        },
+        "00000000-0000-4000-8000-000000000095",
+      ),
+      requestJson(
+        "/api/dependencies",
+        "POST",
+        {
+          dependentWorkItemId: "middle",
+          blockerWorkItemId: "parent",
+        },
+        "00000000-0000-4000-8000-000000000096",
+      ),
+    ]);
+
+    expect(responses.map(({ status }) => status).sort()).toEqual([201, 409]);
+    const conflict = responses.find(({ status }) => status === 409);
+    expect(await conflict?.json()).toEqual(
+      expect.objectContaining({
+        error: expect.objectContaining({ code: "graph_cycle" }),
+      }),
+    );
+    expect((await repository.load()).dependencies).toHaveLength(1);
   });
 });
 

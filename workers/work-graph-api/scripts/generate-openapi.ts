@@ -11,6 +11,9 @@ const unavailable = async (): Promise<never> => {
 const repository: WorkGraphApiRepository = {
   listWorkItems: unavailable,
   getWorkItem: unavailable,
+  createWorkItem: unavailable,
+  addDependency: unavailable,
+  removeDependency: unavailable,
   claimWorkItem: unavailable,
   renewLease: unavailable,
   terminateClaimedWorkItem: unavailable,
@@ -36,7 +39,12 @@ const document = app.getOpenAPI31Document({
   tags: [
     {
       name: "work-items",
-      description: "Work-item listing, readiness, and terminal transitions.",
+      description:
+        "Work-item creation, listing, readiness, and terminal transitions.",
+    },
+    {
+      name: "dependencies",
+      description: "Serialized work-item dependency changes.",
     },
     { name: "leases", description: "Fenced work-item lease coordination." },
   ],

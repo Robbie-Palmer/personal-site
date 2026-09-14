@@ -18,6 +18,7 @@ import {
 } from "./queries/graph-cycle";
 import {
   graphMutationLock,
+  idempotencyKey,
   lease,
   workItem,
   workItemDependency,
@@ -55,6 +56,10 @@ export interface WorkItemReadModel extends WorkItem {
   readonly currentLease: StoredLease | null;
 }
 
+export interface IdempotentMutationOptions {
+  readonly idempotencyKey?: string;
+}
+
 type DatabaseError = Error & {
   code?: string;
   constraint_name?: string;
@@ -90,6 +95,15 @@ const requireLeaseId = (leaseId: string): void => {
     throw new WorkGraphError(
       "invalid_lease_id",
       "A lease ID must be a UUID.",
+    );
+  }
+};
+
+const requireIdempotencyKey = (key: string): void => {
+  if (typeof key !== "string" || !UUID_PATTERN.test(key)) {
+    throw new WorkGraphError(
+      "invalid_idempotency_key",
+      "An idempotency key must be a UUID.",
     );
   }
 };
@@ -233,7 +247,10 @@ export class WorkGraphRepository {
     return found;
   }
 
-  async createWorkItem(input: NewWorkItemInput): Promise<WorkItem> {
+  async createWorkItem(
+    input: NewWorkItemInput,
+    options: IdempotentMutationOptions = {},
+  ): Promise<WorkItem> {
     const [normalized] = createWorkGraph({
       workItems: [{ ...input, parentId: null }],
     }).workItems;
@@ -245,9 +262,22 @@ export class WorkGraphRepository {
     if (parentId !== null) {
       requireIdentifier(parentId, "invalid_parent_id");
     }
+    if (options.idempotencyKey !== undefined) {
+      requireIdempotencyKey(options.idempotencyKey);
+    }
 
     try {
-      await this.db.transaction(async (transaction) => {
+      return await this.db.transaction(async (transaction) => {
+        if (options.idempotencyKey !== undefined) {
+          const replayed = await this.beginIdempotentMutation(
+            transaction,
+            options.idempotencyKey,
+            "create-work-item",
+            JSON.stringify([normalized.id, normalized.title, parentId]),
+          );
+          if (replayed) return { ...normalized, parentId };
+        }
+
         if (parentId !== null) {
           await this.lockGraphMutation(transaction);
         }
@@ -264,6 +294,8 @@ export class WorkGraphRepository {
           });
           await this.rejectCycle(transaction);
         }
+
+        return { ...normalized, parentId };
       });
     } catch (error) {
       const databaseError = getDatabaseError(error);
@@ -282,10 +314,8 @@ export class WorkGraphRepository {
           "The change creates a waits-for cycle.",
         );
       }
-      translateForeignKeyError(error, parentId ?? normalized.id);
+      return translateForeignKeyError(error, parentId ?? normalized.id);
     }
-
-    return { ...normalized, parentId };
   }
 
   async claimWorkItem(input: ClaimWorkItemInput): Promise<StoredLease | null> {
@@ -577,9 +607,29 @@ export class WorkGraphRepository {
     }
   }
 
-  async addDependency(dependency: WorkItemDependency): Promise<void> {
+  async addDependency(
+    dependency: WorkItemDependency,
+    options: IdempotentMutationOptions = {},
+  ): Promise<void> {
+    if (options.idempotencyKey !== undefined) {
+      requireIdempotencyKey(options.idempotencyKey);
+    }
+
     try {
       await this.db.transaction(async (transaction) => {
+        if (options.idempotencyKey !== undefined) {
+          const replayed = await this.beginIdempotentMutation(
+            transaction,
+            options.idempotencyKey,
+            "add-dependency",
+            JSON.stringify([
+              dependency.dependentWorkItemId,
+              dependency.blockerWorkItemId,
+            ]),
+          );
+          if (replayed) return;
+        }
+
         await this.lockGraphMutation(transaction);
         await this.requireStoredWorkItem(
           transaction,
@@ -614,8 +664,28 @@ export class WorkGraphRepository {
     }
   }
 
-  async removeDependency(dependency: WorkItemDependency): Promise<void> {
+  async removeDependency(
+    dependency: WorkItemDependency,
+    options: IdempotentMutationOptions = {},
+  ): Promise<void> {
+    if (options.idempotencyKey !== undefined) {
+      requireIdempotencyKey(options.idempotencyKey);
+    }
+
     await this.db.transaction(async (transaction) => {
+      if (options.idempotencyKey !== undefined) {
+        const replayed = await this.beginIdempotentMutation(
+          transaction,
+          options.idempotencyKey,
+          "remove-dependency",
+          JSON.stringify([
+            dependency.dependentWorkItemId,
+            dependency.blockerWorkItemId,
+          ]),
+        );
+        if (replayed) return;
+      }
+
       await this.lockGraphMutation(transaction);
       const removed = await transaction
         .delete(workItemDependency)
@@ -717,6 +787,40 @@ export class WorkGraphRepository {
     if (locked.length !== 1) {
       throw new Error("The global graph mutation lock row is missing.");
     }
+  }
+
+  private async beginIdempotentMutation(
+    transaction: DbTransaction,
+    key: string,
+    operation: string,
+    requestFingerprint: string,
+  ): Promise<boolean> {
+    const inserted = await transaction
+      .insert(idempotencyKey)
+      .values({ id: key, operation, requestFingerprint })
+      .onConflictDoNothing()
+      .returning({ id: idempotencyKey.id });
+    if (inserted.length === 1) return false;
+
+    const [receipt] = await transaction
+      .select({
+        operation: idempotencyKey.operation,
+        requestFingerprint: idempotencyKey.requestFingerprint,
+      })
+      .from(idempotencyKey)
+      .where(eq(idempotencyKey.id, key))
+      .limit(1);
+    if (
+      receipt?.operation === operation &&
+      receipt.requestFingerprint === requestFingerprint
+    ) {
+      return true;
+    }
+
+    throw new WorkGraphError(
+      "idempotency_key_reused",
+      `Idempotency key ${key} was already used for a different mutation.`,
+    );
   }
 
   private async loadGraph(transaction: DbTransaction): Promise<WorkGraph> {

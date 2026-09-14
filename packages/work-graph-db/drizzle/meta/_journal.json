@@ -15,6 +15,13 @@
       "when": 1789391224129,
       "tag": "0001_work_item_leases",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1789419803810,
+      "tag": "0002_idempotency_keys",
+      "breakpoints": true
     }
   ]
 }

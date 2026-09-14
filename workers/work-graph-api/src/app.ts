@@ -6,6 +6,7 @@ import {
 import type { Env } from "hono";
 import type {
   ClaimWorkItemInput,
+  IdempotentMutationOptions,
   RenewLeaseInput,
   StoredLease,
   TerminateClaimedWorkItemInput,
@@ -16,6 +17,9 @@ import {
   WORK_ITEM_LIFECYCLES,
   WORK_STAGES,
   WorkGraphError,
+  type NewWorkItemInput,
+  type WorkItem,
+  type WorkItemDependency,
 } from "work-graph-domain";
 import { z } from "zod";
 
@@ -39,6 +43,12 @@ const leaseDurationSchema = z
   .max(MAX_LEASE_DURATION_SECONDS)
   .openapi({ format: "int32" });
 const timestampSchema = z.iso.datetime().max(30);
+const idempotencyHeadersSchema = z.object({
+  "idempotency-key": z.uuid().max(36).optional().openapi({
+    description:
+      "Client-generated mutation ID. Reusing it with the same request replays the committed effect. Reusing it for different input returns a conflict.",
+  }),
+});
 
 const errorSchema = z
   .object({
@@ -88,6 +98,12 @@ const workItemListSchema = z
     nextCursor: z.union([identifierSchema, z.null()]),
   })
   .openapi("WorkItemList");
+const workItemDependencySchema = z
+  .object({
+    dependentWorkItemId: identifierSchema,
+    blockerWorkItemId: identifierSchema,
+  })
+  .openapi("WorkItemDependency");
 const leaseWithWorkItemSchema = z
   .object({ lease: leaseSchema, workItem: workItemSchema })
   .openapi("LeaseWithWorkItem");
@@ -108,6 +124,14 @@ const listWorkItemsQuerySchema = z.object({
 });
 const workItemParamsSchema = z.object({ workItemId: identifierSchema });
 const leaseParamsSchema = z.object({ leaseId: leaseIdSchema });
+const createWorkItemBodySchema = z
+  .object({
+    id: identifierSchema,
+    title: z.string().trim().min(1).max(MAX_TITLE_LENGTH),
+    parentId: z.union([identifierSchema, z.null()]).optional(),
+  })
+  .strict();
+const dependencyBodySchema = workItemDependencySchema.strict();
 const createLeaseBodySchema = z
   .object({
     workerId: identifierSchema,
@@ -175,6 +199,81 @@ const getWorkItemRoute = createRoute({
     200: {
       description: "Current work-item projection",
       content: { "application/json": { schema: workItemSchema } },
+    },
+    ...standardErrors,
+  },
+});
+
+const createWorkItemRoute = createRoute({
+  method: "post",
+  path: "/api/work-items",
+  operationId: "createWorkItem",
+  summary: "Create a sparse work item",
+  description:
+    "Creates an open work item from its identity and title, with an optional parent. Lifecycle and operational stage are not accepted because the service derives them from graph state.",
+  tags: ["work-items"],
+  security: accessSecurity,
+  request: {
+    headers: idempotencyHeadersSchema,
+    body: {
+      required: true,
+      content: { "application/json": { schema: createWorkItemBodySchema } },
+    },
+  },
+  responses: {
+    201: {
+      description: "Work item created or matching mutation replayed",
+      content: { "application/json": { schema: workItemSchema } },
+    },
+    ...standardErrors,
+  },
+});
+
+const createDependencyRoute = createRoute({
+  method: "post",
+  path: "/api/dependencies",
+  operationId: "createDependency",
+  summary: "Add a work-item dependency",
+  description:
+    "Adds one explicit blocker edge after checking the serialized hierarchy and dependency waits-for graph for cycles.",
+  tags: ["dependencies"],
+  security: accessSecurity,
+  request: {
+    headers: idempotencyHeadersSchema,
+    body: {
+      required: true,
+      content: { "application/json": { schema: dependencyBodySchema } },
+    },
+  },
+  responses: {
+    201: {
+      description: "Dependency added or matching mutation replayed",
+      content: { "application/json": { schema: workItemDependencySchema } },
+    },
+    ...standardErrors,
+  },
+});
+
+const deleteDependencyRoute = createRoute({
+  method: "delete",
+  path: "/api/dependencies",
+  operationId: "deleteDependency",
+  summary: "Remove a work-item dependency",
+  description:
+    "Removes one explicit blocker edge without changing hierarchy or work-item lifecycle.",
+  tags: ["dependencies"],
+  security: accessSecurity,
+  request: {
+    headers: idempotencyHeadersSchema,
+    body: {
+      required: true,
+      content: { "application/json": { schema: dependencyBodySchema } },
+    },
+  },
+  responses: {
+    200: {
+      description: "Dependency removed or matching mutation replayed",
+      content: { "application/json": { schema: workItemDependencySchema } },
     },
     ...standardErrors,
   },
@@ -282,6 +381,18 @@ const cancelWorkItemRoute = createRoute({
 export interface WorkGraphApiRepository {
   listWorkItems(): Promise<readonly WorkItemReadModel[]>;
   getWorkItem(workItemId: string): Promise<WorkItemReadModel>;
+  createWorkItem(
+    input: NewWorkItemInput,
+    options?: IdempotentMutationOptions,
+  ): Promise<WorkItem>;
+  addDependency(
+    dependency: WorkItemDependency,
+    options?: IdempotentMutationOptions,
+  ): Promise<void>;
+  removeDependency(
+    dependency: WorkItemDependency,
+    options?: IdempotentMutationOptions,
+  ): Promise<void>;
   claimWorkItem(input: ClaimWorkItemInput): Promise<StoredLease | null>;
   renewLease(input: RenewLeaseInput): Promise<StoredLease>;
   terminateClaimedWorkItem(
@@ -291,6 +402,7 @@ export interface WorkGraphApiRepository {
 
 export interface WorkGraphAppOptions {
   readonly createLeaseId?: () => string;
+  readonly createIdempotencyKey?: () => string;
 }
 
 const serializeLease = (storedLease: StoredLease) => ({
@@ -337,6 +449,8 @@ export const createWorkGraphApp = (
 ) => {
   const app = new OpenAPIHono({ defaultHook: validationHook });
   const createLeaseId = options.createLeaseId ?? (() => crypto.randomUUID());
+  const createIdempotencyKey =
+    options.createIdempotencyKey ?? (() => crypto.randomUUID());
 
   app.openAPIRegistry.registerComponent(
     "securitySchemes",
@@ -419,6 +533,39 @@ export const createWorkGraphApp = (
       serializeWorkItem(await repository.getWorkItem(workItemId)),
       200,
     );
+  });
+
+  app.openapi(createWorkItemRoute, async (context) => {
+    const request = context.req.valid("json");
+    const headers = context.req.valid("header");
+    await repository.createWorkItem(request, {
+      idempotencyKey:
+        headers["idempotency-key"] ?? createIdempotencyKey(),
+    });
+    return context.json(
+      serializeWorkItem(await repository.getWorkItem(request.id)),
+      201,
+    );
+  });
+
+  app.openapi(createDependencyRoute, async (context) => {
+    const dependency = context.req.valid("json");
+    const headers = context.req.valid("header");
+    await repository.addDependency(dependency, {
+      idempotencyKey:
+        headers["idempotency-key"] ?? createIdempotencyKey(),
+    });
+    return context.json(dependency, 201);
+  });
+
+  app.openapi(deleteDependencyRoute, async (context) => {
+    const dependency = context.req.valid("json");
+    const headers = context.req.valid("header");
+    await repository.removeDependency(dependency, {
+      idempotencyKey:
+        headers["idempotency-key"] ?? createIdempotencyKey(),
+    });
+    return context.json(dependency, 200);
   });
 
   app.openapi(createLeaseRoute, async (context) => {
