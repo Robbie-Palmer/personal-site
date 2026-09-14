@@ -12,6 +12,11 @@ description = "Test Work Graph persistence against disposable PostgreSQL"
 depends = ["install"]
 run = "pnpm test:integration"
 
+[tasks."test:coverage"]
+description = "Test Work Graph persistence and write LCOV coverage for SonarQube"
+depends = ["install"]
+run = "pnpm test:coverage"
+
 [tasks."db:check"]
 description = "Validate the Work Graph migration history and schema snapshot"
 depends = ["install"]

@@ -603,6 +603,9 @@ importers:
       '@types/node':
         specifier: ^24
         version: 24.13.4
+      '@vitest/coverage-v8':
+        specifier: ^4.1.10
+        version: 4.1.11(vitest@4.1.11)
       drizzle-kit:
         specifier: ^0.31.0
         version: 0.31.10

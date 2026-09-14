@@ -11,6 +11,7 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "test:integration": "bash scripts/test-integration.sh",
+    "test:coverage": "bash scripts/test-integration.sh --coverage",
     "db:check": "bash scripts/check-migrations.sh",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate"
@@ -22,6 +23,7 @@
   },
   "devDependencies": {
     "@types/node": "^24",
+    "@vitest/coverage-v8": "^4.1.10",
     "drizzle-kit": "^0.31.0",
     "typescript": "^6.0.0",
     "vitest": "^4.1.7"
