@@ -9,7 +9,7 @@ export type WorkGraphErrorCode =
   | "invalid_work_item_lifecycle"
   | "invalid_work_item_title"
   | "self_dependency"
-  | "terminal_work_item"
+  | "work_item_already_terminal"
   | "work_item_not_found";
 
 export class WorkGraphError extends Error {

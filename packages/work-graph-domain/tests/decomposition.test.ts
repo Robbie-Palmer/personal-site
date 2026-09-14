@@ -117,7 +117,7 @@ describe("decomposition and hierarchy", () => {
       }),
     ).toThrowError(
       expect.objectContaining<Partial<WorkGraphError>>({
-        code: "terminal_work_item",
+        code: "work_item_already_terminal",
       }),
     );
   });

@@ -125,7 +125,7 @@ const appendWait = (
   waitsFor.set(waitingWorkItemId, blockers);
 };
 
-const findCycle = (graph: WorkGraph): readonly string[] | null => {
+const buildWaitsForGraph = (graph: WorkGraph) => {
   const waitsFor = new Map<string, Set<string>>();
   const childrenByParent = new Map<string, string[]>();
 
@@ -160,59 +160,54 @@ const findCycle = (graph: WorkGraph): readonly string[] | null => {
     }
   }
 
-  const visited = new Set<string>();
-  const visiting = new Set<string>();
+  return waitsFor;
+};
 
-  for (const startingWorkItemId of waitsFor.keys()) {
-    if (visited.has(startingWorkItemId)) {
-      continue;
-    }
+const hasCycle = (waitsFor: ReadonlyMap<string, ReadonlySet<string>>) => {
+  const incomingEdgeCounts = new Map<string, number>();
+  for (const workItemId of waitsFor.keys()) {
+    incomingEdgeCounts.set(workItemId, 0);
+  }
 
-    const path = [startingWorkItemId];
-    const stack = [
-      {
-        workItemId: startingWorkItemId,
-        blockers: [...(waitsFor.get(startingWorkItemId) ?? [])],
-        nextBlockerIndex: 0,
-      },
-    ];
-    visiting.add(startingWorkItemId);
-
-    while (stack.length > 0) {
-      const frame = stack.at(-1);
-      if (!frame) {
-        break;
-      }
-
-      if (frame.nextBlockerIndex >= frame.blockers.length) {
-        stack.pop();
-        path.pop();
-        visiting.delete(frame.workItemId);
-        visited.add(frame.workItemId);
-        continue;
-      }
-
-      const blockerId = frame.blockers[frame.nextBlockerIndex];
-      frame.nextBlockerIndex += 1;
-      if (!blockerId || visited.has(blockerId)) {
-        continue;
-      }
-      if (visiting.has(blockerId)) {
-        const cycleStart = path.indexOf(blockerId);
-        return [...path.slice(cycleStart), blockerId];
-      }
-
-      visiting.add(blockerId);
-      path.push(blockerId);
-      stack.push({
-        workItemId: blockerId,
-        blockers: [...(waitsFor.get(blockerId) ?? [])],
-        nextBlockerIndex: 0,
-      });
+  for (const blockers of waitsFor.values()) {
+    for (const blockerId of blockers) {
+      incomingEdgeCounts.set(
+        blockerId,
+        (incomingEdgeCounts.get(blockerId) ?? 0) + 1,
+      );
     }
   }
 
-  return null;
+  const readyWorkItemIds: string[] = [];
+  for (const [workItemId, incomingEdgeCount] of incomingEdgeCounts) {
+    if (incomingEdgeCount === 0) {
+      readyWorkItemIds.push(workItemId);
+    }
+  }
+
+  let visitedCount = 0;
+  for (
+    let readyIndex = 0;
+    readyIndex < readyWorkItemIds.length;
+    readyIndex += 1
+  ) {
+    const workItemId = readyWorkItemIds[readyIndex];
+    if (!workItemId) {
+      continue;
+    }
+    visitedCount += 1;
+
+    for (const blockerId of waitsFor.get(workItemId) ?? []) {
+      const nextIncomingEdgeCount =
+        (incomingEdgeCounts.get(blockerId) ?? 0) - 1;
+      incomingEdgeCounts.set(blockerId, nextIncomingEdgeCount);
+      if (nextIncomingEdgeCount === 0) {
+        readyWorkItemIds.push(blockerId);
+      }
+    }
+  }
+
+  return visitedCount !== waitsFor.size;
 };
 
 export const validateWorkGraph = (graph: WorkGraph): void => {
@@ -253,11 +248,10 @@ export const validateWorkGraph = (graph: WorkGraph): void => {
     blockersByDependent.set(dependency.dependentWorkItemId, blockerIds);
   }
 
-  const cycle = findCycle(graph);
-  if (cycle) {
+  if (hasCycle(buildWaitsForGraph(graph))) {
     throw new WorkGraphError(
       "graph_cycle",
-      `The change creates a waits-for cycle: ${cycle.join(" -> ")}.`,
+      "The change creates a waits-for cycle.",
     );
   }
 };
@@ -404,7 +398,7 @@ const terminateWorkItem = (
   const workItem = getWorkItem(graph, workItemId);
   if (workItem.lifecycle !== "open") {
     throw new WorkGraphError(
-      "terminal_work_item",
+      "work_item_already_terminal",
       `Work item ${workItemId} is already ${workItem.lifecycle}.`,
     );
   }
@@ -442,7 +436,7 @@ export const decomposeWorkItem = (
   const parent = getWorkItem(graph, input.parentWorkItemId);
   if (parent.lifecycle !== "open") {
     throw new WorkGraphError(
-      "terminal_work_item",
+      "work_item_already_terminal",
       `Work item ${parent.id} is already ${parent.lifecycle}.`,
     );
   }

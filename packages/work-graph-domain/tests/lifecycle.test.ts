@@ -44,7 +44,7 @@ describe("explicit work-item termination", () => {
 
     expect(() => cancelWorkItem(released, "work")).toThrowError(
       expect.objectContaining<Partial<WorkGraphError>>({
-        code: "terminal_work_item",
+        code: "work_item_already_terminal",
       }),
     );
   });
