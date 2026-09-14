@@ -154,6 +154,23 @@ describe("GECToR model preparation", () => {
       .toThrow("embedded config digest does not match descriptor");
   });
 
+  test("rejects checkpoint provenance that differs from the model config", () => {
+    const payload = Buffer.from("fixture");
+    const manifest = modelManifest({
+      url: "https://example.invalid/checkpoint.th",
+      filename: "checkpoint.th",
+      bytes: payload.length,
+      contentHash: sha256(payload),
+      sourceRepository: "https://github.com/grammarly/pillars-of-gec",
+      sourceRevision: "1014de0bc90faddba0032acb5dec762c6c85d2e1",
+      mediaType: "application/vnd.pytorch.state-dict",
+    }, []);
+    manifest.layers[0]!.annotations["org.opencontainers.image.revision"] = "a".repeat(40);
+
+    expect(() => GectorModelManifestSchema.parse(manifest))
+      .toThrow("checkpoint provenance does not match model config");
+  });
+
   test("resumes, verifies, and records the declared checkpoint", async () => {
     const payload = Buffer.from("official-checkpoint-fixture");
     const directory = temporaryDirectory();

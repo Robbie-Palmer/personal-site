@@ -115,6 +115,13 @@ export const GectorModelManifestSchema = OciArtifactManifestSchema.transform((ma
     context.addIssue({ code: "custom", message: "checkpoint descriptor is missing from layers" });
     return z.NEVER;
   }
+  if (
+    checkpoint.sourceRepository !== config.data.sourceRepository ||
+    checkpoint.sourceRevision !== config.data.sourceRevision
+  ) {
+    context.addIssue({ code: "custom", message: "checkpoint provenance does not match model config" });
+    return z.NEVER;
+  }
   return {
     oci: manifest,
     modelId: config.data.modelId,

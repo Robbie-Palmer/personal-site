@@ -176,6 +176,12 @@ class GectorModelManifest(ImmutableModel):
         ):
             msg = "checkpoint descriptor is missing from OCI layers"
             raise ValueError(msg)
+        if (
+            self.checkpoint.annotations.source != self.metadata.source_repository
+            or self.checkpoint.annotations.revision != self.metadata.source_revision
+        ):
+            msg = "checkpoint provenance does not match the embedded model config"
+            raise ValueError(msg)
         return self
 
 
@@ -251,6 +257,10 @@ class RawRun(ImmutableModel):
     runtime: RuntimeDetails
     parameters: InferenceParameters
     artifacts: tuple[RawArtifact, ...] = Field(min_length=1)
+
+
+class RuntimeCommand(ImmutableModel):
+    mode: Literal["runtime-smoke", "adapter-smoke", "cohort"]
 
 
 class ExpectedInference(ImmutableModel):
@@ -495,6 +505,7 @@ class GectorModel:
         torch.use_deterministic_algorithms(True)
         torch.backends.cuda.matmul.allow_tf32 = False
         self.parameters = parameters
+        model_directory = project_path(model_directory)
         namespace_patterns = (
             model_directory / "vocabulary/non_padded_namespaces.txt"
         ).read_text(encoding="utf-8").splitlines()
@@ -529,7 +540,7 @@ class GectorModel:
         self.encoder.resize_token_embeddings(len(self.tokenizer), mean_resizing=False)
         self.label_projection = nn.Linear(config.hidden_size, len(self.labels))
         self.detect_projection = nn.Linear(config.hidden_size, len(detect_labels))
-        self._load_checkpoint(model_directory / "gector-2024-roberta-large.th")
+        self._load_checkpoint(project_path(model_directory / "gector-2024-roberta-large.th"))
         self.encoder.to(self.device).eval()
         self.label_projection.to(self.device).eval()
         self.detect_projection.to(self.device).eval()
@@ -952,11 +963,12 @@ def write_cohort_result(result: RawRun) -> None:
         output.write(serialized_result(result))
 
 
-def run(mode: Literal["runtime-smoke", "adapter-smoke", "cohort"]) -> None:
+def run(mode: str) -> None:
+    validated_mode = RuntimeCommand(mode=mode).mode
     RuntimeSettings()
-    if mode == "runtime-smoke":
+    if validated_mode == "runtime-smoke":
         job = RUNTIME_SMOKE.job
-    elif mode == "adapter-smoke":
+    elif validated_mode == "adapter-smoke":
         job = frozen_job(ADAPTER_SMOKE_ARTIFACT)
     else:
         job = frozen_job()
@@ -966,12 +978,12 @@ def run(mode: Literal["runtime-smoke", "adapter-smoke", "cohort"]) -> None:
         read_model(MODEL_MANIFEST, GectorModelManifest),
         read_model(PARAMETERS_FILE, PipelineParameters).producers.gector,
     )
-    if mode == "runtime-smoke":
+    if validated_mode == "runtime-smoke":
         if result.artifacts != (RUNTIME_SMOKE.expected,):
             msg = "smoke output does not match the pinned expected correction"
             raise RuntimeError(msg)
         write_runtime_smoke_result(result)
-    elif mode == "adapter-smoke":
+    elif validated_mode == "adapter-smoke":
         write_adapter_smoke_result(result)
     else:
         write_cohort_result(result)

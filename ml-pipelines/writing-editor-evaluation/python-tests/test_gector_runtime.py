@@ -12,6 +12,7 @@ from python.gector_runtime import (
     read_padded_vocabulary,
     read_vocabulary,
     reconstruct_segment,
+    run,
     split_line,
 )
 
@@ -71,6 +72,11 @@ def test_rejects_nonpositive_batch_sizes() -> None:
             min_token_probability=0,
             additional_confidence=0.1,
         )
+
+
+def test_rejects_unknown_runtime_mode_before_running_inference() -> None:
+    with pytest.raises(ValueError, match="runtime-smoke"):
+        run("runtime-smok")
 
 
 def test_only_accepts_append_labels_at_the_start_token() -> None:
