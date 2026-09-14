@@ -43,9 +43,10 @@ def test_rejects_modelpack_layers_outside_the_locked_runtime_layout() -> None:
     renamed_manifest = manifest.model_copy(
         update={"layers": (renamed_layer, *manifest.layers[1:])}
     )
+    renamed_payload = renamed_manifest.model_dump(by_alias=True)
 
     with pytest.raises(ValueError, match="locked GECToR runtime layout"):
-        GectorModelManifest.model_validate(renamed_manifest.model_dump(by_alias=True))
+        GectorModelManifest.model_validate(renamed_payload)
 
 
 def test_limits_runtime_paths_to_the_project_root(tmp_path: Path) -> None:
