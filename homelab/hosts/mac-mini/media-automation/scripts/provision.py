@@ -301,10 +301,27 @@ def qbittorrent_fields(password, category_field, category):
     ]
 
 
+# Imports copy rather than hardlink (/downloads and /media are separate
+# mounts, so a cross-device link always fails), and every indexer in the
+# provisioned set is public, with no seed-ratio obligation. Remove the
+# torrent and its data from qBittorrent once an import completes, or the
+# raw download doubles the space of everything in the library.
+REMOVE_COMPLETED = True
+
+
 def ensure_download_client(app, category_field, category):
     existing = {dc.get("name") for dc in app.get("/api/v3/downloadclient")}
     if "qbittorrent" in existing:
-        print("  download client 'qbittorrent' already present")
+        client = next(dc for dc in app.get("/api/v3/downloadclient")
+                      if dc.get("name") == "qbittorrent")
+        if (client.get("removeCompleted") != REMOVE_COMPLETED
+                or client.get("removeCompletedDownloads") != REMOVE_COMPLETED):
+            client["removeCompleted"] = REMOVE_COMPLETED
+            client["removeCompletedDownloads"] = REMOVE_COMPLETED
+            app.put(f"/api/v3/downloadclient/{client['id']}", client)
+            print("  download client 'qbittorrent' updated (remove completed imports)")
+        else:
+            print("  download client 'qbittorrent' already present")
         return
     schema = next(
         dc for dc in app.get("/api/v3/downloadclient/schema")
@@ -316,8 +333,8 @@ def ensure_download_client(app, category_field, category):
         "enable": True,
         "protocol": "torrent",
         "priority": 1,
-        "removeCompletedDownloads": False,
-        "removeCompleted": False,
+        "removeCompletedDownloads": REMOVE_COMPLETED,
+        "removeCompleted": REMOVE_COMPLETED,
     })
     schema["fields"] = qbittorrent_fields(
         os.environ["QBITTORRENT_PASSWORD"], category_field, category)
