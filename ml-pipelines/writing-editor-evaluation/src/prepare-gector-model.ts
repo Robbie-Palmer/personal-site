@@ -179,7 +179,12 @@ async function prepareArtifact(
     expectedBytes: artifact.bytes,
     timeoutMs,
   });
-  await verifyArtifact(partialFile, artifact.bytes, artifact.contentHash, label);
+  try {
+    await verifyArtifact(partialFile, artifact.bytes, artifact.contentHash, label);
+  } catch (error) {
+    fs.rmSync(partialFile, { force: true });
+    throw error;
+  }
   fs.renameSync(partialFile, file);
 }
 

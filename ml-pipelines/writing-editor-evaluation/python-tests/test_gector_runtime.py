@@ -3,9 +3,11 @@ from pathlib import Path
 import pytest
 
 from python.gector_runtime import (
+    InferenceParameters,
     apply_edits,
     apply_transformation,
     document_segments,
+    is_actionable_label,
     project_path,
     read_padded_vocabulary,
     read_vocabulary,
@@ -51,6 +53,23 @@ def test_applies_model_edits_with_the_legacy_index_convention() -> None:
     assert apply_edits(tokens, edits, {}) == ["This", "is", "test", "."]
 
 
+def test_rejects_unsupported_edit_geometry() -> None:
+    with pytest.raises(ValueError, match="unsupported GECToR edit geometry"):
+        apply_edits(["text"], [(0, 2, "$OTHER", 0.9)], {})
+
+
+def test_rejects_nonpositive_batch_sizes() -> None:
+    with pytest.raises(ValueError, match="batch_size must be positive"):
+        InferenceParameters(0, 5, 50, 3, 0.65, 0, 0.1)
+
+
+def test_only_accepts_append_labels_at_the_start_token() -> None:
+    assert is_actionable_label(0, "$APPEND_However")
+    assert not is_actionable_label(0, "$DELETE")
+    assert not is_actionable_label(0, "$REPLACE_Word")
+    assert is_actionable_label(1, "$DELETE")
+
+
 def test_applies_case_agreement_and_pinned_verb_transforms() -> None:
     verbs = {"go_VB_VBD": "went"}
 
@@ -78,6 +97,10 @@ title: Fixture
 The prototype sends a score
 but does not stop.
 
+Do not change `identifier` here.
+
+Read the [source](https://example.com) here.
+
 ```ts
 const broken = "are";
 ```
@@ -99,3 +122,7 @@ def test_reconstructs_model_tokens_without_changing_hard_wraps() -> None:
     )
 
     assert generated == source
+
+
+def test_preserves_a_hard_wrap_before_an_unchanged_token_after_replacement() -> None:
+    assert reconstruct_segment("bad\nsentence", ["good", "sentence"]) == "good\nsentence"

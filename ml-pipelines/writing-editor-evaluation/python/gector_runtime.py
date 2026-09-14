@@ -28,6 +28,7 @@ KEEP = "$KEEP"
 PADDING = "@@PADDING@@"
 UNKNOWN = "@@UNKNOWN@@"
 MERGE_PREFIX = "$MERGE_"
+MAX_PIECES_PER_TOKEN = 5
 ENCODER_PREFIX = "text_field_embedder.token_embedder_bert.bert_model."
 LABEL_WEIGHT = "tag_labels_projection_layer._module.weight"
 LABEL_BIAS = "tag_labels_projection_layer._module.bias"
@@ -56,6 +57,20 @@ class InferenceParameters:
     min_error_probability: float
     min_token_probability: float
     additional_confidence: float
+
+    def __post_init__(self) -> None:
+        for name in ("batch_size", "iterations", "max_tokens", "min_tokens"):
+            if getattr(self, name) <= 0:
+                msg = f"{name} must be positive"
+                raise ValueError(msg)
+        for name in (
+            "min_error_probability",
+            "min_token_probability",
+            "additional_confidence",
+        ):
+            if not 0 <= getattr(self, name) <= 1:
+                msg = f"{name} must be between zero and one"
+                raise ValueError(msg)
 
 
 @dataclass(frozen=True)
@@ -187,6 +202,9 @@ def apply_edits(
         elif label.startswith(MERGE_PREFIX):
             target_tokens[position + 1 : position + 1] = [label]
             shift += 1
+        else:
+            msg = f"unsupported GECToR edit geometry: {(start, end, label)!r}"
+            raise ValueError(msg)
 
     if any(token.startswith(MERGE_PREFIX) for token in target_tokens):
         merged = " ".join(target_tokens)
@@ -219,7 +237,12 @@ def pieces_for_span(
         bpe_start, bpe_end = bpe_offsets[cursor]
         if bpe_start >= word_end:
             break
-        if bpe_start >= word_start and bpe_end <= word_end and len(pieces) < 5:
+        # Match the five-piece token indexer used to train the pinned checkpoint.
+        if (
+            bpe_start >= word_start
+            and bpe_end <= word_end
+            and len(pieces) < MAX_PIECES_PER_TOKEN
+        ):
             pieces.append(input_ids[cursor])
         cursor += 1
     return pieces, cursor
@@ -259,6 +282,11 @@ def edit_action(index: int, label: str, probability: float) -> tuple[int, int, s
         return index, index, label, probability
     msg = f"unsupported GECToR label: {label}"
     raise ValueError(msg)
+
+
+def is_actionable_label(index: int, label: str) -> bool:
+    """Only append operations are meaningful at the synthetic start token."""
+    return index > 0 or label.startswith("$APPEND_")
 
 
 def record_prediction(
@@ -436,6 +464,7 @@ class GectorModel:
                 if (
                     probability < self.parameters.min_token_probability
                     or label in {KEEP, PADDING, UNKNOWN}
+                    or not is_actionable_label(index, label)
                 ):
                     continue
                 edits.append(edit_action(index, label, probability))
@@ -507,8 +536,8 @@ def source_separator(
         and current_source == previous_source + 1
     ):
         separator = source[matches[previous_source].end() : matches[current_source].start()]
-    elif previous_source is not None and previous_source + 1 < len(matches):
-        separator = source[matches[previous_source].end() : matches[previous_source + 1].start()]
+    elif current_source is not None and current_source > 0:
+        separator = source[matches[current_source - 1].end() : matches[current_source].start()]
     else:
         separator = " "
     if current_source is None and re.fullmatch(r"[,.;:!?%)}\]]+", target_tokens[target_index]):
@@ -618,10 +647,18 @@ class MarkdownSegmenter:
             self.flush()
             return
         list_match = re.match(r"^\s*(?:[-*+] |\d+[.)] )", line)
+        contains_inline_markup = (
+            "`" in content
+            or re.search(r"!?\[[^\]\n]*\]\([^)]*\)", content) is not None
+            or re.search(r"!?\[[^\]\n]*\]\[[^\]\n]*\]", content) is not None
+            or re.search(r"<(?:https?://|mailto:)[^>\n]+>", content) is not None
+        )
         structural = (
             not stripped
             or re.match(r"^(?:#{1,6}\s|\||>|<|:::)", stripped) is not None
+            or re.match(r"^\[[^\]]+\]:\s", stripped) is not None
             or re.match(r"^\s{4,}\S", line) is not None
+            or contains_inline_markup
         )
         if structural:
             self.flush()

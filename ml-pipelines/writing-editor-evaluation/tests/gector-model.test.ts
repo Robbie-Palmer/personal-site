@@ -188,7 +188,15 @@ describe("GECToR model preparation", () => {
     await expect(prepareGectorModel({ manifestFile, outputDirectory, download }))
       .rejects.toThrow("checkpoint hash mismatch");
     expect(fs.existsSync(path.join(outputDirectory, "checkpoint.th"))).toBe(false);
+    expect(fs.existsSync(path.join(outputDirectory, "checkpoint.th.partial"))).toBe(false);
     expect(fs.existsSync(path.join(outputDirectory, "receipt.json"))).toBe(false);
+
+    await prepareGectorModel({
+      manifestFile,
+      outputDirectory,
+      download: async (_url, target) => fs.writeFileSync(target, payload),
+    });
+    expect(fs.readFileSync(path.join(outputDirectory, "checkpoint.th"))).toEqual(payload);
   });
 
   test("rejects an invalid existing checkpoint without downloading again", async () => {

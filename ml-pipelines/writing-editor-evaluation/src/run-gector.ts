@@ -160,6 +160,33 @@ function modelReceipt(value: unknown): GectorModelReceipt {
   return parsed;
 }
 
+function publishDirectory(
+  stagingDirectory: string,
+  outputDirectory: string,
+  outputRoot: string,
+): void {
+  const backupDirectory = `${outputDirectory}.backup`;
+  if (fs.existsSync(backupDirectory)) {
+    if (!fs.existsSync(outputDirectory)) {
+      fs.renameSync(backupDirectory, outputDirectory);
+    } else {
+      resetDirectory(backupDirectory, outputRoot);
+      fs.rmdirSync(backupDirectory);
+    }
+  }
+  const hadOutput = fs.existsSync(outputDirectory);
+  if (hadOutput) fs.renameSync(outputDirectory, backupDirectory);
+  try {
+    fs.renameSync(stagingDirectory, outputDirectory);
+  } catch (error) {
+    if (hadOutput && !fs.existsSync(outputDirectory)) {
+      fs.renameSync(backupDirectory, outputDirectory);
+    }
+    throw error;
+  }
+  if (hadOutput) fs.rmSync(backupDirectory, { recursive: true, force: true });
+}
+
 export function runGector(options: RunGectorOptions): GectorProducerRun {
   const cohort = FrozenCohortSchema.parse(readJson(options.cohortFile));
   const params = PipelineParamsSchema.parse(readJson(options.paramsFile));
@@ -236,7 +263,8 @@ export function runGector(options: RunGectorOptions): GectorProducerRun {
       },
     };
 
-    resetDirectory(options.outputDirectory, options.outputRoot);
+    const stagingDirectory = `${options.outputDirectory}.staging`;
+    resetDirectory(stagingDirectory, options.outputRoot);
     const artifacts = entries.map((entry) => {
       const rawArtifact = rawById.get(entry.artifactId);
       if (!rawArtifact) throw new Error(`raw inference is missing ${entry.artifactId}`);
@@ -283,9 +311,9 @@ export function runGector(options: RunGectorOptions): GectorProducerRun {
         throw new Error(`${entry.artifactId} suggestions do not reproduce the generated text`);
       }
       const generatedFile = `generated/${entry.artifactId}${path.extname(entry.source.file) || ".md"}`;
-      fs.mkdirSync(path.join(options.outputDirectory, "generated"), { recursive: true });
+      fs.mkdirSync(path.join(stagingDirectory, "generated"), { recursive: true });
       fs.writeFileSync(
-        path.join(options.outputDirectory, generatedFile),
+        path.join(stagingDirectory, generatedFile),
         rawArtifact.generatedText,
       );
       return {
@@ -353,7 +381,8 @@ export function runGector(options: RunGectorOptions): GectorProducerRun {
       artifacts,
       summary,
     });
-    writeJson(path.join(options.outputDirectory, "run.json"), result);
+    writeJson(path.join(stagingDirectory, "run.json"), result);
+    publishDirectory(stagingDirectory, options.outputDirectory, options.outputRoot);
     return result;
   }
 }

@@ -182,7 +182,7 @@ describe("GECToR producer", () => {
     });
 
     const outputDirectory = path.join(temporary, "outputs/gector");
-    const result = runGector({
+    const options = {
       cohortFile,
       corpusRoot,
       modelDirectory,
@@ -192,7 +192,8 @@ describe("GECToR producer", () => {
       outputDirectory,
       outputRoot: temporary,
       projectRoot,
-    });
+    };
+    const result = runGector(options);
 
     expect(GectorProducerRunSchema.parse(result)).toEqual(result);
     expect(result.artifacts[0]?.artifactId).toBe("example");
@@ -219,6 +220,12 @@ describe("GECToR producer", () => {
     );
     expect(fs.readFileSync(path.join(outputDirectory, "generated/example.md"), "utf8"))
       .toBe("Café is useful.\n");
+
+    expect(runGector(options).runId).toBe(result.runId);
+    const publishedRun = fs.readFileSync(path.join(outputDirectory, "run.json"), "utf8");
+    fs.writeFileSync(path.join(corpusRoot, sourceFile), "Changed source.\n");
+    expect(() => runGector(options)).toThrow("source hash does not match the frozen cohort");
+    expect(fs.readFileSync(path.join(outputDirectory, "run.json"), "utf8")).toBe(publishedRun);
 
     const repeatedLine = structuredClone(result);
     repeatedLine.artifacts[0]!.generated.correctedLines = [1, 1];

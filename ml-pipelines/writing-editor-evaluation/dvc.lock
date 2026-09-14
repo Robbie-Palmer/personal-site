@@ -295,8 +295,8 @@ stages:
       size: 2954
     - path: src/prepare-gector-model.ts
       hash: md5
-      md5: 44285adb089113a2db7ad35bd57f1e78
-      size: 7551
+      md5: 13b97fa7c74bdbc72207d23de1a5e9c3
+      size: 7647
     outs:
     - path: data/models/gector-2024
       hash: md5
@@ -354,8 +354,8 @@ stages:
       size: 923
     - path: python/gector_runtime.py
       hash: md5
-      md5: 41980910cfaf051f71f051d2d2ad8bd8
-      size: 30482
+      md5: d43edf20cf0419793fe18d34c744cb23
+      size: 31959
     - path: scripts/run-gector.sh
       hash: md5
       md5: 982fb0f7bcccd8a4f76aaec3d31fa6a8
@@ -370,8 +370,8 @@ stages:
       size: 13570
     - path: src/run-gector.ts
       hash: md5
-      md5: 4a44c2e8315fbe5f0d6de5322fa59c82
-      size: 14291
+      md5: b4a402b15476c8147a3f675b46275ebd
+      size: 15253
     - path: src/schemas.ts
       hash: md5
       md5: f4bc5df24fb54347604345ade3b06c26
@@ -394,6 +394,6 @@ stages:
     outs:
     - path: outputs/producers/gector
       hash: md5
-      md5: 7e744f23339cd31e9f9353d7c85ca5b1.dir
-      size: 768182
+      md5: 5df0514f8a7ca7ec17b4b77f428c6276.dir
+      size: 711341
       nfiles: 10
