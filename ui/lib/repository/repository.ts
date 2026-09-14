@@ -459,6 +459,37 @@ interface ProjectLoadResult {
   aliases: Map<ProjectSlug, ProjectSlug>;
 }
 
+function parseProjectAliases(
+  rawAliases: unknown,
+  projectSlug: ProjectSlug,
+): ProjectSlug[] {
+  const validation = ProjectSlugSchema.array().safeParse(rawAliases ?? []);
+  if (!validation.success) {
+    console.error(
+      `Failed to validate aliases for project ${projectSlug}:`,
+      validation.error,
+    );
+    throw new Error(`Project ${projectSlug} aliases failed validation`);
+  }
+  return validation.data;
+}
+
+function registerProjectAliases(
+  aliases: Map<ProjectSlug, ProjectSlug>,
+  projectAliases: ProjectSlug[],
+  projectSlug: ProjectSlug,
+): void {
+  for (const alias of projectAliases) {
+    const existingTarget = aliases.get(alias);
+    if (existingTarget) {
+      throw new Error(
+        `Project alias '${alias}' points to both '${existingTarget}' and '${projectSlug}'`,
+      );
+    }
+    aliases.set(alias, projectSlug);
+  }
+}
+
 export function loadProjects(): ProjectLoadResult {
   const entities = new Map<ProjectSlug, Project>();
   const relations = new Map<ProjectSlug, ProjectRelations>();
@@ -528,16 +559,7 @@ export function loadProjects(): ProjectLoadResult {
     const technologies: TechnologySlug[] = (data.tech_stack || []).map(
       (tech: string) => normalizeSlug(tech),
     );
-    const aliasesValidation = ProjectSlugSchema.array().safeParse(
-      data.aliases ?? [],
-    );
-    if (!aliasesValidation.success) {
-      console.error(
-        `Failed to validate aliases for project ${projectSlug}:`,
-        aliasesValidation.error,
-      );
-      throw new Error(`Project ${projectSlug} aliases failed validation`);
-    }
+    const projectAliases = parseProjectAliases(data.aliases, projectSlug);
 
     const project: Project = {
       slug: projectSlug,
@@ -611,15 +633,7 @@ export function loadProjects(): ProjectLoadResult {
     if (validation.success) {
       entities.set(projectSlug, validation.data);
       relations.set(projectSlug, projectRelations);
-      for (const alias of aliasesValidation.data) {
-        const existingTarget = aliases.get(alias);
-        if (existingTarget) {
-          throw new Error(
-            `Project alias '${alias}' points to both '${existingTarget}' and '${projectSlug}'`,
-          );
-        }
-        aliases.set(alias, projectSlug);
-      }
+      registerProjectAliases(aliases, projectAliases, projectSlug);
     } else {
       console.error(
         `Failed to validate project ${projectSlug}:`,
