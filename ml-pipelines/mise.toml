@@ -1,7 +1,7 @@
 [tools]
 # DVC is not on the mise registry, and Homebrew's Python is externally managed,
 # so uv provides it as an isolated tool.
-uv = "0.12.12"
+uv = "0.12.13"
 
 [env]
 _.file = ".env"
