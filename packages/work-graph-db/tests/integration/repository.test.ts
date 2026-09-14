@@ -535,6 +535,57 @@ describe("lease-backed claiming", () => {
     );
   });
 
+  it("rejects direct termination when a claim commits during its lock wait", async () => {
+    await repository.createWorkItem({ id: "work", title: "Contended work" });
+
+    let announceLock: (() => void) | undefined;
+    const itemLocked = new Promise<void>((resolve) => {
+      announceLock = resolve;
+    });
+    let finishClaim: (() => void) | undefined;
+    const holdClaim = new Promise<void>((resolve) => {
+      finishClaim = resolve;
+    });
+    const claimTransaction = db.transaction(async (transaction) => {
+      await transaction
+        .select({ id: schema.workItem.id })
+        .from(schema.workItem)
+        .where(eq(schema.workItem.id, "work"))
+        .for("update");
+      announceLock?.();
+      await holdClaim;
+      await transaction.insert(schema.lease).values({
+        id: leaseId(52),
+        workItemId: "work",
+        workerId: "worker-a",
+        epoch: 1,
+        expiresAt: sql`clock_timestamp() + interval '5 minutes'`,
+      });
+    });
+    await itemLocked;
+
+    const terminationResult = Promise.allSettled([
+      repository.releaseWorkItem("work"),
+    ]);
+    try {
+      await waitForDatabaseLock();
+    } finally {
+      finishClaim?.();
+    }
+    await claimTransaction;
+
+    const [termination] = await terminationResult;
+    if (!termination) throw new Error("Expected one termination result.");
+    expectWorkGraphError(termination, "work_item_has_current_lease");
+    expect(
+      (await repository.load()).workItems.find(({ id }) => id === "work")
+        ?.lifecycle,
+    ).toBe("open");
+    expect(await repository.getCurrentLease("work")).toEqual(
+      expect.objectContaining({ id: leaseId(52), epoch: 1 }),
+    );
+  });
+
   it("fails closed when claim coordination cannot lock the graph", async () => {
     await repository.createWorkItem({ id: "work", title: "Unclaimable work" });
     await db.delete(schema.graphMutationLock);

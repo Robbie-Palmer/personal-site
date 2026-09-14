@@ -628,34 +628,18 @@ export class WorkGraphRepository {
     requireIdentifier(workItemId, "invalid_work_item_id");
 
     await this.db.transaction(async (transaction) => {
-      const updated = await transaction
-        .update(workItem)
-        .set({ lifecycle })
-        .where(
-          and(
-            eq(workItem.id, workItemId),
-            eq(workItem.lifecycle, "open"),
-            sql`not exists (
-              select 1
-              from ${lease}
-              where ${lease.workItemId} = ${workItem.id}
-                and ${lease.endedAt} is null
-            )`,
-          ),
-        )
-        .returning({ id: workItem.id });
-      if (updated.length > 0) {
-        return;
-      }
-
       const [existing] = await transaction
         .select({ lifecycle: workItem.lifecycle })
         .from(workItem)
         .where(eq(workItem.id, workItemId))
-        .limit(1);
+        .limit(1)
+        .for("update");
       if (!existing) {
         throw workItemNotFound(workItemId);
       }
+
+      // Claims serialize on the same row. Check for a lease in a fresh
+      // READ COMMITTED statement after acquiring the lock.
       const [currentLease] = await transaction
         .select({ id: lease.id })
         .from(lease)
@@ -667,10 +651,17 @@ export class WorkGraphRepository {
           `Work item ${workItemId} has a current lease.`,
         );
       }
-      throw new WorkGraphError(
-        "work_item_already_terminal",
-        `Work item ${workItemId} is already ${existing.lifecycle}.`,
-      );
+      if (existing.lifecycle !== "open") {
+        throw new WorkGraphError(
+          "work_item_already_terminal",
+          `Work item ${workItemId} is already ${existing.lifecycle}.`,
+        );
+      }
+
+      await transaction
+        .update(workItem)
+        .set({ lifecycle })
+        .where(eq(workItem.id, workItemId));
     });
   }
 
