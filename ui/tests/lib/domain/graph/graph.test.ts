@@ -30,8 +30,8 @@ import {
 
 describe("NodeId utilities", () => {
   it("makeNodeId creates correct format", () => {
-    expect(makeNodeId("project", "personal-site")).toBe(
-      "project:personal-site",
+    expect(makeNodeId("project", "personal-knowledge-graph")).toBe(
+      "project:personal-knowledge-graph",
     );
     expect(makeNodeId("technology", "typescript")).toBe(
       "technology:typescript",
@@ -39,9 +39,9 @@ describe("NodeId utilities", () => {
   });
 
   it("parseNodeId extracts type and slug", () => {
-    const parsed = parseNodeId("project:personal-site");
+    const parsed = parseNodeId("project:personal-knowledge-graph");
     expect(parsed.type).toBe("project");
-    expect(parsed.slug).toBe("personal-site");
+    expect(parsed.slug).toBe("personal-knowledge-graph");
   });
 
   it("parseNodeId handles slugs with colons", () => {
@@ -56,7 +56,9 @@ describe("NodeId utilities", () => {
   });
 
   it("getNodeSlug returns correct slug", () => {
-    expect(getNodeSlug("project:personal-site")).toBe("personal-site");
+    expect(getNodeSlug("project:personal-knowledge-graph")).toBe(
+      "personal-knowledge-graph",
+    );
   });
 
   it("isNodeType correctly identifies types", () => {

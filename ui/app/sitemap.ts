@@ -60,7 +60,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: 0.1,
     }),
   );
-
   const technologyPages = technologySlugs.map((slug) => ({
     url: `${siteConfig.url}/technologies/${slug}`,
     lastModified: new Date().toISOString(),

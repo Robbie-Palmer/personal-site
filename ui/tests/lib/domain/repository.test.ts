@@ -173,6 +173,79 @@ initiatives: ["Connected Work"]
       ]);
     });
 
+    it("loads legacy project slugs without creating duplicate projects", () => {
+      const mockProjectContent = `---
+title: "Renamed Project"
+description: "A renamed project"
+date: "2025-01-01"
+status: "live"
+aliases: ["old-project"]
+---
+Content`;
+
+      vi.mocked(fs.readdirSync).mockImplementation(((path: string) => {
+        if (path.endsWith("projects")) return [mockDirent("renamed-project")];
+        return [];
+      }) as unknown as typeof fs.readdirSync);
+      vi.mocked(fs.readFileSync).mockReturnValue(mockProjectContent);
+
+      const result = loadProjects();
+
+      expect(result.entities.has("old-project")).toBe(false);
+      expect(result.aliases.get("old-project")).toBe("renamed-project");
+    });
+
+    it.each(["Old-Project", " old-project", "old/project"])(
+      "rejects a non-canonical project alias: %s",
+      (alias) => {
+        const mockProjectContent = `---
+title: "Renamed Project"
+description: "A renamed project"
+date: "2025-01-01"
+status: "live"
+aliases: ["${alias}"]
+---
+Content`;
+
+        vi.mocked(fs.readdirSync).mockImplementation(((path: string) => {
+          if (path.endsWith("projects")) return [mockDirent("renamed-project")];
+          return [];
+        }) as unknown as typeof fs.readdirSync);
+        vi.mocked(fs.readFileSync).mockReturnValue(mockProjectContent);
+
+        expect(() => loadProjects()).toThrow(
+          "Project renamed-project aliases failed validation",
+        );
+      },
+    );
+
+    it("rejects a project alias that conflicts with a canonical slug", () => {
+      vi.mocked(fs.readdirSync).mockImplementation(((path: string) => {
+        if (path.endsWith("projects")) {
+          return [mockDirent("first-project"), mockDirent("second-project")];
+        }
+        return [];
+      }) as unknown as typeof fs.readdirSync);
+      vi.mocked(fs.readFileSync).mockImplementation((path) => {
+        const slug = path.toString().includes("first-project")
+          ? "first-project"
+          : "second-project";
+        const aliases =
+          slug === "first-project" ? '\naliases: ["second-project"]' : "";
+        return `---
+title: "${slug}"
+description: "A project"
+date: "2025-01-01"
+status: "live"${aliases}
+---
+Content`;
+      });
+
+      expect(() => loadProjects()).toThrow(
+        "Project alias 'second-project' conflicts with a project slug",
+      );
+    });
+
     it("should load ADRs for each project", () => {
       const mockProjectContent = `---
 title: "Test Project"
@@ -226,7 +299,7 @@ description: "A test project"
 date: "2025-01-01"
 status: "live"
 inherits_adrs:
-  - "personal-site:002-react"
+  - "personal-knowledge-graph:002-react"
 ---
 Content`;
 
@@ -389,7 +462,7 @@ tech_stack: ["React"]
 
 Canonical source content.`;
       const inheritedStub = `---
-inherits_from: "personal-site:002-react"
+inherits_from: "personal-knowledge-graph:002-react"
 ---
 
 Recipe-site note: this is adopted as-is for now.
@@ -398,16 +471,20 @@ Recipe-site note: this is adopted as-is for now.
       vi.mocked(fs.existsSync).mockImplementation(() => true);
       vi.mocked(fs.readdirSync).mockImplementation(((path: string) => {
         if (path.endsWith("projects")) {
-          return [mockDirent("personal-site"), mockDirent("recipe-site")];
+          return [
+            mockDirent("personal-knowledge-graph"),
+            mockDirent("recipe-site"),
+          ];
         }
-        if (path.includes("personal-site/adrs")) return ["002-react.mdx"];
+        if (path.includes("personal-knowledge-graph/adrs"))
+          return ["002-react.mdx"];
         if (path.includes("recipe-site/adrs")) return ["000-react.mdx"];
         return [];
       }) as unknown as typeof fs.readdirSync);
 
       vi.mocked(fs.readFileSync).mockImplementation((path) => {
         const pathStr = path.toString();
-        if (pathStr.includes("personal-site/adrs/002-react.mdx")) {
+        if (pathStr.includes("personal-knowledge-graph/adrs/002-react.mdx")) {
           return sourceADR;
         }
         if (pathStr.includes("recipe-site/adrs/000-react.mdx")) {
@@ -420,7 +497,7 @@ Recipe-site note: this is adopted as-is for now.
       expect(result.entities.has("recipe-site:000-react")).toBe(false);
       expect(result.relations.has("recipe-site:000-react")).toBe(false);
       expect(result.aliases.get("recipe-site:000-react")).toBe(
-        "personal-site:002-react",
+        "personal-knowledge-graph:002-react",
       );
     });
 
@@ -910,10 +987,10 @@ Content`;
             },
           ],
           [
-            "personal-site",
+            "personal-knowledge-graph",
             {
-              slug: "personal-site",
-              title: "Personal Site",
+              slug: "personal-knowledge-graph",
+              title: "Personal Knowledge Graph",
               description: "Desc",
               date: "2025-01-01",
               status: "live" as const,
@@ -936,11 +1013,11 @@ Content`;
             },
           ],
           [
-            "personal-site:001-react",
+            "personal-knowledge-graph:001-react",
             {
-              adrRef: "personal-site:001-react",
+              adrRef: "personal-knowledge-graph:001-react",
               slug: "001-react",
-              projectSlug: "personal-site",
+              projectSlug: "personal-knowledge-graph",
               title: "Personal ADR",
               date: "2025-01-01",
               status: "Accepted" as const,
@@ -956,7 +1033,10 @@ Content`;
             {
               technologies: [],
               ideas: [],
-              adrs: ["recipe-site:001-react", "personal-site:001-react"],
+              adrs: [
+                "recipe-site:001-react",
+                "personal-knowledge-graph:001-react",
+              ],
               initiatives: [],
               tags: [],
             },

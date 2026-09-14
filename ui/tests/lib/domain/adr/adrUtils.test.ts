@@ -22,9 +22,9 @@ describe("ADR utilities", () => {
   });
 
   it("parses ADRRef with a single separator", () => {
-    const parsed = parseADRRef("personal-site:014-ssg");
+    const parsed = parseADRRef("personal-knowledge-graph:014-ssg");
     expect(parsed).toEqual({
-      projectSlug: "personal-site",
+      projectSlug: "personal-knowledge-graph",
       adrSlug: "014-ssg",
     });
   });

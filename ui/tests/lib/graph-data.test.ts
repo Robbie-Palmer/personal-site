@@ -176,7 +176,7 @@ describe("extractGraphData", () => {
         (edge) =>
           edge.source ===
             "adr:personal-engineering-platform:001-language-defaults" &&
-          edge.target === "project:personal-site" &&
+          edge.target === "project:personal-knowledge-graph" &&
           edge.type === "DRIVEN_BY",
       ),
     ).toHaveLength(1);
@@ -184,7 +184,7 @@ describe("extractGraphData", () => {
       getPlatformLayersForProject(repository.graph, "recipe-site"),
     ).toContain("backend-api");
     expect(getProjectsForPlatformLayer(repository.graph, "base")).toContain(
-      "personal-site",
+      "personal-knowledge-graph",
     );
     expect(
       getOverridesForDefaultSlot(repository.graph, "project.primary-language"),
@@ -194,8 +194,8 @@ describe("extractGraphData", () => {
   it("uses effective layer-use provenance after re-adoption", () => {
     const repository = loadDomainRepository();
     const projectLayerUses = new Map(repository.platform.projectLayerUses);
-    const existingUses = projectLayerUses.get("personal-site") ?? [];
-    projectLayerUses.set("personal-site", [
+    const existingUses = projectLayerUses.get("personal-knowledge-graph") ?? [];
+    projectLayerUses.set("personal-knowledge-graph", [
       ...existingUses.filter((use) => use.layer !== "base"),
       {
         layer: "base",
@@ -219,7 +219,7 @@ describe("extractGraphData", () => {
 
     expect(data.edges).toContainEqual(
       expect.objectContaining({
-        source: "project:personal-site",
+        source: "project:personal-knowledge-graph",
         target: "platform-layer:base",
         type: "USES_PLATFORM_LAYER",
         provenance: expect.objectContaining({
@@ -242,7 +242,7 @@ describe("extractGraphData", () => {
     );
     expect(data.edges).not.toContainEqual(
       expect.objectContaining({
-        source: "project:personal-site",
+        source: "project:personal-knowledge-graph",
         type: "USES_PLATFORM_LAYER",
       }),
     );

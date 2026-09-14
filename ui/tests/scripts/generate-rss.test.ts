@@ -65,6 +65,7 @@ vi.mock("@/lib/api/initiatives", () => ({
 }));
 vi.mock("@/lib/api/projects", () => ({
   getAllADRs: () => fixtures.adrs,
+  getAllProjectAliases: () => [{ alias: "old-alpha", target: "alpha" }],
   getAllProjects: () => fixtures.projects,
 }));
 vi.mock("@/lib/domain", () => ({
@@ -95,6 +96,7 @@ describe("RSS generation", () => {
         true,
       );
     }
+    expect(documents.has("projects/old-alpha/feed.xml")).toBe(true);
   });
 
   it("limits a project feed to the rolling window of its own entries", () => {

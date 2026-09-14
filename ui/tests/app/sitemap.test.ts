@@ -46,4 +46,15 @@ describe("sitemap", () => {
       }),
     );
   });
+
+  it("excludes project aliases and their ADR paths", () => {
+    const urls = sitemap().map((entry) => entry.url);
+
+    expect(urls).not.toContain(
+      "https://robbiepalmer.me/projects/personal-site",
+    );
+    expect(urls).not.toContain(
+      "https://robbiepalmer.me/projects/personal-site/adrs/048-sonarqube",
+    );
+  });
 });

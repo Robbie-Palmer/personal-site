@@ -58,8 +58,8 @@ session authority; an authenticated query is enabled only after its user ID is k
 
 ## Integration shape
 
-Mount one `QueryClientProvider` at the recipe application layout boundary, not the personal-site
-root. This keeps the dependency and cache out of unrelated personal-site routes. Existing typed
+Mount one `QueryClientProvider` at the recipe application layout boundary, not the shared site
+root. This keeps the dependency and cache out of unrelated site routes. Existing typed
 functions under `ui/lib/api` remain the query and mutation functions; TanStack Query coordinates
 them but does not replace the API layer.
 

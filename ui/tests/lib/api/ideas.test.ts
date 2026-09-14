@@ -43,7 +43,7 @@ describe("ideas API", () => {
     expect(idea.relatedContent.adrs).toContainEqual(
       expect.objectContaining({
         slug: "049-zizmor",
-        projectSlug: "personal-site",
+        projectSlug: "personal-knowledge-graph",
       }),
     );
   });
@@ -125,9 +125,9 @@ describe("ideas API", () => {
       getIdeasForADR("recipe-site:031-openrouter").map((idea) => idea.slug),
     ).toEqual(["intelligent-document-processing", "nlp", "ocr"]);
     expect(
-      getIdeasForADR("personal-site:057-food-ontology-alignment").map(
-        (idea) => idea.slug,
-      ),
+      getIdeasForADR(
+        "personal-knowledge-graph:057-food-ontology-alignment",
+      ).map((idea) => idea.slug),
     ).toEqual(["ontology-engineering"]);
     expect(
       getIdeasForADR("recipe-site:045-sonarqube").map((idea) => idea.slug),

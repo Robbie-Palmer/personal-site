@@ -14,15 +14,15 @@ verifying it at volume.
 
 The existing quality and security stack is already dense:
 
-| Tool                                                                                                                         | Scope                 | Determinism           | Notes                                                                        |
-| ---------------------------------------------------------------------------------------------------------------------------- | --------------------- | --------------------- | ---------------------------------------------------------------------------- |
-| **Biome**                                                                                                                    | Lint + format         | Deterministic         | Style and intra-file correctness. No cross-file or whole-program analysis.   |
-| **CodeQL** ([ADR 024](/projects/recipe-site/adrs/024-codeql) → [personal-site 032](/projects/personal-site/adrs/032-codeql)) | Security SAST         | Deterministic         | Deep dataflow for injection/XSS classes. Security only; not maintainability. |
-| **Trivy** ([ADR 044](/projects/recipe-site/adrs/044-trivy) → [personal-site 047](/projects/personal-site/adrs/047-trivy))    | IaC, deps, containers | Deterministic         | CVE/misconfig scanning. Not source quality.                                  |
-| **Renovate** ([ADR 020](/projects/recipe-site/adrs/020-renovate))                                                            | Dependency updates    | Deterministic         | Update proposals + CVE visibility.                                           |
-| **GitHub Secret Scanning**                                                                                                   | Committed secrets     | Deterministic         | Narrow.                                                                      |
-| **Vitest** ([ADR 008](/projects/recipe-site/adrs/008-vitest))                                                                | Unit tests            | Deterministic         | Tests; no static code-health analysis.                                       |
-| **CodeRabbit / Greptile / Codex / Qodo / Gemini / custom agentic review** (ADRs 009, 038–043)                                | AI PR review          | **Non-deterministic** | Contextual prose review. Varies run to run; no objective trend.              |
+| Tool                                                                                                                                               | Scope                 | Determinism           | Notes                                                                        |
+| -------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------- | --------------------- | ---------------------------------------------------------------------------- |
+| **Biome**                                                                                                                                          | Lint + format         | Deterministic         | Style and intra-file correctness. No cross-file or whole-program analysis.   |
+| **CodeQL** ([ADR 024](/projects/recipe-site/adrs/024-codeql) → [Personal Knowledge Graph 032](/projects/personal-knowledge-graph/adrs/032-codeql)) | Security SAST         | Deterministic         | Deep dataflow for injection/XSS classes. Security only; not maintainability. |
+| **Trivy** ([ADR 044](/projects/recipe-site/adrs/044-trivy) → [Personal Knowledge Graph 047](/projects/personal-knowledge-graph/adrs/047-trivy))    | IaC, deps, containers | Deterministic         | CVE/misconfig scanning. Not source quality.                                  |
+| **Renovate** ([ADR 020](/projects/recipe-site/adrs/020-renovate))                                                                                  | Dependency updates    | Deterministic         | Update proposals + CVE visibility.                                           |
+| **GitHub Secret Scanning**                                                                                                                         | Committed secrets     | Deterministic         | Narrow.                                                                      |
+| **Vitest** ([ADR 008](/projects/recipe-site/adrs/008-vitest))                                                                                      | Unit tests            | Deterministic         | Tests; no static code-health analysis.                                       |
+| **CodeRabbit / Greptile / Codex / Qodo / Gemini / custom agentic review** (ADRs 009, 038–043)                                                      | AI PR review          | **Non-deterministic** | Contextual prose review. Varies run to run; no objective trend.              |
 
 These leave two structural gaps:
 
@@ -32,7 +32,7 @@ These leave two structural gaps:
 2. The only check watching for systemic decay is non-deterministic. The six AI reviewers give
    good contextual feedback but cannot be relied on to flag the same regression twice.
 
-[ADR 032](/projects/personal-site/adrs/032-codeql) rejected SonarQube for one specific reason: it
+[ADR 032](/projects/personal-knowledge-graph/adrs/032-codeql) rejected SonarQube for one specific reason: it
 "requires an external platform/account … rejected to minimize platform sprawl", an extra dashboard
 and login to maintain, back when the site was a static front-end with one human author. This ADR
 revisits that decision because the reason no longer holds. What is proposed here is the free
@@ -88,7 +88,7 @@ environment secrets to forks.
 
 Out of scope: self-hosting the Community Edition (a JVM server plus its own Postgres), and treating
 the Sonar dashboard as a place work moves into. Both reintroduce the platform-sprawl cost
-[ADR 032](/projects/personal-site/adrs/032-codeql) declined to pay
+[ADR 032](/projects/personal-knowledge-graph/adrs/032-codeql) declined to pay
 ([Less Is More](/projects?tab=philosophy#less-is-more)).
 
 # SonarQube's AI Features
@@ -184,15 +184,15 @@ after an automated reviewer incorrectly claimed that the option was ignored.
 Weighted toward the test ADR 032 applied: does it surface in GitHub, or does it bring in a separate
 platform?
 
-| Tool                                          | GitHub-native?               | Pros                                                                                                  | Cons                                                                                         | Verdict                                                                                                                         |
-| --------------------------------------------- | ---------------------------- | ----------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| **SonarQube Cloud + GitHub App** *(accepted)* | Yes (PR check + annotations) | Free for public repos; mature TS/JS engine, additive over Biome; large LLM corpus.                    | Security rules overlap CodeQL (redundant, not harmful); gate metrics invite Goodhart gaming. | **Accepted**                                                                                                                    |
-| **Qodana** (JetBrains)                        | Weaker PR annotations        | Strong analysis; free for OSS.                                                                        | Best inside the JetBrains IDEs we don't use; thinner community and LLM corpus.               | Rejected: weaker fit, less established ([Goldilocks](/projects?tab=philosophy#the-goldilocks-zone)).                            |
-| **Codacy**                                    | Yes (PR check)               | Free OSS tier; one gate.                                                                              | Mostly wraps linters we already run (Biome) plus Semgrep; little net-new signal.             | Rejected: duplicates Biome without filling the health quadrant.                                                                 |
-| **Qlty** (Code Climate successor)             | Yes                          | Modern maintainability/duplication metrics.                                                           | 2024 relaunch mid-pivot from Code Climate; smaller corpus; churn risk.                       | Rejected: [Build Flywheels](/projects?tab=philosophy#build-flywheels) favours not betting learning on a product mid-transition. |
-| **CodeScene**                                 | Partial                      | Behavioural/hotspot analysis from git history.                                                        | Niche, premium, little LLM data; orthogonal to a PR gate.                                    | Rejected: past the early-majority window, weak [LLM-Optimized](/projects?tab=philosophy#llm-optimized) fit.                     |
-| **Semgrep**                                   | Yes (SARIF)                  | Fast custom rules; named future SAST candidate in [ADR 032](/projects/personal-site/adrs/032-codeql). | A SAST/rules engine, not a code-health gate; overlaps CodeQL.                                | Rejected for this gap; remains the separate CodeQL-successor question.                                                          |
-| **Status quo** (Biome + CodeQL + AI review)   | n/a                          | Zero new check.                                                                                       | Code-health gate stays missing; the only decay watcher stays non-deterministic.              | Rejected: closing that gap is the point of this ADR.                                                                            |
+| Tool                                          | GitHub-native?               | Pros                                                                                                             | Cons                                                                                         | Verdict                                                                                                                         |
+| --------------------------------------------- | ---------------------------- | ---------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| **SonarQube Cloud + GitHub App** *(accepted)* | Yes (PR check + annotations) | Free for public repos; mature TS/JS engine, additive over Biome; large LLM corpus.                               | Security rules overlap CodeQL (redundant, not harmful); gate metrics invite Goodhart gaming. | **Accepted**                                                                                                                    |
+| **Qodana** (JetBrains)                        | Weaker PR annotations        | Strong analysis; free for OSS.                                                                                   | Best inside the JetBrains IDEs we don't use; thinner community and LLM corpus.               | Rejected: weaker fit, less established ([Goldilocks](/projects?tab=philosophy#the-goldilocks-zone)).                            |
+| **Codacy**                                    | Yes (PR check)               | Free OSS tier; one gate.                                                                                         | Mostly wraps linters we already run (Biome) plus Semgrep; little net-new signal.             | Rejected: duplicates Biome without filling the health quadrant.                                                                 |
+| **Qlty** (Code Climate successor)             | Yes                          | Modern maintainability/duplication metrics.                                                                      | 2024 relaunch mid-pivot from Code Climate; smaller corpus; churn risk.                       | Rejected: [Build Flywheels](/projects?tab=philosophy#build-flywheels) favours not betting learning on a product mid-transition. |
+| **CodeScene**                                 | Partial                      | Behavioural/hotspot analysis from git history.                                                                   | Niche, premium, little LLM data; orthogonal to a PR gate.                                    | Rejected: past the early-majority window, weak [LLM-Optimized](/projects?tab=philosophy#llm-optimized) fit.                     |
+| **Semgrep**                                   | Yes (SARIF)                  | Fast custom rules; named future SAST candidate in [ADR 032](/projects/personal-knowledge-graph/adrs/032-codeql). | A SAST/rules engine, not a code-health gate; overlaps CodeQL.                                | Rejected for this gap; remains the separate CodeQL-successor question.                                                          |
+| **Status quo** (Biome + CodeQL + AI review)   | n/a                          | Zero new check.                                                                                                  | Code-health gate stays missing; the only decay watcher stays non-deterministic.              | Rejected: closing that gap is the point of this ADR.                                                                            |
 
 # Where It Sits On The Adoption Curve
 
@@ -257,7 +257,7 @@ aimed at agent-authored code.
 
 * Adds a deterministic, trend-tracked code-health signal as a GitHub PR check rather than a
   separate platform, which answers the objection in
-  [ADR 032](/projects/personal-site/adrs/032-codeql).
+  [ADR 032](/projects/personal-knowledge-graph/adrs/032-codeql).
 * Free and additive over Biome (deeper TS/JS analysis) at low adoption cost.
 * Gives coding agents a reproducible in-loop target through the MCP server, and AI Code Assurance
   applies a stricter gate to agent-authored code.
