@@ -335,24 +335,42 @@ export class WorkGraphRepository {
     requireLeaseEpoch(input.epoch);
     requireLeaseDuration(input.leaseDurationSeconds);
 
-    const [renewedLease] = await this.db
-      .update(lease)
-      .set({
-        expiresAt: sql`now() + make_interval(secs => ${input.leaseDurationSeconds})`,
-      })
-      .where(
-        and(
-          eq(lease.id, input.leaseId),
-          eq(lease.epoch, input.epoch),
-          isNull(lease.endedAt),
-          gt(lease.expiresAt, sql`now()`),
-        ),
-      )
-      .returning();
-    if (!renewedLease) {
-      throw leaseNotCurrent(input.leaseId, input.epoch);
-    }
-    return renewedLease;
+    return this.db.transaction(async (transaction) => {
+      const [storedLease] = await transaction
+        .select({ workItemId: lease.workItemId })
+        .from(lease)
+        .where(eq(lease.id, input.leaseId))
+        .limit(1);
+      if (!storedLease) {
+        throw leaseNotCurrent(input.leaseId, input.epoch);
+      }
+
+      await transaction
+        .select({ id: workItem.id })
+        .from(workItem)
+        .where(eq(workItem.id, storedLease.workItemId))
+        .for("update");
+
+      const [renewedLease] = await transaction
+        .update(lease)
+        .set({
+          expiresAt: sql`now() + make_interval(secs => ${input.leaseDurationSeconds})`,
+        })
+        .where(
+          and(
+            eq(lease.id, input.leaseId),
+            eq(lease.workItemId, storedLease.workItemId),
+            eq(lease.epoch, input.epoch),
+            isNull(lease.endedAt),
+            gt(lease.expiresAt, sql`now()`),
+          ),
+        )
+        .returning();
+      if (!renewedLease) {
+        throw leaseNotCurrent(input.leaseId, input.epoch);
+      }
+      return renewedLease;
+    });
   }
 
   async terminateClaimedWorkItem(
