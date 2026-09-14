@@ -1,4 +1,3 @@
-import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -24,7 +23,6 @@ import {
   readContainedText,
   readJson,
   resetDirectory,
-  resolveContainedFile,
   writeJson,
 } from "./files";
 import {
@@ -75,6 +73,7 @@ const CliOptionsSchema = z.object({
   model: z.string().trim().min(1),
   manifest: z.string().trim().min(1),
   params: z.string().trim().min(1),
+  raw: z.string().trim().min(1),
   output: z.string().trim().min(1),
   artifact: z.string().trim().min(1).optional(),
 }).strict();
@@ -85,24 +84,11 @@ export interface RunGectorOptions {
   modelDirectory: string;
   manifestFile: string;
   paramsFile: string;
+  rawFile: string;
   outputDirectory: string;
   outputRoot: string;
   projectRoot: string;
   artifactId?: string;
-  pythonRunner?: (arguments_: string[], cwd: string) => void;
-}
-
-function defaultPythonRunner(arguments_: string[], cwd: string): void {
-  execFileSync(path.join(cwd, ".venv/bin/python"), arguments_, {
-    cwd,
-    env: {
-      ...process.env,
-      CUBLAS_WORKSPACE_CONFIG: ":4096:8",
-      HF_HUB_OFFLINE: "1",
-      TOKENIZERS_PARALLELISM: "false",
-    },
-    stdio: "inherit",
-  });
 }
 
 function assertEqual(label: string, actual: unknown, expected: unknown): void {
@@ -130,7 +116,10 @@ function groupSuggestionsByLine(source: string, suggestions: Suggestion[]): Sugg
   }
   return [...groups.entries()]
     .sort(([left], [right]) => left - right)
-    .map(([, records]) => records.sort(compareSuggestions));
+    .map(([, records]) => {
+      records.sort(compareSuggestions);
+      return records;
+    });
 }
 
 function applySuggestions(source: string, suggestions: Suggestion[]): string {
@@ -202,36 +191,9 @@ export function runGector(options: RunGectorOptions): GectorProducerRun {
     throw new Error(`frozen cohort does not contain artifact ${options.artifactId}`);
   }
 
-  const temporary = fs.mkdtempSync(path.join(options.projectRoot, ".gector-run-"));
-  const jobFile = path.join(temporary, "job.json");
-  const rawFile = path.join(temporary, "raw.json");
   const runtimeSource = path.join(options.projectRoot, "python/gector_runtime.py");
-  writeJson(jobFile, {
-    artifacts: entries.map((entry) => ({
-      artifactId: entry.artifactId,
-      sourceFile: resolveContainedFile(
-        options.corpusRoot,
-        entry.source.file,
-        `${entry.artifactId} source`,
-      ),
-    })),
-  });
-
-  try {
-    (options.pythonRunner ?? defaultPythonRunner)([
-      runtimeSource,
-      "--job",
-      jobFile,
-      "--model",
-      path.resolve(options.modelDirectory),
-      "--manifest",
-      path.resolve(options.manifestFile),
-      "--params",
-      path.resolve(options.paramsFile),
-      "--output",
-      rawFile,
-    ], options.projectRoot);
-    const raw = RawRunSchema.parse(readJson(rawFile));
+  {
+    const raw = RawRunSchema.parse(readJson(options.rawFile));
     assertEqual("raw model identity", raw.model, {
       modelId: manifest.modelId,
       sourceRevision: manifest.source.revision,
@@ -393,8 +355,6 @@ export function runGector(options: RunGectorOptions): GectorProducerRun {
     });
     writeJson(path.join(options.outputDirectory, "run.json"), result);
     return result;
-  } finally {
-    fs.rmSync(temporary, { recursive: true, force: true });
   }
 }
 
@@ -406,6 +366,7 @@ function main(): void {
       model: { type: "string" },
       manifest: { type: "string" },
       params: { type: "string" },
+      raw: { type: "string" },
       output: { type: "string" },
       artifact: { type: "string" },
     },
@@ -417,6 +378,7 @@ function main(): void {
     modelDirectory: args.model,
     manifestFile: args.manifest,
     paramsFile: args.params,
+    rawFile: args.raw,
     outputDirectory: args.output,
     outputRoot: path.resolve("."),
     projectRoot: path.resolve("."),

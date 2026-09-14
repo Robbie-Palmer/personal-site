@@ -22,7 +22,7 @@ python = "3.12.12"
 
 [tasks."runtime:sync"]
 description = "Install the locked CUDA GECToR runtime"
-run = "uv sync --locked --no-dev"
+run = "uv sync --locked --no-dev --no-build"
 
 [tasks."runtime:lock"]
 description = "Resolve the CUDA GECToR runtime lockfile"
@@ -36,7 +36,7 @@ run = ["uv run --locked ruff check python python-tests", "uv run --locked pytest
 [tasks."runtime:smoke"]
 description = "Run the locked GECToR model against a one-sentence fixture"
 depends = ["runtime:sync"]
-run = "uv run --locked --no-dev python python/gector_runtime.py --job python-tests/fixtures/smoke-job.json --model data/models/gector-2024 --manifest model-manifest.json --params params.yaml --expected-generated python-tests/fixtures/smoke-expected.md --output outputs/smoke/runtime.json"
+run = ".venv/bin/python python/gector_runtime.py --mode runtime-smoke"
 
 [tasks."run:gector:smoke"]
 description = "Run GECToR against one frozen ADR"

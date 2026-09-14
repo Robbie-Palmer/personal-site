@@ -14,16 +14,12 @@ from python.gector_runtime import (
 )
 
 
-def test_limits_runtime_paths_to_the_project_root(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.chdir(tmp_path)
+def test_limits_runtime_paths_to_the_project_root(tmp_path: Path) -> None:
     inside = tmp_path / "data" / "input.json"
 
-    assert project_path(inside) == inside
+    assert project_path(inside, tmp_path) == inside
     with pytest.raises(ValueError, match="outside the project root"):
-        project_path(tmp_path.parent / "outside.json")
+        project_path(tmp_path.parent / "outside.json", tmp_path)
 
 
 def test_reads_allennlp_padded_vocabulary_indexes(tmp_path: Path) -> None:

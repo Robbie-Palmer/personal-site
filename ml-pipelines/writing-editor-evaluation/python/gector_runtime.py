@@ -22,15 +22,29 @@ from torch import Tensor, nn
 from transformers import AutoConfig, AutoModel, AutoTokenizer
 from transformers import __version__ as transformers_version
 
-START_TOKEN = "$START"  # noqa: S105 - GECToR's sentinel token, not a credential.
+# GECToR uses this sentinel as a token, not as a credential.
+START_TOKEN = "$START"  # noqa: S105
 KEEP = "$KEEP"
 PADDING = "@@PADDING@@"
 UNKNOWN = "@@UNKNOWN@@"
+MERGE_PREFIX = "$MERGE_"
 ENCODER_PREFIX = "text_field_embedder.token_embedder_bert.bert_model."
 LABEL_WEIGHT = "tag_labels_projection_layer._module.weight"
 LABEL_BIAS = "tag_labels_projection_layer._module.bias"
 DETECT_WEIGHT = "tag_detect_projection_layer._module.weight"
 DETECT_BIAS = "tag_detect_projection_layer._module.bias"
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+MODEL_DIRECTORY = PROJECT_ROOT / "data/models/gector-2024"
+MODEL_MANIFEST = PROJECT_ROOT / "model-manifest.json"
+PARAMETERS_FILE = PROJECT_ROOT / "params.yaml"
+FROZEN_COHORT = PROJECT_ROOT / "outputs/frozen/cohort.json"
+CORPUS_ROOT = PROJECT_ROOT / "data/corpus"
+RUNTIME_SMOKE_JOB = PROJECT_ROOT / "python-tests/fixtures/smoke-job.json"
+RUNTIME_SMOKE_EXPECTED = PROJECT_ROOT / "python-tests/fixtures/smoke-expected.md"
+RUNTIME_SMOKE_OUTPUT = PROJECT_ROOT / "outputs/smoke/runtime.json"
+ADAPTER_SMOKE_OUTPUT = PROJECT_ROOT / "outputs/smoke/gector-raw.json"
+COHORT_OUTPUT = PROJECT_ROOT / "outputs/producers/gector/raw-inference.json"
+ADAPTER_SMOKE_ARTIFACT = "grammarly-handoff-adr-vale-pass"
 
 
 @dataclass(frozen=True)
@@ -69,13 +83,37 @@ def read_json(path: Path) -> dict[str, Any]:
     return value
 
 
-def project_path(path: Path) -> Path:
-    resolved = os.path.realpath(path)
-    project_root = os.path.realpath(Path.cwd())
+def project_path(path: Path, project_root: Path = PROJECT_ROOT) -> Path:
+    candidate = path if path.is_absolute() else project_root / path
+    resolved = os.path.realpath(candidate)
+    project_root = os.path.realpath(project_root)
     if resolved != project_root and not resolved.startswith(f"{project_root}{os.sep}"):
         msg = f"path {path!s} is outside the project root"
         raise ValueError(msg)
     return Path(resolved)
+
+
+def frozen_job(artifact_id: str | None = None) -> dict[str, Any]:
+    cohort = read_json(FROZEN_COHORT)
+    entries = cohort.get("entries")
+    if not isinstance(entries, list) or not entries:
+        msg = "frozen cohort needs at least one artifact"
+        raise ValueError(msg)
+    selected = [
+        entry for entry in entries if artifact_id is None or entry.get("artifactId") == artifact_id
+    ]
+    if not selected:
+        msg = f"frozen cohort does not contain artifact {artifact_id}"
+        raise ValueError(msg)
+    return {
+        "artifacts": [
+            {
+                "artifactId": entry["artifactId"],
+                "sourceFile": str(project_path(CORPUS_ROOT / entry["source"]["file"])),
+            }
+            for entry in selected
+        ]
+    }
 
 
 def read_vocabulary(path: Path, *, padded: bool) -> list[str]:
@@ -146,16 +184,81 @@ def apply_edits(
             target_tokens[position] = apply_transformation(source_token, label, verb_forms)
         elif start == end - 1:
             target_tokens[position] = label.removeprefix("$REPLACE_")
-        elif label.startswith("$MERGE_"):
+        elif label.startswith(MERGE_PREFIX):
             target_tokens[position + 1 : position + 1] = [label]
             shift += 1
 
-    if any(token.startswith("$MERGE_") for token in target_tokens):
+    if any(token.startswith(MERGE_PREFIX) for token in target_tokens):
         merged = " ".join(target_tokens)
         merged = merged.replace(" $MERGE_HYPHEN ", "-")
         merged = merged.replace(" $MERGE_SPACE ", "")
         return merged.split()
     return target_tokens
+
+
+def word_spans(words: list[str], text: str) -> list[tuple[int, int]]:
+    spans: list[tuple[int, int]] = []
+    cursor = 0
+    for word in words:
+        start = text.index(word, cursor)
+        end = start + len(word)
+        spans.append((start, end))
+        cursor = end
+    return spans
+
+
+def pieces_for_span(
+    input_ids: list[int],
+    bpe_offsets: list[tuple[int, int]],
+    cursor: int,
+    word_start: int,
+    word_end: int,
+) -> tuple[list[int], int]:
+    pieces: list[int] = []
+    while cursor < len(bpe_offsets):
+        bpe_start, bpe_end = bpe_offsets[cursor]
+        if bpe_start >= word_end:
+            break
+        if bpe_start >= word_start and bpe_end <= word_end and len(pieces) < 5:
+            pieces.append(input_ids[cursor])
+        cursor += 1
+    return pieces, cursor
+
+
+def encode_words(
+    words: list[str],
+    text: str,
+    input_ids: list[int],
+    bpe_offsets: list[tuple[int, int]],
+) -> tuple[list[int], list[int]]:
+    kept_ids: list[int] = []
+    starts: list[int] = []
+    bpe_cursor = 0
+    for word_start, word_end in word_spans(words, text):
+        group, bpe_cursor = pieces_for_span(
+            input_ids,
+            bpe_offsets,
+            bpe_cursor,
+            word_start,
+            word_end,
+        )
+        if not group:
+            msg = f"tokenizer produced no pieces for {text[word_start:word_end]!r}"
+            raise RuntimeError(msg)
+        starts.append(len(kept_ids))
+        kept_ids.extend(group)
+    return kept_ids, starts
+
+
+def edit_action(index: int, label: str, probability: float) -> tuple[int, int, str, float]:
+    if label == "$DELETE":
+        return index - 1, index, "", probability
+    if label.startswith(("$REPLACE_", "$TRANSFORM_")):
+        return index - 1, index, label, probability
+    if label.startswith(("$APPEND_", MERGE_PREFIX)):
+        return index, index, label, probability
+    msg = f"unsupported GECToR label: {label}"
+    raise ValueError(msg)
 
 
 class GectorModel:
@@ -257,34 +360,7 @@ class GectorModel:
             encoded["offset_mapping"],
             strict=True,
         ):
-            word_spans: list[tuple[int, int]] = []
-            cursor = 0
-            for word in words:
-                start = text.index(word, cursor)
-                end = start + len(word)
-                word_spans.append((start, end))
-                cursor = end
-
-            kept_ids: list[int] = []
-            starts: list[int] = []
-            bpe_cursor = 0
-            for word_start, word_end in word_spans:
-                group: list[int] = []
-                while bpe_cursor < len(bpe_offsets):
-                    bpe_start, bpe_end = bpe_offsets[bpe_cursor]
-                    if bpe_start >= word_start and bpe_end <= word_end:
-                        if len(group) < 5:
-                            group.append(input_ids[bpe_cursor])
-                        bpe_cursor += 1
-                    elif bpe_start >= word_end:
-                        break
-                    else:
-                        bpe_cursor += 1
-                if not group:
-                    msg = f"tokenizer produced no pieces for {text[word_start:word_end]!r}"
-                    raise RuntimeError(msg)
-                starts.append(len(kept_ids))
-                kept_ids.extend(group)
+            kept_ids, starts = encode_words(words, text, input_ids, bpe_offsets)
             rows.append(kept_ids)
             token_offsets.append(starts)
 
@@ -345,16 +421,7 @@ class GectorModel:
                     or label in {KEEP, PADDING, UNKNOWN}
                 ):
                     continue
-                if label == "$DELETE":
-                    action = (index - 1, index, "", probability)
-                elif label.startswith(("$REPLACE_", "$TRANSFORM_")):
-                    action = (index - 1, index, label, probability)
-                elif label.startswith(("$APPEND_", "$MERGE_")):
-                    action = (index, index, label, probability)
-                else:
-                    msg = f"unsupported GECToR label: {label}"
-                    raise ValueError(msg)
-                edits.append(action)
+                edits.append(edit_action(index, label, probability))
             results.append(apply_edits(tokens, edits, self.verb_forms))
         return results
 
@@ -391,112 +458,153 @@ def split_line(line: str) -> tuple[str, str, str, str]:
     terminator_match = re.search(r"(?:\r\n|\n|\r)$", line)
     terminator = terminator_match.group(0) if terminator_match else ""
     body = line[: -len(terminator)] if terminator else line
-    content_match = re.fullmatch(r"(\s*)(.*?)(\s*)", body)
-    if content_match is None:
-        return "", body, "", terminator
-    return (*content_match.groups(), terminator)
+    leading_length = len(body) - len(body.lstrip())
+    trailing_length = len(body) - len(body.rstrip())
+    content_end = len(body) - trailing_length if trailing_length else len(body)
+    return (
+        body[:leading_length],
+        body[leading_length:content_end],
+        body[content_end:],
+        terminator,
+    )
+
+
+def aligned_source_tokens(source_tokens: list[str], target_tokens: list[str]) -> dict[int, int]:
+    matcher = SequenceMatcher(a=source_tokens, b=target_tokens, autojunk=False)
+    target_to_source: dict[int, int] = {}
+    for operation, source_start, _source_end, target_start, target_end in matcher.get_opcodes():
+        if operation != "equal":
+            continue
+        for offset in range(target_end - target_start):
+            target_to_source[target_start + offset] = source_start + offset
+    return target_to_source
+
+
+def source_separator(
+    source: str,
+    matches: list[re.Match[str]],
+    target_tokens: list[str],
+    target_to_source: dict[int, int],
+    target_index: int,
+) -> str:
+    previous_source = target_to_source.get(target_index - 1)
+    current_source = target_to_source.get(target_index)
+    if (
+        previous_source is not None
+        and current_source is not None
+        and current_source == previous_source + 1
+    ):
+        separator = source[matches[previous_source].end() : matches[current_source].start()]
+    elif previous_source is not None and previous_source + 1 < len(matches):
+        separator = source[matches[previous_source].end() : matches[previous_source + 1].start()]
+    else:
+        separator = " "
+    if current_source is None and re.fullmatch(r"[,.;:!?%)}\]]+", target_tokens[target_index]):
+        return ""
+    if re.fullmatch(r"[({\[]+", target_tokens[target_index - 1]):
+        return ""
+    return separator
 
 
 def reconstruct_segment(source: str, target_tokens: list[str]) -> str:
     matches = list(re.finditer(r"\S+", source))
     source_tokens = [match.group(0) for match in matches]
-    matcher = SequenceMatcher(a=source_tokens, b=target_tokens, autojunk=False)
-    target_to_source: dict[int, int] = {}
-    for operation, source_start, _source_end, target_start, target_end in matcher.get_opcodes():
-        if operation == "equal":
-            for offset in range(target_end - target_start):
-                target_to_source[target_start + offset] = source_start + offset
-
     if not target_tokens:
         return ""
+    target_to_source = aligned_source_tokens(source_tokens, target_tokens)
     pieces: list[str] = [source[: matches[0].start()] if matches else ""]
-    closing_punctuation = re.compile(r"^[,.;:!?%)}\]]+$")
-    opening_punctuation = re.compile(r"^[({\[]+$")
     for target_index, token in enumerate(target_tokens):
         if target_index > 0:
-            previous_source = target_to_source.get(target_index - 1)
-            current_source = target_to_source.get(target_index)
-            if (
-                previous_source is not None
-                and current_source is not None
-                and current_source == previous_source + 1
-            ):
-                separator = source[matches[previous_source].end() : matches[current_source].start()]
-            elif previous_source is not None and previous_source + 1 < len(matches):
-                separator = source[
-                    matches[previous_source].end() : matches[previous_source + 1].start()
-                ]
-            else:
-                separator = " "
-            if current_source is None and closing_punctuation.fullmatch(token):
-                separator = ""
-            if opening_punctuation.fullmatch(target_tokens[target_index - 1]):
-                separator = ""
-            pieces.append(separator)
+            pieces.append(
+                source_separator(
+                    source,
+                    matches,
+                    target_tokens,
+                    target_to_source,
+                    target_index,
+                )
+            )
         pieces.append(token)
     pieces.append(source[matches[-1].end() :] if matches else "")
     return "".join(pieces)
 
 
-def document_segments(source: str, max_tokens: int) -> list[TextSegment]:
-    lines = list(re.finditer(r"[^\n]*(?:\n|$)", source))
+def paragraph_segments(
+    source: str,
+    paragraph_start: int,
+    paragraph_end: int,
+    max_tokens: int,
+) -> list[TextSegment]:
+    paragraph = source[paragraph_start:paragraph_end]
+    token_matches = list(re.finditer(r"\S+", paragraph))
     segments: list[TextSegment] = []
-    paragraph_start: int | None = None
-    paragraph_end: int | None = None
-    in_frontmatter = source.startswith("---\n") or source.startswith("---\r\n")
-    in_fence = False
+    offset = 0
+    while offset < len(token_matches):
+        limit = min(offset + max_tokens, len(token_matches))
+        sentence_end = limit
+        if limit < len(token_matches):
+            sentence_end = next(
+                (
+                    index + 1
+                    for index in range(limit - 1, offset, -1)
+                    if re.search(r"[.!?][\]})'\"*_]*$", token_matches[index].group(0))
+                ),
+                limit,
+            )
+        first = token_matches[offset]
+        last = token_matches[sentence_end - 1]
+        segments.append(
+            TextSegment(
+                start=paragraph_start + first.start(),
+                end=paragraph_start + last.end(),
+                tokens=[match.group(0) for match in token_matches[offset:sentence_end]],
+            )
+        )
+        offset = sentence_end
+    return segments
 
-    def flush() -> None:
-        nonlocal paragraph_start, paragraph_end
-        if paragraph_start is None or paragraph_end is None:
-            return
-        paragraph = source[paragraph_start:paragraph_end]
-        token_matches = list(re.finditer(r"\S+", paragraph))
-        offset = 0
-        while offset < len(token_matches):
-            limit = min(offset + max_tokens, len(token_matches))
-            if limit < len(token_matches):
-                sentence_end = next(
-                    (
-                        index + 1
-                        for index in range(limit - 1, offset, -1)
-                        if re.search(r"[.!?][\]})'\"*_]*$", token_matches[index].group(0))
-                    ),
-                    limit,
-                )
-            else:
-                sentence_end = limit
-            first = token_matches[offset]
-            last = token_matches[sentence_end - 1]
-            segments.append(
-                TextSegment(
-                    start=paragraph_start + first.start(),
-                    end=paragraph_start + last.end(),
-                    tokens=[match.group(0) for match in token_matches[offset:sentence_end]],
+
+class MarkdownSegmenter:
+    def __init__(self, source: str, max_tokens: int) -> None:
+        self.source = source
+        self.max_tokens = max_tokens
+        self.segments: list[TextSegment] = []
+        self.paragraph_start: int | None = None
+        self.paragraph_end: int | None = None
+        self.in_frontmatter = source.startswith(("---\n", "---\r\n"))
+        self.in_fence = False
+
+    def flush(self) -> None:
+        if self.paragraph_start is not None and self.paragraph_end is not None:
+            self.segments.extend(
+                paragraph_segments(
+                    self.source,
+                    self.paragraph_start,
+                    self.paragraph_end,
+                    self.max_tokens,
                 )
             )
-            offset = sentence_end
-        paragraph_start = None
-        paragraph_end = None
+        self.paragraph_start = None
+        self.paragraph_end = None
 
-    for line_index, line_match in enumerate(lines):
+    def consume(self, line_index: int, line_match: re.Match[str]) -> None:
         line = line_match.group(0)
         if not line:
-            continue
+            return
         _leading, content, _trailing, _terminator = split_line(line)
         stripped = content.strip()
-        if in_frontmatter:
-            flush()
+        if self.in_frontmatter:
+            self.flush()
             if line_index > 0 and stripped == "---":
-                in_frontmatter = False
-            continue
+                self.in_frontmatter = False
+            return
         if re.match(r"^(?:```|~~~)", stripped):
-            flush()
-            in_fence = not in_fence
-            continue
-        if in_fence:
-            flush()
-            continue
+            self.flush()
+            self.in_fence = not self.in_fence
+            return
+        if self.in_fence:
+            self.flush()
+            return
         list_match = re.match(r"^\s*(?:[-*+] |\d+[.)] )", line)
         structural = (
             not stripped
@@ -504,20 +612,25 @@ def document_segments(source: str, max_tokens: int) -> list[TextSegment]:
             or re.match(r"^\s{4,}\S", line) is not None
         )
         if structural:
-            flush()
-            continue
-        if list_match:
-            flush()
-            paragraph_start = line_match.start() + list_match.end()
-            paragraph_end = line_match.start() + len(line.rstrip("\r\n "))
-            continue
-        content_start = line_match.start() + len(line) - len(line.lstrip())
+            self.flush()
+            return
         content_end = line_match.start() + len(line.rstrip("\r\n "))
-        if paragraph_start is None:
-            paragraph_start = content_start
-        paragraph_end = content_end
-    flush()
-    return segments
+        if list_match:
+            self.flush()
+            self.paragraph_start = line_match.start() + list_match.end()
+            self.paragraph_end = content_end
+            return
+        if self.paragraph_start is None:
+            self.paragraph_start = line_match.start() + len(line) - len(line.lstrip())
+        self.paragraph_end = content_end
+
+
+def document_segments(source: str, max_tokens: int) -> list[TextSegment]:
+    segmenter = MarkdownSegmenter(source, max_tokens)
+    for line_index, line_match in enumerate(re.finditer(r"[^\n]*(?:\n|$)", source)):
+        segmenter.consume(line_index, line_match)
+    segmenter.flush()
+    return segmenter.segments
 
 
 def run_job(
@@ -603,26 +716,29 @@ def parse_parameters(params: dict[str, Any]) -> InferenceParameters:
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--job", type=Path, required=True)
-    parser.add_argument("--model", type=Path, required=True)
-    parser.add_argument("--manifest", type=Path, required=True)
-    parser.add_argument("--params", type=Path, required=True)
-    parser.add_argument("--output", type=Path, required=True)
-    parser.add_argument("--expected-generated", type=Path)
-    args = parser.parse_args()
-    job_path = project_path(args.job)
-    model_path = project_path(args.model)
-    manifest_path = project_path(args.manifest)
-    params_path = project_path(args.params)
-    output_path = project_path(args.output)
-    result = run_job(
-        read_json(job_path),
-        model_path,
-        read_json(manifest_path),
-        parse_parameters(read_json(params_path)),
+    parser.add_argument(
+        "--mode",
+        choices=("runtime-smoke", "adapter-smoke", "cohort"),
+        required=True,
     )
-    if args.expected_generated is not None:
-        expected = project_path(args.expected_generated).read_text(encoding="utf-8")
+    args = parser.parse_args()
+    if args.mode == "runtime-smoke":
+        job = read_json(RUNTIME_SMOKE_JOB)
+        output_path = RUNTIME_SMOKE_OUTPUT
+    elif args.mode == "adapter-smoke":
+        job = frozen_job(ADAPTER_SMOKE_ARTIFACT)
+        output_path = ADAPTER_SMOKE_OUTPUT
+    else:
+        job = frozen_job()
+        output_path = COHORT_OUTPUT
+    result = run_job(
+        job,
+        MODEL_DIRECTORY,
+        read_json(MODEL_MANIFEST),
+        parse_parameters(read_json(PARAMETERS_FILE)),
+    )
+    if args.mode == "runtime-smoke":
+        expected = RUNTIME_SMOKE_EXPECTED.read_text(encoding="utf-8")
         if len(result["artifacts"]) != 1 or result["artifacts"][0]["generatedText"] != expected:
             msg = "smoke output does not match the pinned expected correction"
             raise RuntimeError(msg)

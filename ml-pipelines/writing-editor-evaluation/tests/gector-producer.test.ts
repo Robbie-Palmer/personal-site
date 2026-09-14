@@ -147,6 +147,40 @@ describe("GECToR producer", () => {
       manifestContentHash: manifestHash,
     });
 
+    const rawFile = path.join(temporary, "raw.json");
+    writeJson(rawFile, {
+      schemaVersion: 1,
+      recordType: "gector-raw-inference-run",
+      model: {
+        modelId: manifest.modelId,
+        sourceRevision: manifest.source.revision,
+        checkpointContentHash: checkpoint.contentHash,
+      },
+      runtime: {
+        python_version: "3.12.12",
+        torch_version: "2.11.0+cu128",
+        transformers_version: "5.17.0",
+        cuda_version: "12.8",
+        device: "cuda",
+        compute_capability: "8.9",
+      },
+      parameters: {
+        batch_size: gectorParams.batchSize,
+        iterations: gectorParams.iterations,
+        max_tokens: gectorParams.maxTokens,
+        min_tokens: gectorParams.minTokens,
+        min_error_probability: gectorParams.minErrorProbability,
+        min_token_probability: gectorParams.minTokenProbability,
+        additional_confidence: gectorParams.additionalConfidence,
+      },
+      artifacts: [{
+        artifactId: "example",
+        generatedText: "Café is useful.\n",
+        correctedLines: [1],
+        iterationUpdates: 1,
+      }],
+    });
+
     const outputDirectory = path.join(temporary, "outputs/gector");
     const result = runGector({
       cohortFile,
@@ -154,46 +188,10 @@ describe("GECToR producer", () => {
       modelDirectory,
       manifestFile,
       paramsFile,
+      rawFile,
       outputDirectory,
       outputRoot: temporary,
       projectRoot,
-      pythonRunner(arguments_) {
-        const outputIndex = arguments_.indexOf("--output");
-        const outputFile = arguments_[outputIndex + 1];
-        if (!outputFile) throw new Error("missing raw output argument");
-        writeJson(outputFile, {
-          schemaVersion: 1,
-          recordType: "gector-raw-inference-run",
-          model: {
-            modelId: manifest.modelId,
-            sourceRevision: manifest.source.revision,
-            checkpointContentHash: checkpoint.contentHash,
-          },
-          runtime: {
-            python_version: "3.12.12",
-            torch_version: "2.11.0+cu128",
-            transformers_version: "5.17.0",
-            cuda_version: "12.8",
-            device: "cuda",
-            compute_capability: "8.9",
-          },
-          parameters: {
-            batch_size: gectorParams.batchSize,
-            iterations: gectorParams.iterations,
-            max_tokens: gectorParams.maxTokens,
-            min_tokens: gectorParams.minTokens,
-            min_error_probability: gectorParams.minErrorProbability,
-            min_token_probability: gectorParams.minTokenProbability,
-            additional_confidence: gectorParams.additionalConfidence,
-          },
-          artifacts: [{
-            artifactId: "example",
-            generatedText: "Café is useful.\n",
-            correctedLines: [1],
-            iterationUpdates: 1,
-          }],
-        });
-      },
     });
 
     expect(GectorProducerRunSchema.parse(result)).toEqual(result);

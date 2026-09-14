@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-uv sync --locked --no-dev
+uv sync --locked --no-dev --no-build
+.venv/bin/python python/gector_runtime.py --mode cohort
 
 pnpm exec tsx src/run-gector.ts \
   --cohort outputs/frozen/cohort.json \
@@ -9,4 +10,5 @@ pnpm exec tsx src/run-gector.ts \
   --model data/models/gector-2024 \
   --manifest model-manifest.json \
   --params params.yaml \
+  --raw outputs/producers/gector/raw-inference.json \
   --output outputs/producers/gector
