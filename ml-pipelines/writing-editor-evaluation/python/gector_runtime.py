@@ -726,10 +726,23 @@ def parse_parameters(params: dict[str, Any]) -> InferenceParameters:
     )
 
 
-def write_result(output_path: Path, result: dict[str, Any]) -> None:
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    serialized = json.dumps(result, sort_keys=True, separators=(",", ":"))
-    output_path.write_text(f"{serialized}\n", encoding="utf-8")
+def serialized_result(result: dict[str, Any]) -> str:
+    return f'{json.dumps(result, sort_keys=True, separators=(",", ":"))}\n'
+
+
+def write_runtime_smoke_result(result: dict[str, Any]) -> None:
+    RUNTIME_SMOKE_OUTPUT.parent.mkdir(parents=True, exist_ok=True)
+    RUNTIME_SMOKE_OUTPUT.write_text(serialized_result(result), encoding="utf-8")
+
+
+def write_adapter_smoke_result(result: dict[str, Any]) -> None:
+    ADAPTER_SMOKE_OUTPUT.parent.mkdir(parents=True, exist_ok=True)
+    ADAPTER_SMOKE_OUTPUT.write_text(serialized_result(result), encoding="utf-8")
+
+
+def write_cohort_result(result: dict[str, Any]) -> None:
+    COHORT_OUTPUT.parent.mkdir(parents=True, exist_ok=True)
+    COHORT_OUTPUT.write_text(serialized_result(result), encoding="utf-8")
 
 
 def main() -> None:
@@ -757,11 +770,11 @@ def main() -> None:
         if len(result["artifacts"]) != 1 or result["artifacts"][0]["generatedText"] != expected:
             msg = "smoke output does not match the pinned expected correction"
             raise RuntimeError(msg)
-        write_result(RUNTIME_SMOKE_OUTPUT, result)
+        write_runtime_smoke_result(result)
     elif args.mode == "adapter-smoke":
-        write_result(ADAPTER_SMOKE_OUTPUT, result)
+        write_adapter_smoke_result(result)
     else:
-        write_result(COHORT_OUTPUT, result)
+        write_cohort_result(result)
     print(f"Ran GECToR over {len(result['artifacts'])} artifact(s) on CUDA")
 
 
