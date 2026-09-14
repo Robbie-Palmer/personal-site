@@ -6,7 +6,7 @@ spec:
   accessModes:
     - ReadWriteOnce
   capacity:
-    storage: 45Gi
+    storage: 90Gi
   local:
     path: /srv/remote-development/t3-code
   nodeAffinity:

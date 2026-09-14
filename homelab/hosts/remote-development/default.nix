@@ -250,12 +250,51 @@ in
             if ($6 != "${cacheBlockHardLimitKiB}" || $10 != "${cacheInodeHardLimit}") exit 1
           }
           END { if (!operator_found || !cache_found) exit 1 }'
-      printf '%s\n' "$quota_state" >"$quota_state_file"
+      quota_state_tmp="$(mktemp "$quota_state_file.XXXXXX")"
+      trap 'rm -f -- "$quota_state_tmp"' EXIT
+      printf '%s\n' "$quota_state" >"$quota_state_tmp"
+      chmod 0600 "$quota_state_tmp"
+      mv -f -- "$quota_state_tmp" "$quota_state_file"
+      trap - EXIT
+    '';
+  };
+
+  systemd.services.remote-development-k3s-state-migration = {
+    description = "Migrate legacy K3s state to the root disk";
+    after = [ "srv-remote\\x2ddevelopment.mount" ];
+    requires = [ "srv-remote\\x2ddevelopment.mount" ];
+    before = [
+      "k3s.service"
+      "remote-development-k3s-local-links.service"
+    ];
+    wantedBy = [ "multi-user.target" ];
+    path = [ pkgs.coreutils ];
+    serviceConfig = {
+      Type = "oneshot";
+      RemainAfterExit = true;
+    };
+    script = ''
+      legacy=${dataMount}/k3s
+      target=/var/lib/rancher/k3s
+      staging=/var/lib/rancher/k3s.migrating
+
+      if [ -e "$target" ] || [ ! -d "$legacy" ]; then
+        exit 0
+      fi
+
+      test -s "$legacy/server/db/state.db"
+      install -d -m 0755 /var/lib/rancher
+      rm -rf -- "$staging"
+      cp -a -- "$legacy" "$staging"
+      test -s "$staging/server/db/state.db"
+      mv -- "$staging" "$target"
     '';
   };
 
   systemd.services.remote-development-k3s-local-links = {
     description = "Keep migrated K3s symlinks on the root disk";
+    after = [ "remote-development-k3s-state-migration.service" ];
+    requires = [ "remote-development-k3s-state-migration.service" ];
     before = [ "k3s.service" ];
     wantedBy = [ "multi-user.target" ];
     path = [
@@ -333,6 +372,7 @@ in
     ];
     script = ''
       if tailscale status --json | jq --exit-status '.BackendState == "Running"' >/dev/null; then
+        tailscale serve reset
         tailscale serve --bg --https=443 http://127.0.0.1:30773
         tailscale serve --bg --https=3000 http://127.0.0.1:31000
         tailscale serve --bg --https=3001 http://127.0.0.1:31001

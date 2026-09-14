@@ -178,6 +178,9 @@ them, and applies these hard limits before K3s starts:
 The 98 GiB formatted filesystem retains about 13 GiB outside those quota
 ceilings. The cache cannot consume durable workspace capacity, and deleting it
 must never remove T3 state, worktrees, branches, credentials, or sessions.
+The durable PV and bound claim retain their original 90 GiB capacity for
+upgrade compatibility because Kubernetes cannot shrink a claim. The ext4
+project quota is the authoritative 55 GiB hard limit.
 
 Fresh volumes created by `remote-volume-prepare` have the required ext4
 features from the start. The existing volume was upgraded on 2026-09-14. The

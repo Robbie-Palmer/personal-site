@@ -285,10 +285,12 @@ test("the remote overlay isolates durable data from rebuildable caches", () => {
     valueAt(operatorVolume, ["spec", "local", "path"]),
     "/srv/remote-development/t3-code",
   );
+  assert.equal(valueAt(operatorVolume, ["spec", "capacity", "storage"]), "90Gi");
   assert.equal(
     valueAt(cacheVolume, ["spec", "local", "path"]),
     "/srv/remote-development/t3-code-cache",
   );
+  assert.equal(valueAt(cacheVolume, ["spec", "capacity", "storage"]), "30Gi");
   for (const volume of [operatorVolume, cacheVolume]) {
     assert.deepEqual(
       valueAt(volume, [
@@ -336,8 +338,16 @@ test("the remote overlay isolates durable data from rebuildable caches", () => {
     "t3-code-remote-development",
   );
   assert.equal(
+    valueAt(operatorClaim, ["spec", "resources", "requests", "storage"]),
+    "90Gi",
+  );
+  assert.equal(
     valueAt(cacheClaim, ["spec", "volumeName"]),
     "t3-code-remote-development-cache",
+  );
+  assert.equal(
+    valueAt(cacheClaim, ["spec", "resources", "requests", "storage"]),
+    "30Gi",
   );
 
   const operatorDeployment = resource(
@@ -400,7 +410,7 @@ test("the remote overlay isolates durable data from rebuildable caches", () => {
       "resources",
     ]),
     {
-      limits: { cpu: "3", "ephemeral-storage": "10Gi", memory: "6Gi" },
+      limits: { cpu: "3", "ephemeral-storage": "12Gi", memory: "6Gi" },
       requests: { cpu: "500m", "ephemeral-storage": "1Gi", memory: "1Gi" },
     },
   );
@@ -571,7 +581,7 @@ test("the remote overlay isolates durable data from rebuildable caches", () => {
       timeoutSeconds: 5,
     },
     resources: {
-      limits: { cpu: "1", "ephemeral-storage": "12Gi", memory: "1Gi" },
+      limits: { cpu: "1", "ephemeral-storage": "16Gi", memory: "1Gi" },
       requests: { cpu: "100m", "ephemeral-storage": "2Gi", memory: "256Mi" },
     },
     securityContext: {
@@ -678,6 +688,7 @@ test("the NixOS host publishes, prepares, and limits workspace storage", () => {
       "tailscale serve --bg --https=443 http://127.0.0.1:30773",
     ),
   );
+  assert.ok(hostDefinition.includes("tailscale serve reset"));
   assert.ok(!hostDefinition.includes("--https=8443"));
   for (let offset = 0; offset < 5; offset += 1) {
     assert.ok(
@@ -715,6 +726,14 @@ test("the NixOS host publishes, prepares, and limits workspace storage", () => {
   assert.ok(
     hostDefinition.includes('"remote-development-project-quotas.service"'),
   );
+  assert.ok(
+    hostDefinition.includes(
+      "systemd.services.remote-development-k3s-state-migration",
+    ),
+  );
+  assert.ok(hostDefinition.includes('legacy=${dataMount}/k3s'));
+  assert.ok(hostDefinition.includes('test -s "$legacy/server/db/state.db"'));
+  assert.ok(hostDefinition.includes('mv -- "$staging" "$target"'));
 
   const volumePreparation = readFileSync(
     new URL("../scripts/prepare-remote-development-volume", import.meta.url),

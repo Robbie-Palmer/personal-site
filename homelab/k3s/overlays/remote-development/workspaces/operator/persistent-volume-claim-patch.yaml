@@ -4,7 +4,4 @@ metadata:
   name: t3-code-data
   namespace: t3-code
 spec:
-  resources:
-    requests:
-      storage: 45Gi
   volumeName: t3-code-remote-development

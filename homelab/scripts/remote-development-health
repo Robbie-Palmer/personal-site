@@ -23,8 +23,22 @@ awk '$1 == "/dev/zram0" { found = 1 } END { if (!found) exit 1 }' /proc/swaps
 zramctl --noheadings --output ALGORITHM /dev/zram0 \
   | tr -d ' ' \
   | grep -Fx zstd >/dev/null
+memory_kib=$(awk '$1 == "MemTotal:" { print $2 }' /proc/meminfo)
+zram_bytes=$(zramctl --bytes --noheadings --output DISKSIZE /dev/zram0 | tr -d ' ')
+awk \
+  -v memory_kib="${memory_kib}" \
+  -v zram_bytes="${zram_bytes}" \
+  'BEGIN {
+    ratio = zram_bytes / (memory_kib * 1024)
+    if (ratio < 0.24 || ratio > 0.26) exit 1
+  }'
 free --bytes \
-  | awk '$1 == "Swap:" { if ($2 < 1610612736 || $2 > 2684354560) exit 1; found = 1 } END { if (!found) exit 1 }'
+  | awk -v zram_bytes="${zram_bytes}" \
+      '$1 == "Swap:" {
+        if ($2 < zram_bytes * 0.99 || $2 > zram_bytes) exit 1
+        found = 1
+      }
+      END { if (!found) exit 1 }'
 
 check_project_quota() {
   local name=$1
@@ -87,7 +101,7 @@ tailscale serve status --json \
   >/dev/null
 k3s_ready=0
 for _ in $(seq 1 60); do
-  if k3s kubectl get node remote-development >/dev/null 2>&1; then
+  if k3s kubectl --request-timeout=2s get node remote-development >/dev/null 2>&1; then
     k3s_ready=1
     break
   fi
