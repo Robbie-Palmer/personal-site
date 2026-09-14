@@ -31,6 +31,8 @@ import {
   getIdeasForProject,
 } from "@/lib/api/ideas";
 import {
+  getAllProjectAliases,
+  getAllProjectAliasADRPaths,
   getAllProjects,
   getBuildingPhilosophy,
   getProjectADR,
@@ -432,6 +434,47 @@ function buildAdrPages(
       content,
       facts,
     };
+  });
+}
+
+function buildProjectAliasPages(
+  projects: ProjectWithADRs[],
+): GeneratedPage[] {
+  return getAllProjectAliases().flatMap(({ alias, target }) => {
+    const project = projects.find(({ slug }) => slug === target);
+    if (!project) {
+      throw new Error(
+        `Project alias '${alias}' references missing project '${target}'`,
+      );
+    }
+    const canonicalProjectUrl = markdownUrl(
+      routePath("projects", project.slug),
+    );
+    const projectPage: GeneratedPage = {
+      htmlPath: `/projects/${alias}`,
+      filePath: `projects/${alias}.md`,
+      title: `${project.title} moved`,
+      description: project.description,
+      content: `This project is now called [${project.title}](${canonicalProjectUrl}).`,
+      facts: [["Canonical project", canonicalProjectUrl]],
+    };
+    const adrPages = getAllProjectAliasADRPaths()
+      .filter((path) => path.alias === alias)
+      .map(({ adrSlug }) => {
+        const adr = getProjectADR(target, adrSlug);
+        const canonicalAdrUrl = markdownUrl(
+          routePath("projects", project.slug, "adrs", adr.slug),
+        );
+        return {
+          htmlPath: `/projects/${alias}/adrs/${adr.slug}`,
+          filePath: `projects/${alias}/adrs/${adr.slug}.md`,
+          title: `${adr.title} moved`,
+          description: "",
+          content: `This ADR now belongs to [${project.title}](${canonicalAdrUrl}).`,
+          facts: [["Canonical ADR", canonicalAdrUrl]],
+        } satisfies GeneratedPage;
+      });
+    return [projectPage, ...adrPages];
   });
 }
 
@@ -988,6 +1031,7 @@ function main(): void {
   const pitchDeckPages = projects
     .map(buildPitchDeckPage)
     .filter((page): page is GeneratedPage => page !== null);
+  const projectAliasPages = buildProjectAliasPages(projects);
 
   const pages: GeneratedPage[] = [
     buildHomePage(),
@@ -1007,6 +1051,21 @@ function main(): void {
   ];
 
   for (const page of pages) {
+    writeFile(
+      page.filePath,
+      renderPage(
+        {
+          title: page.title,
+          htmlPath: page.htmlPath,
+          description: page.description || undefined,
+          facts: page.facts,
+        },
+        page.content,
+      ),
+    );
+  }
+
+  for (const page of projectAliasPages) {
     writeFile(
       page.filePath,
       renderPage(
@@ -1044,7 +1103,7 @@ function main(): void {
   writeFile("_routes.json", buildRoutesJson());
 
   console.log(
-    `Generated ${pages.length} Markdown pages, llms.txt, llms-full.txt, _headers, and _routes.json in out/`,
+    `Generated ${pages.length} Markdown pages and ${projectAliasPages.length} legacy project aliases, llms.txt, llms-full.txt, _headers, and _routes.json in out/`,
   );
 }
 

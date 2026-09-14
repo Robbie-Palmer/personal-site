@@ -25,6 +25,7 @@ import { Separator } from "@/components/ui/separator";
 import { getIdeasForProject } from "@/lib/api/ideas";
 import { getInitiativesForProject } from "@/lib/api/initiatives";
 import {
+  getAllProjectAliases,
   getAllProjectSlugs,
   getProject,
   type ProjectWithADRs,
@@ -38,7 +39,10 @@ interface PageProps {
 
 export async function generateStaticParams() {
   const slugs = getAllProjectSlugs();
-  return slugs.map((slug) => ({ slug }));
+  return [
+    ...slugs.map((slug) => ({ slug })),
+    ...getAllProjectAliases().map(({ alias }) => ({ slug: alias })),
+  ];
 }
 
 export async function generateMetadata({ params }: PageProps) {
@@ -48,16 +52,21 @@ export async function generateMetadata({ params }: PageProps) {
     return {
       title: `${project.title} - Projects`,
       description: project.description,
-      alternates: {
-        types: {
-          "application/rss+xml": [
-            {
-              url: `/projects/${project.slug}/feed.xml`,
-              title: `${project.title} RSS feed`,
+      alternates:
+        project.slug === slug
+          ? {
+              types: {
+                "application/rss+xml": [
+                  {
+                    url: `/projects/${project.slug}/feed.xml`,
+                    title: `${project.title} RSS feed`,
+                  },
+                ],
+              },
+            }
+          : {
+              canonical: `/projects/${project.slug}`,
             },
-          ],
-        },
-      },
     };
   } catch (_e) {
     return {
@@ -74,6 +83,24 @@ export default async function ProjectPage({ params }: Readonly<PageProps>) {
     project = getProject(slug);
   } catch (_e) {
     notFound();
+  }
+
+  if (project.slug !== slug) {
+    const canonicalPath = `/projects/${project.slug}`;
+    return (
+      <>
+        <meta httpEquiv="refresh" content={`0;url=${canonicalPath}`} />
+        <div className="container mx-auto max-w-5xl px-4 py-12">
+          <p className="text-muted-foreground">
+            This project is now called {project.title}. Opening the{" "}
+            <Link className="underline underline-offset-4" href={canonicalPath}>
+              renamed project
+            </Link>
+            ...
+          </p>
+        </div>
+      </>
+    );
   }
 
   const initiatives = getInitiativesForProject(project.slug);

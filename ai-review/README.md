@@ -1,9 +1,9 @@
 # Stateful AI review
 
 This top-level project is the deployable service proposed by
-[ADR 056](../ui/content/projects/personal-site/adrs/056-stateful-ai-code-review.mdx).
-The ADR remains in the Personal Site content tree for now, but the service is
-not a Personal Site runtime component.
+[ADR 056](../ui/content/projects/personal-knowledge-graph/adrs/056-stateful-ai-code-review.mdx).
+The ADR remains in the Personal Knowledge Graph content tree for now, but the
+service is not a Personal Knowledge Graph runtime component.
 
 The service is a visible, stateful publisher. A Worker verifies GitHub App
 webhook signatures and rejects other repositories. One SQLite Durable Object

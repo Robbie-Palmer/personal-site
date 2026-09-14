@@ -1,5 +1,5 @@
 ---
-inherits_from: "personal-site:051-tflint"
+inherits_from: "personal-knowledge-graph:051-tflint"
 ---
 
 # Additional Context for Recipe Site
@@ -7,7 +7,7 @@ inherits_from: "personal-site:051-tflint"
 The recipe site's infrastructure, Neon Postgres, Hyperdrive, and the
 recipe-api/recipe-ingest Workers, is defined in the same `infra/public-platform/` Terraform
 root, so it is covered by the same TFLint configuration and CI job (see
-[personal-site ADR 051](/projects/personal-site/adrs/051-tflint)).
+[Personal Knowledge Graph ADR 051](/projects/personal-knowledge-graph/adrs/051-tflint)).
 
 The hygiene rules matter most where the Terraform churns fastest, and that is
 the recipe-site backend: preview environments, database branches, and Worker

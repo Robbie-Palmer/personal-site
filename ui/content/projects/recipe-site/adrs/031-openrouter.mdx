@@ -295,7 +295,7 @@ spend monitoring.
   `provider.data_collection: "deny"`, `provider.quantizations`, or
   `provider.preferred_min_throughput`). The product is Vercel-platform tilted: free credits
   and dashboard tooling are scoped to a Vercel account, app attribution assumes a Vercel
-  deployment. We are on [Cloudflare Pages (ADR 011)](/projects/personal-site/adrs/011-cloudflare-pages)
+  deployment. We are on [Cloudflare Pages (ADR 011)](/projects/personal-knowledge-graph/adrs/011-cloudflare-pages)
   with no Vercel account, so adopting it pulls in an entire platform relationship for the LLM
   layer alone. Newer product (GA 2025) with a thinner public track record than OpenRouter,
   which has been the de facto cross-provider LLM marketplace since 2023.
@@ -350,8 +350,8 @@ Gateways do not remove per-provider account or billing sprawl. They add observab
 
 ### [Cloudflare AI Gateway](https://developers.cloudflare.com/ai-gateway/)
 
-* **Pros**: Sits inline with the rest of the Cloudflare estate ([ADR 011](/projects/personal-site/adrs/011-cloudflare-pages),
-  [ADR 029](/projects/personal-site/adrs/029-cloudflare-images), [ADR 039](/projects/personal-site/adrs/039-cloudflare-r2)).
+* **Pros**: Sits inline with the rest of the Cloudflare estate ([ADR 011](/projects/personal-knowledge-graph/adrs/011-cloudflare-pages),
+  [ADR 029](/projects/personal-knowledge-graph/adrs/029-cloudflare-images), [ADR 039](/projects/personal-knowledge-graph/adrs/039-cloudflare-r2)).
   Free tier. Recent Secrets Store integration
   ([Aug 2025](https://developers.cloudflare.com/changelog/post/2025-08-25-secrets-store-ai-gateway/))
   centralises API key storage. Adds [Guardrails](https://developers.cloudflare.com/ai-gateway/features/guardrails/)

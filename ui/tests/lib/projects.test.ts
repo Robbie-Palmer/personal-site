@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   getAllADRs,
+  getAllProjectAliasADRPaths,
+  getAllProjectAliases,
   getAllProjectSlugs,
   getAllProjects,
   getProject,
@@ -32,6 +34,22 @@ describe("Projects functions", () => {
   });
 
   describe("getProject", () => {
+    it("resolves the previous Personal Site slug", () => {
+      expect(getAllProjectAliases()).toContainEqual({
+        alias: "personal-site",
+        target: "personal-knowledge-graph",
+      });
+      expect(getProject("personal-site")).toMatchObject({
+        slug: "personal-knowledge-graph",
+        title: "Personal Knowledge Graph",
+      });
+      expect(getAllProjectAliasADRPaths()).toContainEqual({
+        alias: "personal-site",
+        target: "personal-knowledge-graph",
+        adrSlug: "048-sonarqube",
+      });
+    });
+
     it("loads an optional project pitch deck", () => {
       const project = getProject("agentic-code-review");
 
@@ -112,7 +130,7 @@ describe("Projects functions", () => {
     });
 
     it("should include technologies from accepted ADRs", () => {
-      const project = getProject("personal-site");
+      const project = getProject("personal-knowledge-graph");
       const acceptedADRs = project.adrs.filter(
         (adr) => adr.status === "Accepted",
       );

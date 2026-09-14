@@ -217,7 +217,7 @@ The workflow this enables:
   Every dataset version and pipeline run is traceable to a specific git commit, giving a single source
   of truth for code and data lineage without a separate tracking server.
 * **S3-compatible storage**: Works with any S3-compatible remote. Cloudflare R2 was chosen as the
-  storage backend ([ADR 039](/projects/personal-site/adrs/039-cloudflare-r2)), satisfying the S3
+  storage backend ([ADR 039](/projects/personal-knowledge-graph/adrs/039-cloudflare-r2)), satisfying the S3
   compatibility requirement with zero egress fees.
 * **Declarative pipeline with stage caching**: `dvc.yaml` defines the pipeline DAG declaratively.
   `dvc repro` skips stages whose inputs and code are unchanged, using cached outputs. This is correct

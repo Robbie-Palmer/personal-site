@@ -3,6 +3,7 @@ import type { Mock } from "vitest";
 import { describe, expect, it, vi } from "vitest";
 import ProjectPage, {
   generateMetadata,
+  generateStaticParams,
 } from "@/app/(site)/projects/[slug]/page";
 import type { InitiativeWithProjects } from "@/lib/api/initiatives";
 import { getInitiativesForProject } from "@/lib/api/initiatives";
@@ -10,6 +11,7 @@ import type { ProjectWithADRs } from "@/lib/api/projects";
 import { getProject } from "@/lib/api/projects";
 
 vi.mock("@/lib/api/projects", () => ({
+  getAllProjectAliases: () => [{ alias: "old-homelab", target: "homelab" }],
   getAllProjectSlugs: () => ["homelab"],
   getProject: vi.fn(),
 }));
@@ -114,6 +116,22 @@ const fixture = {
 } as ProjectWithADRs;
 
 describe("project page", () => {
+  it("generates the legacy project route", async () => {
+    await expect(generateStaticParams()).resolves.toContainEqual({
+      slug: "old-homelab",
+    });
+  });
+
+  it("sets the canonical URL for a legacy project route", async () => {
+    (getProject as Mock).mockReturnValue(fixture);
+
+    await expect(
+      generateMetadata({ params: Promise.resolve({ slug: "old-homelab" }) }),
+    ).resolves.toMatchObject({
+      alternates: { canonical: "/projects/homelab" },
+    });
+  });
+
   it("advertises its project-specific feed", async () => {
     (getProject as Mock).mockReturnValue(fixture);
 

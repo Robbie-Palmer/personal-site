@@ -1,5 +1,20 @@
+import { createWorkGraph } from "../src/index";
+
 describe("work-item context", () => {
-  it.todo("accepts a work item with only a title");
+  it("accepts a work item with only a title", () => {
+    const graph = createWorkGraph({
+      workItems: [{ id: "work", title: "Sparse work" }],
+    });
+
+    expect(graph.workItems).toEqual([
+      {
+        id: "work",
+        title: "Sparse work",
+        lifecycle: "open",
+        parentId: null,
+      },
+    ]);
+  });
   it.todo("orders only the available context in a claim response");
   it.todo("presents the nearest parent context before more distant parent context");
   it.todo("keeps initiative and project mirrors separate from executable work");

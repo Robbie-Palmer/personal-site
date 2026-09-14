@@ -14,7 +14,11 @@ import { Feed } from "feed";
 import { getAllPosts } from "@/lib/api/blog";
 import { getAllExperience, getExperienceSlug } from "@/lib/api/experience";
 import { getAllInitiatives } from "@/lib/api/initiatives";
-import { getAllADRs, getAllProjects } from "@/lib/api/projects";
+import {
+  getAllADRs,
+  getAllProjectAliases,
+  getAllProjects,
+} from "@/lib/api/projects";
 import { siteConfig } from "@/lib/config/site-config";
 import { loadDomainRepository } from "@/lib/domain";
 
@@ -261,6 +265,27 @@ export function createFeedDocuments(): FeedDocument[] {
           title: `${siteConfig.name}: ${project.title}`,
           description: `Updates and architecture decision records for ${project.title}.`,
           feedPath: projectFeedPath,
+          pagePath: `/projects/${project.slug}`,
+        },
+        [projectEntry(project), ...projectAdrs],
+      ),
+    });
+  }
+
+  for (const { alias, target } of getAllProjectAliases()) {
+    const project = projectModels.find(({ slug }) => slug === target);
+    if (!project) continue;
+    const aliasFeedPath = `/projects/${alias}/feed.xml`;
+    const projectAdrs = adrModels
+      .filter((adr) => adr.projectSlug === project.slug)
+      .map(adrEntry);
+    documents.push({
+      relativePath: aliasFeedPath.slice(1),
+      content: buildFeed(
+        {
+          title: `${siteConfig.name}: ${project.title}`,
+          description: `Updates and architecture decision records for ${project.title}.`,
+          feedPath: aliasFeedPath,
           pagePath: `/projects/${project.slug}`,
         },
         [projectEntry(project), ...projectAdrs],

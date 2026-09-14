@@ -13,9 +13,9 @@ sie = "sie" # split from the SIEM(s) acronym
 [files]
 extend-exclude = [
     # Deliberate typo examples demonstrating fuzzy search ("machne" -> "machine")
-    "ui/content/projects/personal-site/adrs/022-fuse-js.mdx",
+    "ui/content/projects/personal-knowledge-graph/adrs/022-fuse-js.mdx",
     # The typos ADR quotes the misspellings it fixed
-    "ui/content/projects/personal-site/adrs/055-typos.mdx",
+    "ui/content/projects/personal-knowledge-graph/adrs/055-typos.mdx",
     # Standalone design artifact full of encoded SVG/data strings
     "ui/public/recipe-site-design/",
     # Generated and minified Emscripten loader contains ABI symbol names that
