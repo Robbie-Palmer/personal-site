@@ -5,6 +5,7 @@ on:
     paths:
       - "packages/work-graph-db/**"
       - "packages/work-graph-domain/**"
+      - ".github/actions/setup-mise/**"
       - ".github/workflows/work-graph-db-ci.yml"
 
 permissions:
