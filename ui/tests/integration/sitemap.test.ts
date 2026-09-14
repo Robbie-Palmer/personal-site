@@ -1,14 +1,10 @@
 import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { getAllProjectAliases } from "@/lib/api/projects";
 
 const OUT_DIR = path.resolve(__dirname, "../../out");
 const SITEMAP_PATH = path.join(OUT_DIR, "sitemap.xml");
 const SITE_URL = "https://robbiepalmer.me";
-const PROJECT_ALIAS_PATHS = getAllProjectAliases().map(
-  ({ alias }) => `projects/${alias}`,
-);
 
 // Subdomain projects that have their own routing and should not be in main sitemap
 const SUBDOMAIN_PROJECTS = new Set(["assettracker"]);
@@ -55,6 +51,7 @@ describe("Sitemap Integration Test", () => {
       match = urlRegex.exec(sitemapContent);
     }
     const htmlFiles = findAllHtmlFiles(OUT_DIR);
+    const projectAliasPaths = findProjectAliasPaths(OUT_DIR);
     const missingUrls: string[] = [];
     htmlFiles.forEach((file) => {
       let relativePath = path.relative(OUT_DIR, file);
@@ -77,7 +74,7 @@ describe("Sitemap Integration Test", () => {
         return;
       }
       if (
-        PROJECT_ALIAS_PATHS.some(
+        projectAliasPaths.some(
           (aliasPath) =>
             fileNameWithoutExt === aliasPath ||
             fileNameWithoutExt.startsWith(`${aliasPath}/`),
@@ -132,4 +129,24 @@ function findAllHtmlFiles(dir: string): string[] {
     }
   }
   return results;
+}
+
+function findProjectAliasPaths(outDir: string): string[] {
+  const projectsDir = path.join(outDir, "projects");
+  return fs
+    .readdirSync(projectsDir)
+    .filter((file) => file.endsWith(".html"))
+    .map((file) => `projects/${file.replace(/\.html$/, "")}`)
+    .filter((routePath) => isProjectAliasPage(projectsDir, routePath));
+}
+
+function isProjectAliasPage(projectsDir: string, routePath: string): boolean {
+  const slug = routePath.replace(/^projects\//, "");
+  const file = path.join(projectsDir, `${slug}.html`);
+  const canonicalUrl = new RegExp(
+    `<link rel="canonical" href="(${SITE_URL}/projects/[^/"]+)"`,
+  ).exec(fs.readFileSync(file, "utf8"))?.[1];
+  return (
+    canonicalUrl !== undefined && canonicalUrl !== `${SITE_URL}/${routePath}`
+  );
 }
