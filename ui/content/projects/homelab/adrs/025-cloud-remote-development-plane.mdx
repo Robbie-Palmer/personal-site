@@ -103,6 +103,11 @@ workload is genuinely the same. Use separate overlays, Kubernetes contexts,
 storage, credentials, and mutable application state. Deployment commands must
 verify their target context before changing either cluster.
 
+Give the host a zstd-compressed zram swap device capped at 25 percent of
+physical RAM. Configure kubelet to tolerate host swap while keeping `NoSwap`
+behavior for pods. The buffer protects host services during short memory
+spikes without allowing workloads to exceed their declared memory limits.
+
 This is not active-active t3-code. The cloud instance is the available remote
 workspace; the Mac instance remains the low-latency home workspace. Neither
 installation synchronises a live SQLite database, agent session directory, or

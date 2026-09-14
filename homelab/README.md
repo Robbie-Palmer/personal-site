@@ -151,6 +151,19 @@ matching Kubernetes NodePort to the operator pod. Stop the application when
 QA finishes so another agent can reuse the slot. These ports do not provide
 the pod with outbound access to other tailnet devices.
 
+### Memory pressure
+
+The host uses a zstd-compressed zram swap device capped at 25 percent of RAM,
+about 2 GiB on the current server. Kubelet tolerates host swap but keeps
+`NoSwap` behavior for pods. This gives K3s, Tailscale, SSH, and other host
+processes room to survive a short spike without letting a T3 workload exceed
+its Kubernetes memory limit or hide sustained pressure in slow paging.
+
+Zram is a last buffer. Investigate any non-trivial swap use and memory pressure
+rather than raising pod limits. Disk capacities stay unchanged, so a full
+`/tmp`, cache, root filesystem, or persistent volume still needs storage
+housekeeping.
+
 ### Project quotas
 
 The NixOS definition mounts the data filesystem with project quotas. A systemd

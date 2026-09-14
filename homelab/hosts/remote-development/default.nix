@@ -53,6 +53,13 @@ in
     tmp.cleanOnBoot = true;
   };
 
+  zramSwap = {
+    enable = true;
+    algorithm = "zstd";
+    memoryPercent = 25;
+    priority = 100;
+  };
+
   environment.etc = {
     crypttab.text = ''
       ${dataMapper} ${dataDevice} ${dataKeyFile} luks,nofail
@@ -147,6 +154,8 @@ in
       extraKubeletConfig = {
         containerLogMaxFiles = 3;
         containerLogMaxSize = "20Mi";
+        failSwapOn = false;
+        memorySwap.swapBehavior = "NoSwap";
       };
     };
 

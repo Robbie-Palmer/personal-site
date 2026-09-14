@@ -706,6 +706,9 @@ test("the NixOS host publishes, prepares, and limits workspace storage", () => {
   assert.ok(hostDefinition.includes('cacheInodeHardLimit = "2000000"'));
   assert.ok(hostDefinition.includes('containerLogMaxFiles = 3'));
   assert.ok(hostDefinition.includes('containerLogMaxSize = "20Mi"'));
+  assert.ok(hostDefinition.includes("zramSwap = {"));
+  assert.ok(hostDefinition.includes("memoryPercent = 25"));
+  assert.ok(hostDefinition.includes('memorySwap.swapBehavior = "NoSwap"'));
   assert.ok(hostDefinition.includes('projectQuotaLayoutVersion = "2"'));
   assert.ok(hostDefinition.includes("chattr +P ${operatorDataPath}"));
   assert.ok(hostDefinition.includes("chattr +P ${cacheDataPath}"));
@@ -731,6 +734,8 @@ test("the NixOS host publishes, prepares, and limits workspace storage", () => {
   assert.ok(healthCheck.includes('any(.type == "DiskPressure"'));
   assert.ok(healthCheck.includes("check_disk_headroom /srv/remote-development"));
   assert.ok(healthCheck.includes('keys | sort == ["3000", "3001"'));
+  assert.ok(healthCheck.includes('$1 == "/dev/zram0"'));
+  assert.ok(healthCheck.includes("for _ in $(seq 1 60)"));
   assert.ok(healthCheck.includes(".lastState.terminated.reason"));
   assert.ok(healthCheck.includes(".lastState.terminated.exitCode"));
   assert.ok(

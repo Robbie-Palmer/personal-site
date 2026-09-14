@@ -19,6 +19,12 @@ findmnt --noheadings --output OPTIONS /srv/remote-development \
   | grep -Fx prjquota >/dev/null
 quota_state=$(quotaon --project --print-state /srv/remote-development || true)
 grep -F ' is on' <<<"${quota_state}" >/dev/null
+awk '$1 == "/dev/zram0" { found = 1 } END { if (!found) exit 1 }' /proc/swaps
+zramctl --noheadings --output ALGORITHM /dev/zram0 \
+  | tr -d ' ' \
+  | grep -Fx zstd >/dev/null
+free --bytes \
+  | awk '$1 == "Swap:" { if ($2 < 1610612736 || $2 > 2684354560) exit 1; found = 1 } END { if (!found) exit 1 }'
 
 check_project_quota() {
   local name=$1
@@ -79,6 +85,15 @@ tailscale status --json | jq -e '.BackendState == "Running"' >/dev/null
 tailscale serve status --json \
   | jq -e '.TCP | keys | sort == ["3000", "3001", "3002", "3003", "3004", "443"]' \
   >/dev/null
+k3s_ready=0
+for _ in $(seq 1 60); do
+  if k3s kubectl get node remote-development >/dev/null 2>&1; then
+    k3s_ready=1
+    break
+  fi
+  sleep 1
+done
+test "${k3s_ready}" = 1
 k3s kubectl get node remote-development --output=json \
   | jq -e '
       .status.conditions
@@ -97,7 +112,7 @@ k3s kubectl get node remote-development \
 k3s kubectl get node remote-development \
   --output=jsonpath='{.metadata.labels.homelab\.dev/capability}{"\n"}' \
   | grep -Fx agent-workspace >/dev/null
-echo "host, disk headroom, project quotas, Tailscale, and independent K3s server are healthy"
+echo "host, zram, disk headroom, project quotas, Tailscale, and independent K3s server are healthy"
 
 check_workspace() {
   local namespace=$1
