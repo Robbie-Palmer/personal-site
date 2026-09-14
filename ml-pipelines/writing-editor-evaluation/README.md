@@ -4,11 +4,13 @@ This DVC project turns pinned Git revisions into a reproducible writing corpus,
 runs detection-only checks, and aligns their findings with observed published
 edits.
 
-`extract_dataset` reads `corpus-manifest.json`. Each entry names a repository
-path, a full source commit, and a full published commit. The extractor verifies
-that both commits exist, checks that the source precedes the published revision,
-loads the exact Git blobs, rejects unchanged pairs, and records SHA-256 hashes.
-It validates every entry before replacing the current output directory.
+`extract_dataset` reads `corpus-manifest.json`. Each entry names the document's
+current repository path, a full source commit, and a full published commit.
+Optional `sourcePath` and `publishedPath` fields locate historical blobs when a
+document moved after those commits. The extractor verifies that both commits
+exist, checks that the source precedes the published revision, loads the exact
+Git blobs, rejects unchanged pairs, and records SHA-256 hashes. It validates
+every entry before replacing the current output directory.
 
 The committed seed has nine public examples from the repository's Vale cleanup:
 five ADRs and four project pages. The extracted text lives in DVC, not Git.

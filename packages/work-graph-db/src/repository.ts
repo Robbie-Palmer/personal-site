@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, gt, isNull, lte, sql } from "drizzle-orm";
 import {
   createWorkGraph,
   WorkGraphError,
@@ -8,19 +8,44 @@ import {
   type WorkItem,
   type WorkItemDependency,
 } from "work-graph-domain";
-import type { Db, DbTransaction } from "./index";
+import type { Db, DbTransaction } from "./connection";
+import { claimableWorkItemWhere } from "./queries/claimable-work-item";
 import {
   graphCycleQuery,
   type GraphCycleRow,
 } from "./queries/graph-cycle";
 import {
   graphMutationLock,
+  lease,
   workItem,
   workItemDependency,
   workItemHierarchy,
 } from "./schema";
 
 const GRAPH_MUTATION_LOCK_ID = "global";
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export type StoredLease = typeof lease.$inferSelect;
+
+export interface ClaimWorkItemInput {
+  readonly leaseId: string;
+  readonly workerId: string;
+  readonly leaseDurationSeconds: number;
+  readonly workItemId?: string;
+}
+
+export interface RenewLeaseInput {
+  readonly leaseId: string;
+  readonly epoch: number;
+  readonly leaseDurationSeconds: number;
+}
+
+export interface TerminateClaimedWorkItemInput {
+  readonly leaseId: string;
+  readonly epoch: number;
+  readonly outcome: TerminalWorkItemState;
+}
 
 type DatabaseError = Error & {
   code?: string;
@@ -50,6 +75,79 @@ const requireIdentifier = (
         : "A work item ID cannot be empty.",
     );
   }
+};
+
+const requireLeaseId = (leaseId: string): void => {
+  if (typeof leaseId !== "string" || !UUID_PATTERN.test(leaseId)) {
+    throw new WorkGraphError(
+      "invalid_lease_id",
+      "A lease ID must be a UUID.",
+    );
+  }
+};
+
+const requireWorkerId = (workerId: string): void => {
+  if (typeof workerId !== "string" || workerId.trim().length === 0) {
+    throw new WorkGraphError(
+      "invalid_worker_id",
+      "A worker ID cannot be empty.",
+    );
+  }
+};
+
+const requireLeaseDuration = (leaseDurationSeconds: number): void => {
+  if (
+    !Number.isSafeInteger(leaseDurationSeconds) ||
+    leaseDurationSeconds <= 0
+  ) {
+    throw new WorkGraphError(
+      "invalid_lease_duration",
+      "A lease duration must be a positive whole number of seconds.",
+    );
+  }
+};
+
+const requireLeaseEpoch = (epoch: number): void => {
+  if (!Number.isSafeInteger(epoch) || epoch <= 0) {
+    throw new WorkGraphError(
+      "invalid_lease_epoch",
+      "A lease epoch must be a positive whole number.",
+    );
+  }
+};
+
+const leaseNotCurrent = (leaseId: string, epoch: number): WorkGraphError =>
+  new WorkGraphError(
+    "lease_not_current",
+    `Lease ${leaseId} at epoch ${epoch} is not current and active.`,
+  );
+
+const readDatabaseClock = async (
+  transaction: DbTransaction,
+): Promise<Date> => {
+  const [clock] = await transaction.execute<{ currentTime: string }>(sql`
+    select clock_timestamp() as "currentTime"
+  `);
+  if (!clock) {
+    throw new Error("Reading the database clock returned no row.");
+  }
+  return new Date(clock.currentTime);
+};
+
+const calculateLeaseExpiry = (
+  acquiredAt: Date,
+  leaseDurationSeconds: number,
+): Date => {
+  const expiresAt = new Date(
+    acquiredAt.getTime() + leaseDurationSeconds * 1_000,
+  );
+  if (Number.isNaN(expiresAt.getTime())) {
+    throw new WorkGraphError(
+      "invalid_lease_duration",
+      "The lease duration exceeds the supported timestamp range.",
+    );
+  }
+  return expiresAt;
 };
 
 const workItemNotFound = (workItemId: string): WorkGraphError =>
@@ -160,6 +258,244 @@ export class WorkGraphRepository {
     }
 
     return { ...normalized, parentId };
+  }
+
+  async claimWorkItem(input: ClaimWorkItemInput): Promise<StoredLease | null> {
+    requireLeaseId(input.leaseId);
+    requireWorkerId(input.workerId);
+    requireLeaseDuration(input.leaseDurationSeconds);
+    if (input.workItemId !== undefined) {
+      requireIdentifier(input.workItemId, "invalid_work_item_id");
+    }
+
+    try {
+      return await this.db.transaction(
+        async (transaction) => {
+          await this.lockGraphSnapshot(transaction);
+
+          const excludedWorkItemIds: string[] = [];
+          let candidateId: string | undefined;
+          while (candidateId === undefined) {
+            const [candidate] = await transaction
+              .select({ id: workItem.id })
+              .from(workItem)
+              .where(
+                claimableWorkItemWhere(
+                  input.workItemId,
+                  excludedWorkItemIds,
+                ),
+              )
+              .orderBy(workItem.createdAt, workItem.id)
+              .limit(1)
+              .for("update", { of: workItem, skipLocked: true });
+            if (!candidate) return null;
+
+            // A concurrent claimant can commit between predicate evaluation
+            // and row locking. Recheck in a new READ COMMITTED statement after
+            // the lock is held, then move on if it is no longer eligible.
+            const [stillClaimable] = await transaction
+              .select({ id: workItem.id })
+              .from(workItem)
+              .where(claimableWorkItemWhere(candidate.id))
+              .limit(1);
+            if (stillClaimable) {
+              candidateId = candidate.id;
+            } else {
+              excludedWorkItemIds.push(candidate.id);
+            }
+          }
+
+          const acquiredAt = await readDatabaseClock(transaction);
+          const expiresAt = calculateLeaseExpiry(
+            acquiredAt,
+            input.leaseDurationSeconds,
+          );
+
+          await transaction
+            .update(lease)
+            .set({ endedAt: acquiredAt, outcome: "expired" })
+            .where(
+              and(
+                eq(lease.workItemId, candidateId),
+                isNull(lease.endedAt),
+                lte(lease.expiresAt, acquiredAt),
+              ),
+            );
+
+          const [epochRow] = await transaction
+            .select({
+              nextEpoch: sql<number>`coalesce(max(${lease.epoch}), 0) + 1`,
+            })
+            .from(lease)
+            .where(eq(lease.workItemId, candidateId));
+          if (!epochRow) {
+            throw new Error("Lease epoch allocation returned no row.");
+          }
+
+          const [claimedLease] = await transaction
+            .insert(lease)
+            .values({
+              id: input.leaseId,
+              workItemId: candidateId,
+              workerId: input.workerId,
+              epoch: epochRow.nextEpoch,
+              acquiredAt,
+              expiresAt,
+            })
+            .returning();
+          if (!claimedLease) {
+            throw new Error("Lease creation returned no lease.");
+          }
+          return claimedLease;
+        },
+        { isolationLevel: "read committed" },
+      );
+    } catch (error) {
+      const databaseError = getDatabaseError(error);
+      if (
+        databaseError?.code === "23505" &&
+        databaseError.constraint_name === "leases_pkey"
+      ) {
+        throw new WorkGraphError(
+          "duplicate_lease_id",
+          `Lease ${input.leaseId} already exists.`,
+        );
+      }
+      throw error;
+    }
+  }
+
+  async renewLease(input: RenewLeaseInput): Promise<StoredLease> {
+    requireLeaseId(input.leaseId);
+    requireLeaseEpoch(input.epoch);
+    requireLeaseDuration(input.leaseDurationSeconds);
+
+    return this.db.transaction(async (transaction) => {
+      const [storedLease] = await transaction
+        .select({ workItemId: lease.workItemId })
+        .from(lease)
+        .where(eq(lease.id, input.leaseId))
+        .limit(1);
+      if (!storedLease) {
+        throw leaseNotCurrent(input.leaseId, input.epoch);
+      }
+
+      await transaction
+        .select({ id: workItem.id })
+        .from(workItem)
+        .where(eq(workItem.id, storedLease.workItemId))
+        .for("update");
+
+      const renewedAt = await readDatabaseClock(transaction);
+      const expiresAt = calculateLeaseExpiry(
+        renewedAt,
+        input.leaseDurationSeconds,
+      );
+
+      const [renewedLease] = await transaction
+        .update(lease)
+        .set({ expiresAt })
+        .where(
+          and(
+            eq(lease.id, input.leaseId),
+            eq(lease.workItemId, storedLease.workItemId),
+            eq(lease.epoch, input.epoch),
+            isNull(lease.endedAt),
+            gt(lease.expiresAt, renewedAt),
+          ),
+        )
+        .returning();
+      if (!renewedLease) {
+        throw leaseNotCurrent(input.leaseId, input.epoch);
+      }
+      return renewedLease;
+    });
+  }
+
+  async terminateClaimedWorkItem(
+    input: TerminateClaimedWorkItemInput,
+  ): Promise<StoredLease> {
+    requireLeaseId(input.leaseId);
+    requireLeaseEpoch(input.epoch);
+
+    return this.db.transaction(async (transaction) => {
+      const [storedLease] = await transaction
+        .select({ workItemId: lease.workItemId })
+        .from(lease)
+        .where(eq(lease.id, input.leaseId))
+        .limit(1);
+      if (!storedLease) {
+        throw leaseNotCurrent(input.leaseId, input.epoch);
+      }
+
+      await transaction
+        .select({ id: workItem.id })
+        .from(workItem)
+        .where(eq(workItem.id, storedLease.workItemId))
+        .for("update");
+
+      const completedAt = await readDatabaseClock(transaction);
+
+      const [completedLease] = await transaction
+        .update(lease)
+        .set({ endedAt: completedAt, outcome: input.outcome })
+        .where(
+          and(
+            eq(lease.id, input.leaseId),
+            eq(lease.workItemId, storedLease.workItemId),
+            eq(lease.epoch, input.epoch),
+            isNull(lease.endedAt),
+            gt(lease.expiresAt, completedAt),
+          ),
+        )
+        .returning();
+      if (!completedLease) {
+        throw leaseNotCurrent(input.leaseId, input.epoch);
+      }
+
+      const updated = await transaction
+        .update(workItem)
+        .set({ lifecycle: input.outcome })
+        .where(
+          and(
+            eq(workItem.id, storedLease.workItemId),
+            eq(workItem.lifecycle, "open"),
+          ),
+        )
+        .returning({ id: workItem.id });
+      if (updated.length === 0) {
+        const [existing] = await transaction
+          .select({ lifecycle: workItem.lifecycle })
+          .from(workItem)
+          .where(eq(workItem.id, storedLease.workItemId))
+          .limit(1);
+        throw new WorkGraphError(
+          "work_item_already_terminal",
+          `Work item ${storedLease.workItemId} is already ${existing?.lifecycle ?? "terminal"}.`,
+        );
+      }
+
+      return completedLease;
+    });
+  }
+
+  async listLeases(workItemId: string): Promise<readonly StoredLease[]> {
+    requireIdentifier(workItemId, "invalid_work_item_id");
+    return this.db
+      .select()
+      .from(lease)
+      .where(eq(lease.workItemId, workItemId))
+      .orderBy(lease.epoch);
+  }
+
+  async getCurrentLease(workItemId: string): Promise<StoredLease | null> {
+    requireIdentifier(workItemId, "invalid_work_item_id");
+    const [currentLease] = await this.db
+      .select()
+      .from(lease)
+      .where(and(eq(lease.workItemId, workItemId), isNull(lease.endedAt)))
+      .limit(1);
+    return currentLease ?? null;
   }
 
   async reparentWorkItem(
@@ -292,29 +628,52 @@ export class WorkGraphRepository {
     requireIdentifier(workItemId, "invalid_work_item_id");
 
     await this.db.transaction(async (transaction) => {
-      const updated = await transaction
-        .update(workItem)
-        .set({ lifecycle })
-        .where(
-          and(eq(workItem.id, workItemId), eq(workItem.lifecycle, "open")),
-        )
-        .returning({ id: workItem.id });
-      if (updated.length > 0) {
-        return;
-      }
-
       const [existing] = await transaction
         .select({ lifecycle: workItem.lifecycle })
         .from(workItem)
         .where(eq(workItem.id, workItemId))
-        .limit(1);
+        .limit(1)
+        .for("update");
       if (!existing) {
         throw workItemNotFound(workItemId);
       }
-      throw new WorkGraphError(
-        "work_item_already_terminal",
-        `Work item ${workItemId} is already ${existing.lifecycle}.`,
-      );
+
+      const terminatedAt = await readDatabaseClock(transaction);
+      await transaction
+        .update(lease)
+        .set({ endedAt: terminatedAt, outcome: "expired" })
+        .where(
+          and(
+            eq(lease.workItemId, workItemId),
+            isNull(lease.endedAt),
+            lte(lease.expiresAt, terminatedAt),
+          ),
+        );
+
+      // Claims serialize on the same row. Check for a lease in a fresh
+      // READ COMMITTED statement after acquiring the lock.
+      const [currentLease] = await transaction
+        .select({ id: lease.id })
+        .from(lease)
+        .where(and(eq(lease.workItemId, workItemId), isNull(lease.endedAt)))
+        .limit(1);
+      if (currentLease) {
+        throw new WorkGraphError(
+          "work_item_has_current_lease",
+          `Work item ${workItemId} has a current lease.`,
+        );
+      }
+      if (existing.lifecycle !== "open") {
+        throw new WorkGraphError(
+          "work_item_already_terminal",
+          `Work item ${workItemId} is already ${existing.lifecycle}.`,
+        );
+      }
+
+      await transaction
+        .update(workItem)
+        .set({ lifecycle })
+        .where(eq(workItem.id, workItemId));
     });
   }
 
@@ -324,6 +683,17 @@ export class WorkGraphRepository {
       .from(graphMutationLock)
       .where(eq(graphMutationLock.id, GRAPH_MUTATION_LOCK_ID))
       .for("update");
+    if (locked.length !== 1) {
+      throw new Error("The global graph mutation lock row is missing.");
+    }
+  }
+
+  private async lockGraphSnapshot(transaction: DbTransaction): Promise<void> {
+    const locked = await transaction
+      .select({ id: graphMutationLock.id })
+      .from(graphMutationLock)
+      .where(eq(graphMutationLock.id, GRAPH_MUTATION_LOCK_ID))
+      .for("share");
     if (locked.length !== 1) {
       throw new Error("The global graph mutation lock row is missing.");
     }

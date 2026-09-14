@@ -37,6 +37,8 @@ const SourceEntrySchema = z.object({
   artifactId: ArtifactIdSchema,
   artifactType: ArtifactTypeSchema,
   path: RepositoryPathSchema,
+  sourcePath: RepositoryPathSchema.optional(),
+  publishedPath: RepositoryPathSchema.optional(),
   sourceRevision: GitCommitSchema,
   publishedRevision: GitCommitSchema,
   outcomeStatus: z.literal("unrecorded"),
