@@ -97,6 +97,21 @@ describe("work-item dependencies", () => {
     );
   });
 
+  it("rejects an ancestor depending on its own descendant", () => {
+    const graph = createWorkGraph({
+      workItems: [
+        { id: "parent", title: "Parent" },
+        { id: "child", title: "Child", parentId: "parent" },
+      ],
+    });
+
+    expect(() =>
+      addDependency(graph, dependency("parent", "child")),
+    ).toThrowError(
+      expect.objectContaining<Partial<WorkGraphError>>({ code: "graph_cycle" }),
+    );
+  });
+
   it("rejects reparenting that would create a combined waits-for cycle", () => {
     const graph = addDependency(threeItems(), dependency("b", "a"));
 

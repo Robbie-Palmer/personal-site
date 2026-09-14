@@ -4,6 +4,7 @@ export type WorkGraphErrorCode =
   | "duplicate_work_item"
   | "graph_cycle"
   | "invalid_decomposition"
+  | "invalid_parent_id"
   | "invalid_work_item_id"
   | "invalid_work_item_lifecycle"
   | "invalid_work_item_title"

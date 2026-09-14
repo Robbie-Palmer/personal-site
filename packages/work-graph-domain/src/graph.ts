@@ -10,17 +10,51 @@ import type {
 import {
   WORK_ITEM_LIFECYCLES,
   type TerminalWorkItemState,
+  type WorkItemLifecycle,
 } from "./vocabulary";
 
+const isWorkItemLifecycle = (value: unknown): value is WorkItemLifecycle =>
+  WORK_ITEM_LIFECYCLES.some((lifecycle) => lifecycle === value);
+
+const validateWorkItemId = (value: unknown): value is string =>
+  typeof value === "string" && value.trim().length > 0;
+
+const validateWorkItemFields = (workItem: WorkItem): void => {
+  if (!validateWorkItemId(workItem.id)) {
+    throw new WorkGraphError(
+      "invalid_work_item_id",
+      "A work item ID cannot be empty.",
+    );
+  }
+  if (typeof workItem.title !== "string" || workItem.title.trim().length === 0) {
+    throw new WorkGraphError(
+      "invalid_work_item_title",
+      `Work item ${workItem.id} must have a title.`,
+    );
+  }
+  if (!isWorkItemLifecycle(workItem.lifecycle)) {
+    throw new WorkGraphError(
+      "invalid_work_item_lifecycle",
+      `Work item ${workItem.id} has an invalid lifecycle.`,
+    );
+  }
+  if (workItem.parentId !== null && !validateWorkItemId(workItem.parentId)) {
+    throw new WorkGraphError(
+      "invalid_parent_id",
+      `Work item ${workItem.id} has an invalid parent ID.`,
+    );
+  }
+};
+
 const normalizeWorkItem = (input: WorkItemInput): WorkItem => {
-  if (input.id.trim().length === 0) {
+  if (!validateWorkItemId(input.id)) {
     throw new WorkGraphError(
       "invalid_work_item_id",
       "A work item ID cannot be empty.",
     );
   }
 
-  if (input.title.trim().length === 0) {
+  if (typeof input.title !== "string" || input.title.trim().length === 0) {
     throw new WorkGraphError(
       "invalid_work_item_title",
       `Work item ${input.id} must have a title.`,
@@ -28,10 +62,18 @@ const normalizeWorkItem = (input: WorkItemInput): WorkItem => {
   }
 
   const lifecycle = input.lifecycle ?? "open";
-  if (!(WORK_ITEM_LIFECYCLES as readonly string[]).includes(lifecycle)) {
+  if (!isWorkItemLifecycle(lifecycle)) {
     throw new WorkGraphError(
       "invalid_work_item_lifecycle",
-      `Work item ${input.id} has invalid lifecycle ${lifecycle}.`,
+      `Work item ${input.id} has an invalid lifecycle.`,
+    );
+  }
+
+  const parentId = input.parentId ?? null;
+  if (parentId !== null && !validateWorkItemId(parentId)) {
+    throw new WorkGraphError(
+      "invalid_parent_id",
+      `Work item ${input.id} has an invalid parent ID.`,
     );
   }
 
@@ -39,7 +81,7 @@ const normalizeWorkItem = (input: WorkItemInput): WorkItem => {
     id: input.id,
     title: input.title,
     lifecycle,
-    parentId: input.parentId ?? null,
+    parentId,
   };
 };
 
@@ -85,56 +127,88 @@ const appendWait = (
 
 const findCycle = (graph: WorkGraph): readonly string[] | null => {
   const waitsFor = new Map<string, Set<string>>();
+  const childrenByParent = new Map<string, string[]>();
 
   for (const workItem of graph.workItems) {
     waitsFor.set(workItem.id, new Set());
+    childrenByParent.set(workItem.id, []);
   }
 
   for (const workItem of graph.workItems) {
     if (workItem.parentId !== null) {
       appendWait(waitsFor, workItem.parentId, workItem.id);
+      childrenByParent.get(workItem.parentId)?.push(workItem.id);
     }
   }
 
   for (const dependency of graph.dependencies) {
-    appendWait(
-      waitsFor,
-      dependency.dependentWorkItemId,
-      dependency.blockerWorkItemId,
-    );
+    const descendants = [dependency.dependentWorkItemId];
+    const expanded = new Set<string>();
+
+    while (descendants.length > 0) {
+      const dependentWorkItemId = descendants.pop();
+      if (!dependentWorkItemId || expanded.has(dependentWorkItemId)) {
+        continue;
+      }
+      expanded.add(dependentWorkItemId);
+      appendWait(
+        waitsFor,
+        dependentWorkItemId,
+        dependency.blockerWorkItemId,
+      );
+      descendants.push(...(childrenByParent.get(dependentWorkItemId) ?? []));
+    }
   }
 
   const visited = new Set<string>();
   const visiting = new Set<string>();
-  const path: string[] = [];
 
-  const visit = (workItemId: string): readonly string[] | null => {
-    if (visiting.has(workItemId)) {
-      const cycleStart = path.indexOf(workItemId);
-      return [...path.slice(cycleStart), workItemId];
-    }
-    if (visited.has(workItemId)) {
-      return null;
+  for (const startingWorkItemId of waitsFor.keys()) {
+    if (visited.has(startingWorkItemId)) {
+      continue;
     }
 
-    visiting.add(workItemId);
-    path.push(workItemId);
-    for (const blockerId of waitsFor.get(workItemId) ?? []) {
-      const cycle = visit(blockerId);
-      if (cycle) {
-        return cycle;
+    const path = [startingWorkItemId];
+    const stack = [
+      {
+        workItemId: startingWorkItemId,
+        blockers: [...(waitsFor.get(startingWorkItemId) ?? [])],
+        nextBlockerIndex: 0,
+      },
+    ];
+    visiting.add(startingWorkItemId);
+
+    while (stack.length > 0) {
+      const frame = stack.at(-1);
+      if (!frame) {
+        break;
       }
-    }
-    path.pop();
-    visiting.delete(workItemId);
-    visited.add(workItemId);
-    return null;
-  };
 
-  for (const workItemId of waitsFor.keys()) {
-    const cycle = visit(workItemId);
-    if (cycle) {
-      return cycle;
+      if (frame.nextBlockerIndex >= frame.blockers.length) {
+        stack.pop();
+        path.pop();
+        visiting.delete(frame.workItemId);
+        visited.add(frame.workItemId);
+        continue;
+      }
+
+      const blockerId = frame.blockers[frame.nextBlockerIndex];
+      frame.nextBlockerIndex += 1;
+      if (!blockerId || visited.has(blockerId)) {
+        continue;
+      }
+      if (visiting.has(blockerId)) {
+        const cycleStart = path.indexOf(blockerId);
+        return [...path.slice(cycleStart), blockerId];
+      }
+
+      visiting.add(blockerId);
+      path.push(blockerId);
+      stack.push({
+        workItemId: blockerId,
+        blockers: [...(waitsFor.get(blockerId) ?? [])],
+        nextBlockerIndex: 0,
+      });
     }
   }
 
@@ -142,8 +216,12 @@ const findCycle = (graph: WorkGraph): readonly string[] | null => {
 };
 
 export const validateWorkGraph = (graph: WorkGraph): void => {
+  for (const workItem of graph.workItems) {
+    validateWorkItemFields(workItem);
+  }
+
   const workItemsById = indexWorkItems(graph.workItems);
-  const dependencyKeys = new Set<string>();
+  const blockersByDependent = new Map<string, Set<string>>();
 
   for (const workItem of graph.workItems) {
     if (workItem.parentId !== null) {
@@ -162,14 +240,17 @@ export const validateWorkGraph = (graph: WorkGraph): void => {
       );
     }
 
-    const dependencyKey = `${dependency.dependentWorkItemId}\u0000${dependency.blockerWorkItemId}`;
-    if (dependencyKeys.has(dependencyKey)) {
+    const blockerIds =
+      blockersByDependent.get(dependency.dependentWorkItemId) ??
+      new Set<string>();
+    if (blockerIds.has(dependency.blockerWorkItemId)) {
       throw new WorkGraphError(
         "dependency_already_exists",
         `Dependency ${dependency.dependentWorkItemId} -> ${dependency.blockerWorkItemId} already exists.`,
       );
     }
-    dependencyKeys.add(dependencyKey);
+    blockerIds.add(dependency.blockerWorkItemId);
+    blockersByDependent.set(dependency.dependentWorkItemId, blockerIds);
   }
 
   const cycle = findCycle(graph);

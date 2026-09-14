@@ -4,7 +4,9 @@ import {
   createWorkGraph,
   projectWorkItemStage,
   removeDependency,
+  type WorkGraph,
   type WorkItemInput,
+  validateWorkGraph,
   WorkGraphError,
 } from "../src/index";
 
@@ -96,6 +98,26 @@ describe("work graph mutations", () => {
     );
   });
 
+  it("validates work-item fields in an assembled graph", () => {
+    const malformed = {
+      workItems: [
+        {
+          id: "work",
+          title: "Work",
+          lifecycle: "done",
+          parentId: null,
+        },
+      ],
+      dependencies: [],
+    } as unknown as WorkGraph;
+
+    expect(() => validateWorkGraph(malformed)).toThrowError(
+      expect.objectContaining<Partial<WorkGraphError>>({
+        code: "invalid_work_item_lifecycle",
+      }),
+    );
+  });
+
   it("detects cycles regardless of work-item input order", () => {
     expect(() =>
       createWorkGraph({
@@ -167,5 +189,32 @@ describe("work graph mutations", () => {
         code: "dependency_not_found",
       }),
     );
+  });
+
+  it("distinguishes dependency pairs containing null characters", () => {
+    const graph = createWorkGraph({
+      workItems: [
+        { id: "a", title: "A" },
+        { id: "a\0b", title: "A NUL B" },
+        { id: "b\0c", title: "B NUL C" },
+        { id: "c", title: "C" },
+      ],
+      dependencies: [
+        { dependentWorkItemId: "a", blockerWorkItemId: "b\0c" },
+        { dependentWorkItemId: "a\0b", blockerWorkItemId: "c" },
+      ],
+    });
+
+    expect(graph.dependencies).toHaveLength(2);
+  });
+
+  it("validates deep hierarchies without using the call stack", () => {
+    const workItems = Array.from({ length: 12_000 }, (_, index) => ({
+      id: `work-${index}`,
+      title: `Work ${index}`,
+      parentId: index === 0 ? null : `work-${index - 1}`,
+    }));
+
+    expect(createWorkGraph({ workItems }).workItems).toHaveLength(12_000);
   });
 });
