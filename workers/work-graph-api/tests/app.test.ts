@@ -58,13 +58,18 @@ const buildRepository = (): WorkGraphApiRepository => ({
 });
 
 describe("Given work items with derived readiness", () => {
-  it("lists only the requested stage and respects the response bound", async () => {
+  it("lists a stage with a cursor that survives readiness changes", async () => {
     const repository = buildRepository();
-    vi.mocked(repository.listWorkItems).mockResolvedValue([
-      item("blocked", "blocked"),
-      item("ready", "ready"),
-      item("another-ready", "ready"),
-    ]);
+    vi.mocked(repository.listWorkItems)
+      .mockResolvedValueOnce([
+        item("blocked", "blocked"),
+        item("a-ready", "ready"),
+        item("b-ready", "ready"),
+      ])
+      .mockResolvedValueOnce([
+        item("a-ready", "in_progress", "open", lease("a-ready")),
+        item("b-ready", "ready"),
+      ]);
     const app = createWorkGraphApp(repository);
 
     const response = await app.request("/api/work-items?stage=ready&limit=1");
@@ -73,32 +78,32 @@ describe("Given work items with derived readiness", () => {
     expect(await responseJson(response)).toEqual({
       items: [
         {
-          id: "ready",
-          title: "ready work",
+          id: "a-ready",
+          title: "a-ready work",
           lifecycle: "open",
           parentId: null,
           stage: "ready",
           currentLease: null,
         },
       ],
-      nextOffset: 1,
+      nextCursor: "a-ready",
     });
 
     const nextResponse = await app.request(
-      "/api/work-items?stage=ready&limit=1&offset=1",
+      "/api/work-items?stage=ready&limit=1&cursor=a-ready",
     );
     expect(await responseJson(nextResponse)).toEqual({
       items: [
         {
-          id: "another-ready",
-          title: "another-ready work",
+          id: "b-ready",
+          title: "b-ready work",
           lifecycle: "open",
           parentId: null,
           stage: "ready",
           currentLease: null,
         },
       ],
-      nextOffset: null,
+      nextCursor: null,
     });
   });
 

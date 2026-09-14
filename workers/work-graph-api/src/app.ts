@@ -85,7 +85,7 @@ const workItemSchema = z
 const workItemListSchema = z
   .object({
     items: z.array(workItemSchema).max(100),
-    nextOffset: z.union([leaseEpochSchema, z.null()]),
+    nextCursor: z.union([identifierSchema, z.null()]),
   })
   .openapi("WorkItemList");
 const leaseWithWorkItemSchema = z
@@ -104,13 +104,7 @@ const listWorkItemsQuerySchema = z.object({
     .max(100)
     .default(DEFAULT_LIST_LIMIT)
     .openapi({ format: "int32" }),
-  offset: z.coerce
-    .number()
-    .int()
-    .min(0)
-    .max(2_147_483_646)
-    .default(0)
-    .openapi({ format: "int32" }),
+  cursor: identifierSchema.optional(),
 });
 const workItemParamsSchema = z.object({ workItemId: identifierSchema });
 const leaseParamsSchema = z.object({ leaseId: leaseIdSchema });
@@ -154,13 +148,13 @@ const listWorkItemsRoute = createRoute({
   operationId: "listWorkItems",
   summary: "List work items with their derived stage",
   description:
-    "Returns one bounded page in stable creation order. The optional stage filter uses the current derived projection.",
+    "Returns one bounded page in stable work-item ID order. The optional stage filter uses the current derived projection. Pass nextCursor to continue after the last observed ID without offset drift during lease transitions.",
   tags: ["work-items"],
   security: accessSecurity,
   request: { query: listWorkItemsQuerySchema },
   responses: {
     200: {
-      description: "Work items in stable creation order",
+      description: "Work items in stable work-item ID order",
       content: { "application/json": { schema: workItemListSchema } },
     },
     ...standardErrors,
@@ -396,18 +390,23 @@ export const createWorkGraphApp = (
   );
 
   app.openapi(listWorkItemsRoute, async (context) => {
-    const { limit, offset, stage } = context.req.valid("query");
+    const { cursor, limit, stage } = context.req.valid("query");
     const items = await repository.listWorkItems();
     const matchingItems = items.filter(
-      (item) => stage === undefined || item.stage === stage,
+      (item) =>
+        (stage === undefined || item.stage === stage) &&
+        (cursor === undefined || item.id > cursor),
     );
-    const page = matchingItems.slice(offset, offset + limit);
+    matchingItems.sort((left, right) =>
+      left.id < right.id ? -1 : left.id > right.id ? 1 : 0,
+    );
+    const page = matchingItems.slice(0, limit);
     return context.json(
       {
         items: page.map(serializeWorkItem),
-        nextOffset:
-          offset + page.length < matchingItems.length
-            ? offset + page.length
+        nextCursor:
+          page.length < matchingItems.length
+            ? (page.at(-1)?.id ?? null)
             : null,
       },
       200,

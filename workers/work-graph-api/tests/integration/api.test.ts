@@ -77,6 +77,42 @@ describe("Given persisted work with blockers", () => {
     });
     expect(ready.items.map(({ id }) => id)).toEqual(["blocker"]);
   });
+
+  it("continues a ready-work page after an earlier item is claimed", async () => {
+    await repository.createWorkItem({ id: "a-ready", title: "First" });
+    await repository.createWorkItem({ id: "b-ready", title: "Second" });
+
+    const firstResponse = await app.request(
+      "/api/work-items?stage=ready&limit=1",
+    );
+    const first = (await firstResponse.json()) as {
+      items: Array<{ id: string }>;
+      nextCursor: string | null;
+    };
+    expect(first).toEqual({
+      items: [expect.objectContaining({ id: "a-ready" })],
+      nextCursor: "a-ready",
+    });
+
+    const claimResponse = await requestJson("/api/leases", "POST", {
+      workItemId: "a-ready",
+      workerId: "worker-a",
+      leaseDurationSeconds: 300,
+    });
+    expect(claimResponse.status).toBe(201);
+
+    const nextResponse = await app.request(
+      `/api/work-items?stage=ready&limit=1&cursor=${first.nextCursor}`,
+    );
+    const next = (await nextResponse.json()) as {
+      items: Array<{ id: string }>;
+      nextCursor: string | null;
+    };
+    expect(next).toEqual({
+      items: [expect.objectContaining({ id: "b-ready" })],
+      nextCursor: null,
+    });
+  });
 });
 
 describe("Given lease-backed work over HTTP", () => {

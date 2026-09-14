@@ -52,13 +52,12 @@
             },
             "maxItems": 100
           },
-          "nextOffset": {
+          "nextCursor": {
             "anyOf": [
               {
-                "type": "integer",
-                "minimum": 1,
-                "maximum": 2147483647,
-                "format": "int32"
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
               },
               {
                 "type": "null"
@@ -68,7 +67,7 @@
         },
         "required": [
           "items",
-          "nextOffset"
+          "nextCursor"
         ]
       },
       "WorkItem": {
@@ -574,7 +573,7 @@
       "get": {
         "operationId": "listWorkItems",
         "summary": "List work items with their derived stage",
-        "description": "Returns one bounded page in stable creation order. The optional stage filter uses the current derived projection.",
+        "description": "Returns one bounded page in stable work-item ID order. The optional stage filter uses the current derived projection. Pass nextCursor to continue after the last observed ID without offset drift during lease transitions.",
         "tags": [
           "work-items"
         ],
@@ -616,23 +615,18 @@
           },
           {
             "schema": {
-              "type": [
-                "integer",
-                "null"
-              ],
-              "minimum": 0,
-              "maximum": 2147483646,
-              "default": 0,
-              "format": "int32"
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
             },
             "required": false,
-            "name": "offset",
+            "name": "cursor",
             "in": "query"
           }
         ],
         "responses": {
           "200": {
-            "description": "Work items in stable creation order",
+            "description": "Work items in stable work-item ID order",
             "content": {
               "application/json": {
                 "schema": {
