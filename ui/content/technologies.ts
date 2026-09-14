@@ -646,6 +646,13 @@ a state machine, a cyclic state graph, or another processing model entirely.`,
     ideas: ["directed-acyclic-graph"],
   },
   {
+    name: "ModelPack",
+    added: "2026-09-14",
+    description: "OCI-based format specification for AI and ML model packages",
+    website: "https://modelpack.org",
+    type: "tool",
+  },
+  {
     name: "DuckDB",
     added: "2026-08-15",
     description:
