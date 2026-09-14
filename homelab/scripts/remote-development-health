@@ -198,5 +198,6 @@ k3s kubectl --namespace t3-code get secret t3-code-preview-access --output=json 
         )
     ' >/dev/null
 echo "operator preview Access credentials are present"
-! k3s kubectl get namespace t3-code-pilot >/dev/null 2>&1
+k3s kubectl get namespaces --output=json \
+  | jq -e 'all(.items[]; .metadata.name != "t3-code-pilot")' >/dev/null
 REMOTE
