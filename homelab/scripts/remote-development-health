@@ -60,6 +60,18 @@ check_disk_headroom() {
 check_disk_headroom /
 check_disk_headroom /srv/remote-development
 test "$(findmnt --noheadings --output SOURCE --target /var/lib/rancher/k3s)" != /dev/mapper/remote-development-data
+test -z "$(
+  find /var/lib/rancher/k3s -type l -printf '%l\n' \
+    | grep -F /srv/remote-development/k3s \
+    || true
+)"
+test -z "$(
+  find /var/lib/rancher/k3s/server/cred \
+    -type f \
+    -name '*.kubeconfig' \
+    -exec grep -lF /srv/remote-development/k3s {} + \
+    || true
+)"
 systemctl is-active --quiet tailscaled.service
 systemctl is-active --quiet k3s.service
 tailscale status --json | jq -e '.BackendState == "Running"' >/dev/null

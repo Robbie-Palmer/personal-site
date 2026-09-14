@@ -268,15 +268,64 @@ in
     '';
   };
 
+  systemd.services.remote-development-k3s-local-links = {
+    description = "Keep migrated K3s symlinks on the root disk";
+    before = [ "k3s.service" ];
+    wantedBy = [ "multi-user.target" ];
+    path = [
+      pkgs.coreutils
+      pkgs.findutils
+      pkgs.gnugrep
+      pkgs.gnused
+    ];
+    serviceConfig = {
+      Type = "oneshot";
+      RemainAfterExit = true;
+    };
+    script = ''
+      if [ ! -d /var/lib/rancher/k3s ]; then
+        exit 0
+      fi
+
+      while IFS= read -r -d "" link; do
+        target="$(readlink "$link")"
+        case "$target" in
+          /srv/remote-development/k3s/*)
+            replacement="/var/lib/rancher/k3s/''${target#/srv/remote-development/k3s/}"
+            test -e "$replacement"
+            ln -sfn -- "$replacement" "$link"
+            ;;
+        esac
+      done < <(find /var/lib/rancher/k3s -type l -print0)
+
+      if [ -d /var/lib/rancher/k3s/server/cred ]; then
+        while IFS= read -r -d "" kubeconfig; do
+          if grep -qF /srv/remote-development/k3s "$kubeconfig"; then
+            sed -i \
+              's#/srv/remote-development/k3s#/var/lib/rancher/k3s#g' \
+              "$kubeconfig"
+          fi
+        done < <(
+          find /var/lib/rancher/k3s/server/cred \
+            -type f \
+            -name '*.kubeconfig' \
+            -print0
+        )
+      fi
+    '';
+  };
+
   systemd.services.k3s = {
     after = [
       "srv-remote\\x2ddevelopment.mount"
       "remote-development-data-layout.service"
+      "remote-development-k3s-local-links.service"
       "remote-development-project-quotas.service"
     ];
     requires = [
       "srv-remote\\x2ddevelopment.mount"
       "remote-development-data-layout.service"
+      "remote-development-k3s-local-links.service"
       "remote-development-project-quotas.service"
     ];
   };
