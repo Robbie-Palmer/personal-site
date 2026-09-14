@@ -1,8 +1,0 @@
-{
-  "artifacts": [
-    {
-      "artifactId": "gector-runtime-smoke",
-      "sourceFile": "python-tests/fixtures/smoke-source.md"
-    }
-  ]
-}

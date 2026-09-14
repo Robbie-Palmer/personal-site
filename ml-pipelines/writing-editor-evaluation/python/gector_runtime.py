@@ -1,23 +1,20 @@
-"""Modern, AllenNLP-free inference for the pinned GECToR-2024 checkpoint."""
-
 from __future__ import annotations
 
-import argparse
 import fnmatch
+import hashlib
 import json
-import os
 import platform
 import re
-from dataclasses import asdict, dataclass
+from base64 import b64decode
+from collections.abc import Sequence
 from difflib import SequenceMatcher
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Literal, Self
 
-os.environ.setdefault("CUBLAS_WORKSPACE_CONFIG", ":4096:8")
-os.environ.setdefault("HF_HUB_OFFLINE", "1")
-os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
-
+import fire
 import torch
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from torch import Tensor, nn
 from transformers import AutoConfig, AutoModel, AutoTokenizer
 from transformers import __version__ as transformers_version
@@ -41,41 +38,41 @@ MODEL_MANIFEST = PROJECT_ROOT / "model-manifest.json"
 PARAMETERS_FILE = PROJECT_ROOT / "params.yaml"
 FROZEN_COHORT = PROJECT_ROOT / "outputs/frozen/cohort.json"
 CORPUS_ROOT = PROJECT_ROOT / "data/corpus"
-RUNTIME_SMOKE_JOB = PROJECT_ROOT / "python-tests/fixtures/smoke-job.json"
-RUNTIME_SMOKE_EXPECTED = PROJECT_ROOT / "python-tests/fixtures/smoke-expected.md"
 RUNTIME_SMOKE_OUTPUT = PROJECT_ROOT / "outputs/smoke/runtime.json"
 ADAPTER_SMOKE_OUTPUT = PROJECT_ROOT / "outputs/smoke/gector-raw.json"
 COHORT_OUTPUT = PROJECT_ROOT / "outputs/producers/gector/raw-inference.json"
 ADAPTER_SMOKE_ARTIFACT = "grammarly-handoff-adr-vale-pass"
 
 
-@dataclass(frozen=True)
-class InferenceParameters:
-    batch_size: int
-    iterations: int
-    max_tokens: int
-    min_tokens: int
-    min_error_probability: float
-    min_token_probability: float
-    additional_confidence: float
-
-    def __post_init__(self) -> None:
-        for name in ("batch_size", "iterations", "max_tokens", "min_tokens"):
-            if getattr(self, name) <= 0:
-                msg = f"{name} must be positive"
-                raise ValueError(msg)
-        for name in (
-            "min_error_probability",
-            "min_token_probability",
-            "additional_confidence",
-        ):
-            if not 0 <= getattr(self, name) <= 1:
-                msg = f"{name} must be between zero and one"
-                raise ValueError(msg)
+class ImmutableModel(BaseModel):
+    model_config = ConfigDict(frozen=True, populate_by_name=True, extra="forbid")
 
 
-@dataclass(frozen=True)
-class RuntimeDetails:
+class RuntimeSettings(BaseSettings):
+    model_config = SettingsConfigDict(extra="ignore")
+
+    cublas_workspace_config: Literal[":4096:8"] = Field(
+        validation_alias="CUBLAS_WORKSPACE_CONFIG"
+    )
+
+
+class InferenceParameters(ImmutableModel):
+    batch_size: Annotated[int, Field(gt=0)] = Field(validation_alias="batchSize")
+    iterations: Annotated[int, Field(gt=0)]
+    max_tokens: Annotated[int, Field(gt=0)] = Field(validation_alias="maxTokens")
+    min_tokens: Annotated[int, Field(gt=0)] = Field(validation_alias="minTokens")
+    min_error_probability: Annotated[float, Field(ge=0, le=1)] = Field(
+        validation_alias="minErrorProbability"
+    )
+    min_token_probability: Annotated[float, Field(ge=0, le=1)] = Field(
+        validation_alias="minTokenProbability"
+    )
+    additional_confidence: Annotated[float, Field(ge=0, le=1)] = Field(
+        validation_alias="additionalConfidence"
+    )
+
+
+class RuntimeDetails(ImmutableModel):
     python_version: str
     torch_version: str
     transformers_version: str
@@ -84,52 +81,230 @@ class RuntimeDetails:
     compute_capability: str
 
 
-@dataclass(frozen=True)
-class TextSegment:
+class TextSegment(ImmutableModel):
     start: int
     end: int
     tokens: list[str]
 
 
-def read_json(path: Path) -> dict[str, Any]:
-    value = json.loads(path.read_text(encoding="utf-8"))
-    if not isinstance(value, dict):
-        msg = f"expected a JSON object in {path}"
-        raise TypeError(msg)
-    return value
+class DescriptorAnnotations(ImmutableModel):
+    title: str = Field(alias="org.opencontainers.image.title")
+    source: str = Field(alias="org.opencontainers.image.source")
+    revision: str = Field(alias="org.opencontainers.image.revision", pattern=r"^[a-f0-9]{40}$")
+
+
+class ConfigAnnotations(ImmutableModel):
+    title: str = Field(alias="org.opencontainers.image.title")
+
+
+class OciConfigDescriptor(ImmutableModel):
+    media_type: Literal["application/vnd.robbiepalmer.gector.config.v1+json"] = Field(
+        alias="mediaType"
+    )
+    digest: str = Field(pattern=r"^sha256:[a-f0-9]{64}$")
+    size: Annotated[int, Field(gt=0)]
+    data: str
+    annotations: ConfigAnnotations
+
+    @property
+    def decoded(self) -> bytes:
+        return b64decode(self.data, validate=True)
+
+
+class OciLayerDescriptor(ImmutableModel):
+    media_type: str = Field(alias="mediaType", min_length=1)
+    digest: str = Field(pattern=r"^sha256:[a-f0-9]{64}$")
+    size: Annotated[int, Field(gt=0)]
+    urls: tuple[str, ...] = Field(min_length=1)
+    annotations: DescriptorAnnotations
+
+    @field_validator("urls")
+    @classmethod
+    def require_https(cls, urls: tuple[str, ...]) -> tuple[str, ...]:
+        if any(not url.startswith("https://") for url in urls):
+            msg = "OCI descriptor URLs must use HTTPS"
+            raise ValueError(msg)
+        return urls
+
+
+class GectorModelConfig(ImmutableModel):
+    checkpoint: str
+    checkpoint_license: Literal["not-stated-by-upstream"] = Field(alias="checkpointLicense")
+    model_id: Literal["gector-2024-roberta-large"] = Field(alias="modelId")
+    source_repository: str = Field(alias="sourceRepository")
+    source_revision: str = Field(alias="sourceRevision", pattern=r"^[a-f0-9]{40}$")
+    usage: Literal["evaluation-only"]
+
+
+class GectorModelManifest(ImmutableModel):
+    schema_version: Literal[2] = Field(alias="schemaVersion")
+    media_type: Literal["application/vnd.oci.image.manifest.v1+json"] = Field(alias="mediaType")
+    artifact_type: Literal["application/vnd.robbiepalmer.gector.model.v1"] = Field(
+        alias="artifactType"
+    )
+    config: OciConfigDescriptor
+    layers: tuple[OciLayerDescriptor, ...] = Field(min_length=1)
+    annotations: DescriptorAnnotations
+
+    @property
+    def metadata(self) -> GectorModelConfig:
+        return GectorModelConfig.model_validate_json(self.config.decoded)
+
+    @property
+    def checkpoint(self) -> OciLayerDescriptor:
+        return next(
+            layer for layer in self.layers if layer.annotations.title == self.metadata.checkpoint
+        )
+
+    @model_validator(mode="after")
+    def validate_oci_content(self) -> Self:
+        decoded = self.config.decoded
+        actual_digest = f"sha256:{hashlib.sha256(decoded).hexdigest()}"
+        if len(decoded) != self.config.size or actual_digest != self.config.digest:
+            msg = "embedded model config does not match its OCI descriptor"
+            raise ValueError(msg)
+        if (
+            self.annotations.source != self.metadata.source_repository
+            or self.annotations.revision != self.metadata.source_revision
+        ):
+            msg = "OCI annotations do not match the embedded model config"
+            raise ValueError(msg)
+        if not any(
+            layer.annotations.title == self.metadata.checkpoint for layer in self.layers
+        ):
+            msg = "checkpoint descriptor is missing from OCI layers"
+            raise ValueError(msg)
+        return self
+
+
+class FrozenSource(ImmutableModel):
+    model_config = ConfigDict(frozen=True, populate_by_name=True, extra="ignore")
+
+    file: Path
+
+
+class FrozenEntry(ImmutableModel):
+    model_config = ConfigDict(frozen=True, populate_by_name=True, extra="ignore")
+
+    artifact_id: str = Field(alias="artifactId")
+    source: FrozenSource
+
+
+class FrozenCohort(ImmutableModel):
+    model_config = ConfigDict(frozen=True, populate_by_name=True, extra="ignore")
+
+    entries: tuple[FrozenEntry, ...] = Field(min_length=1)
+
+
+class PipelineProducers(ImmutableModel):
+    model_config = ConfigDict(frozen=True, populate_by_name=True, extra="ignore")
+
+    gector: InferenceParameters
+
+
+class PipelineParameters(ImmutableModel):
+    model_config = ConfigDict(frozen=True, populate_by_name=True, extra="ignore")
+
+    producers: PipelineProducers
+
+
+class InferenceArtifact(ImmutableModel):
+    artifact_id: str = Field(alias="artifactId")
+    source_file: Path | None = Field(default=None, alias="sourceFile")
+    source_text: str | None = Field(default=None, alias="sourceText")
+
+    @model_validator(mode="after")
+    def require_one_source(self) -> Self:
+        if (self.source_file is None) == (self.source_text is None):
+            msg = "inference artifact needs exactly one source"
+            raise ValueError(msg)
+        return self
+
+
+class InferenceJob(ImmutableModel):
+    artifacts: tuple[InferenceArtifact, ...] = Field(min_length=1)
+
+
+class RawArtifact(ImmutableModel):
+    artifact_id: str = Field(alias="artifactId")
+    generated_text: str = Field(alias="generatedText")
+    corrected_lines: list[Annotated[int, Field(gt=0)]] = Field(alias="correctedLines")
+    iteration_updates: Annotated[int, Field(ge=0)] = Field(alias="iterationUpdates")
+
+
+class RawModelIdentity(ImmutableModel):
+    model_id: Literal["gector-2024-roberta-large"] = Field(alias="modelId")
+    source_revision: str = Field(alias="sourceRevision", pattern=r"^[a-f0-9]{40}$")
+    checkpoint_content_hash: str = Field(
+        alias="checkpointContentHash", pattern=r"^sha256:[a-f0-9]{64}$"
+    )
+
+
+class RawRun(ImmutableModel):
+    schema_version: Literal[1] = Field(default=1, alias="schemaVersion")
+    record_type: Literal["gector-raw-inference-run"] = Field(
+        default="gector-raw-inference-run", alias="recordType"
+    )
+    model: RawModelIdentity
+    runtime: RuntimeDetails
+    parameters: InferenceParameters
+    artifacts: tuple[RawArtifact, ...] = Field(min_length=1)
+
+
+class ExpectedInference(ImmutableModel):
+    job: InferenceJob
+    expected: RawArtifact
+
+
+RUNTIME_SMOKE = ExpectedInference(
+    job=InferenceJob(
+        artifacts=(
+            InferenceArtifact(
+                artifactId="gector-runtime-smoke",
+                sourceText="He go to school yesterday .\n",
+            ),
+        )
+    ),
+    expected=RawArtifact(
+        artifactId="gector-runtime-smoke",
+        generatedText="He went to school yesterday .\n",
+        correctedLines=[1],
+        iterationUpdates=1,
+    ),
+)
+
+
+def read_model[ModelType: BaseModel](path: Path, model_type: type[ModelType]) -> ModelType:
+    return model_type.model_validate_json(path.read_text(encoding="utf-8"))
 
 
 def project_path(path: Path, project_root: Path = PROJECT_ROOT) -> Path:
     candidate = path if path.is_absolute() else project_root / path
-    resolved = Path(os.path.realpath(candidate))
-    resolved_root = Path(os.path.realpath(project_root))
+    resolved = candidate.resolve()
+    resolved_root = project_root.resolve()
     if resolved == resolved_root or not resolved.is_relative_to(resolved_root):
         msg = f"path {path!s} is outside the project root"
         raise ValueError(msg)
     return resolved
 
 
-def frozen_job(artifact_id: str | None = None) -> dict[str, Any]:
-    cohort = read_json(FROZEN_COHORT)
-    entries = cohort.get("entries")
-    if not isinstance(entries, list) or not entries:
-        msg = "frozen cohort needs at least one artifact"
-        raise ValueError(msg)
+def frozen_job(artifact_id: str | None = None) -> InferenceJob:
+    cohort = read_model(FROZEN_COHORT, FrozenCohort)
     selected = [
-        entry for entry in entries if artifact_id is None or entry.get("artifactId") == artifact_id
+        entry for entry in cohort.entries if artifact_id is None or entry.artifact_id == artifact_id
     ]
     if not selected:
         msg = f"frozen cohort does not contain artifact {artifact_id}"
         raise ValueError(msg)
-    return {
-        "artifacts": [
-            {
-                "artifactId": entry["artifactId"],
-                "sourceFile": str(project_path(CORPUS_ROOT / entry["source"]["file"])),
-            }
+    return InferenceJob(
+        artifacts=tuple(
+            InferenceArtifact(
+                artifactId=entry.artifact_id,
+                sourceFile=project_path(CORPUS_ROOT / entry.source.file),
+            )
             for entry in selected
-        ]
-    }
+        )
+    )
 
 
 def read_vocabulary(path: Path, *, padded: bool) -> list[str]:
@@ -684,22 +859,25 @@ def document_segments(source: str, max_tokens: int) -> list[TextSegment]:
 
 
 def run_job(
-    job: dict[str, Any],
+    job: InferenceJob,
     model_directory: Path,
-    manifest: dict[str, Any],
+    manifest: GectorModelManifest,
     parameters: InferenceParameters,
-) -> dict[str, Any]:
+) -> RawRun:
     model = GectorModel(model_directory, parameters)
-    artifacts = job.get("artifacts")
-    if not isinstance(artifacts, list) or not artifacts:
-        msg = "inference job needs at least one artifact"
-        raise ValueError(msg)
+    artifacts = job.artifacts
 
     segments: list[tuple[int, TextSegment]] = []
     artifact_sources: list[str] = []
     for artifact_index, artifact in enumerate(artifacts):
-        source_file = project_path(Path(artifact["sourceFile"]))
-        source = source_file.read_text(encoding="utf-8")
+        source = (
+            project_path(artifact.source_file).read_text(encoding="utf-8")
+            if artifact.source_file is not None
+            else artifact.source_text
+        )
+        if source is None:
+            msg = f"inference artifact {artifact.artifact_id} has no source"
+            raise RuntimeError(msg)
         artifact_sources.append(source)
         segments.extend(
             (artifact_index, segment)
@@ -724,99 +902,82 @@ def run_job(
         )
         update_counts[artifact_index] += updates[segment_index]
 
-    results = []
+    results: list[RawArtifact] = []
     for index, artifact in enumerate(artifacts):
         generated = artifact_sources[index]
         for start, end, replacement in sorted(replacements[index], reverse=True):
             generated = f"{generated[:start]}{replacement}{generated[end:]}"
         results.append(
-            {
-                "artifactId": artifact["artifactId"],
-                "generatedText": generated,
-                "correctedLines": corrected_lines[index],
-                "iterationUpdates": update_counts[index],
-            }
+            RawArtifact(
+                artifactId=artifact.artifact_id,
+                generatedText=generated,
+                correctedLines=corrected_lines[index],
+                iterationUpdates=update_counts[index],
+            )
         )
-    return {
-        "schemaVersion": 1,
-        "recordType": "gector-raw-inference-run",
-        "model": {
-            "modelId": manifest["modelId"],
-            "sourceRevision": manifest["source"]["revision"],
-            "checkpointContentHash": manifest["checkpoint"]["contentHash"],
-        },
-        "runtime": asdict(model.runtime_details()),
-        "parameters": asdict(parameters),
-        "artifacts": results,
-    }
-
-
-def parse_parameters(params: dict[str, Any]) -> InferenceParameters:
-    producer = params["producers"]["gector"]
-    return InferenceParameters(
-        batch_size=int(producer["batchSize"]),
-        iterations=int(producer["iterations"]),
-        max_tokens=int(producer["maxTokens"]),
-        min_tokens=int(producer["minTokens"]),
-        min_error_probability=float(producer["minErrorProbability"]),
-        min_token_probability=float(producer["minTokenProbability"]),
-        additional_confidence=float(producer["additionalConfidence"]),
+    return RawRun(
+        model=RawModelIdentity(
+            modelId=manifest.metadata.model_id,
+            sourceRevision=manifest.metadata.source_revision,
+            checkpointContentHash=manifest.checkpoint.digest,
+        ),
+        runtime=model.runtime_details(),
+        parameters=parameters,
+        artifacts=tuple(results),
     )
 
 
-def serialized_result(result: dict[str, Any]) -> str:
-    return f'{json.dumps(result, sort_keys=True, separators=(",", ":"))}\n'
+def serialized_result(result: RawRun) -> str:
+    value = result.model_dump(mode="json", by_alias=True)
+    return f'{json.dumps(value, sort_keys=True, separators=(",", ":"))}\n'
 
 
-def write_runtime_smoke_result(result: dict[str, Any]) -> None:
+def write_runtime_smoke_result(result: RawRun) -> None:
     RUNTIME_SMOKE_OUTPUT.parent.mkdir(parents=True, exist_ok=True)
     with RUNTIME_SMOKE_OUTPUT.open("w", encoding="utf-8", newline="\n") as output:
         output.write(serialized_result(result))
 
 
-def write_adapter_smoke_result(result: dict[str, Any]) -> None:
+def write_adapter_smoke_result(result: RawRun) -> None:
     ADAPTER_SMOKE_OUTPUT.parent.mkdir(parents=True, exist_ok=True)
     with ADAPTER_SMOKE_OUTPUT.open("w", encoding="utf-8", newline="\n") as output:
         output.write(serialized_result(result))
 
 
-def write_cohort_result(result: dict[str, Any]) -> None:
+def write_cohort_result(result: RawRun) -> None:
     COHORT_OUTPUT.parent.mkdir(parents=True, exist_ok=True)
     with COHORT_OUTPUT.open("w", encoding="utf-8", newline="\n") as output:
         output.write(serialized_result(result))
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--mode",
-        choices=("runtime-smoke", "adapter-smoke", "cohort"),
-        required=True,
-    )
-    args = parser.parse_args()
-    if args.mode == "runtime-smoke":
-        job = read_json(RUNTIME_SMOKE_JOB)
-    elif args.mode == "adapter-smoke":
+def run(mode: Literal["runtime-smoke", "adapter-smoke", "cohort"]) -> None:
+    RuntimeSettings()
+    if mode == "runtime-smoke":
+        job = RUNTIME_SMOKE.job
+    elif mode == "adapter-smoke":
         job = frozen_job(ADAPTER_SMOKE_ARTIFACT)
     else:
         job = frozen_job()
     result = run_job(
         job,
         MODEL_DIRECTORY,
-        read_json(MODEL_MANIFEST),
-        parse_parameters(read_json(PARAMETERS_FILE)),
+        read_model(MODEL_MANIFEST, GectorModelManifest),
+        read_model(PARAMETERS_FILE, PipelineParameters).producers.gector,
     )
-    if args.mode == "runtime-smoke":
-        expected = RUNTIME_SMOKE_EXPECTED.read_text(encoding="utf-8")
-        if len(result["artifacts"]) != 1 or result["artifacts"][0]["generatedText"] != expected:
+    if mode == "runtime-smoke":
+        if result.artifacts != (RUNTIME_SMOKE.expected,):
             msg = "smoke output does not match the pinned expected correction"
             raise RuntimeError(msg)
         write_runtime_smoke_result(result)
-    elif args.mode == "adapter-smoke":
+    elif mode == "adapter-smoke":
         write_adapter_smoke_result(result)
     else:
         write_cohort_result(result)
-    print(f"Ran GECToR over {len(result['artifacts'])} artifact(s) on CUDA")
+    print(f"Ran GECToR over {len(result.artifacts)} artifact(s) on CUDA")
+
+
+def main(command: Sequence[str] | None = None) -> None:
+    fire.Fire(run, command=list(command) if command is not None else None, name="gector-runtime")
 
 
 if __name__ == "__main__":

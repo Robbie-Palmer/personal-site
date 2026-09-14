@@ -20,6 +20,9 @@ run = "bash scripts/run-vale.sh"
 [tools]
 python = "3.12.12"
 
+[env]
+CUBLAS_WORKSPACE_CONFIG = ":4096:8"
+
 [tasks."runtime:sync"]
 description = "Install the locked CUDA GECToR runtime"
 run = "uv sync --locked --no-dev --no-build"

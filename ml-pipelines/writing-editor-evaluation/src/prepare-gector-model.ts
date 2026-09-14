@@ -21,29 +21,113 @@ const RelativeFileSchema = z.string().min(1).superRefine((value, context) => {
   }
 });
 
-const DownloadedArtifactSchema = z.object({
-  url: z.url().refine((url) => url.startsWith("https://"), "must use HTTPS"),
-  filename: RelativeFileSchema,
-  bytes: z.number().int().positive(),
-  contentHash: ContentHashSchema,
+const HttpsUrlSchema = z.url().refine((url) => url.startsWith("https://"), "must use HTTPS");
+const GitRevisionSchema = z.string().regex(/^[a-f0-9]{40}$/);
+const OciTitleAnnotation = "org.opencontainers.image.title" as const;
+const OciSourceAnnotation = "org.opencontainers.image.source" as const;
+const OciRevisionAnnotation = "org.opencontainers.image.revision" as const;
+
+const ConfigAnnotationsSchema = z.object({
+  [OciTitleAnnotation]: RelativeFileSchema,
 }).strict();
 
-export const GectorModelManifestSchema = z.object({
-  schemaVersion: z.literal(1),
-  recordType: z.literal("gector-model-manifest"),
-  modelId: z.literal("gector-2024-roberta-large"),
-  source: z.object({
-    repository: z.url(),
-    revision: z.string().regex(/^[a-f0-9]{40}$/),
-  }).strict(),
-  checkpoint: DownloadedArtifactSchema,
-  runtimeAssets: z.array(DownloadedArtifactSchema.extend({
-    sourceRepository: z.url(),
-    sourceRevision: z.string().regex(/^[a-f0-9]{40}$/),
-  }).strict()).min(1),
-  usage: z.literal("evaluation-only"),
-  checkpointLicense: z.literal("not-stated-by-upstream"),
+const LayerAnnotationsSchema = z.object({
+  [OciTitleAnnotation]: RelativeFileSchema,
+  [OciSourceAnnotation]: z.url(),
+  [OciRevisionAnnotation]: GitRevisionSchema,
 }).strict();
+
+const OciDescriptorSchema = z.object({
+  mediaType: z.string().min(1),
+  digest: ContentHashSchema,
+  size: z.number().int().positive(),
+  urls: z.array(HttpsUrlSchema).min(1),
+  annotations: LayerAnnotationsSchema,
+}).strict();
+
+const GectorConfigSchema = z.object({
+  checkpoint: RelativeFileSchema,
+  checkpointLicense: z.literal("not-stated-by-upstream"),
+  modelId: z.literal("gector-2024-roberta-large"),
+  sourceRepository: z.url(),
+  sourceRevision: GitRevisionSchema,
+  usage: z.literal("evaluation-only"),
+}).strict();
+
+export const OciArtifactManifestSchema = z.object({
+  schemaVersion: z.literal(2),
+  mediaType: z.literal("application/vnd.oci.image.manifest.v1+json"),
+  artifactType: z.literal("application/vnd.robbiepalmer.gector.model.v1"),
+  config: z.object({
+    mediaType: z.literal("application/vnd.robbiepalmer.gector.config.v1+json"),
+    digest: ContentHashSchema,
+    size: z.number().int().positive(),
+    data: z.string().min(1),
+    annotations: ConfigAnnotationsSchema,
+  }).strict(),
+  layers: z.array(OciDescriptorSchema).min(1),
+  annotations: z.object({
+    [OciTitleAnnotation]: z.string().min(1),
+    [OciSourceAnnotation]: z.url(),
+    [OciRevisionAnnotation]: GitRevisionSchema,
+  }).strict(),
+}).strict();
+
+export const GectorModelManifestSchema = OciArtifactManifestSchema.transform((manifest, context) => {
+  const configBytes = Buffer.from(manifest.config.data, "base64");
+  if (configBytes.byteLength !== manifest.config.size) {
+    context.addIssue({ code: "custom", message: "embedded config size does not match descriptor" });
+    return z.NEVER;
+  }
+  if (sha256Bytes(configBytes) !== manifest.config.digest) {
+    context.addIssue({ code: "custom", message: "embedded config digest does not match descriptor" });
+    return z.NEVER;
+  }
+  let decodedConfig: unknown;
+  try {
+    decodedConfig = JSON.parse(configBytes.toString("utf8"));
+  } catch {
+    context.addIssue({ code: "custom", message: "embedded config is not valid JSON" });
+    return z.NEVER;
+  }
+  const config = GectorConfigSchema.safeParse(decodedConfig);
+  if (!config.success) {
+    context.addIssue({ code: "custom", message: "embedded GECToR config is invalid" });
+    return z.NEVER;
+  }
+  if (
+    manifest.annotations[OciSourceAnnotation] !== config.data.sourceRepository ||
+    manifest.annotations[OciRevisionAnnotation] !== config.data.sourceRevision
+  ) {
+    context.addIssue({ code: "custom", message: "OCI annotations do not match model config" });
+    return z.NEVER;
+  }
+  const artifacts = manifest.layers.map((layer) => ({
+    url: layer.urls[0]!,
+    filename: layer.annotations[OciTitleAnnotation],
+    bytes: layer.size,
+    contentHash: layer.digest,
+    sourceRepository: layer.annotations[OciSourceAnnotation],
+    sourceRevision: layer.annotations[OciRevisionAnnotation],
+  }));
+  const checkpoint = artifacts.find(({ filename }) => filename === config.data.checkpoint);
+  if (!checkpoint) {
+    context.addIssue({ code: "custom", message: "checkpoint descriptor is missing from layers" });
+    return z.NEVER;
+  }
+  return {
+    oci: manifest,
+    modelId: config.data.modelId,
+    source: {
+      repository: config.data.sourceRepository,
+      revision: config.data.sourceRevision,
+    },
+    checkpoint,
+    runtimeAssets: artifacts.filter(({ filename }) => filename !== config.data.checkpoint),
+    usage: config.data.usage,
+    checkpointLicense: config.data.checkpointLicense,
+  };
+});
 export type GectorModelManifest = z.infer<typeof GectorModelManifestSchema>;
 
 export interface DownloadOptions {

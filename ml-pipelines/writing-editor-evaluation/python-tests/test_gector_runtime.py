@@ -61,8 +61,16 @@ def test_rejects_unsupported_edit_geometry() -> None:
 
 
 def test_rejects_nonpositive_batch_sizes() -> None:
-    with pytest.raises(ValueError, match="batch_size must be positive"):
-        InferenceParameters(0, 5, 50, 3, 0.65, 0, 0.1)
+    with pytest.raises(ValueError, match="greater than 0"):
+        InferenceParameters(
+            batch_size=0,
+            iterations=5,
+            max_tokens=50,
+            min_tokens=3,
+            min_error_probability=0.65,
+            min_token_probability=0,
+            additional_confidence=0.1,
+        )
 
 
 def test_only_accepts_append_labels_at_the_start_token() -> None:

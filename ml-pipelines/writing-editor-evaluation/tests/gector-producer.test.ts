@@ -111,19 +111,67 @@ describe("GECToR producer", () => {
       contentHash: `sha256:${"2".repeat(64)}`,
     };
     const manifest = {
-      schemaVersion: 1,
-      recordType: "gector-model-manifest",
       modelId: "gector-2024-roberta-large",
       source: {
         repository: "https://github.com/grammarly/pillars-of-gec",
         revision: "1014de0bc90faddba0032acb5dec762c6c85d2e1",
       },
-      checkpoint,
-      runtimeAssets: [runtimeAsset],
-      usage: "evaluation-only",
-      checkpointLicense: "not-stated-by-upstream",
     };
-    writeJson(manifestFile, manifest);
+    const config = Buffer.from(JSON.stringify({
+      checkpoint: checkpoint.filename,
+      checkpointLicense: "not-stated-by-upstream",
+      modelId: manifest.modelId,
+      sourceRepository: manifest.source.repository,
+      sourceRevision: manifest.source.revision,
+      usage: "evaluation-only",
+    }));
+    const descriptor = (
+      artifact: typeof checkpoint | typeof runtimeAsset,
+      sourceRepository: string,
+      sourceRevision: string,
+      mediaType: string,
+    ) => ({
+      mediaType,
+      digest: artifact.contentHash,
+      size: artifact.bytes,
+      urls: [artifact.url],
+      annotations: {
+        "org.opencontainers.image.title": artifact.filename,
+        "org.opencontainers.image.source": sourceRepository,
+        "org.opencontainers.image.revision": sourceRevision,
+      },
+    });
+    writeJson(manifestFile, {
+      schemaVersion: 2,
+      mediaType: "application/vnd.oci.image.manifest.v1+json",
+      artifactType: "application/vnd.robbiepalmer.gector.model.v1",
+      config: {
+        mediaType: "application/vnd.robbiepalmer.gector.config.v1+json",
+        digest: sha256(config),
+        size: config.byteLength,
+        data: config.toString("base64"),
+        annotations: { "org.opencontainers.image.title": "gector-model-config.json" },
+      },
+      layers: [
+        descriptor(
+          checkpoint,
+          manifest.source.repository,
+          manifest.source.revision,
+          "application/vnd.pytorch.state-dict",
+        ),
+        descriptor(
+          runtimeAsset,
+          runtimeAsset.sourceRepository,
+          runtimeAsset.sourceRevision,
+          "text/plain",
+        ),
+      ],
+      annotations: {
+        "org.opencontainers.image.title": "GECToR test model",
+        "org.opencontainers.image.source": manifest.source.repository,
+        "org.opencontainers.image.revision": manifest.source.revision,
+      },
+    });
     const manifestHash = sha256(fs.readFileSync(manifestFile));
     const modelDirectory = path.join(temporary, "model");
     writeJson(path.join(modelDirectory, "receipt.json"), {

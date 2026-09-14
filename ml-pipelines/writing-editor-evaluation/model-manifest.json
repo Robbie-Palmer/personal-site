@@ -1,91 +1,131 @@
 {
-  "schemaVersion": 1,
-  "recordType": "gector-model-manifest",
-  "modelId": "gector-2024-roberta-large",
-  "source": {
-    "repository": "https://github.com/grammarly/pillars-of-gec",
-    "revision": "1014de0bc90faddba0032acb5dec762c6c85d2e1"
+  "schemaVersion": 2,
+  "mediaType": "application/vnd.oci.image.manifest.v1+json",
+  "artifactType": "application/vnd.robbiepalmer.gector.model.v1",
+  "config": {
+    "mediaType": "application/vnd.robbiepalmer.gector.config.v1+json",
+    "digest": "sha256:5ca3a62a6ad2d5b295e186ed68239aa010a3206809042e6e671254109acbc72b",
+    "size": 279,
+    "data": "eyJjaGVja3BvaW50IjoiZ2VjdG9yLTIwMjQtcm9iZXJ0YS1sYXJnZS50aCIsImNoZWNrcG9pbnRMaWNlbnNlIjoibm90LXN0YXRlZC1ieS11cHN0cmVhbSIsIm1vZGVsSWQiOiJnZWN0b3ItMjAyNC1yb2JlcnRhLWxhcmdlIiwic291cmNlUmVwb3NpdG9yeSI6Imh0dHBzOi8vZ2l0aHViLmNvbS9ncmFtbWFybHkvcGlsbGFycy1vZi1nZWMiLCJzb3VyY2VSZXZpc2lvbiI6IjEwMTRkZTBiYzkwZmFkZGJhMDAzMmFjYjVkZWM3NjJjNmM4NWQyZTEiLCJ1c2FnZSI6ImV2YWx1YXRpb24tb25seSJ9",
+    "annotations": {
+      "org.opencontainers.image.title": "gector-model-config.json"
+    }
   },
-  "checkpoint": {
-    "url": "https://grammarly-nlp-data-public.s3.amazonaws.com/GECToR-2024/gector-2024-roberta-large.th",
-    "filename": "gector-2024-roberta-large.th",
-    "bytes": 1442177179,
-    "contentHash": "sha256:77e1c9e0d7ad5507c16509fd765283dbce5221552aa7a90c37d143f1aeaddb10"
-  },
-  "runtimeAssets": [
+  "layers": [
     {
-      "sourceRepository": "https://huggingface.co/FacebookAI/roberta-large",
-      "sourceRevision": "722cf37b1afa9454edce342e7895e588b6ff1d59",
-      "url": "https://huggingface.co/FacebookAI/roberta-large/resolve/722cf37b1afa9454edce342e7895e588b6ff1d59/config.json",
-      "filename": "roberta-large/config.json",
-      "bytes": 482,
-      "contentHash": "sha256:82ba49810e6441735e696033ac2512ee09da555507b2917ac3865b202d592cc3"
+      "mediaType": "application/vnd.pytorch.state-dict",
+      "digest": "sha256:77e1c9e0d7ad5507c16509fd765283dbce5221552aa7a90c37d143f1aeaddb10",
+      "size": 1442177179,
+      "urls": ["https://grammarly-nlp-data-public.s3.amazonaws.com/GECToR-2024/gector-2024-roberta-large.th"],
+      "annotations": {
+        "org.opencontainers.image.title": "gector-2024-roberta-large.th",
+        "org.opencontainers.image.source": "https://github.com/grammarly/pillars-of-gec",
+        "org.opencontainers.image.revision": "1014de0bc90faddba0032acb5dec762c6c85d2e1"
+      }
     },
     {
-      "sourceRepository": "https://huggingface.co/FacebookAI/roberta-large",
-      "sourceRevision": "722cf37b1afa9454edce342e7895e588b6ff1d59",
-      "url": "https://huggingface.co/FacebookAI/roberta-large/resolve/722cf37b1afa9454edce342e7895e588b6ff1d59/merges.txt",
-      "filename": "roberta-large/merges.txt",
-      "bytes": 456318,
-      "contentHash": "sha256:1ce1664773c50f3e0cc8842619a93edc4624525b728b188a9e0be33b7726adc5"
+      "mediaType": "application/json",
+      "digest": "sha256:82ba49810e6441735e696033ac2512ee09da555507b2917ac3865b202d592cc3",
+      "size": 482,
+      "urls": ["https://huggingface.co/FacebookAI/roberta-large/resolve/722cf37b1afa9454edce342e7895e588b6ff1d59/config.json"],
+      "annotations": {
+        "org.opencontainers.image.title": "roberta-large/config.json",
+        "org.opencontainers.image.source": "https://huggingface.co/FacebookAI/roberta-large",
+        "org.opencontainers.image.revision": "722cf37b1afa9454edce342e7895e588b6ff1d59"
+      }
     },
     {
-      "sourceRepository": "https://huggingface.co/FacebookAI/roberta-large",
-      "sourceRevision": "722cf37b1afa9454edce342e7895e588b6ff1d59",
-      "url": "https://huggingface.co/FacebookAI/roberta-large/resolve/722cf37b1afa9454edce342e7895e588b6ff1d59/tokenizer.json",
-      "filename": "roberta-large/tokenizer.json",
-      "bytes": 1355863,
-      "contentHash": "sha256:847bbeab6174d66a88898f729d52fa8d355fafe1bea101cf960dd404581df70e"
+      "mediaType": "text/plain",
+      "digest": "sha256:1ce1664773c50f3e0cc8842619a93edc4624525b728b188a9e0be33b7726adc5",
+      "size": 456318,
+      "urls": ["https://huggingface.co/FacebookAI/roberta-large/resolve/722cf37b1afa9454edce342e7895e588b6ff1d59/merges.txt"],
+      "annotations": {
+        "org.opencontainers.image.title": "roberta-large/merges.txt",
+        "org.opencontainers.image.source": "https://huggingface.co/FacebookAI/roberta-large",
+        "org.opencontainers.image.revision": "722cf37b1afa9454edce342e7895e588b6ff1d59"
+      }
     },
     {
-      "sourceRepository": "https://huggingface.co/FacebookAI/roberta-large",
-      "sourceRevision": "722cf37b1afa9454edce342e7895e588b6ff1d59",
-      "url": "https://huggingface.co/FacebookAI/roberta-large/resolve/722cf37b1afa9454edce342e7895e588b6ff1d59/tokenizer_config.json",
-      "filename": "roberta-large/tokenizer_config.json",
-      "bytes": 25,
-      "contentHash": "sha256:994f46754c5bf4014f1aa92d34b1374319c3a6b3f702105cd5b742beaecd18ce"
+      "mediaType": "application/json",
+      "digest": "sha256:847bbeab6174d66a88898f729d52fa8d355fafe1bea101cf960dd404581df70e",
+      "size": 1355863,
+      "urls": ["https://huggingface.co/FacebookAI/roberta-large/resolve/722cf37b1afa9454edce342e7895e588b6ff1d59/tokenizer.json"],
+      "annotations": {
+        "org.opencontainers.image.title": "roberta-large/tokenizer.json",
+        "org.opencontainers.image.source": "https://huggingface.co/FacebookAI/roberta-large",
+        "org.opencontainers.image.revision": "722cf37b1afa9454edce342e7895e588b6ff1d59"
+      }
     },
     {
-      "sourceRepository": "https://huggingface.co/FacebookAI/roberta-large",
-      "sourceRevision": "722cf37b1afa9454edce342e7895e588b6ff1d59",
-      "url": "https://huggingface.co/FacebookAI/roberta-large/resolve/722cf37b1afa9454edce342e7895e588b6ff1d59/vocab.json",
-      "filename": "roberta-large/vocab.json",
-      "bytes": 898823,
-      "contentHash": "sha256:9e7f63c2d15d666b52e21d250d2e513b87c9b713cfa6987a82ed89e5e6e50655"
+      "mediaType": "application/json",
+      "digest": "sha256:994f46754c5bf4014f1aa92d34b1374319c3a6b3f702105cd5b742beaecd18ce",
+      "size": 25,
+      "urls": ["https://huggingface.co/FacebookAI/roberta-large/resolve/722cf37b1afa9454edce342e7895e588b6ff1d59/tokenizer_config.json"],
+      "annotations": {
+        "org.opencontainers.image.title": "roberta-large/tokenizer_config.json",
+        "org.opencontainers.image.source": "https://huggingface.co/FacebookAI/roberta-large",
+        "org.opencontainers.image.revision": "722cf37b1afa9454edce342e7895e588b6ff1d59"
+      }
     },
     {
-      "sourceRepository": "https://github.com/MaksTarnavskyi/gector-large",
-      "sourceRevision": "9f699f274dfab524185c27e11fc2cc70f07045f0",
-      "url": "https://raw.githubusercontent.com/MaksTarnavskyi/gector-large/9f699f274dfab524185c27e11fc2cc70f07045f0/data/output_vocabulary/labels.txt",
-      "filename": "vocabulary/labels.txt",
-      "bytes": 80469,
-      "contentHash": "sha256:5afe93088eb6d80372cb57ac610eeab55c026f79aa15512ac5f9730f4b3409ac"
+      "mediaType": "application/json",
+      "digest": "sha256:9e7f63c2d15d666b52e21d250d2e513b87c9b713cfa6987a82ed89e5e6e50655",
+      "size": 898823,
+      "urls": ["https://huggingface.co/FacebookAI/roberta-large/resolve/722cf37b1afa9454edce342e7895e588b6ff1d59/vocab.json"],
+      "annotations": {
+        "org.opencontainers.image.title": "roberta-large/vocab.json",
+        "org.opencontainers.image.source": "https://huggingface.co/FacebookAI/roberta-large",
+        "org.opencontainers.image.revision": "722cf37b1afa9454edce342e7895e588b6ff1d59"
+      }
     },
     {
-      "sourceRepository": "https://github.com/MaksTarnavskyi/gector-large",
-      "sourceRevision": "9f699f274dfab524185c27e11fc2cc70f07045f0",
-      "url": "https://raw.githubusercontent.com/MaksTarnavskyi/gector-large/9f699f274dfab524185c27e11fc2cc70f07045f0/data/output_vocabulary/d_tags.txt",
-      "filename": "vocabulary/d_tags.txt",
-      "bytes": 42,
-      "contentHash": "sha256:926596d65d7b928a3d4dfb553c0cd2a8189f8f2ca7cb0ba26cfbb935b5c5dfad"
+      "mediaType": "text/plain",
+      "digest": "sha256:5afe93088eb6d80372cb57ac610eeab55c026f79aa15512ac5f9730f4b3409ac",
+      "size": 80469,
+      "urls": ["https://raw.githubusercontent.com/MaksTarnavskyi/gector-large/9f699f274dfab524185c27e11fc2cc70f07045f0/data/output_vocabulary/labels.txt"],
+      "annotations": {
+        "org.opencontainers.image.title": "vocabulary/labels.txt",
+        "org.opencontainers.image.source": "https://github.com/MaksTarnavskyi/gector-large",
+        "org.opencontainers.image.revision": "9f699f274dfab524185c27e11fc2cc70f07045f0"
+      }
     },
     {
-      "sourceRepository": "https://github.com/MaksTarnavskyi/gector-large",
-      "sourceRevision": "9f699f274dfab524185c27e11fc2cc70f07045f0",
-      "url": "https://raw.githubusercontent.com/MaksTarnavskyi/gector-large/9f699f274dfab524185c27e11fc2cc70f07045f0/data/output_vocabulary/non_padded_namespaces.txt",
-      "filename": "vocabulary/non_padded_namespaces.txt",
-      "bytes": 14,
-      "contentHash": "sha256:863044919d9f9c1c04aba282ac981ab0157d6ab08737a96c72f7e15887911db0"
+      "mediaType": "text/plain",
+      "digest": "sha256:926596d65d7b928a3d4dfb553c0cd2a8189f8f2ca7cb0ba26cfbb935b5c5dfad",
+      "size": 42,
+      "urls": ["https://raw.githubusercontent.com/MaksTarnavskyi/gector-large/9f699f274dfab524185c27e11fc2cc70f07045f0/data/output_vocabulary/d_tags.txt"],
+      "annotations": {
+        "org.opencontainers.image.title": "vocabulary/d_tags.txt",
+        "org.opencontainers.image.source": "https://github.com/MaksTarnavskyi/gector-large",
+        "org.opencontainers.image.revision": "9f699f274dfab524185c27e11fc2cc70f07045f0"
+      }
     },
     {
-      "sourceRepository": "https://github.com/MaksTarnavskyi/gector-large",
-      "sourceRevision": "9f699f274dfab524185c27e11fc2cc70f07045f0",
-      "url": "https://raw.githubusercontent.com/MaksTarnavskyi/gector-large/9f699f274dfab524185c27e11fc2cc70f07045f0/data/verb-form-vocab.txt",
-      "filename": "verb-form-vocab.txt",
-      "bytes": 4390076,
-      "contentHash": "sha256:5906804ec8a1acd8cbfc2918522bf429ce5edded8bbc46ffc2be861d280d3abf"
+      "mediaType": "text/plain",
+      "digest": "sha256:863044919d9f9c1c04aba282ac981ab0157d6ab08737a96c72f7e15887911db0",
+      "size": 14,
+      "urls": ["https://raw.githubusercontent.com/MaksTarnavskyi/gector-large/9f699f274dfab524185c27e11fc2cc70f07045f0/data/output_vocabulary/non_padded_namespaces.txt"],
+      "annotations": {
+        "org.opencontainers.image.title": "vocabulary/non_padded_namespaces.txt",
+        "org.opencontainers.image.source": "https://github.com/MaksTarnavskyi/gector-large",
+        "org.opencontainers.image.revision": "9f699f274dfab524185c27e11fc2cc70f07045f0"
+      }
+    },
+    {
+      "mediaType": "text/plain",
+      "digest": "sha256:5906804ec8a1acd8cbfc2918522bf429ce5edded8bbc46ffc2be861d280d3abf",
+      "size": 4390076,
+      "urls": ["https://raw.githubusercontent.com/MaksTarnavskyi/gector-large/9f699f274dfab524185c27e11fc2cc70f07045f0/data/verb-form-vocab.txt"],
+      "annotations": {
+        "org.opencontainers.image.title": "verb-form-vocab.txt",
+        "org.opencontainers.image.source": "https://github.com/MaksTarnavskyi/gector-large",
+        "org.opencontainers.image.revision": "9f699f274dfab524185c27e11fc2cc70f07045f0"
+      }
     }
   ],
-  "usage": "evaluation-only",
-  "checkpointLicense": "not-stated-by-upstream"
+  "annotations": {
+    "org.opencontainers.image.title": "GECToR-2024 RoBERTa-large inference model",
+    "org.opencontainers.image.source": "https://github.com/grammarly/pillars-of-gec",
+    "org.opencontainers.image.revision": "1014de0bc90faddba0032acb5dec762c6c85d2e1"
+  }
 }

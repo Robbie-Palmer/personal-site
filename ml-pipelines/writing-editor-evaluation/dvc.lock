@@ -278,8 +278,8 @@ stages:
       size: 532911
     - path: model-manifest.json
       hash: md5
-      md5: 0392bcdd38eed1aa07ea9632ed8d7d82
-      size: 4801
+      md5: f91a021e57fc560c8a87d4c5bec6f35f
+      size: 6988
     - path: package.json
       hash: md5
       md5: c6fd5991eb42dbfd3b0e5d088ca06c32
@@ -295,12 +295,12 @@ stages:
       size: 2954
     - path: src/prepare-gector-model.ts
       hash: md5
-      md5: 13b97fa7c74bdbc72207d23de1a5e9c3
-      size: 7647
+      md5: d0f1cbd6ae3e79b74b963ef071e22d26
+      size: 10882
     outs:
     - path: data/models/gector-2024
       hash: md5
-      md5: 2a70b13e1799681503f3f011d674b3c2.dir
+      md5: 50621846fae66a5b557a7ec34988c59d.dir
       size: 1449362195
       nfiles: 11
   run_gector:
@@ -333,13 +333,13 @@ stages:
       nfiles: 19
     - path: data/models/gector-2024
       hash: md5
-      md5: 2a70b13e1799681503f3f011d674b3c2.dir
+      md5: 50621846fae66a5b557a7ec34988c59d.dir
       size: 1449362195
       nfiles: 11
     - path: model-manifest.json
       hash: md5
-      md5: 0392bcdd38eed1aa07ea9632ed8d7d82
-      size: 4801
+      md5: f91a021e57fc560c8a87d4c5bec6f35f
+      size: 6988
     - path: outputs/frozen/cohort.json
       hash: md5
       md5: 93ffa2cb3c14d709261afad2e3e56490
@@ -350,12 +350,12 @@ stages:
       size: 513
     - path: pyproject.toml
       hash: md5
-      md5: 3df19aeebccd2bdaaac62a051b0d1eb0
-      size: 923
+      md5: 64942037780dd74cad3bc2ecc1687ccb
+      size: 999
     - path: python/gector_runtime.py
       hash: md5
-      md5: 5d720a8ebe6b3eb88fadef4e4ba4e1e5
-      size: 31994
+      md5: e90aafff0cfe7343672dd884dc92941b
+      size: 37633
     - path: scripts/run-gector.sh
       hash: md5
       md5: 982fb0f7bcccd8a4f76aaec3d31fa6a8
@@ -378,8 +378,8 @@ stages:
       size: 25250
     - path: uv.lock
       hash: md5
-      md5: ba47df703eefb9df66028ca6feaecbe7
-      size: 41407
+      md5: 889acf0c3641d0e48d2831cd5f328a9c
+      size: 48460
     params:
       params.yaml:
         matching.characterDiff.maxEditLength: 10000
@@ -394,6 +394,6 @@ stages:
     outs:
     - path: outputs/producers/gector
       hash: md5
-      md5: e6497ff004b5fc23af4e7a8afe738f24.dir
+      md5: 82df83744ffc40e71f004003091c86c9.dir
       size: 711341
       nfiles: 10
