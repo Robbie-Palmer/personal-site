@@ -3,18 +3,32 @@ from pathlib import Path
 import pytest
 
 from python.gector_runtime import (
+    MODEL_MANIFEST,
+    GectorModelManifest,
     InferenceParameters,
     apply_edits,
     apply_transformation,
     document_segments,
     is_actionable_label,
     project_path,
+    read_model,
     read_padded_vocabulary,
     read_vocabulary,
     reconstruct_segment,
     run,
     split_line,
 )
+
+
+def test_validates_modelpack_metadata_with_pydantic() -> None:
+    manifest = read_model(MODEL_MANIFEST, GectorModelManifest)
+
+    assert manifest.artifact_type == "application/vnd.cncf.model.manifest.v1+json"
+    assert manifest.metadata.descriptor.name == "gector-2024-roberta-large"
+    assert manifest.metadata.modelfs.diff_ids == tuple(
+        layer.digest for layer in manifest.layers
+    )
+    assert manifest.checkpoint.annotations.filepath == "gector-2024-roberta-large.th"
 
 
 def test_limits_runtime_paths_to_the_project_root(tmp_path: Path) -> None:

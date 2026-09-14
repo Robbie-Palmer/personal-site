@@ -90,6 +90,7 @@ class TextSegment(ImmutableModel):
 
 
 class DescriptorAnnotations(ImmutableModel):
+    filepath: str = Field(alias="org.cncf.model.filepath")
     title: str = Field(alias="org.opencontainers.image.title")
     source: str = Field(alias="org.opencontainers.image.source")
     revision: str = Field(alias="org.opencontainers.image.revision", pattern=GIT_REVISION_PATTERN)
@@ -99,8 +100,21 @@ class ConfigAnnotations(ImmutableModel):
     title: str = Field(alias="org.opencontainers.image.title")
 
 
+class ManifestAnnotations(ImmutableModel):
+    title: str = Field(alias="org.opencontainers.image.title")
+    source: str = Field(alias="org.opencontainers.image.source")
+    revision: str = Field(alias="org.opencontainers.image.revision", pattern=GIT_REVISION_PATTERN)
+    checkpoint_license: Literal["not-stated-by-upstream"] = Field(
+        alias="me.robbiepalmer.gector.checkpoint-license"
+    )
+    usage: Literal["evaluation-only"] = Field(alias="me.robbiepalmer.gector.usage")
+    modelpack_version: Literal["v0.0.7"] = Field(
+        alias="me.robbiepalmer.modelpack.spec-version"
+    )
+
+
 class OciConfigDescriptor(ImmutableModel):
-    media_type: Literal["application/vnd.robbiepalmer.gector.config.v1+json"] = Field(
+    media_type: Literal["application/vnd.cncf.model.config.v1+json"] = Field(
         alias="mediaType"
     )
     digest: str = Field(pattern=CONTENT_DIGEST_PATTERN)
@@ -114,10 +128,13 @@ class OciConfigDescriptor(ImmutableModel):
 
 
 class OciLayerDescriptor(ImmutableModel):
-    media_type: str = Field(alias="mediaType", min_length=1)
+    media_type: Literal[
+        "application/vnd.cncf.model.weight.v1.raw",
+        "application/vnd.cncf.model.weight.config.v1.raw",
+    ] = Field(alias="mediaType")
     digest: str = Field(pattern=CONTENT_DIGEST_PATTERN)
     size: Annotated[int, Field(gt=0)]
-    urls: tuple[str, ...] = Field(min_length=1)
+    urls: tuple[str, ...] = ()
     annotations: DescriptorAnnotations
 
     @field_validator("urls")
@@ -129,33 +146,66 @@ class OciLayerDescriptor(ImmutableModel):
         return urls
 
 
-class GectorModelConfig(ImmutableModel):
-    checkpoint: str
-    checkpoint_license: Literal["not-stated-by-upstream"] = Field(alias="checkpointLicense")
-    model_id: Literal["gector-2024-roberta-large"] = Field(alias="modelId")
-    source_repository: str = Field(alias="sourceRepository")
-    source_revision: str = Field(alias="sourceRevision", pattern=GIT_REVISION_PATTERN)
-    usage: Literal["evaluation-only"]
+class ModelPackDescriptor(ImmutableModel):
+    family: Literal["gector"]
+    name: Literal["gector-2024-roberta-large"]
+    title: str
+    description: str
+    doc_url: str = Field(alias="docURL")
+    source_url: str = Field(alias="sourceURL")
+    revision: str = Field(pattern=GIT_REVISION_PATTERN)
+
+
+class ModelPackCapabilities(ImmutableModel):
+    input_types: tuple[Literal["text"]] = Field(alias="inputTypes")
+    output_types: tuple[Literal["text"]] = Field(alias="outputTypes")
+
+
+class ModelPackRuntimeConfig(ImmutableModel):
+    architecture: Literal["transformer"]
+    format: Literal["pytorch"]
+    capabilities: ModelPackCapabilities
+
+
+class ModelPackFilesystem(ImmutableModel):
+    type: Literal["layers"]
+    diff_ids: tuple[str, ...] = Field(alias="diffIds", min_length=1)
+
+    @field_validator("diff_ids")
+    @classmethod
+    def require_content_digests(cls, digests: tuple[str, ...]) -> tuple[str, ...]:
+        if any(re.fullmatch(CONTENT_DIGEST_PATTERN, digest) is None for digest in digests):
+            msg = "ModelPack diff IDs must be SHA-256 digests"
+            raise ValueError(msg)
+        return digests
+
+
+class ModelPackConfig(ImmutableModel):
+    descriptor: ModelPackDescriptor
+    config: ModelPackRuntimeConfig
+    modelfs: ModelPackFilesystem
 
 
 class GectorModelManifest(ImmutableModel):
     schema_version: Literal[2] = Field(alias="schemaVersion")
     media_type: Literal["application/vnd.oci.image.manifest.v1+json"] = Field(alias="mediaType")
-    artifact_type: Literal["application/vnd.robbiepalmer.gector.model.v1"] = Field(
+    artifact_type: Literal["application/vnd.cncf.model.manifest.v1+json"] = Field(
         alias="artifactType"
     )
     config: OciConfigDescriptor
     layers: tuple[OciLayerDescriptor, ...] = Field(min_length=1)
-    annotations: DescriptorAnnotations
+    annotations: ManifestAnnotations
 
     @property
-    def metadata(self) -> GectorModelConfig:
-        return GectorModelConfig.model_validate_json(self.config.decoded)
+    def metadata(self) -> ModelPackConfig:
+        return ModelPackConfig.model_validate_json(self.config.decoded)
 
     @property
     def checkpoint(self) -> OciLayerDescriptor:
         return next(
-            layer for layer in self.layers if layer.annotations.title == self.metadata.checkpoint
+            layer
+            for layer in self.layers
+            if layer.media_type == "application/vnd.cncf.model.weight.v1.raw"
         )
 
     @model_validator(mode="after")
@@ -166,19 +216,25 @@ class GectorModelManifest(ImmutableModel):
             msg = "embedded model config does not match its OCI descriptor"
             raise ValueError(msg)
         if (
-            self.annotations.source != self.metadata.source_repository
-            or self.annotations.revision != self.metadata.source_revision
+            self.annotations.source != self.metadata.descriptor.source_url
+            or self.annotations.revision != self.metadata.descriptor.revision
         ):
-            msg = "OCI annotations do not match the embedded model config"
+            msg = "OCI annotations do not match the embedded ModelPack config"
             raise ValueError(msg)
-        if not any(
-            layer.annotations.title == self.metadata.checkpoint for layer in self.layers
-        ):
-            msg = "checkpoint descriptor is missing from OCI layers"
+        if self.metadata.modelfs.diff_ids != tuple(layer.digest for layer in self.layers):
+            msg = "ModelPack diff IDs do not match layers"
+            raise ValueError(msg)
+        checkpoint_layers = tuple(
+            layer
+            for layer in self.layers
+            if layer.media_type == "application/vnd.cncf.model.weight.v1.raw"
+        )
+        if len(checkpoint_layers) != 1:
+            msg = "ModelPack must contain one checkpoint layer"
             raise ValueError(msg)
         if (
-            self.checkpoint.annotations.source != self.metadata.source_repository
-            or self.checkpoint.annotations.revision != self.metadata.source_revision
+            self.checkpoint.annotations.source != self.metadata.descriptor.source_url
+            or self.checkpoint.annotations.revision != self.metadata.descriptor.revision
         ):
             msg = "checkpoint provenance does not match the embedded model config"
             raise ValueError(msg)
@@ -930,8 +986,8 @@ def run_job(
         )
     return RawRun(
         model=RawModelIdentity(
-            modelId=manifest.metadata.model_id,
-            sourceRevision=manifest.metadata.source_revision,
+            modelId=manifest.metadata.descriptor.name,
+            sourceRevision=manifest.metadata.descriptor.revision,
             checkpointContentHash=manifest.checkpoint.digest,
         ),
         runtime=model.runtime_details(),

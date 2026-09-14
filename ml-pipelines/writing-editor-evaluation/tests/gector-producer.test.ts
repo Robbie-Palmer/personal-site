@@ -118,12 +118,24 @@ describe("GECToR producer", () => {
       },
     };
     const config = Buffer.from(JSON.stringify({
-      checkpoint: checkpoint.filename,
-      checkpointLicense: "not-stated-by-upstream",
-      modelId: manifest.modelId,
-      sourceRepository: manifest.source.repository,
-      sourceRevision: manifest.source.revision,
-      usage: "evaluation-only",
+      descriptor: {
+        family: "gector",
+        name: manifest.modelId,
+        title: "GECToR test model",
+        description: "Test model",
+        docURL: manifest.source.repository,
+        sourceURL: manifest.source.repository,
+        revision: manifest.source.revision,
+      },
+      config: {
+        architecture: "transformer",
+        format: "pytorch",
+        capabilities: { inputTypes: ["text"], outputTypes: ["text"] },
+      },
+      modelfs: {
+        type: "layers",
+        diffIds: [checkpoint.contentHash, runtimeAsset.contentHash],
+      },
     }));
     const descriptor = (
       artifact: typeof checkpoint | typeof runtimeAsset,
@@ -136,6 +148,7 @@ describe("GECToR producer", () => {
       size: artifact.bytes,
       urls: [artifact.url],
       annotations: {
+        "org.cncf.model.filepath": artifact.filename,
         "org.opencontainers.image.title": artifact.filename,
         "org.opencontainers.image.source": sourceRepository,
         "org.opencontainers.image.revision": sourceRevision,
@@ -144,9 +157,9 @@ describe("GECToR producer", () => {
     writeJson(manifestFile, {
       schemaVersion: 2,
       mediaType: "application/vnd.oci.image.manifest.v1+json",
-      artifactType: "application/vnd.robbiepalmer.gector.model.v1",
+      artifactType: "application/vnd.cncf.model.manifest.v1+json",
       config: {
-        mediaType: "application/vnd.robbiepalmer.gector.config.v1+json",
+        mediaType: "application/vnd.cncf.model.config.v1+json",
         digest: sha256(config),
         size: config.byteLength,
         data: config.toString("base64"),
@@ -157,19 +170,22 @@ describe("GECToR producer", () => {
           checkpoint,
           manifest.source.repository,
           manifest.source.revision,
-          "application/vnd.pytorch.state-dict",
+          "application/vnd.cncf.model.weight.v1.raw",
         ),
         descriptor(
           runtimeAsset,
           runtimeAsset.sourceRepository,
           runtimeAsset.sourceRevision,
-          "text/plain",
+          "application/vnd.cncf.model.weight.config.v1.raw",
         ),
       ],
       annotations: {
         "org.opencontainers.image.title": "GECToR test model",
         "org.opencontainers.image.source": manifest.source.repository,
         "org.opencontainers.image.revision": manifest.source.revision,
+        "me.robbiepalmer.gector.checkpoint-license": "not-stated-by-upstream",
+        "me.robbiepalmer.gector.usage": "evaluation-only",
+        "me.robbiepalmer.modelpack.spec-version": "v0.0.7",
       },
     });
     const manifestHash = sha256(fs.readFileSync(manifestFile));

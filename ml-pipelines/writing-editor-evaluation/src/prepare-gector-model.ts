@@ -23,43 +23,71 @@ const RelativeFileSchema = z.string().min(1).superRefine((value, context) => {
 
 const HttpsUrlSchema = z.url().refine((url) => url.startsWith("https://"), "must use HTTPS");
 const GitRevisionSchema = z.string().regex(/^[a-f0-9]{40}$/);
+const ModelPackManifestMediaType = "application/vnd.cncf.model.manifest.v1+json" as const;
+const ModelPackConfigMediaType = "application/vnd.cncf.model.config.v1+json" as const;
+const ModelPackWeightMediaType = "application/vnd.cncf.model.weight.v1.raw" as const;
+const ModelPackWeightConfigMediaType =
+  "application/vnd.cncf.model.weight.config.v1.raw" as const;
+const ModelPackFilepathAnnotation = "org.cncf.model.filepath" as const;
 const OciTitleAnnotation = "org.opencontainers.image.title" as const;
 const OciSourceAnnotation = "org.opencontainers.image.source" as const;
 const OciRevisionAnnotation = "org.opencontainers.image.revision" as const;
+const GectorLicenseAnnotation = "me.robbiepalmer.gector.checkpoint-license" as const;
+const GectorUsageAnnotation = "me.robbiepalmer.gector.usage" as const;
+const ModelPackVersionAnnotation = "me.robbiepalmer.modelpack.spec-version" as const;
 
 const ConfigAnnotationsSchema = z.object({
   [OciTitleAnnotation]: RelativeFileSchema,
 }).strict();
 
 const LayerAnnotationsSchema = z.object({
+  [ModelPackFilepathAnnotation]: RelativeFileSchema,
   [OciTitleAnnotation]: RelativeFileSchema,
   [OciSourceAnnotation]: z.url(),
   [OciRevisionAnnotation]: GitRevisionSchema,
 }).strict();
 
 const OciDescriptorSchema = z.object({
-  mediaType: z.string().min(1),
+  mediaType: z.union([
+    z.literal(ModelPackWeightMediaType),
+    z.literal(ModelPackWeightConfigMediaType),
+  ]),
   digest: ContentHashSchema,
   size: z.number().int().positive(),
-  urls: z.array(HttpsUrlSchema).min(1),
+  urls: z.array(HttpsUrlSchema).min(1).optional(),
   annotations: LayerAnnotationsSchema,
 }).strict();
 
-const GectorConfigSchema = z.object({
-  checkpoint: RelativeFileSchema,
-  checkpointLicense: z.literal("not-stated-by-upstream"),
-  modelId: z.literal("gector-2024-roberta-large"),
-  sourceRepository: z.url(),
-  sourceRevision: GitRevisionSchema,
-  usage: z.literal("evaluation-only"),
+const ModelPackConfigSchema = z.object({
+  descriptor: z.object({
+    family: z.literal("gector"),
+    name: z.literal("gector-2024-roberta-large"),
+    title: z.string().min(1),
+    description: z.string().min(1),
+    docURL: z.url(),
+    sourceURL: z.url(),
+    revision: GitRevisionSchema,
+  }).strict(),
+  config: z.object({
+    architecture: z.literal("transformer"),
+    format: z.literal("pytorch"),
+    capabilities: z.object({
+      inputTypes: z.tuple([z.literal("text")]),
+      outputTypes: z.tuple([z.literal("text")]),
+    }).strict(),
+  }).strict(),
+  modelfs: z.object({
+    type: z.literal("layers"),
+    diffIds: z.array(ContentHashSchema).min(1),
+  }).strict(),
 }).strict();
 
-export const OciArtifactManifestSchema = z.object({
+export const ModelPackManifestSchema = z.object({
   schemaVersion: z.literal(2),
   mediaType: z.literal("application/vnd.oci.image.manifest.v1+json"),
-  artifactType: z.literal("application/vnd.robbiepalmer.gector.model.v1"),
+  artifactType: z.literal(ModelPackManifestMediaType),
   config: z.object({
-    mediaType: z.literal("application/vnd.robbiepalmer.gector.config.v1+json"),
+    mediaType: z.literal(ModelPackConfigMediaType),
     digest: ContentHashSchema,
     size: z.number().int().positive(),
     data: z.string().min(1),
@@ -70,10 +98,13 @@ export const OciArtifactManifestSchema = z.object({
     [OciTitleAnnotation]: z.string().min(1),
     [OciSourceAnnotation]: z.url(),
     [OciRevisionAnnotation]: GitRevisionSchema,
+    [GectorLicenseAnnotation]: z.literal("not-stated-by-upstream"),
+    [GectorUsageAnnotation]: z.literal("evaluation-only"),
+    [ModelPackVersionAnnotation]: z.literal("v0.0.7"),
   }).strict(),
 }).strict();
 
-export const GectorModelManifestSchema = OciArtifactManifestSchema.transform((manifest, context) => {
+export const GectorModelManifestSchema = ModelPackManifestSchema.transform((manifest, context) => {
   const configBytes = Buffer.from(manifest.config.data, "base64");
   if (configBytes.byteLength !== manifest.config.size) {
     context.addIssue({ code: "custom", message: "embedded config size does not match descriptor" });
@@ -90,49 +121,63 @@ export const GectorModelManifestSchema = OciArtifactManifestSchema.transform((ma
     context.addIssue({ code: "custom", message: "embedded config is not valid JSON" });
     return z.NEVER;
   }
-  const config = GectorConfigSchema.safeParse(decodedConfig);
+  const config = ModelPackConfigSchema.safeParse(decodedConfig);
   if (!config.success) {
-    context.addIssue({ code: "custom", message: "embedded GECToR config is invalid" });
+    context.addIssue({ code: "custom", message: "embedded ModelPack config is invalid" });
+    return z.NEVER;
+  }
+  const layerDigests = manifest.layers.map(({ digest }) => digest);
+  if (
+    config.data.modelfs.diffIds.length !== layerDigests.length ||
+    config.data.modelfs.diffIds.some((digest, index) => digest !== layerDigests[index])
+  ) {
+    context.addIssue({ code: "custom", message: "ModelPack diff IDs do not match layers" });
     return z.NEVER;
   }
   if (
-    manifest.annotations[OciSourceAnnotation] !== config.data.sourceRepository ||
-    manifest.annotations[OciRevisionAnnotation] !== config.data.sourceRevision
+    manifest.annotations[OciSourceAnnotation] !== config.data.descriptor.sourceURL ||
+    manifest.annotations[OciRevisionAnnotation] !== config.data.descriptor.revision
   ) {
-    context.addIssue({ code: "custom", message: "OCI annotations do not match model config" });
+    context.addIssue({ code: "custom", message: "OCI annotations do not match ModelPack config" });
     return z.NEVER;
   }
   const artifacts = manifest.layers.map((layer) => ({
-    url: layer.urls[0]!,
-    filename: layer.annotations[OciTitleAnnotation],
+    url: layer.urls?.[0],
+    filename: layer.annotations[ModelPackFilepathAnnotation],
     bytes: layer.size,
     contentHash: layer.digest,
     sourceRepository: layer.annotations[OciSourceAnnotation],
     sourceRevision: layer.annotations[OciRevisionAnnotation],
+    mediaType: layer.mediaType,
   }));
-  const checkpoint = artifacts.find(({ filename }) => filename === config.data.checkpoint);
-  if (!checkpoint) {
-    context.addIssue({ code: "custom", message: "checkpoint descriptor is missing from layers" });
+  const checkpointLayers = artifacts.filter(
+    ({ mediaType }) => mediaType === ModelPackWeightMediaType,
+  );
+  if (checkpointLayers.length !== 1) {
+    context.addIssue({ code: "custom", message: "ModelPack must contain one checkpoint layer" });
     return z.NEVER;
   }
+  const checkpoint = checkpointLayers[0]!;
   if (
-    checkpoint.sourceRepository !== config.data.sourceRepository ||
-    checkpoint.sourceRevision !== config.data.sourceRevision
+    checkpoint.sourceRepository !== config.data.descriptor.sourceURL ||
+    checkpoint.sourceRevision !== config.data.descriptor.revision
   ) {
     context.addIssue({ code: "custom", message: "checkpoint provenance does not match model config" });
     return z.NEVER;
   }
   return {
-    oci: manifest,
-    modelId: config.data.modelId,
+    modelPack: manifest,
+    modelId: config.data.descriptor.name,
     source: {
-      repository: config.data.sourceRepository,
-      revision: config.data.sourceRevision,
+      repository: config.data.descriptor.sourceURL,
+      revision: config.data.descriptor.revision,
     },
     checkpoint,
-    runtimeAssets: artifacts.filter(({ filename }) => filename !== config.data.checkpoint),
-    usage: config.data.usage,
-    checkpointLicense: config.data.checkpointLicense,
+    runtimeAssets: artifacts.filter(({ mediaType }) =>
+      mediaType === ModelPackWeightConfigMediaType
+    ),
+    usage: manifest.annotations[GectorUsageAnnotation],
+    checkpointLicense: manifest.annotations[GectorLicenseAnnotation],
   };
 });
 export type GectorModelManifest = z.infer<typeof GectorModelManifestSchema>;
@@ -253,7 +298,7 @@ async function verifyArtifact(
 }
 
 async function prepareArtifact(
-  artifact: { url: string; filename: string; bytes: number; contentHash: string },
+  artifact: { url: string | undefined; filename: string; bytes: number; contentHash: string },
   outputDirectory: string,
   timeoutMs: number,
   download: CheckpointDownloader,
@@ -265,6 +310,9 @@ async function prepareArtifact(
   if (fs.existsSync(file)) {
     await verifyArtifact(file, artifact.bytes, artifact.contentHash, label);
     return;
+  }
+  if (artifact.url === undefined) {
+    throw new Error(`${label} is missing and its descriptor has no acquisition URL`);
   }
   await download(new URL(artifact.url), partialFile, {
     expectedBytes: artifact.bytes,

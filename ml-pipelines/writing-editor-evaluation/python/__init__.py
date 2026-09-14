@@ -1,1 +1,0 @@
-"""GECToR inference runtime."""

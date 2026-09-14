@@ -278,8 +278,8 @@ stages:
       size: 532911
     - path: model-manifest.json
       hash: md5
-      md5: f91a021e57fc560c8a87d4c5bec6f35f
-      size: 6988
+      md5: 019548f82adf52cf49f38bacfbb68c7b
+      size: 9435
     - path: package.json
       hash: md5
       md5: c6fd5991eb42dbfd3b0e5d088ca06c32
@@ -295,12 +295,12 @@ stages:
       size: 2954
     - path: src/prepare-gector-model.ts
       hash: md5
-      md5: 24bf96ca6216df666daeff2282197ea2
-      size: 11152
+      md5: 166356b67ccce641e1f2aef1384f85bf
+      size: 13233
     outs:
     - path: data/models/gector-2024
       hash: md5
-      md5: 50621846fae66a5b557a7ec34988c59d.dir
+      md5: b7e9e899637ddf30002aed7489e1908b.dir
       size: 1449362195
       nfiles: 11
   run_gector:
@@ -333,13 +333,13 @@ stages:
       nfiles: 19
     - path: data/models/gector-2024
       hash: md5
-      md5: 50621846fae66a5b557a7ec34988c59d.dir
+      md5: b7e9e899637ddf30002aed7489e1908b.dir
       size: 1449362195
       nfiles: 11
     - path: model-manifest.json
       hash: md5
-      md5: f91a021e57fc560c8a87d4c5bec6f35f
-      size: 6988
+      md5: 019548f82adf52cf49f38bacfbb68c7b
+      size: 9435
     - path: outputs/frozen/cohort.json
       hash: md5
       md5: 93ffa2cb3c14d709261afad2e3e56490
@@ -354,8 +354,8 @@ stages:
       size: 999
     - path: python/gector_runtime.py
       hash: md5
-      md5: c000f383e128944de57f27ec3d4c1ff6
-      size: 38251
+      md5: fe9188032c9eb3bea176f95653ac6e9f
+      size: 40188
     - path: scripts/run-gector.sh
       hash: md5
       md5: 982fb0f7bcccd8a4f76aaec3d31fa6a8

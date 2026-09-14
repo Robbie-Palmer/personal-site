@@ -52,6 +52,13 @@ GECToR edit and verb vocabularies by repository revision, size, and SHA-256.
 Downloads resume after an interruption. The stage rejects any file whose size
 or digest does not match and writes a deterministic receipt beside the model.
 
+The metadata follows ModelPack v0.0.7: the checkpoint is a raw model-weight
+layer, the tokenizer and GECToR vocabularies are raw weight-configuration
+layers, and the embedded config lists the ordered layer digests. DVC remains
+the store and resolver. This file provides ModelPack-compatible metadata. It
+becomes a published ModelPack package after an OCI export materialises the same
+blobs in an image layout or registry and generic ModelPack tooling can pull it.
+
 The upstream checkpoint does not state a license. Keep it restricted to this
 evaluation project and its private DVC remote until that ambiguity is resolved.
 `run_gector` uses a Python 3.12 environment locked by `uv.lock`. PyTorch 2.11.0

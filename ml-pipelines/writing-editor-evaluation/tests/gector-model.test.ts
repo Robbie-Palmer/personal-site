@@ -36,13 +36,23 @@ interface TestArtifact {
 }
 
 function modelManifest(checkpoint: TestArtifact, runtimeAssets: TestArtifact[]) {
+  const artifacts = [checkpoint, ...runtimeAssets];
   const config = Buffer.from(JSON.stringify({
-    checkpoint: checkpoint.filename,
-    checkpointLicense: "not-stated-by-upstream",
-    modelId: "gector-2024-roberta-large",
-    sourceRepository: checkpoint.sourceRepository,
-    sourceRevision: checkpoint.sourceRevision,
-    usage: "evaluation-only",
+    descriptor: {
+      family: "gector",
+      name: "gector-2024-roberta-large",
+      title: "GECToR test model",
+      description: "Test model",
+      docURL: checkpoint.sourceRepository,
+      sourceURL: checkpoint.sourceRepository,
+      revision: checkpoint.sourceRevision,
+    },
+    config: {
+      architecture: "transformer",
+      format: "pytorch",
+      capabilities: { inputTypes: ["text"], outputTypes: ["text"] },
+    },
+    modelfs: { type: "layers", diffIds: artifacts.map(({ contentHash }) => contentHash) },
   }));
   const descriptor = (artifact: TestArtifact) => ({
     mediaType: artifact.mediaType,
@@ -50,6 +60,7 @@ function modelManifest(checkpoint: TestArtifact, runtimeAssets: TestArtifact[]) 
     size: artifact.bytes,
     urls: [artifact.url],
     annotations: {
+      "org.cncf.model.filepath": artifact.filename,
       "org.opencontainers.image.title": artifact.filename,
       "org.opencontainers.image.source": artifact.sourceRepository,
       "org.opencontainers.image.revision": artifact.sourceRevision,
@@ -58,19 +69,22 @@ function modelManifest(checkpoint: TestArtifact, runtimeAssets: TestArtifact[]) 
   return {
     schemaVersion: 2,
     mediaType: "application/vnd.oci.image.manifest.v1+json",
-    artifactType: "application/vnd.robbiepalmer.gector.model.v1",
+    artifactType: "application/vnd.cncf.model.manifest.v1+json",
     config: {
-      mediaType: "application/vnd.robbiepalmer.gector.config.v1+json",
+      mediaType: "application/vnd.cncf.model.config.v1+json",
       digest: sha256(config),
       size: config.byteLength,
       data: config.toString("base64"),
       annotations: { "org.opencontainers.image.title": "gector-model-config.json" },
     },
-    layers: [descriptor(checkpoint), ...runtimeAssets.map(descriptor)],
+    layers: artifacts.map(descriptor),
     annotations: {
       "org.opencontainers.image.title": "GECToR test model",
       "org.opencontainers.image.source": checkpoint.sourceRepository,
       "org.opencontainers.image.revision": checkpoint.sourceRevision,
+      "me.robbiepalmer.gector.checkpoint-license": "not-stated-by-upstream",
+      "me.robbiepalmer.gector.usage": "evaluation-only",
+      "me.robbiepalmer.modelpack.spec-version": "v0.0.7",
     },
   };
 }
@@ -85,7 +99,7 @@ function writeManifest(directory: string, payload: Buffer): string {
       contentHash: sha256(payload),
       sourceRepository: "https://github.com/grammarly/pillars-of-gec",
       sourceRevision: "1014de0bc90faddba0032acb5dec762c6c85d2e1",
-      mediaType: "application/vnd.pytorch.state-dict",
+      mediaType: "application/vnd.cncf.model.weight.v1.raw",
     },
     [{
       sourceRepository: "https://example.invalid/runtime",
@@ -94,7 +108,7 @@ function writeManifest(directory: string, payload: Buffer): string {
       filename: "runtime/runtime.txt",
       bytes: payload.length,
       contentHash: sha256(payload),
-      mediaType: "text/plain",
+      mediaType: "application/vnd.cncf.model.weight.config.v1.raw",
     }],
   ), null, 2)}\n`);
   return file;
@@ -107,17 +121,17 @@ afterEach(() => {
 });
 
 describe("GECToR model preparation", () => {
-  test("uses an OCI artifact manifest for the pinned model", () => {
+  test("uses ModelPack-compatible metadata for the pinned model", () => {
     const manifest = GectorModelManifestSchema.parse(
       JSON.parse(fs.readFileSync("model-manifest.json", "utf8")),
     );
 
-    expect(manifest.oci).toMatchObject({
+    expect(manifest.modelPack).toMatchObject({
       schemaVersion: 2,
       mediaType: "application/vnd.oci.image.manifest.v1+json",
-      artifactType: "application/vnd.robbiepalmer.gector.model.v1",
+      artifactType: "application/vnd.cncf.model.manifest.v1+json",
     });
-    expect(manifest.oci.layers.every(({ digest, mediaType, size }) =>
+    expect(manifest.modelPack.layers.every(({ digest, mediaType, size }) =>
       digest.startsWith("sha256:") && mediaType.length > 0 && size > 0
     )).toBe(true);
     expect(manifest.source).toEqual({
@@ -146,7 +160,7 @@ describe("GECToR model preparation", () => {
       contentHash: sha256(payload),
       sourceRepository: "https://github.com/grammarly/pillars-of-gec",
       sourceRevision: "1014de0bc90faddba0032acb5dec762c6c85d2e1",
-      mediaType: "application/vnd.pytorch.state-dict",
+      mediaType: "application/vnd.cncf.model.weight.v1.raw",
     }, []);
     manifest.config.digest = `sha256:${"0".repeat(64)}`;
 
@@ -163,12 +177,29 @@ describe("GECToR model preparation", () => {
       contentHash: sha256(payload),
       sourceRepository: "https://github.com/grammarly/pillars-of-gec",
       sourceRevision: "1014de0bc90faddba0032acb5dec762c6c85d2e1",
-      mediaType: "application/vnd.pytorch.state-dict",
+      mediaType: "application/vnd.cncf.model.weight.v1.raw",
     }, []);
     manifest.layers[0]!.annotations["org.opencontainers.image.revision"] = "a".repeat(40);
 
     expect(() => GectorModelManifestSchema.parse(manifest))
       .toThrow("checkpoint provenance does not match model config");
+  });
+
+  test("rejects ModelPack diff IDs that differ from the declared layers", () => {
+    const payload = Buffer.from("fixture");
+    const manifest = modelManifest({
+      url: "https://example.invalid/checkpoint.th",
+      filename: "checkpoint.th",
+      bytes: payload.length,
+      contentHash: sha256(payload),
+      sourceRepository: "https://github.com/grammarly/pillars-of-gec",
+      sourceRevision: "1014de0bc90faddba0032acb5dec762c6c85d2e1",
+      mediaType: "application/vnd.cncf.model.weight.v1.raw",
+    }, []);
+    manifest.layers[0]!.digest = `sha256:${"0".repeat(64)}`;
+
+    expect(() => GectorModelManifestSchema.parse(manifest))
+      .toThrow("ModelPack diff IDs do not match layers");
   });
 
   test("resumes, verifies, and records the declared checkpoint", async () => {
@@ -326,7 +357,7 @@ describe("GECToR model preparation", () => {
         contentHash: `sha256:${"0".repeat(64)}`,
         sourceRepository: "https://github.com/grammarly/pillars-of-gec",
         sourceRevision: "1014de0bc90faddba0032acb5dec762c6c85d2e1",
-        mediaType: "application/vnd.pytorch.state-dict",
+        mediaType: "application/vnd.cncf.model.weight.v1.raw",
       },
       [{
         sourceRepository: "https://example.invalid/runtime",
@@ -335,7 +366,7 @@ describe("GECToR model preparation", () => {
         filename: "runtime.txt",
         bytes: 1,
         contentHash: `sha256:${"0".repeat(64)}`,
-        mediaType: "text/plain",
+        mediaType: "application/vnd.cncf.model.weight.config.v1.raw",
       }],
     ))).toThrow("must use HTTPS");
   });
