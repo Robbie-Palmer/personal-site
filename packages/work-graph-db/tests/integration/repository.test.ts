@@ -586,6 +586,34 @@ describe("lease-backed claiming", () => {
     );
   });
 
+  it("expires a stale lease before direct termination", async () => {
+    await repository.createWorkItem({ id: "work", title: "Abandoned work" });
+    await db.insert(schema.lease).values({
+      id: leaseId(53),
+      workItemId: "work",
+      workerId: "worker-a",
+      epoch: 1,
+      acquiredAt: new Date(Date.now() - 120_000),
+      expiresAt: new Date(Date.now() - 60_000),
+    });
+
+    await repository.cancelWorkItem("work");
+
+    expect(
+      (await repository.load()).workItems.find(({ id }) => id === "work")
+        ?.lifecycle,
+    ).toBe("cancelled");
+    expect(await repository.getCurrentLease("work")).toBeNull();
+    expect(await repository.listLeases("work")).toEqual([
+      expect.objectContaining({
+        id: leaseId(53),
+        epoch: 1,
+        outcome: "expired",
+        endedAt: expect.any(Date),
+      }),
+    ]);
+  });
+
   it("fails closed when claim coordination cannot lock the graph", async () => {
     await repository.createWorkItem({ id: "work", title: "Unclaimable work" });
     await db.delete(schema.graphMutationLock);

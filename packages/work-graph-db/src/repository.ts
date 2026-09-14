@@ -638,6 +638,18 @@ export class WorkGraphRepository {
         throw workItemNotFound(workItemId);
       }
 
+      const terminatedAt = await readDatabaseClock(transaction);
+      await transaction
+        .update(lease)
+        .set({ endedAt: terminatedAt, outcome: "expired" })
+        .where(
+          and(
+            eq(lease.workItemId, workItemId),
+            isNull(lease.endedAt),
+            lte(lease.expiresAt, terminatedAt),
+          ),
+        );
+
       // Claims serialize on the same row. Check for a lease in a fresh
       // READ COMMITTED statement after acquiring the lock.
       const [currentLease] = await transaction
