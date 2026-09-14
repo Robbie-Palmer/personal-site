@@ -22,7 +22,7 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - uses: ./.github/actions/setup-mise
+      - uses: $/.github/actions/setup-mise
 
       - name: Check TypeScript, scenarios, and generated OpenAPI
         run: mise run //workers/work-graph-api:check
