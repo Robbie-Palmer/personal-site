@@ -26,6 +26,7 @@ config_roots = [
     "ai-review",
     "workers/recipe-api",
     "workers/recipe-ingest",
+    "workers/work-graph-api",
     "homelab",
     "cpp",
     "cpp/autonomic-satellite-swarm",
@@ -57,8 +58,8 @@ description = "Lint all files across the entire repo"
 depends = ["//:lint:markdown", "//:lint:mdx", "//:lint:yaml", "//:lint:typos", "//:lint:knip", "//:lint:actions", "//:lint:api", "//:lint:prose", "//packages/ai-review-domain:check", "//packages/browser-base:check", "//packages/node-base:check", "//packages/ts-base:check", "//packages/work-graph-db:check", "//packages/work-graph-domain:check", "//packages/writing-editor-domain:check", "//ai-review:check", "//ml-pipelines/ai-review-evaluation:check", "//ml-pipelines/writing-editor-evaluation:check", "//ui:lint", "//infra/public-platform:lint", "//infra/public-platform:lint:tflint", "//infra/bootstrap:lint", "//infra/bootstrap:lint:tflint", "//infra/remote-development:lint", "//infra/remote-development:lint:tflint"]
 
 [tasks."lint:api"]
-description = "Generate-check and lint the recipe API OpenAPI contract"
-depends = ["//workers/recipe-api:lint:api"]
+description = "Generate-check and lint committed OpenAPI contracts"
+depends = ["//workers/recipe-api:lint:api", "//workers/work-graph-api:lint:api"]
 
 [tasks."lint:markdown"]
 description = "Lint and fix Markdown files (optionally pass files as args)"
@@ -358,4 +359,5 @@ depends = [
     "//ml-pipelines/writing-editor-evaluation:test:coverage",
     "//workers/recipe-api:test:coverage",
     "//workers/recipe-ingest:test:coverage",
+    "//workers/work-graph-api:test:coverage",
 ]

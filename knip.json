@@ -50,6 +50,13 @@
     "workers/recipe-ingest": {
       "ignoreDependencies": ["cloudflare"]
     },
+    "workers/work-graph-api": {
+      "entry": [
+        "vitest.integration.config.ts",
+        "scripts/**/*.ts"
+      ],
+      "ignoreDependencies": ["@stoplight/spectral-owasp-ruleset"]
+    },
     "ml-pipelines/recipe-dataset": {
       "entry": ["src/stages/*.mjs", "scripts/*.mjs"]
     },

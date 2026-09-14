@@ -180,12 +180,12 @@ describe("lease-backed claiming", () => {
     await expect(repository.getCurrentLease("parent")).resolves.toEqual(
       parentLease,
     );
-    expect(
-      projectWorkItemStage(await repository.load(), "parent", {
-        currentLease: { expiresAt: parentLease.expiresAt.getTime() },
-        now: parentLease.acquiredAt.getTime(),
+    await expect(repository.getWorkItem("parent")).resolves.toEqual(
+      expect.objectContaining({
+        stage: "in_progress",
+        currentLease: parentLease,
       }),
-    ).toBe("in_progress");
+    );
   });
 
   it("inherits dependency readiness from parent work", async () => {
@@ -343,13 +343,7 @@ describe("lease-backed claiming", () => {
       })
       .where(eq(schema.lease.id, firstLease.id));
 
-    const staleGraph = await repository.load();
-    expect(
-      projectWorkItemStage(staleGraph, "work", {
-        currentLease: { expiresAt: 946_684_860_000 },
-        now: Date.now(),
-      }),
-    ).toBe("stale");
+    expect((await repository.getWorkItem("work")).stage).toBe("stale");
 
     const reclaimed = await repository.claimWorkItem({
       leaseId: leaseId(31),
@@ -392,6 +386,7 @@ describe("lease-backed claiming", () => {
       repository.terminateClaimedWorkItem({
         leaseId: firstLease.id,
         epoch: firstLease.epoch,
+        workItemId: "work",
         outcome: "released",
       }),
     ).rejects.toEqual(
@@ -506,6 +501,7 @@ describe("lease-backed claiming", () => {
     const completed = await repository.terminateClaimedWorkItem({
       leaseId: claimed.id,
       epoch: claimed.epoch,
+      workItemId: "work",
       outcome: "released",
     });
 
@@ -526,6 +522,7 @@ describe("lease-backed claiming", () => {
       repository.terminateClaimedWorkItem({
         leaseId: claimed.id,
         epoch: claimed.epoch,
+        workItemId: "work",
         outcome: "cancelled",
       }),
     ).rejects.toEqual(
@@ -672,6 +669,7 @@ describe("lease-backed claiming", () => {
       repository.terminateClaimedWorkItem({
         leaseId: leaseId(72),
         epoch: 1,
+        workItemId: "work",
         outcome: "released",
       }),
     ).rejects.toEqual(
@@ -746,19 +744,25 @@ describe("Work Graph PostgreSQL persistence", () => {
     await repository.createWorkItem({ id: "blocker", title: "Blocker" });
     await repository.addDependency(dependency("parent", "blocker"));
 
-    const blocked = await repository.load();
-    expect(projectWorkItemStage(blocked, "parent")).toBe("blocked");
-    expect(projectWorkItemStage(blocked, "child")).toBe("blocked");
+    const blocked = await repository.listWorkItems();
+    expect(blocked.find(({ id }) => id === "parent")?.stage).toBe("blocked");
+    expect(blocked.find(({ id }) => id === "child")?.stage).toBe("blocked");
 
     await repository.releaseWorkItem("child");
     await repository.cancelWorkItem("blocker");
 
-    const ready = await repository.load();
-    expect(projectWorkItemStage(ready, "parent")).toBe("ready");
-    expect(
-      ready.workItems.find(({ id }) => id === "parent")?.lifecycle,
-    ).toBe("open");
-    expect(ready.dependencies).toEqual([dependency("parent", "blocker")]);
+    const ready = await repository.getWorkItem("parent");
+    expect(ready).toEqual(
+      expect.objectContaining({
+        id: "parent",
+        lifecycle: "open",
+        stage: "ready",
+        currentLease: null,
+      }),
+    );
+    expect((await repository.load()).dependencies).toEqual([
+      dependency("parent", "blocker"),
+    ]);
   });
 
   it("records explicit terminal changes once", async () => {
@@ -845,6 +849,11 @@ describe("Work Graph PostgreSQL persistence", () => {
       }),
     );
     await expect(repository.releaseWorkItem("missing")).rejects.toEqual(
+      expect.objectContaining<Partial<WorkGraphError>>({
+        code: "work_item_not_found",
+      }),
+    );
+    await expect(repository.getWorkItem("missing")).rejects.toEqual(
       expect.objectContaining<Partial<WorkGraphError>>({
         code: "work_item_not_found",
       }),

@@ -1,0 +1,1105 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Work Graph API",
+    "version": "0.1.0",
+    "description": "The pre-stable canonical REST contract for Work Graph coordination.",
+    "contact": {
+      "name": "Robbie Palmer",
+      "url": "https://robbiepalmer.me"
+    }
+  },
+  "servers": [
+    {
+      "url": "/",
+      "description": "Local or production Work Graph service origin",
+      "x-internal": true
+    }
+  ],
+  "tags": [
+    {
+      "name": "work-items",
+      "description": "Work-item listing, readiness, and terminal transitions."
+    },
+    {
+      "name": "leases",
+      "description": "Fenced work-item lease coordination."
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "cloudflareAccessClientId": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "CF-Access-Client-Id",
+        "description": "Cloudflare Access service-token client ID"
+      },
+      "cloudflareAccessClientSecret": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "CF-Access-Client-Secret",
+        "description": "Cloudflare Access service-token client secret"
+      }
+    },
+    "schemas": {
+      "WorkItemList": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkItem"
+            },
+            "maxItems": 100
+          },
+          "nextOffset": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 2147483647,
+                "format": "int32"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "items",
+          "nextOffset"
+        ]
+      },
+      "WorkItem": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 10000
+          },
+          "lifecycle": {
+            "type": "string",
+            "enum": [
+              "open",
+              "released",
+              "cancelled"
+            ]
+          },
+          "parentId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "stage": {
+            "type": "string",
+            "enum": [
+              "blocked",
+              "ready",
+              "in_progress",
+              "stale",
+              "needs_attention",
+              "released",
+              "cancelled"
+            ]
+          },
+          "currentLease": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Lease"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "lifecycle",
+          "parentId",
+          "stage",
+          "currentLease"
+        ]
+      },
+      "Lease": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "maxLength": 36,
+            "format": "uuid"
+          },
+          "workItemId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "workerId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "epoch": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2147483647,
+            "format": "int32"
+          },
+          "acquiredAt": {
+            "type": "string",
+            "maxLength": 30,
+            "format": "date-time"
+          },
+          "expiresAt": {
+            "type": "string",
+            "maxLength": 30,
+            "format": "date-time"
+          },
+          "endedAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 30,
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "outcome": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "released",
+                  "cancelled",
+                  "decomposed",
+                  "attention_requested",
+                  "expired"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "workItemId",
+          "workerId",
+          "epoch",
+          "acquiredAt",
+          "expiresAt",
+          "endedAt",
+          "outcome"
+        ]
+      },
+      "Error": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 100
+              },
+              "message": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 500
+              },
+              "details": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "path": {
+                      "type": "array",
+                      "items": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "maxLength": 200
+                          },
+                          {
+                            "type": "number"
+                          }
+                        ]
+                      },
+                      "maxItems": 20
+                    },
+                    "message": {
+                      "type": "string",
+                      "maxLength": 500
+                    }
+                  },
+                  "required": [
+                    "path",
+                    "message"
+                  ]
+                },
+                "maxItems": 100
+              }
+            },
+            "required": [
+              "code",
+              "message"
+            ]
+          }
+        },
+        "required": [
+          "error"
+        ]
+      },
+      "LeaseWithWorkItem": {
+        "type": "object",
+        "properties": {
+          "lease": {
+            "$ref": "#/components/schemas/Lease"
+          },
+          "workItem": {
+            "$ref": "#/components/schemas/WorkItem"
+          }
+        },
+        "required": [
+          "lease",
+          "workItem"
+        ]
+      },
+      "LeaseResponse": {
+        "type": "object",
+        "properties": {
+          "lease": {
+            "$ref": "#/components/schemas/Lease"
+          }
+        },
+        "required": [
+          "lease"
+        ]
+      }
+    },
+    "parameters": {}
+  },
+  "paths": {
+    "/api/leases": {
+      "post": {
+        "operationId": "createLease",
+        "summary": "Claim a specified or first eligible work item",
+        "description": "Creates a fenced lease for the requested item, or for the first eligible item in stable fallback order when workItemId is absent.",
+        "tags": [
+          "leases"
+        ],
+        "security": [
+          {
+            "cloudflareAccessClientId": [],
+            "cloudflareAccessClientSecret": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workerId": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  "leaseDurationSeconds": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 86400,
+                    "format": "int32"
+                  },
+                  "workItemId": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  }
+                },
+                "required": [
+                  "workerId",
+                  "leaseDurationSeconds"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Lease created and work item claimed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LeaseWithWorkItem"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Cloudflare Access authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Cloudflare Access denied the request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Request conflicts with current Work Graph state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Request validation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/leases/{leaseId}/renewals": {
+      "post": {
+        "operationId": "createLeaseRenewal",
+        "summary": "Renew the current lease at its fenced epoch",
+        "description": "Extends a live lease only when its ID and epoch still identify the current worker claim.",
+        "tags": [
+          "leases"
+        ],
+        "security": [
+          {
+            "cloudflareAccessClientId": [],
+            "cloudflareAccessClientSecret": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "maxLength": 36,
+              "format": "uuid"
+            },
+            "required": true,
+            "name": "leaseId",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "epoch": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 2147483647,
+                    "format": "int32"
+                  },
+                  "leaseDurationSeconds": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 86400,
+                    "format": "int32"
+                  }
+                },
+                "required": [
+                  "epoch",
+                  "leaseDurationSeconds"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Lease expiry extended",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LeaseResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Cloudflare Access authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Cloudflare Access denied the request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Request conflicts with current Work Graph state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Request validation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/work-items": {
+      "get": {
+        "operationId": "listWorkItems",
+        "summary": "List work items with their derived stage",
+        "description": "Returns one bounded page in stable creation order. The optional stage filter uses the current derived projection.",
+        "tags": [
+          "work-items"
+        ],
+        "security": [
+          {
+            "cloudflareAccessClientId": [],
+            "cloudflareAccessClientSecret": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "blocked",
+                "ready",
+                "in_progress",
+                "stale",
+                "needs_attention",
+                "released",
+                "cancelled"
+              ]
+            },
+            "required": false,
+            "name": "stage",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50,
+              "format": "int32"
+            },
+            "required": false,
+            "name": "limit",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0,
+              "maximum": 2147483646,
+              "default": 0,
+              "format": "int32"
+            },
+            "required": false,
+            "name": "offset",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Work items in stable creation order",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkItemList"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Cloudflare Access authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Cloudflare Access denied the request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Request conflicts with current Work Graph state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Request validation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/work-items/{workItemId}": {
+      "get": {
+        "operationId": "getWorkItem",
+        "summary": "Read a work item with its derived stage",
+        "description": "Returns stored lifecycle data together with the current derived operational stage and lease.",
+        "tags": [
+          "work-items"
+        ],
+        "security": [
+          {
+            "cloudflareAccessClientId": [],
+            "cloudflareAccessClientSecret": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "required": true,
+            "name": "workItemId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current work-item projection",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkItem"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Cloudflare Access authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Cloudflare Access denied the request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Request conflicts with current Work Graph state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Request validation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/work-items/{workItemId}/cancellations": {
+      "post": {
+        "operationId": "createWorkItemCancellation",
+        "summary": "Cancel claimed work at its fenced lease epoch",
+        "description": "Ends the current lease and changes the named work item's stored lifecycle to cancelled.",
+        "tags": [
+          "work-items"
+        ],
+        "security": [
+          {
+            "cloudflareAccessClientId": [],
+            "cloudflareAccessClientSecret": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "required": true,
+            "name": "workItemId",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "leaseId": {
+                    "type": "string",
+                    "maxLength": 36,
+                    "format": "uuid"
+                  },
+                  "epoch": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 2147483647,
+                    "format": "int32"
+                  }
+                },
+                "required": [
+                  "leaseId",
+                  "epoch"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Work item cancelled and lease ended",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LeaseWithWorkItem"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Cloudflare Access authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Cloudflare Access denied the request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Request conflicts with current Work Graph state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Request validation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/work-items/{workItemId}/releases": {
+      "post": {
+        "operationId": "createWorkItemRelease",
+        "summary": "Release claimed work at its fenced lease epoch",
+        "description": "Ends the current lease and changes the named work item's stored lifecycle to released.",
+        "tags": [
+          "work-items"
+        ],
+        "security": [
+          {
+            "cloudflareAccessClientId": [],
+            "cloudflareAccessClientSecret": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "required": true,
+            "name": "workItemId",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "leaseId": {
+                    "type": "string",
+                    "maxLength": 36,
+                    "format": "uuid"
+                  },
+                  "epoch": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 2147483647,
+                    "format": "int32"
+                  }
+                },
+                "required": [
+                  "leaseId",
+                  "epoch"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Work item released and lease ended",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LeaseWithWorkItem"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Cloudflare Access authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Cloudflare Access denied the request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Request conflicts with current Work Graph state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Request validation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "webhooks": {}
+}
