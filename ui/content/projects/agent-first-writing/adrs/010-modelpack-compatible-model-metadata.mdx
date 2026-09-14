@@ -39,7 +39,9 @@ The manifest must use:
 * the ModelPack raw-weight media type for the checkpoint and raw
   weight-configuration media type for tokenizer and GECToR vocabulary files;
 * `org.cncf.model.filepath` on every model layer; and
-* ordered `modelfs.diffIds` that match the layer digests.
+* ordered `modelfs.diffIds` derived from each layer's uncompressed content;
+  they match a layer descriptor digest only when both hashes cover the same
+  uncompressed bytes.
 
 Keep acquisition URLs and upstream revisions in OCI descriptors. Put local
 policy that ModelPack does not express, such as evaluation-only use and the

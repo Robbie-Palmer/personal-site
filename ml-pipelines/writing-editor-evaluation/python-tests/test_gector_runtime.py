@@ -32,6 +32,22 @@ def test_validates_modelpack_metadata_with_pydantic() -> None:
     assert manifest.checkpoint.annotations.filepath == "gector-2024-roberta-large.th"
 
 
+def test_rejects_modelpack_layers_outside_the_locked_runtime_layout() -> None:
+    manifest = read_model(MODEL_MANIFEST, GectorModelManifest)
+    renamed_annotations = manifest.layers[0].annotations.model_copy(
+        update={"filepath": "renamed-checkpoint.th"}
+    )
+    renamed_layer = manifest.layers[0].model_copy(
+        update={"annotations": renamed_annotations}
+    )
+    renamed_manifest = manifest.model_copy(
+        update={"layers": (renamed_layer, *manifest.layers[1:])}
+    )
+
+    with pytest.raises(ValueError, match="locked GECToR runtime layout"):
+        GectorModelManifest.model_validate(renamed_manifest.model_dump(by_alias=True))
+
+
 def test_limits_runtime_paths_to_the_project_root(tmp_path: Path) -> None:
     inside = tmp_path / "data" / "input.json"
 

@@ -35,6 +35,18 @@ const OciRevisionAnnotation = "org.opencontainers.image.revision" as const;
 const GectorLicenseAnnotation = "me.robbiepalmer.gector.checkpoint-license" as const;
 const GectorUsageAnnotation = "me.robbiepalmer.gector.usage" as const;
 const ModelPackVersionAnnotation = "me.robbiepalmer.modelpack.spec-version" as const;
+const GectorRuntimeLayerMediaTypes = new Map<string, string>([
+  ["gector-2024-roberta-large.th", ModelPackWeightMediaType],
+  ["roberta-large/config.json", ModelPackWeightConfigMediaType],
+  ["roberta-large/merges.txt", ModelPackWeightConfigMediaType],
+  ["roberta-large/tokenizer.json", ModelPackWeightConfigMediaType],
+  ["roberta-large/tokenizer_config.json", ModelPackWeightConfigMediaType],
+  ["roberta-large/vocab.json", ModelPackWeightConfigMediaType],
+  ["vocabulary/labels.txt", ModelPackWeightConfigMediaType],
+  ["vocabulary/d_tags.txt", ModelPackWeightConfigMediaType],
+  ["vocabulary/non_padded_namespaces.txt", ModelPackWeightConfigMediaType],
+  ["verb-form-vocab.txt", ModelPackWeightConfigMediaType],
+]);
 
 const ConfigAnnotationsSchema = z.object({
   [OciTitleAnnotation]: RelativeFileSchema,
@@ -150,6 +162,23 @@ export const GectorModelManifestSchema = ModelPackManifestSchema.transform((mani
     sourceRevision: layer.annotations[OciRevisionAnnotation],
     mediaType: layer.mediaType,
   }));
+  const runtimeLayout = new Map(artifacts.map(({ filename, mediaType }) => [
+    filename,
+    mediaType,
+  ]));
+  const hasExpectedRuntimeLayout =
+    runtimeLayout.size === artifacts.length &&
+    runtimeLayout.size === GectorRuntimeLayerMediaTypes.size &&
+    [...GectorRuntimeLayerMediaTypes].every(
+      ([filename, mediaType]) => runtimeLayout.get(filename) === mediaType,
+    );
+  if (!hasExpectedRuntimeLayout) {
+    context.addIssue({
+      code: "custom",
+      message: "ModelPack layers do not match the locked GECToR runtime layout",
+    });
+    return z.NEVER;
+  }
   const checkpointLayers = artifacts.filter(
     ({ mediaType }) => mediaType === ModelPackWeightMediaType,
   );

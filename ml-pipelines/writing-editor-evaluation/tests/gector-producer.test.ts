@@ -7,6 +7,7 @@ import { sha256 } from "writing-editor-domain/suggestions";
 
 import { runGector } from "../src/run-gector";
 import { GectorProducerRunSchema } from "../src/schemas";
+import { GectorModelManifestSchema } from "../src/prepare-gector-model";
 
 const temporaryDirectories = new Set<string>();
 const projectRoot = path.resolve(import.meta.dirname, "..");
@@ -96,98 +97,11 @@ describe("GECToR producer", () => {
     });
 
     const manifestFile = path.join(temporary, "model-manifest.json");
-    const checkpoint = {
-      url: "https://example.invalid/checkpoint.th",
-      filename: "checkpoint.th",
-      bytes: 10,
-      contentHash: `sha256:${"f".repeat(64)}`,
-    };
-    const runtimeAsset = {
-      sourceRepository: "https://example.invalid/runtime",
-      sourceRevision: "1".repeat(40),
-      url: "https://example.invalid/runtime.txt",
-      filename: "runtime.txt",
-      bytes: 1,
-      contentHash: `sha256:${"2".repeat(64)}`,
-    };
-    const manifest = {
-      modelId: "gector-2024-roberta-large",
-      source: {
-        repository: "https://github.com/grammarly/pillars-of-gec",
-        revision: "1014de0bc90faddba0032acb5dec762c6c85d2e1",
-      },
-    };
-    const config = Buffer.from(JSON.stringify({
-      descriptor: {
-        family: "gector",
-        name: manifest.modelId,
-        title: "GECToR test model",
-        description: "Test model",
-        docURL: manifest.source.repository,
-        sourceURL: manifest.source.repository,
-        revision: manifest.source.revision,
-      },
-      config: {
-        architecture: "transformer",
-        format: "pytorch",
-        capabilities: { inputTypes: ["text"], outputTypes: ["text"] },
-      },
-      modelfs: {
-        type: "layers",
-        diffIds: [checkpoint.contentHash, runtimeAsset.contentHash],
-      },
-    }));
-    const descriptor = (
-      artifact: typeof checkpoint | typeof runtimeAsset,
-      sourceRepository: string,
-      sourceRevision: string,
-      mediaType: string,
-    ) => ({
-      mediaType,
-      digest: artifact.contentHash,
-      size: artifact.bytes,
-      urls: [artifact.url],
-      annotations: {
-        "org.cncf.model.filepath": artifact.filename,
-        "org.opencontainers.image.title": artifact.filename,
-        "org.opencontainers.image.source": sourceRepository,
-        "org.opencontainers.image.revision": sourceRevision,
-      },
-    });
-    writeJson(manifestFile, {
-      schemaVersion: 2,
-      mediaType: "application/vnd.oci.image.manifest.v1+json",
-      artifactType: "application/vnd.cncf.model.manifest.v1+json",
-      config: {
-        mediaType: "application/vnd.cncf.model.config.v1+json",
-        digest: sha256(config),
-        size: config.byteLength,
-        data: config.toString("base64"),
-        annotations: { "org.opencontainers.image.title": "gector-model-config.json" },
-      },
-      layers: [
-        descriptor(
-          checkpoint,
-          manifest.source.repository,
-          manifest.source.revision,
-          "application/vnd.cncf.model.weight.v1.raw",
-        ),
-        descriptor(
-          runtimeAsset,
-          runtimeAsset.sourceRepository,
-          runtimeAsset.sourceRevision,
-          "application/vnd.cncf.model.weight.config.v1.raw",
-        ),
-      ],
-      annotations: {
-        "org.opencontainers.image.title": "GECToR test model",
-        "org.opencontainers.image.source": manifest.source.repository,
-        "org.opencontainers.image.revision": manifest.source.revision,
-        "me.robbiepalmer.gector.checkpoint-license": "not-stated-by-upstream",
-        "me.robbiepalmer.gector.usage": "evaluation-only",
-        "me.robbiepalmer.modelpack.spec-version": "v0.0.7",
-      },
-    });
+    fs.copyFileSync(path.join(projectRoot, "model-manifest.json"), manifestFile);
+    const manifest = GectorModelManifestSchema.parse(
+      JSON.parse(fs.readFileSync(manifestFile, "utf8")),
+    );
+    const checkpoint = manifest.checkpoint;
     const manifestHash = sha256(fs.readFileSync(manifestFile));
     const modelDirectory = path.join(temporary, "model");
     writeJson(path.join(modelDirectory, "receipt.json"), {
@@ -201,13 +115,13 @@ describe("GECToR producer", () => {
         bytes: checkpoint.bytes,
         contentHash: checkpoint.contentHash,
       },
-      runtimeAssets: [{
+      runtimeAssets: manifest.runtimeAssets.map((runtimeAsset) => ({
         file: runtimeAsset.filename,
         bytes: runtimeAsset.bytes,
         contentHash: runtimeAsset.contentHash,
         sourceRepository: runtimeAsset.sourceRepository,
         sourceRevision: runtimeAsset.sourceRevision,
-      }],
+      })),
       manifestContentHash: manifestHash,
     });
 

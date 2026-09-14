@@ -37,6 +37,22 @@ CONTENT_DIGEST_PATTERN = r"^sha256:[a-f0-9]{64}$"
 OCI_TITLE_ANNOTATION = "org.opencontainers.image.title"
 OCI_SOURCE_ANNOTATION = "org.opencontainers.image.source"
 OCI_REVISION_ANNOTATION = "org.opencontainers.image.revision"
+MODEL_WEIGHT_MEDIA_TYPE = "application/vnd.cncf.model.weight.v1.raw"
+MODEL_WEIGHT_CONFIG_MEDIA_TYPE = "application/vnd.cncf.model.weight.config.v1.raw"
+GECTOR_RUNTIME_LAYER_MEDIA_TYPES = frozenset(
+    {
+        ("gector-2024-roberta-large.th", MODEL_WEIGHT_MEDIA_TYPE),
+        ("roberta-large/config.json", MODEL_WEIGHT_CONFIG_MEDIA_TYPE),
+        ("roberta-large/merges.txt", MODEL_WEIGHT_CONFIG_MEDIA_TYPE),
+        ("roberta-large/tokenizer.json", MODEL_WEIGHT_CONFIG_MEDIA_TYPE),
+        ("roberta-large/tokenizer_config.json", MODEL_WEIGHT_CONFIG_MEDIA_TYPE),
+        ("roberta-large/vocab.json", MODEL_WEIGHT_CONFIG_MEDIA_TYPE),
+        ("vocabulary/labels.txt", MODEL_WEIGHT_CONFIG_MEDIA_TYPE),
+        ("vocabulary/d_tags.txt", MODEL_WEIGHT_CONFIG_MEDIA_TYPE),
+        ("vocabulary/non_padded_namespaces.txt", MODEL_WEIGHT_CONFIG_MEDIA_TYPE),
+        ("verb-form-vocab.txt", MODEL_WEIGHT_CONFIG_MEDIA_TYPE),
+    }
+)
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 MODEL_DIRECTORY = PROJECT_ROOT / "data/models/gector-2024"
 MODEL_MANIFEST = PROJECT_ROOT / "model-manifest.json"
@@ -132,8 +148,8 @@ class OciConfigDescriptor(ImmutableModel):
 
 class OciLayerDescriptor(ImmutableModel):
     media_type: Literal[
-        "application/vnd.cncf.model.weight.v1.raw",
-        "application/vnd.cncf.model.weight.config.v1.raw",
+        MODEL_WEIGHT_MEDIA_TYPE,
+        MODEL_WEIGHT_CONFIG_MEDIA_TYPE,
     ] = Field(alias="mediaType")
     digest: str = Field(pattern=CONTENT_DIGEST_PATTERN)
     size: Annotated[int, Field(gt=0)]
@@ -208,7 +224,7 @@ class GectorModelManifest(ImmutableModel):
         return next(
             layer
             for layer in self.layers
-            if layer.media_type == "application/vnd.cncf.model.weight.v1.raw"
+            if layer.media_type == MODEL_WEIGHT_MEDIA_TYPE
         )
 
     @model_validator(mode="after")
@@ -230,10 +246,20 @@ class GectorModelManifest(ImmutableModel):
         checkpoint_layers = tuple(
             layer
             for layer in self.layers
-            if layer.media_type == "application/vnd.cncf.model.weight.v1.raw"
+            if layer.media_type == MODEL_WEIGHT_MEDIA_TYPE
         )
         if len(checkpoint_layers) != 1:
             msg = "ModelPack must contain one checkpoint layer"
+            raise ValueError(msg)
+        runtime_layout = tuple(
+            (layer.annotations.filepath, layer.media_type) for layer in self.layers
+        )
+        if (
+            len({filepath for filepath, _media_type in runtime_layout})
+            != len(runtime_layout)
+            or frozenset(runtime_layout) != GECTOR_RUNTIME_LAYER_MEDIA_TYPES
+        ):
+            msg = "ModelPack layers do not match the locked GECToR runtime layout"
             raise ValueError(msg)
         if (
             self.checkpoint.annotations.source != self.metadata.descriptor.source_url

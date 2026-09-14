@@ -35,6 +35,30 @@ interface TestArtifact {
   mediaType: string;
 }
 
+const RuntimeAssetFilenames = [
+  "roberta-large/config.json",
+  "roberta-large/merges.txt",
+  "roberta-large/tokenizer.json",
+  "roberta-large/tokenizer_config.json",
+  "roberta-large/vocab.json",
+  "vocabulary/labels.txt",
+  "vocabulary/d_tags.txt",
+  "vocabulary/non_padded_namespaces.txt",
+  "verb-form-vocab.txt",
+] as const;
+
+function runtimeArtifacts(payload: Buffer): TestArtifact[] {
+  return RuntimeAssetFilenames.map((filename) => ({
+    sourceRepository: "https://example.invalid/runtime",
+    sourceRevision: "a".repeat(40),
+    url: `https://example.invalid/${filename}`,
+    filename,
+    bytes: payload.length,
+    contentHash: sha256(payload),
+    mediaType: "application/vnd.cncf.model.weight.config.v1.raw",
+  }));
+}
+
 function modelManifest(checkpoint: TestArtifact, runtimeAssets: TestArtifact[]) {
   const artifacts = [checkpoint, ...runtimeAssets];
   const config = Buffer.from(JSON.stringify({
@@ -94,22 +118,14 @@ function writeManifest(directory: string, payload: Buffer): string {
   fs.writeFileSync(file, `${JSON.stringify(modelManifest(
     {
       url: "https://example.invalid/checkpoint.th",
-      filename: "checkpoint.th",
+      filename: "gector-2024-roberta-large.th",
       bytes: payload.length,
       contentHash: sha256(payload),
       sourceRepository: "https://github.com/grammarly/pillars-of-gec",
       sourceRevision: "1014de0bc90faddba0032acb5dec762c6c85d2e1",
       mediaType: "application/vnd.cncf.model.weight.v1.raw",
     },
-    [{
-      sourceRepository: "https://example.invalid/runtime",
-      sourceRevision: "a".repeat(40),
-      url: "https://example.invalid/runtime.txt",
-      filename: "runtime/runtime.txt",
-      bytes: payload.length,
-      contentHash: sha256(payload),
-      mediaType: "application/vnd.cncf.model.weight.config.v1.raw",
-    }],
+    runtimeArtifacts(payload),
   ), null, 2)}\n`);
   return file;
 }
@@ -169,16 +185,7 @@ describe("GECToR model preparation", () => {
   });
 
   test("rejects checkpoint provenance that differs from the model config", () => {
-    const payload = Buffer.from("fixture");
-    const manifest = modelManifest({
-      url: "https://example.invalid/checkpoint.th",
-      filename: "checkpoint.th",
-      bytes: payload.length,
-      contentHash: sha256(payload),
-      sourceRepository: "https://github.com/grammarly/pillars-of-gec",
-      sourceRevision: "1014de0bc90faddba0032acb5dec762c6c85d2e1",
-      mediaType: "application/vnd.cncf.model.weight.v1.raw",
-    }, []);
+    const manifest = JSON.parse(fs.readFileSync("model-manifest.json", "utf8"));
     manifest.layers[0]!.annotations["org.opencontainers.image.revision"] = "a".repeat(40);
 
     expect(() => GectorModelManifestSchema.parse(manifest))
@@ -202,12 +209,20 @@ describe("GECToR model preparation", () => {
       .toThrow("ModelPack diff IDs do not match layers");
   });
 
+  test("rejects layers that do not match the locked runtime asset layout", () => {
+    const manifest = JSON.parse(fs.readFileSync("model-manifest.json", "utf8"));
+    manifest.layers[0].annotations["org.cncf.model.filepath"] = "renamed-checkpoint.th";
+
+    expect(() => GectorModelManifestSchema.parse(manifest))
+      .toThrow("ModelPack layers do not match the locked GECToR runtime layout");
+  });
+
   test("resumes, verifies, and records the declared checkpoint", async () => {
     const payload = Buffer.from("official-checkpoint-fixture");
     const directory = temporaryDirectory();
     const manifestFile = writeManifest(directory, payload);
     const outputDirectory = path.join(directory, "model");
-    const partialFile = path.join(outputDirectory, "checkpoint.th.partial");
+    const partialFile = path.join(outputDirectory, "gector-2024-roberta-large.th.partial");
     fs.mkdirSync(outputDirectory);
     fs.writeFileSync(partialFile, payload.subarray(0, 8));
 
@@ -223,20 +238,15 @@ describe("GECToR model preparation", () => {
       download,
     });
 
-    expect(fs.readFileSync(path.join(outputDirectory, "checkpoint.th"))).toEqual(payload);
+    expect(fs.readFileSync(path.join(outputDirectory, "gector-2024-roberta-large.th")))
+      .toEqual(payload);
     expect(fs.existsSync(partialFile)).toBe(false);
     expect(receipt.checkpoint).toEqual({
-      file: "checkpoint.th",
+      file: "gector-2024-roberta-large.th",
       bytes: payload.length,
       contentHash: sha256(payload),
     });
-    expect(receipt.runtimeAssets).toEqual([{
-      file: "runtime/runtime.txt",
-      bytes: payload.length,
-      contentHash: sha256(payload),
-      sourceRepository: "https://example.invalid/runtime",
-      sourceRevision: "a".repeat(40),
-    }]);
+    expect(receipt.runtimeAssets.map(({ file }) => file)).toEqual(RuntimeAssetFilenames);
     expect(JSON.parse(fs.readFileSync(path.join(outputDirectory, "receipt.json"), "utf8")))
       .toEqual(receipt);
   });
@@ -305,8 +315,11 @@ describe("GECToR model preparation", () => {
 
     await expect(prepareGectorModel({ manifestFile, outputDirectory, download }))
       .rejects.toThrow("checkpoint hash mismatch");
-    expect(fs.existsSync(path.join(outputDirectory, "checkpoint.th"))).toBe(false);
-    expect(fs.existsSync(path.join(outputDirectory, "checkpoint.th.partial"))).toBe(false);
+    expect(fs.existsSync(path.join(outputDirectory, "gector-2024-roberta-large.th"))).toBe(false);
+    expect(fs.existsSync(path.join(
+      outputDirectory,
+      "gector-2024-roberta-large.th.partial",
+    ))).toBe(false);
     expect(fs.existsSync(path.join(outputDirectory, "receipt.json"))).toBe(false);
 
     await prepareGectorModel({
@@ -314,7 +327,8 @@ describe("GECToR model preparation", () => {
       outputDirectory,
       download: async (_url, target) => fs.writeFileSync(target, payload),
     });
-    expect(fs.readFileSync(path.join(outputDirectory, "checkpoint.th"))).toEqual(payload);
+    expect(fs.readFileSync(path.join(outputDirectory, "gector-2024-roberta-large.th")))
+      .toEqual(payload);
   });
 
   test("rejects an invalid existing checkpoint without downloading again", async () => {
@@ -323,7 +337,7 @@ describe("GECToR model preparation", () => {
     const manifestFile = writeManifest(directory, payload);
     const outputDirectory = path.join(directory, "model");
     fs.mkdirSync(outputDirectory);
-    fs.writeFileSync(path.join(outputDirectory, "checkpoint.th"), "wrong");
+    fs.writeFileSync(path.join(outputDirectory, "gector-2024-roberta-large.th"), "wrong");
     const download = vi.fn<CheckpointDownloader>();
 
     await expect(prepareGectorModel({ manifestFile, outputDirectory, download }))
@@ -337,9 +351,12 @@ describe("GECToR model preparation", () => {
     const manifestFile = writeManifest(directory, payload);
     const outputDirectory = path.join(directory, "model");
     fs.mkdirSync(outputDirectory);
-    fs.writeFileSync(path.join(outputDirectory, "checkpoint.th"), payload);
-    fs.mkdirSync(path.join(outputDirectory, "runtime"));
-    fs.writeFileSync(path.join(outputDirectory, "runtime/runtime.txt"), payload);
+    fs.writeFileSync(path.join(outputDirectory, "gector-2024-roberta-large.th"), payload);
+    for (const filename of RuntimeAssetFilenames) {
+      const asset = path.join(outputDirectory, filename);
+      fs.mkdirSync(path.dirname(asset), { recursive: true });
+      fs.writeFileSync(asset, payload);
+    }
     const download = vi.fn<CheckpointDownloader>();
 
     const receipt = await prepareGectorModel({ manifestFile, outputDirectory, download });
