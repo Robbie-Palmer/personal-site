@@ -732,17 +732,20 @@ def serialized_result(result: dict[str, Any]) -> str:
 
 def write_runtime_smoke_result(result: dict[str, Any]) -> None:
     RUNTIME_SMOKE_OUTPUT.parent.mkdir(parents=True, exist_ok=True)
-    RUNTIME_SMOKE_OUTPUT.write_text(serialized_result(result), encoding="utf-8")
+    with RUNTIME_SMOKE_OUTPUT.open("w", encoding="utf-8", newline="\n") as output:
+        output.write(serialized_result(result))
 
 
 def write_adapter_smoke_result(result: dict[str, Any]) -> None:
     ADAPTER_SMOKE_OUTPUT.parent.mkdir(parents=True, exist_ok=True)
-    ADAPTER_SMOKE_OUTPUT.write_text(serialized_result(result), encoding="utf-8")
+    with ADAPTER_SMOKE_OUTPUT.open("w", encoding="utf-8", newline="\n") as output:
+        output.write(serialized_result(result))
 
 
 def write_cohort_result(result: dict[str, Any]) -> None:
     COHORT_OUTPUT.parent.mkdir(parents=True, exist_ok=True)
-    COHORT_OUTPUT.write_text(serialized_result(result), encoding="utf-8")
+    with COHORT_OUTPUT.open("w", encoding="utf-8", newline="\n") as output:
+        output.write(serialized_result(result))
 
 
 def main() -> None:
