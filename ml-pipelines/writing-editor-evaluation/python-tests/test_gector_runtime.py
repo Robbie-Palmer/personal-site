@@ -22,6 +22,8 @@ def test_limits_runtime_paths_to_the_project_root(tmp_path: Path) -> None:
     assert project_path(inside, tmp_path) == inside
     with pytest.raises(ValueError, match="outside the project root"):
         project_path(tmp_path.parent / "outside.json", tmp_path)
+    with pytest.raises(ValueError, match="outside the project root"):
+        project_path(tmp_path, tmp_path)
 
 
 def test_reads_allennlp_padded_vocabulary_indexes(tmp_path: Path) -> None:

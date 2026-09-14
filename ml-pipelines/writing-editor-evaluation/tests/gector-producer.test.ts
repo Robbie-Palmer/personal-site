@@ -222,6 +222,11 @@ describe("GECToR producer", () => {
       .toBe("Café is useful.\n");
 
     expect(runGector(options).runId).toBe(result.runId);
+    fs.mkdirSync(`${outputDirectory}.backup`);
+    fs.writeFileSync(path.join(`${outputDirectory}.backup`, "stale"), "stale");
+    expect(runGector(options).runId).toBe(result.runId);
+    fs.renameSync(outputDirectory, `${outputDirectory}.backup`);
+    expect(runGector(options).runId).toBe(result.runId);
     const publishedRun = fs.readFileSync(path.join(outputDirectory, "run.json"), "utf8");
     fs.writeFileSync(path.join(corpusRoot, sourceFile), "Changed source.\n");
     expect(() => runGector(options)).toThrow("source hash does not match the frozen cohort");

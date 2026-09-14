@@ -28,6 +28,7 @@ KEEP = "$KEEP"
 PADDING = "@@PADDING@@"
 UNKNOWN = "@@UNKNOWN@@"
 MERGE_PREFIX = "$MERGE_"
+APPEND_PREFIX = "$APPEND_"
 MAX_PIECES_PER_TOKEN = 5
 ENCODER_PREFIX = "text_field_embedder.token_embedder_bert.bert_model."
 LABEL_WEIGHT = "tag_labels_projection_layer._module.weight"
@@ -100,12 +101,12 @@ def read_json(path: Path) -> dict[str, Any]:
 
 def project_path(path: Path, project_root: Path = PROJECT_ROOT) -> Path:
     candidate = path if path.is_absolute() else project_root / path
-    resolved = os.path.realpath(candidate)
-    project_root = os.path.realpath(project_root)
-    if resolved != project_root and not resolved.startswith(f"{project_root}{os.sep}"):
+    resolved = Path(os.path.realpath(candidate))
+    resolved_root = Path(os.path.realpath(project_root))
+    if resolved == resolved_root or not resolved.is_relative_to(resolved_root):
         msg = f"path {path!s} is outside the project root"
         raise ValueError(msg)
-    return Path(resolved)
+    return resolved
 
 
 def frozen_job(artifact_id: str | None = None) -> dict[str, Any]:
@@ -193,7 +194,7 @@ def apply_edits(
             del target_tokens[position]
             shift -= 1
         elif start == end:
-            target_tokens[position:position] = [label.removeprefix("$APPEND_")]
+            target_tokens[position:position] = [label.removeprefix(APPEND_PREFIX)]
             shift += 1
         elif label.startswith("$TRANSFORM_"):
             target_tokens[position] = apply_transformation(source_token, label, verb_forms)
@@ -278,7 +279,7 @@ def edit_action(index: int, label: str, probability: float) -> tuple[int, int, s
         return index - 1, index, "", probability
     if label.startswith(("$REPLACE_", "$TRANSFORM_")):
         return index - 1, index, label, probability
-    if label.startswith(("$APPEND_", MERGE_PREFIX)):
+    if label.startswith((APPEND_PREFIX, MERGE_PREFIX)):
         return index, index, label, probability
     msg = f"unsupported GECToR label: {label}"
     raise ValueError(msg)
@@ -286,7 +287,7 @@ def edit_action(index: int, label: str, probability: float) -> tuple[int, int, s
 
 def is_actionable_label(index: int, label: str) -> bool:
     """Only append operations are meaningful at the synthetic start token."""
-    return index > 0 or label.startswith("$APPEND_")
+    return index > 0 or label.startswith(APPEND_PREFIX)
 
 
 def record_prediction(
