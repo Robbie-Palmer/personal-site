@@ -69,6 +69,15 @@ def read_json(path: Path) -> dict[str, Any]:
     return value
 
 
+def project_path(path: Path) -> Path:
+    resolved = os.path.realpath(path)
+    project_root = os.path.realpath(Path.cwd())
+    if resolved != project_root and not resolved.startswith(f"{project_root}{os.sep}"):
+        msg = f"path {path!s} is outside the project root"
+        raise ValueError(msg)
+    return Path(resolved)
+
+
 def read_vocabulary(path: Path, *, padded: bool) -> list[str]:
     if padded:
         msg = "use read_padded_vocabulary for padded AllenNLP namespaces"
@@ -526,7 +535,7 @@ def run_job(
     segments: list[tuple[int, TextSegment]] = []
     artifact_sources: list[str] = []
     for artifact_index, artifact in enumerate(artifacts):
-        source_file = Path(artifact["sourceFile"])
+        source_file = project_path(Path(artifact["sourceFile"]))
         source = source_file.read_text(encoding="utf-8")
         artifact_sources.append(source)
         segments.extend(
@@ -601,20 +610,25 @@ def main() -> None:
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--expected-generated", type=Path)
     args = parser.parse_args()
+    job_path = project_path(args.job)
+    model_path = project_path(args.model)
+    manifest_path = project_path(args.manifest)
+    params_path = project_path(args.params)
+    output_path = project_path(args.output)
     result = run_job(
-        read_json(args.job),
-        args.model,
-        read_json(args.manifest),
-        parse_parameters(read_json(args.params)),
+        read_json(job_path),
+        model_path,
+        read_json(manifest_path),
+        parse_parameters(read_json(params_path)),
     )
     if args.expected_generated is not None:
-        expected = args.expected_generated.read_text(encoding="utf-8")
+        expected = project_path(args.expected_generated).read_text(encoding="utf-8")
         if len(result["artifacts"]) != 1 or result["artifacts"][0]["generatedText"] != expected:
             msg = "smoke output does not match the pinned expected correction"
             raise RuntimeError(msg)
-    args.output.parent.mkdir(parents=True, exist_ok=True)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
     serialized = json.dumps(result, sort_keys=True, separators=(",", ":"))
-    args.output.write_text(f"{serialized}\n", encoding="utf-8")
+    output_path.write_text(f"{serialized}\n", encoding="utf-8")
     print(f"Ran GECToR over {len(result['artifacts'])} artifact(s) on CUDA")
 
 

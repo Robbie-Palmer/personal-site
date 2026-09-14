@@ -22,7 +22,7 @@ python = "3.12.12"
 
 [tasks."runtime:sync"]
 description = "Install the locked CUDA GECToR runtime"
-run = "uv sync --locked"
+run = "uv sync --locked --no-dev"
 
 [tasks."runtime:lock"]
 description = "Resolve the CUDA GECToR runtime lockfile"

@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+uv sync --locked --no-dev
+
 pnpm exec tsx src/run-gector.ts \
   --cohort outputs/frozen/cohort.json \
   --corpus data/corpus \

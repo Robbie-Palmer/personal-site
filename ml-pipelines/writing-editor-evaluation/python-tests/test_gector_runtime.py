@@ -1,14 +1,29 @@
 from pathlib import Path
 
+import pytest
+
 from python.gector_runtime import (
     apply_edits,
     apply_transformation,
     document_segments,
+    project_path,
     read_padded_vocabulary,
     read_vocabulary,
     reconstruct_segment,
     split_line,
 )
+
+
+def test_limits_runtime_paths_to_the_project_root(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    inside = tmp_path / "data" / "input.json"
+
+    assert project_path(inside) == inside
+    with pytest.raises(ValueError, match="outside the project root"):
+        project_path(tmp_path.parent / "outside.json")
 
 
 def test_reads_allennlp_padded_vocabulary_indexes(tmp_path: Path) -> None:

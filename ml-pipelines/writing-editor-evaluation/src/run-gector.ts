@@ -1,6 +1,5 @@
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
@@ -94,7 +93,7 @@ export interface RunGectorOptions {
 }
 
 function defaultPythonRunner(arguments_: string[], cwd: string): void {
-  execFileSync("uv", arguments_, {
+  execFileSync(path.join(cwd, ".venv/bin/python"), arguments_, {
     cwd,
     env: {
       ...process.env,
@@ -203,7 +202,7 @@ export function runGector(options: RunGectorOptions): GectorProducerRun {
     throw new Error(`frozen cohort does not contain artifact ${options.artifactId}`);
   }
 
-  const temporary = fs.mkdtempSync(path.join(os.tmpdir(), "gector-run-"));
+  const temporary = fs.mkdtempSync(path.join(options.projectRoot, ".gector-run-"));
   const jobFile = path.join(temporary, "job.json");
   const rawFile = path.join(temporary, "raw.json");
   const runtimeSource = path.join(options.projectRoot, "python/gector_runtime.py");
@@ -220,10 +219,6 @@ export function runGector(options: RunGectorOptions): GectorProducerRun {
 
   try {
     (options.pythonRunner ?? defaultPythonRunner)([
-      "run",
-      "--locked",
-      "--no-dev",
-      "python",
       runtimeSource,
       "--job",
       jobFile,
