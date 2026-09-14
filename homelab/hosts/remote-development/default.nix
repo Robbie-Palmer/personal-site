@@ -284,11 +284,17 @@ in
 
       test -s "$legacy/server/db/state.db"
       install -d -m 0755 /var/lib/rancher
+      cleanup_staging() {
+        rm -rf -- "$staging"
+      }
+      trap cleanup_staging EXIT
       rm -rf -- "$staging"
       cp -a -- "$legacy" "$staging"
       test -s "$staging/server/db/state.db"
       sync -f "$staging"
       mv -- "$staging" "$target"
+      test -s "$target/server/db/state.db"
+      trap - EXIT
     '';
   };
 
@@ -314,7 +320,7 @@ in
       fi
 
       while IFS= read -r -d "" link; do
-        target="$(readlink "$link")"
+        target="$(readlink -f "$link" || true)"
         case "$target" in
           /srv/remote-development/k3s/*)
             replacement="/var/lib/rancher/k3s/''${target#/srv/remote-development/k3s/}"
@@ -327,9 +333,10 @@ in
       if [ -d /var/lib/rancher/k3s/server/cred ]; then
         while IFS= read -r -d "" kubeconfig; do
           if grep -qF /srv/remote-development/k3s "$kubeconfig"; then
-            sed -i \
-              's#/srv/remote-development/k3s#/var/lib/rancher/k3s#g' \
+            sed -E -i \
+              's#^([[:space:]]*(certificate-authority|client-certificate|client-key):[[:space:]]*)/srv/remote-development/k3s#\1/var/lib/rancher/k3s#' \
               "$kubeconfig"
+            ! grep -qF /srv/remote-development/k3s "$kubeconfig"
           fi
         done < <(
           find /var/lib/rancher/k3s/server/cred \
