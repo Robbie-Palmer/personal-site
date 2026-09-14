@@ -1,5 +1,3 @@
-import * as schema from "./schema";
-
 export { closeDb, createDb, type Db, type DbTransaction } from "./connection";
 export * from "./repository";
-export { schema };
+export * as schema from "./schema";
