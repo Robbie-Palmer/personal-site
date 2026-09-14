@@ -34,6 +34,9 @@ DETECT_WEIGHT = "tag_detect_projection_layer._module.weight"
 DETECT_BIAS = "tag_detect_projection_layer._module.bias"
 GIT_REVISION_PATTERN = r"^[a-f0-9]{40}$"
 CONTENT_DIGEST_PATTERN = r"^sha256:[a-f0-9]{64}$"
+OCI_TITLE_ANNOTATION = "org.opencontainers.image.title"
+OCI_SOURCE_ANNOTATION = "org.opencontainers.image.source"
+OCI_REVISION_ANNOTATION = "org.opencontainers.image.revision"
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 MODEL_DIRECTORY = PROJECT_ROOT / "data/models/gector-2024"
 MODEL_MANIFEST = PROJECT_ROOT / "model-manifest.json"
@@ -91,19 +94,19 @@ class TextSegment(ImmutableModel):
 
 class DescriptorAnnotations(ImmutableModel):
     filepath: str = Field(alias="org.cncf.model.filepath")
-    title: str = Field(alias="org.opencontainers.image.title")
-    source: str = Field(alias="org.opencontainers.image.source")
-    revision: str = Field(alias="org.opencontainers.image.revision", pattern=GIT_REVISION_PATTERN)
+    title: str = Field(alias=OCI_TITLE_ANNOTATION)
+    source: str = Field(alias=OCI_SOURCE_ANNOTATION)
+    revision: str = Field(alias=OCI_REVISION_ANNOTATION, pattern=GIT_REVISION_PATTERN)
 
 
 class ConfigAnnotations(ImmutableModel):
-    title: str = Field(alias="org.opencontainers.image.title")
+    title: str = Field(alias=OCI_TITLE_ANNOTATION)
 
 
 class ManifestAnnotations(ImmutableModel):
-    title: str = Field(alias="org.opencontainers.image.title")
-    source: str = Field(alias="org.opencontainers.image.source")
-    revision: str = Field(alias="org.opencontainers.image.revision", pattern=GIT_REVISION_PATTERN)
+    title: str = Field(alias=OCI_TITLE_ANNOTATION)
+    source: str = Field(alias=OCI_SOURCE_ANNOTATION)
+    revision: str = Field(alias=OCI_REVISION_ANNOTATION, pattern=GIT_REVISION_PATTERN)
     checkpoint_license: Literal["not-stated-by-upstream"] = Field(
         alias="me.robbiepalmer.gector.checkpoint-license"
     )
