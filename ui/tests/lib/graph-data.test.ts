@@ -270,5 +270,8 @@ describe("extractGraphData", () => {
         type: "USES_PLATFORM_LAYER",
       }),
     );
+    expect(data.nodes).not.toContainEqual(
+      expect.objectContaining({ type: "platform-policy" }),
+    );
   });
 });

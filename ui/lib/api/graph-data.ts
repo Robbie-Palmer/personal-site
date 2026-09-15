@@ -1,8 +1,10 @@
 import type { DomainRepository } from "@/lib/domain";
 import { normalizeADRTitle, parseADRRef } from "@/lib/domain/adr/adr";
 import {
+  type DefaultSelection,
   isEffectiveAt,
   isUseEffectiveAt,
+  type LayerSlotPolicy,
   resolveEffectiveProjectStack,
 } from "@/lib/domain/platform";
 import type { NodeType } from "@/lib/repository/graph";
@@ -161,6 +163,7 @@ function addResearchPaperNodes(
 function addPlatformNodes(
   repository: DomainRepository,
   state: GraphBuildState,
+  instant: string,
 ): void {
   const manifest = repository.platform?.manifest;
   if (!manifest) return;
@@ -174,7 +177,12 @@ function addPlatformNodes(
     });
   }
   for (const selection of manifest.selections) {
-    if (selection.kind !== "policy") continue;
+    if (
+      selection.kind !== "policy" ||
+      selection.status !== "Accepted" ||
+      !isEffectiveAt(selection, instant)
+    )
+      continue;
     state.nodes.push({
       id: `platform-policy:${selection.id}`,
       name: selection.value,
@@ -183,6 +191,23 @@ function addPlatformNodes(
       connections: 0,
     });
   }
+}
+
+function platformSelectionTarget(selection: DefaultSelection): string {
+  if (selection.kind === "technology") {
+    return `technology:${selection.technology}`;
+  }
+  return `platform-policy:${selection.id}`;
+}
+
+function platformSelectionEdgeType(
+  selection: DefaultSelection,
+  mode: LayerSlotPolicy["mode"],
+): string {
+  if (selection.kind === "technology") {
+    return mode === "required" ? "REQUIRES_TECHNOLOGY" : "PREFERS_TECHNOLOGY";
+  }
+  return mode === "required" ? "REQUIRES_POLICY" : "PREFERS_POLICY";
 }
 
 function addTechnologyAndTagNodes(
@@ -405,16 +430,8 @@ function addPlatformPolicyEdges(
       addEdge(
         state,
         `platform-layer:${policy.layer}`,
-        selection.kind === "technology"
-          ? `technology:${selection.technology}`
-          : `platform-policy:${selection.id}`,
-        selection.kind === "technology"
-          ? policy.mode === "required"
-            ? "REQUIRES_TECHNOLOGY"
-            : "PREFERS_TECHNOLOGY"
-          : policy.mode === "required"
-            ? "REQUIRES_POLICY"
-            : "PREFERS_POLICY",
+        platformSelectionTarget(selection),
+        platformSelectionEdgeType(selection, policy.mode),
         {
           layer: policy.layer,
           slot: policy.slot,
@@ -520,7 +537,7 @@ export function extractGraphData(
   addContentNodes(repository, state);
   addResearchPaperNodes(repository, state);
   addAdrNodes(repository, state);
-  addPlatformNodes(repository, state);
+  addPlatformNodes(repository, state, instant);
   const connectedTechs = addTechnologyAndTagNodes(repository, state);
   addTechnologyEdges(repository, state, connectedTechs);
   addRelationshipEdges(repository, state);

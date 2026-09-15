@@ -674,6 +674,29 @@ interface ADRLoadResult {
   aliases: Map<ADRRef, ADRRef>;
 }
 
+function parseDefaultOverride(value: unknown): DefaultOverride | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return undefined;
+  }
+  const override = value as Record<string, unknown>;
+  if (override.kind === "policy" || override.value !== undefined) {
+    return DefaultOverrideSchema.parse({
+      slot: override.slot,
+      kind: "policy",
+      value: override.value,
+      adopted: override.adopted,
+      until: override.until,
+    });
+  }
+  return DefaultOverrideSchema.parse({
+    slot: override.slot,
+    kind: "technology",
+    technology: normalizeSlug(String(override.technology)),
+    adopted: override.adopted,
+    until: override.until,
+  });
+}
+
 export function loadADRs(): ADRLoadResult {
   const entities = new Map<ADRRef, ADR>();
   const relations = new Map<ADRRef, ADRRelations>();
@@ -731,28 +754,7 @@ export function loadADRs(): ADRLoadResult {
         status: data.status as ADR["status"],
         inheritsFrom: undefined,
         supersedes: data.supersedes as ADRRef | undefined,
-        overridesDefault: data.overrides_default
-          ? DefaultOverrideSchema.parse(
-              data.overrides_default.kind === "policy" ||
-                data.overrides_default.value !== undefined
-                ? {
-                    slot: data.overrides_default.slot,
-                    kind: "policy",
-                    value: data.overrides_default.value,
-                    adopted: data.overrides_default.adopted,
-                    until: data.overrides_default.until,
-                  }
-                : {
-                    slot: data.overrides_default.slot,
-                    kind: "technology",
-                    technology: normalizeSlug(
-                      data.overrides_default.technology,
-                    ),
-                    adopted: data.overrides_default.adopted,
-                    until: data.overrides_default.until,
-                  },
-            )
-          : undefined,
+        overridesDefault: parseDefaultOverride(data.overrides_default),
         content,
         readingTime: readingTime(content).text,
       };
