@@ -1,0 +1,62 @@
+name: Work Graph Infrastructure CI
+
+on:
+  pull_request:
+    paths:
+      - "infra/work-graph/**"
+      - ".github/workflows/work-graph-infra-ci.yml"
+
+permissions: {}
+
+jobs:
+  terraform:
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    environment:
+      name: production-work-graph-infra-plan
+    defaults:
+      run:
+        working-directory: infra/work-graph
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: $/.github/actions/setup-mise
+
+      - name: Create empty .env for mise
+        run: touch .env
+
+      - name: Check Terraform formatting
+        run: mise run //infra/work-graph:format:check
+
+      - name: Validate Terraform and credential boundary
+        run: mise run //infra/work-graph:precommit-lint
+        env:
+          TF_TOKEN_app_terraform_io: ${{ secrets.TF_API_TOKEN }}
+
+      - name: Lint Terraform
+        run: mise run //infra/work-graph:lint:tflint
+
+      - name: Terraform plan
+        run: mise run //infra/work-graph:plan
+        env:
+          TF_TOKEN_app_terraform_io: ${{ secrets.TF_API_TOKEN }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          TF_VAR_cloudflare_account_id: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+          TF_VAR_neon_org_id: ${{ secrets.NEON_ORG_ID }}
+
+      - name: Add Terraform plan to PR comment
+        uses: borchero/terraform-plan-comment@f585438eda2fa77c6f275994b92aeccd86ef3542 # v3
+        with:
+          token: ${{ github.token }}
+          planfile: .planfile
+          working-directory: ./infra/work-graph
+
+      - name: Remove Terraform plan
+        if: ${{ always() }}
+        run: rm -f .planfile
