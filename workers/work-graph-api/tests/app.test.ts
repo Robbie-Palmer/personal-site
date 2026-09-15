@@ -188,9 +188,7 @@ describe("Given idempotent graph mutation requests", () => {
       ...item("sparse", "ready"),
       title: "Sparse work item",
     });
-    const app = createWorkGraphApp(repository, {
-      createIdempotencyKey: () => idempotencyKey,
-    });
+    const app = createWorkGraphApp(repository);
 
     const response = await app.request("/api/work-items", {
       method: "POST",
@@ -201,7 +199,7 @@ describe("Given idempotent graph mutation requests", () => {
     expect(response.status).toBe(201);
     expect(repository.createWorkItem).toHaveBeenCalledWith(
       { id: "sparse", title: "Sparse work item" },
-      { idempotencyKey },
+      {},
     );
     expect(await responseJson(response)).toEqual({
       id: "sparse",

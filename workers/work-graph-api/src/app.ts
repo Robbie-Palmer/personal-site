@@ -623,8 +623,12 @@ export interface WorkGraphApiRepository {
 
 export interface WorkGraphAppOptions {
   readonly createLeaseId?: () => string;
-  readonly createIdempotencyKey?: () => string;
 }
+
+const idempotencyOptions = (
+  key: string | undefined,
+): IdempotentMutationOptions =>
+  key === undefined ? {} : { idempotencyKey: key };
 
 const serializeLease = (storedLease: StoredLease) => ({
   ...storedLease,
@@ -701,8 +705,6 @@ export const createWorkGraphApp = (
 ) => {
   const app = new OpenAPIHono({ defaultHook: validationHook });
   const createLeaseId = options.createLeaseId ?? (() => crypto.randomUUID());
-  const createIdempotencyKey =
-    options.createIdempotencyKey ?? (() => crypto.randomUUID());
 
   app.openAPIRegistry.registerComponent(
     "securitySchemes",
@@ -790,10 +792,10 @@ export const createWorkGraphApp = (
   app.openapi(createWorkItemRoute, async (context) => {
     const request = context.req.valid("json");
     const headers = context.req.valid("header");
-    await repository.createWorkItem(request, {
-      idempotencyKey:
-        headers["idempotency-key"] ?? createIdempotencyKey(),
-    });
+    await repository.createWorkItem(
+      request,
+      idempotencyOptions(headers["idempotency-key"]),
+    );
     return context.json(
       serializeWorkItem(await repository.getWorkItem(request.id)),
       201,
@@ -803,20 +805,20 @@ export const createWorkGraphApp = (
   app.openapi(createDependencyRoute, async (context) => {
     const dependency = context.req.valid("json");
     const headers = context.req.valid("header");
-    await repository.addDependency(dependency, {
-      idempotencyKey:
-        headers["idempotency-key"] ?? createIdempotencyKey(),
-    });
+    await repository.addDependency(
+      dependency,
+      idempotencyOptions(headers["idempotency-key"]),
+    );
     return context.json(dependency, 201);
   });
 
   app.openapi(deleteDependencyRoute, async (context) => {
     const dependency = context.req.valid("json");
     const headers = context.req.valid("header");
-    await repository.removeDependency(dependency, {
-      idempotencyKey:
-        headers["idempotency-key"] ?? createIdempotencyKey(),
-    });
+    await repository.removeDependency(
+      dependency,
+      idempotencyOptions(headers["idempotency-key"]),
+    );
     return context.json(dependency, 200);
   });
 
@@ -826,10 +828,7 @@ export const createWorkGraphApp = (
     const headers = context.req.valid("header");
     const created = await repository.createNote(
       { ...request, workItemId },
-      {
-        idempotencyKey:
-          headers["idempotency-key"] ?? createIdempotencyKey(),
-      },
+      idempotencyOptions(headers["idempotency-key"]),
     );
     return context.json(serializeNote(created), 201);
   });
@@ -867,10 +866,10 @@ export const createWorkGraphApp = (
   app.openapi(createAttentionRequestRoute, async (context) => {
     const request = context.req.valid("json");
     const headers = context.req.valid("header");
-    const created = await repository.createAttentionRequest(request, {
-      idempotencyKey:
-        headers["idempotency-key"] ?? createIdempotencyKey(),
-    });
+    const created = await repository.createAttentionRequest(
+      request,
+      idempotencyOptions(headers["idempotency-key"]),
+    );
     const item = await repository.getWorkItem(request.workItemId);
     return context.json(
       {
@@ -892,10 +891,7 @@ export const createWorkGraphApp = (
     const headers = context.req.valid("header");
     const resolved = await repository.resolveAttentionRequest(
       { ...request, attentionRequestId },
-      {
-        idempotencyKey:
-          headers["idempotency-key"] ?? createIdempotencyKey(),
-      },
+      idempotencyOptions(headers["idempotency-key"]),
     );
     const item = await repository.getWorkItem(resolved.workItemId);
     return context.json(

@@ -130,6 +130,7 @@ export const lease = pgTable(
     outcome: leaseOutcomeEnum(),
   },
   (table) => [
+    uniqueIndex("leases_id_work_item_id_uidx").on(table.id, table.workItemId),
     uniqueIndex("leases_work_item_id_epoch_uidx").on(
       table.workItemId,
       table.epoch,
@@ -164,13 +165,16 @@ export const note = pgTable(
     workItemId: text()
       .notNull()
       .references(() => workItem.id, { onDelete: "restrict" }),
-    leaseId: uuid()
-      .notNull()
-      .references(() => lease.id, { onDelete: "restrict" }),
+    leaseId: uuid().notNull(),
     content: text().notNull(),
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
+    foreignKey({
+      name: "notes_lease_work_item_fk",
+      columns: [table.leaseId, table.workItemId],
+      foreignColumns: [lease.id, lease.workItemId],
+    }).onDelete("restrict"),
     index("notes_work_item_id_created_at_idx").on(
       table.workItemId,
       table.createdAt,
@@ -186,9 +190,7 @@ export const attentionRequest = pgTable(
     workItemId: text()
       .notNull()
       .references(() => workItem.id, { onDelete: "restrict" }),
-    requestingLeaseId: uuid()
-      .notNull()
-      .references(() => lease.id, { onDelete: "restrict" }),
+    requestingLeaseId: uuid().notNull(),
     kind: text().notNull(),
     question: text().notNull(),
     note: text(),
@@ -196,6 +198,11 @@ export const attentionRequest = pgTable(
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
+    foreignKey({
+      name: "attention_requests_lease_work_item_fk",
+      columns: [table.requestingLeaseId, table.workItemId],
+      foreignColumns: [lease.id, lease.workItemId],
+    }).onDelete("restrict"),
     index("attention_requests_work_item_id_created_at_idx").on(
       table.workItemId,
       table.createdAt,

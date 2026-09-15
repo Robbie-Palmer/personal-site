@@ -155,6 +155,16 @@ describe("Given graph mutations over HTTP", () => {
     expect(await db.select().from(schema.idempotencyKey)).toHaveLength(1);
   });
 
+  it("does not retain an unreplayable receipt when the retry key is omitted", async () => {
+    const response = await requestJson("/api/work-items", "POST", {
+      id: "unkeyed",
+      title: "Unkeyed work item",
+    });
+
+    expect(response.status).toBe(201);
+    expect(await db.select().from(schema.idempotencyKey)).toHaveLength(0);
+  });
+
   it("adds and removes a dependency idempotently while readiness stays derived", async () => {
     await repository.createWorkItem({ id: "dependent", title: "Dependent" });
     await repository.createWorkItem({ id: "blocker", title: "Blocker" });

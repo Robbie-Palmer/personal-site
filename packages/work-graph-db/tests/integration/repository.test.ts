@@ -38,6 +38,30 @@ const expectWorkGraphError = (
   );
 };
 
+type DatabaseError = Error & {
+  code?: string;
+  constraint_name?: string;
+};
+
+const getDatabaseError = (error: unknown): DatabaseError | undefined => {
+  if (!(error instanceof Error)) return undefined;
+  if ("code" in error && typeof error.code === "string") {
+    return error as DatabaseError;
+  }
+  return "cause" in error ? getDatabaseError(error.cause) : undefined;
+};
+
+const rejectedDatabaseError = async (
+  operation: Promise<unknown>,
+): Promise<DatabaseError | undefined> => {
+  try {
+    await operation;
+    return undefined;
+  } catch (error) {
+    return getDatabaseError(error);
+  }
+};
+
 const waitForDatabaseLock = async (): Promise<void> => {
   for (let attempt = 0; attempt < 100; attempt += 1) {
     const [result] = await db.execute<{ waiting: boolean }>(sql`
@@ -84,7 +108,7 @@ beforeAll(async () => {
     order by enumsortorder
   `);
 
-  expect(migrationCount?.count).toBe(4);
+  expect(migrationCount?.count).toBe(5);
   expect(tables.map(({ table_name }) => table_name)).toEqual([
     "attention_requests",
     "attention_resolutions",
@@ -712,6 +736,53 @@ describe("lease-backed claiming", () => {
 });
 
 describe("lease-fenced notes and attention", () => {
+  it("rejects audit records whose lease belongs to another work item", async () => {
+    await repository.createWorkItem({ id: "work", title: "Work" });
+    await repository.createWorkItem({ id: "other", title: "Other" });
+    const claimed = await repository.claimWorkItem({
+      leaseId: recordId(230),
+      workerId: "worker-a",
+      leaseDurationSeconds: 300,
+      workItemId: "work",
+    });
+    if (!claimed) throw new Error("Expected work to be claimed.");
+
+    expect(
+      await rejectedDatabaseError(
+        db.insert(schema.note).values({
+          id: recordId(231),
+          workItemId: "other",
+          leaseId: claimed.id,
+          content: "Mismatched provenance",
+        }),
+      ),
+    ).toEqual(
+      expect.objectContaining({
+        code: "23503",
+        constraint_name: "notes_lease_work_item_fk",
+      }),
+    );
+    expect(
+      await rejectedDatabaseError(
+        db.insert(schema.attentionRequest).values({
+          id: recordId(232),
+          workItemId: "other",
+          requestingLeaseId: claimed.id,
+          kind: "review",
+          question: "Can this mismatched lease be recorded?",
+          blocking: false,
+        }),
+      ),
+    ).toEqual(
+      expect.objectContaining({
+        code: "23503",
+        constraint_name: "attention_requests_lease_work_item_fk",
+      }),
+    );
+    expect(await db.select().from(schema.note)).toHaveLength(0);
+    expect(await db.select().from(schema.attentionRequest)).toHaveLength(0);
+  });
+
   it("records an idempotent note only for the current lease epoch", async () => {
     await repository.createWorkItem({ id: "work", title: "Work" });
     const claimed = await repository.claimWorkItem({
