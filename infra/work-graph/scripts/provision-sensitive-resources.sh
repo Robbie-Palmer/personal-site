@@ -102,6 +102,55 @@ request_json() {
   chmod 600 "$output"
 }
 
+find_neon_branch_id() {
+  local cursor=""
+  local default_id=""
+  local next_cursor=""
+  local page=0
+  local primary_id=""
+  local response=""
+  local -a request_args
+
+  while true; do
+    page=$((page + 1))
+    response="$work_dir/neon-branches-$page.json"
+    request_args=(
+      --get
+      --url "https://console.neon.tech/api/v2/projects/$neon_project_id/branches"
+      --data-urlencode "limit=100"
+    )
+    if [[ -n "$cursor" ]]; then
+      request_args+=(--data-urlencode "cursor=$cursor")
+    fi
+
+    request_json "$neon_auth" "$response" "${request_args[@]}" || return 1
+    default_id=$(jq -r 'first(.branches[]? | select(.default == true) | .id) // empty' "$response")
+    if [[ -n "$default_id" ]]; then
+      printf '%s\n' "$default_id"
+      return 0
+    fi
+    if [[ -z "$primary_id" ]]; then
+      primary_id=$(jq -r 'first(.branches[]? | select(.primary == true) | .id) // empty' "$response")
+    fi
+
+    next_cursor=$(jq -r '.pagination.next // empty' "$response")
+    if [[ -z "$next_cursor" ]]; then
+      break
+    fi
+    if [[ "$next_cursor" == "$cursor" ]]; then
+      echo "Neon returned a repeated branch-pagination cursor." >&2
+      return 1
+    fi
+    cursor="$next_cursor"
+  done
+
+  if [[ -n "$primary_id" ]]; then
+    printf '%s\n' "$primary_id"
+    return 0
+  fi
+  return 1
+}
+
 neon_auth="$work_dir/neon.curl"
 cloudflare_auth="$work_dir/cloudflare.curl"
 doppler_auth="$work_dir/doppler.curl"
@@ -201,14 +250,7 @@ fi
 metadata_ready=false
 neon_branch_id=""
 for attempt in 1 2 3 4 5; do
-  if request_json "$neon_auth" "$work_dir/neon-branches.json" \
-    --url "https://console.neon.tech/api/v2/projects/$neon_project_id/branches"; then
-    neon_branch_id=$(jq -r '
-      first(.branches[] | select(.default == true) | .id)
-      // first(.branches[] | select(.primary == true) | .id)
-      // empty
-    ' "$work_dir/neon-branches.json")
-  fi
+  neon_branch_id=$(find_neon_branch_id) || neon_branch_id=""
   if [[ -n "$neon_branch_id" ]] && \
     request_json "$neon_auth" "$work_dir/neon-endpoints.json" \
       --url "https://console.neon.tech/api/v2/projects/$neon_project_id/branches/$neon_branch_id/endpoints" && \

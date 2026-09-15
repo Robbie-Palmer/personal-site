@@ -26,6 +26,63 @@ trap cleanup EXIT INT TERM
 printf 'header = "Authorization: Bearer %s"\n' "$NEON_API_KEY" >"$work_dir/neon.curl"
 printf 'header = "Authorization: Bearer %s"\n' "$CLOUDFLARE_API_TOKEN" >"$work_dir/cloudflare.curl"
 
+find_neon_branch_id() {
+  local cursor=""
+  local default_id=""
+  local next_cursor=""
+  local page=0
+  local primary_id=""
+  local response=""
+  local -a request_args
+
+  while true; do
+    page=$((page + 1))
+    response="$work_dir/branches-$page.json"
+    request_args=(
+      --disable
+      --config "$work_dir/neon.curl"
+      --connect-timeout 10
+      --fail
+      --max-time 30
+      --silent
+      --show-error
+      --output "$response"
+      --get
+      --url "https://console.neon.tech/api/v2/projects/$neon_project_id/branches"
+      --data-urlencode "limit=100"
+    )
+    if [[ -n "$cursor" ]]; then
+      request_args+=(--data-urlencode "cursor=$cursor")
+    fi
+
+    curl "${request_args[@]}"
+    default_id=$(jq -r 'first(.branches[]? | select(.default == true) | .id) // empty' "$response")
+    if [[ -n "$default_id" ]]; then
+      printf '%s\n' "$default_id"
+      return 0
+    fi
+    if [[ -z "$primary_id" ]]; then
+      primary_id=$(jq -r 'first(.branches[]? | select(.primary == true) | .id) // empty' "$response")
+    fi
+
+    next_cursor=$(jq -r '.pagination.next // empty' "$response")
+    if [[ -z "$next_cursor" ]]; then
+      break
+    fi
+    if [[ "$next_cursor" == "$cursor" ]]; then
+      echo "Neon returned a repeated branch-pagination cursor." >&2
+      return 1
+    fi
+    cursor="$next_cursor"
+  done
+
+  if [[ -n "$primary_id" ]]; then
+    printf '%s\n' "$primary_id"
+    return 0
+  fi
+  return 1
+}
+
 curl --disable --config "$work_dir/neon.curl" --connect-timeout 10 --fail --max-time 30 \
   --silent --show-error --output "$work_dir/projects.json" --get \
   --url "https://console.neon.tech/api/v2/projects" \
@@ -39,15 +96,7 @@ if [[ "$project_count" -ne 1 ]]; then
 fi
 neon_project_id=$(jq -er --arg name "$neon_project_name" '.projects[] | select(.name == $name) | .id' "$work_dir/projects.json")
 
-curl --disable --config "$work_dir/neon.curl" --connect-timeout 10 --fail --max-time 30 \
-  --silent --show-error --output "$work_dir/branches.json" \
-  --url "https://console.neon.tech/api/v2/projects/$neon_project_id/branches"
-neon_branch_id=$(jq -r '
-  first(.branches[] | select(.default == true) | .id)
-  // first(.branches[] | select(.primary == true) | .id)
-  // empty
-' "$work_dir/branches.json")
-if [[ -z "$neon_branch_id" ]]; then
+if ! neon_branch_id=$(find_neon_branch_id); then
   echo "The Work Graph Neon project has no default or primary branch." >&2
   exit 1
 fi
