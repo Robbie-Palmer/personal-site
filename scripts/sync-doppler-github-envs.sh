@@ -206,9 +206,9 @@ sync_requested_env production-infra-bootstrap prd_bootstrap_infra
 sync_requested_env production-infra-bootstrap-plan prd_bootstrap_plan
 sync_requested_env production-remote-development-infra homelab/prd_remote_development_infra
 sync_requested_env production-remote-development-infra-plan homelab/prd_remote_development_infra
-sync_requested_env production-work-graph prd_work_graph
-sync_requested_env production-work-graph-infra prd_work_graph_infra
-sync_requested_env production-work-graph-infra-plan prd_work_graph_infra_plan
+sync_requested_env production-work-graph work-graph/prd_work_graph
+sync_requested_env production-work-graph-infra work-graph/prd_work_graph_infra
+sync_requested_env production-work-graph-infra-plan work-graph/prd_work_graph_infra_plan
 sync_requested_env production-database-backup prd_database_backup
 sync_requested_env production-ci prd_ci_repo
 sync_requested_env production-ai-review ai-review/prd

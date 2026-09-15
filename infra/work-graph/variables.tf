@@ -89,7 +89,7 @@ variable "neon_pg_version" {
 variable "doppler_project" {
   description = "Doppler project that receives Work Graph credentials"
   type        = string
-  default     = "personal-site"
+  default     = "work-graph"
 
   validation {
     condition     = can(regex("^[a-z0-9][a-z0-9_-]{0,63}$", var.doppler_project))

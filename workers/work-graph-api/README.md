@@ -8,7 +8,7 @@ URLs.
 
 ## Local development
 
-Create Doppler config `personal-site/dev_work_graph` with `DATABASE_URL`, then
+Create Doppler config `work-graph/dev_work_graph` with `DATABASE_URL`, then
 run:
 
 ```bash
@@ -58,7 +58,7 @@ Run the CLI through the production Doppler config so its Access headers and
 origin allowlist arrive together:
 
 ```bash
-doppler run --project personal-site --config prd_work_graph -- work-graph queue
+doppler run --project work-graph --config prd_work_graph -- work-graph queue
 ```
 
 Do not copy the Access pair into shell startup files. The CLI refuses to send

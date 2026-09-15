@@ -25,7 +25,7 @@ if [[ "$dry_run" != true && "${WORK_GRAPH_DOPPLER_WRAPPED:-}" != "1" ]]; then
     fi
     export WORK_GRAPH_DOPPLER_WRAPPED=1
     exec doppler run \
-      --project "${DOPPLER_PROJECT:-personal-site}" \
+      --project "${DOPPLER_PROJECT:-work-graph}" \
       --config "${DOPPLER_WORK_GRAPH_CONFIG:-prd_work_graph}" \
       --preserve-env=WORK_GRAPH_DOPPLER_WRAPPED,DOPPLER_PROJECT,DOPPLER_WORK_GRAPH_CONFIG \
       -- bash "$0"

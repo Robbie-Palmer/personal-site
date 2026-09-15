@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-project="${DOPPLER_PROJECT:-personal-site}"
+project="${DOPPLER_PROJECT:-work-graph}"
 infra_config="${DOPPLER_WORK_GRAPH_INFRA_CONFIG:-prd_work_graph_infra}"
 
 if [[ "${DOPPLER_WORK_GRAPH_TERRAFORM_ENV_WRAPPED:-}" != "1" ]]; then

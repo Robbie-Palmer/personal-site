@@ -16,7 +16,7 @@ For that reason, this root uses three small API helpers during apply:
 
 1. `provision-sensitive-resources.sh` creates or finds the Neon project and
    Access service token. It sends the database URL and token pair straight to
-   Doppler config `personal-site/prd_work_graph`.
+   Doppler config `work-graph/prd_work_graph`.
 2. `read-resource-metadata.sh` returns only IDs, host, database, and role names
    to Terraform.
 3. `install-hyperdrive-origin.sh` replaces Terraform's inert password with the
@@ -60,8 +60,9 @@ required by the workflow (`bash`, `curl`, `jq`, and Doppler).
 Create these before the first apply:
 
 - HCP Terraform workspace `personal-site-work-graph`, set to local execution.
-- Doppler configs `personal-site/prd_work_graph_infra_plan`,
-  `personal-site/prd_work_graph_infra`, and `personal-site/prd_work_graph`.
+- Doppler project `work-graph`, with configs `prd_work_graph_infra_plan`,
+  `prd_work_graph_infra`, and `prd_work_graph`. The separate project avoids
+  coupling Work Graph access to the personal-site runtime configs.
 - GitHub environments `production-work-graph-infra-plan`,
   `production-work-graph-infra`, and `production-work-graph`. Require review on
   both environments that can apply or deploy.

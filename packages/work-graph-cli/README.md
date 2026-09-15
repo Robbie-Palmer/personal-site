@@ -55,7 +55,7 @@ For the production service, Doppler supplies the URL, allowlist, and Access
 pair as one unit:
 
 ```sh
-doppler run --project personal-site --config prd_work_graph -- work-graph queue
+doppler run --project work-graph --config prd_work_graph -- work-graph queue
 ```
 
 ## Commands
