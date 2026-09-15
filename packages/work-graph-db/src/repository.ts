@@ -1,4 +1,13 @@
-import { and, eq, gt, isNull, lte, sql } from "drizzle-orm";
+import {
+  and,
+  eq,
+  gt,
+  isNotNull,
+  isNull,
+  lte,
+  sql,
+  type SQL,
+} from "drizzle-orm";
 import {
   createWorkGraph,
   projectWorkItemStage,
@@ -95,6 +104,13 @@ export interface ResolveAttentionRequestResult {
 
 export interface AttentionRequestReadModel extends StoredAttentionRequest {
   readonly resolution: StoredAttentionResolution | null;
+}
+
+export interface ListAttentionRequestsInput {
+  readonly state?: "unresolved" | "resolved";
+  readonly blocking?: boolean;
+  readonly cursor?: string;
+  readonly limit?: number;
 }
 
 export interface WorkItemReadModel extends WorkItem {
@@ -482,10 +498,18 @@ export class WorkGraphRepository {
       .orderBy(note.createdAt, note.id);
   }
 
-  async listAttentionRequests(): Promise<
+  async listAttentionRequests(
+    input: ListAttentionRequestsInput = {},
+  ): Promise<
     readonly AttentionRequestReadModel[]
   > {
-    const rows = await this.db
+    let stateCondition: SQL | undefined;
+    if (input.state === "resolved") {
+      stateCondition = isNotNull(attentionResolution.id);
+    } else if (input.state === "unresolved") {
+      stateCondition = isNull(attentionResolution.id);
+    }
+    const query = this.db
       .select({
         attentionRequest,
         resolution: attentionResolution,
@@ -495,7 +519,20 @@ export class WorkGraphRepository {
         attentionResolution,
         eq(attentionResolution.attentionRequestId, attentionRequest.id),
       )
+      .where(
+        and(
+          stateCondition,
+          input.blocking === undefined
+            ? undefined
+            : eq(attentionRequest.blocking, input.blocking),
+          input.cursor === undefined
+            ? undefined
+            : gt(attentionRequest.id, input.cursor),
+        ),
+      )
       .orderBy(attentionRequest.id);
+    const rows =
+      input.limit === undefined ? await query : await query.limit(input.limit);
     return rows.map((row) => ({
       ...row.attentionRequest,
       resolution: row.resolution,

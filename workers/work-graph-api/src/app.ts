@@ -11,6 +11,7 @@ import type {
   CreateAttentionRequestResult,
   CreateNoteInput,
   IdempotentMutationOptions,
+  ListAttentionRequestsInput,
   ResolveAttentionRequestInput,
   ResolveAttentionRequestResult,
   RenewLeaseInput,
@@ -589,7 +590,9 @@ const cancelWorkItemRoute = createRoute({
 export interface WorkGraphApiRepository {
   listWorkItems(): Promise<readonly WorkItemReadModel[]>;
   getWorkItem(workItemId: string): Promise<WorkItemReadModel>;
-  listAttentionRequests(): Promise<readonly AttentionRequestReadModel[]>;
+  listAttentionRequests(
+    input?: ListAttentionRequestsInput,
+  ): Promise<readonly AttentionRequestReadModel[]>;
   createWorkItem(
     input: NewWorkItemInput,
     options?: IdempotentMutationOptions,
@@ -835,29 +838,17 @@ export const createWorkGraphApp = (
 
   app.openapi(listAttentionRequestsRoute, async (context) => {
     const { blocking, cursor, limit, state } = context.req.valid("query");
-    const requests = await repository.listAttentionRequests();
-    const matchingRequests = requests.filter(
-      (request) =>
-        (state === "resolved"
-          ? request.resolution !== null
-          : request.resolution === null) &&
-        (blocking === undefined ||
-          request.blocking === (blocking === "true")) &&
-        (cursor === undefined || request.id > cursor),
-    );
-    matchingRequests.sort((left, right) => {
-      if (left.id < right.id) return -1;
-      if (left.id > right.id) return 1;
-      return 0;
+    const requests = await repository.listAttentionRequests({
+      state,
+      limit: limit + 1,
+      ...(blocking === undefined ? {} : { blocking: blocking === "true" }),
+      ...(cursor === undefined ? {} : { cursor }),
     });
-    const page = matchingRequests.slice(0, limit);
+    const page = requests.slice(0, limit);
     return context.json(
       {
         items: page.map(serializeAttentionRequestReadModel),
-        nextCursor:
-          page.length < matchingRequests.length
-            ? (page.at(-1)?.id ?? null)
-            : null,
+        nextCursor: requests.length > limit ? (page.at(-1)?.id ?? null) : null,
       },
       200,
     );

@@ -783,6 +783,85 @@ describe("lease-fenced notes and attention", () => {
     expect(await db.select().from(schema.attentionRequest)).toHaveLength(0);
   });
 
+  it("filters and bounds attention requests in PostgreSQL", async () => {
+    const work = [
+      { id: "first", leaseId: recordId(240) },
+      { id: "resolved", leaseId: recordId(241) },
+      { id: "last", leaseId: recordId(242) },
+    ] as const;
+    for (const item of work) {
+      await repository.createWorkItem({ id: item.id, title: item.id });
+      const claimed = await repository.claimWorkItem({
+        leaseId: item.leaseId,
+        workerId: "worker-a",
+        leaseDurationSeconds: 300,
+        workItemId: item.id,
+      });
+      if (!claimed) throw new Error(`Expected ${item.id} to be claimed.`);
+    }
+
+    const first = await repository.createAttentionRequest({
+      id: recordId(243),
+      workItemId: "first",
+      leaseId: work[0].leaseId,
+      epoch: 1,
+      kind: "decision",
+      question: "First question",
+      blocking: true,
+    });
+    const resolved = await repository.createAttentionRequest({
+      id: recordId(244),
+      workItemId: "resolved",
+      leaseId: work[1].leaseId,
+      epoch: 1,
+      kind: "review",
+      question: "Resolved question",
+      blocking: false,
+    });
+    const resolution = await repository.resolveAttentionRequest({
+      id: recordId(245),
+      attentionRequestId: resolved.attentionRequest.id,
+      resolution: "Resolved answer",
+    });
+    const last = await repository.createAttentionRequest({
+      id: recordId(246),
+      workItemId: "last",
+      leaseId: work[2].leaseId,
+      epoch: 1,
+      kind: "decision",
+      question: "Last question",
+      blocking: true,
+    });
+
+    expect(
+      await repository.listAttentionRequests({
+        state: "unresolved",
+        blocking: true,
+        limit: 1,
+      }),
+    ).toEqual([{ ...first.attentionRequest, resolution: null }]);
+    expect(
+      await repository.listAttentionRequests({
+        state: "unresolved",
+        blocking: true,
+        cursor: first.attentionRequest.id,
+        limit: 1,
+      }),
+    ).toEqual([{ ...last.attentionRequest, resolution: null }]);
+    expect(
+      await repository.listAttentionRequests({
+        state: "resolved",
+        blocking: false,
+        limit: 1,
+      }),
+    ).toEqual([
+      {
+        ...resolved.attentionRequest,
+        resolution: resolution.resolution,
+      },
+    ]);
+  });
+
   it("records an idempotent note only for the current lease epoch", async () => {
     await repository.createWorkItem({ id: "work", title: "Work" });
     const claimed = await repository.claimWorkItem({

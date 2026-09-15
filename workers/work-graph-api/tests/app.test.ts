@@ -259,46 +259,48 @@ describe("Given idempotent graph mutation requests", () => {
 describe("Given a worker recording progress and requesting attention", () => {
   it("lists unresolved attention by default and can select resolved requests", async () => {
     const repository = buildRepository();
-    vi.mocked(repository.listAttentionRequests).mockResolvedValue([
-      {
-        id: attentionRequestId,
-        workItemId: "ready",
-        requestingLeaseId: leaseId,
-        kind: "decision",
-        question: "Which contract is canonical?",
-        note: null,
-        blocking: true,
-        createdAt: acquiredAt,
-        resolution: null,
-      },
-      {
-        id: attentionResolutionId,
-        workItemId: "resolved",
-        requestingLeaseId: leaseId,
-        kind: "review",
-        question: "Is the wording clear?",
-        note: null,
-        blocking: false,
-        createdAt: acquiredAt,
-        resolution: {
-          id: noteId,
-          attentionRequestId: attentionResolutionId,
-          resolution: "Yes.",
-          createdAt: expiresAt,
-        },
-      },
-      {
-        id: secondAttentionRequestId,
-        workItemId: "other",
-        requestingLeaseId: leaseId,
-        kind: "input",
-        question: "Which option applies?",
-        note: null,
-        blocking: true,
+    const firstUnresolved = {
+      id: attentionRequestId,
+      workItemId: "ready",
+      requestingLeaseId: leaseId,
+      kind: "decision",
+      question: "Which contract is canonical?",
+      note: null,
+      blocking: true,
+      createdAt: acquiredAt,
+      resolution: null,
+    } as const;
+    const resolvedRequest = {
+      id: attentionResolutionId,
+      workItemId: "resolved",
+      requestingLeaseId: leaseId,
+      kind: "review",
+      question: "Is the wording clear?",
+      note: null,
+      blocking: false,
+      createdAt: acquiredAt,
+      resolution: {
+        id: noteId,
+        attentionRequestId: attentionResolutionId,
+        resolution: "Yes.",
         createdAt: expiresAt,
-        resolution: null,
       },
-    ]);
+    } as const;
+    const secondUnresolved = {
+      id: secondAttentionRequestId,
+      workItemId: "other",
+      requestingLeaseId: leaseId,
+      kind: "input",
+      question: "Which option applies?",
+      note: null,
+      blocking: true,
+      createdAt: expiresAt,
+      resolution: null,
+    } as const;
+    vi.mocked(repository.listAttentionRequests)
+      .mockResolvedValueOnce([firstUnresolved, secondUnresolved])
+      .mockResolvedValueOnce([secondUnresolved])
+      .mockResolvedValueOnce([resolvedRequest]);
     const app = createWorkGraphApp(repository);
 
     const unresolved = await app.request(
@@ -340,6 +342,20 @@ describe("Given a worker recording progress and requesting attention", () => {
         }),
       ],
       nextCursor: null,
+    });
+    expect(repository.listAttentionRequests).toHaveBeenNthCalledWith(1, {
+      state: "unresolved",
+      limit: 2,
+    });
+    expect(repository.listAttentionRequests).toHaveBeenNthCalledWith(2, {
+      state: "unresolved",
+      cursor: attentionRequestId,
+      limit: 51,
+    });
+    expect(repository.listAttentionRequests).toHaveBeenNthCalledWith(3, {
+      state: "resolved",
+      blocking: false,
+      limit: 51,
     });
   });
 
