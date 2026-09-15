@@ -106,8 +106,8 @@ function getProjectOverrides(
   repository: DomainRepository,
   projectSlug: ProjectSlug,
   instant: string,
-): Map<DefaultSlotSlug, ProjectOverride> {
-  const overrides = new Map<DefaultSlotSlug, ProjectOverride>();
+): Map<DefaultSlotSlug, ProjectOverride[]> {
+  const overrides = new Map<DefaultSlotSlug, ProjectOverride[]>();
   for (const [adrRef, override] of repository.platform.adrOverrides) {
     const adr = repository.adrs.get(adrRef);
     if (
@@ -115,15 +115,22 @@ function getProjectOverrides(
       adr.status === "Accepted" &&
       isUseEffectiveAt(override, instant)
     ) {
-      overrides.set(
-        override.slot,
+      const resolvedOverride: ProjectOverride =
         override.kind === "technology"
           ? {
               kind: "technology",
               technology: override.technology,
               decision: adrRef,
             }
-          : { kind: "policy", value: override.value, decision: adrRef },
+          : { kind: "policy", value: override.value, decision: adrRef };
+      const slot = repository.platform.manifest?.slots.find(
+        (candidate) => candidate.slug === override.slot,
+      );
+      overrides.set(
+        override.slot,
+        slot?.cardinality === "many"
+          ? [...(overrides.get(override.slot) ?? []), resolvedOverride]
+          : [resolvedOverride],
       );
     }
   }
@@ -135,7 +142,7 @@ interface ResolutionState {
   instant: string;
   effectiveUses: ProjectLayerUse[];
   layers: Set<LayerSlug>;
-  overrides: ReadonlyMap<DefaultSlotSlug, ProjectOverride>;
+  overrides: ReadonlyMap<DefaultSlotSlug, readonly ProjectOverride[]>;
   resolvedSlots: Map<DefaultSlotSlug, Set<string>>;
   technologies: EffectiveTechnologyUse[];
   policies: EffectivePolicyUse[];
@@ -153,9 +160,9 @@ function hasPreferredSlotUse(
 
 function defaultSource(
   policy: LayerSlotPolicy,
-  override: ProjectOverride | undefined,
+  hasOverride: boolean,
 ): EffectivePolicySource {
-  if (override) return "override";
+  if (hasOverride) return "override";
   return policy.mode === "required" ? "required-layer" : "preferred-layer";
 }
 
@@ -172,45 +179,55 @@ function resolvePolicy(
     return [];
   if (!prerequisitesMet(policy.prerequisites, state.resolvedSlots)) return [];
 
-  const override = state.overrides.get(policy.slot);
-  const candidates = override
-    ? [
-        override.kind === "technology"
-          ? {
-              kind: "technology" as const,
-              technology: override.technology,
-              value: override.technology,
-              decision: override.decision,
-            }
-          : {
-              kind: "policy" as const,
-              value: override.value,
-              decision: override.decision,
-            },
-      ]
-    : currentSelections(state.manifest, policy.slot, state.instant).map(
-        (selection) =>
-          selection.kind === "technology"
+  const overrides = state.overrides.get(policy.slot) ?? [];
+  const candidates =
+    overrides.length > 0
+      ? overrides.map((override) =>
+          override.kind === "technology"
             ? {
                 kind: "technology" as const,
-                technology: selection.technology,
-                value: selection.technology,
-                decision: selection.decision,
-                selection: selection.id,
+                technology: override.technology,
+                value: override.technology,
+                decision: override.decision,
               }
             : {
                 kind: "policy" as const,
-                value: selection.value,
-                decision: selection.decision,
-                selection: selection.id,
+                value: override.value,
+                decision: override.decision,
               },
-      );
+        )
+      : currentSelections(state.manifest, policy.slot, state.instant).map(
+          (selection) =>
+            selection.kind === "technology"
+              ? {
+                  kind: "technology" as const,
+                  technology: selection.technology,
+                  value: selection.technology,
+                  decision: selection.decision,
+                  selection: selection.id,
+                }
+              : {
+                  kind: "policy" as const,
+                  value: selection.value,
+                  decision: selection.decision,
+                  selection: selection.id,
+                },
+        );
   const resolved = state.resolvedSlots.get(policy.slot);
+  const candidateValues = new Set<string>();
   return candidates
-    .filter((candidate) => !resolved?.has(candidate.value))
+    .filter((candidate) => {
+      if (
+        resolved?.has(candidate.value) ||
+        candidateValues.has(candidate.value)
+      )
+        return false;
+      candidateValues.add(candidate.value);
+      return true;
+    })
     .map((candidate) => ({
       ...candidate,
-      source: defaultSource(policy, override),
+      source: defaultSource(policy, overrides.length > 0),
       layer: policy.layer,
       slot: policy.slot,
       policy: policy.id,

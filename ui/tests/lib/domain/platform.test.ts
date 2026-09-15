@@ -480,6 +480,72 @@ describe("temporal platform layers", () => {
     );
   });
 
+  it("retains concurrent project overrides for a multi-valued slot", () => {
+    const repository = loadDomainRepository();
+    const existingADR = repository.adrs.get(
+      "personal-knowledge-graph:059-temporal-platform-layers",
+    );
+    expect(existingADR).toBeDefined();
+    if (!existingADR) return;
+
+    const firstRef = "recipe-site:998-claude-code-override";
+    const secondRef = "recipe-site:999-codex-override";
+    const adrs = new Map(repository.adrs);
+    adrs.set(firstRef, {
+      ...existingADR,
+      adrRef: firstRef,
+      slug: "998-claude-code-override",
+      projectSlug: "recipe-site",
+      status: "Accepted",
+    });
+    adrs.set(secondRef, {
+      ...existingADR,
+      adrRef: secondRef,
+      slug: "999-codex-override",
+      projectSlug: "recipe-site",
+      status: "Accepted",
+    });
+    const adrOverrides = new Map(repository.platform.adrOverrides);
+    adrOverrides.set(firstRef, {
+      kind: "technology",
+      slot: "development.coding-agents",
+      technology: "claude-code",
+      adopted: "2026-09-15T00:00:00Z",
+    });
+    adrOverrides.set(secondRef, {
+      kind: "technology",
+      slot: "development.coding-agents",
+      technology: "codex",
+      adopted: "2026-09-15T00:00:00Z",
+    });
+
+    const stack = resolveEffectiveProjectStack(
+      {
+        ...repository,
+        adrs,
+        platform: { ...repository.platform, adrOverrides },
+      },
+      "recipe-site",
+      "2026-09-15T12:00:00Z",
+    );
+    const codingAgentOverrides = stack.technologies.filter(
+      (technology) =>
+        technology.slot === "development.coding-agents" &&
+        technology.source === "override",
+    );
+
+    expect(codingAgentOverrides).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          technology: "claude-code",
+          decision: firstRef,
+        }),
+        expect.objectContaining({ technology: "codex", decision: secondRef }),
+      ]),
+    );
+    expect(codingAgentOverrides).toHaveLength(2);
+  });
+
   it("uses the effective record when a project re-adopts a layer", () => {
     const repository = loadDomainRepository();
     const projectLayerUses = new Map(repository.platform.projectLayerUses);

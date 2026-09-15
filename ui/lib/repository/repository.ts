@@ -679,7 +679,10 @@ function parseDefaultOverride(value: unknown): DefaultOverride | undefined {
     return undefined;
   }
   const override = value as Record<string, unknown>;
-  if (override.kind === "policy" || override.value !== undefined) {
+  if (
+    override.kind === "policy" ||
+    (override.kind === undefined && override.value !== undefined)
+  ) {
     return DefaultOverrideSchema.parse({
       slot: override.slot,
       kind: "policy",
@@ -950,7 +953,8 @@ export function loadPlatformManifest(): PlatformManifest | undefined {
     })),
     selections: records(data.selections).map(
       (selection: Record<string, unknown>) =>
-        selection.kind === "policy" || selection.value !== undefined
+        selection.kind === "policy" ||
+        (selection.kind === undefined && selection.value !== undefined)
           ? {
               ...selection,
               kind: "policy",
