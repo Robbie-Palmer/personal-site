@@ -6,7 +6,10 @@ import type {
   LayerSlug,
   PlatformLayer,
 } from "../platform/platform";
-import type { EffectiveTechnologySource } from "../platform/platformQueries";
+import type {
+  EffectivePolicySource,
+  EffectiveTechnologySource,
+} from "../platform/platformQueries";
 import type { RoleListItemView } from "../role/roleViews";
 import type { TechnologyBadgeView } from "../technology/technologyViews";
 import type { PitchDeck } from "./pitchDeck";
@@ -90,6 +93,13 @@ export type ProjectWithADRsView = {
       decision?: string;
     }
   >;
+  platformPolicies?: Array<{
+    value: string;
+    source: EffectivePolicySource;
+    layer?: LayerSlug;
+    slot?: string;
+    decision?: string;
+  }>;
   platformManifest?: {
     layers: PlatformLayer[];
     policies: LayerSlotPolicy[];

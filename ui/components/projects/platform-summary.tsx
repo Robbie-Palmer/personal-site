@@ -5,11 +5,12 @@ import type { ProjectWithADRsView } from "@/lib/domain/project/projectViews";
 
 type PlatformSummaryProps = Pick<
   ProjectWithADRsView,
-  "builtOn" | "platformTechnologies"
+  "builtOn" | "platformPolicies" | "platformTechnologies"
 >;
 
 export function PlatformSummary({
   builtOn = [],
+  platformPolicies = [],
   platformTechnologies = [],
 }: Readonly<PlatformSummaryProps>) {
   if (builtOn.length === 0) return null;
@@ -62,6 +63,32 @@ export function PlatformSummary({
                 </Link>
               );
             })}
+          </div>
+        </details>
+      )}
+      {platformPolicies.length > 0 && (
+        <details className="mt-1 w-fit">
+          <summary className="cursor-pointer hover:text-foreground">
+            {platformPolicies.length} platform policies
+          </summary>
+          <div className="mt-1.5 flex flex-wrap gap-1.5">
+            {platformPolicies.map((policy) => (
+              <Link
+                key={`${policy.slot}:${policy.value}`}
+                href={`/projects/personal-engineering-platform#slot-${policy.slot}`}
+              >
+                <Badge
+                  variant="outline"
+                  interactive
+                  className="h-6 px-2 text-xs"
+                >
+                  {policy.value}
+                  <span className="sr-only">
+                    {` from ${policy.layer}, ${policy.source}`}
+                  </span>
+                </Badge>
+              </Link>
+            ))}
           </div>
         </details>
       )}

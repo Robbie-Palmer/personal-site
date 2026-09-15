@@ -84,6 +84,12 @@ export function PlatformManifest({
               className="rounded-lg border p-4"
             >
               <h3 className="font-semibold">{slot.title}</h3>
+              <div className="mt-1 flex gap-1.5">
+                <Badge variant="outline">{slot.kind}</Badge>
+                {slot.cardinality === "many" && (
+                  <Badge variant="outline">multiple</Badge>
+                )}
+              </div>
               <p className="mt-1 text-sm text-muted-foreground">
                 {slot.description}
               </p>
@@ -94,12 +100,16 @@ export function PlatformManifest({
                   )
                   .map((selection) => (
                     <li key={selection.id}>
-                      <Link
-                        href={`/technologies/${selection.technology}`}
-                        className="font-medium underline underline-offset-4"
-                      >
-                        {selection.technology}
-                      </Link>{" "}
+                      {selection.kind === "technology" ? (
+                        <Link
+                          href={`/technologies/${selection.technology}`}
+                          className="font-medium underline underline-offset-4"
+                        >
+                          {selection.technology}
+                        </Link>
+                      ) : (
+                        <span className="font-medium">{selection.value}</span>
+                      )}{" "}
                       <Badge variant="secondary">
                         {selection.lifecycleStatus}
                       </Badge>{" "}

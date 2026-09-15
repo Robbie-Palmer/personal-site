@@ -56,6 +56,7 @@ import {
   loadBlogPosts,
   loadInitiatives,
   loadJobRoles,
+  loadPlatformManifest,
   loadProjects,
   loadTechnologies,
   validateBlogPost,
@@ -341,6 +342,46 @@ Content`;
     });
   });
 
+  describe("loadPlatformManifest", () => {
+    it("keeps an explicit technology kind authoritative", () => {
+      vi.mocked(fs.readFileSync).mockReturnValue(`
+project: platform
+layers:
+  - slug: base
+    title: Base
+    description: Shared defaults
+slots:
+  - slug: project.language
+    title: Language
+    description: Primary implementation language
+    rationale: Several languages can implement the project
+policies:
+  - id: language-policy
+    layer: base
+    slot: project.language
+    mode: required
+    effective_from: 2026-09-15T00:00:00Z
+    decision: platform:001-language
+selections:
+  - id: typescript-selection
+    slot: project.language
+    kind: technology
+    technology: TypeScript
+    value: Public source
+    status: Accepted
+    effective_from: 2026-09-15T00:00:00Z
+    decision: platform:001-language
+`);
+
+      const manifest = loadPlatformManifest();
+
+      expect(manifest?.selections[0]).toMatchObject({
+        kind: "technology",
+        technology: "typescript",
+      });
+    });
+  });
+
   describe("loadInitiatives", () => {
     it("returns an empty map when the initiatives directory does not exist", () => {
       vi.mocked(fs.existsSync).mockReturnValue(false);
@@ -450,6 +491,34 @@ We decided to use React.`;
       expect(result.relations.get("project-1:001-react")?.technologies).toEqual(
         ["react"],
       );
+    });
+
+    it("keeps an explicit technology override kind authoritative", () => {
+      const mockADRContent = `---
+title: "ADR 001: Override language"
+date: "2026-09-15"
+status: "Accepted"
+overrides_default:
+  kind: "technology"
+  slot: "project.primary-language"
+  technology: "TypeScript"
+  value: "Public source"
+  adopted: "2026-09-15T00:00:00Z"
+---
+
+Use TypeScript.`;
+      vi.mocked(fs.readdirSync).mockImplementation(((path: string) => {
+        if (path.endsWith("projects")) return [mockDirent("project-1")];
+        if (path.includes("adrs")) return ["001-language.mdx"];
+        return [];
+      }) as unknown as typeof fs.readdirSync);
+      vi.mocked(fs.readFileSync).mockReturnValue(mockADRContent);
+
+      const result = loadADRs();
+
+      expect(
+        result.entities.get("project-1:001-language")?.overridesDefault,
+      ).toMatchObject({ kind: "technology", technology: "typescript" });
     });
 
     it("should turn an inherited ADR stub into a legacy alias", () => {

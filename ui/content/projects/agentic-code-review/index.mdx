@@ -17,9 +17,17 @@ tech_stack:
 repo_url: "https://github.com/Robbie-Palmer/personal-site/tree/main/ai-review"
 status: "live"
 platform_layers:
+  - layer: "governance"
+    adopted: "2026-09-15T00:00:00Z"
+    tracking: true
   - layer: "base"
     adopted: "2026-09-12T00:00:00Z"
     tracking: true
+    slots:
+      - slot: "secrets.runtime-store"
+        adopted: "2026-09-15T00:00:00Z"
+      - slot: "secrets.ci-store"
+        adopted: "2026-09-15T00:00:00Z"
   - layer: "backend-api"
     adopted: "2026-09-12T00:00:00Z"
     tracking: true
@@ -38,6 +46,8 @@ platform_layers:
     slots:
       - slot: "infrastructure.provisioner"
         adopted: "2026-09-12T00:00:00Z"
+      - slot: "infrastructure.state-backend"
+        adopted: "2026-09-15T00:00:00Z"
   - layer: "observability"
     adopted: "2026-09-12T00:00:00Z"
     tracking: true

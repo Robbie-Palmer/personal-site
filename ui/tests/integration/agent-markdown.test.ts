@@ -110,12 +110,22 @@ describe("agent markdown generation", () => {
     expect(platform).toContain("backend-api.runtime: preferred");
     expect(platform).toContain("## Default history");
     expect(platform).toContain("### Primary language");
+    expect(platform).toContain("### Source licence");
+    expect(platform).toContain("AGPL-3.0: Accepted");
     expect(platform).toContain(
       "/projects/personal-engineering-platform/adrs/001-language-defaults.md",
     );
     expect(platform).toContain(
       "driven by [personal-knowledge-graph](https://robbiepalmer.me/projects/personal-knowledge-graph.md)",
     );
+  });
+
+  it("includes inherited governance policy in adopter project twins", () => {
+    const recipe = read("projects/recipe-site.md");
+    expect(recipe).toContain(
+      "- Platform policies: Public source, AGPL-3.0, Shared personal-project monorepo",
+    );
+    expect(recipe.match(/Codex/g)).toHaveLength(1);
   });
 
   it("keeps Markdown routes for the previous project slug", () => {

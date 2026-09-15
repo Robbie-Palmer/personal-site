@@ -16,18 +16,31 @@ repo_url: "https://github.com/Robbie-Palmer/personal-site"
 demo_url: "https://robbiepalmer.me"
 status: "live"
 platform_layers:
+  - layer: "governance"
+    adopted: "2026-09-15T00:00:00Z"
+    tracking: true
   - layer: "base"
     adopted: "2026-09-12T00:00:00Z"
     tracking: true
+    slots:
+      - slot: "secrets.runtime-store"
+        adopted: "2026-09-15T00:00:00Z"
+      - slot: "secrets.ci-store"
+        adopted: "2026-09-15T00:00:00Z"
   - layer: "web-app"
     adopted: "2026-09-12T00:00:00Z"
     tracking: true
+    slots:
+      - slot: "web-app.host"
+        adopted: "2026-09-15T00:00:00Z"
   - layer: "infrastructure"
     adopted: "2026-09-12T00:00:00Z"
     tracking: true
     slots:
       - slot: "infrastructure.provisioner"
         adopted: "2026-09-12T00:00:00Z"
+      - slot: "infrastructure.state-backend"
+        adopted: "2026-09-15T00:00:00Z"
   - layer: "observability"
     adopted: "2026-09-12T00:00:00Z"
     tracking: true
