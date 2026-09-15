@@ -5,6 +5,8 @@
   "description": "Canonical REST application for Work Graph",
   "type": "module",
   "scripts": {
+    "deploy": "bash scripts/deploy.sh",
+    "dev": "bash scripts/dev.sh",
     "typecheck": "tsc --noEmit && tsc --project tsconfig.scripts.json",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
@@ -28,6 +30,7 @@
     "@vitest/coverage-v8": "^4.1.10",
     "tsx": "^4.21.0",
     "typescript": "^5",
-    "vitest": "^4.1.7"
+    "vitest": "^4.1.7",
+    "wrangler": "^4"
   }
 }

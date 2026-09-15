@@ -13,6 +13,7 @@
         "homelab/tests/**/*.test.ts",
         "scripts/prose-lint.ts"
       ],
+      "ignore": ["infra/work-graph/bootstrap-worker.mjs"],
       "ignoreDependencies": ["lint-staged", "markdownlint-cli", "remark-cli", "remark-lint", "tsx", "yaml-lint"]
     },
     "ai-review": {
@@ -59,7 +60,7 @@
         "vitest.integration.config.ts",
         "scripts/**/*.ts"
       ],
-      "ignoreDependencies": ["@stoplight/spectral-owasp-ruleset"]
+      "ignoreDependencies": ["@stoplight/spectral-owasp-ruleset", "wrangler"]
     },
     "ml-pipelines/recipe-dataset": {
       "entry": ["src/stages/*.mjs", "scripts/*.mjs"]

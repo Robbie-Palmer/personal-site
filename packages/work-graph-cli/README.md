@@ -51,6 +51,13 @@ API URL or cross-origin redirect from receiving the Access headers. Credential
 values are read only from the environment. The command parser has no credential
 flags.
 
+For the production service, Doppler supplies the URL, allowlist, and Access
+pair as one unit:
+
+```sh
+doppler run --project work-graph --config prd_work_graph -- work-graph queue
+```
+
 ## Commands
 
 Run `work-graph --help` for the compact command list. `queue` selects the
