@@ -8,6 +8,8 @@ on:
       - "packages/work-graph-db/**"
       - "packages/work-graph-domain/**"
       - "workers/work-graph-api/**"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
       - ".github/workflows/work-graph-api-cd.yml"
   workflow_dispatch:
 
