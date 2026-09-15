@@ -22,6 +22,7 @@ const response = (body: unknown = { ok: true }, status = 200): Response =>
 const harness = (
   responseFactory: (request: CapturedRequest) => Response = () => response(),
   environment: NodeJS.ProcessEnv = { WORK_GRAPH_API_URL: API_URL },
+  makeUuid: () => string = () => UUID,
 ) => {
   const requests: CapturedRequest[] = [];
   const stdout: string[] = [];
@@ -46,7 +47,7 @@ const harness = (
     runCli(args, {
       environment,
       fetch,
-      makeUuid: () => UUID,
+      makeUuid,
       stdout: (text) => stdout.push(text),
       stderr: (text) => stderr.push(text),
     });
@@ -251,6 +252,84 @@ describe("Given agent-facing Work Graph commands", () => {
     expect(resolve.requests[0]?.url.pathname).toBe(
       `/root/api/attention-requests/${UUID}/resolutions`,
     );
+  });
+
+  it("keeps generated mutation IDs stable across idempotent retries", async () => {
+    const makeUuid = vi.fn(() => "00000000-0000-4000-8000-000000000002");
+    const test = harness(undefined, { WORK_GRAPH_API_URL: API_URL }, makeUuid);
+    const retryBodies = async (
+      args: string[],
+    ): Promise<[Record<string, unknown>, Record<string, unknown>]> => {
+      const offset = test.requests.length;
+      await test.run(args);
+      await test.run(args);
+      return [
+        test.requests[offset]?.body as Record<string, unknown>,
+        test.requests[offset + 1]?.body as Record<string, unknown>,
+      ];
+    };
+
+    const [firstNote, retriedNote] = await retryBodies([
+      "note",
+      "item-1",
+      "--lease-id",
+      UUID,
+      "--epoch",
+      "1",
+      "--content",
+      "Stable retry",
+      "--idempotency-key",
+      UUID,
+    ]);
+    const [firstRequest, retriedRequest] = await retryBodies([
+      "attention",
+      "request",
+      "item-1",
+      "--lease-id",
+      UUID,
+      "--epoch",
+      "1",
+      "--kind",
+      "decision",
+      "--question",
+      "Which host?",
+      "--idempotency-key",
+      UUID,
+    ]);
+    const [firstResolution, retriedResolution] = await retryBodies([
+      "attention",
+      "resolve",
+      UUID,
+      "--resolution",
+      "Use the Worker",
+      "--idempotency-key",
+      UUID,
+    ]);
+    const [firstDecomposition, retriedDecomposition] = await retryBodies([
+      "decompose",
+      "parent-1",
+      "--lease-id",
+      UUID,
+      "--epoch",
+      "1",
+      "--children-json",
+      '[{"id":"child-1","title":"First","rank":1}]',
+      "--claim-work-item-id",
+      "child-1",
+      "--idempotency-key",
+      UUID,
+    ]);
+
+    expect(retriedNote.id).toBe(firstNote.id);
+    expect(retriedRequest.id).toBe(firstRequest.id);
+    expect(retriedResolution.id).toBe(firstResolution.id);
+    expect(
+      (retriedDecomposition.claim as Record<string, unknown>).leaseId,
+    ).toBe((firstDecomposition.claim as Record<string, unknown>).leaseId);
+    expect(firstNote.id).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-8[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u,
+    );
+    expect(makeUuid).not.toHaveBeenCalled();
   });
 
   it.each(["release", "cancel"] as const)(

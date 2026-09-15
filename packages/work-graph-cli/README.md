@@ -98,7 +98,9 @@ work-graph attention resolve "$ATTENTION_ID" --resolution "Use Cloudflare Worker
 
 `create`, `note`, `decompose`, `attention request`, and `attention resolve`
 accept `--idempotency-key <uuid>`. Note and attention IDs are generated when
-`--id` is absent.
+`--id` is absent. When a mutation has an idempotency key, the CLI derives any
+missing mutation or child-lease UUID from that key. Retrying the same command
+therefore sends the same request fingerprint.
 
 ## JSON and exit codes
 

@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { initTRPC } from "@trpc/server";
 import { getCliContext, type TrpcCliMeta } from "trpc-cli";
 import { z } from "zod";
@@ -33,6 +33,26 @@ export interface CommandContext {
   fetch?: Fetch;
   makeUuid: UuidFactory;
 }
+
+const mutationUuid = (
+  context: CommandContext,
+  idempotencyKey: string | undefined,
+  role: string,
+): string => {
+  if (idempotencyKey === undefined) return context.makeUuid();
+
+  const bytes = createHash("sha256")
+    .update("work-graph-cli\0")
+    .update(role)
+    .update("\0")
+    .update(idempotencyKey)
+    .digest()
+    .subarray(0, 16);
+  bytes[6] = ((bytes[6] ?? 0) & 0x0f) | 0x80;
+  bytes[8] = ((bytes[8] ?? 0) & 0x3f) | 0x80;
+  const hex = bytes.toString("hex");
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+};
 
 export const globalOptionsSchema = z.object({
   apiUrl: z
@@ -368,7 +388,7 @@ export const workGraphRouter = t.router({
       resolveClient(ctx).createNote(
         input.workItemId,
         {
-          id: input.id ?? ctx.makeUuid(),
+          id: input.id ?? mutationUuid(ctx, input.idempotencyKey, "note"),
           leaseId: input.leaseId,
           epoch: input.epoch,
           content: input.content,
@@ -403,7 +423,13 @@ export const workGraphRouter = t.router({
             : {
                 claim: {
                   workItemId: input.claimWorkItemId,
-                  leaseId: input.claimLeaseId ?? ctx.makeUuid(),
+                  leaseId:
+                    input.claimLeaseId ??
+                    mutationUuid(
+                      ctx,
+                      input.idempotencyKey,
+                      "decomposition-claim",
+                    ),
                   leaseDurationSeconds:
                     input.claimLeaseDurationSeconds ?? 900,
                 },
@@ -432,7 +458,9 @@ export const workGraphRouter = t.router({
       .mutation(({ ctx, input }) =>
         resolveClient(ctx).requestAttention(
           {
-            id: input.id ?? ctx.makeUuid(),
+            id:
+              input.id ??
+              mutationUuid(ctx, input.idempotencyKey, "attention-request"),
             workItemId: input.workItemId,
             leaseId: input.leaseId,
             epoch: input.epoch,
@@ -451,7 +479,9 @@ export const workGraphRouter = t.router({
         resolveClient(ctx).resolveAttention(
           input.attentionRequestId,
           {
-            id: input.id ?? ctx.makeUuid(),
+            id:
+              input.id ??
+              mutationUuid(ctx, input.idempotencyKey, "attention-resolution"),
             resolution: input.resolution,
           },
           input.idempotencyKey,
