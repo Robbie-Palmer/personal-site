@@ -10,8 +10,6 @@ import {
 } from "../src/index";
 
 describe("decomposition and hierarchy", () => {
-  it.todo("turns an in-progress item into a parent of newly discovered work");
-
   it("adds newly discovered work beneath an open item", () => {
     const graph = createWorkGraph({
       workItems: [{ id: "parent", title: "Discovered work" }],
@@ -19,8 +17,8 @@ describe("decomposition and hierarchy", () => {
     const decomposed = decomposeWorkItem(graph, {
       parentWorkItemId: "parent",
       children: [
-        { id: "first", title: "First child" },
-        { id: "second", title: "Second child" },
+        { id: "first", title: "First child", rank: 1 },
+        { id: "second", title: "Second child", rank: 2 },
       ],
     });
 
@@ -32,8 +30,6 @@ describe("decomposition and hierarchy", () => {
     expect(getWorkItem(decomposed, "parent").lifecycle).toBe("open");
   });
 
-  it.todo("ends the current lease with a decomposed outcome");
-
   it("creates children and their dependency edges as one change", () => {
     const graph = createWorkGraph({
       workItems: [{ id: "parent", title: "Parent" }],
@@ -41,8 +37,8 @@ describe("decomposition and hierarchy", () => {
     const decomposed = decomposeWorkItem(graph, {
       parentWorkItemId: "parent",
       children: [
-        { id: "first", title: "First child" },
-        { id: "second", title: "Second child" },
+        { id: "first", title: "First child", rank: 1 },
+        { id: "second", title: "Second child", rank: 2 },
       ],
       dependencies: [
         {
@@ -71,8 +67,8 @@ describe("decomposition and hierarchy", () => {
       decomposeWorkItem(graph, {
         parentWorkItemId: "parent",
         children: [
-          { id: "first", title: "First child" },
-          { id: "second", title: "Second child" },
+          { id: "first", title: "First child", rank: 1 },
+          { id: "second", title: "Second child", rank: 2 },
         ],
         dependencies: [
           {
@@ -113,7 +109,7 @@ describe("decomposition and hierarchy", () => {
     expect(() =>
       decomposeWorkItem(graph, {
         parentWorkItemId: "released",
-        children: [{ id: "child", title: "Child" }],
+        children: [{ id: "child", title: "Child", rank: 1 }],
       }),
     ).toThrowError(
       expect.objectContaining<Partial<WorkGraphError>>({
@@ -122,9 +118,52 @@ describe("decomposition and hierarchy", () => {
     );
   });
 
-  it.todo("allows the decomposing worker to claim a ready child atomically");
-  it.todo("inherits scope and relevant context unless a child overrides them");
-  it.todo("preserves the parent's place in the priority order");
+  it.todo("allows child context to override inherited context");
+  it("orders children by local rank and retains ancestry for inherited context", () => {
+    const graph = createWorkGraph({
+      workItems: [
+        { id: "scope", title: "Inherited project context" },
+        { id: "parent", title: "Parent", parentId: "scope" },
+      ],
+    });
+    const decomposed = decomposeWorkItem(graph, {
+      parentWorkItemId: "parent",
+      children: [
+        { id: "later", title: "Later child", rank: 20 },
+        { id: "first", title: "First child", rank: 10 },
+      ],
+    });
+
+    expect(getDirectChildren(decomposed, "parent").map(({ id }) => id)).toEqual([
+      "first",
+      "later",
+    ]);
+    expect(getWorkItem(decomposed, "first").parentId).toBe("parent");
+  });
+
+  it("rejects invalid or duplicate ranks without changing the graph", () => {
+    const graph = createWorkGraph({
+      workItems: [{ id: "parent", title: "Parent" }],
+    });
+
+    for (const ranks of [[0], [1, 1]]) {
+      expect(() =>
+        decomposeWorkItem(graph, {
+          parentWorkItemId: "parent",
+          children: ranks.map((rank, index) => ({
+            id: `child-${index}`,
+            title: `Child ${index}`,
+            rank,
+          })),
+        }),
+      ).toThrowError(
+        expect.objectContaining<Partial<WorkGraphError>>({
+          code: "invalid_child_rank",
+        }),
+      );
+    }
+    expect(graph.workItems).toHaveLength(1);
+  });
 
   it("allows the parent to become executable again after its children terminate", () => {
     const graph = decomposeWorkItem(
@@ -133,7 +172,7 @@ describe("decomposition and hierarchy", () => {
       }),
       {
         parentWorkItemId: "parent",
-        children: [{ id: "child", title: "Child" }],
+        children: [{ id: "child", title: "Child", rank: 1 }],
       },
     );
     const childReleased = releaseWorkItem(graph, "child");

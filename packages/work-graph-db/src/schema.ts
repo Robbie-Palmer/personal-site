@@ -52,15 +52,23 @@ export const workItemHierarchy = pgTable(
     parentWorkItemId: text()
       .notNull()
       .references(() => workItem.id, { onDelete: "restrict" }),
+    rank: integer(),
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
     index("work_item_hierarchy_parent_work_item_id_idx").on(
       table.parentWorkItemId,
     ),
+    uniqueIndex("work_item_hierarchy_parent_rank_uidx")
+      .on(table.parentWorkItemId, table.rank)
+      .where(sql`${table.rank} is not null`),
     check(
       "work_item_hierarchy_not_self_check",
       sql`${table.childWorkItemId} <> ${table.parentWorkItemId}`,
+    ),
+    check(
+      "work_item_hierarchy_rank_positive_check",
+      sql`${table.rank} is null or ${table.rank} > 0`,
     ),
   ],
 );

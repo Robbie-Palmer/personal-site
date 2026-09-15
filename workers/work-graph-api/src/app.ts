@@ -10,6 +10,8 @@ import type {
   CreateAttentionRequestInput,
   CreateAttentionRequestResult,
   CreateNoteInput,
+  DecomposeClaimedWorkItemInput,
+  DecomposeClaimedWorkItemResult,
   IdempotentMutationOptions,
   ListAttentionRequestsInput,
   ResolveAttentionRequestInput,
@@ -36,6 +38,8 @@ import { z } from "zod";
 const MAX_IDENTIFIER_LENGTH = 200;
 const MAX_TITLE_LENGTH = 10_000;
 const MAX_LEASE_DURATION_SECONDS = 86_400;
+const MAX_DECOMPOSITION_CHILDREN = 100;
+const MAX_DECOMPOSITION_DEPENDENCIES = 1_000;
 const DEFAULT_LIST_LIMIT = 50;
 
 const identifierSchema = z.string().trim().min(1).max(MAX_IDENTIFIER_LENGTH);
@@ -51,6 +55,12 @@ const leaseDurationSchema = z
   .int()
   .min(1)
   .max(MAX_LEASE_DURATION_SECONDS)
+  .openapi({ format: "int32" });
+const childRankSchema = z
+  .number()
+  .int()
+  .min(1)
+  .max(2_147_483_647)
   .openapi({ format: "int32" });
 const timestampSchema = z.iso.datetime().max(30);
 const idempotencyHeadersSchema = z.object({
@@ -253,6 +263,54 @@ const renewLeaseBodySchema = z
 const terminateWorkItemBodySchema = z
   .object({ leaseId: leaseIdSchema, epoch: leaseEpochSchema })
   .strict();
+const decompositionChildSchema = z
+  .object({
+    id: identifierSchema,
+    title: z.string().trim().min(1).max(MAX_TITLE_LENGTH),
+    rank: childRankSchema,
+  })
+  .strict();
+const decompositionClaimSchema = z
+  .object({
+    workItemId: identifierSchema,
+    leaseId: leaseIdSchema,
+    leaseDurationSeconds: leaseDurationSchema,
+  })
+  .strict();
+const createDecompositionBodySchema = z
+  .object({
+    leaseId: leaseIdSchema,
+    epoch: leaseEpochSchema,
+    children: z
+      .array(decompositionChildSchema)
+      .min(1)
+      .max(MAX_DECOMPOSITION_CHILDREN),
+    dependencies: z
+      .array(dependencyBodySchema)
+      .max(MAX_DECOMPOSITION_DEPENDENCIES)
+      .optional(),
+    claim: decompositionClaimSchema.optional(),
+  })
+  .strict();
+
+const decompositionResponseSchema = z
+  .object({
+    parent: workItemSchema,
+    children: z
+      .array(
+        z.object({
+          rank: childRankSchema,
+          workItem: workItemSchema,
+        }),
+      )
+      .max(MAX_DECOMPOSITION_CHILDREN),
+    dependencies: z
+      .array(workItemDependencySchema)
+      .max(MAX_DECOMPOSITION_DEPENDENCIES),
+    endedLease: leaseSchema,
+    claimedLease: z.union([leaseSchema, z.null()]),
+  })
+  .openapi("WorkItemDecomposition");
 
 const errorResponse = (description: string) => ({
   description,
@@ -587,6 +645,34 @@ const cancelWorkItemRoute = createRoute({
   },
 });
 
+const createDecompositionRoute = createRoute({
+  method: "post",
+  path: "/api/work-items/{workItemId}/decompositions",
+  operationId: "createWorkItemDecomposition",
+  summary: "Decompose claimed work into ranked children",
+  description:
+    "Creates ranked children and dependency edges, ends the fenced parent lease with a decomposed outcome, and can claim one ready child for the same worker in one transaction. Children retain the parent link used to resolve inherited context.",
+  tags: ["work-items"],
+  security: accessSecurity,
+  request: {
+    params: workItemParamsSchema,
+    headers: idempotencyHeadersSchema,
+    body: {
+      required: true,
+      content: {
+        "application/json": { schema: createDecompositionBodySchema },
+      },
+    },
+  },
+  responses: {
+    201: {
+      description: "Work item decomposed or matching mutation replayed",
+      content: { "application/json": { schema: decompositionResponseSchema } },
+    },
+    ...standardErrors,
+  },
+});
+
 export interface WorkGraphApiRepository {
   listWorkItems(): Promise<readonly WorkItemReadModel[]>;
   getWorkItem(workItemId: string): Promise<WorkItemReadModel>;
@@ -622,6 +708,10 @@ export interface WorkGraphApiRepository {
   terminateClaimedWorkItem(
     input: TerminateClaimedWorkItemInput,
   ): Promise<StoredLease>;
+  decomposeClaimedWorkItem(
+    input: DecomposeClaimedWorkItemInput,
+    options?: IdempotentMutationOptions,
+  ): Promise<DecomposeClaimedWorkItemResult>;
 }
 
 export interface WorkGraphAppOptions {
@@ -955,6 +1045,41 @@ export const createWorkGraphApp = (
     const item = await repository.getWorkItem(workItemId);
     return context.json(
       { lease: serializeLease(ended), workItem: serializeWorkItem(item) },
+      201,
+    );
+  });
+
+  app.openapi(createDecompositionRoute, async (context) => {
+    const { workItemId } = context.req.valid("param");
+    const request = context.req.valid("json");
+    const headers = context.req.valid("header");
+    const decomposed = await repository.decomposeClaimedWorkItem(
+      { ...request, workItemId },
+      idempotencyOptions(headers["idempotency-key"]),
+    );
+    const [parent, ...childItems] = await Promise.all([
+      repository.getWorkItem(workItemId),
+      ...decomposed.children.map(({ workItem: child }) =>
+        repository.getWorkItem(child.id),
+      ),
+    ]);
+    if (!parent) throw new Error("Decomposition parent projection is missing.");
+    return context.json(
+      {
+        parent: serializeWorkItem(parent),
+        children: decomposed.children.map(({ rank }, index) => {
+          const child = childItems[index];
+          if (!child) {
+            throw new Error("Decomposition child projection is missing.");
+          }
+          return { rank, workItem: serializeWorkItem(child) };
+        }),
+        dependencies: [...decomposed.dependencies],
+        endedLease: serializeLease(decomposed.endedLease),
+        claimedLease: decomposed.claimedLease
+          ? serializeLease(decomposed.claimedLease)
+          : null,
+      },
       201,
     );
   });

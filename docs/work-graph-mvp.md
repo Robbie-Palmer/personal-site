@@ -418,7 +418,7 @@ before the headless workflow is useful.
    and cancel endpoints with generated OpenAPI.
 6. [x] Add create, dependency, note, attention, and idempotent mutation
    endpoints.
-7. [ ] Add transactional decomposition, including ending the current lease and
+7. [x] Add transactional decomposition, including ending the current lease and
    optionally claiming a ready child.
 8. [ ] Build the TypeScript CLI around create, queue, claim, show, note, renew,
    decompose, attention, release, and cancel operations.

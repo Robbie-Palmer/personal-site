@@ -108,7 +108,7 @@ beforeAll(async () => {
     order by enumsortorder
   `);
 
-  expect(migrationCount?.count).toBe(5);
+  expect(migrationCount?.count).toBe(6);
   expect(tables.map(({ table_name }) => table_name)).toEqual([
     "attention_requests",
     "attention_resolutions",
@@ -133,6 +133,293 @@ beforeAll(async () => {
     "attention_requested",
     "expired",
   ]);
+});
+
+describe("transactional decomposition", () => {
+  const claimParent = async (leaseId: string) => {
+    await repository.createWorkItem({ id: "parent", title: "Parent context" });
+    const claimed = await repository.claimWorkItem({
+      leaseId,
+      workerId: "worker-a",
+      leaseDurationSeconds: 300,
+      workItemId: "parent",
+    });
+    if (!claimed) throw new Error("Expected the parent claim to succeed.");
+    return claimed;
+  };
+
+  it("creates ranked children, ends the parent lease, and claims a ready child atomically", async () => {
+    const parentLease = await claimParent(recordId(201));
+    await repository.createNote({
+      id: recordId(211),
+      workItemId: "parent",
+      leaseId: parentLease.id,
+      epoch: parentLease.epoch,
+      content: "Discovery context retained on the parent.",
+    });
+    const result = await repository.decomposeClaimedWorkItem({
+      leaseId: parentLease.id,
+      epoch: parentLease.epoch,
+      workItemId: "parent",
+      children: [
+        { id: "second", title: "Second child", rank: 20 },
+        { id: "first", title: "First child", rank: 10 },
+      ],
+      dependencies: [dependency("second", "first")],
+      claim: {
+        workItemId: "first",
+        leaseId: recordId(202),
+        leaseDurationSeconds: 120,
+      },
+    });
+
+    expect(result.children).toEqual([
+      {
+        rank: 10,
+        workItem: {
+          id: "first",
+          title: "First child",
+          lifecycle: "open",
+          parentId: "parent",
+        },
+      },
+      {
+        rank: 20,
+        workItem: {
+          id: "second",
+          title: "Second child",
+          lifecycle: "open",
+          parentId: "parent",
+        },
+      },
+    ]);
+    expect(result.endedLease).toEqual(
+      expect.objectContaining({
+        id: parentLease.id,
+        endedAt: expect.any(Date),
+        outcome: "decomposed",
+      }),
+    );
+    expect(result.claimedLease).toEqual(
+      expect.objectContaining({
+        id: recordId(202),
+        workItemId: "first",
+        workerId: "worker-a",
+        epoch: 1,
+      }),
+    );
+
+    const graph = await repository.load();
+    expect(
+      graph.workItems
+        .filter(({ parentId }) => parentId === "parent")
+        .map(({ id }) => id),
+    ).toEqual(["first", "second"]);
+    expect(graph.dependencies).toEqual([dependency("second", "first")]);
+    await expect(repository.getWorkItem("parent")).resolves.toEqual(
+      expect.objectContaining({ lifecycle: "open", stage: "blocked" }),
+    );
+    await expect(repository.getWorkItem("first")).resolves.toEqual(
+      expect.objectContaining({ parentId: "parent", stage: "in_progress" }),
+    );
+    await expect(repository.getWorkItem("second")).resolves.toEqual(
+      expect.objectContaining({ parentId: "parent", stage: "blocked" }),
+    );
+    await expect(repository.listNotes("parent")).resolves.toEqual([
+      expect.objectContaining({
+        id: recordId(211),
+        content: "Discovery context retained on the parent.",
+      }),
+    ]);
+    expect(
+      await db
+        .select({
+          childWorkItemId: schema.workItemHierarchy.childWorkItemId,
+          rank: schema.workItemHierarchy.rank,
+        })
+        .from(schema.workItemHierarchy)
+        .orderBy(schema.workItemHierarchy.rank),
+    ).toEqual([
+      { childWorkItemId: "first", rank: 10 },
+      { childWorkItemId: "second", rank: 20 },
+    ]);
+  });
+
+  it("rolls back children, edges, the receipt, and lease ending when the combined graph cycles", async () => {
+    const parentLease = await claimParent(recordId(203));
+    const idempotencyKey = recordId(204);
+
+    await expect(
+      repository.decomposeClaimedWorkItem(
+        {
+          leaseId: parentLease.id,
+          epoch: parentLease.epoch,
+          workItemId: "parent",
+          children: [{ id: "child", title: "Child", rank: 1 }],
+          dependencies: [dependency("child", "parent")],
+        },
+        { idempotencyKey },
+      ),
+    ).rejects.toEqual(
+      expect.objectContaining<Partial<WorkGraphError>>({ code: "graph_cycle" }),
+    );
+
+    expect((await repository.load()).workItems.map(({ id }) => id)).toEqual([
+      "parent",
+    ]);
+    expect((await repository.load()).dependencies).toEqual([]);
+    await expect(repository.getCurrentLease("parent")).resolves.toEqual(
+      expect.objectContaining({ id: parentLease.id, endedAt: null }),
+    );
+    expect(await db.select().from(schema.idempotencyKey)).toEqual([]);
+  });
+
+  it("rolls back the decomposition when the requested child is not ready", async () => {
+    const parentLease = await claimParent(recordId(212));
+
+    await expect(
+      repository.decomposeClaimedWorkItem({
+        leaseId: parentLease.id,
+        epoch: parentLease.epoch,
+        workItemId: "parent",
+        children: [
+          { id: "blocker", title: "Blocker", rank: 1 },
+          { id: "blocked", title: "Blocked", rank: 2 },
+        ],
+        dependencies: [dependency("blocked", "blocker")],
+        claim: {
+          workItemId: "blocked",
+          leaseId: recordId(213),
+          leaseDurationSeconds: 120,
+        },
+      }),
+    ).rejects.toEqual(
+      expect.objectContaining<Partial<WorkGraphError>>({
+        code: "decomposition_child_not_claimable",
+      }),
+    );
+
+    expect((await repository.load()).workItems.map(({ id }) => id)).toEqual([
+      "parent",
+    ]);
+    await expect(repository.getCurrentLease("parent")).resolves.toEqual(
+      expect.objectContaining({ id: parentLease.id, endedAt: null }),
+    );
+    await expect(repository.getCurrentLease("blocked")).resolves.toBeNull();
+  });
+
+  it("lets only one competing decomposition consume the fenced parent lease", async () => {
+    const parentLease = await claimParent(recordId(205));
+    const attempt = (suffix: number) =>
+      repository.decomposeClaimedWorkItem(
+        {
+          leaseId: parentLease.id,
+          epoch: parentLease.epoch,
+          workItemId: "parent",
+          children: [
+            { id: `child-${suffix}`, title: `Child ${suffix}`, rank: 1 },
+          ],
+        },
+        { idempotencyKey: recordId(205 + suffix) },
+      );
+
+    const results = await Promise.allSettled([attempt(1), attempt(2)]);
+
+    expect(results.filter(({ status }) => status === "fulfilled")).toHaveLength(
+      1,
+    );
+    const [rejected] = results.filter(({ status }) => status === "rejected");
+    if (!rejected) throw new Error("Expected one decomposition to lose.");
+    expectWorkGraphError(rejected, "lease_not_current");
+    expect(
+      (await repository.load()).workItems.filter(
+        ({ parentId }) => parentId === "parent",
+      ),
+    ).toHaveLength(1);
+    expect(await db.select().from(schema.idempotencyKey)).toHaveLength(1);
+  });
+
+  it("serializes competing decompositions that would form a combined cycle", async () => {
+    await repository.createWorkItem({ id: "a", title: "A" });
+    await repository.createWorkItem({ id: "b", title: "B" });
+    const [leaseA, leaseB] = await Promise.all([
+      repository.claimWorkItem({
+        leaseId: recordId(214),
+        workerId: "worker-a",
+        leaseDurationSeconds: 300,
+        workItemId: "a",
+      }),
+      repository.claimWorkItem({
+        leaseId: recordId(215),
+        workerId: "worker-b",
+        leaseDurationSeconds: 300,
+        workItemId: "b",
+      }),
+    ]);
+    if (!leaseA || !leaseB) throw new Error("Expected both claims to succeed.");
+
+    const results = await Promise.allSettled([
+      repository.decomposeClaimedWorkItem({
+        leaseId: leaseA.id,
+        epoch: leaseA.epoch,
+        workItemId: "a",
+        children: [{ id: "a-child", title: "A child", rank: 1 }],
+        dependencies: [dependency("a-child", "b")],
+      }),
+      repository.decomposeClaimedWorkItem({
+        leaseId: leaseB.id,
+        epoch: leaseB.epoch,
+        workItemId: "b",
+        children: [{ id: "b-child", title: "B child", rank: 1 }],
+        dependencies: [dependency("b-child", "a")],
+      }),
+    ]);
+
+    expect(results.filter(({ status }) => status === "fulfilled")).toHaveLength(
+      1,
+    );
+    const [rejected] = results.filter(({ status }) => status === "rejected");
+    if (!rejected) throw new Error("Expected one cyclic decomposition to fail.");
+    expectWorkGraphError(rejected, "graph_cycle");
+    const graph = await repository.load();
+    expect(graph.workItems).toHaveLength(3);
+    expect(graph.dependencies).toHaveLength(1);
+    expect(() => projectWorkItemStage(graph, "a")).not.toThrow();
+    expect(() => projectWorkItemStage(graph, "b")).not.toThrow();
+    expect(
+      [
+        await repository.getCurrentLease("a"),
+        await repository.getCurrentLease("b"),
+      ].filter((currentLease) => currentLease !== null),
+    ).toHaveLength(1);
+  });
+
+  it("replays a concurrent retry with the original children and child lease", async () => {
+    const parentLease = await claimParent(recordId(208));
+    const request = {
+      leaseId: parentLease.id,
+      epoch: parentLease.epoch,
+      workItemId: "parent",
+      children: [{ id: "child", title: "Child", rank: 1 }],
+      claim: {
+        workItemId: "child",
+        leaseId: recordId(209),
+        leaseDurationSeconds: 120,
+      },
+    } as const;
+    const options = { idempotencyKey: recordId(210) };
+
+    const [first, replay] = await Promise.all([
+      repository.decomposeClaimedWorkItem(request, options),
+      repository.decomposeClaimedWorkItem(request, options),
+    ]);
+
+    expect(replay).toEqual(first);
+    expect((await repository.load()).workItems).toHaveLength(2);
+    expect(await repository.listLeases("parent")).toHaveLength(1);
+    expect(await repository.listLeases("child")).toHaveLength(1);
+    expect(await db.select().from(schema.idempotencyKey)).toHaveLength(1);
+  });
 });
 
 beforeEach(async () => {

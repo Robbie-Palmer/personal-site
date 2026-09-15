@@ -4,6 +4,7 @@ import {
   type WorkStage,
 } from "work-graph-domain";
 import type {
+  DecomposeClaimedWorkItemInput,
   StoredLease,
   WorkItemReadModel,
 } from "work-graph-db";
@@ -22,6 +23,7 @@ const noteId = "00000000-0000-4000-8000-000000000004";
 const attentionRequestId = "00000000-0000-4000-8000-000000000005";
 const attentionResolutionId = "00000000-0000-4000-8000-000000000006";
 const secondAttentionRequestId = "00000000-0000-4000-8000-000000000007";
+const childLeaseId = "00000000-0000-4000-8000-000000000008";
 
 const lease = (workItemId = "ready"): StoredLease => ({
   id: leaseId,
@@ -103,6 +105,27 @@ const buildRepository = (): WorkGraphApiRepository => ({
     ...lease(input.workItemId),
     endedAt: expiresAt,
     outcome: input.outcome,
+  })),
+  decomposeClaimedWorkItem: vi.fn(async (input: DecomposeClaimedWorkItemInput) => ({
+    children: input.children
+      .map(({ rank, ...child }) => ({
+        rank,
+        workItem: { ...child, lifecycle: "open" as const, parentId: input.workItemId },
+      }))
+      .sort((left, right) => left.rank - right.rank),
+    dependencies: input.dependencies ?? [],
+    endedLease: {
+      ...lease(input.workItemId),
+      endedAt: acquiredAt,
+      outcome: "decomposed" as const,
+    },
+    claimedLease: input.claim
+      ? {
+          ...lease(input.claim.workItemId),
+          id: input.claim.leaseId,
+          expiresAt,
+        }
+      : null,
   })),
 });
 
@@ -468,6 +491,88 @@ describe("Given a worker recording progress and requesting attention", () => {
 });
 
 describe("Given a worker managing a lease", () => {
+  it("decomposes into ranked children and claims one for the same worker", async () => {
+    const repository = buildRepository();
+    vi.mocked(repository.getWorkItem).mockImplementation(async (workItemId) => ({
+      ...item(
+        workItemId,
+        workItemId === "parent"
+          ? "blocked"
+          : workItemId === "first"
+            ? "in_progress"
+            : "blocked",
+        "open",
+        workItemId === "first"
+          ? { ...lease("first"), id: childLeaseId }
+          : null,
+      ),
+      parentId: workItemId === "parent" ? null : "parent",
+    }));
+    const app = createWorkGraphApp(repository);
+    const body = {
+      leaseId,
+      epoch: 1,
+      children: [
+        { id: "second", title: "Second child", rank: 20 },
+        { id: "first", title: "First child", rank: 10 },
+      ],
+      dependencies: [
+        { dependentWorkItemId: "second", blockerWorkItemId: "first" },
+      ],
+      claim: {
+        workItemId: "first",
+        leaseId: childLeaseId,
+        leaseDurationSeconds: 300,
+      },
+    };
+
+    const response = await app.request(
+      "/api/work-items/parent/decompositions",
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "idempotency-key": idempotencyKey,
+        },
+        body: JSON.stringify(body),
+      },
+    );
+
+    expect(response.status).toBe(201);
+    expect(repository.decomposeClaimedWorkItem).toHaveBeenCalledWith(
+      { ...body, workItemId: "parent" },
+      { idempotencyKey },
+    );
+    expect(await responseJson(response)).toEqual(
+      expect.objectContaining({
+        parent: expect.objectContaining({ id: "parent", stage: "blocked" }),
+        children: [
+          expect.objectContaining({
+            rank: 10,
+            workItem: expect.objectContaining({
+              id: "first",
+              parentId: "parent",
+              stage: "in_progress",
+            }),
+          }),
+          expect.objectContaining({
+            rank: 20,
+            workItem: expect.objectContaining({
+              id: "second",
+              stage: "blocked",
+            }),
+          }),
+        ],
+        endedLease: expect.objectContaining({ outcome: "decomposed" }),
+        claimedLease: expect.objectContaining({
+          id: childLeaseId,
+          workItemId: "first",
+          workerId: "worker-a",
+        }),
+      }),
+    );
+  });
+
   it("claims, renews, and releases through noun-based resources", async () => {
     const repository = buildRepository();
     const released = item("ready", "released", "released");

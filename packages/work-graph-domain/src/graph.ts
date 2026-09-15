@@ -425,7 +425,9 @@ export const cancelWorkItem = (
 
 export interface DecomposeWorkItemInput {
   readonly parentWorkItemId: string;
-  readonly children: readonly Omit<NewWorkItemInput, "parentId">[];
+  readonly children: readonly (Omit<NewWorkItemInput, "parentId"> & {
+    readonly rank: number;
+  })[];
   readonly dependencies?: readonly WorkItemDependency[];
 }
 
@@ -447,12 +449,35 @@ export const decomposeWorkItem = (
     );
   }
 
+  const ranks = new Set<number>();
+  for (const child of input.children) {
+    if (
+      !Number.isSafeInteger(child.rank) ||
+      child.rank <= 0 ||
+      child.rank > 2_147_483_647
+    ) {
+      throw new WorkGraphError(
+        "invalid_child_rank",
+        `Child work item ${child.id} must have a positive whole-number rank.`,
+      );
+    }
+    if (ranks.has(child.rank)) {
+      throw new WorkGraphError(
+        "invalid_child_rank",
+        `Child rank ${child.rank} is used more than once beneath work item ${parent.id}.`,
+      );
+    }
+    ranks.add(child.rank);
+  }
+
   const candidate = {
     workItems: [
       ...graph.workItems,
-      ...input.children.map((child) =>
-        normalizeWorkItem({ ...child, parentId: parent.id }),
-      ),
+      ...[...input.children]
+        .sort((left, right) => left.rank - right.rank)
+        .map(({ rank: _rank, ...child }) =>
+          normalizeWorkItem({ ...child, parentId: parent.id }),
+        ),
     ],
     dependencies: [
       ...graph.dependencies,
