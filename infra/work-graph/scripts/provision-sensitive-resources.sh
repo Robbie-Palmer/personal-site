@@ -89,6 +89,7 @@ request_json() {
 neon_auth="$work_dir/neon.curl"
 cloudflare_auth="$work_dir/cloudflare.curl"
 doppler_auth="$work_dir/doppler.curl"
+json_content_type="Content-Type: application/json"
 write_bearer_config "$neon_auth" "$NEON_API_KEY"
 write_bearer_config "$cloudflare_auth" "$CLOUDFLARE_API_TOKEN"
 write_bearer_config "$doppler_auth" "$WORK_GRAPH_DOPPLER_SERVICE_TOKEN"
@@ -115,7 +116,7 @@ jq -n \
 request_json "$doppler_auth" "$work_dir/doppler-write-checked.json" \
   --request POST \
   --url "https://api.doppler.com/v3/configs/config/secrets" \
-  --header "Content-Type: application/json" \
+  --header "$json_content_type" \
   --data-binary "@$work_dir/doppler-write-check.json"
 
 request_json "$neon_auth" "$work_dir/neon-projects.json" \
@@ -161,7 +162,7 @@ if [[ "$project_count" -eq 0 ]]; then
   request_json "$neon_auth" "$work_dir/neon-created.json" \
     --request POST \
     --url "https://console.neon.tech/api/v2/projects" \
-    --header "Content-Type: application/json" \
+    --header "$json_content_type" \
     --data-binary "@$work_dir/neon-create.json"
   neon_project_id=$(jq -er '.project.id' "$work_dir/neon-created.json")
 else
@@ -239,7 +240,7 @@ if [[ "$service_token_count" -eq 0 ]]; then
   request_json "$cloudflare_auth" "$work_dir/service-token-created.json" \
     --request POST \
     --url "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/access/service_tokens" \
-    --header "Content-Type: application/json" \
+    --header "$json_content_type" \
     --data-binary "@$work_dir/service-token-create.json"
   if [[ "$(jq -er '.success' "$work_dir/service-token-created.json")" != true ]]; then
     echo "Cloudflare did not create the Work Graph Access service token." >&2
@@ -295,7 +296,7 @@ jq -n \
 request_json "$doppler_auth" "$work_dir/doppler-updated.json" \
   --request POST \
   --url "https://api.doppler.com/v3/configs/config/secrets" \
-  --header "Content-Type: application/json" \
+  --header "$json_content_type" \
   --data-binary "@$work_dir/doppler-update.json"
 
 request_json "$doppler_auth" "$work_dir/doppler-verified.json" \
