@@ -20,7 +20,7 @@ run = "pnpm dev"
 [tasks.deploy]
 description = "Deploy the Work Graph Worker with its Terraform Hyperdrive binding"
 depends = ["install"]
-run = "pnpm deploy"
+run = "pnpm run deploy"
 
 [tasks."deploy:check"]
 description = "Build the production Work Graph Worker without uploading it"
