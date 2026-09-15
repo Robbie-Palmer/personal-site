@@ -110,6 +110,8 @@ describe("agent markdown generation", () => {
     expect(platform).toContain("backend-api.runtime: preferred");
     expect(platform).toContain("## Default history");
     expect(platform).toContain("### Primary language");
+    expect(platform).toContain("### Source licence");
+    expect(platform).toContain("AGPL-3.0: Accepted");
     expect(platform).toContain(
       "/projects/personal-engineering-platform/adrs/001-language-defaults.md",
     );

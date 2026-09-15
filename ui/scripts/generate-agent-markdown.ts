@@ -313,7 +313,11 @@ function buildPlatformManifestSection(project: ProjectWithADRs): string[] {
                 )
                 .join(", ")}`
             : "";
-        return `- [${selection.technology}](${markdownUrl(routePath("technologies", selection.technology))}): ${selection.lifecycleStatus}, ${selection.effectiveFrom} to ${until}; [decision](${decisionUrl})${origins}`;
+        const selectedValue =
+          selection.kind === "technology"
+            ? `[${selection.technology}](${markdownUrl(routePath("technologies", selection.technology))})`
+            : selection.value;
+        return `- ${selectedValue}: ${selection.lifecycleStatus}, ${selection.effectiveFrom} to ${until}; [decision](${decisionUrl})${origins}`;
       }),
     ...(slot.users.length > 0
       ? [

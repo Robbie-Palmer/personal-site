@@ -732,12 +732,26 @@ export function loadADRs(): ADRLoadResult {
         inheritsFrom: undefined,
         supersedes: data.supersedes as ADRRef | undefined,
         overridesDefault: data.overrides_default
-          ? DefaultOverrideSchema.parse({
-              slot: data.overrides_default.slot,
-              technology: normalizeSlug(data.overrides_default.technology),
-              adopted: data.overrides_default.adopted,
-              until: data.overrides_default.until,
-            })
+          ? DefaultOverrideSchema.parse(
+              data.overrides_default.kind === "policy" ||
+                data.overrides_default.value !== undefined
+                ? {
+                    slot: data.overrides_default.slot,
+                    kind: "policy",
+                    value: data.overrides_default.value,
+                    adopted: data.overrides_default.adopted,
+                    until: data.overrides_default.until,
+                  }
+                : {
+                    slot: data.overrides_default.slot,
+                    kind: "technology",
+                    technology: normalizeSlug(
+                      data.overrides_default.technology,
+                    ),
+                    adopted: data.overrides_default.adopted,
+                    until: data.overrides_default.until,
+                  },
+            )
           : undefined,
         content,
         readingTime: readingTime(content).text,
@@ -933,13 +947,24 @@ export function loadPlatformManifest(): PlatformManifest | undefined {
       effectiveUntil: policy.effective_until,
     })),
     selections: records(data.selections).map(
-      (selection: Record<string, unknown>) => ({
-        ...selection,
-        technology: normalizeSlug(String(selection.technology)),
-        originProjects: selection.origin_projects ?? [],
-        effectiveFrom: selection.effective_from,
-        effectiveUntil: selection.effective_until,
-      }),
+      (selection: Record<string, unknown>) =>
+        selection.kind === "policy" || selection.value !== undefined
+          ? {
+              ...selection,
+              kind: "policy",
+              value: selection.value,
+              originProjects: selection.origin_projects ?? [],
+              effectiveFrom: selection.effective_from,
+              effectiveUntil: selection.effective_until,
+            }
+          : {
+              ...selection,
+              kind: "technology",
+              technology: normalizeSlug(String(selection.technology)),
+              originProjects: selection.origin_projects ?? [],
+              effectiveFrom: selection.effective_from,
+              effectiveUntil: selection.effective_until,
+            },
     ),
   };
   const result = PlatformManifestSchema.safeParse(manifest);
@@ -1011,11 +1036,13 @@ function validatePlatformSelections(
   checkTech: TechnologyReferenceCheck,
 ): void {
   for (const selection of manifest.selections) {
-    checkTech(
-      selection.technology,
-      `DefaultSelection[${selection.id}]`,
-      "technology",
-    );
+    if (selection.kind === "technology") {
+      checkTech(
+        selection.technology,
+        `DefaultSelection[${selection.id}]`,
+        "technology",
+      );
+    }
     for (const projectSlug of selection.originProjects) {
       if (!input.projects.has(projectSlug)) {
         errors.push({
@@ -1135,7 +1162,21 @@ function validatePlatformOverrides(
         message: `ADR '${adrRef}' overrides missing slot '${override.slot}'`,
       });
     }
-    checkTech(override.technology, `ADR[${adrRef}]`, "overridesDefault");
+    if (override.kind === "technology") {
+      checkTech(override.technology, `ADR[${adrRef}]`, "overridesDefault");
+    }
+    const slot = manifest.slots.find(
+      (candidate) => candidate.slug === override.slot,
+    );
+    if (slot && slot.kind !== override.kind) {
+      errors.push({
+        type: "invalid_reference",
+        entity: `ADR[${adrRef}]`,
+        field: "overridesDefault",
+        value: override.slot,
+        message: `ADR '${adrRef}' override kind '${override.kind}' does not match slot '${override.slot}' kind '${slot.kind}'`,
+      });
+    }
     const owningLayers = new Set(
       manifest.policies
         .filter((policy) => policy.slot === override.slot)

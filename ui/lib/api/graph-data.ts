@@ -173,6 +173,16 @@ function addPlatformNodes(
       connections: 0,
     });
   }
+  for (const selection of manifest.selections) {
+    if (selection.kind !== "policy") continue;
+    state.nodes.push({
+      id: `platform-policy:${selection.id}`,
+      name: selection.value,
+      type: "platform-policy",
+      href: `/projects/${manifest.project}#slot-${selection.slot}`,
+      connections: 0,
+    });
+  }
 }
 
 function addTechnologyAndTagNodes(
@@ -183,7 +193,8 @@ function addTechnologyAndTagNodes(
   for (const [techSlug, usedBy] of repository.graph.reverse.technologyUsedBy) {
     const ideas = repository.graph.edges.technologyIdeas.get(techSlug);
     const selectedByPlatform = repository.platform?.manifest?.selections.some(
-      (selection) => selection.technology === techSlug,
+      (selection) =>
+        selection.kind === "technology" && selection.technology === techSlug,
     );
     if (
       usedBy.size === 0 &&
@@ -384,30 +395,39 @@ function addPlatformPolicyEdges(
   if (!manifest) return;
   for (const policy of manifest.policies) {
     if (!isEffectiveAt(policy, instant)) continue;
-    const selection = manifest.selections.find(
+    const selections = manifest.selections.filter(
       (candidate) =>
         candidate.slot === policy.slot &&
         candidate.status === "Accepted" &&
         isEffectiveAt(candidate, instant),
     );
-    if (!selection) continue;
-    addEdge(
-      state,
-      `platform-layer:${policy.layer}`,
-      `technology:${selection.technology}`,
-      policy.mode === "required" ? "REQUIRES_TECHNOLOGY" : "PREFERS_TECHNOLOGY",
-      {
-        layer: policy.layer,
-        slot: policy.slot,
-        policy: policy.id,
-        selection: selection.id,
-        decision: selection.decision,
-        mode: policy.mode,
-        status: selection.status,
-        effectiveFrom: selection.effectiveFrom,
-        effectiveUntil: selection.effectiveUntil,
-      },
-    );
+    for (const selection of selections) {
+      addEdge(
+        state,
+        `platform-layer:${policy.layer}`,
+        selection.kind === "technology"
+          ? `technology:${selection.technology}`
+          : `platform-policy:${selection.id}`,
+        selection.kind === "technology"
+          ? policy.mode === "required"
+            ? "REQUIRES_TECHNOLOGY"
+            : "PREFERS_TECHNOLOGY"
+          : policy.mode === "required"
+            ? "REQUIRES_POLICY"
+            : "PREFERS_POLICY",
+        {
+          layer: policy.layer,
+          slot: policy.slot,
+          policy: policy.id,
+          selection: selection.id,
+          decision: selection.decision,
+          mode: policy.mode,
+          status: selection.status,
+          effectiveFrom: selection.effectiveFrom,
+          effectiveUntil: selection.effectiveUntil,
+        },
+      );
+    }
   }
 }
 

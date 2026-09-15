@@ -39,12 +39,15 @@ describe("project platform components", () => {
     const { container } = render(
       <PlatformSummary
         builtOn={project.builtOn}
+        platformPolicies={project.platformPolicies}
         platformTechnologies={project.platformTechnologies}
       />,
     );
 
     expect(screen.getByLabelText("Platform")).toHaveTextContent("Built on");
     expect(screen.getByText(/platform technologies/)).toBeVisible();
+    expect(screen.getByText(/platform policies/)).toBeVisible();
+    expect(screen.getByText("AGPL-3.0")).toBeInTheDocument();
     expect(container.querySelectorAll("a").length).toBeGreaterThan(1);
   });
 

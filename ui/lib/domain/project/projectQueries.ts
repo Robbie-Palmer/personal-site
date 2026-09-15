@@ -245,6 +245,13 @@ export function getProjectWithADRs(
           ]
         : [];
     });
+  const platformPolicies = stack.policies.map((use) => ({
+    value: use.value,
+    source: use.source,
+    layer: use.layer,
+    slot: use.slot,
+    decision: use.decision,
+  }));
   const platformManifest =
     manifest?.project === slug
       ? {
@@ -301,6 +308,7 @@ export function getProjectWithADRs(
     tags,
     builtOn,
     platformTechnologies,
+    platformPolicies,
     platformManifest,
   };
 }

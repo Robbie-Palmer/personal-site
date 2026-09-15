@@ -60,6 +60,28 @@ export const technologies: TechnologyContent[] = [
     type: "language",
   },
   {
+    name: "uv",
+    added: "2026-09-15",
+    description:
+      "Python package and environment manager with a locked workflow",
+    website: "https://docs.astral.sh/uv/",
+    type: "tool",
+  },
+  {
+    name: "Ruff",
+    added: "2026-09-15",
+    description: "Python linter and formatter",
+    website: "https://docs.astral.sh/ruff/",
+    type: "tool",
+  },
+  {
+    name: "pytest",
+    added: "2026-09-15",
+    description: "Python test framework based on fixtures and plain assertions",
+    website: "https://docs.pytest.org/",
+    type: "library",
+  },
+  {
     name: "Pydantic",
     added: "2026-09-12",
     description: "Typed data validation and settings management for Python",
@@ -86,6 +108,13 @@ export const technologies: TechnologyContent[] = [
     description: "Modern unit testing for JS/TS with a familiar Jest-style API",
     website: "https://vitest.dev",
     type: "library",
+  },
+  {
+    name: "Biome",
+    added: "2026-09-15",
+    description: "Formatter and linter for JavaScript and TypeScript projects",
+    website: "https://biomejs.dev/",
+    type: "tool",
   },
   {
     name: "Vale",
@@ -295,6 +324,14 @@ Diff operations can set an edit-distance or time limit. The function returns no 
     added: "2026-01-04",
     description: "AI-powered code review assistant",
     website: "https://coderabbit.ai",
+    type: "tool",
+  },
+  {
+    name: "Agentic Code Review",
+    added: "2026-09-15",
+    description:
+      "Stateful, model-agnostic Pull Request review with retained findings and evaluation data",
+    website: "https://robbiepalmer.me/projects/agentic-code-review",
     type: "tool",
   },
   {
