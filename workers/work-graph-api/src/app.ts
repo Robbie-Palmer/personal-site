@@ -846,9 +846,11 @@ export const createWorkGraphApp = (
           request.blocking === (blocking === "true")) &&
         (cursor === undefined || request.id > cursor),
     );
-    matchingRequests.sort((left, right) =>
-      left.id < right.id ? -1 : left.id > right.id ? 1 : 0,
-    );
+    matchingRequests.sort((left, right) => {
+      if (left.id < right.id) return -1;
+      if (left.id > right.id) return 1;
+      return 0;
+    });
     const page = matchingRequests.slice(0, limit);
     return context.json(
       {
