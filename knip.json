@@ -28,6 +28,10 @@
     "packages/work-graph-domain": {
       "ignoreBinaries": ["vitest"]
     },
+    "packages/work-graph-cli": {
+      "entry": ["src/cli.ts"],
+      "ignore": ["src/generated/**"]
+    },
     "packages/work-graph-db": {
       "entry": ["vitest.integration.config.ts"]
     },

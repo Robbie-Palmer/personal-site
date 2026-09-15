@@ -1,0 +1,246 @@
+import { createClient } from "./generated/client/client/index.js";
+import type { Client } from "./generated/client/client/index.js";
+import {
+  createAttentionRequest,
+  createAttentionResolution,
+  createLease,
+  createLeaseRenewal,
+  createWorkItem,
+  createWorkItemCancellation,
+  createWorkItemDecomposition,
+  createWorkItemNote,
+  createWorkItemRelease,
+  getWorkItem,
+  listAttentionRequests,
+  listWorkItems,
+} from "./generated/client/sdk.gen.js";
+import type {
+  CreateAttentionRequestData,
+  CreateAttentionResolutionData,
+  CreateLeaseData,
+  CreateLeaseRenewalData,
+  CreateWorkItemCancellationData,
+  CreateWorkItemData,
+  CreateWorkItemDecompositionData,
+  CreateWorkItemNoteData,
+  CreateWorkItemReleaseData,
+  ListAttentionRequestsData,
+  ListWorkItemsData,
+} from "./generated/client/types.gen.js";
+import type { WorkGraphClientConfig } from "./config.js";
+import { CliError, EXIT_CODES, exitCodeForStatus } from "./errors.js";
+
+export type Fetch = typeof fetch;
+
+interface ApiResult<Data> {
+  data?: Data;
+  error?: unknown;
+  response?: Response;
+}
+
+const isApiError = (
+  value: unknown,
+): value is {
+  error: { code: string; message: string; details?: unknown };
+} => {
+  if (typeof value !== "object" || value === null || !("error" in value)) {
+    return false;
+  }
+  const error = value.error;
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    typeof error.code === "string" &&
+    "message" in error &&
+    typeof error.message === "string"
+  );
+};
+
+const idempotencyHeaders = (
+  idempotencyKey: string | undefined,
+): { "idempotency-key"?: string } =>
+  idempotencyKey === undefined
+    ? {}
+    : { "idempotency-key": idempotencyKey };
+
+export class WorkGraphClient {
+  readonly #apiOrigin: string;
+  readonly #client: Client;
+
+  constructor(config: WorkGraphClientConfig, fetchImplementation: Fetch = fetch) {
+    this.#apiOrigin = config.apiUrl.origin;
+    this.#client = createClient({
+      baseUrl: config.apiUrl.href,
+      fetch: fetchImplementation,
+      headers: {
+        Accept: "application/json",
+        ...config.accessHeaders,
+      },
+      parseAs: "json",
+      redirect: "manual",
+    });
+  }
+
+  #options(): { client: Client; signal: AbortSignal } {
+    return {
+      client: this.#client,
+      signal: AbortSignal.timeout(30_000),
+    };
+  }
+
+  async #unwrap<Data>(request: PromiseLike<ApiResult<Data>>): Promise<Data> {
+    const result = await request;
+    if (result.data !== undefined) return result.data;
+
+    const status = result.response?.status;
+    if (status !== undefined && status >= 300 && status < 400) {
+      throw new CliError(
+        "REDIRECT_REFUSED",
+        "The Work Graph API returned a redirect. Refusing to forward Access credentials.",
+        EXIT_CODES.transport,
+        { status },
+      );
+    }
+
+    if (status === undefined) {
+      throw new CliError(
+        "TRANSPORT_ERROR",
+        `Could not reach the Work Graph API at ${this.#apiOrigin}.`,
+        EXIT_CODES.transport,
+        { cause: result.error },
+      );
+    }
+
+    if (status >= 200 && status < 300) {
+      throw new CliError(
+        "INVALID_API_RESPONSE",
+        "The Work Graph API returned a non-JSON response.",
+        EXIT_CODES.transport,
+        { cause: result.error, status },
+      );
+    }
+
+    const serverError = isApiError(result.error)
+      ? result.error.error
+      : undefined;
+    throw new CliError(
+      serverError?.code ?? `HTTP_${status}`,
+      serverError?.message ?? `The Work Graph API returned HTTP ${status}.`,
+      exitCodeForStatus(status),
+      { details: serverError?.details, status },
+    );
+  }
+
+  createWorkItem(body: CreateWorkItemData["body"], idempotencyKey?: string) {
+    return this.#unwrap(
+      createWorkItem({
+        ...this.#options(),
+        body,
+        headers: idempotencyHeaders(idempotencyKey),
+      }),
+    );
+  }
+
+  listWorkItems(query: NonNullable<ListWorkItemsData["query"]>) {
+    return this.#unwrap(listWorkItems({ ...this.#options(), query }));
+  }
+
+  getWorkItem(workItemId: string) {
+    return this.#unwrap(
+      getWorkItem({ ...this.#options(), path: { workItemId } }),
+    );
+  }
+
+  claim(body: CreateLeaseData["body"]) {
+    return this.#unwrap(createLease({ ...this.#options(), body }));
+  }
+
+  renew(leaseId: string, body: CreateLeaseRenewalData["body"]) {
+    return this.#unwrap(
+      createLeaseRenewal({ ...this.#options(), body, path: { leaseId } }),
+    );
+  }
+
+  createNote(
+    workItemId: string,
+    body: CreateWorkItemNoteData["body"],
+    idempotencyKey?: string,
+  ) {
+    return this.#unwrap(
+      createWorkItemNote({
+        ...this.#options(),
+        body,
+        headers: idempotencyHeaders(idempotencyKey),
+        path: { workItemId },
+      }),
+    );
+  }
+
+  decompose(
+    workItemId: string,
+    body: CreateWorkItemDecompositionData["body"],
+    idempotencyKey?: string,
+  ) {
+    return this.#unwrap(
+      createWorkItemDecomposition({
+        ...this.#options(),
+        body,
+        headers: idempotencyHeaders(idempotencyKey),
+        path: { workItemId },
+      }),
+    );
+  }
+
+  listAttention(query: NonNullable<ListAttentionRequestsData["query"]>) {
+    return this.#unwrap(listAttentionRequests({ ...this.#options(), query }));
+  }
+
+  requestAttention(
+    body: CreateAttentionRequestData["body"],
+    idempotencyKey?: string,
+  ) {
+    return this.#unwrap(
+      createAttentionRequest({
+        ...this.#options(),
+        body,
+        headers: idempotencyHeaders(idempotencyKey),
+      }),
+    );
+  }
+
+  resolveAttention(
+    attentionRequestId: string,
+    body: CreateAttentionResolutionData["body"],
+    idempotencyKey?: string,
+  ) {
+    return this.#unwrap(
+      createAttentionResolution({
+        ...this.#options(),
+        body,
+        headers: idempotencyHeaders(idempotencyKey),
+        path: { attentionRequestId },
+      }),
+    );
+  }
+
+  release(workItemId: string, body: CreateWorkItemReleaseData["body"]) {
+    return this.#unwrap(
+      createWorkItemRelease({
+        ...this.#options(),
+        body,
+        path: { workItemId },
+      }),
+    );
+  }
+
+  cancel(workItemId: string, body: CreateWorkItemCancellationData["body"]) {
+    return this.#unwrap(
+      createWorkItemCancellation({
+        ...this.#options(),
+        body,
+        path: { workItemId },
+      }),
+    );
+  }
+}

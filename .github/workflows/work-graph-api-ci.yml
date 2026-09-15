@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - "api-governance/**"
+      - "packages/work-graph-cli/**"
       - "packages/work-graph-db/**"
       - "packages/work-graph-domain/**"
       - "workers/work-graph-api/**"
@@ -26,6 +27,9 @@ jobs:
 
       - name: Check TypeScript, scenarios, and generated OpenAPI
         run: mise run //workers/work-graph-api:check
+
+      - name: Check generated client and schema drift, then the installable CLI
+        run: mise run //packages/work-graph-cli:check
 
       - name: Test REST behavior against PostgreSQL
         run: mise run //workers/work-graph-api:test:integration
