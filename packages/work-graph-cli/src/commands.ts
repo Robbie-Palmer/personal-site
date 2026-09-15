@@ -143,7 +143,7 @@ const queueInput = z
       .optional()
       .describe("List all stages instead of the ready queue"),
     limit: optional(
-      zListWorkItemsQuery.shape.limit.removeDefault().unwrap(),
+      zListWorkItemsQuery.shape.limit.unwrap().unwrap(),
       "Maximum number of work items",
     ),
     cursor: optional(
@@ -241,7 +241,7 @@ const decomposeInput = z
 
 const attentionListInput = z.object({
   state: optional(
-    zListAttentionRequestsQuery.shape.state.removeDefault().unwrap(),
+    zListAttentionRequestsQuery.shape.state.unwrap().unwrap(),
     "Resolution state (default: unresolved)",
   ),
   blocking: optional(
@@ -249,7 +249,7 @@ const attentionListInput = z.object({
     "Filter by blocking status",
   ),
   limit: optional(
-    zListAttentionRequestsQuery.shape.limit.removeDefault().unwrap(),
+    zListAttentionRequestsQuery.shape.limit.unwrap().unwrap(),
     "Maximum number of attention requests",
   ),
   cursor: optional(

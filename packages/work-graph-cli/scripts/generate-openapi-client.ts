@@ -17,7 +17,9 @@ const filesIn = async (directory: string): Promise<string[]> => {
       return entry.isDirectory() ? filesIn(path) : [path];
     }),
   );
-  return files.flat().sort();
+  return files
+    .flat()
+    .sort((left, right) => left.localeCompare(right));
 };
 
 const snapshots = async (directory: string): Promise<Map<string, string>> => {
@@ -40,7 +42,7 @@ const checkGeneratedClient = async (): Promise<void> => {
     const paths = new Set([...expected.keys(), ...actual.keys()]);
     const changed = [...paths]
       .filter((path) => expected.get(path) !== actual.get(path))
-      .sort();
+      .sort((left, right) => left.localeCompare(right));
     if (changed.length > 0) {
       throw new Error(
         [
