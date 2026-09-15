@@ -503,23 +503,25 @@ describe("Given a worker recording progress and requesting attention", () => {
 describe("Given a worker managing a lease", () => {
   it("decomposes into ranked children and claims one for the same worker", async () => {
     const repository = buildRepository();
-    vi.mocked(repository.getWorkItem).mockImplementation(async (workItemId) => ({
-      ...item(
-        workItemId,
-        workItemId === "parent"
-          ? "blocked"
-          : workItemId === "first"
-            ? "in_progress"
-            : "blocked",
-        "open",
-        workItemId === "first"
-          ? { ...lease("first"), id: childLeaseId }
-          : null,
-      ),
-      parentId: workItemId === "parent" ? null : "parent",
-      rank:
-        workItemId === "first" ? 10 : workItemId === "second" ? 20 : null,
-    }));
+    vi.mocked(repository.listWorkItems).mockResolvedValue(
+      ["parent", "first", "second"].map((workItemId) => ({
+        ...item(
+          workItemId,
+          workItemId === "parent"
+            ? "blocked"
+            : workItemId === "first"
+              ? "in_progress"
+              : "blocked",
+          "open",
+          workItemId === "first"
+            ? { ...lease("first"), id: childLeaseId }
+            : null,
+        ),
+        parentId: workItemId === "parent" ? null : "parent",
+        rank:
+          workItemId === "first" ? 10 : workItemId === "second" ? 20 : null,
+      })),
+    );
     const app = createWorkGraphApp(repository);
     const body = {
       leaseId,
@@ -555,6 +557,8 @@ describe("Given a worker managing a lease", () => {
       { ...body, workItemId: "parent" },
       { idempotencyKey },
     );
+    expect(repository.listWorkItems).toHaveBeenCalledOnce();
+    expect(repository.getWorkItem).not.toHaveBeenCalled();
     expect(await responseJson(response)).toEqual(
       expect.objectContaining({
         parent: expect.objectContaining({ id: "parent", stage: "blocked" }),

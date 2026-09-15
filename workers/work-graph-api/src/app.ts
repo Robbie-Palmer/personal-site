@@ -1058,18 +1058,16 @@ export const createWorkGraphApp = (
       { ...request, workItemId },
       idempotencyOptions(headers["idempotency-key"]),
     );
-    const [parent, ...childItems] = await Promise.all([
-      repository.getWorkItem(workItemId),
-      ...decomposed.children.map(({ workItem: child }) =>
-        repository.getWorkItem(child.id),
-      ),
-    ]);
+    const projection = new Map(
+      (await repository.listWorkItems()).map((item) => [item.id, item]),
+    );
+    const parent = projection.get(workItemId);
     if (!parent) throw new Error("Decomposition parent projection is missing.");
     return context.json(
       {
         parent: serializeWorkItem(parent),
-        children: decomposed.children.map(({ rank }, index) => {
-          const child = childItems[index];
+        children: decomposed.children.map(({ rank, workItem: created }) => {
+          const child = projection.get(created.id);
           if (!child) {
             throw new Error("Decomposition child projection is missing.");
           }
