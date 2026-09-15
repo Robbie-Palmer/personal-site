@@ -130,6 +130,61 @@ const requireWorkItem = (
   return workItem;
 };
 
+const validateHierarchy = (
+  workItems: readonly WorkItem[],
+  workItemsById: ReadonlyMap<string, WorkItem>,
+): void => {
+  const ranksByParent = new Map<string, Set<number>>();
+
+  for (const workItem of workItems) {
+    if (workItem.parentId === null) continue;
+
+    requireWorkItem(workItemsById, workItem.parentId);
+    if (workItem.rank === null) continue;
+
+    const siblingRanks = ranksByParent.get(workItem.parentId) ?? new Set();
+    if (siblingRanks.has(workItem.rank)) {
+      throw new WorkGraphError(
+        "invalid_child_rank",
+        `Child rank ${workItem.rank} is used more than once beneath work item ${workItem.parentId}.`,
+      );
+    }
+    siblingRanks.add(workItem.rank);
+    ranksByParent.set(workItem.parentId, siblingRanks);
+  }
+};
+
+const validateDependencies = (
+  dependencies: readonly WorkItemDependency[],
+  workItemsById: ReadonlyMap<string, WorkItem>,
+): void => {
+  const blockersByDependent = new Map<string, Set<string>>();
+
+  for (const dependency of dependencies) {
+    requireWorkItem(workItemsById, dependency.dependentWorkItemId);
+    requireWorkItem(workItemsById, dependency.blockerWorkItemId);
+
+    if (dependency.dependentWorkItemId === dependency.blockerWorkItemId) {
+      throw new WorkGraphError(
+        "self_dependency",
+        `Work item ${dependency.dependentWorkItemId} cannot depend on itself.`,
+      );
+    }
+
+    const blockerIds =
+      blockersByDependent.get(dependency.dependentWorkItemId) ??
+      new Set<string>();
+    if (blockerIds.has(dependency.blockerWorkItemId)) {
+      throw new WorkGraphError(
+        "dependency_already_exists",
+        `Dependency ${dependency.dependentWorkItemId} -> ${dependency.blockerWorkItemId} already exists.`,
+      );
+    }
+    blockerIds.add(dependency.blockerWorkItemId);
+    blockersByDependent.set(dependency.dependentWorkItemId, blockerIds);
+  }
+};
+
 const appendWait = (
   waitsFor: Map<string, Set<string>>,
   waitingWorkItemId: string,
@@ -231,49 +286,8 @@ export const validateWorkGraph = (graph: WorkGraph): void => {
   }
 
   const workItemsById = indexWorkItems(graph.workItems);
-  const blockersByDependent = new Map<string, Set<string>>();
-  const ranksByParent = new Map<string, Set<number>>();
-
-  for (const workItem of graph.workItems) {
-    if (workItem.parentId !== null) {
-      requireWorkItem(workItemsById, workItem.parentId);
-      if (workItem.rank !== null) {
-        const siblingRanks = ranksByParent.get(workItem.parentId) ?? new Set();
-        if (siblingRanks.has(workItem.rank)) {
-          throw new WorkGraphError(
-            "invalid_child_rank",
-            `Child rank ${workItem.rank} is used more than once beneath work item ${workItem.parentId}.`,
-          );
-        }
-        siblingRanks.add(workItem.rank);
-        ranksByParent.set(workItem.parentId, siblingRanks);
-      }
-    }
-  }
-
-  for (const dependency of graph.dependencies) {
-    requireWorkItem(workItemsById, dependency.dependentWorkItemId);
-    requireWorkItem(workItemsById, dependency.blockerWorkItemId);
-
-    if (dependency.dependentWorkItemId === dependency.blockerWorkItemId) {
-      throw new WorkGraphError(
-        "self_dependency",
-        `Work item ${dependency.dependentWorkItemId} cannot depend on itself.`,
-      );
-    }
-
-    const blockerIds =
-      blockersByDependent.get(dependency.dependentWorkItemId) ??
-      new Set<string>();
-    if (blockerIds.has(dependency.blockerWorkItemId)) {
-      throw new WorkGraphError(
-        "dependency_already_exists",
-        `Dependency ${dependency.dependentWorkItemId} -> ${dependency.blockerWorkItemId} already exists.`,
-      );
-    }
-    blockerIds.add(dependency.blockerWorkItemId);
-    blockersByDependent.set(dependency.dependentWorkItemId, blockerIds);
-  }
+  validateHierarchy(graph.workItems, workItemsById);
+  validateDependencies(graph.dependencies, workItemsById);
 
   if (hasCycle(buildWaitsForGraph(graph))) {
     throw new WorkGraphError(
