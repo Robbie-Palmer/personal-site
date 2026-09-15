@@ -72,10 +72,13 @@ Create these before the first apply:
 - `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, `NEON_API_KEY`,
   `NEON_ORG_ID`, and `TF_API_TOKEN` in `prd_work_graph_infra`.
 
-The Cloudflare infrastructure token needs Zone read, Workers Scripts edit,
-Workers Routes edit, Hyperdrive edit, Access Apps and Policies edit, and Access
-Service Tokens edit. Scope zone permissions to `robbiepalmer.me`. The Neon key
-must create and inspect projects in `NEON_ORG_ID`.
+The Cloudflare infrastructure token needs product-level Workers admin because
+the first apply creates the bootstrap Worker. It also needs Hyperdrive edit,
+Access Apps and Policies edit, and Access Service Tokens edit at the account
+scope. Grant Zone read and Workers Routes edit only for `robbiepalmer.me`.
+After Terraform creates the Worker, the separate application deployment token
+needs only Workers editor access scoped to `work-graph-api`; it does not need
+admin access. The Neon key must create and inspect projects in `NEON_ORG_ID`.
 
 Create the target `prd_work_graph` config first. Terraform tests write access
 before creating either one-time credential. A failed test stops the apply
