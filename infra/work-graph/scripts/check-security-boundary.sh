@@ -5,7 +5,7 @@ for script in scripts/*.sh scripts/doppler-terraform-env; do
   bash -n "$script"
 done
 
-forbidden_resource='resource[[:space:]]+"(neon_project|cloudflare_(zero_trust_)?access_service_token|cloudflare_workers?_secret)"'
+forbidden_resource='resource[[:space:]]+"(neon_project|cloudflare_hyperdrive_config|cloudflare_(zero_trust_)?access_service_token|cloudflare_workers?_secret)"'
 if rg -n "$forbidden_resource" --glob '*.tf' .; then
   echo "Credential-bearing provider resources are forbidden in the Work Graph Terraform root." >&2
   exit 1

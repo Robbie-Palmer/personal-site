@@ -10,7 +10,7 @@ output "access_application_aud" {
 
 output "hyperdrive_config_id" {
   description = "Work Graph Hyperdrive configuration ID"
-  value       = cloudflare_hyperdrive_config.work_graph.id
+  value       = data.external.resource_metadata.result.hyperdrive_id
 }
 
 output "neon_project_id" {

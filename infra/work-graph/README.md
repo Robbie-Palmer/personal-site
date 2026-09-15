@@ -1,9 +1,10 @@
 # Work Graph infrastructure
 
 This Terraform root provisions the production Work Graph service. It owns the
-Worker service name, custom domain, Hyperdrive configuration, Cloudflare Access
-application and policy, and the desired shape of the dedicated Neon project.
-HCP Terraform stores its state in the `personal-site-work-graph` workspace.
+Worker service name, custom domain, Cloudflare Access application and policy,
+and the desired shape of the dedicated Neon project and Hyperdrive
+configuration. HCP Terraform stores its state in the
+`personal-site-work-graph` workspace.
 
 ## Why credentials bypass state
 
@@ -14,23 +15,24 @@ normal output but does not remove them from state.
 
 For that reason, this root uses three small API helpers during apply:
 
-1. `provision-sensitive-resources.sh` creates or finds the Neon project and
-   Access service token. It sends the database URL and token pair straight to
-   Doppler config `work-graph/prd_work_graph`.
+1. `provision-sensitive-resources.sh` creates or finds the Neon project,
+   Hyperdrive configuration, and Access service token. It sends the database
+   URL, public Hyperdrive ID, and token pair straight to Doppler config
+   `work-graph/prd_work_graph`.
 2. `read-resource-metadata.sh` returns only IDs, host, database, and role names
    to Terraform.
-3. `install-hyperdrive-origin.sh` replaces Terraform's inert password with the
-   real Neon origin through Cloudflare's API, then records the public
-   Hyperdrive ID in Doppler.
+3. `install-hyperdrive-origin.sh` reinstalls the real Neon origin through
+   Cloudflare's API when its coordinates change or after an operator requests
+   a reinstall during password rotation.
 
 The helpers disable shell tracing, place request and response bodies in a
 mode-0700 temporary directory, pass bearer headers through mode-0600 curl
 config files, and unlink every temporary file on exit. They never print secret
-values. Terraform ignores later Hyperdrive origin changes because Cloudflare
-does not return its stored password.
+values. Terraform tracks only the Hyperdrive ID and origin-coordinate hash
+because Cloudflare validates the password on creation but never returns it.
 
 `mise run //infra/work-graph:state:check` rejects provider resources that return
-credentials, a non-placeholder Hyperdrive password, credential-bearing
+credentials, provider-managed Hyperdrive resources, credential-bearing
 PostgreSQL URLs, and sensitive outputs in the raw state.
 
 ## Why these helpers live here
@@ -125,9 +127,10 @@ no application data.
 ## Rotation and recovery
 
 `terraform destroy` is unsupported for this root because Terraform does not own
-the externally created Neon project or Access service token. To retire the
-credential handoff, first revoke `work-graph-agents` in Cloudflare Zero Trust.
-Then remove only the generated runtime entries from Doppler:
+the externally created Neon project, Hyperdrive configuration, or Access
+service token. To retire the credential handoff, first revoke
+`work-graph-agents` and delete `work-graph-db` in Cloudflare. Then remove only
+the generated runtime entries from Doppler:
 
 ```bash
 doppler secrets delete --yes --project work-graph --config prd_work_graph \

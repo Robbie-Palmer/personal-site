@@ -5,6 +5,7 @@ umask 077
 
 query=$(</dev/stdin)
 cloudflare_account_id=$(jq -er '.cloudflare_account_id' <<<"$query")
+hyperdrive_name=$(jq -er '.hyperdrive_name' <<<"$query")
 neon_database_name=$(jq -er '.neon_database_name' <<<"$query")
 neon_org_id=$(jq -er '.neon_org_id' <<<"$query")
 neon_project_name=$(jq -er '.neon_project_name' <<<"$query")
@@ -84,10 +85,25 @@ if [[ "$service_token_count" -ne 1 ]]; then
 fi
 service_token_id=$(jq -er --arg name "$service_token_name" '.result[] | select(.name == $name) | .id' "$work_dir/service-tokens.json")
 
+curl --disable --config "$work_dir/cloudflare.curl" --connect-timeout 10 --fail --max-time 30 \
+  --silent --show-error --output "$work_dir/hyperdrives.json" \
+  --url "https://api.cloudflare.com/client/v4/accounts/$cloudflare_account_id/hyperdrive/configs"
+if [[ "$(jq -er '.success' "$work_dir/hyperdrives.json")" != true ]]; then
+  echo "Cloudflare did not return the Hyperdrive inventory." >&2
+  exit 1
+fi
+hyperdrive_count=$(jq --arg name "$hyperdrive_name" '[.result[] | select(.name == $name)] | length' "$work_dir/hyperdrives.json")
+if [[ "$hyperdrive_count" -ne 1 ]]; then
+  echo "Expected one exact Hyperdrive configuration named '$hyperdrive_name'; found $hyperdrive_count." >&2
+  exit 1
+fi
+hyperdrive_id=$(jq -er --arg name "$hyperdrive_name" '.result[] | select(.name == $name) | .id' "$work_dir/hyperdrives.json")
+
 jq -n \
   --arg database_host "$database_host" \
   --arg database_name "$neon_database_name" \
   --arg database_user "$database_user" \
+  --arg hyperdrive_id "$hyperdrive_id" \
   --arg neon_branch_id "$neon_branch_id" \
   --arg neon_project_id "$neon_project_id" \
   --arg service_token_id "$service_token_id" \
@@ -95,6 +111,7 @@ jq -n \
     database_host: $database_host,
     database_name: $database_name,
     database_user: $database_user,
+    hyperdrive_id: $hyperdrive_id,
     neon_branch_id: $neon_branch_id,
     neon_project_id: $neon_project_id,
     service_token_id: $service_token_id

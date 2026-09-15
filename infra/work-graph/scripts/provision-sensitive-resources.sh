@@ -17,6 +17,7 @@ required_values=(
   NEON_ROLE_NAME
   WORK_GRAPH_API_ORIGIN
   WORK_GRAPH_DOPPLER_SERVICE_TOKEN
+  WORK_GRAPH_HYPERDRIVE_NAME
   WORK_GRAPH_SERVICE_TOKEN_NAME
 )
 
@@ -46,7 +47,9 @@ fi
 work_dir="$(mktemp -d "${secrets_root%/}/work-graph-credential-handoff.XXXXXX")"
 chmod 700 "$work_dir"
 created_access_token=false
+created_hyperdrive=false
 service_token_id=""
+hyperdrive_id=""
 
 cleanup() {
   local exit_status="$?"
@@ -58,6 +61,16 @@ cleanup() {
       echo "Could not remove the Access token whose Doppler write failed. Revoke it before retrying." >&2
     elif ! jq -e '.success == true' "$delete_response" >/dev/null; then
       echo "Could not remove the Access token whose Doppler write failed. Revoke it before retrying." >&2
+    fi
+  fi
+  if [[ "$created_hyperdrive" == true && -n "$hyperdrive_id" && -f "$work_dir/cloudflare.curl" ]]; then
+    local hyperdrive_delete_response="$work_dir/hyperdrive-delete.json"
+    if ! curl --disable --config "$work_dir/cloudflare.curl" --connect-timeout 10 --fail --max-time 30 \
+      --silent --show-error --output "$hyperdrive_delete_response" --request DELETE \
+      --url "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/hyperdrive/configs/$hyperdrive_id"; then
+      echo "Could not remove the Hyperdrive configuration whose Doppler write failed. Delete it before retrying." >&2
+    elif ! jq -e '.success == true' "$hyperdrive_delete_response" >/dev/null; then
+      echo "Could not remove the Hyperdrive configuration whose Doppler write failed. Delete it before retrying." >&2
     fi
   fi
   find "$work_dir" -type f -exec unlink {} + 2>/dev/null || true
@@ -237,6 +250,66 @@ jq -jrn \
   | "postgresql://\($encoded_user):\($encoded_password)@\($host):5432/\($encoded_database)?sslmode=require"' \
   >"$work_dir/database-url.txt"
 
+request_json "$cloudflare_auth" "$work_dir/hyperdrives.json" \
+  --get \
+  --url "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/hyperdrive/configs"
+if [[ "$(jq -er '.success' "$work_dir/hyperdrives.json")" != true ]]; then
+  echo "Cloudflare did not return the Hyperdrive inventory." >&2
+  exit 1
+fi
+hyperdrive_count=$(jq --arg name "$WORK_GRAPH_HYPERDRIVE_NAME" \
+  '[.result[] | select(.name == $name)] | length' \
+  "$work_dir/hyperdrives.json")
+if [[ "$hyperdrive_count" -gt 1 ]]; then
+  echo "Cannot provision Work Graph: Cloudflare returned more than one exact '$WORK_GRAPH_HYPERDRIVE_NAME' Hyperdrive configuration." >&2
+  exit 1
+fi
+
+jq -n \
+  --arg database "$NEON_DATABASE_NAME" \
+  --arg host "$database_host" \
+  --arg name "$WORK_GRAPH_HYPERDRIVE_NAME" \
+  --arg user "$database_user" \
+  --slurpfile credential "$work_dir/neon-password.json" \
+  '{
+    name: $name,
+    origin: {
+      database: $database,
+      host: $host,
+      port: 5432,
+      user: $user,
+      password: $credential[0].password,
+      scheme: "postgresql"
+    },
+    caching: {disabled: true}
+  }' >"$work_dir/hyperdrive-upsert.json"
+
+if [[ "$hyperdrive_count" -eq 0 ]]; then
+  request_json "$cloudflare_auth" "$work_dir/hyperdrive-created.json" \
+    --request POST \
+    --url "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/hyperdrive/configs" \
+    --header "$json_content_type" \
+    --data-binary "@$work_dir/hyperdrive-upsert.json"
+  if [[ "$(jq -er '.success' "$work_dir/hyperdrive-created.json")" != true ]]; then
+    echo "Cloudflare did not create the Work Graph Hyperdrive configuration." >&2
+    exit 1
+  fi
+  hyperdrive_id=$(jq -er '.result.id' "$work_dir/hyperdrive-created.json")
+  created_hyperdrive=true
+else
+  hyperdrive_id=$(jq -er --arg name "$WORK_GRAPH_HYPERDRIVE_NAME" \
+    '.result[] | select(.name == $name) | .id' "$work_dir/hyperdrives.json")
+  request_json "$cloudflare_auth" "$work_dir/hyperdrive-updated.json" \
+    --request PUT \
+    --url "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/hyperdrive/configs/$hyperdrive_id" \
+    --header "$json_content_type" \
+    --data-binary "@$work_dir/hyperdrive-upsert.json"
+  if [[ "$(jq -er '.success' "$work_dir/hyperdrive-updated.json")" != true ]]; then
+    echo "Cloudflare did not update the Work Graph Hyperdrive configuration." >&2
+    exit 1
+  fi
+fi
+
 request_json "$cloudflare_auth" "$work_dir/service-tokens.json" \
   --get \
   --url "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/access/service_tokens" \
@@ -302,6 +375,7 @@ jq -n \
   --arg project "$DOPPLER_PROJECT" \
   --arg config "$DOPPLER_CONFIG" \
   --arg api_origin "$WORK_GRAPH_API_ORIGIN" \
+  --arg hyperdrive_id "$hyperdrive_id" \
   --arg neon_project_id "$neon_project_id" \
   --arg service_token_id "$service_token_id" \
   --rawfile database_url "$work_dir/database-url.txt" \
@@ -312,6 +386,7 @@ jq -n \
     config: $config,
     secrets: {
       DATABASE_URL: $database_url,
+      WORK_GRAPH_HYPERDRIVE_ID: $hyperdrive_id,
       WORK_GRAPH_API_URL: $api_origin,
       WORK_GRAPH_CF_ACCESS_ALLOWED_ORIGINS: $api_origin,
       WORK_GRAPH_NEON_PROJECT_ID: $neon_project_id,
@@ -332,12 +407,14 @@ request_json "$doppler_auth" "$work_dir/doppler-verified.json" \
   --data-urlencode "project=$DOPPLER_PROJECT" \
   --data-urlencode "config=$DOPPLER_CONFIG" \
   --data-urlencode "format=json" \
-  --data-urlencode "secrets=DATABASE_URL,CF_ACCESS_CLIENT_ID,CF_ACCESS_CLIENT_SECRET"
+  --data-urlencode "secrets=DATABASE_URL,WORK_GRAPH_HYPERDRIVE_ID,CF_ACCESS_CLIENT_ID,CF_ACCESS_CLIENT_SECRET"
 if ! jq -e \
+  --arg hyperdrive_id "$hyperdrive_id" \
   --rawfile database_url "$work_dir/database-url.txt" \
   --rawfile client_id "$work_dir/service-token-client-id.txt" \
   --rawfile client_secret "$work_dir/service-token-secret.txt" \
   '.DATABASE_URL == $database_url
+    and .WORK_GRAPH_HYPERDRIVE_ID == $hyperdrive_id
     and .CF_ACCESS_CLIENT_ID == $client_id
     and .CF_ACCESS_CLIENT_SECRET == $client_secret' \
   "$work_dir/doppler-verified.json" >/dev/null; then
@@ -345,5 +422,6 @@ if ! jq -e \
   exit 1
 fi
 created_access_token=false
+created_hyperdrive=false
 
-echo "Provisioned the Work Graph Neon project and Access service-token credential into Doppler."
+echo "Provisioned the Work Graph Neon project, Hyperdrive configuration, and Access service-token credential into Doppler."

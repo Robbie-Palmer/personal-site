@@ -17,6 +17,7 @@ required_values=(
   WORK_GRAPH_API_ORIGIN
   WORK_GRAPH_DOPPLER_SERVICE_TOKEN
   WORK_GRAPH_HYPERDRIVE_ID
+  WORK_GRAPH_HYPERDRIVE_NAME
 )
 for name in "${required_values[@]}"; do
   if [[ -z "${!name:-}" ]]; then
@@ -52,10 +53,11 @@ fi
 jq -n \
   --arg database "$NEON_DATABASE_NAME" \
   --arg host "$NEON_DATABASE_HOST" \
+  --arg name "$WORK_GRAPH_HYPERDRIVE_NAME" \
   --arg user "$NEON_ROLE_NAME" \
   --slurpfile credential "$work_dir/password.json" \
   '{
-    name: "work-graph-db",
+    name: $name,
     origin: {
       database: $database,
       host: $host,

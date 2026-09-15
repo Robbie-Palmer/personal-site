@@ -5,7 +5,7 @@ data "cloudflare_zone" "domain" {
 locals {
   api_origin                  = "https://${var.work_graph_hostname}"
   credential_handoff_revision = filesha256("${path.module}/scripts/provision-sensitive-resources.sh")
-  hyperdrive_placeholder      = "terraform-placeholder-not-a-credential"
+  hyperdrive_name             = "work-graph-db"
 }
 
 check "work_graph_hostname_in_zone" {
@@ -15,9 +15,10 @@ check "work_graph_hostname_in_zone" {
   }
 }
 
-# The Neon provider and Cloudflare service-token resource both return passwords
-# to Terraform. A local-exec helper creates those resources and writes their
-# credentials straight to Doppler, while this state records only its revision.
+# The provider resources for Neon, Hyperdrive, and Cloudflare service tokens
+# would put passwords in Terraform state. A local-exec helper creates them and
+# writes their credentials straight to Doppler. State records only public
+# metadata and the helper revision.
 resource "terraform_data" "credential_handoff" {
   # Prove Cloudflare can create Access applications before creating external
   # resources whose credentials cannot be recovered from Terraform state.
@@ -27,6 +28,7 @@ resource "terraform_data" "credential_handoff" {
     api_origin            = local.api_origin
     cloudflare_account_id = var.cloudflare_account_id
     doppler_config        = "${var.doppler_project}/${var.doppler_config}"
+    hyperdrive_name       = local.hyperdrive_name
     neon_org_id           = var.neon_org_id
     neon_pg_version       = tostring(var.neon_pg_version)
     neon_region           = var.neon_region
@@ -48,6 +50,7 @@ resource "terraform_data" "credential_handoff" {
       NEON_REGION                   = var.neon_region
       NEON_ROLE_NAME                = "work_graph_owner"
       WORK_GRAPH_API_ORIGIN         = local.api_origin
+      WORK_GRAPH_HYPERDRIVE_NAME    = local.hyperdrive_name
       WORK_GRAPH_SERVICE_TOKEN_NAME = var.access_service_token_name
     }
   }
@@ -61,6 +64,7 @@ data "external" "resource_metadata" {
 
   query = {
     cloudflare_account_id = var.cloudflare_account_id
+    hyperdrive_name       = local.hyperdrive_name
     neon_database_name    = "work_graph"
     neon_org_id           = var.neon_org_id
     neon_project_name     = var.neon_project_name
@@ -69,34 +73,9 @@ data "external" "resource_metadata" {
   }
 }
 
-resource "cloudflare_hyperdrive_config" "work_graph" {
-  account_id = var.cloudflare_account_id
-  name       = "work-graph-db"
-
-  origin = {
-    database = data.external.resource_metadata.result.database_name
-    host     = data.external.resource_metadata.result.database_host
-    port     = 5432
-    user     = data.external.resource_metadata.result.database_user
-    password = local.hyperdrive_placeholder
-    scheme   = "postgresql"
-  }
-
-  caching = {
-    disabled = true
-  }
-
-  lifecycle {
-    # The install helper replaces the non-working placeholder with the Neon
-    # password after creation. Cloudflare never returns that password, and
-    # Terraform must not restore the placeholder on later applies.
-    ignore_changes = [origin]
-  }
-}
-
 resource "terraform_data" "hyperdrive_credentials" {
   triggers_replace = {
-    hyperdrive_id = cloudflare_hyperdrive_config.work_graph.id
+    hyperdrive_id = data.external.resource_metadata.result.hyperdrive_id
     origin_coordinates_sha256 = sha256(jsonencode({
       branch_id  = data.external.resource_metadata.result.neon_branch_id
       database   = data.external.resource_metadata.result.database_name
@@ -110,16 +89,17 @@ resource "terraform_data" "hyperdrive_credentials" {
   provisioner "local-exec" {
     command = "bash ${path.module}/scripts/install-hyperdrive-origin.sh"
     environment = {
-      CLOUDFLARE_ACCOUNT_ID    = var.cloudflare_account_id
-      DOPPLER_CONFIG           = var.doppler_config
-      DOPPLER_PROJECT          = var.doppler_project
-      NEON_BRANCH_ID           = data.external.resource_metadata.result.neon_branch_id
-      NEON_DATABASE_HOST       = data.external.resource_metadata.result.database_host
-      NEON_DATABASE_NAME       = data.external.resource_metadata.result.database_name
-      NEON_PROJECT_ID          = data.external.resource_metadata.result.neon_project_id
-      NEON_ROLE_NAME           = data.external.resource_metadata.result.database_user
-      WORK_GRAPH_API_ORIGIN    = local.api_origin
-      WORK_GRAPH_HYPERDRIVE_ID = cloudflare_hyperdrive_config.work_graph.id
+      CLOUDFLARE_ACCOUNT_ID      = var.cloudflare_account_id
+      DOPPLER_CONFIG             = var.doppler_config
+      DOPPLER_PROJECT            = var.doppler_project
+      NEON_BRANCH_ID             = data.external.resource_metadata.result.neon_branch_id
+      NEON_DATABASE_HOST         = data.external.resource_metadata.result.database_host
+      NEON_DATABASE_NAME         = data.external.resource_metadata.result.database_name
+      NEON_PROJECT_ID            = data.external.resource_metadata.result.neon_project_id
+      NEON_ROLE_NAME             = data.external.resource_metadata.result.database_user
+      WORK_GRAPH_API_ORIGIN      = local.api_origin
+      WORK_GRAPH_HYPERDRIVE_ID   = data.external.resource_metadata.result.hyperdrive_id
+      WORK_GRAPH_HYPERDRIVE_NAME = local.hyperdrive_name
     }
   }
 }
@@ -133,7 +113,7 @@ resource "cloudflare_workers_script" "work_graph" {
 
   hyperdrive_config_binding {
     binding = "HYPERDRIVE"
-    id      = cloudflare_hyperdrive_config.work_graph.id
+    id      = data.external.resource_metadata.result.hyperdrive_id
   }
 
   lifecycle {
