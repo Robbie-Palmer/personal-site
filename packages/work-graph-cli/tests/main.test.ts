@@ -401,6 +401,9 @@ describe("Given Cloudflare Access service-token credentials", () => {
     );
     expect(await test.run(["show", "item-1"])).toBe(EXIT_CODES.transport);
     expect(test.fetch).toHaveBeenCalledTimes(1);
+    const request = vi.mocked(test.fetch).mock.calls[0]?.[0];
+    expect(request).toBeInstanceOf(Request);
+    expect((request as Request).redirect).toBe("manual");
     expect(JSON.parse(test.stderr[0] ?? "null")).toEqual({
       error: {
         code: "REDIRECT_REFUSED",
@@ -544,6 +547,7 @@ describe("Given CLI and HTTP failures", () => {
     const test = harness(undefined, {});
     expect(await test.run(["create", "--help"])).toBe(EXIT_CODES.success);
     expect(test.stdout.join("")).toContain("Create a work item");
+    expect(test.stdout.join("")).toContain("Work-item ID");
     expect(test.stdout.join("")).toContain("--title <string>");
     expect(test.stdout.join("")).toContain("Work-item title");
     expect(test.fetch).not.toHaveBeenCalled();
