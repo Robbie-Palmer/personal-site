@@ -32,7 +32,8 @@ scripts/sync-doppler-github-envs.sh production-work-graph
 
 The config needs the values written by Terraform plus a dedicated
 `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` for Wrangler. Give that token
-Workers Scripts edit and Hyperdrive read permissions. Do not reuse the broader
+Workers editor access scoped to the existing `work-graph-api` Worker. Worker
+bindings do not require separate Hyperdrive access. Do not reuse the broader
 infrastructure token.
 
 Deploy in this order:
