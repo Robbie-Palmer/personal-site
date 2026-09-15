@@ -16,4 +16,14 @@ if rg -n 'database_password|connection_uri|client_secret[[:space:]]*=' --glob '*
   exit 1
 fi
 
+if rg -n -- '--arg[[:space:]]+(password|database_url|client_id|client_secret)' scripts; then
+  echo "Generated credentials must reach jq through protected files, not process arguments." >&2
+  exit 1
+fi
+
+if rg -n '^(database_password|database_url|service_token_client_id|service_token_secret)=' scripts; then
+  echo "Generated credentials must not be retained in shell variables." >&2
+  exit 1
+fi
+
 echo "Work Graph infrastructure keeps generated credentials outside Terraform configuration."

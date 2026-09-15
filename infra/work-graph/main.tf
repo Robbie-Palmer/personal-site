@@ -20,14 +20,15 @@ check "work_graph_hostname_in_zone" {
 # credentials straight to Doppler, while this state records only its revision.
 resource "terraform_data" "credential_handoff" {
   triggers_replace = {
-    api_origin      = local.api_origin
-    doppler_config  = "${var.doppler_project}/${var.doppler_config}"
-    neon_org_id     = var.neon_org_id
-    neon_pg_version = tostring(var.neon_pg_version)
-    neon_region     = var.neon_region
-    project_name    = var.neon_project_name
-    script_revision = local.credential_handoff_revision
-    token_name      = var.access_service_token_name
+    api_origin            = local.api_origin
+    cloudflare_account_id = var.cloudflare_account_id
+    doppler_config        = "${var.doppler_project}/${var.doppler_config}"
+    neon_org_id           = var.neon_org_id
+    neon_pg_version       = tostring(var.neon_pg_version)
+    neon_region           = var.neon_region
+    project_name          = var.neon_project_name
+    script_revision       = local.credential_handoff_revision
+    token_name            = var.access_service_token_name
   }
 
   provisioner "local-exec" {

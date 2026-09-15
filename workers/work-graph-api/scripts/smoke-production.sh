@@ -27,8 +27,9 @@ fi
 : "${CF_ACCESS_CLIENT_ID:?CF_ACCESS_CLIENT_ID is required}"
 : "${CF_ACCESS_CLIENT_SECRET:?CF_ACCESS_CLIENT_SECRET is required}"
 : "${WORK_GRAPH_API_URL:?WORK_GRAPH_API_URL is required}"
-if [[ ! "$WORK_GRAPH_API_URL" =~ ^https://[a-z0-9.-]+$ ]]; then
-  echo "Cannot smoke-test Work Graph: WORK_GRAPH_API_URL must be an HTTPS origin without a path." >&2
+approved_origin="https://work-graph.robbiepalmer.me"
+if [[ "$WORK_GRAPH_API_URL" != "$approved_origin" ]]; then
+  echo "Cannot smoke-test Work Graph: WORK_GRAPH_API_URL is not the approved production origin." >&2
   exit 1
 fi
 

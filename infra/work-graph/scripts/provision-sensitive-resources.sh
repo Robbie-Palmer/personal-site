@@ -51,14 +51,17 @@ service_token_id=""
 cleanup() {
   local exit_status="$?"
   if [[ "$created_access_token" == true && -n "$service_token_id" && -f "$work_dir/cloudflare.curl" ]]; then
-    curl --disable --config "$work_dir/cloudflare.curl" --connect-timeout 10 --max-time 30 \
-      --silent --show-error --output /dev/null --request DELETE \
-      --url "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/access/service_tokens/$service_token_id" || \
+    local delete_response="$work_dir/access-token-delete.json"
+    if ! curl --disable --config "$work_dir/cloudflare.curl" --connect-timeout 10 --fail --max-time 30 \
+      --silent --show-error --output "$delete_response" --request DELETE \
+      --url "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/access/service_tokens/$service_token_id"; then
       echo "Could not remove the Access token whose Doppler write failed. Revoke it before retrying." >&2
+    elif ! jq -e '.success == true' "$delete_response" >/dev/null; then
+      echo "Could not remove the Access token whose Doppler write failed. Revoke it before retrying." >&2
+    fi
   fi
   find "$work_dir" -type f -exec unlink {} + 2>/dev/null || true
   rmdir "$work_dir" 2>/dev/null || true
-  unset database_password database_url service_token_secret
   return "$exit_status"
 }
 trap cleanup EXIT INT TERM
@@ -211,11 +214,20 @@ fi
 
 request_json "$neon_auth" "$work_dir/neon-password.json" \
   --url "https://console.neon.tech/api/v2/projects/$neon_project_id/branches/$neon_branch_id/roles/$database_user/reveal_password"
-database_password=$(jq -er '.password' "$work_dir/neon-password.json")
-encoded_user=$(jq -rn --arg value "$database_user" '$value | @uri')
-encoded_password=$(jq -rn --arg value "$database_password" '$value | @uri')
-encoded_database=$(jq -rn --arg value "$NEON_DATABASE_NAME" '$value | @uri')
-database_url="postgresql://${encoded_user}:${encoded_password}@${database_host}:5432/${encoded_database}?sslmode=require"
+if ! jq -e '.password | type == "string" and length > 0' "$work_dir/neon-password.json" >/dev/null; then
+  echo "Neon did not return the Work Graph database password." >&2
+  exit 1
+fi
+jq -jrn \
+  --arg database "$NEON_DATABASE_NAME" \
+  --arg host "$database_host" \
+  --arg user "$database_user" \
+  --slurpfile credential "$work_dir/neon-password.json" \
+  '($user | @uri) as $encoded_user
+  | ($credential[0].password | @uri) as $encoded_password
+  | ($database | @uri) as $encoded_database
+  | "postgresql://\($encoded_user):\($encoded_password)@\($host):5432/\($encoded_database)?sslmode=require"' \
+  >"$work_dir/database-url.txt"
 
 request_json "$cloudflare_auth" "$work_dir/service-tokens.json" \
   --get \
@@ -248,13 +260,16 @@ if [[ "$service_token_count" -eq 0 ]]; then
   fi
   service_token_id=$(jq -er '.result.id' "$work_dir/service-token-created.json")
   created_access_token=true
-  service_token_client_id=$(jq -er '.result.client_id' "$work_dir/service-token-created.json")
-  service_token_secret=$(jq -er '.result.client_secret' "$work_dir/service-token-created.json")
+  jq -jre '.result.client_id | select(type == "string" and length > 0)' \
+    "$work_dir/service-token-created.json" >"$work_dir/service-token-client-id.txt"
+  jq -jre '.result.client_secret | select(type == "string" and length > 0)' \
+    "$work_dir/service-token-created.json" >"$work_dir/service-token-secret.txt"
 else
   service_token_id=$(jq -er --arg name "$WORK_GRAPH_SERVICE_TOKEN_NAME" \
     '.result[] | select(.name == $name) | .id' "$work_dir/service-tokens.json")
-  service_token_client_id=$(jq -er --arg name "$WORK_GRAPH_SERVICE_TOKEN_NAME" \
-    '.result[] | select(.name == $name) | .client_id' "$work_dir/service-tokens.json")
+  jq -jre --arg name "$WORK_GRAPH_SERVICE_TOKEN_NAME" \
+    '.result[] | select(.name == $name) | .client_id' \
+    "$work_dir/service-tokens.json" >"$work_dir/service-token-client-id.txt"
   request_json "$doppler_auth" "$work_dir/doppler-existing.json" \
     --get \
     --url "https://api.doppler.com/v3/configs/config/secrets/download" \
@@ -262,24 +277,28 @@ else
     --data-urlencode "config=$DOPPLER_CONFIG" \
     --data-urlencode "format=json" \
     --data-urlencode "secrets=CF_ACCESS_CLIENT_ID,CF_ACCESS_CLIENT_SECRET"
-  stored_client_id=$(jq -r '.CF_ACCESS_CLIENT_ID // empty' "$work_dir/doppler-existing.json")
-  service_token_secret=$(jq -r '.CF_ACCESS_CLIENT_SECRET // empty' "$work_dir/doppler-existing.json")
-  if [[ "$stored_client_id" != "$service_token_client_id" || -z "$service_token_secret" ]]; then
+  if ! jq -e \
+    --rawfile client_id "$work_dir/service-token-client-id.txt" \
+    '.CF_ACCESS_CLIENT_ID == $client_id
+      and (.CF_ACCESS_CLIENT_SECRET | type == "string" and length > 0)' \
+      "$work_dir/doppler-existing.json" >/dev/null; then
     echo "Cannot provision Work Graph: the existing Access token has no matching credential pair in Doppler." >&2
     echo "Rotate that token into Doppler before retrying Terraform." >&2
     exit 1
   fi
+  jq -jre '.CF_ACCESS_CLIENT_SECRET' "$work_dir/doppler-existing.json" \
+    >"$work_dir/service-token-secret.txt"
 fi
 
 jq -n \
   --arg project "$DOPPLER_PROJECT" \
   --arg config "$DOPPLER_CONFIG" \
-  --arg database_url "$database_url" \
   --arg api_origin "$WORK_GRAPH_API_ORIGIN" \
   --arg neon_project_id "$neon_project_id" \
   --arg service_token_id "$service_token_id" \
-  --arg client_id "$service_token_client_id" \
-  --arg client_secret "$service_token_secret" \
+  --rawfile database_url "$work_dir/database-url.txt" \
+  --rawfile client_id "$work_dir/service-token-client-id.txt" \
+  --rawfile client_secret "$work_dir/service-token-secret.txt" \
   '{
     project: $project,
     config: $config,
@@ -306,9 +325,14 @@ request_json "$doppler_auth" "$work_dir/doppler-verified.json" \
   --data-urlencode "config=$DOPPLER_CONFIG" \
   --data-urlencode "format=json" \
   --data-urlencode "secrets=DATABASE_URL,CF_ACCESS_CLIENT_ID,CF_ACCESS_CLIENT_SECRET"
-if [[ "$(jq -r '.DATABASE_URL // empty' "$work_dir/doppler-verified.json")" != "$database_url" ]] || \
-  [[ "$(jq -r '.CF_ACCESS_CLIENT_ID // empty' "$work_dir/doppler-verified.json")" != "$service_token_client_id" ]] || \
-  [[ "$(jq -r '.CF_ACCESS_CLIENT_SECRET // empty' "$work_dir/doppler-verified.json")" != "$service_token_secret" ]]; then
+if ! jq -e \
+  --rawfile database_url "$work_dir/database-url.txt" \
+  --rawfile client_id "$work_dir/service-token-client-id.txt" \
+  --rawfile client_secret "$work_dir/service-token-secret.txt" \
+  '.DATABASE_URL == $database_url
+    and .CF_ACCESS_CLIENT_ID == $client_id
+    and .CF_ACCESS_CLIENT_SECRET == $client_secret' \
+  "$work_dir/doppler-verified.json" >/dev/null; then
   echo "Doppler did not return the Work Graph credentials after writing them." >&2
   exit 1
 fi

@@ -34,7 +34,6 @@ chmod 700 "$work_dir"
 cleanup() {
   find "$work_dir" -type f -exec unlink {} + 2>/dev/null || true
   rmdir "$work_dir" 2>/dev/null || true
-  unset database_password database_url
 }
 trap cleanup EXIT INT TERM
 
@@ -45,13 +44,16 @@ printf 'header = "Authorization: Bearer %s"\n' "$WORK_GRAPH_DOPPLER_SERVICE_TOKE
 curl --disable --config "$work_dir/neon.curl" --connect-timeout 10 --fail --max-time 30 \
   --silent --show-error --output "$work_dir/password.json" \
   --url "https://console.neon.tech/api/v2/projects/$NEON_PROJECT_ID/branches/$NEON_BRANCH_ID/roles/$NEON_ROLE_NAME/reveal_password"
-database_password=$(jq -er '.password' "$work_dir/password.json")
+if ! jq -e '.password | type == "string" and length > 0' "$work_dir/password.json" >/dev/null; then
+  echo "Neon did not return the Work Graph database password." >&2
+  exit 1
+fi
 
 jq -n \
   --arg database "$NEON_DATABASE_NAME" \
   --arg host "$NEON_DATABASE_HOST" \
-  --arg password "$database_password" \
   --arg user "$NEON_ROLE_NAME" \
+  --slurpfile credential "$work_dir/password.json" \
   '{
     name: "work-graph-db",
     origin: {
@@ -59,7 +61,7 @@ jq -n \
       host: $host,
       port: 5432,
       user: $user,
-      password: $password,
+      password: $credential[0].password,
       scheme: "postgresql"
     },
     caching: {disabled: true}
@@ -75,16 +77,22 @@ if [[ "$(jq -er '.success' "$work_dir/hyperdrive-updated.json")" != true ]]; the
   exit 1
 fi
 
-encoded_user=$(jq -rn --arg value "$NEON_ROLE_NAME" '$value | @uri')
-encoded_password=$(jq -rn --arg value "$database_password" '$value | @uri')
-encoded_database=$(jq -rn --arg value "$NEON_DATABASE_NAME" '$value | @uri')
-database_url="postgresql://${encoded_user}:${encoded_password}@${NEON_DATABASE_HOST}:5432/${encoded_database}?sslmode=require"
+jq -jrn \
+  --arg database "$NEON_DATABASE_NAME" \
+  --arg host "$NEON_DATABASE_HOST" \
+  --arg user "$NEON_ROLE_NAME" \
+  --slurpfile credential "$work_dir/password.json" \
+  '($user | @uri) as $encoded_user
+  | ($credential[0].password | @uri) as $encoded_password
+  | ($database | @uri) as $encoded_database
+  | "postgresql://\($encoded_user):\($encoded_password)@\($host):5432/\($encoded_database)?sslmode=require"' \
+  >"$work_dir/database-url.txt"
 jq -n \
   --arg project "$DOPPLER_PROJECT" \
   --arg config "$DOPPLER_CONFIG" \
-  --arg database_url "$database_url" \
   --arg hyperdrive_id "$WORK_GRAPH_HYPERDRIVE_ID" \
   --arg api_origin "$WORK_GRAPH_API_ORIGIN" \
+  --rawfile database_url "$work_dir/database-url.txt" \
   '{
     project: $project,
     config: $config,

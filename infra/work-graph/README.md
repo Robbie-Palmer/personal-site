@@ -60,12 +60,11 @@ required by the workflow (`bash`, `curl`, `jq`, and Doppler).
 Create these before the first apply:
 
 - HCP Terraform workspace `personal-site-work-graph`, set to local execution.
-- Doppler project `work-graph`, with configs `prd_work_graph_infra_plan`,
-  `prd_work_graph_infra`, and `prd_work_graph`. The separate project avoids
-  coupling Work Graph access to the personal-site runtime configs.
-- GitHub environments `production-work-graph-infra-plan`,
-  `production-work-graph-infra`, and `production-work-graph`. Require review on
-  both environments that can apply or deploy.
+- Doppler project `work-graph`, with configs `prd_work_graph_infra` and
+  `prd_work_graph`. The separate project avoids coupling Work Graph access to
+  the personal-site runtime configs.
+- GitHub environments `production-work-graph-infra` and
+  `production-work-graph`. Require review on both environments.
 - A Doppler service token that can update `prd_work_graph`. Store it only as
   masked `WORK_GRAPH_DOPPLER_SERVICE_TOKEN` in `prd_work_graph_infra`.
 - `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, `NEON_API_KEY`,
@@ -80,15 +79,16 @@ Create the target `prd_work_graph` config first. Terraform tests write access
 before creating either one-time credential. A failed test stops the apply
 before Neon or Cloudflare returns a credential.
 
-Use a read-only Cloudflare token and a read-only Neon key in
-`prd_work_graph_infra_plan` where the providers support that split. The plan
-config does not need `WORK_GRAPH_DOPPLER_SERVICE_TOKEN`. Sync the two configs to
-their matching GitHub environments:
+Sync the infrastructure config to its matching GitHub environment:
 
 ```bash
-scripts/sync-doppler-github-envs.sh production-work-graph-infra-plan
 scripts/sync-doppler-github-envs.sh production-work-graph-infra
 ```
+
+Pull-request CI validates formatting, Terraform configuration, shell syntax,
+and the credential boundary without provider credentials. Run live plans only
+from a trusted checkout or dispatch the protected infrastructure workflow from
+`main` with `apply` disabled.
 
 ## Plan and apply
 
@@ -123,6 +123,22 @@ address. Until then, Access protects the custom domain and the Worker returns
 no application data.
 
 ## Rotation and recovery
+
+`terraform destroy` is unsupported for this root because Terraform does not own
+the externally created Neon project or Access service token. To retire the
+credential handoff, first revoke `work-graph-agents` in Cloudflare Zero Trust.
+Then remove only the generated runtime entries from Doppler:
+
+```bash
+doppler secrets delete --yes --project work-graph --config prd_work_graph \
+  DATABASE_URL WORK_GRAPH_HYPERDRIVE_ID WORK_GRAPH_API_URL \
+  WORK_GRAPH_CF_ACCESS_ALLOWED_ORIGINS WORK_GRAPH_NEON_PROJECT_ID \
+  WORK_GRAPH_CF_ACCESS_SERVICE_TOKEN_ID \
+  CF_ACCESS_CLIENT_ID CF_ACCESS_CLIENT_SECRET
+```
+
+Do not delete the Neon project. Retain it for backup, recovery, or an explicit
+data-migration decision separate from Terraform retirement.
 
 Rotate the Access credential with the shared overlap-safe helper:
 
