@@ -49,13 +49,13 @@ diff -u ../../ui/public/simulations/autonomic-satellite-swarm/demonstration.v4.j
 
 [tasks."browser:toolchain"]
 description = "Install the pinned Emscripten SDK with its Python bootstrap dependency"
-tools = { python = "3.14.6" }
+tools = { python = "3.14.7" }
 run = "mise exec python@3.14.6 -- mise install asdf:mise-plugins/mise-emsdk@6.0.9"
 
 [tasks."browser:configure"]
 description = "Configure the Emscripten browser build"
 depends = ["browser:toolchain"]
-tools = { python = "3.14.6" }
+tools = { python = "3.14.7" }
 run = '''
 source_revision=${SATELLITE_SWARM_SOURCE_REVISION:-${GITHUB_SHA:-$(git rev-parse HEAD)}}
 case "$source_revision" in
@@ -75,7 +75,7 @@ mise exec python@3.14.6 asdf:mise-plugins/mise-emsdk@6.0.9 -- \
 [tasks."browser:build"]
 description = "Build the WebAssembly adapter and copy its deployable artifacts"
 depends = ["browser:configure"]
-tools = { python = "3.14.6" }
+tools = { python = "3.14.7" }
 run = '''
 mise exec python@3.14.6 asdf:mise-plugins/mise-emsdk@6.0.9 -- cmake --build build/browser --target satellite_swarm_browser
 browser_public_dir=../../ui/public/simulations/autonomic-satellite-swarm/wasm

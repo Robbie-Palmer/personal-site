@@ -2,7 +2,7 @@
 name = "writing-editor-gector-runtime"
 version = "0.1.0"
 description = "Locked CUDA inference runtime for the GECToR writing baseline"
-requires-python = "==3.12.12"
+requires-python = "==3.14.7"
 dependencies = [
     "fire==0.7.1",
     "pydantic==2.13.5",
