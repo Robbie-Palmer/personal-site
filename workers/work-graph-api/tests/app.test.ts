@@ -4,6 +4,7 @@ import {
   type WorkStage,
 } from "work-graph-domain";
 import type {
+  DecomposeClaimedWorkItemInput,
   StoredLease,
   WorkItemReadModel,
 } from "work-graph-db";
@@ -22,6 +23,7 @@ const noteId = "00000000-0000-4000-8000-000000000004";
 const attentionRequestId = "00000000-0000-4000-8000-000000000005";
 const attentionResolutionId = "00000000-0000-4000-8000-000000000006";
 const secondAttentionRequestId = "00000000-0000-4000-8000-000000000007";
+const childLeaseId = "00000000-0000-4000-8000-000000000008";
 
 const lease = (workItemId = "ready"): StoredLease => ({
   id: leaseId,
@@ -44,6 +46,7 @@ const item = (
   title: `${id} work`,
   lifecycle,
   parentId: null,
+  rank: null,
   stage,
   currentLease,
 });
@@ -59,6 +62,7 @@ const buildRepository = (): WorkGraphApiRepository => ({
     ...input,
     lifecycle: "open" as const,
     parentId: input.parentId ?? null,
+    rank: null,
   })),
   addDependency: vi.fn(async () => undefined),
   removeDependency: vi.fn(async () => undefined),
@@ -104,6 +108,32 @@ const buildRepository = (): WorkGraphApiRepository => ({
     endedAt: expiresAt,
     outcome: input.outcome,
   })),
+  decomposeClaimedWorkItem: vi.fn(async (input: DecomposeClaimedWorkItemInput) => ({
+    children: input.children
+      .map(({ rank, ...child }) => ({
+        rank,
+        workItem: {
+          ...child,
+          lifecycle: "open" as const,
+          parentId: input.workItemId,
+          rank,
+        },
+      }))
+      .sort((left, right) => left.rank - right.rank),
+    dependencies: input.dependencies ?? [],
+    endedLease: {
+      ...lease(input.workItemId),
+      endedAt: acquiredAt,
+      outcome: "decomposed" as const,
+    },
+    claimedLease: input.claim
+      ? {
+          ...lease(input.claim.workItemId),
+          id: input.claim.leaseId,
+          expiresAt,
+        }
+      : null,
+  })),
 });
 
 describe("Given work items with derived readiness", () => {
@@ -131,6 +161,7 @@ describe("Given work items with derived readiness", () => {
           title: "a-ready work",
           lifecycle: "open",
           parentId: null,
+          rank: null,
           stage: "ready",
           currentLease: null,
         },
@@ -148,6 +179,7 @@ describe("Given work items with derived readiness", () => {
           title: "b-ready work",
           lifecycle: "open",
           parentId: null,
+          rank: null,
           stage: "ready",
           currentLease: null,
         },
@@ -206,6 +238,7 @@ describe("Given idempotent graph mutation requests", () => {
       title: "Sparse work item",
       lifecycle: "open",
       parentId: null,
+      rank: null,
       stage: "ready",
       currentLease: null,
     });
@@ -468,6 +501,94 @@ describe("Given a worker recording progress and requesting attention", () => {
 });
 
 describe("Given a worker managing a lease", () => {
+  it("decomposes into ranked children and claims one for the same worker", async () => {
+    const repository = buildRepository();
+    vi.mocked(repository.listWorkItems).mockResolvedValue(
+      ["parent", "first", "second"].map((workItemId) => ({
+        ...item(
+          workItemId,
+          workItemId === "parent"
+            ? "blocked"
+            : workItemId === "first"
+              ? "in_progress"
+              : "blocked",
+          "open",
+          workItemId === "first"
+            ? { ...lease("first"), id: childLeaseId }
+            : null,
+        ),
+        parentId: workItemId === "parent" ? null : "parent",
+        rank:
+          workItemId === "first" ? 10 : workItemId === "second" ? 20 : null,
+      })),
+    );
+    const app = createWorkGraphApp(repository);
+    const body = {
+      leaseId,
+      epoch: 1,
+      children: [
+        { id: "second", title: "Second child", rank: 20 },
+        { id: "first", title: "First child", rank: 10 },
+      ],
+      dependencies: [
+        { dependentWorkItemId: "second", blockerWorkItemId: "first" },
+      ],
+      claim: {
+        workItemId: "first",
+        leaseId: childLeaseId,
+        leaseDurationSeconds: 300,
+      },
+    };
+
+    const response = await app.request(
+      "/api/work-items/parent/decompositions",
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "idempotency-key": idempotencyKey,
+        },
+        body: JSON.stringify(body),
+      },
+    );
+
+    expect(response.status).toBe(201);
+    expect(repository.decomposeClaimedWorkItem).toHaveBeenCalledWith(
+      { ...body, workItemId: "parent" },
+      { idempotencyKey },
+    );
+    expect(repository.listWorkItems).toHaveBeenCalledOnce();
+    expect(repository.getWorkItem).not.toHaveBeenCalled();
+    expect(await responseJson(response)).toEqual(
+      expect.objectContaining({
+        parent: expect.objectContaining({ id: "parent", stage: "blocked" }),
+        children: [
+          expect.objectContaining({
+            rank: 10,
+            workItem: expect.objectContaining({
+              id: "first",
+              parentId: "parent",
+              stage: "in_progress",
+            }),
+          }),
+          expect.objectContaining({
+            rank: 20,
+            workItem: expect.objectContaining({
+              id: "second",
+              stage: "blocked",
+            }),
+          }),
+        ],
+        endedLease: expect.objectContaining({ outcome: "decomposed" }),
+        claimedLease: expect.objectContaining({
+          id: childLeaseId,
+          workItemId: "first",
+          workerId: "worker-a",
+        }),
+      }),
+    );
+  });
+
   it("claims, renews, and releases through noun-based resources", async () => {
     const repository = buildRepository();
     const released = item("ready", "released", "released");

@@ -48,6 +48,91 @@ beforeEach(async () => {
   });
 });
 
+describe("Given a claimed item that reveals more work", () => {
+  it("replays one ranked decomposition with its same-worker child claim", async () => {
+    await repository.createWorkItem({ id: "parent", title: "Parent context" });
+    const claimResponse = await requestJson("/api/leases", "POST", {
+      workItemId: "parent",
+      workerId: "worker-a",
+      leaseDurationSeconds: 300,
+    });
+    const parentClaim = (await claimResponse.json()) as {
+      lease: { id: string; epoch: number };
+    };
+    const body = {
+      leaseId: parentClaim.lease.id,
+      epoch: parentClaim.lease.epoch,
+      children: [
+        { id: "later", title: "Later child", rank: 20 },
+        { id: "first", title: "First child", rank: 10 },
+      ],
+      dependencies: [
+        { dependentWorkItemId: "later", blockerWorkItemId: "first" },
+      ],
+      claim: {
+        workItemId: "first",
+        leaseId: recordId(301),
+        leaseDurationSeconds: 120,
+      },
+    };
+    const key = recordId(302);
+
+    const first = await requestJson(
+      "/api/work-items/parent/decompositions",
+      "POST",
+      body,
+      key,
+    );
+    const replay = await requestJson(
+      "/api/work-items/parent/decompositions",
+      "POST",
+      body,
+      key,
+    );
+    const firstBody = (await first.json()) as Record<string, unknown>;
+
+    expect(first.status).toBe(201);
+    expect(replay.status).toBe(201);
+    expect(await replay.json()).toEqual(firstBody);
+    expect(firstBody).toEqual(
+      expect.objectContaining({
+        parent: expect.objectContaining({
+          id: "parent",
+          lifecycle: "open",
+          stage: "blocked",
+        }),
+        children: [
+          expect.objectContaining({
+            rank: 10,
+            workItem: expect.objectContaining({
+              id: "first",
+              parentId: "parent",
+              stage: "in_progress",
+            }),
+          }),
+          expect.objectContaining({
+            rank: 20,
+            workItem: expect.objectContaining({
+              id: "later",
+              parentId: "parent",
+              stage: "blocked",
+            }),
+          }),
+        ],
+        endedLease: expect.objectContaining({ outcome: "decomposed" }),
+        claimedLease: expect.objectContaining({
+          id: recordId(301),
+          workItemId: "first",
+          workerId: "worker-a",
+        }),
+      }),
+    );
+    expect(await db.select().from(schema.workItemHierarchy)).toHaveLength(2);
+    expect(await db.select().from(schema.workItemDependency)).toHaveLength(1);
+    expect(await db.select().from(schema.idempotencyKey)).toHaveLength(1);
+  });
+});
+
 afterAll(async () => {
   await closeDb(db);
 });
@@ -150,6 +235,7 @@ describe("Given graph mutations over HTTP", () => {
         title: "Sparse work item",
         lifecycle: "open",
         parentId: null,
+        rank: null,
       },
     ]);
     expect(await db.select().from(schema.idempotencyKey)).toHaveLength(1);
@@ -519,6 +605,7 @@ describe("Given lease-backed work over HTTP", () => {
       title: "Release me",
       lifecycle: "released",
       parentId: null,
+      rank: null,
       stage: "released",
       currentLease: null,
     });

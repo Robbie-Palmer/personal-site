@@ -21,6 +21,7 @@ const repository: WorkGraphApiRepository = {
   claimWorkItem: unavailable,
   renewLease: unavailable,
   terminateClaimedWorkItem: unavailable,
+  decomposeClaimedWorkItem: unavailable,
 };
 const app = createWorkGraphApp(repository);
 

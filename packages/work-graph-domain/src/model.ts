@@ -5,6 +5,7 @@ export interface WorkItem {
   readonly title: string;
   readonly lifecycle: WorkItemLifecycle;
   readonly parentId: string | null;
+  readonly rank: number | null;
 }
 
 export interface WorkItemInput {
@@ -12,9 +13,10 @@ export interface WorkItemInput {
   readonly title: string;
   readonly lifecycle?: WorkItemLifecycle;
   readonly parentId?: string | null;
+  readonly rank?: number | null;
 }
 
-export type NewWorkItemInput = Omit<WorkItemInput, "lifecycle">;
+export type NewWorkItemInput = Omit<WorkItemInput, "lifecycle" | "rank">;
 
 export interface WorkItemDependency {
   readonly dependentWorkItemId: string;

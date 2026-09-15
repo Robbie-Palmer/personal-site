@@ -23,6 +23,7 @@ describe("work graph mutations", () => {
         title: "Sparse work item",
         lifecycle: "open",
         parentId: null,
+        rank: null,
       },
     ]);
   });

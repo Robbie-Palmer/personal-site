@@ -20,6 +20,7 @@ const app = createWorkGraphApp({
   claimWorkItem: unavailable,
   renewLease: unavailable,
   terminateClaimedWorkItem: unavailable,
+  decomposeClaimedWorkItem: unavailable,
 } satisfies WorkGraphApiRepository);
 const HTTP_METHODS = new Set(["GET", "POST", "PUT", "PATCH", "DELETE"]);
 
@@ -81,6 +82,7 @@ describe("Given the Work Graph route registry", () => {
         "POST /api/leases/:leaseId/renewals",
         "POST /api/work-items",
         "POST /api/work-items/:workItemId/cancellations",
+        "POST /api/work-items/:workItemId/decompositions",
         "POST /api/work-items/:workItemId/notes",
         "POST /api/work-items/:workItemId/releases",
       ].sort(),
