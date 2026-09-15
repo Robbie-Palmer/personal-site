@@ -185,12 +185,20 @@ if [[ "$actual_region" != "$NEON_REGION" || "$actual_pg_version" != "$NEON_PG_VE
   exit 1
 fi
 
-neon_branch_id=$(jq -er '.project.default_branch_id' "$work_dir/neon-project.json")
-
 metadata_ready=false
+neon_branch_id=""
 for attempt in 1 2 3 4 5; do
-  if request_json "$neon_auth" "$work_dir/neon-endpoints.json" \
-    --url "https://console.neon.tech/api/v2/projects/$neon_project_id/branches/$neon_branch_id/endpoints" && \
+  if request_json "$neon_auth" "$work_dir/neon-branches.json" \
+    --url "https://console.neon.tech/api/v2/projects/$neon_project_id/branches"; then
+    neon_branch_id=$(jq -r '
+      first(.branches[] | select(.default == true) | .id)
+      // first(.branches[] | select(.primary == true) | .id)
+      // empty
+    ' "$work_dir/neon-branches.json")
+  fi
+  if [[ -n "$neon_branch_id" ]] && \
+    request_json "$neon_auth" "$work_dir/neon-endpoints.json" \
+      --url "https://console.neon.tech/api/v2/projects/$neon_project_id/branches/$neon_branch_id/endpoints" && \
     request_json "$neon_auth" "$work_dir/neon-databases.json" \
       --url "https://console.neon.tech/api/v2/projects/$neon_project_id/branches/$neon_branch_id/databases"; then
     database_host=$(jq -er --arg branch_id "$neon_branch_id" \
@@ -208,7 +216,7 @@ for attempt in 1 2 3 4 5; do
 done
 
 if [[ "$metadata_ready" != true ]]; then
-  echo "Cannot provision Work Graph: the Neon endpoint or database did not become ready." >&2
+  echo "Cannot provision Work Graph: the Neon branch, endpoint, or database did not become ready." >&2
   exit 1
 fi
 

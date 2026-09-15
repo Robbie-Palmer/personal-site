@@ -19,6 +19,10 @@ check "work_graph_hostname_in_zone" {
 # to Terraform. A local-exec helper creates those resources and writes their
 # credentials straight to Doppler, while this state records only its revision.
 resource "terraform_data" "credential_handoff" {
+  # Prove Cloudflare can create Access applications before creating external
+  # resources whose credentials cannot be recovered from Terraform state.
+  depends_on = [cloudflare_zero_trust_access_application.work_graph]
+
   triggers_replace = {
     api_origin            = local.api_origin
     cloudflare_account_id = var.cloudflare_account_id

@@ -39,9 +39,17 @@ fi
 neon_project_id=$(jq -er --arg name "$neon_project_name" '.projects[] | select(.name == $name) | .id' "$work_dir/projects.json")
 
 curl --disable --config "$work_dir/neon.curl" --connect-timeout 10 --fail --max-time 30 \
-  --silent --show-error --output "$work_dir/project.json" \
-  --url "https://console.neon.tech/api/v2/projects/$neon_project_id"
-neon_branch_id=$(jq -er '.project.default_branch_id' "$work_dir/project.json")
+  --silent --show-error --output "$work_dir/branches.json" \
+  --url "https://console.neon.tech/api/v2/projects/$neon_project_id/branches"
+neon_branch_id=$(jq -r '
+  first(.branches[] | select(.default == true) | .id)
+  // first(.branches[] | select(.primary == true) | .id)
+  // empty
+' "$work_dir/branches.json")
+if [[ -z "$neon_branch_id" ]]; then
+  echo "The Work Graph Neon project has no default or primary branch." >&2
+  exit 1
+fi
 
 curl --disable --config "$work_dir/neon.curl" --connect-timeout 10 --fail --max-time 30 \
   --silent --show-error --output "$work_dir/endpoints.json" \
