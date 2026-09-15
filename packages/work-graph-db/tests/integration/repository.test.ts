@@ -19,6 +19,9 @@ if (!databaseURL) {
 const db = createDb(databaseURL);
 const repository = new WorkGraphRepository(db);
 
+const recordId = (suffix: number): string =>
+  `00000000-0000-4000-8000-${suffix.toString().padStart(12, "0")}`;
+
 const dependency = (
   dependentWorkItemId: string,
   blockerWorkItemId: string,
@@ -33,6 +36,30 @@ const expectWorkGraphError = (
   expect(result.reason).toEqual(
     expect.objectContaining<Partial<WorkGraphError>>({ code }),
   );
+};
+
+type DatabaseError = Error & {
+  code?: string;
+  constraint_name?: string;
+};
+
+const getDatabaseError = (error: unknown): DatabaseError | undefined => {
+  if (!(error instanceof Error)) return undefined;
+  if ("code" in error && typeof error.code === "string") {
+    return error as DatabaseError;
+  }
+  return "cause" in error ? getDatabaseError(error.cause) : undefined;
+};
+
+const rejectedDatabaseError = async (
+  operation: Promise<unknown>,
+): Promise<DatabaseError | undefined> => {
+  try {
+    await operation;
+    return undefined;
+  } catch (error) {
+    return getDatabaseError(error);
+  }
 };
 
 const waitForDatabaseLock = async (): Promise<void> => {
@@ -81,10 +108,14 @@ beforeAll(async () => {
     order by enumsortorder
   `);
 
-  expect(migrationCount?.count).toBe(2);
+  expect(migrationCount?.count).toBe(5);
   expect(tables.map(({ table_name }) => table_name)).toEqual([
+    "attention_requests",
+    "attention_resolutions",
     "graph_mutation_locks",
+    "idempotency_keys",
     "leases",
+    "notes",
     "work_item_dependencies",
     "work_item_hierarchy",
     "work_items",
@@ -106,7 +137,11 @@ beforeAll(async () => {
 
 beforeEach(async () => {
   await db.transaction(async (transaction) => {
+    await transaction.delete(schema.attentionResolution);
+    await transaction.delete(schema.attentionRequest);
+    await transaction.delete(schema.note);
     await transaction.delete(schema.lease);
+    await transaction.delete(schema.idempotencyKey);
     await transaction.delete(schema.workItemDependency);
     await transaction.delete(schema.workItemHierarchy);
     await transaction.delete(schema.workItem);
@@ -700,6 +735,359 @@ describe("lease-backed claiming", () => {
   });
 });
 
+describe("lease-fenced notes and attention", () => {
+  it("rejects audit records whose lease belongs to another work item", async () => {
+    await repository.createWorkItem({ id: "work", title: "Work" });
+    await repository.createWorkItem({ id: "other", title: "Other" });
+    const claimed = await repository.claimWorkItem({
+      leaseId: recordId(230),
+      workerId: "worker-a",
+      leaseDurationSeconds: 300,
+      workItemId: "work",
+    });
+    if (!claimed) throw new Error("Expected work to be claimed.");
+
+    expect(
+      await rejectedDatabaseError(
+        db.insert(schema.note).values({
+          id: recordId(231),
+          workItemId: "other",
+          leaseId: claimed.id,
+          content: "Mismatched provenance",
+        }),
+      ),
+    ).toEqual(
+      expect.objectContaining({
+        code: "23503",
+        constraint_name: "notes_lease_work_item_fk",
+      }),
+    );
+    expect(
+      await rejectedDatabaseError(
+        db.insert(schema.attentionRequest).values({
+          id: recordId(232),
+          workItemId: "other",
+          requestingLeaseId: claimed.id,
+          kind: "review",
+          question: "Can this mismatched lease be recorded?",
+          blocking: false,
+        }),
+      ),
+    ).toEqual(
+      expect.objectContaining({
+        code: "23503",
+        constraint_name: "attention_requests_lease_work_item_fk",
+      }),
+    );
+    expect(await db.select().from(schema.note)).toHaveLength(0);
+    expect(await db.select().from(schema.attentionRequest)).toHaveLength(0);
+  });
+
+  it("filters and bounds attention requests in PostgreSQL", async () => {
+    const work = [
+      { id: "first", leaseId: recordId(240) },
+      { id: "resolved", leaseId: recordId(241) },
+      { id: "last", leaseId: recordId(242) },
+    ] as const;
+    for (const item of work) {
+      await repository.createWorkItem({ id: item.id, title: item.id });
+      const claimed = await repository.claimWorkItem({
+        leaseId: item.leaseId,
+        workerId: "worker-a",
+        leaseDurationSeconds: 300,
+        workItemId: item.id,
+      });
+      if (!claimed) throw new Error(`Expected ${item.id} to be claimed.`);
+    }
+
+    const first = await repository.createAttentionRequest({
+      id: recordId(243),
+      workItemId: "first",
+      leaseId: work[0].leaseId,
+      epoch: 1,
+      kind: "decision",
+      question: "First question",
+      blocking: true,
+    });
+    const resolved = await repository.createAttentionRequest({
+      id: recordId(244),
+      workItemId: "resolved",
+      leaseId: work[1].leaseId,
+      epoch: 1,
+      kind: "review",
+      question: "Resolved question",
+      blocking: false,
+    });
+    const resolution = await repository.resolveAttentionRequest({
+      id: recordId(245),
+      attentionRequestId: resolved.attentionRequest.id,
+      resolution: "Resolved answer",
+    });
+    const last = await repository.createAttentionRequest({
+      id: recordId(246),
+      workItemId: "last",
+      leaseId: work[2].leaseId,
+      epoch: 1,
+      kind: "decision",
+      question: "Last question",
+      blocking: true,
+    });
+
+    expect(
+      await repository.listAttentionRequests({
+        state: "unresolved",
+        blocking: true,
+        limit: 1,
+      }),
+    ).toEqual([{ ...first.attentionRequest, resolution: null }]);
+    expect(
+      await repository.listAttentionRequests({
+        state: "unresolved",
+        blocking: true,
+        cursor: first.attentionRequest.id,
+        limit: 1,
+      }),
+    ).toEqual([{ ...last.attentionRequest, resolution: null }]);
+    expect(
+      await repository.listAttentionRequests({
+        state: "resolved",
+        blocking: false,
+        limit: 1,
+      }),
+    ).toEqual([
+      {
+        ...resolved.attentionRequest,
+        resolution: resolution.resolution,
+      },
+    ]);
+  });
+
+  it("records an idempotent note only for the current lease epoch", async () => {
+    await repository.createWorkItem({ id: "work", title: "Work" });
+    const claimed = await repository.claimWorkItem({
+      leaseId: recordId(201),
+      workerId: "worker-a",
+      leaseDurationSeconds: 300,
+      workItemId: "work",
+    });
+    if (!claimed) throw new Error("Expected work to be claimed.");
+    const input = {
+      id: recordId(202),
+      workItemId: "work",
+      leaseId: claimed.id,
+      epoch: claimed.epoch,
+      content: "The API contract is generated from the route registry.",
+    };
+    const options = { idempotencyKey: recordId(203) };
+
+    const first = await repository.createNote(input, options);
+    const replay = await repository.createNote(input, options);
+
+    expect(replay).toEqual(first);
+    expect(await repository.listNotes("work")).toEqual([first]);
+    await expect(
+      repository.createNote(
+        { ...input, id: recordId(204), epoch: claimed.epoch + 1 },
+        { idempotencyKey: recordId(205) },
+      ),
+    ).rejects.toEqual(
+      expect.objectContaining<Partial<WorkGraphError>>({
+        code: "lease_not_current",
+      }),
+    );
+  });
+
+  it("ends a lease for blocking attention and allows another worker after resolution", async () => {
+    await repository.createWorkItem({ id: "work", title: "Work" });
+    const claimed = await repository.claimWorkItem({
+      leaseId: recordId(206),
+      workerId: "worker-a",
+      leaseDurationSeconds: 300,
+      workItemId: "work",
+    });
+    if (!claimed) throw new Error("Expected work to be claimed.");
+    const requestInput = {
+      id: recordId(207),
+      workItemId: "work",
+      leaseId: claimed.id,
+      epoch: claimed.epoch,
+      kind: "decision",
+      question: "Should this endpoint accept non-blocking requests?",
+      note: "The schema can represent either choice.",
+      blocking: true,
+    };
+    const requestOptions = { idempotencyKey: recordId(208) };
+
+    const opened = await repository.createAttentionRequest(
+      requestInput,
+      requestOptions,
+    );
+    const replay = await repository.createAttentionRequest(
+      requestInput,
+      requestOptions,
+    );
+
+    expect(replay).toEqual(opened);
+    expect(opened.attentionRequest).toEqual(
+      expect.objectContaining({
+        requestingLeaseId: claimed.id,
+        kind: "decision",
+        question: "Should this endpoint accept non-blocking requests?",
+        note: "The schema can represent either choice.",
+        blocking: true,
+      }),
+    );
+    expect(opened.endedLease).toEqual(
+      expect.objectContaining({
+        workerId: "worker-a",
+        outcome: "attention_requested",
+      }),
+    );
+    expect((await repository.getWorkItem("work")).stage).toBe(
+      "needs_attention",
+    );
+    expect(await repository.listAttentionRequests()).toEqual([
+      { ...opened.attentionRequest, resolution: null },
+    ]);
+    await expect(
+      repository.claimWorkItem({
+        leaseId: recordId(209),
+        workerId: "worker-b",
+        leaseDurationSeconds: 300,
+        workItemId: "work",
+      }),
+    ).resolves.toBeNull();
+
+    const resolutionInput = {
+      id: recordId(210),
+      attentionRequestId: opened.attentionRequest.id,
+      resolution: "Keep both forms and let blocking control the lease.",
+    };
+    const resolutionOptions = { idempotencyKey: recordId(211) };
+    const resolution = await repository.resolveAttentionRequest(
+      resolutionInput,
+      resolutionOptions,
+    );
+    const resolutionReplay = await repository.resolveAttentionRequest(
+      resolutionInput,
+      resolutionOptions,
+    );
+
+    expect(resolutionReplay).toEqual(resolution);
+    expect(await repository.listAttentionRequests()).toEqual([
+      {
+        ...opened.attentionRequest,
+        resolution: resolution.resolution,
+      },
+    ]);
+    expect((await repository.getWorkItem("work")).stage).toBe("ready");
+    const resumed = await repository.claimWorkItem({
+      leaseId: recordId(212),
+      workerId: "worker-b",
+      leaseDurationSeconds: 300,
+      workItemId: "work",
+    });
+    expect(resumed).toEqual(
+      expect.objectContaining({ workerId: "worker-b", epoch: 2 }),
+    );
+  });
+
+  it("recomputes other blockers after resolving attention", async () => {
+    await repository.createWorkItem({ id: "work", title: "Work" });
+    await repository.createWorkItem({ id: "blocker", title: "Blocker" });
+    const claimed = await repository.claimWorkItem({
+      leaseId: recordId(213),
+      workerId: "worker-a",
+      leaseDurationSeconds: 300,
+      workItemId: "work",
+    });
+    if (!claimed) throw new Error("Expected work to be claimed.");
+    const opened = await repository.createAttentionRequest({
+      id: recordId(214),
+      workItemId: "work",
+      leaseId: claimed.id,
+      epoch: claimed.epoch,
+      kind: "input",
+      question: "Which prerequisite applies?",
+      blocking: true,
+    });
+    await repository.addDependency(dependency("work", "blocker"));
+
+    await repository.resolveAttentionRequest({
+      id: recordId(215),
+      attentionRequestId: opened.attentionRequest.id,
+      resolution: "The blocker must finish first.",
+    });
+
+    expect((await repository.getWorkItem("work")).stage).toBe("blocked");
+  });
+
+  it("keeps a lease active for non-blocking attention", async () => {
+    await repository.createWorkItem({ id: "work", title: "Work" });
+    const claimed = await repository.claimWorkItem({
+      leaseId: recordId(216),
+      workerId: "worker-a",
+      leaseDurationSeconds: 300,
+      workItemId: "work",
+    });
+    if (!claimed) throw new Error("Expected work to be claimed.");
+
+    const opened = await repository.createAttentionRequest({
+      id: recordId(217),
+      workItemId: "work",
+      leaseId: claimed.id,
+      epoch: claimed.epoch,
+      kind: "review",
+      question: "Can someone check the wording while implementation continues?",
+      blocking: false,
+    });
+
+    expect(opened.endedLease).toBeNull();
+    expect((await repository.getWorkItem("work")).stage).toBe("in_progress");
+    expect(await repository.getCurrentLease("work")).toEqual(claimed);
+  });
+
+  it("accepts exactly one of two concurrent resolutions", async () => {
+    await repository.createWorkItem({ id: "work", title: "Work" });
+    const claimed = await repository.claimWorkItem({
+      leaseId: recordId(218),
+      workerId: "worker-a",
+      leaseDurationSeconds: 300,
+      workItemId: "work",
+    });
+    if (!claimed) throw new Error("Expected work to be claimed.");
+    const opened = await repository.createAttentionRequest({
+      id: recordId(219),
+      workItemId: "work",
+      leaseId: claimed.id,
+      epoch: claimed.epoch,
+      kind: "decision",
+      question: "Choose one answer.",
+      blocking: true,
+    });
+
+    const results = await Promise.allSettled([
+      repository.resolveAttentionRequest({
+        id: recordId(220),
+        attentionRequestId: opened.attentionRequest.id,
+        resolution: "First answer.",
+      }),
+      repository.resolveAttentionRequest({
+        id: recordId(221),
+        attentionRequestId: opened.attentionRequest.id,
+        resolution: "Second answer.",
+      }),
+    ]);
+
+    expect(results.filter(({ status }) => status === "fulfilled")).toHaveLength(
+      1,
+    );
+    const [rejected] = results.filter(({ status }) => status === "rejected");
+    if (!rejected) throw new Error("Expected one resolution to be rejected.");
+    expectWorkGraphError(rejected, "attention_request_already_resolved");
+  });
+});
+
 describe("Work Graph PostgreSQL persistence", () => {
   it("persists a sparse work item without fixed task or readiness fields", async () => {
     await repository.createWorkItem({
@@ -732,6 +1120,38 @@ describe("Work Graph PostgreSQL persistence", () => {
       "created_at",
       "updated_at",
     ]);
+  });
+
+  it("serializes concurrent retries of one sparse work-item creation", async () => {
+    const key = "00000000-0000-4000-8000-000000000081";
+    const request = () =>
+      repository.createWorkItem(
+        { id: "retried", title: "Created once" },
+        { idempotencyKey: key },
+      );
+
+    const [first, retry] = await Promise.all([request(), request()]);
+
+    expect(first).toEqual(retry);
+    expect((await repository.load()).workItems).toEqual([
+      {
+        id: "retried",
+        title: "Created once",
+        lifecycle: "open",
+        parentId: null,
+      },
+    ]);
+    await expect(
+      repository.createWorkItem(
+        { id: "different", title: "Different input" },
+        { idempotencyKey: key },
+      ),
+    ).rejects.toEqual(
+      expect.objectContaining<Partial<WorkGraphError>>({
+        code: "idempotency_key_reused",
+      }),
+    );
+    expect(await db.select().from(schema.idempotencyKey)).toHaveLength(1);
   });
 
   it("derives readiness from persisted hierarchy, dependencies, and lifecycle", async () => {
@@ -834,6 +1254,16 @@ describe("Work Graph PostgreSQL persistence", () => {
     ).rejects.toEqual(
       expect.objectContaining<Partial<WorkGraphError>>({
         code: "duplicate_work_item",
+      }),
+    );
+    await expect(
+      repository.createWorkItem(
+        { id: "invalid-key", title: "Invalid key" },
+        { idempotencyKey: "not-a-uuid" },
+      ),
+    ).rejects.toEqual(
+      expect.objectContaining<Partial<WorkGraphError>>({
+        code: "invalid_idempotency_key",
       }),
     );
     await expect(repository.reparentWorkItem("", null)).rejects.toEqual(
@@ -968,6 +1398,35 @@ describe("atomic graph mutations", () => {
       dependency("a", "b"),
       dependency("b", "c"),
     ]);
+  });
+
+  it("replays dependency additions and removals with separate mutation keys", async () => {
+    await repository.createWorkItem({ id: "a", title: "A" });
+    await repository.createWorkItem({ id: "b", title: "B" });
+    const edge = dependency("a", "b");
+    const addOptions = {
+      idempotencyKey: "00000000-0000-4000-8000-000000000082",
+    };
+    const removeOptions = {
+      idempotencyKey: "00000000-0000-4000-8000-000000000083",
+    };
+
+    await repository.addDependency(edge, addOptions);
+    await repository.addDependency(edge, addOptions);
+    expect((await repository.load()).dependencies).toEqual([edge]);
+
+    await expect(
+      repository.removeDependency(edge, addOptions),
+    ).rejects.toEqual(
+      expect.objectContaining<Partial<WorkGraphError>>({
+        code: "idempotency_key_reused",
+      }),
+    );
+    await repository.removeDependency(edge, removeOptions);
+    await repository.removeDependency(edge, removeOptions);
+
+    expect((await repository.load()).dependencies).toEqual([]);
+    expect(await db.select().from(schema.idempotencyKey)).toHaveLength(2);
   });
 
   it.each([

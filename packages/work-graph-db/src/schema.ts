@@ -1,6 +1,8 @@
 import { sql } from "drizzle-orm";
 import {
+  boolean,
   check,
+  foreignKey,
   index,
   integer,
   pgEnum,
@@ -93,6 +95,26 @@ export const graphMutationLock = pgTable("graph_mutation_locks", {
   id: text().primaryKey(),
 });
 
+export const idempotencyKey = pgTable(
+  "idempotency_keys",
+  {
+    id: uuid().primaryKey(),
+    operation: text().notNull(),
+    requestFingerprint: text().notNull(),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    check(
+      "idempotency_keys_operation_not_blank_check",
+      sql`btrim(${table.operation}) <> ''`,
+    ),
+    check(
+      "idempotency_keys_request_fingerprint_not_blank_check",
+      sql`btrim(${table.requestFingerprint}) <> ''`,
+    ),
+  ],
+);
+
 export const lease = pgTable(
   "leases",
   {
@@ -108,6 +130,7 @@ export const lease = pgTable(
     outcome: leaseOutcomeEnum(),
   },
   (table) => [
+    uniqueIndex("leases_id_work_item_id_uidx").on(table.id, table.workItemId),
     uniqueIndex("leases_work_item_id_epoch_uidx").on(
       table.workItemId,
       table.epoch,
@@ -131,6 +154,94 @@ export const lease = pgTable(
     check(
       "leases_end_after_acquisition_check",
       sql`${table.endedAt} is null or ${table.endedAt} >= ${table.acquiredAt}`,
+    ),
+  ],
+);
+
+export const note = pgTable(
+  "notes",
+  {
+    id: uuid().primaryKey(),
+    workItemId: text()
+      .notNull()
+      .references(() => workItem.id, { onDelete: "restrict" }),
+    leaseId: uuid().notNull(),
+    content: text().notNull(),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    foreignKey({
+      name: "notes_lease_work_item_fk",
+      columns: [table.leaseId, table.workItemId],
+      foreignColumns: [lease.id, lease.workItemId],
+    }).onDelete("restrict"),
+    index("notes_work_item_id_created_at_idx").on(
+      table.workItemId,
+      table.createdAt,
+    ),
+    check("notes_content_not_blank_check", sql`btrim(${table.content}) <> ''`),
+  ],
+);
+
+export const attentionRequest = pgTable(
+  "attention_requests",
+  {
+    id: uuid().primaryKey(),
+    workItemId: text()
+      .notNull()
+      .references(() => workItem.id, { onDelete: "restrict" }),
+    requestingLeaseId: uuid().notNull(),
+    kind: text().notNull(),
+    question: text().notNull(),
+    note: text(),
+    blocking: boolean().notNull().default(true),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    foreignKey({
+      name: "attention_requests_lease_work_item_fk",
+      columns: [table.requestingLeaseId, table.workItemId],
+      foreignColumns: [lease.id, lease.workItemId],
+    }).onDelete("restrict"),
+    index("attention_requests_work_item_id_created_at_idx").on(
+      table.workItemId,
+      table.createdAt,
+    ),
+    check(
+      "attention_requests_kind_not_blank_check",
+      sql`btrim(${table.kind}) <> ''`,
+    ),
+    check(
+      "attention_requests_question_not_blank_check",
+      sql`btrim(${table.question}) <> ''`,
+    ),
+    check(
+      "attention_requests_note_not_blank_check",
+      sql`${table.note} is null or btrim(${table.note}) <> ''`,
+    ),
+  ],
+);
+
+export const attentionResolution = pgTable(
+  "attention_resolutions",
+  {
+    id: uuid().primaryKey(),
+    attentionRequestId: uuid().notNull(),
+    resolution: text().notNull(),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    foreignKey({
+      name: "attention_resolutions_request_id_fk",
+      columns: [table.attentionRequestId],
+      foreignColumns: [attentionRequest.id],
+    }).onDelete("restrict"),
+    uniqueIndex("attention_resolutions_attention_request_id_uidx").on(
+      table.attentionRequestId,
+    ),
+    check(
+      "attention_resolutions_resolution_not_blank_check",
+      sql`btrim(${table.resolution}) <> ''`,
     ),
   ],
 );

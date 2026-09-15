@@ -416,7 +416,7 @@ before the headless workflow is useful.
    claims, renewal, stale recovery, and epoch fencing.
 5. [x] Build the canonical list and readiness projection, claim, renew, release,
    and cancel endpoints with generated OpenAPI.
-6. [ ] Add create, dependency, note, attention, and idempotent mutation
+6. [x] Add create, dependency, note, attention, and idempotent mutation
    endpoints.
 7. [ ] Add transactional decomposition, including ending the current lease and
    optionally claiming a ready child.

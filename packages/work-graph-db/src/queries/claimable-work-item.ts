@@ -1,6 +1,8 @@
 import { and, eq, notInArray, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import {
+  attentionRequest,
+  attentionResolution,
   lease,
   workItem,
   workItemDependency,
@@ -20,6 +22,18 @@ export const claimableWorkItemWhere = (
     excludedWorkItemIds.length === 0
       ? undefined
       : notInArray(workItem.id, excludedWorkItemIds),
+    sql`not exists (
+      select 1
+      from ${attentionRequest}
+      where ${attentionRequest.workItemId} = ${workItem.id}
+        and ${attentionRequest.blocking} = true
+        and not exists (
+          select 1
+          from ${attentionResolution}
+          where ${attentionResolution.attentionRequestId} =
+            ${attentionRequest.id}
+        )
+    )`,
     sql`not exists (
       select 1
       from ${workItemHierarchy}

@@ -1,4 +1,13 @@
-import { and, eq, gt, isNull, lte, sql } from "drizzle-orm";
+import {
+  and,
+  eq,
+  gt,
+  isNotNull,
+  isNull,
+  lte,
+  sql,
+  type SQL,
+} from "drizzle-orm";
 import {
   createWorkGraph,
   projectWorkItemStage,
@@ -17,8 +26,12 @@ import {
   type GraphCycleRow,
 } from "./queries/graph-cycle";
 import {
+  attentionRequest,
+  attentionResolution,
   graphMutationLock,
+  idempotencyKey,
   lease,
+  note,
   workItem,
   workItemDependency,
   workItemHierarchy,
@@ -29,6 +42,10 @@ const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export type StoredLease = typeof lease.$inferSelect;
+export type StoredNote = typeof note.$inferSelect;
+export type StoredAttentionRequest = typeof attentionRequest.$inferSelect;
+export type StoredAttentionResolution =
+  typeof attentionResolution.$inferSelect;
 
 export interface ClaimWorkItemInput {
   readonly leaseId: string;
@@ -50,9 +67,59 @@ export interface TerminateClaimedWorkItemInput {
   readonly outcome: TerminalWorkItemState;
 }
 
+export interface CreateNoteInput {
+  readonly id: string;
+  readonly workItemId: string;
+  readonly leaseId: string;
+  readonly epoch: number;
+  readonly content: string;
+}
+
+export interface CreateAttentionRequestInput {
+  readonly id: string;
+  readonly workItemId: string;
+  readonly leaseId: string;
+  readonly epoch: number;
+  readonly kind: string;
+  readonly question: string;
+  readonly note?: string;
+  readonly blocking: boolean;
+}
+
+export interface CreateAttentionRequestResult {
+  readonly attentionRequest: StoredAttentionRequest;
+  readonly endedLease: StoredLease | null;
+}
+
+export interface ResolveAttentionRequestInput {
+  readonly id: string;
+  readonly attentionRequestId: string;
+  readonly resolution: string;
+}
+
+export interface ResolveAttentionRequestResult {
+  readonly resolution: StoredAttentionResolution;
+  readonly workItemId: string;
+}
+
+export interface AttentionRequestReadModel extends StoredAttentionRequest {
+  readonly resolution: StoredAttentionResolution | null;
+}
+
+export interface ListAttentionRequestsInput {
+  readonly state?: "unresolved" | "resolved";
+  readonly blocking?: boolean;
+  readonly cursor?: string;
+  readonly limit?: number;
+}
+
 export interface WorkItemReadModel extends WorkItem {
   readonly stage: WorkStage;
   readonly currentLease: StoredLease | null;
+}
+
+export interface IdempotentMutationOptions {
+  readonly idempotencyKey?: string;
 }
 
 type DatabaseError = Error & {
@@ -91,6 +158,42 @@ const requireLeaseId = (leaseId: string): void => {
       "invalid_lease_id",
       "A lease ID must be a UUID.",
     );
+  }
+};
+
+const requireIdempotencyKey = (key: string): void => {
+  if (typeof key !== "string" || !UUID_PATTERN.test(key)) {
+    throw new WorkGraphError(
+      "invalid_idempotency_key",
+      "An idempotency key must be a UUID.",
+    );
+  }
+};
+
+const requireUuid = (
+  value: string,
+  code:
+    | "invalid_attention_request_id"
+    | "invalid_attention_resolution_id"
+    | "invalid_note_id",
+  message: string,
+): void => {
+  if (typeof value !== "string" || !UUID_PATTERN.test(value)) {
+    throw new WorkGraphError(code, message);
+  }
+};
+
+const requireText = (
+  value: string,
+  code:
+    | "invalid_attention_kind"
+    | "invalid_attention_question"
+    | "invalid_attention_resolution"
+    | "invalid_note_content",
+  message: string,
+): void => {
+  if (typeof value !== "string" || value.trim().length === 0) {
+    throw new WorkGraphError(code, message);
   }
 };
 
@@ -195,12 +298,31 @@ export class WorkGraphRepository {
           .select()
           .from(lease)
           .where(isNull(lease.endedAt));
+        const unresolvedBlockingAttention = await transaction
+          .select({ workItemId: attentionRequest.workItemId })
+          .from(attentionRequest)
+          .leftJoin(
+            attentionResolution,
+            eq(
+              attentionResolution.attentionRequestId,
+              attentionRequest.id,
+            ),
+          )
+          .where(
+            and(
+              eq(attentionRequest.blocking, true),
+              isNull(attentionResolution.id),
+            ),
+          );
         const now = await readDatabaseClock(transaction);
         const leasesByWorkItemId = new Map(
           currentLeases.map((storedLease) => [
             storedLease.workItemId,
             storedLease,
           ]),
+        );
+        const workItemIdsNeedingAttention = new Set(
+          unresolvedBlockingAttention.map(({ workItemId }) => workItemId),
         );
 
         return graph.workItems.map((item) => {
@@ -212,6 +334,8 @@ export class WorkGraphRepository {
                 ? { expiresAt: currentLease.expiresAt.getTime() }
                 : null,
               now: now.getTime(),
+              hasUnresolvedBlockingAttention:
+                workItemIdsNeedingAttention.has(item.id),
             }),
             currentLease,
           };
@@ -233,7 +357,10 @@ export class WorkGraphRepository {
     return found;
   }
 
-  async createWorkItem(input: NewWorkItemInput): Promise<WorkItem> {
+  async createWorkItem(
+    input: NewWorkItemInput,
+    options: IdempotentMutationOptions = {},
+  ): Promise<WorkItem> {
     const [normalized] = createWorkGraph({
       workItems: [{ ...input, parentId: null }],
     }).workItems;
@@ -245,9 +372,22 @@ export class WorkGraphRepository {
     if (parentId !== null) {
       requireIdentifier(parentId, "invalid_parent_id");
     }
+    if (options.idempotencyKey !== undefined) {
+      requireIdempotencyKey(options.idempotencyKey);
+    }
 
     try {
-      await this.db.transaction(async (transaction) => {
+      return await this.db.transaction(async (transaction) => {
+        if (options.idempotencyKey !== undefined) {
+          const replayed = await this.beginIdempotentMutation(
+            transaction,
+            options.idempotencyKey,
+            "create-work-item",
+            JSON.stringify([normalized.id, normalized.title, parentId]),
+          );
+          if (replayed) return { ...normalized, parentId };
+        }
+
         if (parentId !== null) {
           await this.lockGraphMutation(transaction);
         }
@@ -264,6 +404,8 @@ export class WorkGraphRepository {
           });
           await this.rejectCycle(transaction);
         }
+
+        return { ...normalized, parentId };
       });
     } catch (error) {
       const databaseError = getDatabaseError(error);
@@ -282,10 +424,324 @@ export class WorkGraphRepository {
           "The change creates a waits-for cycle.",
         );
       }
-      translateForeignKeyError(error, parentId ?? normalized.id);
+      return translateForeignKeyError(error, parentId ?? normalized.id);
+    }
+  }
+
+  async createNote(
+    input: CreateNoteInput,
+    options: IdempotentMutationOptions = {},
+  ): Promise<StoredNote> {
+    requireUuid(input.id, "invalid_note_id", "A note ID must be a UUID.");
+    requireIdentifier(input.workItemId, "invalid_work_item_id");
+    requireLeaseId(input.leaseId);
+    requireLeaseEpoch(input.epoch);
+    requireText(
+      input.content,
+      "invalid_note_content",
+      "A note cannot be empty.",
+    );
+    if (options.idempotencyKey !== undefined) {
+      requireIdempotencyKey(options.idempotencyKey);
     }
 
-    return { ...normalized, parentId };
+    try {
+      return await this.db.transaction(async (transaction) => {
+        if (options.idempotencyKey !== undefined) {
+          const replayed = await this.beginIdempotentMutation(
+            transaction,
+            options.idempotencyKey,
+            "create-note",
+            JSON.stringify([
+              input.id,
+              input.workItemId,
+              input.leaseId,
+              input.epoch,
+              input.content,
+            ]),
+          );
+          if (replayed) {
+            return this.requireStoredNote(transaction, input.id);
+          }
+        }
+
+        await this.lockWorkItemAndRequireLease(transaction, input);
+        const [created] = await transaction
+          .insert(note)
+          .values({
+            id: input.id,
+            workItemId: input.workItemId,
+            leaseId: input.leaseId,
+            content: input.content,
+          })
+          .returning();
+        if (!created) throw new Error("Note creation returned no note.");
+        return created;
+      });
+    } catch (error) {
+      if (getDatabaseError(error)?.code === "23505") {
+        throw new WorkGraphError(
+          "duplicate_note",
+          `Note ${input.id} already exists.`,
+        );
+      }
+      throw error;
+    }
+  }
+
+  async listNotes(workItemId: string): Promise<readonly StoredNote[]> {
+    requireIdentifier(workItemId, "invalid_work_item_id");
+    return this.db
+      .select()
+      .from(note)
+      .where(eq(note.workItemId, workItemId))
+      .orderBy(note.createdAt, note.id);
+  }
+
+  async listAttentionRequests(
+    input: ListAttentionRequestsInput = {},
+  ): Promise<
+    readonly AttentionRequestReadModel[]
+  > {
+    let stateCondition: SQL | undefined;
+    if (input.state === "resolved") {
+      stateCondition = isNotNull(attentionResolution.id);
+    } else if (input.state === "unresolved") {
+      stateCondition = isNull(attentionResolution.id);
+    }
+    const query = this.db
+      .select({
+        attentionRequest,
+        resolution: attentionResolution,
+      })
+      .from(attentionRequest)
+      .leftJoin(
+        attentionResolution,
+        eq(attentionResolution.attentionRequestId, attentionRequest.id),
+      )
+      .where(
+        and(
+          stateCondition,
+          input.blocking === undefined
+            ? undefined
+            : eq(attentionRequest.blocking, input.blocking),
+          input.cursor === undefined
+            ? undefined
+            : gt(attentionRequest.id, input.cursor),
+        ),
+      )
+      .orderBy(attentionRequest.id);
+    const rows =
+      input.limit === undefined ? await query : await query.limit(input.limit);
+    return rows.map((row) => ({
+      ...row.attentionRequest,
+      resolution: row.resolution,
+    }));
+  }
+
+  async createAttentionRequest(
+    input: CreateAttentionRequestInput,
+    options: IdempotentMutationOptions = {},
+  ): Promise<CreateAttentionRequestResult> {
+    requireUuid(
+      input.id,
+      "invalid_attention_request_id",
+      "An attention request ID must be a UUID.",
+    );
+    requireIdentifier(input.workItemId, "invalid_work_item_id");
+    requireLeaseId(input.leaseId);
+    requireLeaseEpoch(input.epoch);
+    requireText(
+      input.kind,
+      "invalid_attention_kind",
+      "An attention kind cannot be empty.",
+    );
+    requireText(
+      input.question,
+      "invalid_attention_question",
+      "An attention question cannot be empty.",
+    );
+    if (input.note !== undefined) {
+      requireText(
+        input.note,
+        "invalid_note_content",
+        "An attention note cannot be empty.",
+      );
+    }
+    if (options.idempotencyKey !== undefined) {
+      requireIdempotencyKey(options.idempotencyKey);
+    }
+
+    try {
+      return await this.db.transaction(async (transaction) => {
+        if (options.idempotencyKey !== undefined) {
+          const replayed = await this.beginIdempotentMutation(
+            transaction,
+            options.idempotencyKey,
+            "create-attention-request",
+            JSON.stringify([
+              input.id,
+              input.workItemId,
+              input.leaseId,
+              input.epoch,
+              input.kind,
+              input.question,
+              input.note ?? null,
+              input.blocking,
+            ]),
+          );
+          if (replayed) {
+            const storedRequest = await this.requireStoredAttentionRequest(
+              transaction,
+              input.id,
+            );
+            return {
+              attentionRequest: storedRequest,
+              endedLease: storedRequest.blocking
+                ? await this.requireStoredLease(transaction, input.leaseId)
+                : null,
+            };
+          }
+        }
+
+        const { storedLease, now } =
+          await this.lockWorkItemAndRequireLease(transaction, input);
+        const [created] = await transaction
+          .insert(attentionRequest)
+          .values({
+            id: input.id,
+            workItemId: input.workItemId,
+            requestingLeaseId: input.leaseId,
+            kind: input.kind,
+            question: input.question,
+            note: input.note ?? null,
+            blocking: input.blocking,
+          })
+          .returning();
+        if (!created) {
+          throw new Error("Attention request creation returned no request.");
+        }
+
+        if (!input.blocking) {
+          return { attentionRequest: created, endedLease: null };
+        }
+        const [endedLease] = await transaction
+          .update(lease)
+          .set({ endedAt: now, outcome: "attention_requested" })
+          .where(
+            and(
+              eq(lease.id, storedLease.id),
+              eq(lease.epoch, input.epoch),
+              isNull(lease.endedAt),
+              gt(lease.expiresAt, now),
+            ),
+          )
+          .returning();
+        if (!endedLease) throw leaseNotCurrent(input.leaseId, input.epoch);
+        return { attentionRequest: created, endedLease };
+      });
+    } catch (error) {
+      if (getDatabaseError(error)?.code === "23505") {
+        throw new WorkGraphError(
+          "duplicate_attention_request",
+          `Attention request ${input.id} already exists.`,
+        );
+      }
+      throw error;
+    }
+  }
+
+  async resolveAttentionRequest(
+    input: ResolveAttentionRequestInput,
+    options: IdempotentMutationOptions = {},
+  ): Promise<ResolveAttentionRequestResult> {
+    requireUuid(
+      input.id,
+      "invalid_attention_resolution_id",
+      "An attention resolution ID must be a UUID.",
+    );
+    requireUuid(
+      input.attentionRequestId,
+      "invalid_attention_request_id",
+      "An attention request ID must be a UUID.",
+    );
+    requireText(
+      input.resolution,
+      "invalid_attention_resolution",
+      "An attention resolution cannot be empty.",
+    );
+    if (options.idempotencyKey !== undefined) {
+      requireIdempotencyKey(options.idempotencyKey);
+    }
+
+    try {
+      return await this.db.transaction(async (transaction) => {
+        if (options.idempotencyKey !== undefined) {
+          const replayed = await this.beginIdempotentMutation(
+            transaction,
+            options.idempotencyKey,
+            "resolve-attention-request",
+            JSON.stringify([
+              input.id,
+              input.attentionRequestId,
+              input.resolution,
+            ]),
+          );
+          if (replayed) {
+            const resolution = await this.requireStoredAttentionResolution(
+              transaction,
+              input.id,
+            );
+            const request = await this.requireStoredAttentionRequest(
+              transaction,
+              input.attentionRequestId,
+            );
+            return { resolution, workItemId: request.workItemId };
+          }
+        }
+
+        const [lockedRequest] = await transaction
+          .select({
+            id: attentionRequest.id,
+            workItemId: attentionRequest.workItemId,
+          })
+          .from(attentionRequest)
+          .where(eq(attentionRequest.id, input.attentionRequestId))
+          .for("update");
+        if (!lockedRequest) {
+          throw new WorkGraphError(
+            "attention_request_not_found",
+            `Attention request ${input.attentionRequestId} does not exist.`,
+          );
+        }
+        const [created] = await transaction
+          .insert(attentionResolution)
+          .values(input)
+          .returning();
+        if (!created) {
+          throw new Error("Attention resolution creation returned no row.");
+        }
+        return { resolution: created, workItemId: lockedRequest.workItemId };
+      });
+    } catch (error) {
+      const databaseError = getDatabaseError(error);
+      if (
+        databaseError?.code === "23505" &&
+        databaseError.constraint_name === "attention_resolutions_pkey"
+      ) {
+        throw new WorkGraphError(
+          "duplicate_attention_resolution",
+          `Attention resolution ${input.id} already exists.`,
+        );
+      }
+      if (databaseError?.code === "23505") {
+        throw new WorkGraphError(
+          "attention_request_already_resolved",
+          `Attention request ${input.attentionRequestId} is already resolved.`,
+        );
+      }
+      throw error;
+    }
   }
 
   async claimWorkItem(input: ClaimWorkItemInput): Promise<StoredLease | null> {
@@ -577,9 +1033,29 @@ export class WorkGraphRepository {
     }
   }
 
-  async addDependency(dependency: WorkItemDependency): Promise<void> {
+  async addDependency(
+    dependency: WorkItemDependency,
+    options: IdempotentMutationOptions = {},
+  ): Promise<void> {
+    if (options.idempotencyKey !== undefined) {
+      requireIdempotencyKey(options.idempotencyKey);
+    }
+
     try {
       await this.db.transaction(async (transaction) => {
+        if (options.idempotencyKey !== undefined) {
+          const replayed = await this.beginIdempotentMutation(
+            transaction,
+            options.idempotencyKey,
+            "add-dependency",
+            JSON.stringify([
+              dependency.dependentWorkItemId,
+              dependency.blockerWorkItemId,
+            ]),
+          );
+          if (replayed) return;
+        }
+
         await this.lockGraphMutation(transaction);
         await this.requireStoredWorkItem(
           transaction,
@@ -614,8 +1090,28 @@ export class WorkGraphRepository {
     }
   }
 
-  async removeDependency(dependency: WorkItemDependency): Promise<void> {
+  async removeDependency(
+    dependency: WorkItemDependency,
+    options: IdempotentMutationOptions = {},
+  ): Promise<void> {
+    if (options.idempotencyKey !== undefined) {
+      requireIdempotencyKey(options.idempotencyKey);
+    }
+
     await this.db.transaction(async (transaction) => {
+      if (options.idempotencyKey !== undefined) {
+        const replayed = await this.beginIdempotentMutation(
+          transaction,
+          options.idempotencyKey,
+          "remove-dependency",
+          JSON.stringify([
+            dependency.dependentWorkItemId,
+            dependency.blockerWorkItemId,
+          ]),
+        );
+        if (replayed) return;
+      }
+
       await this.lockGraphMutation(transaction);
       const removed = await transaction
         .delete(workItemDependency)
@@ -717,6 +1213,133 @@ export class WorkGraphRepository {
     if (locked.length !== 1) {
       throw new Error("The global graph mutation lock row is missing.");
     }
+  }
+
+  private async lockWorkItemAndRequireLease(
+    transaction: DbTransaction,
+    input: {
+      readonly workItemId: string;
+      readonly leaseId: string;
+      readonly epoch: number;
+    },
+  ): Promise<{ storedLease: StoredLease; now: Date }> {
+    const [lockedWorkItem] = await transaction
+      .select({ id: workItem.id })
+      .from(workItem)
+      .where(eq(workItem.id, input.workItemId))
+      .for("update");
+    if (!lockedWorkItem) throw workItemNotFound(input.workItemId);
+
+    const now = await readDatabaseClock(transaction);
+    const [storedLease] = await transaction
+      .select()
+      .from(lease)
+      .where(
+        and(
+          eq(lease.id, input.leaseId),
+          eq(lease.workItemId, input.workItemId),
+          eq(lease.epoch, input.epoch),
+          isNull(lease.endedAt),
+          gt(lease.expiresAt, now),
+        ),
+      )
+      .limit(1);
+    if (!storedLease) throw leaseNotCurrent(input.leaseId, input.epoch);
+    return { storedLease, now };
+  }
+
+  private async requireStoredNote(
+    transaction: DbTransaction,
+    noteId: string,
+  ): Promise<StoredNote> {
+    const [stored] = await transaction
+      .select()
+      .from(note)
+      .where(eq(note.id, noteId))
+      .limit(1);
+    if (!stored) throw new Error(`Idempotent note ${noteId} is missing.`);
+    return stored;
+  }
+
+  private async requireStoredAttentionRequest(
+    transaction: DbTransaction,
+    attentionRequestId: string,
+  ): Promise<StoredAttentionRequest> {
+    const [stored] = await transaction
+      .select()
+      .from(attentionRequest)
+      .where(eq(attentionRequest.id, attentionRequestId))
+      .limit(1);
+    if (!stored) {
+      throw new Error(
+        `Idempotent attention request ${attentionRequestId} is missing.`,
+      );
+    }
+    return stored;
+  }
+
+  private async requireStoredAttentionResolution(
+    transaction: DbTransaction,
+    attentionResolutionId: string,
+  ): Promise<StoredAttentionResolution> {
+    const [stored] = await transaction
+      .select()
+      .from(attentionResolution)
+      .where(eq(attentionResolution.id, attentionResolutionId))
+      .limit(1);
+    if (!stored) {
+      throw new Error(
+        `Idempotent attention resolution ${attentionResolutionId} is missing.`,
+      );
+    }
+    return stored;
+  }
+
+  private async requireStoredLease(
+    transaction: DbTransaction,
+    leaseId: string,
+  ): Promise<StoredLease> {
+    const [stored] = await transaction
+      .select()
+      .from(lease)
+      .where(eq(lease.id, leaseId))
+      .limit(1);
+    if (!stored) throw new Error(`Idempotent lease ${leaseId} is missing.`);
+    return stored;
+  }
+
+  private async beginIdempotentMutation(
+    transaction: DbTransaction,
+    key: string,
+    operation: string,
+    requestFingerprint: string,
+  ): Promise<boolean> {
+    const inserted = await transaction
+      .insert(idempotencyKey)
+      .values({ id: key, operation, requestFingerprint })
+      .onConflictDoNothing()
+      .returning({ id: idempotencyKey.id });
+    if (inserted.length === 1) return false;
+
+    const [receipt] = await transaction
+      .select({
+        operation: idempotencyKey.operation,
+        requestFingerprint: idempotencyKey.requestFingerprint,
+      })
+      .from(idempotencyKey)
+      .where(eq(idempotencyKey.id, key))
+      .limit(1);
+    if (
+      receipt?.operation === operation &&
+      receipt.requestFingerprint === requestFingerprint
+    ) {
+      return true;
+    }
+
+    throw new WorkGraphError(
+      "idempotency_key_reused",
+      `Idempotency key ${key} was already used for a different mutation.`,
+    );
   }
 
   private async loadGraph(transaction: DbTransaction): Promise<WorkGraph> {
