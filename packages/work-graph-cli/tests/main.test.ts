@@ -1,0 +1,472 @@
+import { describe, expect, it, vi } from "vitest";
+import type { Fetch } from "../src/client.js";
+import { EXIT_CODES } from "../src/errors.js";
+import { runCli } from "../src/main.js";
+
+interface CapturedRequest {
+  body: unknown;
+  headers: Headers;
+  method: string;
+  url: URL;
+}
+
+const API_URL = "https://work.example.test/root";
+const UUID = "00000000-0000-4000-8000-000000000001";
+
+const response = (body: unknown = { ok: true }, status = 200): Response =>
+  new Response(JSON.stringify(body), {
+    status,
+    headers: { "Content-Type": "application/json" },
+  });
+
+const harness = (
+  responseFactory: (request: CapturedRequest) => Response = () => response(),
+  environment: NodeJS.ProcessEnv = { WORK_GRAPH_API_URL: API_URL },
+) => {
+  const requests: CapturedRequest[] = [];
+  const stdout: string[] = [];
+  const stderr: string[] = [];
+  const fetch: Fetch = vi.fn(async (input, init) => {
+    const request =
+      input instanceof Request ? input : new Request(input, init);
+    const text =
+      request.method === "GET" || request.method === "HEAD"
+        ? ""
+        : await request.clone().text();
+    const captured = {
+      body: text === "" ? undefined : JSON.parse(text),
+      headers: request.headers,
+      method: request.method,
+      url: new URL(request.url),
+    };
+    requests.push(captured);
+    return responseFactory(captured);
+  });
+  const run = (args: string[]) =>
+    runCli(args, {
+      environment,
+      fetch,
+      makeUuid: () => UUID,
+      stdout: (text) => stdout.push(text),
+      stderr: (text) => stderr.push(text),
+    });
+  return { fetch, requests, run, stderr, stdout };
+};
+
+describe("Given agent-facing Work Graph commands", () => {
+  it("creates a work item and forwards its idempotency key", async () => {
+    const test = harness();
+    expect(
+      await test.run([
+        "create",
+        "cli-8",
+        "--title",
+        "Build the CLI",
+        "--parent-id",
+        "mvp",
+        "--idempotency-key",
+        UUID,
+      ]),
+    ).toBe(EXIT_CODES.success);
+    expect(test.requests[0]).toMatchObject({
+      body: { id: "cli-8", title: "Build the CLI", parentId: "mvp" },
+      method: "POST",
+    });
+    expect(test.requests[0]?.url.href).toBe(
+      "https://work.example.test/root/api/work-items",
+    );
+    expect(test.requests[0]?.headers.get("Idempotency-Key")).toBe(UUID);
+    expect(test.stdout).toEqual(['{"ok":true}\n']);
+    expect(test.stderr).toEqual([]);
+  });
+
+  it("lists the ready queue by default and supports an unfiltered page", async () => {
+    const ready = harness();
+    const all = harness();
+    await ready.run(["queue", "--limit", "7", "--cursor", "item-1"]);
+    await all.run(["queue", "--all"]);
+    expect(ready.requests[0]?.url.href).toBe(
+      "https://work.example.test/root/api/work-items?stage=ready&limit=7&cursor=item-1",
+    );
+    expect(all.requests[0]?.url.href).toBe(
+      "https://work.example.test/root/api/work-items",
+    );
+  });
+
+  it("claims the next item or a specified item", async () => {
+    const next = harness();
+    const specified = harness();
+    await next.run(["claim", "--worker-id", "agent-a"]);
+    await specified.run([
+      "claim",
+      "work/a b",
+      "--worker-id",
+      "agent-a",
+      "--lease-duration-seconds",
+      "120",
+    ]);
+    expect(next.requests[0]?.body).toEqual({
+      workerId: "agent-a",
+      leaseDurationSeconds: 900,
+    });
+    expect(specified.requests[0]?.body).toEqual({
+      workerId: "agent-a",
+      leaseDurationSeconds: 120,
+      workItemId: "work/a b",
+    });
+  });
+
+  it("shows a work item with an encoded path identifier", async () => {
+    const test = harness();
+    await test.run(["show", "work/a b"]);
+    expect(test.requests[0]?.url.pathname).toBe("/root/api/work-items/work%2Fa%20b");
+    expect(test.requests[0]?.method).toBe("GET");
+  });
+
+  it("records a fenced note with a generated ID", async () => {
+    const test = harness();
+    await test.run([
+      "note",
+      "item-1",
+      "--lease-id",
+      UUID,
+      "--epoch",
+      "2",
+      "--content",
+      "Tests pass",
+    ]);
+    expect(test.requests[0]).toMatchObject({
+      body: {
+        id: UUID,
+        leaseId: UUID,
+        epoch: 2,
+        content: "Tests pass",
+      },
+      method: "POST",
+    });
+    expect(test.requests[0]?.url.pathname).toBe(
+      "/root/api/work-items/item-1/notes",
+    );
+  });
+
+  it("renews a fenced lease", async () => {
+    const test = harness();
+    await test.run(["renew", UUID, "--epoch", "4"]);
+    expect(test.requests[0]).toMatchObject({
+      body: { epoch: 4, leaseDurationSeconds: 900 },
+      method: "POST",
+    });
+    expect(test.requests[0]?.url.pathname).toBe(
+      `/root/api/leases/${UUID}/renewals`,
+    );
+  });
+
+  it("decomposes work and can claim one child in the same request", async () => {
+    const test = harness();
+    const children = [{ id: "child-1", title: "First", rank: 1 }];
+    const dependencies = [
+      { dependentWorkItemId: "child-1", blockerWorkItemId: "blocker-1" },
+    ];
+    await test.run([
+      "decompose",
+      "parent-1",
+      "--lease-id",
+      UUID,
+      "--epoch",
+      "3",
+      "--children-json",
+      JSON.stringify(children),
+      "--dependencies-json",
+      JSON.stringify(dependencies),
+      "--claim-work-item-id",
+      "child-1",
+      "--claim-lease-duration-seconds",
+      "300",
+    ]);
+    expect(test.requests[0]?.body).toEqual({
+      leaseId: UUID,
+      epoch: 3,
+      children,
+      dependencies,
+      claim: {
+        workItemId: "child-1",
+        leaseId: UUID,
+        leaseDurationSeconds: 300,
+      },
+    });
+    expect(test.requests[0]?.url.pathname).toBe(
+      "/root/api/work-items/parent-1/decompositions",
+    );
+  });
+
+  it("lists, creates, and resolves attention requests", async () => {
+    const list = harness();
+    const request = harness();
+    const resolve = harness();
+    await list.run([
+      "attention",
+      "list",
+      "--state",
+      "resolved",
+      "--blocking",
+      "false",
+    ]);
+    await request.run([
+      "attention",
+      "request",
+      "item-1",
+      "--lease-id",
+      UUID,
+      "--epoch",
+      "5",
+      "--kind",
+      "decision",
+      "--question",
+      "Which host?",
+      "--non-blocking",
+    ]);
+    await resolve.run([
+      "attention",
+      "resolve",
+      UUID,
+      "--resolution",
+      "Use the Worker",
+    ]);
+    expect(list.requests[0]?.url.search).toBe(
+      "?state=resolved&blocking=false",
+    );
+    expect(request.requests[0]?.body).toEqual({
+      id: UUID,
+      workItemId: "item-1",
+      leaseId: UUID,
+      epoch: 5,
+      kind: "decision",
+      question: "Which host?",
+      blocking: false,
+    });
+    expect(resolve.requests[0]?.body).toEqual({
+      id: UUID,
+      resolution: "Use the Worker",
+    });
+    expect(resolve.requests[0]?.url.pathname).toBe(
+      `/root/api/attention-requests/${UUID}/resolutions`,
+    );
+  });
+
+  it.each(["release", "cancel"] as const)(
+    "%ss claimed work",
+    async (command) => {
+      const test = harness();
+      await test.run([
+        command,
+        "item-1",
+        "--lease-id",
+        UUID,
+        "--epoch",
+        "6",
+      ]);
+      expect(test.requests[0]).toMatchObject({
+        body: { leaseId: UUID, epoch: 6 },
+        method: "POST",
+      });
+      expect(test.requests[0]?.url.pathname).toBe(
+        `/root/api/work-items/item-1/${command === "release" ? "releases" : "cancellations"}`,
+      );
+    },
+  );
+});
+
+describe("Given Cloudflare Access service-token credentials", () => {
+  it("sends both headers only to an explicitly trusted API origin", async () => {
+    const test = harness(undefined, {
+      WORK_GRAPH_API_URL: API_URL,
+      WORK_GRAPH_CF_ACCESS_ALLOWED_ORIGINS: "https://work.example.test",
+      CF_ACCESS_CLIENT_ID: "client-id.secret",
+      CF_ACCESS_CLIENT_SECRET: "client-secret",
+    });
+    expect(await test.run(["show", "item-1"])).toBe(EXIT_CODES.success);
+    expect(test.requests[0]?.headers.get("CF-Access-Client-Id")).toBe(
+      "client-id.secret",
+    );
+    expect(test.requests[0]?.headers.get("CF-Access-Client-Secret")).toBe(
+      "client-secret",
+    );
+  });
+
+  it("refuses an untrusted API origin before making a request or printing secrets", async () => {
+    const test = harness(undefined, {
+      WORK_GRAPH_API_URL: "https://attacker.example.test",
+      WORK_GRAPH_CF_ACCESS_ALLOWED_ORIGINS: "https://work.example.test",
+      CF_ACCESS_CLIENT_ID: "sensitive-client-id",
+      CF_ACCESS_CLIENT_SECRET: "sensitive-client-secret",
+    });
+    expect(await test.run(["show", "item-1"])).toBe(EXIT_CODES.usage);
+    expect(test.fetch).not.toHaveBeenCalled();
+    expect(test.stderr.join("")).toContain("UNTRUSTED_ACCESS_ORIGIN");
+    expect(test.stderr.join("")).not.toContain("sensitive-client");
+  });
+
+  it("does not follow redirects carrying custom Access headers", async () => {
+    const test = harness(
+      () =>
+        new Response(null, {
+          status: 302,
+          headers: { Location: "https://attacker.example.test/collect" },
+        }),
+      {
+        WORK_GRAPH_API_URL: API_URL,
+        WORK_GRAPH_CF_ACCESS_ALLOWED_ORIGINS: "https://work.example.test",
+        CF_ACCESS_CLIENT_ID: "client-id.secret",
+        CF_ACCESS_CLIENT_SECRET: "client-secret",
+      },
+    );
+    expect(await test.run(["show", "item-1"])).toBe(EXIT_CODES.transport);
+    expect(test.fetch).toHaveBeenCalledTimes(1);
+    expect(JSON.parse(test.stderr[0] ?? "null")).toEqual({
+      error: {
+        code: "REDIRECT_REFUSED",
+        message:
+          "The Work Graph API returned a redirect. Refusing to forward Access credentials.",
+        status: 302,
+      },
+    });
+  });
+
+  it("accepts an API URL and trusted origin as global options", async () => {
+    const test = harness(undefined, {
+      CF_ACCESS_CLIENT_ID: "client-id.secret",
+      CF_ACCESS_CLIENT_SECRET: "client-secret",
+    });
+    expect(
+      await test.run([
+        "--api-url",
+        API_URL,
+        "--cf-access-allowed-origin",
+        "https://work.example.test",
+        "show",
+        "item-1",
+      ]),
+    ).toBe(EXIT_CODES.success);
+    expect(test.requests[0]?.url.origin).toBe("https://work.example.test");
+    expect(test.requests[0]?.headers.get("CF-Access-Client-Secret")).toBe(
+      "client-secret",
+    );
+  });
+});
+
+describe("Given CLI and HTTP failures", () => {
+  it.each([
+    [400, EXIT_CODES.validation],
+    [401, EXIT_CODES.authentication],
+    [403, EXIT_CODES.authentication],
+    [404, EXIT_CODES.notFound],
+    [409, EXIT_CODES.conflict],
+    [422, EXIT_CODES.validation],
+    [500, EXIT_CODES.server],
+    [418, EXIT_CODES.transport],
+  ])("maps HTTP %i to exit code %i and preserves API error JSON", async (status, exitCode) => {
+    const test = harness(() =>
+      response(
+        {
+          error: {
+            code: "API_PROBLEM",
+            message: "Request failed",
+            details: [{ path: ["body"], message: "Bad value" }],
+          },
+        },
+        status,
+      ),
+    );
+    expect(await test.run(["show", "item-1"])).toBe(exitCode);
+    expect(JSON.parse(test.stderr[0] ?? "null")).toEqual({
+      error: {
+        code: "API_PROBLEM",
+        message: "Request failed",
+        status,
+        details: [{ path: ["body"], message: "Bad value" }],
+      },
+    });
+    expect(test.stdout).toEqual([]);
+  });
+
+  it("returns structured usage errors without making an HTTP request", async () => {
+    const test = harness();
+    expect(await test.run(["renew", UUID, "--epoch", "zero"])).toBe(
+      EXIT_CODES.usage,
+    );
+    expect(test.fetch).not.toHaveBeenCalled();
+    expect(JSON.parse(test.stderr[0] ?? "null")).toEqual({
+      error: {
+        code: "CLI_USAGE",
+        message: "✖ Invalid input: expected number, received string → at epoch",
+      },
+    });
+  });
+
+  it("enforces generated OpenAPI constraints before making a request", async () => {
+    const test = harness();
+    expect(
+      await test.run(["create", "item-1", "--title", "x".repeat(10_001)]),
+    ).toBe(EXIT_CODES.usage);
+    expect(test.fetch).not.toHaveBeenCalled();
+    expect(test.stderr.join("")).toContain("title");
+    expect(test.stderr.join("")).toContain("10000");
+  });
+
+  it("accepts complete command input as JSON for agents", async () => {
+    const test = harness();
+    expect(
+      await test.run([
+        "create",
+        "--json",
+        JSON.stringify({ id: "item-1", title: "From JSON" }),
+      ]),
+    ).toBe(EXIT_CODES.success);
+    expect(test.requests[0]?.body).toEqual({
+      id: "item-1",
+      title: "From JSON",
+    });
+  });
+
+  it("reports non-JSON and network failures as transport errors", async () => {
+    const invalid = harness(() => new Response("Access login", { status: 200 }));
+    const offline = harness();
+    vi.mocked(offline.fetch).mockRejectedValueOnce(new Error("offline"));
+    expect(await invalid.run(["show", "item-1"])).toBe(EXIT_CODES.transport);
+    expect(await offline.run(["show", "item-1"])).toBe(EXIT_CODES.transport);
+    expect(invalid.stderr.join("")).toContain("INVALID_API_RESPONSE");
+    expect(offline.stderr.join("")).toContain("TRANSPORT_ERROR");
+  });
+
+  it("maps a non-JSON Cloudflare rejection to the authentication exit code", async () => {
+    const test = harness(() => new Response("Access denied", { status: 403 }));
+    expect(await test.run(["show", "item-1"])).toBe(
+      EXIT_CODES.authentication,
+    );
+    expect(JSON.parse(test.stderr[0] ?? "null")).toEqual({
+      error: {
+        code: "HTTP_403",
+        message: "The Work Graph API returned HTTP 403.",
+        status: 403,
+      },
+    });
+  });
+
+  it("shows help without requiring API configuration", async () => {
+    const test = harness(undefined, {});
+    expect(await test.run(["--help"])).toBe(EXIT_CODES.success);
+    expect(test.stdout.join("")).toContain("Usage: work-graph");
+    expect(test.stdout.join("")).toContain("create");
+    expect(test.stdout.join("")).toContain("Create a work item");
+    expect(test.fetch).not.toHaveBeenCalled();
+  });
+
+  it("derives command help from Zod field descriptions", async () => {
+    const test = harness(undefined, {});
+    expect(await test.run(["create", "--help"])).toBe(EXIT_CODES.success);
+    expect(test.stdout.join("")).toContain("Create a work item");
+    expect(test.stdout.join("")).toContain("--title <string>");
+    expect(test.stdout.join("")).toContain("Work-item title");
+    expect(test.fetch).not.toHaveBeenCalled();
+  });
+});
