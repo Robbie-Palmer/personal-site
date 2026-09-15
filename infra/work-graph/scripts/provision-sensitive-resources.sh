@@ -52,7 +52,8 @@ service_token_id=""
 hyperdrive_id=""
 
 cloudflare_response_succeeded() {
-  jq -e '.success == true' "$1" >/dev/null
+  local response_file="$1"
+  jq -e '.success == true' "$response_file" >/dev/null
 }
 
 cleanup() {
