@@ -51,6 +51,10 @@ created_hyperdrive=false
 service_token_id=""
 hyperdrive_id=""
 
+cloudflare_response_succeeded() {
+  jq -e '.success == true' "$1" >/dev/null
+}
+
 cleanup() {
   local exit_status="$?"
   if [[ "$created_access_token" == true && -n "$service_token_id" && -f "$work_dir/cloudflare.curl" ]]; then
@@ -59,7 +63,7 @@ cleanup() {
       --silent --show-error --output "$delete_response" --request DELETE \
       --url "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/access/service_tokens/$service_token_id"; then
       echo "Could not remove the Access token whose Doppler write failed. Revoke it before retrying." >&2
-    elif ! jq -e '.success == true' "$delete_response" >/dev/null; then
+    elif ! cloudflare_response_succeeded "$delete_response"; then
       echo "Could not remove the Access token whose Doppler write failed. Revoke it before retrying." >&2
     fi
   fi
@@ -69,7 +73,7 @@ cleanup() {
       --silent --show-error --output "$hyperdrive_delete_response" --request DELETE \
       --url "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/hyperdrive/configs/$hyperdrive_id"; then
       echo "Could not remove the Hyperdrive configuration whose Doppler write failed. Delete it before retrying." >&2
-    elif ! jq -e '.success == true' "$hyperdrive_delete_response" >/dev/null; then
+    elif ! cloudflare_response_succeeded "$hyperdrive_delete_response"; then
       echo "Could not remove the Hyperdrive configuration whose Doppler write failed. Delete it before retrying." >&2
     fi
   fi
@@ -295,7 +299,7 @@ jq -jrn \
 request_json "$cloudflare_auth" "$work_dir/hyperdrives.json" \
   --get \
   --url "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/hyperdrive/configs"
-if [[ "$(jq -er '.success' "$work_dir/hyperdrives.json")" != true ]]; then
+if ! cloudflare_response_succeeded "$work_dir/hyperdrives.json"; then
   echo "Cloudflare did not return the Hyperdrive inventory." >&2
   exit 1
 fi
@@ -332,7 +336,7 @@ if [[ "$hyperdrive_count" -eq 0 ]]; then
     --url "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/hyperdrive/configs" \
     --header "$json_content_type" \
     --data-binary "@$work_dir/hyperdrive-upsert.json"
-  if [[ "$(jq -er '.success' "$work_dir/hyperdrive-created.json")" != true ]]; then
+  if ! cloudflare_response_succeeded "$work_dir/hyperdrive-created.json"; then
     echo "Cloudflare did not create the Work Graph Hyperdrive configuration." >&2
     exit 1
   fi
@@ -346,7 +350,7 @@ else
     --url "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/hyperdrive/configs/$hyperdrive_id" \
     --header "$json_content_type" \
     --data-binary "@$work_dir/hyperdrive-upsert.json"
-  if [[ "$(jq -er '.success' "$work_dir/hyperdrive-updated.json")" != true ]]; then
+  if ! cloudflare_response_succeeded "$work_dir/hyperdrive-updated.json"; then
     echo "Cloudflare did not update the Work Graph Hyperdrive configuration." >&2
     exit 1
   fi
@@ -356,7 +360,7 @@ request_json "$cloudflare_auth" "$work_dir/service-tokens.json" \
   --get \
   --url "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/access/service_tokens" \
   --data-urlencode "per_page=100"
-if [[ "$(jq -er '.success' "$work_dir/service-tokens.json")" != true ]]; then
+if ! cloudflare_response_succeeded "$work_dir/service-tokens.json"; then
   echo "Cloudflare did not return the Access service-token inventory." >&2
   exit 1
 fi
@@ -377,7 +381,7 @@ if [[ "$service_token_count" -eq 0 ]]; then
     --url "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/access/service_tokens" \
     --header "$json_content_type" \
     --data-binary "@$work_dir/service-token-create.json"
-  if [[ "$(jq -er '.success' "$work_dir/service-token-created.json")" != true ]]; then
+  if ! cloudflare_response_succeeded "$work_dir/service-token-created.json"; then
     echo "Cloudflare did not create the Work Graph Access service token." >&2
     exit 1
   fi
