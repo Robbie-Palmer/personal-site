@@ -100,6 +100,18 @@ export interface DecomposeClaimedWorkItemResult {
   readonly claimedLease: StoredLease | null;
 }
 
+interface ValidatedDecomposition {
+  readonly children: readonly RankedWorkItem[];
+  readonly dependencies: readonly WorkItemDependency[];
+  readonly fingerprint: string;
+}
+
+interface DecompositionValidationState {
+  readonly childIds: Set<string>;
+  readonly childRanks: Set<number>;
+  readonly parentWorkItemId: string;
+}
+
 export interface CreateNoteInput {
   readonly id: string;
   readonly workItemId: string;
@@ -292,6 +304,154 @@ const calculateLeaseExpiry = (
     );
   }
   return expiresAt;
+};
+
+const validateDecompositionChild = (
+  child: DecompositionChildInput,
+  state: DecompositionValidationState,
+): RankedWorkItem => {
+  const normalized = createWorkGraph({ workItems: [child] }).workItems[0]!;
+  if (
+    !Number.isSafeInteger(child.rank) ||
+    child.rank <= 0 ||
+    child.rank > 2_147_483_647
+  ) {
+    throw new WorkGraphError(
+      "invalid_child_rank",
+      `Child work item ${child.id} must have a positive whole-number rank.`,
+    );
+  }
+  if (state.childIds.has(child.id)) {
+    throw new WorkGraphError(
+      "duplicate_work_item",
+      `Work item ${child.id} already exists.`,
+    );
+  }
+  if (state.childRanks.has(child.rank)) {
+    throw new WorkGraphError(
+      "invalid_child_rank",
+      `Child rank ${child.rank} is used more than once beneath work item ${state.parentWorkItemId}.`,
+    );
+  }
+  state.childIds.add(child.id);
+  state.childRanks.add(child.rank);
+  return {
+    workItem: { ...normalized, parentId: state.parentWorkItemId },
+    rank: child.rank,
+  };
+};
+
+const validateDecompositionClaim = (
+  claim: DecompositionChildClaimInput | undefined,
+  childIds: ReadonlySet<string>,
+): void => {
+  if (claim === undefined) return;
+  requireIdentifier(claim.workItemId, "invalid_work_item_id");
+  requireLeaseId(claim.leaseId);
+  requireLeaseDuration(claim.leaseDurationSeconds);
+  if (!childIds.has(claim.workItemId)) {
+    throw new WorkGraphError(
+      "invalid_decomposition",
+      `Claimed work item ${claim.workItemId} must be one of the new children.`,
+    );
+  }
+};
+
+const validateDecomposition = (
+  input: DecomposeClaimedWorkItemInput,
+  options: IdempotentMutationOptions,
+): ValidatedDecomposition => {
+  requireLeaseId(input.leaseId);
+  requireLeaseEpoch(input.epoch);
+  requireIdentifier(input.workItemId, "invalid_work_item_id");
+  if (input.children.length === 0) {
+    throw new WorkGraphError(
+      "invalid_decomposition",
+      `Work item ${input.workItemId} cannot be decomposed without children.`,
+    );
+  }
+  if (options.idempotencyKey !== undefined) {
+    requireIdempotencyKey(options.idempotencyKey);
+  }
+
+  const state: DecompositionValidationState = {
+    childIds: new Set<string>(),
+    childRanks: new Set<number>(),
+    parentWorkItemId: input.workItemId,
+  };
+  const children = input.children
+    .map((child) => validateDecompositionChild(child, state))
+    .sort((left, right) => left.rank - right.rank);
+
+  const dependencies = [...(input.dependencies ?? [])];
+  for (const dependency of dependencies) {
+    requireIdentifier(
+      dependency.dependentWorkItemId,
+      "invalid_work_item_id",
+    );
+    requireIdentifier(dependency.blockerWorkItemId, "invalid_work_item_id");
+  }
+  validateDecompositionClaim(input.claim, state.childIds);
+
+  return {
+    children,
+    dependencies,
+    fingerprint: JSON.stringify([
+      input.leaseId,
+      input.epoch,
+      input.workItemId,
+      children.map(({ workItem: child, rank }) => [child.id, child.title, rank]),
+      dependencies.map((dependency) => [
+        dependency.dependentWorkItemId,
+        dependency.blockerWorkItemId,
+      ]),
+      input.claim
+        ? [
+            input.claim.workItemId,
+            input.claim.leaseId,
+            input.claim.leaseDurationSeconds,
+          ]
+        : null,
+    ]),
+  };
+};
+
+const throwDecompositionDatabaseError = (
+  error: unknown,
+  input: DecomposeClaimedWorkItemInput,
+): never => {
+  if (error instanceof WorkGraphError) throw error;
+
+  const databaseError = getDatabaseError(error);
+  switch (`${databaseError?.code}:${databaseError?.constraint_name}`) {
+    case "23505:leases_pkey":
+      throw new WorkGraphError(
+        "duplicate_lease_id",
+        `Lease ${input.claim?.leaseId ?? input.leaseId} already exists.`,
+      );
+    case "23505:work_item_hierarchy_parent_rank_uidx":
+      throw new WorkGraphError(
+        "invalid_child_rank",
+        `A child rank is already in use beneath work item ${input.workItemId}.`,
+      );
+    case "23505:work_item_dependencies_pk":
+      throw new WorkGraphError(
+        "dependency_already_exists",
+        "A decomposition dependency already exists.",
+      );
+    case "23514:work_item_dependencies_not_self_check":
+      throw new WorkGraphError(
+        "self_dependency",
+        "A work item cannot depend on itself.",
+      );
+  }
+  if (databaseError?.code === "23505") {
+    throw new WorkGraphError(
+      "duplicate_work_item",
+      "A decomposition child already exists.",
+    );
+  }
+  throw error;
 };
 
 const workItemNotFound = (workItemId: string): WorkGraphError =>
@@ -943,265 +1103,201 @@ export class WorkGraphRepository {
     input: DecomposeClaimedWorkItemInput,
     options: IdempotentMutationOptions = {},
   ): Promise<DecomposeClaimedWorkItemResult> {
-    requireLeaseId(input.leaseId);
-    requireLeaseEpoch(input.epoch);
-    requireIdentifier(input.workItemId, "invalid_work_item_id");
-    if (input.children.length === 0) {
-      throw new WorkGraphError(
-        "invalid_decomposition",
-        `Work item ${input.workItemId} cannot be decomposed without children.`,
-      );
-    }
-    if (options.idempotencyKey !== undefined) {
-      requireIdempotencyKey(options.idempotencyKey);
-    }
-
-    const childIds = new Set<string>();
-    const childRanks = new Set<number>();
-    const children = input.children
-      .map((child) => {
-        const [normalized] = createWorkGraph({ workItems: [child] }).workItems;
-        if (!normalized) {
-          throw new Error("Child work item validation returned no work item.");
-        }
-        if (
-          !Number.isSafeInteger(child.rank) ||
-          child.rank <= 0 ||
-          child.rank > 2_147_483_647
-        ) {
-          throw new WorkGraphError(
-            "invalid_child_rank",
-            `Child work item ${child.id} must have a positive whole-number rank.`,
-          );
-        }
-        if (childIds.has(child.id)) {
-          throw new WorkGraphError(
-            "duplicate_work_item",
-            `Work item ${child.id} already exists.`,
-          );
-        }
-        if (childRanks.has(child.rank)) {
-          throw new WorkGraphError(
-            "invalid_child_rank",
-            `Child rank ${child.rank} is used more than once beneath work item ${input.workItemId}.`,
-          );
-        }
-        childIds.add(child.id);
-        childRanks.add(child.rank);
-        return {
-          workItem: { ...normalized, parentId: input.workItemId },
-          rank: child.rank,
-        };
-      })
-      .sort((left, right) => left.rank - right.rank);
-
-    const dependencies = [...(input.dependencies ?? [])];
-    for (const dependency of dependencies) {
-      requireIdentifier(
-        dependency.dependentWorkItemId,
-        "invalid_work_item_id",
-      );
-      requireIdentifier(dependency.blockerWorkItemId, "invalid_work_item_id");
-    }
-    if (input.claim !== undefined) {
-      requireIdentifier(input.claim.workItemId, "invalid_work_item_id");
-      requireLeaseId(input.claim.leaseId);
-      requireLeaseDuration(input.claim.leaseDurationSeconds);
-      if (!childIds.has(input.claim.workItemId)) {
-        throw new WorkGraphError(
-          "invalid_decomposition",
-          `Claimed work item ${input.claim.workItemId} must be one of the new children.`,
-        );
-      }
-    }
-
-    const fingerprint = JSON.stringify([
-      input.leaseId,
-      input.epoch,
-      input.workItemId,
-      children.map(({ workItem: child, rank }) => [child.id, child.title, rank]),
-      dependencies.map((dependency) => [
-        dependency.dependentWorkItemId,
-        dependency.blockerWorkItemId,
-      ]),
-      input.claim
-        ? [
-            input.claim.workItemId,
-            input.claim.leaseId,
-            input.claim.leaseDurationSeconds,
-          ]
-        : null,
-    ]);
+    const validated = validateDecomposition(input, options);
 
     try {
-      return await this.db.transaction(async (transaction) => {
-        if (options.idempotencyKey !== undefined) {
-          const replayed = await this.beginIdempotentMutation(
-            transaction,
-            options.idempotencyKey,
-            "decompose-work-item",
-            fingerprint,
-          );
-          if (replayed) {
-            return {
-              children: await this.requireStoredRankedChildren(
-                transaction,
-                input.workItemId,
-                children.map(({ workItem: child }) => child.id),
-              ),
-              dependencies,
-              endedLease: await this.requireStoredLease(
-                transaction,
-                input.leaseId,
-              ),
-              claimedLease: input.claim
-                ? await this.requireStoredLease(transaction, input.claim.leaseId)
-                : null,
-            };
-          }
-        }
-
-        await this.lockGraphMutation(transaction);
-        const { storedLease, now } =
-          await this.lockWorkItemAndRequireLease(transaction, input);
-        const [parent] = await transaction
-          .select({ lifecycle: workItem.lifecycle })
-          .from(workItem)
-          .where(eq(workItem.id, input.workItemId))
-          .limit(1);
-        if (parent?.lifecycle !== "open") {
-          throw new WorkGraphError(
-            "work_item_already_terminal",
-            `Work item ${input.workItemId} is already ${parent?.lifecycle ?? "terminal"}.`,
-          );
-        }
-
-        await transaction.insert(workItem).values(
-          children.map(({ workItem: child }) => ({
-            id: child.id,
-            title: child.title,
-          })),
-        );
-        await transaction.insert(workItemHierarchy).values(
-          children.map(({ workItem: child, rank }) => ({
-            childWorkItemId: child.id,
-            parentWorkItemId: input.workItemId,
-            rank,
-          })),
-        );
-        if (dependencies.length > 0) {
-          const referencedWorkItemIds = new Set(
-            dependencies.flatMap((dependency) => [
-              dependency.dependentWorkItemId,
-              dependency.blockerWorkItemId,
-            ]),
-          );
-          for (const referencedWorkItemId of referencedWorkItemIds) {
-            await this.requireStoredWorkItem(
-              transaction,
-              referencedWorkItemId,
-            );
-          }
-          await transaction.insert(workItemDependency).values(dependencies);
-        }
-        await this.rejectCycle(transaction);
-
-        const [endedLease] = await transaction
-          .update(lease)
-          .set({ endedAt: now, outcome: "decomposed" })
-          .where(
-            and(
-              eq(lease.id, storedLease.id),
-              eq(lease.workItemId, input.workItemId),
-              eq(lease.epoch, input.epoch),
-              isNull(lease.endedAt),
-              gt(lease.expiresAt, now),
-            ),
-          )
-          .returning();
-        if (!endedLease) throw leaseNotCurrent(input.leaseId, input.epoch);
-
-        let claimedLease: StoredLease | null = null;
-        if (input.claim !== undefined) {
-          const [claimableChild] = await transaction
-            .select({ id: workItem.id })
-            .from(workItem)
-            .where(claimableWorkItemWhere(input.claim.workItemId))
-            .limit(1)
-            .for("update");
-          if (!claimableChild) {
-            throw new WorkGraphError(
-              "decomposition_child_not_claimable",
-              `Child work item ${input.claim.workItemId} is not ready to claim.`,
-            );
-          }
-          const expiresAt = calculateLeaseExpiry(
-            now,
-            input.claim.leaseDurationSeconds,
-          );
-          const [createdLease] = await transaction
-            .insert(lease)
-            .values({
-              id: input.claim.leaseId,
-              workItemId: claimableChild.id,
-              workerId: storedLease.workerId,
-              epoch: 1,
-              acquiredAt: now,
-              expiresAt,
-            })
-            .returning();
-          if (!createdLease) {
-            throw new Error("Child lease creation returned no lease.");
-          }
-          claimedLease = createdLease;
-        }
-
-        return { children, dependencies, endedLease, claimedLease };
-      });
+      return await this.db.transaction((transaction) =>
+        this.executeDecomposition(transaction, input, validated, options),
+      );
     } catch (error) {
-      if (error instanceof WorkGraphError) throw error;
-      const databaseError = getDatabaseError(error);
-      if (databaseError?.code === "23505") {
-        if (databaseError.constraint_name === "leases_pkey") {
-          throw new WorkGraphError(
-            "duplicate_lease_id",
-            `Lease ${input.claim?.leaseId ?? input.leaseId} already exists.`,
-          );
-        }
-        if (
-          databaseError.constraint_name ===
-          "work_item_hierarchy_parent_rank_uidx"
-        ) {
-          throw new WorkGraphError(
-            "invalid_child_rank",
-            `A child rank is already in use beneath work item ${input.workItemId}.`,
-          );
-        }
-        if (
-          databaseError.constraint_name === "work_item_dependencies_pk"
-        ) {
-          throw new WorkGraphError(
-            "dependency_already_exists",
-            "A decomposition dependency already exists.",
-          );
-        }
-        throw new WorkGraphError(
-          "duplicate_work_item",
-          "A decomposition child already exists.",
-        );
-      }
-      if (
-        databaseError?.code === "23514" &&
-        databaseError.constraint_name ===
-          "work_item_dependencies_not_self_check"
-      ) {
-        throw new WorkGraphError(
-          "self_dependency",
-          "A work item cannot depend on itself.",
-        );
-      }
-      throw error;
+      return throwDecompositionDatabaseError(error, input);
     }
+  }
+
+  private async executeDecomposition(
+    transaction: DbTransaction,
+    input: DecomposeClaimedWorkItemInput,
+    validated: ValidatedDecomposition,
+    options: IdempotentMutationOptions,
+  ): Promise<DecomposeClaimedWorkItemResult> {
+    const replayed = await this.replayDecomposition(
+      transaction,
+      input,
+      validated,
+      options.idempotencyKey,
+    );
+    if (replayed) return replayed;
+
+    await this.lockGraphMutation(transaction);
+    const { storedLease, now } = await this.lockWorkItemAndRequireLease(
+      transaction,
+      input,
+    );
+    await this.requireOpenWorkItem(transaction, input.workItemId);
+    await this.insertDecompositionGraph(
+      transaction,
+      input.workItemId,
+      validated,
+    );
+    const endedLease = await this.endDecomposedLease(
+      transaction,
+      input,
+      storedLease,
+      now,
+    );
+    const claimedLease = await this.claimDecompositionChild(
+      transaction,
+      input.claim,
+      storedLease.workerId,
+      now,
+    );
+    return {
+      children: validated.children,
+      dependencies: validated.dependencies,
+      endedLease,
+      claimedLease,
+    };
+  }
+
+  private async replayDecomposition(
+    transaction: DbTransaction,
+    input: DecomposeClaimedWorkItemInput,
+    validated: ValidatedDecomposition,
+    idempotencyKeyValue: string | undefined,
+  ): Promise<DecomposeClaimedWorkItemResult | null> {
+    if (idempotencyKeyValue === undefined) return null;
+    const replayed = await this.beginIdempotentMutation(
+      transaction,
+      idempotencyKeyValue,
+      "decompose-work-item",
+      validated.fingerprint,
+    );
+    if (!replayed) return null;
+
+    return {
+      children: await this.requireStoredRankedChildren(
+        transaction,
+        input.workItemId,
+        validated.children.map(({ workItem: child }) => child.id),
+      ),
+      dependencies: validated.dependencies,
+      endedLease: await this.requireStoredLease(transaction, input.leaseId),
+      claimedLease: input.claim
+        ? await this.requireStoredLease(transaction, input.claim.leaseId)
+        : null,
+    };
+  }
+
+  private async requireOpenWorkItem(
+    transaction: DbTransaction,
+    workItemId: string,
+  ): Promise<void> {
+    const [stored] = await transaction
+      .select({ lifecycle: workItem.lifecycle })
+      .from(workItem)
+      .where(eq(workItem.id, workItemId))
+      .limit(1);
+    if (stored?.lifecycle !== "open") {
+      throw new WorkGraphError(
+        "work_item_already_terminal",
+        `Work item ${workItemId} is already ${stored?.lifecycle ?? "terminal"}.`,
+      );
+    }
+  }
+
+  private async insertDecompositionGraph(
+    transaction: DbTransaction,
+    parentWorkItemId: string,
+    validated: ValidatedDecomposition,
+  ): Promise<void> {
+    await transaction.insert(workItem).values(
+      validated.children.map(({ workItem: child }) => ({
+        id: child.id,
+        title: child.title,
+      })),
+    );
+    await transaction.insert(workItemHierarchy).values(
+      validated.children.map(({ workItem: child, rank }) => ({
+        childWorkItemId: child.id,
+        parentWorkItemId,
+        rank,
+      })),
+    );
+    if (validated.dependencies.length > 0) {
+      const referencedWorkItemIds = new Set(
+        validated.dependencies.flatMap((dependency) => [
+          dependency.dependentWorkItemId,
+          dependency.blockerWorkItemId,
+        ]),
+      );
+      for (const referencedWorkItemId of referencedWorkItemIds) {
+        await this.requireStoredWorkItem(transaction, referencedWorkItemId);
+      }
+      await transaction
+        .insert(workItemDependency)
+        .values([...validated.dependencies]);
+    }
+    await this.rejectCycle(transaction);
+  }
+
+  private async endDecomposedLease(
+    transaction: DbTransaction,
+    input: DecomposeClaimedWorkItemInput,
+    storedLease: StoredLease,
+    now: Date,
+  ): Promise<StoredLease> {
+    const [endedLease] = await transaction
+      .update(lease)
+      .set({ endedAt: now, outcome: "decomposed" })
+      .where(
+        and(
+          eq(lease.id, storedLease.id),
+          eq(lease.workItemId, input.workItemId),
+          eq(lease.epoch, input.epoch),
+          isNull(lease.endedAt),
+          gt(lease.expiresAt, now),
+        ),
+      )
+      .returning();
+    if (!endedLease) throw leaseNotCurrent(input.leaseId, input.epoch);
+    return endedLease;
+  }
+
+  private async claimDecompositionChild(
+    transaction: DbTransaction,
+    claim: DecompositionChildClaimInput | undefined,
+    workerId: string,
+    now: Date,
+  ): Promise<StoredLease | null> {
+    if (claim === undefined) return null;
+    const [claimableChild] = await transaction
+      .select({ id: workItem.id })
+      .from(workItem)
+      .where(claimableWorkItemWhere(claim.workItemId))
+      .limit(1)
+      .for("update");
+    if (!claimableChild) {
+      throw new WorkGraphError(
+        "decomposition_child_not_claimable",
+        `Child work item ${claim.workItemId} is not ready to claim.`,
+      );
+    }
+    const expiresAt = calculateLeaseExpiry(now, claim.leaseDurationSeconds);
+    const [createdLease] = await transaction
+      .insert(lease)
+      .values({
+        id: claim.leaseId,
+        workItemId: claimableChild.id,
+        workerId,
+        epoch: 1,
+        acquiredAt: now,
+        expiresAt,
+      })
+      .returning();
+    if (!createdLease) {
+      throw new Error("Child lease creation returned no lease.");
+    }
+    return createdLease;
   }
 
   async terminateClaimedWorkItem(
