@@ -1,4 +1,5 @@
 import {
+  getDirectChildren,
   projectWorkItemStage,
   WorkGraphError,
   type WorkItemDependency,
@@ -181,6 +182,7 @@ describe("transactional decomposition", () => {
           title: "First child",
           lifecycle: "open",
           parentId: "parent",
+          rank: 10,
         },
       },
       {
@@ -190,6 +192,7 @@ describe("transactional decomposition", () => {
           title: "Second child",
           lifecycle: "open",
           parentId: "parent",
+          rank: 20,
         },
       },
     ]);
@@ -588,15 +591,15 @@ describe("transactional decomposition", () => {
     );
   });
 
-  it("rejects a rank already used by an earlier decomposition", async () => {
+  it("reconstructs sibling rank and rejects a rank used earlier", async () => {
     const firstLease = await claimParent(recordId(223));
     await repository.decomposeClaimedWorkItem({
       leaseId: firstLease.id,
       epoch: firstLease.epoch,
       workItemId: "parent",
-      children: [{ id: "first", title: "First", rank: 1 }],
+      children: [{ id: "later", title: "Later", rank: 20 }],
     });
-    await repository.releaseWorkItem("first");
+    await repository.releaseWorkItem("later");
     const secondLease = await repository.claimWorkItem({
       leaseId: recordId(224),
       workerId: "worker-a",
@@ -610,7 +613,48 @@ describe("transactional decomposition", () => {
         leaseId: secondLease.id,
         epoch: secondLease.epoch,
         workItemId: "parent",
-        children: [{ id: "second", title: "Second", rank: 1 }],
+        children: [{ id: "first", title: "First", rank: 10 }],
+      }),
+    ).resolves.toEqual(
+      expect.objectContaining({
+        children: [
+          expect.objectContaining({
+            rank: 10,
+            workItem: expect.objectContaining({ id: "first", rank: 10 }),
+          }),
+        ],
+      }),
+    );
+
+    const reconstructed = await repository.load();
+    expect(
+      getDirectChildren(reconstructed, "parent").map(({ id, rank }) => ({
+        id,
+        rank,
+      })),
+    ).toEqual([
+      { id: "first", rank: 10 },
+      { id: "later", rank: 20 },
+    ]);
+    await repository.reparentWorkItem("first", "parent");
+    await expect(repository.getWorkItem("first")).resolves.toEqual(
+      expect.objectContaining({ rank: 10 }),
+    );
+
+    await repository.releaseWorkItem("first");
+    const thirdLease = await repository.claimWorkItem({
+      leaseId: recordId(225),
+      workerId: "worker-a",
+      leaseDurationSeconds: 300,
+      workItemId: "parent",
+    });
+    if (!thirdLease) throw new Error("Expected the parent reclaim to succeed.");
+    await expect(
+      repository.decomposeClaimedWorkItem({
+        leaseId: thirdLease.id,
+        epoch: thirdLease.epoch,
+        workItemId: "parent",
+        children: [{ id: "duplicate", title: "Duplicate", rank: 20 }],
       }),
     ).rejects.toEqual(
       expect.objectContaining<Partial<WorkGraphError>>({
@@ -620,10 +664,11 @@ describe("transactional decomposition", () => {
 
     expect((await repository.load()).workItems.map(({ id }) => id)).toEqual([
       "parent",
+      "later",
       "first",
     ]);
     await expect(repository.getCurrentLease("parent")).resolves.toEqual(
-      expect.objectContaining({ id: secondLease.id, endedAt: null }),
+      expect.objectContaining({ id: thirdLease.id, endedAt: null }),
     );
   });
 
@@ -1613,6 +1658,7 @@ describe("Work Graph PostgreSQL persistence", () => {
           title: "Sparse work item",
           lifecycle: "open",
           parentId: null,
+          rank: null,
         },
       ],
       dependencies: [],
@@ -1650,6 +1696,7 @@ describe("Work Graph PostgreSQL persistence", () => {
         title: "Created once",
         lifecycle: "open",
         parentId: null,
+        rank: null,
       },
     ]);
     await expect(
@@ -1738,6 +1785,7 @@ describe("Work Graph PostgreSQL persistence", () => {
       title: "Stable work",
       lifecycle: "released",
       parentId: "new-parent",
+      rank: null,
     });
   });
 

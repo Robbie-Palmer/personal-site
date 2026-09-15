@@ -310,7 +310,9 @@ const validateDecompositionChild = (
   child: DecompositionChildInput,
   state: DecompositionValidationState,
 ): RankedWorkItem => {
-  const normalized = createWorkGraph({ workItems: [child] }).workItems[0]!;
+  const normalized = createWorkGraph({
+    workItems: [{ id: child.id, title: child.title }],
+  }).workItems[0]!;
   if (
     !Number.isSafeInteger(child.rank) ||
     child.rank <= 0 ||
@@ -336,7 +338,11 @@ const validateDecompositionChild = (
   state.childIds.add(child.id);
   state.childRanks.add(child.rank);
   return {
-    workItem: { ...normalized, parentId: state.parentWorkItemId },
+    workItem: {
+      ...normalized,
+      parentId: state.parentWorkItemId,
+      rank: child.rank,
+    },
     rank: child.rank,
   };
 };
@@ -1398,15 +1404,28 @@ export class WorkGraphRepository {
             .delete(workItemHierarchy)
             .where(eq(workItemHierarchy.childWorkItemId, workItemId));
         } else {
+          const [currentHierarchy] = await transaction
+            .select({
+              parentWorkItemId: workItemHierarchy.parentWorkItemId,
+              rank: workItemHierarchy.rank,
+            })
+            .from(workItemHierarchy)
+            .where(eq(workItemHierarchy.childWorkItemId, workItemId))
+            .limit(1);
+          const preservedRank =
+            currentHierarchy?.parentWorkItemId === parentId
+              ? currentHierarchy.rank
+              : null;
           await transaction
             .insert(workItemHierarchy)
             .values({
               childWorkItemId: workItemId,
               parentWorkItemId: parentId,
+              rank: preservedRank,
             })
             .onConflictDoUpdate({
               target: workItemHierarchy.childWorkItemId,
-              set: { parentWorkItemId: parentId },
+              set: { parentWorkItemId: parentId, rank: preservedRank },
             });
         }
 
@@ -1736,7 +1755,7 @@ export class WorkGraphRepository {
       );
     }
     return rows.map(({ rank, ...child }) => ({
-      workItem: child,
+      workItem: { ...child, rank: rank as number },
       rank: rank as number,
     }));
   }
@@ -1782,6 +1801,7 @@ export class WorkGraphRepository {
         title: workItem.title,
         lifecycle: workItem.lifecycle,
         parentId: workItemHierarchy.parentWorkItemId,
+        rank: workItemHierarchy.rank,
       })
       .from(workItem)
       .leftJoin(

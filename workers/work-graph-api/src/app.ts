@@ -107,6 +107,7 @@ const workItemSchema = z
     title: z.string().min(1).max(MAX_TITLE_LENGTH),
     lifecycle: z.enum(WORK_ITEM_LIFECYCLES),
     parentId: z.union([identifierSchema, z.null()]),
+    rank: z.union([childRankSchema, z.null()]),
     stage: z.enum(WORK_STAGES),
     currentLease: z.union([leaseSchema, z.null()]),
   })

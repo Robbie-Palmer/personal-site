@@ -235,6 +235,7 @@ describe("Given graph mutations over HTTP", () => {
         title: "Sparse work item",
         lifecycle: "open",
         parentId: null,
+        rank: null,
       },
     ]);
     expect(await db.select().from(schema.idempotencyKey)).toHaveLength(1);
@@ -604,6 +605,7 @@ describe("Given lease-backed work over HTTP", () => {
       title: "Release me",
       lifecycle: "released",
       parentId: null,
+      rank: null,
       stage: "released",
       currentLease: null,
     });

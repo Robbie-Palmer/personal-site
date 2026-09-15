@@ -44,6 +44,18 @@ const validateWorkItemFields = (workItem: WorkItem): void => {
       `Work item ${workItem.id} has an invalid parent ID.`,
     );
   }
+  if (
+    workItem.rank !== null &&
+    (workItem.parentId === null ||
+      !Number.isSafeInteger(workItem.rank) ||
+      workItem.rank <= 0 ||
+      workItem.rank > 2_147_483_647)
+  ) {
+    throw new WorkGraphError(
+      "invalid_child_rank",
+      `Work item ${workItem.id} must have a positive whole-number rank.`,
+    );
+  }
 };
 
 const normalizeWorkItem = (input: WorkItemInput): WorkItem => {
@@ -77,11 +89,14 @@ const normalizeWorkItem = (input: WorkItemInput): WorkItem => {
     );
   }
 
+  const rank = input.rank ?? null;
+
   return {
     id: input.id,
     title: input.title,
     lifecycle,
     parentId,
+    rank,
   };
 };
 
@@ -217,10 +232,22 @@ export const validateWorkGraph = (graph: WorkGraph): void => {
 
   const workItemsById = indexWorkItems(graph.workItems);
   const blockersByDependent = new Map<string, Set<string>>();
+  const ranksByParent = new Map<string, Set<number>>();
 
   for (const workItem of graph.workItems) {
     if (workItem.parentId !== null) {
       requireWorkItem(workItemsById, workItem.parentId);
+      if (workItem.rank !== null) {
+        const siblingRanks = ranksByParent.get(workItem.parentId) ?? new Set();
+        if (siblingRanks.has(workItem.rank)) {
+          throw new WorkGraphError(
+            "invalid_child_rank",
+            `Child rank ${workItem.rank} is used more than once beneath work item ${workItem.parentId}.`,
+          );
+        }
+        siblingRanks.add(workItem.rank);
+        ranksByParent.set(workItem.parentId, siblingRanks);
+      }
     }
   }
 
@@ -298,7 +325,13 @@ export const reparentWorkItem = (
   const candidate = {
     ...graph,
     workItems: graph.workItems.map((workItem) =>
-      workItem.id === workItemId ? { ...workItem, parentId } : workItem,
+      workItem.id === workItemId
+        ? {
+            ...workItem,
+            parentId,
+            rank: workItem.parentId === parentId ? workItem.rank : null,
+          }
+        : workItem,
     ),
   } satisfies WorkGraph;
   validateWorkGraph(candidate);
@@ -346,7 +379,13 @@ export const getDirectChildren = (
   parentId: string,
 ): readonly WorkItem[] => {
   getWorkItem(graph, parentId);
-  return graph.workItems.filter((workItem) => workItem.parentId === parentId);
+  return graph.workItems
+    .filter((workItem) => workItem.parentId === parentId)
+    .sort(
+      (left, right) =>
+        (left.rank ?? Number.MAX_SAFE_INTEGER) -
+        (right.rank ?? Number.MAX_SAFE_INTEGER),
+    );
 };
 
 export const getAncestors = (
@@ -475,9 +514,7 @@ export const decomposeWorkItem = (
       ...graph.workItems,
       ...[...input.children]
         .sort((left, right) => left.rank - right.rank)
-        .map(({ rank: _rank, ...child }) =>
-          normalizeWorkItem({ ...child, parentId: parent.id }),
-        ),
+        .map((child) => normalizeWorkItem({ ...child, parentId: parent.id })),
     ],
     dependencies: [
       ...graph.dependencies,

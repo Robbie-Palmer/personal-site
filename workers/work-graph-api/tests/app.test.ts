@@ -46,6 +46,7 @@ const item = (
   title: `${id} work`,
   lifecycle,
   parentId: null,
+  rank: null,
   stage,
   currentLease,
 });
@@ -61,6 +62,7 @@ const buildRepository = (): WorkGraphApiRepository => ({
     ...input,
     lifecycle: "open" as const,
     parentId: input.parentId ?? null,
+    rank: null,
   })),
   addDependency: vi.fn(async () => undefined),
   removeDependency: vi.fn(async () => undefined),
@@ -110,7 +112,12 @@ const buildRepository = (): WorkGraphApiRepository => ({
     children: input.children
       .map(({ rank, ...child }) => ({
         rank,
-        workItem: { ...child, lifecycle: "open" as const, parentId: input.workItemId },
+        workItem: {
+          ...child,
+          lifecycle: "open" as const,
+          parentId: input.workItemId,
+          rank,
+        },
       }))
       .sort((left, right) => left.rank - right.rank),
     dependencies: input.dependencies ?? [],
@@ -154,6 +161,7 @@ describe("Given work items with derived readiness", () => {
           title: "a-ready work",
           lifecycle: "open",
           parentId: null,
+          rank: null,
           stage: "ready",
           currentLease: null,
         },
@@ -171,6 +179,7 @@ describe("Given work items with derived readiness", () => {
           title: "b-ready work",
           lifecycle: "open",
           parentId: null,
+          rank: null,
           stage: "ready",
           currentLease: null,
         },
@@ -229,6 +238,7 @@ describe("Given idempotent graph mutation requests", () => {
       title: "Sparse work item",
       lifecycle: "open",
       parentId: null,
+      rank: null,
       stage: "ready",
       currentLease: null,
     });
@@ -507,6 +517,8 @@ describe("Given a worker managing a lease", () => {
           : null,
       ),
       parentId: workItemId === "parent" ? null : "parent",
+      rank:
+        workItemId === "first" ? 10 : workItemId === "second" ? 20 : null,
     }));
     const app = createWorkGraphApp(repository);
     const body = {

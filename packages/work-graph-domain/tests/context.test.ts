@@ -12,6 +12,7 @@ describe("work-item context", () => {
         title: "Sparse work",
         lifecycle: "open",
         parentId: null,
+        rank: null,
       },
     ]);
   });

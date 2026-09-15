@@ -139,6 +139,43 @@ describe("decomposition and hierarchy", () => {
       "later",
     ]);
     expect(getWorkItem(decomposed, "first").parentId).toBe("parent");
+    expect(getWorkItem(decomposed, "first").rank).toBe(10);
+  });
+
+  it("retains rank across reconstruction and later decomposition", () => {
+    const reconstructed = createWorkGraph({
+      workItems: [
+        { id: "parent", title: "Parent" },
+        { id: "later", title: "Later", parentId: "parent", rank: 20 },
+      ],
+    });
+    const extended = decomposeWorkItem(reconstructed, {
+      parentWorkItemId: "parent",
+      children: [{ id: "first", title: "First", rank: 10 }],
+    });
+
+    expect(
+      getDirectChildren(extended, "parent").map(({ id, rank }) => ({
+        id,
+        rank,
+      })),
+    ).toEqual([
+      { id: "first", rank: 10 },
+      { id: "later", rank: 20 },
+    ]);
+    expect(
+      reparentWorkItem(extended, "first", "parent").workItems,
+    ).toContainEqual(expect.objectContaining({ id: "first", rank: 10 }));
+    expect(() =>
+      decomposeWorkItem(extended, {
+        parentWorkItemId: "parent",
+        children: [{ id: "duplicate", title: "Duplicate", rank: 20 }],
+      }),
+    ).toThrowError(
+      expect.objectContaining<Partial<WorkGraphError>>({
+        code: "invalid_child_rank",
+      }),
+    );
   });
 
   it("rejects invalid or duplicate ranks without changing the graph", () => {
@@ -198,6 +235,7 @@ describe("decomposition and hierarchy", () => {
       title: "Stable work",
       lifecycle: "open",
       parentId: "new-parent",
+      rank: null,
     });
   });
 
