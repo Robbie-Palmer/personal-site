@@ -221,6 +221,7 @@ export function getProjectWithADRs(
       tracking: explicitUse?.tracking ?? true,
     };
   });
+  const seenPlatformTechnologies = new Set<string>();
   const platformTechnologies = stack.technologies
     .filter(
       (
@@ -230,9 +231,11 @@ export function getProjectWithADRs(
       } => use.source !== "project-specific",
     )
     .flatMap((use) => {
+      if (seenPlatformTechnologies.has(use.technology)) return [];
       const [technology] = resolveTechnologiesToBadgeViews(repository, [
         use.technology,
       ]);
+      if (technology) seenPlatformTechnologies.add(use.technology);
       return technology
         ? [
             {

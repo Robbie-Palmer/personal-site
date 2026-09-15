@@ -118,6 +118,12 @@ function projectFacts(project: ProjectWithADRs): [string, string][] {
           .map((technology) => technology.name)
           .join(", "),
       ],
+      [
+        "Platform policies",
+        (project.platformPolicies ?? [])
+          .map((policy) => policy.value)
+          .join(", "),
+      ],
     );
   }
   const ideas = getIdeasForProject(project.slug);

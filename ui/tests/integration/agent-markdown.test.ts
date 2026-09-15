@@ -120,6 +120,14 @@ describe("agent markdown generation", () => {
     );
   });
 
+  it("includes inherited governance policy in adopter project twins", () => {
+    const recipe = read("projects/recipe-site.md");
+    expect(recipe).toContain(
+      "- Platform policies: Public source, AGPL-3.0, Shared personal-project monorepo",
+    );
+    expect(recipe.match(/Codex/g)).toHaveLength(1);
+  });
+
   it("keeps Markdown routes for the previous project slug", () => {
     expect(read("projects/personal-site.md")).toContain(
       "[Personal Knowledge Graph](https://robbiepalmer.me/projects/personal-knowledge-graph.md)",

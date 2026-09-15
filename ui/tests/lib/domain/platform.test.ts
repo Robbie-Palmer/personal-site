@@ -415,6 +415,12 @@ describe("temporal platform layers", () => {
         "agentic-code-review",
       ]),
     );
+    const recipeView = getProjectWithADRs(repository, "recipe-site");
+    expect(
+      recipeView?.platformTechnologies?.filter(
+        (technology) => technology.slug === "codex",
+      ),
+    ).toHaveLength(1);
 
     const writing = resolveEffectiveProjectStack(
       repository,
