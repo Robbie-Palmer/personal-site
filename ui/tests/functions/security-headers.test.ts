@@ -42,10 +42,11 @@ describe("Cloudflare Pages security headers", () => {
     expect(policy).toContain("https://*.googleusercontent.com");
   });
 
-  it("allows only presentation routes to render same-origin speaker previews", () => {
+  it("allows only deliberate preview routes to render same-origin frames", () => {
     for (const route of [
       "/projects/:project/deck",
       "/technologies/revealdotjs/deck",
+      "/posthog",
     ]) {
       const rule = headersFile.split(route)[1]?.split("\n\n")[0];
       expect(rule).toContain("! X-Frame-Options");
