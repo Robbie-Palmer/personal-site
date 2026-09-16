@@ -1,4 +1,5 @@
 import hedgehogDeskWizardPng from "@posthog/brand/hoggies/png/desk-wizard";
+import hedgehogHeartPng from "@posthog/brand/hoggies/png/heart";
 import { Logo } from "@posthog/brand/logo";
 import {
   ArrowRight,
@@ -16,6 +17,7 @@ import localFont from "next/font/local";
 import Image from "next/image";
 import Link from "next/link";
 import type { CSSProperties } from "react";
+import { Mermaid } from "@/components/mermaid";
 import {
   type PostHogApplicationLink,
   posthogApplication,
@@ -217,32 +219,34 @@ export default function PostHogApplicationPage() {
             <div className="grid grid-cols-4">
               {posthogApplication.weirdness.artefacts
                 .slice(0, 4)
-                .map((artefact) => (
-                  <div
-                    className={cn(
-                      styles.heroTeaserItem,
-                      "relative aspect-square overflow-hidden",
-                    )}
-                    key={artefact.title}
-                  >
-                    <Image
-                      alt=""
-                      className={
-                        artefact.imageFit === "contain"
-                          ? "size-full object-contain"
-                          : "size-full object-cover"
-                      }
-                      height={artefact.imageHeight}
-                      priority
-                      sizes="(min-width: 640px) 160px, 25vw"
-                      src={artefact.image}
-                      width={artefact.imageWidth}
-                    />
-                    <span className="absolute inset-x-0 bottom-0 bg-[var(--hog-ink)]/90 px-1.5 py-1 text-center text-[0.58rem] font-black uppercase tracking-[0.08em] text-white sm:px-2 sm:py-1.5 sm:text-xs">
-                      {artefact.shortTitle}
-                    </span>
-                  </div>
-                ))}
+                .map((artefact) =>
+                  "image" in artefact ? (
+                    <div
+                      className={cn(
+                        styles.heroTeaserItem,
+                        "relative aspect-square overflow-hidden",
+                      )}
+                      key={artefact.title}
+                    >
+                      <Image
+                        alt=""
+                        className={
+                          artefact.imageFit === "contain"
+                            ? "size-full object-contain"
+                            : "size-full object-cover"
+                        }
+                        height={artefact.imageHeight}
+                        priority
+                        sizes="(min-width: 640px) 160px, 25vw"
+                        src={artefact.image}
+                        width={artefact.imageWidth}
+                      />
+                      <span className="absolute inset-x-0 bottom-0 bg-[var(--hog-ink)]/90 px-1.5 py-1 text-center text-[0.58rem] font-black uppercase tracking-[0.08em] text-white sm:px-2 sm:py-1.5 sm:text-xs">
+                        {artefact.shortTitle}
+                      </span>
+                    </div>
+                  ) : null,
+                )}
             </div>
           </a>
           <p className="mt-8 max-w-2xl text-lg font-medium leading-8 sm:text-xl">
@@ -478,14 +482,14 @@ export default function PostHogApplicationPage() {
             <div className="mb-8 flex flex-wrap items-end justify-between gap-4 border-b-2 border-white/25 pb-5">
               <div>
                 <p className="text-xs font-black uppercase tracking-[0.2em] text-[var(--hog-red)]">
-                  Exhibit A through E
+                  Exhibit A through F
                 </p>
                 <h3 className="mt-2 text-3xl font-black sm:text-4xl">
                   What the weirdness looks like.
                 </h3>
               </div>
               <p className="max-w-md text-sm font-bold leading-6 text-white/60">
-                Five interfaces. Five domains. The same urge to turn a messy
+                Six interfaces. Six domains. The same urge to turn a messy
                 system into something visible, explorable, and useful.
               </p>
             </div>
@@ -495,8 +499,8 @@ export default function PostHogApplicationPage() {
                 <Link
                   className={cn(
                     styles.artefactCard,
-                    "group block",
-                    index === 4 && "md:col-span-2",
+                    "group block min-w-0",
+                    index >= 4 && "md:col-span-2",
                     index % 2 === 0
                       ? "md:rotate-[-0.35deg]"
                       : "md:rotate-[0.35deg]",
@@ -529,25 +533,35 @@ export default function PostHogApplicationPage() {
                       aria-hidden="true"
                     />
                   </div>
-                  <div
-                    className={cn(
-                      styles.artefactImage,
-                      "relative aspect-[16/9]",
-                    )}
-                  >
-                    <Image
-                      alt={artefact.alt}
-                      className={
-                        artefact.imageFit === "contain"
-                          ? "size-full object-contain"
-                          : "size-full object-cover"
-                      }
-                      height={artefact.imageHeight}
-                      sizes="(min-width: 768px) 42vw, 90vw"
-                      src={artefact.image}
-                      width={artefact.imageWidth}
-                    />
-                  </div>
+                  {"chart" in artefact ? (
+                    <div
+                      aria-label={artefact.alt}
+                      className={styles.artefactDiagram}
+                      role="img"
+                    >
+                      <Mermaid chart={artefact.chart} className="w-full" />
+                    </div>
+                  ) : (
+                    <div
+                      className={cn(
+                        styles.artefactImage,
+                        "relative aspect-[16/9]",
+                      )}
+                    >
+                      <Image
+                        alt={artefact.alt}
+                        className={
+                          artefact.imageFit === "contain"
+                            ? "size-full object-contain"
+                            : "size-full object-cover"
+                        }
+                        height={artefact.imageHeight}
+                        sizes="(min-width: 768px) 42vw, 90vw"
+                        src={artefact.image}
+                        width={artefact.imageWidth}
+                      />
+                    </div>
+                  )}
                   <p className="p-5 font-bold leading-7 sm:p-6">
                     {artefact.description}
                     {"credit" in artefact && (
@@ -652,9 +666,21 @@ export default function PostHogApplicationPage() {
           <p className="text-xs font-black uppercase tracking-[0.2em] text-[var(--hog-green)]">
             Where I might fit
           </p>
-          <h2 className="mt-3 text-4xl font-black tracking-[-0.035em] sm:text-5xl">
-            A few places I might be useful.
-          </h2>
+          <div className="mt-3 flex items-start gap-3 sm:gap-6">
+            <h2 className="text-4xl font-black tracking-[-0.035em] sm:text-5xl">
+              A few places I might be useful.
+            </h2>
+            <Image
+              alt="Max the PostHog hedgehog holding a heart"
+              className={cn(
+                styles.hoggie,
+                "-mt-5 h-auto w-24 shrink-0 sm:w-32",
+              )}
+              height={132}
+              src={hedgehogHeartPng}
+              width={132}
+            />
+          </div>
           <div className="mt-8 space-y-5 text-lg font-medium leading-8">
             {posthogApplication.fit.map((paragraph) => (
               <p key={paragraph}>{paragraph}</p>

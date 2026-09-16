@@ -105,6 +105,16 @@ describe("PostHog application page", () => {
       }),
     ).toBeVisible();
     expect(
+      screen.getByRole("img", {
+        name: /Home lab topology connecting a phone and router/i,
+      }),
+    ).toBeVisible();
+    expect(
+      screen.getByRole("link", {
+        name: /The home lab that runs my projects/i,
+      }),
+    ).toHaveAttribute("href", "/projects/homelab");
+    expect(
       screen.getByRole("link", { name: /A yard that sees what is moving/i }),
     ).toHaveAttribute(
       "href",
@@ -115,6 +125,11 @@ describe("PostHog application page", () => {
     ).toBeVisible();
     expect(screen.getByText(/Belfast is home/i)).toBeVisible();
     expect(screen.getByText(/cat who would object to the move/i)).toBeVisible();
+    expect(
+      screen.getByRole("img", {
+        name: /Max the PostHog hedgehog holding a heart/i,
+      }),
+    ).toBeVisible();
     expect(
       screen.getByRole("link", { name: /Inspect the Work Graph/i }),
     ).toHaveAttribute("href", "/projects/work-graph");

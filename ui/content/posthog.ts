@@ -184,6 +184,40 @@ export const posthogApplication = {
         sourceHref:
           "https://terminal-industries.com/terminal-ai-computer-vision",
       },
+      {
+        number: "06",
+        shortTitle: "Home lab",
+        title: "The home lab that runs my projects",
+        meta: "Mermaid · Tailscale · reused hardware",
+        description:
+          "A Mac mini runs the main services and coding agents. A Raspberry Pi keeps DNS and printing alive while the hub is down. Tailscale provides private access from my phone and laptop.",
+        chart: `flowchart LR
+Phone["Phone or laptop"] -->|"Tailscale"| Mini["Mac mini<br/>Home hub"]
+Router["Home router"] -->|"Primary DNS"| Mini
+Router -->|"Fallback DNS"| Pi["Raspberry Pi<br/>Fallback host"]
+Pi -->|"Metrics"| Mini
+Mini --> Drive[("10TB HDD")]
+Mini --> TV["Fire TV Stick"]
+Mini --> Slack["Slack alerts"]
+Mini --> VPN["VPN egress"]
+VPN --> Internet["Internet"]
+Pi --> Printer["Canon printer"]
+
+classDef hub fill:#f5c842,color:#1d1f1f,stroke:#1d1f1f,stroke-width:3px
+classDef fallback fill:#f05b52,color:#1d1f1f,stroke:#1d1f1f,stroke-width:3px
+classDef access fill:#1490e8,color:#fffdf8,stroke:#1d1f1f,stroke-width:2px
+classDef device fill:#fffdf8,color:#1d1f1f,stroke:#1d1f1f,stroke-width:2px
+classDef data fill:#4e9b75,color:#fffdf8,stroke:#1d1f1f,stroke-width:2px
+class Mini hub
+class Pi fallback
+class Phone,VPN access
+class Drive data
+class Router,TV,Slack,Internet,Printer device
+linkStyle default stroke:#1d1f1f,stroke-width:2px`,
+        alt: "Home lab topology connecting a phone and router to a Mac mini, Raspberry Pi, storage, media, printer, alerts, VPN, and internet",
+        href: "/projects/homelab",
+        accent: "#4e9b75",
+      },
     ],
   },
   evidence: [
@@ -344,13 +378,17 @@ export function posthogApplicationMarkdown(): string {
     ...posthogApplication.weirdness.artefacts.flatMap((artefact) => [
       "#### [" + artefact.title + "](" + artefact.href + ")",
       "",
-      "![" +
-        artefact.alt +
-        "](" +
-        (artefact.image.startsWith("http")
-          ? artefact.image
-          : "https://robbiepalmer.me" + artefact.image) +
-        ")",
+      ...("chart" in artefact
+        ? ["```mermaid", artefact.chart, "```"]
+        : [
+            "![" +
+              artefact.alt +
+              "](" +
+              (artefact.image.startsWith("http")
+                ? artefact.image
+                : "https://robbiepalmer.me" + artefact.image) +
+              ")",
+          ]),
       "",
       artefact.description,
       "",

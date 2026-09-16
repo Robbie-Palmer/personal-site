@@ -159,6 +159,24 @@
   overflow: hidden;
 }
 
+.artefactDiagram {
+  background: var(--hog-paper-deep);
+  border-top: 2px solid var(--hog-ink);
+  min-height: 24rem;
+  overflow-x: auto;
+  padding: 1.5rem;
+  width: 100%;
+}
+
+.artefactDiagram svg {
+  max-height: 28rem;
+  min-width: 52rem;
+}
+
+.artefactDiagram > div {
+  justify-content: flex-start;
+}
+
 .artefactImage img {
   transition: scale 240ms ease;
 }
