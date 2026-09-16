@@ -120,6 +120,9 @@ describe("PostHog application page", () => {
       screen.getByRole("link", { name: /Watch the Barbie essay/i }),
     ).toHaveAttribute("href", "https://youtu.be/DqIYPCemZ38");
     expect(
+      screen.getByRole("link", { name: /pineapple-on-pizza telemetry/i }),
+    ).toHaveAttribute("href", "https://posthog.com/careers#pizza");
+    expect(
       screen.getByRole("link", {
         name: /A preview of the weirdness.*See the through-line/i,
       }),

@@ -600,7 +600,16 @@ export default function PostHogApplicationPage() {
                 </h3>
               </div>
               <p className="text-lg font-bold leading-8 text-white/75">
-                {posthogApplication.weirdness.personality.intro}
+                {posthogApplication.weirdness.personality.introBefore}
+                <a
+                  className="underline decoration-2 underline-offset-4 hover:decoration-[var(--hog-yellow)] focus-visible:outline-2 focus-visible:outline-offset-4"
+                  href={posthogApplication.weirdness.personality.introLink.href}
+                  rel="noreferrer"
+                  target="_blank"
+                >
+                  {posthogApplication.weirdness.personality.introLink.label}
+                </a>
+                {posthogApplication.weirdness.personality.introAfter}
               </p>
             </div>
             <div className="mt-9 grid gap-7 md:grid-cols-3">

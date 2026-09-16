@@ -40,8 +40,13 @@ export const posthogApplication = {
       "PostHog's turquoise DeskHog developer toy smiling beneath a shower of confetti",
     personality: {
       heading: "The repository is only the organised part.",
-      intro:
-        "None of this is personal branding. It is what I do when nobody has assigned me a ticket. If pineapple-on-pizza telemetry belongs on a company page, this belongs on an application.",
+      introBefore:
+        "None of this is personal branding. It is what I do when nobody has assigned me a ticket. If ",
+      introLink: {
+        label: "pineapple-on-pizza telemetry",
+        href: "https://posthog.com/careers#pizza",
+      },
+      introAfter: " belongs on a company page, this belongs on an application.",
       items: [
         {
           eyebrow: "Light reading · 6,907 words",
@@ -634,7 +639,13 @@ export function posthogApplicationMarkdown(): string {
     "",
     posthogApplication.weirdness.personality.heading,
     "",
-    posthogApplication.weirdness.personality.intro,
+    posthogApplication.weirdness.personality.introBefore +
+      "[" +
+      posthogApplication.weirdness.personality.introLink.label +
+      "](" +
+      posthogApplication.weirdness.personality.introLink.href +
+      ")" +
+      posthogApplication.weirdness.personality.introAfter,
     "",
     ...posthogApplication.weirdness.personality.items.flatMap((item) => [
       "#### " +

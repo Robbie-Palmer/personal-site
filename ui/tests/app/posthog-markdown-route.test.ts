@@ -27,5 +27,8 @@ describe("PostHog application Markdown route", () => {
       ),
     );
     expect(markdown).not.toContain("## The loop");
+    expect(markdown).toContain(
+      "[pineapple-on-pizza telemetry](https://posthog.com/careers#pizza)",
+    );
   });
 });
