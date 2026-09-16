@@ -57,6 +57,55 @@ const harness = (
 };
 
 describe("Given agent-facing Work Graph commands", () => {
+  it("adds and removes dependency edges", async () => {
+    const add = harness();
+    const remove = harness();
+
+    expect(
+      await add.run([
+        "dependency",
+        "add",
+        "dependent",
+        "blocker",
+        "--idempotency-key",
+        UUID,
+      ]),
+    ).toBe(EXIT_CODES.success);
+    expect(
+      await remove.run([
+        "dependency",
+        "remove",
+        "dependent",
+        "blocker",
+        "--idempotency-key",
+        UUID,
+      ]),
+    ).toBe(EXIT_CODES.success);
+
+    expect(add.requests[0]).toMatchObject({
+      method: "POST",
+      body: {
+        dependentWorkItemId: "dependent",
+        blockerWorkItemId: "blocker",
+      },
+    });
+    expect(remove.requests[0]).toMatchObject({
+      method: "DELETE",
+      body: {
+        dependentWorkItemId: "dependent",
+        blockerWorkItemId: "blocker",
+      },
+    });
+    expect(add.requests[0]?.url.href).toBe(
+      "https://work.example.test/root/api/dependencies",
+    );
+    expect(remove.requests[0]?.url.href).toBe(
+      "https://work.example.test/root/api/dependencies",
+    );
+    expect(add.requests[0]?.headers.get("Idempotency-Key")).toBe(UUID);
+    expect(remove.requests[0]?.headers.get("Idempotency-Key")).toBe(UUID);
+  });
+
   it("manages knowledge-scope mirrors and relationships", async () => {
     const list = harness();
     const show = harness();

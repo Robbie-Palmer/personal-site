@@ -11,6 +11,8 @@ import {
   zCreateAttentionResolutionBody,
   zCreateAttentionResolutionHeaders,
   zCreateAttentionResolutionPath,
+  zCreateDependencyBody,
+  zCreateDependencyHeaders,
   zCreateLeaseBody,
   zCreateKnowledgeScopeRelationshipBody,
   zCreateKnowledgeScopeRelationshipHeaders,
@@ -242,6 +244,21 @@ const scopeRelationshipListInput = z.object({
   cursor: optional(
     zListKnowledgeScopeRelationshipsQuery.shape.cursor.unwrap(),
     "Opaque relationship cursor",
+  ),
+});
+
+const dependencyInput = z.object({
+  dependentWorkItemId: positional(
+    zCreateDependencyBody.shape.dependentWorkItemId,
+    "Dependent work-item ID",
+  ),
+  blockerWorkItemId: positional(
+    zCreateDependencyBody.shape.blockerWorkItemId,
+    "Blocker work-item ID",
+  ),
+  idempotencyKey: described(
+    zCreateDependencyHeaders.shape["idempotency-key"],
+    "Client-generated UUID used to replay a mutation safely",
   ),
 });
 
@@ -618,6 +635,32 @@ export const workGraphRouter = t.router({
             ? {}
             : { afterSequence: input.afterSequence }),
         }),
+      ),
+  }),
+  dependency: t.router({
+    add: command
+      .meta({ description: "Add a work-item dependency" })
+      .input(dependencyInput)
+      .mutation(({ ctx, input }) =>
+        resolveClient(ctx).addDependency(
+          {
+            dependentWorkItemId: input.dependentWorkItemId,
+            blockerWorkItemId: input.blockerWorkItemId,
+          },
+          input.idempotencyKey,
+        ),
+      ),
+    remove: command
+      .meta({ description: "Remove a work-item dependency" })
+      .input(dependencyInput)
+      .mutation(({ ctx, input }) =>
+        resolveClient(ctx).removeDependency(
+          {
+            dependentWorkItemId: input.dependentWorkItemId,
+            blockerWorkItemId: input.blockerWorkItemId,
+          },
+          input.idempotencyKey,
+        ),
       ),
   }),
   scope: t.router({
