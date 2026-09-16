@@ -162,18 +162,36 @@
 .artefactDiagram {
   background: var(--hog-paper-deep);
   border-top: 2px solid var(--hog-ink);
-  min-height: 24rem;
-  overflow-x: auto;
-  padding: 1.5rem;
   width: 100%;
 }
 
-.artefactDiagram svg {
+.artefactDiagramBlock {
+  min-width: 0;
+  padding: 1.5rem;
+}
+
+.artefactDiagramBlock + .artefactDiagramBlock {
+  border-top: 2px solid var(--hog-ink);
+}
+
+.artefactDiagramViewport {
+  margin-top: 1rem;
+  min-height: 24rem;
+  overflow-x: auto;
+  width: 100%;
+}
+
+.artefactDiagramViewport svg {
   max-height: 28rem;
   min-width: 52rem;
 }
 
-.artefactDiagram > div {
+.artefactDiagramViewportDense svg {
+  max-height: 48rem;
+  min-width: 72rem;
+}
+
+.artefactDiagramViewport > div {
   justify-content: flex-start;
 }
 

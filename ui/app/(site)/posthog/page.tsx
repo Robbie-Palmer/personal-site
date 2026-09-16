@@ -158,6 +158,22 @@ function PersonalityCard({
           )}
         </span>
       )}
+      {"links" in item && (
+        <div className="mt-6 flex flex-col items-start gap-3">
+          {item.links.map((link) => (
+            <a
+              className="inline-flex items-center gap-2 font-black underline decoration-2 underline-offset-4 hover:decoration-[var(--hog-blue)] focus-visible:rounded-sm focus-visible:outline-2 focus-visible:outline-offset-4"
+              href={link.href}
+              key={link.href}
+              rel="noreferrer"
+              target="_blank"
+            >
+              {link.label}
+              <ArrowUpRight className="size-4" aria-hidden="true" />
+            </a>
+          ))}
+        </div>
+      )}
     </>
   );
 
@@ -328,7 +344,9 @@ export default function PostHogApplicationPage() {
                 <dt className="text-white/45">dance</dt>
                 <dd>solo jazz</dd>
                 <dt className="text-white/45">watch</dt>
-                <dd>3h Shrek analysis</dd>
+                <dd>Shrek through Marx (20m)</dd>
+                <dt className="text-white/45">next</dt>
+                <dd>1.5h Barbie deconstruction</dd>
               </dl>
               <p className="flex items-start gap-2 text-[#bce7ce]">
                 <Check className="mt-1 size-4 shrink-0" aria-hidden="true" />
@@ -432,16 +450,26 @@ export default function PostHogApplicationPage() {
               {posthogApplication.weirdness.conclusion}
             </p>
             <a
-              className="mt-6 border-l-4 border-[var(--hog-red)] bg-white/10 px-5 py-4 font-bold leading-7 text-white/90 hover:bg-white/15 focus-visible:outline-2 focus-visible:outline-offset-4"
+              className="mt-6 grid overflow-hidden border-l-4 border-[var(--hog-red)] bg-white/10 font-bold leading-7 text-white/90 hover:bg-white/15 focus-visible:outline-2 focus-visible:outline-offset-4 sm:grid-cols-[11rem_1fr]"
               href={posthogApplication.weirdness.posthogParallelHref}
               target="_blank"
               rel="noreferrer"
             >
-              {posthogApplication.weirdness.posthogParallel}
-              <ArrowUpRight
-                className="ml-2 inline size-4 align-[-0.1em]"
-                aria-hidden="true"
+              <Image
+                alt={posthogApplication.weirdness.posthogParallelImageAlt}
+                className="h-44 w-full bg-[var(--hog-paper-deep)] object-contain p-3 sm:h-full sm:min-h-44"
+                height={1043}
+                sizes="(min-width: 640px) 176px, 100vw"
+                src={posthogApplication.weirdness.posthogParallelImage}
+                width={1260}
               />
+              <span className="self-center px-5 py-4">
+                {posthogApplication.weirdness.posthogParallel}
+                <ArrowUpRight
+                  className="ml-2 inline size-4 align-[-0.1em]"
+                  aria-hidden="true"
+                />
+              </span>
             </a>
             <div className="mt-8 flex flex-wrap gap-x-6 gap-y-4">
               {posthogApplication.weirdness.projects.map((project) => (
@@ -502,7 +530,6 @@ export default function PostHogApplicationPage() {
                   className={cn(
                     styles.artefactCard,
                     "group block min-w-0",
-                    index >= 4 && "md:col-span-2",
                     index % 2 === 0
                       ? "md:rotate-[-0.35deg]"
                       : "md:rotate-[0.35deg]",
@@ -536,12 +563,39 @@ export default function PostHogApplicationPage() {
                     />
                   </div>
                   {"chart" in artefact ? (
-                    <div
-                      aria-label={artefact.alt}
-                      className={styles.artefactDiagram}
-                      role="img"
-                    >
-                      <Mermaid chart={artefact.chart} className="w-full" />
+                    <div className={styles.artefactDiagram}>
+                      <div className={styles.artefactDiagramBlock}>
+                        <p className="font-mono text-xs font-black uppercase tracking-[0.16em] text-black/55">
+                          {artefact.chartTitle}
+                        </p>
+                        <div
+                          aria-label={artefact.alt}
+                          className={styles.artefactDiagramViewport}
+                          role="img"
+                        >
+                          <Mermaid chart={artefact.chart} className="w-full" />
+                        </div>
+                      </div>
+                      {"detailChart" in artefact && (
+                        <div className={styles.artefactDiagramBlock}>
+                          <p className="font-mono text-xs font-black uppercase tracking-[0.16em] text-black/55">
+                            {artefact.detailChartTitle}
+                          </p>
+                          <div
+                            aria-label={artefact.detailAlt}
+                            className={cn(
+                              styles.artefactDiagramViewport,
+                              styles.artefactDiagramViewportDense,
+                            )}
+                            role="img"
+                          >
+                            <Mermaid
+                              chart={artefact.detailChart}
+                              className="w-full"
+                            />
+                          </div>
+                        </div>
+                      )}
                     </div>
                   ) : (
                     <div

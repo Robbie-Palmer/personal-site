@@ -40,6 +40,7 @@ describe("PostHog application page", () => {
       screen.getByText(/cancer diagnostics, logistics yards/i),
     ).toBeVisible();
     expect(screen.getByText(/Gödel → data mesh/i)).toBeVisible();
+    expect(screen.getByText(/Shrek through Marx \(20m\)/i)).toBeVisible();
     expect(
       screen.getByRole("heading", {
         name: "The work is public. You can inspect it.",
@@ -53,6 +54,11 @@ describe("PostHog application page", () => {
     ).toBeVisible();
     expect(screen.getByText(/Correct\. That is the point/i)).toBeVisible();
     expect(screen.getByText(/DeskHog is a developer toy/i)).toBeVisible();
+    expect(
+      screen.getByRole("img", {
+        name: /PostHog's turquoise DeskHog developer toy/i,
+      }),
+    ).toBeVisible();
     expect(
       screen.getByRole("heading", {
         name: "The repository is only the organised part.",
@@ -79,8 +85,14 @@ describe("PostHog application page", () => {
       "https://linktr.ee/flyingfeetjazzdancecollective",
     );
     expect(
-      screen.getByText("I watch postmodernist analyses of Shrek for fun."),
+      screen.getByText("I watch Marxist analyses of Shrek for fun."),
     ).toBeVisible();
+    expect(
+      screen.getByRole("link", { name: /Watch the Shrek analysis/i }),
+    ).toHaveAttribute("href", "https://youtu.be/V9NlA628lRw");
+    expect(
+      screen.getByRole("link", { name: /Watch the Barbie essay/i }),
+    ).toHaveAttribute("href", "https://youtu.be/DqIYPCemZ38");
     expect(
       screen.getByRole("link", {
         name: /A preview of the weirdness.*See the through-line/i,
@@ -107,6 +119,13 @@ describe("PostHog application page", () => {
     expect(
       screen.getByRole("img", {
         name: /Home lab topology connecting a phone and router/i,
+      }),
+    ).toBeVisible();
+    expect(screen.getByText("01 · Physical topology")).toBeVisible();
+    expect(screen.getByText("02 · Inside the Mac mini")).toBeVisible();
+    expect(
+      screen.getByRole("img", {
+        name: /Mac mini container topology showing DNS/i,
       }),
     ).toBeVisible();
     expect(

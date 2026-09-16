@@ -60,6 +60,10 @@ export const posthogApplication = {
     posthogParallel:
       "DeskHog is a developer toy built for joy. I recognise the instinct. Curiosity is allowed to become infrastructure.",
     posthogParallelHref: "https://posthog.com/deskhog",
+    posthogParallelImage:
+      "https://res.cloudinary.com/dmukukwp6/image/upload/deskhog_smiling_36bb2647ff",
+    posthogParallelImageAlt:
+      "PostHog's turquoise DeskHog developer toy smiling beneath a shower of confetti",
     personality: {
       heading: "The repository is only the organised part.",
       intro:
@@ -88,10 +92,20 @@ export const posthogApplication = {
           external: true,
         },
         {
-          eyebrow: "Normal evening plans · 3 hours",
-          title: "I watch postmodernist analyses of Shrek for fun.",
+          eyebrow: "Normal evening plans · 20 min to 1.5 hours",
+          title: "I watch Marxist analyses of Shrek for fun.",
           description:
-            "If someone has spent three hours building an argument about an ogre, I want to hear the argument.",
+            "The Shrek essay is a brisk 20 minutes. The Barbie deconstructionist essay runs for an hour and a half. I watched both for fun.",
+          links: [
+            {
+              label: "Watch the Shrek analysis",
+              href: "https://youtu.be/V9NlA628lRw",
+            },
+            {
+              label: "Watch the Barbie essay",
+              href: "https://youtu.be/DqIYPCemZ38",
+            },
+          ],
         },
       ],
     },
@@ -188,9 +202,10 @@ export const posthogApplication = {
         number: "06",
         shortTitle: "Home lab",
         title: "The home lab that runs my projects",
-        meta: "Mermaid · Tailscale · reused hardware",
+        meta: "K3s · Ansible · NixOS · Tailscale",
         description:
-          "A Mac mini runs the main services and coding agents. A Raspberry Pi keeps DNS and printing alive while the hub is down. Tailscale provides private access from my phone and laptop.",
+          "The first diagram is the hardware. The second opens the Mac mini: DNS, photo backup, coding agents, monitoring, media, storage, and a VPN-gated automation stack that supervises its own download pipeline.",
+        chartTitle: "01 · Physical topology",
         chart: `flowchart LR
 Phone["Phone or laptop"] -->|"Tailscale"| Mini["Mac mini<br/>Home hub"]
 Router["Home router"] -->|"Primary DNS"| Mini
@@ -215,6 +230,64 @@ class Drive data
 class Router,TV,Slack,Internet,Printer device
 linkStyle default stroke:#1d1f1f,stroke-width:2px`,
         alt: "Home lab topology connecting a phone and router to a Mac mini, Raspberry Pi, storage, media, printer, alerts, VPN, and internet",
+        detailChartTitle: "02 · Inside the Mac mini",
+        detailChart: `flowchart TB
+subgraph mini["Mac mini"]
+DNS["AdGuard Home<br/>Primary DNS"]
+VPN["Hotspot Shield<br/>Outbound traffic"]
+Dev["t3-code<br/>Coding agents"]
+Backup["Ente sync<br/>Photo backup"]
+Monitor["Netdata<br/>Monitoring"]
+KeepAlive["keep-running agent<br/>Stack supervisor"]
+Media["Jellyfin<br/>Media server"]
+Storage[("10TB HDD")]
+
+subgraph media["Media automation · Docker Compose"]
+Prowlarr["Prowlarr<br/>Indexer proxy"]
+Sonarr["Sonarr<br/>TV"]
+Radarr["Radarr<br/>Movies"]
+QBit["qBittorrent<br/>Downloads"]
+Recyclarr["Recyclarr<br/>Quality profiles"]
+end
+end
+
+Trakt["Trakt<br/>Watchlist and tracking"]
+FireTV["Fire TV Stick"]
+Internet["Internet"]
+
+KeepAlive -.->|"Starts only while<br/>VPN is up"| media
+Backup --> Storage
+Media --> Storage
+Media --> FireTV
+Trakt -->|"Watchlist"| Sonarr
+Trakt -->|"Watchlist"| Radarr
+Media -->|"Scrobbles"| Trakt
+Prowlarr -->|"Indexers"| Sonarr
+Prowlarr -->|"Indexers"| Radarr
+Recyclarr -->|"Profiles"| Sonarr
+Recyclarr -->|"Profiles"| Radarr
+Sonarr -->|"Releases"| QBit
+Radarr -->|"Releases"| QBit
+QBit -->|"Completed"| Storage
+DNS -->|"Quad9 DNS"| VPN
+Dev -->|"Code and agent APIs"| VPN
+Backup -->|"Ente sync"| VPN
+Monitor -->|"Slack alerts"| VPN
+VPN --> Internet
+
+classDef service fill:#1490e8,color:#fffdf8,stroke:#1d1f1f,stroke-width:2px
+classDef mediaService fill:#f05b52,color:#1d1f1f,stroke:#1d1f1f,stroke-width:2px
+classDef supervisor fill:#f5c842,color:#1d1f1f,stroke:#1d1f1f,stroke-width:3px
+classDef data fill:#4e9b75,color:#fffdf8,stroke:#1d1f1f,stroke-width:2px
+classDef external fill:#fffdf8,color:#1d1f1f,stroke:#1d1f1f,stroke-width:2px
+class DNS,VPN,Dev,Backup,Monitor service
+class Media,Prowlarr,Sonarr,Radarr,QBit,Recyclarr mediaService
+class KeepAlive supervisor
+class Storage data
+class Trakt,FireTV,Internet external
+linkStyle default stroke:#1d1f1f,stroke-width:2px`,
+        detailAlt:
+          "Mac mini container topology showing DNS, VPN, coding agents, photo backup, monitoring, Jellyfin, storage, and a five-service media automation pipeline",
         href: "/projects/homelab",
         accent: "#4e9b75",
       },
@@ -345,6 +418,12 @@ export function posthogApplicationMarkdown(): string {
     "",
     posthogApplication.weirdness.conclusion,
     "",
+    "![" +
+      posthogApplication.weirdness.posthogParallelImageAlt +
+      "](" +
+      posthogApplication.weirdness.posthogParallelImage +
+      ")",
+    "",
     "[" +
       posthogApplication.weirdness.posthogParallel +
       "](" +
@@ -372,6 +451,12 @@ export function posthogApplicationMarkdown(): string {
         : []),
       item.description,
       "",
+      ...("links" in item
+        ? item.links.flatMap((link) => [
+            "- [" + link.label + "](" + link.href + ")",
+          ])
+        : []),
+      ...("links" in item ? [""] : []),
     ]),
     "### What the weirdness looks like",
     "",
@@ -379,7 +464,23 @@ export function posthogApplicationMarkdown(): string {
       "#### [" + artefact.title + "](" + artefact.href + ")",
       "",
       ...("chart" in artefact
-        ? ["```mermaid", artefact.chart, "```"]
+        ? [
+            "**" + artefact.chartTitle + "**",
+            "",
+            "```mermaid",
+            artefact.chart,
+            "```",
+            ...("detailChart" in artefact
+              ? [
+                  "",
+                  "**" + artefact.detailChartTitle + "**",
+                  "",
+                  "```mermaid",
+                  artefact.detailChart,
+                  "```",
+                ]
+              : []),
+          ]
         : [
             "![" +
               artefact.alt +

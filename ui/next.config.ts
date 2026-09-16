@@ -36,6 +36,11 @@ function createNextConfig(phase: string): NextConfig {
           pathname:
             "/4f88d739-d63c-434e-9683-0ca5142a4358_FF-CIRCULAR-DOUBLE-OUTLINE-SALMON-OUTER.png",
         },
+        {
+          protocol: "https",
+          hostname: "res.cloudinary.com",
+          pathname: "/dmukukwp6/image/upload/deskhog_smiling_36bb2647ff",
+        },
       ],
     },
     // `next build` runs its own `tsc` type-check, but a dedicated `//ui:check`
