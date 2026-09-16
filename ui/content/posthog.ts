@@ -15,32 +15,6 @@ export const posthogApplication = {
   title: "I want to help products drive themselves",
   description:
     "A speculative application to PostHog from Robbie Palmer, backed by working product infrastructure, public decisions, and shipped code.",
-  thesis: [
-    "I was building pieces of a self-driving product long before I knew PostHog used that phrase. Across pathology, logistics, personal finance, recipes, and developer tooling, the pattern is the same: observe the real system, build a useful model of it, then shorten the distance between learning and action.",
-    "You are assembling the context and tools that let products do that for themselves. I keep attacking the same problem through data architecture, applied ML, digital twins, adaptive planning, and product engineering. That overlap is why I am applying to PostHog.",
-  ],
-  loop: [
-    {
-      step: "01",
-      title: "Observe",
-      detail: "Events, replays, logs, traces, user feedback",
-    },
-    {
-      step: "02",
-      title: "Decide",
-      detail: "Outcomes, dependencies, priority, human judgment",
-    },
-    {
-      step: "03",
-      title: "Build",
-      detail: "Bounded agent work with explicit access and authority",
-    },
-    {
-      step: "04",
-      title: "Verify",
-      detail: "Tests, review, experiments, and product impact",
-    },
-  ],
   weirdness: {
     quote:
       "I am the sort of person who builds a recipe platform, an autonomic satellite-swarm simulation, cancer-research software, a Kubernetes-based homelab, and a Jira replacement at the same time.",
@@ -429,6 +403,89 @@ linkStyle default stroke:#1d1f1f,stroke-width:2px`,
     routingPrinciple:
       "The harness and model are routing choices, not the architecture. Use subscription capacity first, then move work when quality, limits, or cost change. Keep an escape hatch across providers.",
   },
+  culture: {
+    eyebrow: "Culture, in practice",
+    heading: "The culture I keep trying to build already exists here.",
+    intro:
+      "PostHog's culture is not a nice extra for me. It is the operating model I have repeatedly tried to create inside companies that were not designed for it. Managers who still do real work. Small teams trusted with whole products. Context instead of task assignment. High standards without approval theatre. Weird people given room to ship.",
+    stories: [
+      {
+        number: "01",
+        eyebrow: "Manager and IC",
+        title:
+          "I took the management job to prove a different way of doing it.",
+        description:
+          "I am a Principal Software Engineer and an Engineering Manager at the same time. I took on management to remove obstacles, share context, and keep standards high while continuing to design systems and ship code. PostHog asks managers to spend significant time doing individual-contributor work. That is already the job I built for myself.",
+        link: {
+          label: "How PostHog manages cracked engineers",
+          href: "https://newsletter.posthog.com/p/hiring-and-managing-cracked-engineers",
+        },
+      },
+      {
+        number: "02",
+        eyebrow: "Trust beats being right",
+        title:
+          "I argued against Kubernetes. Then I made room for the engineer to prove me wrong.",
+        description:
+          "I thought the proposed Kubernetes work could become a black hole, and I argued my case. I also fought to give the engineer enough room to try it. He proved me wrong. The company now has a much stronger CI/CD and GPU-inference platform, with rising throughput and lower costs. I am prouder of creating the conditions for him to succeed than I would have been of winning the argument.",
+        link: {
+          label: "PostHog's version of letting engineers own the plan",
+          href: "https://newsletter.posthog.com/p/youre-doing-quarterly-planning-wrong",
+        },
+      },
+      {
+        number: "03",
+        eyebrow: "Double down on strengths",
+        title: "I inherited the team nobody wanted to be on.",
+        description:
+          "At Terminal, I inherited the team with the lowest morale and productivity in the company. It became the happiest, most productive, and most ambitious team, and one that people elsewhere wanted to join. The mechanism was trust, clear context, high standards, and removing everything that slowed good people down. I work on weaknesses when they harm other people, only until they are good enough. Then I invest hard in strengths. People are investment centres, not cost centres.",
+        link: {
+          label: "Why PostHog invests in people's strengths",
+          href: "https://newsletter.posthog.com/p/hiring-and-managing-cracked-engineers",
+        },
+      },
+      {
+        number: "04",
+        eyebrow: "Small teams, whole products",
+        title: "Tiny teams leave nowhere to hide. Good.",
+        description:
+          "Most of my career has been spent in teams too small for narrow job boundaries. I have talked to customers, made product decisions, built ML and data systems, written backends and frontends, owned infrastructure, delivered projects, and led the team. That is the job I want: engineers owning the customer, the product, its quality, and its economics.",
+        link: {
+          label: "How PostHog's small teams work",
+          href: "https://newsletter.posthog.com/p/the-magic-of-small-engineering-teams",
+        },
+      },
+    ],
+    publicWork: {
+      eyebrow: "Make it public",
+      heading: "The repository is the evidence, not the performance.",
+      description:
+        "It contains products, source code, architectural decisions, experiments, negative results, initiatives, and current thinking. I built it because I enjoy the craft and want the work to be inspectable, not because somebody assigned me a portfolio project.",
+      href: "https://github.com/Robbie-Palmer/hq",
+      linkLabel: "Inspect the repository",
+    },
+    whyNow: {
+      eyebrow: "Why not now?",
+      heading: "The agent-tooling market is unsettled. I am building anyway.",
+      description:
+        "A lot of people I know are frightened by what coding agents can now do and want to step away. I am addicted to the possibility. I am building the missing review, planning, context, knowledge, and coordination systems now, even though better commercial products will eventually replace some of them. Agents have made ideas economical that once needed separate teams and budgets.",
+    },
+    weird: {
+      eyebrow: "Do more weird",
+      quote:
+        "I am the sort of person who builds a recipe platform, an autonomic satellite-swarm simulation, cancer-research software and a Jira replacement at the same time. Most companies might read that as a lack of focus. PostHog seems unusually likely to recognise it as what it actually is: I cannot stop building products.",
+    },
+    closing: {
+      eyebrow: "The cracked-engineer connection",
+      heading: "That description feels uncomfortably specific.",
+      paragraphs: [
+        "PostHog writes about people whose work speaks for itself, who love the craft, who do not need a FAANG name on the CV, and who may have held together failing companies. I have repeatedly held together teams, products, and startups that lacked product-market fit, sufficient capital, or a healthy operating culture.",
+        "I have spent years burning political capital to create this way of working. I would like to find out what I can do when it is the starting point, inside a company with real product-market fit, rather than another destination I have to drag a company towards through repeated feats of execution.",
+      ],
+      href: "https://newsletter.posthog.com/p/hiring-and-managing-cracked-engineers",
+      linkLabel: "Read PostHog's cracked-engineer essay",
+    },
+  },
   experience: [
     {
       title: "Applied ML",
@@ -458,7 +515,6 @@ linkStyle default stroke:#1d1f1f,stroke-width:2px`,
   ],
   ask: "I do not see one advertised role that cleanly spans this mix. That is the point of the speculative application. If a team has a need close to it, I would rather be routed there than bend my experience around the nearest title.",
   links: {
-    posthogThesis: "https://posthog.com/",
     experience: "/experience",
     initiative: "/initiatives/semi-autonomous-software-development",
     projects: "/projects",
@@ -474,51 +530,45 @@ function markdownLink(link: PostHogApplicationLink): string {
 }
 
 export function posthogApplicationMarkdown(): string {
-  const lines = [
-    "## The overlap",
+  const agentPlatform = [
+    "## " + posthogApplication.agentPlatform.heading,
     "",
-    ...posthogApplication.thesis.flatMap((paragraph) => [paragraph, ""]),
-    "PostHog's current thesis: [Make your product self-driving](" +
-      posthogApplication.links.posthogThesis +
-      ")",
-    "",
-    "## The loop",
-    "",
-    ...posthogApplication.loop.map(
-      (stage) => "- **" + stage.title + ":** " + stage.detail,
-    ),
-    "",
-    "The loop appears in different forms across clinical software, logistics yards, consumer products, and developer tooling.",
-    "",
-    "## The specific weirdness",
-    "",
-    "> " + posthogApplication.weirdness.quote,
-    ">",
-    "> " + posthogApplication.weirdness.attribution,
-    "",
-    posthogApplication.weirdness.intro,
-    "",
-    ...posthogApplication.weirdness.threads.map((thread) => "- " + thread),
-    "",
-    posthogApplication.weirdness.conclusion,
-    "",
-    "![" +
-      posthogApplication.weirdness.posthogParallelImageAlt +
-      "](" +
-      posthogApplication.weirdness.posthogParallelImage +
-      ")",
+    posthogApplication.agentPlatform.intro,
     "",
     "[" +
-      posthogApplication.weirdness.posthogParallel +
+      posthogApplication.agentPlatform.posthogLink.label +
       "](" +
-      posthogApplication.weirdness.posthogParallelHref +
+      posthogApplication.agentPlatform.posthogLink.href +
       ")",
     "",
-    ...posthogApplication.weirdness.projects.map(
-      (project) => "- [" + project.label + "](" + project.href + ")",
+    ...[
+      posthogApplication.agentPlatform.workspace,
+      posthogApplication.agentPlatform.hub,
+      posthogApplication.agentPlatform.shared,
+    ].flatMap((stage) => [
+      "### " + stage.number + " · " + stage.title,
+      "",
+      stage.detail,
+      "",
+    ]),
+    "### Coding harnesses",
+    "",
+    ...posthogApplication.agentPlatform.harnesses.map(
+      (harness) => "- **" + harness.name + ":** " + harness.detail,
     ),
     "",
-    "### What the weirdness looks like",
+    ...posthogApplication.agentPlatform.shared.services.map(
+      (service) =>
+        "- [" + service.name + "](" + service.href + "): " + service.detail,
+    ),
+    "",
+    posthogApplication.agentPlatform.writingPrinciple,
+    "",
+    posthogApplication.agentPlatform.routingPrinciple,
+    "",
+  ];
+  const workWeirdness = [
+    "## What the weirdness looks like",
     "",
     ...posthogApplication.weirdness.artefacts.flatMap((artefact) => [
       "#### [" + artefact.title + "](" + artefact.href + ")",
@@ -557,6 +607,34 @@ export function posthogApplicationMarkdown(): string {
         ? ["[" + artefact.credit + "](" + artefact.sourceHref + ")", ""]
         : []),
     ]),
+    "## The subjects jump. The obsession does not.",
+    "",
+    "> " + posthogApplication.weirdness.quote,
+    ">",
+    "> " + posthogApplication.weirdness.attribution,
+    "",
+    posthogApplication.weirdness.intro,
+    "",
+    ...posthogApplication.weirdness.threads.map((thread) => "- " + thread),
+    "",
+    posthogApplication.weirdness.conclusion,
+    "",
+    "![" +
+      posthogApplication.weirdness.posthogParallelImageAlt +
+      "](" +
+      posthogApplication.weirdness.posthogParallelImage +
+      ")",
+    "",
+    "[" +
+      posthogApplication.weirdness.posthogParallel +
+      "](" +
+      posthogApplication.weirdness.posthogParallelHref +
+      ")",
+    "",
+    ...posthogApplication.weirdness.projects.map(
+      (project) => "- [" + project.label + "](" + project.href + ")",
+    ),
+    "",
     "### Outside the repository",
     "",
     posthogApplication.weirdness.personality.heading,
@@ -581,6 +659,53 @@ export function posthogApplicationMarkdown(): string {
         : []),
       ...("links" in item ? [""] : []),
     ]),
+  ];
+  const culture = [
+    "## " + posthogApplication.culture.heading,
+    "",
+    posthogApplication.culture.intro,
+    "",
+    ...posthogApplication.culture.stories.flatMap((story) => [
+      "### " + story.title,
+      "",
+      story.description,
+      "",
+      "[" + story.link.label + "](" + story.link.href + ")",
+      "",
+    ]),
+    "### " + posthogApplication.culture.publicWork.heading,
+    "",
+    posthogApplication.culture.publicWork.description,
+    "",
+    "[" +
+      posthogApplication.culture.publicWork.linkLabel +
+      "](" +
+      posthogApplication.culture.publicWork.href +
+      ")",
+    "",
+    "### " + posthogApplication.culture.whyNow.heading,
+    "",
+    posthogApplication.culture.whyNow.description,
+    "",
+    "> " + posthogApplication.culture.weird.quote,
+    "",
+    "### " + posthogApplication.culture.closing.heading,
+    "",
+    ...posthogApplication.culture.closing.paragraphs.flatMap((paragraph) => [
+      paragraph,
+      "",
+    ]),
+    "[" +
+      posthogApplication.culture.closing.linkLabel +
+      "](" +
+      posthogApplication.culture.closing.href +
+      ")",
+    "",
+  ];
+  const lines = [
+    ...agentPlatform,
+    ...workWeirdness,
+    ...culture,
     "## Direct evidence",
     "",
     ...posthogApplication.evidence.flatMap((item) => [
@@ -591,40 +716,6 @@ export function posthogApplicationMarkdown(): string {
       ...item.links.map((link) => "- " + markdownLink(link)),
       "",
     ]),
-    "## " + posthogApplication.agentPlatform.heading,
-    "",
-    posthogApplication.agentPlatform.intro,
-    "",
-    "[" +
-      posthogApplication.agentPlatform.posthogLink.label +
-      "](" +
-      posthogApplication.agentPlatform.posthogLink.href +
-      ")",
-    "",
-    ...[
-      posthogApplication.agentPlatform.workspace,
-      posthogApplication.agentPlatform.hub,
-      posthogApplication.agentPlatform.shared,
-    ].flatMap((stage) => [
-      "### " + stage.number + " · " + stage.title,
-      "",
-      stage.detail,
-      "",
-    ]),
-    "### Coding harnesses",
-    "",
-    ...posthogApplication.agentPlatform.harnesses.map(
-      (harness) => "- **" + harness.name + ":** " + harness.detail,
-    ),
-    "",
-    ...posthogApplication.agentPlatform.shared.services.flatMap((service) => [
-      "- [" + service.name + "](" + service.href + "): " + service.detail,
-    ]),
-    "",
-    posthogApplication.agentPlatform.writingPrinciple,
-    "",
-    posthogApplication.agentPlatform.routingPrinciple,
-    "",
     "## What I bring",
     "",
     ...posthogApplication.experience.map(

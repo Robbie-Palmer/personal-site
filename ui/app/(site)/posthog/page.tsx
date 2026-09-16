@@ -21,8 +21,9 @@ import {
   type PostHogApplicationLink,
   posthogApplication,
 } from "@/content/posthog";
-import { TechIcon } from "@/lib/api/tech-icons";
 import { cn } from "@/lib/generic/styles";
+import { AgentPlatformSection } from "./agent-platform-section";
+import { CultureSection } from "./culture-section";
 import { HomelabDiagramSwitcher } from "./homelab-diagram-switcher";
 import styles from "./posthog.module.css";
 
@@ -277,9 +278,9 @@ export default function PostHogApplicationPage() {
           <div className="mt-8 flex flex-wrap gap-3">
             <a
               className="inline-flex items-center gap-2 border-2 border-[var(--hog-ink)] bg-[var(--hog-ink)] px-5 py-3 font-black text-[#fffdf8] shadow-[4px_4px_0_var(--hog-red)] transition-transform hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-4"
-              href="#evidence"
+              href="#agent-platform"
             >
-              Start with the proof
+              See the PostHog parallel
               <ArrowRight className="size-4" aria-hidden="true" />
             </a>
             <Link
@@ -360,141 +361,22 @@ export default function PostHogApplicationPage() {
         </div>
       </section>
 
-      <section className="border-y-2 border-[var(--hog-ink)] bg-[var(--hog-paper-deep)]">
-        <div className="mx-auto max-w-7xl px-5 py-20 sm:px-8 lg:px-12">
-          <div className="grid gap-10 lg:grid-cols-[0.72fr_1.28fr] lg:gap-16">
-            <div>
-              <p className="text-xs font-black uppercase tracking-[0.2em] text-[var(--hog-red)]">
-                The overlap
-              </p>
-              <h2 className="mt-3 text-4xl font-black tracking-[-0.035em] sm:text-5xl">
-                Same destination, different starting point.
-              </h2>
-            </div>
-            <div className="space-y-6 text-lg font-medium leading-8">
-              {posthogApplication.thesis.map((paragraph) => (
-                <p key={paragraph}>{paragraph}</p>
-              ))}
-            </div>
-          </div>
-
-          <div className="mt-16 grid gap-5 sm:grid-cols-2 lg:grid-cols-4 lg:gap-10">
-            {posthogApplication.loop.map((stage, index) => (
-              <article
-                className={cn(
-                  styles.loopStage,
-                  "border-2 border-[var(--hog-ink)] bg-[#fffdf8] p-5",
-                )}
-                key={stage.title}
-              >
-                <div
-                  className="mb-5 flex size-10 items-center justify-center rounded-full border-2 border-[var(--hog-ink)] font-mono text-sm font-black"
-                  style={{
-                    backgroundColor: stageColours[index],
-                    color: index > 0 ? "#fffdf8" : "#1d1f1f",
-                  }}
-                >
-                  {stage.step}
-                </div>
-                <h3 className="text-xl font-black">{stage.title}</h3>
-                <p className="mt-2 text-sm font-medium leading-6">
-                  {stage.detail}
-                </p>
-              </article>
-            ))}
-          </div>
-        </div>
-      </section>
+      <AgentPlatformSection />
 
       <section
         id="specific-weirdness"
         className="scroll-mt-20 border-b-2 border-[var(--hog-ink)] bg-[var(--hog-ink)] text-[#fffdf8]"
       >
         <div className="mx-auto grid max-w-7xl gap-14 px-5 py-24 sm:px-8 lg:grid-cols-[0.9fr_1.1fr] lg:px-12">
-          <div className="min-w-0">
-            <p className="text-xs font-black uppercase tracking-[0.2em] text-[var(--hog-yellow)]">
-              The specific weirdness
-            </p>
-            <h2 className="mt-3 break-words text-4xl font-black tracking-[-0.04em] sm:text-6xl">
-              The subjects jump. The obsession does not.
-            </h2>
-            <blockquote
-              className={cn(
-                styles.weirdQuote,
-                "mt-10 w-full max-w-full p-6 text-2xl font-black leading-tight sm:p-8 sm:text-3xl",
-              )}
-            >
-              <p className="break-words">
-                &ldquo;{posthogApplication.weirdness.quote}&rdquo;
-              </p>
-              <footer className="mt-5 text-sm font-bold">
-                {posthogApplication.weirdness.attribution}
-              </footer>
-            </blockquote>
-          </div>
-
-          <div className="flex min-w-0 flex-col justify-center">
-            <p className="text-2xl font-black leading-snug sm:text-3xl">
-              {posthogApplication.weirdness.intro}
-            </p>
-            <div className="mt-8 flex flex-wrap gap-3">
-              {posthogApplication.weirdness.threads.map((thread) => (
-                <span
-                  className={cn(styles.thread, "px-4 py-2 text-sm font-black")}
-                  key={thread}
-                >
-                  {thread}
-                </span>
-              ))}
-            </div>
-            <p className="mt-9 text-lg font-medium leading-8 text-white/80">
-              {posthogApplication.weirdness.conclusion}
-            </p>
-            <a
-              className="mt-6 grid overflow-hidden border-l-4 border-[var(--hog-red)] bg-white/10 font-bold leading-7 text-white/90 hover:bg-white/15 focus-visible:outline-2 focus-visible:outline-offset-4 sm:grid-cols-[11rem_1fr]"
-              href={posthogApplication.weirdness.posthogParallelHref}
-              target="_blank"
-              rel="noreferrer"
-            >
-              <Image
-                alt={posthogApplication.weirdness.posthogParallelImageAlt}
-                className="h-44 w-full bg-[var(--hog-paper-deep)] object-contain p-3 sm:h-full sm:min-h-44"
-                height={1043}
-                sizes="(min-width: 640px) 176px, 100vw"
-                src={posthogApplication.weirdness.posthogParallelImage}
-                width={1260}
-              />
-              <span className="self-center px-5 py-4">
-                {posthogApplication.weirdness.posthogParallel}
-                <ArrowUpRight
-                  className="ml-2 inline size-4 align-[-0.1em]"
-                  aria-hidden="true"
-                />
-              </span>
-            </a>
-            <div className="mt-8 flex flex-wrap gap-x-6 gap-y-4">
-              {posthogApplication.weirdness.projects.map((project) => (
-                <Link
-                  className="inline-flex items-center gap-1.5 font-black underline decoration-2 underline-offset-4 hover:decoration-[var(--hog-yellow)] focus-visible:outline-2 focus-visible:outline-offset-4"
-                  href={project.href}
-                  key={project.href}
-                >
-                  {project.label}
-                  <ArrowRight className="size-4" aria-hidden="true" />
-                </Link>
-              ))}
-            </div>
-          </div>
-
-          <div className="mt-10 min-w-0 lg:col-span-2">
+          <div className="min-w-0 lg:col-span-2">
             <div className="mb-8 flex flex-wrap items-end justify-between gap-4 border-b-2 border-white/25 pb-5">
               <div>
                 <p className="text-xs font-black uppercase tracking-[0.2em] text-[var(--hog-red)]">
-                  Exhibit A through F
+                  Six exhibits
                 </p>
-                <h3 className="mt-2 text-3xl font-black sm:text-4xl">
+                <h2 className="mt-2 text-4xl font-black tracking-[-0.04em] sm:text-6xl">
                   What the weirdness looks like.
-                </h3>
+                </h2>
               </div>
               <p className="max-w-md text-sm font-bold leading-6 text-white/60">
                 Six interfaces. Six domains. The same urge to turn a messy
@@ -627,6 +509,86 @@ export default function PostHogApplicationPage() {
             </div>
           </div>
 
+          <div className="mt-8 grid min-w-0 gap-14 border-t-2 border-white/25 pt-12 lg:col-span-2 lg:grid-cols-[0.9fr_1.1fr]">
+            <div className="min-w-0">
+              <p className="text-xs font-black uppercase tracking-[0.2em] text-[var(--hog-yellow)]">
+                The through-line
+              </p>
+              <h3 className="mt-3 break-words text-4xl font-black tracking-[-0.04em] sm:text-6xl">
+                The subjects jump. The obsession does not.
+              </h3>
+              <blockquote
+                className={cn(
+                  styles.weirdQuote,
+                  "mt-10 w-full max-w-full p-6 text-2xl font-black leading-tight sm:p-8 sm:text-3xl",
+                )}
+              >
+                <p className="break-words">
+                  &ldquo;{posthogApplication.weirdness.quote}&rdquo;
+                </p>
+                <footer className="mt-5 text-sm font-bold">
+                  {posthogApplication.weirdness.attribution}
+                </footer>
+              </blockquote>
+            </div>
+
+            <div className="flex min-w-0 flex-col justify-center">
+              <p className="text-2xl font-black leading-snug sm:text-3xl">
+                {posthogApplication.weirdness.intro}
+              </p>
+              <div className="mt-8 flex flex-wrap gap-3">
+                {posthogApplication.weirdness.threads.map((thread) => (
+                  <span
+                    className={cn(
+                      styles.thread,
+                      "px-4 py-2 text-sm font-black",
+                    )}
+                    key={thread}
+                  >
+                    {thread}
+                  </span>
+                ))}
+              </div>
+              <p className="mt-9 text-lg font-medium leading-8 text-white/80">
+                {posthogApplication.weirdness.conclusion}
+              </p>
+              <a
+                className="mt-6 grid overflow-hidden border-l-4 border-[var(--hog-red)] bg-white/10 font-bold leading-7 text-white/90 hover:bg-white/15 focus-visible:outline-2 focus-visible:outline-offset-4 sm:grid-cols-[11rem_1fr]"
+                href={posthogApplication.weirdness.posthogParallelHref}
+                target="_blank"
+                rel="noreferrer"
+              >
+                <Image
+                  alt={posthogApplication.weirdness.posthogParallelImageAlt}
+                  className="h-44 w-full bg-[var(--hog-paper-deep)] object-contain p-3 sm:h-full sm:min-h-44"
+                  height={1043}
+                  sizes="(min-width: 640px) 176px, 100vw"
+                  src={posthogApplication.weirdness.posthogParallelImage}
+                  width={1260}
+                />
+                <span className="self-center px-5 py-4">
+                  {posthogApplication.weirdness.posthogParallel}
+                  <ArrowUpRight
+                    className="ml-2 inline size-4 align-[-0.1em]"
+                    aria-hidden="true"
+                  />
+                </span>
+              </a>
+              <div className="mt-8 flex flex-wrap gap-x-6 gap-y-4">
+                {posthogApplication.weirdness.projects.map((project) => (
+                  <Link
+                    className="inline-flex items-center gap-1.5 font-black underline decoration-2 underline-offset-4 hover:decoration-[var(--hog-yellow)] focus-visible:outline-2 focus-visible:outline-offset-4"
+                    href={project.href}
+                    key={project.href}
+                  >
+                    {project.label}
+                    <ArrowRight className="size-4" aria-hidden="true" />
+                  </Link>
+                ))}
+              </div>
+            </div>
+          </div>
+
           <div className="mt-8 min-w-0 border-t-2 border-white/25 pt-12 lg:col-span-2">
             <div className="grid gap-6 lg:grid-cols-[0.8fr_1.2fr] lg:items-end">
               <div>
@@ -651,6 +613,8 @@ export default function PostHogApplicationPage() {
           </div>
         </div>
       </section>
+
+      <CultureSection />
 
       <section id="evidence" className="scroll-mt-20">
         <div className="mx-auto max-w-7xl px-5 py-24 sm:px-8 lg:px-12">
@@ -703,189 +667,6 @@ export default function PostHogApplicationPage() {
         </div>
       </section>
 
-      <section
-        id="agent-platform"
-        className="scroll-mt-20 border-y-2 border-[var(--hog-ink)] bg-[#dcedfb]"
-      >
-        <div className="mx-auto max-w-7xl px-5 py-24 sm:px-8 lg:px-12">
-          <div className="grid gap-8 lg:grid-cols-[0.9fr_1.1fr] lg:gap-16">
-            <div>
-              <p className="text-xs font-black uppercase tracking-[0.2em] text-[var(--hog-red)]">
-                {posthogApplication.agentPlatform.eyebrow}
-              </p>
-              <h2 className="mt-3 text-4xl font-black tracking-[-0.04em] sm:text-6xl">
-                {posthogApplication.agentPlatform.heading}
-              </h2>
-            </div>
-            <div className="self-end">
-              <p className="text-lg font-bold leading-8">
-                {posthogApplication.agentPlatform.intro}
-              </p>
-              <a
-                className="mt-5 inline-flex items-center gap-2 font-black underline decoration-2 underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-4"
-                href={posthogApplication.agentPlatform.posthogLink.href}
-                rel="noreferrer"
-                target="_blank"
-              >
-                {posthogApplication.agentPlatform.posthogLink.label}
-                <ArrowUpRight className="size-4" aria-hidden="true" />
-              </a>
-            </div>
-          </div>
-
-          <div className="mt-14 grid min-w-0 items-stretch gap-5 lg:grid-cols-[0.9fr_auto_1.25fr_auto_1fr] lg:gap-4">
-            <Link
-              className={cn(
-                styles.paperPanel,
-                "group flex min-w-0 flex-col p-6 sm:p-7",
-              )}
-              href={posthogApplication.agentPlatform.workspace.href}
-            >
-              <div className="flex items-center justify-between gap-4">
-                <span className="font-mono text-xs font-black uppercase tracking-[0.16em] text-black/55">
-                  {posthogApplication.agentPlatform.workspace.number} ·{" "}
-                  {posthogApplication.agentPlatform.workspace.eyebrow}
-                </span>
-                <span className="size-3 rounded-full border-2 border-[var(--hog-ink)] bg-[var(--hog-green)]" />
-              </div>
-              <h3 className="mt-6 text-3xl font-black leading-tight tracking-[-0.03em]">
-                {posthogApplication.agentPlatform.workspace.title}
-              </h3>
-              <p className="mt-4 flex-1 font-bold leading-7 text-black/70">
-                {posthogApplication.agentPlatform.workspace.detail}
-              </p>
-              <p className="mt-6 font-mono text-[0.68rem] font-black uppercase tracking-[0.12em] text-black/55">
-                {posthogApplication.agentPlatform.workspace.status}
-              </p>
-              <span className="mt-4 inline-flex items-center gap-2 font-black underline decoration-2 underline-offset-4">
-                {posthogApplication.agentPlatform.workspace.linkLabel}
-                <ArrowRight className="size-4" aria-hidden="true" />
-              </span>
-            </Link>
-
-            <ArrowRight
-              className="mx-auto size-7 rotate-90 self-center lg:rotate-0"
-              aria-hidden="true"
-            />
-
-            <article
-              className={cn(
-                styles.terminalPanel,
-                "flex min-w-0 flex-col p-6 sm:p-7",
-              )}
-            >
-              <div className="flex items-center gap-4">
-                <span className="flex size-12 shrink-0 items-center justify-center rounded-lg bg-white p-2">
-                  <TechIcon
-                    className="size-full"
-                    iconSlug="t3code"
-                    name="t3-code"
-                  />
-                </span>
-                <div>
-                  <p className="font-mono text-xs font-black uppercase tracking-[0.16em] text-white/55">
-                    {posthogApplication.agentPlatform.hub.number} ·{" "}
-                    {posthogApplication.agentPlatform.hub.eyebrow}
-                  </p>
-                  <h3 className="mt-1 text-2xl font-black">
-                    {posthogApplication.agentPlatform.hub.title}
-                  </h3>
-                </div>
-              </div>
-              <p className="mt-5 font-bold leading-7 text-white/75">
-                {posthogApplication.agentPlatform.hub.detail}
-              </p>
-              <div className="mt-6 grid gap-3 sm:grid-cols-2">
-                {posthogApplication.agentPlatform.harnesses.map((harness) => (
-                  <div
-                    className="flex min-w-0 items-center gap-3 border-2 border-white/30 bg-white/10 p-3"
-                    key={harness.name}
-                  >
-                    <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-white p-2 text-[var(--hog-ink)]">
-                      <TechIcon
-                        className="size-full"
-                        iconSlug={harness.iconSlug}
-                        invertInDarkMode={false}
-                        name={harness.iconName}
-                      />
-                    </span>
-                    <span className="min-w-0">
-                      <strong className="block truncate text-sm">
-                        {harness.name}
-                      </strong>
-                      <span className="block truncate font-mono text-[0.64rem] font-bold uppercase tracking-[0.1em] text-white/55">
-                        {harness.detail}
-                      </span>
-                    </span>
-                  </div>
-                ))}
-              </div>
-              <Link
-                className="mt-6 inline-flex items-center gap-2 self-start font-black underline decoration-2 underline-offset-4"
-                href={posthogApplication.agentPlatform.hub.href}
-              >
-                {posthogApplication.agentPlatform.hub.linkLabel}
-                <ArrowRight className="size-4" aria-hidden="true" />
-              </Link>
-            </article>
-
-            <ArrowRight
-              className="mx-auto size-7 rotate-90 self-center lg:rotate-0"
-              aria-hidden="true"
-            />
-
-            <article
-              className={cn(
-                styles.paperPanel,
-                "flex min-w-0 flex-col p-6 sm:p-7",
-              )}
-            >
-              <p className="font-mono text-xs font-black uppercase tracking-[0.16em] text-black/55">
-                {posthogApplication.agentPlatform.shared.number} ·{" "}
-                {posthogApplication.agentPlatform.shared.eyebrow}
-              </p>
-              <h3 className="mt-6 text-3xl font-black leading-tight tracking-[-0.03em]">
-                {posthogApplication.agentPlatform.shared.title}
-              </h3>
-              <p className="mt-4 font-bold leading-7 text-black/70">
-                {posthogApplication.agentPlatform.shared.detail}
-              </p>
-              <div className="mt-6 space-y-4">
-                {posthogApplication.agentPlatform.shared.services.map(
-                  (service) => (
-                    <Link
-                      className="group block border-t-2 border-[var(--hog-ink)] pt-3"
-                      href={service.href}
-                      key={service.name}
-                    >
-                      <span className="flex items-center justify-between gap-3 font-black underline decoration-2 underline-offset-4">
-                        {service.name}
-                        <ArrowRight
-                          className="size-4 shrink-0 transition-transform group-hover:translate-x-1"
-                          aria-hidden="true"
-                        />
-                      </span>
-                      <span className="mt-1 block text-sm font-bold leading-5 text-black/60">
-                        {service.detail}
-                      </span>
-                    </Link>
-                  ),
-                )}
-              </div>
-            </article>
-          </div>
-
-          <div className="mt-10 grid gap-5 border-2 border-[var(--hog-ink)] bg-[var(--hog-yellow)] p-6 shadow-[6px_6px_0_var(--hog-ink)] sm:p-8 lg:grid-cols-2 lg:gap-12">
-            <p className="text-xl font-black leading-8">
-              {posthogApplication.agentPlatform.writingPrinciple}
-            </p>
-            <p className="font-bold leading-7 text-black/70">
-              {posthogApplication.agentPlatform.routingPrinciple}
-            </p>
-          </div>
-        </div>
-      </section>
-
       <section className="border-y-2 border-[var(--hog-ink)] bg-[var(--hog-yellow)]">
         <div className="mx-auto max-w-7xl px-5 py-20 sm:px-8 lg:px-12">
           <div className="grid gap-12 lg:grid-cols-[0.72fr_1.28fr] lg:gap-16">
@@ -894,7 +675,7 @@ export default function PostHogApplicationPage() {
                 What I bring
               </p>
               <h2 className="mt-3 text-4xl font-black tracking-[-0.035em] sm:text-5xl">
-                One builder across the whole loop.
+                One builder across the whole system.
               </h2>
               <Link
                 className="mt-7 inline-flex items-center gap-2 font-black underline decoration-2 underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-4"

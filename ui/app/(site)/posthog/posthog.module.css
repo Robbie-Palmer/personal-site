@@ -43,33 +43,6 @@
   translate: -3px -3px;
 }
 
-.loopStage {
-  position: relative;
-}
-
-.loopStage:not(:last-child)::after {
-  background: var(--hog-ink);
-  content: "";
-  height: 2px;
-  position: absolute;
-  right: -1.25rem;
-  top: 2.1rem;
-  width: 2.5rem;
-}
-
-.loopStage:not(:last-child)::before {
-  border-right: 2px solid var(--hog-ink);
-  border-top: 2px solid var(--hog-ink);
-  content: "";
-  height: 0.55rem;
-  position: absolute;
-  right: -1.2rem;
-  top: 1.87rem;
-  transform: rotate(45deg);
-  width: 0.55rem;
-  z-index: 1;
-}
-
 .scribble {
   position: relative;
   white-space: nowrap;
@@ -246,13 +219,6 @@
 a.personalityCard:hover {
   box-shadow: 9px 9px 0 var(--personality-accent);
   translate: -3px -3px;
-}
-
-@media (max-width: 1023px) {
-  .loopStage:not(:last-child)::after,
-  .loopStage:not(:last-child)::before {
-    display: none;
-  }
 }
 
 @media (max-width: 639px) {

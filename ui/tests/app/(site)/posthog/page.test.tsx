@@ -10,7 +10,6 @@ vi.mock("@/app/(site)/posthog/posthog.module.css", () => ({
     heroTeaser: "heroTeaser",
     heroTeaserItem: "heroTeaserItem",
     hoggie: "hoggie",
-    loopStage: "loopStage",
     page: "page",
     paperPanel: "paperPanel",
     personalityCard: "personalityCard",
@@ -67,13 +66,30 @@ describe("PostHog application page", () => {
     const workWeirdnessHeading = screen.getByRole("heading", {
       name: "What the weirdness looks like.",
     });
+    const throughLineHeading = screen.getByRole("heading", {
+      name: "The subjects jump. The obsession does not.",
+    });
     const personalWeirdnessHeading = screen.getByRole("heading", {
       name: "The repository is only the organised part.",
     });
-    const sectionHeadings = screen.getAllByRole("heading", { level: 3 });
+    const agentPlatformHeading = screen.getByRole("heading", {
+      name: /I was already building the machine around the coding agent/i,
+    });
+    const sectionHeadings = screen.getAllByRole("heading");
+    expect(sectionHeadings.indexOf(agentPlatformHeading)).toBeLessThan(
+      sectionHeadings.indexOf(workWeirdnessHeading),
+    );
     expect(sectionHeadings.indexOf(workWeirdnessHeading)).toBeLessThan(
+      sectionHeadings.indexOf(throughLineHeading),
+    );
+    expect(sectionHeadings.indexOf(throughLineHeading)).toBeLessThan(
       sectionHeadings.indexOf(personalWeirdnessHeading),
     );
+    expect(
+      screen.queryByRole("heading", {
+        name: "Same destination, different starting point.",
+      }),
+    ).not.toBeInTheDocument();
     expect(
       screen.getByRole("link", {
         name: /I connected the philosophy of mathematics/i,
@@ -108,6 +124,9 @@ describe("PostHog application page", () => {
         name: /A preview of the weirdness.*See the through-line/i,
       }),
     ).toHaveAttribute("href", "#specific-weirdness");
+    expect(
+      screen.getByRole("link", { name: /^See the PostHog parallel$/i }),
+    ).toHaveAttribute("href", "#agent-platform");
     expect(
       screen.getByRole("link", { name: /^Satellite swarm$/i }),
     ).toHaveAttribute("href", "/projects/autonomic-satellite-swarm");
@@ -185,6 +204,31 @@ describe("PostHog application page", () => {
     expect(
       screen.getByRole("link", { name: /Agent-first Writing Editor/i }),
     ).toHaveAttribute("href", "/projects/agent-first-writing");
+    expect(
+      screen.getByRole("heading", {
+        name: "The culture I keep trying to build already exists here.",
+      }),
+    ).toBeVisible();
+    expect(
+      screen.getByRole("heading", {
+        name: /I argued against Kubernetes/i,
+      }),
+    ).toBeVisible();
+    expect(screen.getByText(/He proved me wrong/i)).toBeVisible();
+    expect(screen.getByText(/lowest morale and productivity/i)).toBeVisible();
+    expect(
+      screen.getByRole("heading", {
+        name: "That description feels uncomfortably specific.",
+      }),
+    ).toBeVisible();
+    expect(
+      screen.getByRole("link", {
+        name: /Read PostHog's cracked-engineer essay/i,
+      }),
+    ).toHaveAttribute(
+      "href",
+      "https://newsletter.posthog.com/p/hiring-and-managing-cracked-engineers",
+    );
     expect(
       screen.getByRole("link", { name: /Try the product demo/i }),
     ).toHaveAttribute("href", "/recipes");
