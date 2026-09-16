@@ -155,9 +155,24 @@ describe("PostHog application page", () => {
     ).toBeVisible();
     expect(screen.getByText("01 · Physical topology")).toBeVisible();
     expect(screen.getByText("02 · Inside the Mac mini")).toBeVisible();
-    fireEvent.click(
-      screen.getByRole("tab", { name: "02 · Inside the Mac mini" }),
+    const physicalTab = screen.getByRole("tab", {
+      name: "01 · Physical topology",
+    });
+    const servicesTab = screen.getByRole("tab", {
+      name: "02 · Inside the Mac mini",
+    });
+    const physicalPanel = document.getElementById(
+      physicalTab.getAttribute("aria-controls") ?? "",
     );
+    const servicesPanel = document.getElementById(
+      servicesTab.getAttribute("aria-controls") ?? "",
+    );
+
+    expect(physicalPanel).toBeVisible();
+    expect(servicesPanel).not.toBeVisible();
+    fireEvent.click(servicesTab);
+    expect(physicalPanel).not.toBeVisible();
+    expect(servicesPanel).toBeVisible();
     expect(
       screen.getByRole("img", {
         name: /Mac mini container topology showing DNS/i,

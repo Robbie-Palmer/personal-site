@@ -46,9 +46,6 @@ export function HomelabDiagramSwitcher({
     dense: true,
   };
   const diagrams = [overviewDiagram, servicesDiagram] as const;
-  const activeDiagram =
-    activeId === "physical" ? overviewDiagram : servicesDiagram;
-
   return (
     <div className={styles.artefactDiagram}>
       <div
@@ -71,23 +68,27 @@ export function HomelabDiagramSwitcher({
           </button>
         ))}
       </div>
-      <div
-        aria-labelledby={`${instanceId}-${activeDiagram.id}-tab`}
-        className={styles.artefactDiagramBlock}
-        id={`${instanceId}-${activeDiagram.id}-panel`}
-        role="tabpanel"
-      >
+      {diagrams.map((diagram) => (
         <div
-          aria-label={activeDiagram.alt}
-          className={cn(
-            styles.artefactDiagramViewport,
-            activeDiagram.dense && styles.artefactDiagramViewportDense,
-          )}
-          role="img"
+          aria-labelledby={`${instanceId}-${diagram.id}-tab`}
+          className={styles.artefactDiagramBlock}
+          hidden={diagram.id !== activeId}
+          id={`${instanceId}-${diagram.id}-panel`}
+          key={diagram.id}
+          role="tabpanel"
         >
-          <Mermaid chart={activeDiagram.chart} className="w-full" />
+          <div
+            aria-label={diagram.alt}
+            className={cn(
+              styles.artefactDiagramViewport,
+              diagram.dense && styles.artefactDiagramViewportDense,
+            )}
+            role="img"
+          >
+            <Mermaid chart={diagram.chart} className="w-full" />
+          </div>
         </div>
-      </div>
+      ))}
     </div>
   );
 }
