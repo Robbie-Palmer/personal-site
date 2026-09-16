@@ -171,6 +171,21 @@
   scale: 1.04;
 }
 
+.personalityCard {
+  background: #fffdf8;
+  border: 2px solid #fffdf8;
+  box-shadow: 6px 6px 0 var(--personality-accent);
+  color: var(--hog-ink);
+  transition:
+    box-shadow 160ms ease,
+    translate 160ms ease;
+}
+
+a.personalityCard:hover {
+  box-shadow: 9px 9px 0 var(--personality-accent);
+  translate: -3px -3px;
+}
+
 @media (max-width: 1023px) {
   .loopStage:not(:last-child)::after,
   .loopStage:not(:last-child)::before {
@@ -195,6 +210,7 @@
 @media (prefers-reduced-motion: reduce) {
   .heroTeaser,
   .heroTeaserItem img,
+  .personalityCard,
   .evidenceCard {
     transition: none;
   }

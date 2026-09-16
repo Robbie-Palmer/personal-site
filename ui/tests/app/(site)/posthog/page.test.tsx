@@ -13,6 +13,7 @@ vi.mock("@/app/(site)/posthog/posthog.module.css", () => ({
     loopStage: "loopStage",
     page: "page",
     paperPanel: "paperPanel",
+    personalityCard: "personalityCard",
     scribble: "scribble",
     terminalPanel: "terminalPanel",
     thread: "thread",
@@ -36,19 +37,15 @@ describe("PostHog application page", () => {
       }),
     ).toBeVisible();
     expect(
-      screen.getByText(
-        /a record of whether each change was merged and deployed/i,
-      ),
+      screen.getByText(/cancer diagnostics, logistics yards/i),
     ).toBeVisible();
-    expect(
-      screen.getByText(/before I knew PostHog used that phrase/i),
-    ).toBeVisible();
+    expect(screen.getByText(/Gödel → data mesh/i)).toBeVisible();
     expect(
       screen.getByRole("heading", {
         name: "The work is public. You can inspect it.",
       }),
     ).toBeVisible();
-    expect(screen.getByText(/used it to pick up this page/i)).toBeVisible();
+    expect(screen.getByText(/coordinate the work on this page/i)).toBeVisible();
     expect(
       screen.getByRole("heading", {
         name: "The subjects jump. The obsession does not.",
@@ -56,6 +53,23 @@ describe("PostHog application page", () => {
     ).toBeVisible();
     expect(screen.getByText(/Correct\. That is the point/i)).toBeVisible();
     expect(screen.getByText(/DeskHog is a developer toy/i)).toBeVisible();
+    expect(
+      screen.getByRole("heading", {
+        name: "The repository is only the organised part.",
+      }),
+    ).toBeVisible();
+    expect(
+      screen.getByRole("link", {
+        name: /I connected the philosophy of mathematics/i,
+      }),
+    ).toHaveAttribute(
+      "href",
+      "/blog/2022-03-02-the-philosophy-of-data-science",
+    );
+    expect(screen.getByText("I perform solo jazz dancing.")).toBeVisible();
+    expect(
+      screen.getByText("I watch postmodernist analyses of Shrek for fun."),
+    ).toBeVisible();
     expect(
       screen.getByRole("link", {
         name: /A preview of the weirdness.*See the through-line/i,

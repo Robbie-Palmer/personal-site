@@ -3,9 +3,12 @@ import { Logo } from "@posthog/brand/logo";
 import {
   ArrowRight,
   ArrowUpRight,
+  BookOpen,
   Check,
+  Clapperboard,
   Github,
   MapPin,
+  Music,
   Network,
 } from "lucide-react";
 import type { Metadata } from "next";
@@ -96,6 +99,66 @@ function EvidenceLink({ link }: { readonly link: PostHogApplicationLink }) {
 }
 
 const stageColours = ["#f5c842", "#f05b52", "#1490e8", "#4e9b75"];
+const personalityIcons = [BookOpen, Music, Clapperboard];
+
+type PersonalityItem =
+  (typeof posthogApplication.weirdness.personality.items)[number];
+
+function PersonalityCard({
+  item,
+  index,
+}: {
+  readonly item: PersonalityItem;
+  readonly index: number;
+}) {
+  const Icon = personalityIcons[index] ?? BookOpen;
+  const className = cn(
+    styles.personalityCard,
+    "group flex min-h-full flex-col p-6 sm:p-7",
+  );
+  const style = {
+    "--personality-accent": stageColours[index],
+  } as CSSProperties;
+  const content = (
+    <>
+      <div className="flex items-center gap-3">
+        <span
+          className="flex size-10 shrink-0 items-center justify-center rounded-full border-2 border-[var(--hog-ink)]"
+          style={{ backgroundColor: stageColours[index] }}
+        >
+          <Icon className="size-5" aria-hidden="true" />
+        </span>
+        <p className="font-mono text-[0.65rem] font-black uppercase tracking-[0.12em] text-black/55">
+          {item.eyebrow}
+        </p>
+      </div>
+      <h4 className="mt-6 text-2xl font-black leading-tight">{item.title}</h4>
+      <p className="mt-4 flex-1 font-bold leading-7 text-black/70">
+        {item.description}
+      </p>
+      {"href" in item && (
+        <span className="mt-6 inline-flex items-center gap-2 font-black underline decoration-2 underline-offset-4">
+          {item.linkLabel}
+          <ArrowRight className="size-4" aria-hidden="true" />
+        </span>
+      )}
+    </>
+  );
+
+  if ("href" in item) {
+    return (
+      <Link className={className} href={item.href} style={style}>
+        {content}
+      </Link>
+    );
+  }
+
+  return (
+    <article className={className} style={style}>
+      {content}
+    </article>
+  );
+}
 
 export default function PostHogApplicationPage() {
   return (
@@ -156,10 +219,11 @@ export default function PostHogApplicationPage() {
           </a>
           <p className="mt-8 max-w-2xl text-lg font-medium leading-8 sm:text-xl">
             You are building the context and tools that let products understand
-            what is happening and act on it. I have been building the
-            engineering system around that idea: work chosen from live
-            priorities, agents operating within explicit limits, automated code
-            review, and a record of whether each change was merged and deployed.
+            what is happening and act on it. I keep arriving at the same problem
+            from wildly different directions: cancer diagnostics, logistics
+            yards, satellite swarms, household finance, recipes, and software
+            agents. I turn messy systems into models, then build the data and
+            feedback loops that let them adapt.
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
             <a
@@ -218,26 +282,26 @@ export default function PostHogApplicationPage() {
               <span className="size-3 rounded-full bg-[var(--hog-yellow)]" />
               <span className="size-3 rounded-full bg-[var(--hog-green)]" />
               <span className="ml-auto font-mono text-xs text-white/55">
-                evidence.log
+                curiosity.log
               </span>
             </div>
             <div className="space-y-5 font-mono text-sm leading-6 sm:text-base">
-              <p className="text-white/55">$ work-graph claim</p>
+              <p className="text-white/55">$ cat ~/current-obsessions</p>
               <p className="break-words text-[var(--hog-yellow)]">
-                posthog-application-landing-page
+                the laptop is only part of the problem
               </p>
               <dl className="grid grid-cols-[auto_1fr] gap-x-5 gap-y-2 border-y border-white/20 py-5">
-                <dt className="text-white/45">stage</dt>
-                <dd>in_progress</dd>
-                <dt className="text-white/45">lease</dt>
-                <dd>fenced · renewable</dd>
-                <dt className="text-white/45">proof</dt>
-                <dd>merge + deployment</dd>
+                <dt className="text-white/45">essay</dt>
+                <dd>Gödel → data mesh</dd>
+                <dt className="text-white/45">dance</dt>
+                <dd>solo jazz</dd>
+                <dt className="text-white/45">watch</dt>
+                <dd>3h Shrek analysis</dd>
               </dl>
               <p className="flex items-start gap-2 text-[#bce7ce]">
                 <Check className="mt-1 size-4 shrink-0" aria-hidden="true" />
                 <span>
-                  This page is work moving through the system it describes.
+                  Curiosity does not clock out when the laptop closes.
                 </span>
               </p>
             </div>
@@ -359,6 +423,29 @@ export default function PostHogApplicationPage() {
             </div>
           </div>
 
+          <div className="mt-8 border-t-2 border-white/25 pt-12 lg:col-span-2">
+            <div className="grid gap-6 lg:grid-cols-[0.8fr_1.2fr] lg:items-end">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.2em] text-[var(--hog-blue)]">
+                  Outside the repository
+                </p>
+                <h3 className="mt-2 text-3xl font-black sm:text-5xl">
+                  {posthogApplication.weirdness.personality.heading}
+                </h3>
+              </div>
+              <p className="text-lg font-bold leading-8 text-white/75">
+                {posthogApplication.weirdness.personality.intro}
+              </p>
+            </div>
+            <div className="mt-9 grid gap-7 md:grid-cols-3">
+              {posthogApplication.weirdness.personality.items.map(
+                (item, index) => (
+                  <PersonalityCard index={index} item={item} key={item.title} />
+                ),
+              )}
+            </div>
+          </div>
+
           <div className="mt-10 lg:col-span-2">
             <div className="mb-8 flex flex-wrap items-end justify-between gap-4 border-b-2 border-white/25 pb-5">
               <div>
@@ -460,7 +547,7 @@ export default function PostHogApplicationPage() {
             <p className="mt-5 text-lg font-medium leading-8">
               These are working systems and recorded decisions, not portfolio
               mock-ups. Each link goes to the product, source, architecture, or
-              merged change behind the claim.
+              public decision behind the claim.
             </p>
           </div>
 

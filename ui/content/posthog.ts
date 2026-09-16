@@ -16,8 +16,8 @@ export const posthogApplication = {
   description:
     "A speculative application to PostHog from Robbie Palmer, backed by working product infrastructure, public decisions, and shipped code.",
   thesis: [
-    "I was building pieces of a self-driving product loop before I knew PostHog used that phrase. Product and operational signals become prioritised work. Agents execute with explicit authority. Automated review checks the result. Work Graph marks the task complete only after it records the merged pull request and successful deployment.",
-    "You are assembling the context and tools that let a product participate in that loop. I have been building the engineering system around it. That overlap is why I am applying to PostHog.",
+    "I was building pieces of a self-driving product long before I knew PostHog used that phrase. Across pathology, logistics, personal finance, recipes, and developer tooling, the pattern is the same: observe the real system, build a useful model of it, then shorten the distance between learning and action.",
+    "You are assembling the context and tools that let products do that for themselves. I keep attacking the same problem through data architecture, applied ML, digital twins, adaptive planning, and product engineering. That overlap is why I am applying to PostHog.",
   ],
   loop: [
     {
@@ -38,7 +38,7 @@ export const posthogApplication = {
     {
       step: "04",
       title: "Verify",
-      detail: "Tests, review, product impact, merge and deploy evidence",
+      detail: "Tests, review, experiments, and product impact",
     },
   ],
   weirdness: {
@@ -60,6 +60,34 @@ export const posthogApplication = {
     posthogParallel:
       "DeskHog is a developer toy built for joy. I recognise the instinct. Curiosity is allowed to become infrastructure.",
     posthogParallelHref: "https://posthog.com/deskhog",
+    personality: {
+      heading: "The repository is only the organised part.",
+      intro:
+        "None of this is personal branding. It is what I do when nobody has assigned me a ticket. If pineapple-on-pizza telemetry belongs on a company page, this belongs on an application.",
+      items: [
+        {
+          eyebrow: "Light reading · 6,907 words",
+          title:
+            "I connected the philosophy of mathematics to data science and data mesh.",
+          description:
+            "The essay asks what data scientists mean by knowledge, then brings in Gödel, Popper, Kuhn, postmodernism, and organisational architecture.",
+          href: "/blog/2022-03-02-the-philosophy-of-data-science",
+          linkLabel: "Read the whole thing",
+        },
+        {
+          eyebrow: "Live performance",
+          title: "I perform solo jazz dancing.",
+          description:
+            "A different kind of improvisation: rhythm, vocabulary, nerve, and no rollback button.",
+        },
+        {
+          eyebrow: "Normal evening plans · 3 hours",
+          title: "I watch postmodernist analyses of Shrek for fun.",
+          description:
+            "If someone has spent three hours building an argument about an ogre, I want to hear the argument.",
+        },
+      ],
+    },
     projects: [
       { label: "Recipe platform", href: "/projects/recipe-site" },
       {
@@ -172,15 +200,15 @@ export const posthogApplication = {
       eyebrow: "The plan",
       title: "Work that agents can share",
       description:
-        "Work Graph is a deployed API and installable CLI backed by PostgreSQL. It derives ready work from dependencies, prevents concurrent owners with fenced leases, records human decisions, and requires evidence before repository work is complete. I used it to pick up this page.",
+        "Work Graph is a deployed API and installable CLI backed by PostgreSQL. It derives ready work from dependencies, prevents concurrent owners with fenced leases, and records human decisions so people and agents can coordinate without a central dispatcher. I used it to coordinate the work on this page.",
       links: [
         {
           label: "Inspect the Work Graph",
           href: "/projects/work-graph",
         },
         {
-          label: "See completion evidence land",
-          href: "https://github.com/Robbie-Palmer/hq/pull/1346",
+          label: "Inspect the source",
+          href: "https://github.com/Robbie-Palmer/hq/tree/main/packages/work-graph-cli",
           external: true,
         },
       ],
@@ -262,7 +290,7 @@ export function posthogApplicationMarkdown(): string {
       (stage) => "- **" + stage.title + ":** " + stage.detail,
     ),
     "",
-    "This page moved through that loop. An agent claimed its Work Graph item with a fenced lease. Repository-backed work can only be released after the change is merged and deployed.",
+    "The loop appears in different forms across clinical software, logistics yards, consumer products, and developer tooling.",
     "",
     "## The specific weirdness",
     "",
@@ -286,6 +314,21 @@ export function posthogApplicationMarkdown(): string {
       (project) => "- [" + project.label + "](" + project.href + ")",
     ),
     "",
+    "### Outside the repository",
+    "",
+    posthogApplication.weirdness.personality.heading,
+    "",
+    posthogApplication.weirdness.personality.intro,
+    "",
+    ...posthogApplication.weirdness.personality.items.flatMap((item) => [
+      "#### " +
+        ("href" in item
+          ? "[" + item.title + "](" + item.href + ")"
+          : item.title),
+      "",
+      item.description,
+      "",
+    ]),
     "### What the weirdness looks like",
     "",
     ...posthogApplication.weirdness.artefacts.flatMap((artefact) => [
