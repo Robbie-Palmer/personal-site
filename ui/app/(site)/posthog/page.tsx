@@ -486,29 +486,6 @@ export default function PostHogApplicationPage() {
             </div>
           </div>
 
-          <div className="mt-8 min-w-0 border-t-2 border-white/25 pt-12 lg:col-span-2">
-            <div className="grid gap-6 lg:grid-cols-[0.8fr_1.2fr] lg:items-end">
-              <div>
-                <p className="text-xs font-black uppercase tracking-[0.2em] text-[var(--hog-blue)]">
-                  Outside the repository
-                </p>
-                <h3 className="mt-2 text-3xl font-black sm:text-5xl">
-                  {posthogApplication.weirdness.personality.heading}
-                </h3>
-              </div>
-              <p className="text-lg font-bold leading-8 text-white/75">
-                {posthogApplication.weirdness.personality.intro}
-              </p>
-            </div>
-            <div className="mt-9 grid gap-7 md:grid-cols-3">
-              {posthogApplication.weirdness.personality.items.map(
-                (item, index) => (
-                  <PersonalityCard index={index} item={item} key={item.title} />
-                ),
-              )}
-            </div>
-          </div>
-
           <div className="mt-10 min-w-0 lg:col-span-2">
             <div className="mb-8 flex flex-wrap items-end justify-between gap-4 border-b-2 border-white/25 pb-5">
               <div>
@@ -647,6 +624,29 @@ export default function PostHogApplicationPage() {
                   </Link>
                 );
               })}
+            </div>
+          </div>
+
+          <div className="mt-8 min-w-0 border-t-2 border-white/25 pt-12 lg:col-span-2">
+            <div className="grid gap-6 lg:grid-cols-[0.8fr_1.2fr] lg:items-end">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.2em] text-[var(--hog-blue)]">
+                  Outside the repository
+                </p>
+                <h3 className="mt-2 text-3xl font-black sm:text-5xl">
+                  {posthogApplication.weirdness.personality.heading}
+                </h3>
+              </div>
+              <p className="text-lg font-bold leading-8 text-white/75">
+                {posthogApplication.weirdness.personality.intro}
+              </p>
+            </div>
+            <div className="mt-9 grid gap-7 md:grid-cols-3">
+              {posthogApplication.weirdness.personality.items.map(
+                (item, index) => (
+                  <PersonalityCard index={index} item={item} key={item.title} />
+                ),
+              )}
             </div>
           </div>
         </div>

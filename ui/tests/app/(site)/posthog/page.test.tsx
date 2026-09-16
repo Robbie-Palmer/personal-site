@@ -64,6 +64,16 @@ describe("PostHog application page", () => {
         name: "The repository is only the organised part.",
       }),
     ).toBeVisible();
+    const workWeirdnessHeading = screen.getByRole("heading", {
+      name: "What the weirdness looks like.",
+    });
+    const personalWeirdnessHeading = screen.getByRole("heading", {
+      name: "The repository is only the organised part.",
+    });
+    const sectionHeadings = screen.getAllByRole("heading", { level: 3 });
+    expect(sectionHeadings.indexOf(workWeirdnessHeading)).toBeLessThan(
+      sectionHeadings.indexOf(personalWeirdnessHeading),
+    );
     expect(
       screen.getByRole("link", {
         name: /I connected the philosophy of mathematics/i,

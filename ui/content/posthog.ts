@@ -518,30 +518,6 @@ export function posthogApplicationMarkdown(): string {
       (project) => "- [" + project.label + "](" + project.href + ")",
     ),
     "",
-    "### Outside the repository",
-    "",
-    posthogApplication.weirdness.personality.heading,
-    "",
-    posthogApplication.weirdness.personality.intro,
-    "",
-    ...posthogApplication.weirdness.personality.items.flatMap((item) => [
-      "#### " +
-        ("href" in item
-          ? "[" + item.title + "](" + item.href + ")"
-          : item.title),
-      "",
-      ...("image" in item
-        ? ["![" + item.imageAlt + "](" + item.image + ")", ""]
-        : []),
-      item.description,
-      "",
-      ...("links" in item
-        ? item.links.flatMap((link) => [
-            "- [" + link.label + "](" + link.href + ")",
-          ])
-        : []),
-      ...("links" in item ? [""] : []),
-    ]),
     "### What the weirdness looks like",
     "",
     ...posthogApplication.weirdness.artefacts.flatMap((artefact) => [
@@ -580,6 +556,30 @@ export function posthogApplicationMarkdown(): string {
       ...("sourceHref" in artefact
         ? ["[" + artefact.credit + "](" + artefact.sourceHref + ")", ""]
         : []),
+    ]),
+    "### Outside the repository",
+    "",
+    posthogApplication.weirdness.personality.heading,
+    "",
+    posthogApplication.weirdness.personality.intro,
+    "",
+    ...posthogApplication.weirdness.personality.items.flatMap((item) => [
+      "#### " +
+        ("href" in item
+          ? "[" + item.title + "](" + item.href + ")"
+          : item.title),
+      "",
+      ...("image" in item
+        ? ["![" + item.imageAlt + "](" + item.image + ")", ""]
+        : []),
+      item.description,
+      "",
+      ...("links" in item
+        ? item.links.flatMap((link) => [
+            "- [" + link.label + "](" + link.href + ")",
+          ])
+        : []),
+      ...("links" in item ? [""] : []),
     ]),
     "## Direct evidence",
     "",
