@@ -92,6 +92,10 @@ const buildRepository = (): WorkGraphApiRepository => ({
   removeKnowledgeScopeRelationship: vi.fn(async () => undefined),
   listWorkItems: vi.fn(async () => []),
   getWorkItem: vi.fn(async (workItemId) => item(workItemId, "ready")),
+  listNotes: vi.fn(async () => []),
+  listEvents: vi.fn(async () => []),
+  listDependencies: vi.fn(async () => []),
+  listLeases: vi.fn(async () => []),
   listAttentionRequests: vi.fn(async () => []),
   createWorkItem: vi.fn(async (input) => ({
     ...input,
@@ -668,6 +672,180 @@ describe("Given a worker recording progress and requesting attention", () => {
       leaseId,
       content: "Checked the generated contract.",
       createdAt: acquiredAt.toISOString(),
+    });
+  });
+
+  it("exposes every stored work-item metadata family without database access", async () => {
+    const repository = buildRepository();
+    const secondId = "00000000-0000-4000-8000-000000000009";
+    vi.mocked(repository.listNotes).mockResolvedValue([
+      {
+        id: noteId,
+        workItemId: "ready",
+        leaseId,
+        content: "First note",
+        createdAt: acquiredAt,
+      },
+      {
+        id: secondId,
+        workItemId: "ready",
+        leaseId,
+        content: "Second note",
+        createdAt: expiresAt,
+      },
+    ]);
+    vi.mocked(repository.listDependencies).mockResolvedValue([
+      { dependentWorkItemId: "ready", blockerWorkItemId: "blocker-a" },
+      { dependentWorkItemId: "downstream", blockerWorkItemId: "ready" },
+    ]);
+    vi.mocked(repository.listLeases).mockResolvedValue([
+      {
+        ...lease("ready"),
+        id: secondId,
+        epoch: 2,
+        endedAt: expiresAt,
+        outcome: "decomposed",
+      },
+      { ...lease("ready"), id: attentionResolutionId, epoch: 3 },
+    ]);
+    vi.mocked(repository.listEvents).mockImplementation(async (input = {}) => {
+      const lifecycle = input.lifecycle ?? "released";
+      const type = input.type ?? "dependency.added";
+      return [
+        {
+          sequence: 21,
+          type,
+          workItemId: "ready",
+          data:
+            type === "work_item.lifecycle_changed"
+              ? {
+                  from: "open",
+                  to: lifecycle,
+                  ...(lifecycle === "released"
+                    ? {
+                        mergeEvidence: completionEvidence.mergeEvidence,
+                        deploymentEvidence:
+                          completionEvidence.deploymentEvidence,
+                      }
+                    : {}),
+                }
+              : type === "work_item.decomposed"
+                ? { childWorkItemIds: ["child-a"] }
+                : { blockerWorkItemId: "blocker-a" },
+          occurredAt: acquiredAt,
+        },
+        {
+          sequence: 22,
+          type,
+          workItemId: "ready",
+          data: {},
+          occurredAt: expiresAt,
+        },
+      ];
+    });
+    vi.mocked(repository.listAttentionRequests).mockResolvedValue([
+      {
+        id: attentionRequestId,
+        workItemId: "ready",
+        requestingLeaseId: leaseId,
+        kind: "decision",
+        question: "Which contract is canonical?",
+        note: "Compare both options.",
+        blocking: true,
+        createdAt: acquiredAt,
+        resolution: {
+          id: attentionResolutionId,
+          attentionRequestId,
+          resolution: "Use the REST contract.",
+          createdAt: expiresAt,
+        },
+      },
+    ]);
+    const app = createWorkGraphApp(repository);
+
+    const notes = await app.request(
+      "/api/work-items/ready/notes?limit=1",
+    );
+    const events = await app.request(
+      "/api/work-items/ready/events?limit=1&afterSequence=20",
+    );
+    const dependencies = await app.request(
+      "/api/work-items/ready/dependencies?limit=1",
+    );
+    const decompositions = await app.request(
+      "/api/work-items/ready/events?type=work_item.decomposed&limit=1",
+    );
+    const leases = await app.request(
+      "/api/work-items/ready/leases?limit=1&afterEpoch=1",
+    );
+    const attention = await app.request(
+      "/api/attention-requests?workItemId=ready&state=all&limit=1",
+    );
+    const cancellations = await app.request(
+      "/api/work-items/ready/events?type=work_item.lifecycle_changed&lifecycle=cancelled&limit=1",
+    );
+    const releases = await app.request(
+      "/api/work-items/ready/events?type=work_item.lifecycle_changed&lifecycle=released&limit=1",
+    );
+
+    expect(await responseJson(notes)).toEqual({
+      items: [expect.objectContaining({ content: "First note" })],
+      nextCursor: noteId,
+    });
+    expect(await responseJson(events)).toEqual({
+      items: [expect.objectContaining({ sequence: 21 })],
+      nextCursor: 21,
+    });
+    expect(await responseJson(dependencies)).toEqual({
+      items: [
+        { dependentWorkItemId: "ready", blockerWorkItemId: "blocker-a" },
+      ],
+      nextCursor: JSON.stringify(["ready", "blocker-a"]),
+    });
+    expect(await responseJson(decompositions)).toEqual({
+      items: [
+        expect.objectContaining({
+          type: "work_item.decomposed",
+          data: { childWorkItemIds: ["child-a"] },
+        }),
+      ],
+      nextCursor: 21,
+    });
+    expect(await responseJson(leases)).toEqual({
+      items: [expect.objectContaining({ epoch: 2, outcome: "decomposed" })],
+      nextCursor: 2,
+    });
+    expect(await responseJson(attention)).toEqual({
+      items: [
+        expect.objectContaining({
+          resolution: expect.objectContaining({
+            resolution: "Use the REST contract.",
+          }),
+        }),
+      ],
+      nextCursor: null,
+    });
+    expect(await responseJson(cancellations)).toEqual({
+      items: [
+        expect.objectContaining({ data: { from: "open", to: "cancelled" } }),
+      ],
+      nextCursor: 21,
+    });
+    expect(await responseJson(releases)).toEqual({
+      items: [
+        expect.objectContaining({
+          data: {
+            from: "open",
+            to: "released",
+            ...completionEvidence,
+          },
+        }),
+      ],
+      nextCursor: 21,
+    });
+    expect(repository.listAttentionRequests).toHaveBeenCalledWith({
+      workItemId: "ready",
+      limit: 2,
     });
   });
 

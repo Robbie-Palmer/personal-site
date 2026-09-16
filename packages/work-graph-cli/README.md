@@ -83,6 +83,14 @@ work-graph queue --all --limit 100
 work-graph claim --worker-id agent-a
 work-graph claim cli-8 --worker-id agent-a
 work-graph show cli-8
+work-graph metadata notes cli-8
+work-graph metadata events cli-8 --after-sequence 120
+work-graph metadata dependencies cli-8
+work-graph metadata decompositions cli-8
+work-graph metadata leases cli-8 --after-epoch 2
+work-graph metadata attention cli-8
+work-graph metadata cancellations cli-8
+work-graph metadata releases cli-8
 work-graph note cli-8 --lease-id "$LEASE_ID" --epoch 1 --content "HTTP tests pass"
 work-graph renew "$LEASE_ID" --epoch 1 --lease-duration-seconds 600
 work-graph release cli-8 \
@@ -92,6 +100,19 @@ work-graph release cli-8 \
   --deployment-evidence https://work-graph.example.com/health
 work-graph cancel cli-8 --lease-id "$LEASE_ID" --epoch 1
 ```
+
+The `metadata` commands expose the complete stored history needed to resume or
+audit one work item. Notes include their content, dependency results contain
+current incoming and outgoing edges, leases retain every worker and outcome,
+and attention results include resolutions. Decomposition, cancellation, and
+release results come from the immutable event log. Release events include both
+merge and deployment evidence.
+
+Every metadata response is a JSON object with `items` and `nextCursor`.
+`notes` uses a note UUID cursor and `dependencies` uses an opaque cursor.
+`events`, `decompositions`, `cancellations`, and `releases` continue with
+`--after-sequence`. `leases` continues with `--after-epoch`. Pass `--limit` to
+any metadata command. The default page size is 50 and the maximum is 100.
 
 `release` is the successful terminal transition. For repository-backed work,
 use it only after the change is merged and deployed. The command requires

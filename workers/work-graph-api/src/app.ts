@@ -15,18 +15,25 @@ import type {
   IdempotentMutationOptions,
   KnowledgeScopeRelationshipCursor,
   ListAttentionRequestsInput,
+  ListEventsInput,
   ListKnowledgeScopeRelationshipsInput,
   ListKnowledgeScopesInput,
+  ListWorkItemDependenciesInput,
+  ListWorkItemLeasesInput,
+  ListWorkItemNotesInput,
   ResolveAttentionRequestInput,
   ResolveAttentionRequestResult,
   RenewLeaseInput,
   StoredAttentionRequest,
   StoredAttentionResolution,
+  StoredEvent,
   StoredLease,
   StoredNote,
   TerminateClaimedWorkItemInput,
+  WorkItemDependencyCursor,
   WorkItemReadModel,
 } from "work-graph-db";
+import { WORK_GRAPH_EVENT_TYPES } from "work-graph-db";
 import {
   KNOWLEDGE_SCOPE_KINDS,
   LEASE_OUTCOMES,
@@ -50,6 +57,9 @@ const MAX_DECOMPOSITION_DEPENDENCIES = 1_000;
 const DEFAULT_LIST_LIMIT = 50;
 const MAX_URL_LENGTH = 2_048;
 const MAX_RELATIONSHIP_CURSOR_LENGTH = 4_096;
+const MAX_METADATA_CURSOR_LENGTH = 4_096;
+const MAX_INT32 = 2_147_483_647;
+const workGraphEventTypes = new Set<string>(WORK_GRAPH_EVENT_TYPES);
 const CREDENTIAL_FREE_HTTP_URL_PATTERN =
   /^[hH][tT][tT][pP][sS]?:\/\/(?![^/?#]*@)/;
 
@@ -188,6 +198,53 @@ const noteSchema = z
     createdAt: timestampSchema,
   })
   .openapi("WorkItemNote");
+const noteListSchema = z
+  .object({
+    items: z.array(noteSchema).max(100),
+    nextCursor: z.union([z.uuid().max(36), z.null()]),
+  })
+  .openapi("WorkItemNoteList");
+const eventSchema = z
+  .object({
+    sequence: z
+      .number()
+      .int()
+      .min(1)
+      .max(MAX_INT32)
+      .openapi({ format: "int32" }),
+    type: z.enum(WORK_GRAPH_EVENT_TYPES),
+    workItemId: z.union([identifierSchema, z.null()]),
+    data: z.record(z.string(), z.unknown()),
+    occurredAt: timestampSchema,
+  })
+  .openapi("WorkItemEvent");
+const eventListSchema = z
+  .object({
+    items: z.array(eventSchema).max(100),
+    nextCursor: z.union([
+      z.number().int().min(1).max(MAX_INT32).openapi({ format: "int32" }),
+      z.null(),
+    ]),
+  })
+  .openapi("WorkItemEventList");
+const dependencyListSchema = z
+  .object({
+    items: z.array(workItemDependencySchema).max(100),
+    nextCursor: z.union([
+      z.string().min(1).max(MAX_METADATA_CURSOR_LENGTH),
+      z.null(),
+    ]),
+  })
+  .openapi("WorkItemDependencyList");
+const leaseListSchema = z
+  .object({
+    items: z.array(leaseSchema).max(100),
+    nextCursor: z.union([
+      z.number().int().min(1).max(MAX_INT32).openapi({ format: "int32" }),
+      z.null(),
+    ]),
+  })
+  .openapi("WorkItemLeaseList");
 const attentionRequestSchema = z
   .object({
     id: z.uuid().max(36),
@@ -252,7 +309,8 @@ const listWorkItemsQuerySchema = z.object({
   cursor: identifierSchema.optional(),
 });
 const listAttentionRequestsQuerySchema = z.object({
-  state: z.enum(["unresolved", "resolved"]).default("unresolved"),
+  workItemId: identifierSchema.optional(),
+  state: z.enum(["all", "unresolved", "resolved"]).default("unresolved"),
   blocking: z.enum(["true", "false"]).optional(),
   limit: z.coerce
     .number()
@@ -262,6 +320,53 @@ const listAttentionRequestsQuerySchema = z.object({
     .default(DEFAULT_LIST_LIMIT)
     .openapi({ format: "int32" }),
   cursor: z.uuid().max(36).optional(),
+});
+const metadataPageLimitSchema = z.coerce
+  .number()
+  .int()
+  .min(1)
+  .max(100)
+  .default(DEFAULT_LIST_LIMIT)
+  .openapi({ format: "int32" });
+const listWorkItemNotesQuerySchema = z.object({
+  limit: metadataPageLimitSchema,
+  cursor: z.uuid().max(36).optional(),
+});
+const listWorkItemEventsQuerySchema = z
+  .object({
+    type: z.enum(WORK_GRAPH_EVENT_TYPES).optional(),
+    lifecycle: z.enum(["released", "cancelled"]).optional(),
+    limit: metadataPageLimitSchema,
+    afterSequence: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(MAX_INT32)
+      .openapi({ format: "int32" })
+      .optional(),
+  })
+  .refine(
+    ({ lifecycle, type }) =>
+      lifecycle === undefined || type === "work_item.lifecycle_changed",
+    {
+      message:
+        "lifecycle requires type work_item.lifecycle_changed",
+      path: ["lifecycle"],
+    },
+  );
+const listWorkItemDependenciesQuerySchema = z.object({
+  limit: metadataPageLimitSchema,
+  cursor: z.string().min(1).max(MAX_METADATA_CURSOR_LENGTH).optional(),
+});
+const listWorkItemLeasesQuerySchema = z.object({
+  limit: metadataPageLimitSchema,
+  afterEpoch: z.coerce
+    .number()
+    .int()
+    .min(1)
+    .max(MAX_INT32)
+    .openapi({ format: "int32" })
+    .optional(),
 });
 const listKnowledgeScopesQuerySchema = z.object({
   kind: z.enum(KNOWLEDGE_SCOPE_KINDS).optional(),
@@ -720,6 +825,94 @@ const createNoteRoute = createRoute({
   },
 });
 
+const listWorkItemNotesRoute = createRoute({
+  method: "get",
+  path: "/api/work-items/{workItemId}/notes",
+  operationId: "listWorkItemNotes",
+  summary: "List notes for a work item",
+  description:
+    "Returns notes in stable note-ID order. Pass nextCursor to continue without offset drift.",
+  tags: ["notes"],
+  security: accessSecurity,
+  request: {
+    params: workItemParamsSchema,
+    query: listWorkItemNotesQuerySchema,
+  },
+  responses: {
+    200: {
+      description: "Work-item notes in stable order",
+      content: { "application/json": { schema: noteListSchema } },
+    },
+    ...standardErrors,
+  },
+});
+
+const listWorkItemEventsRoute = createRoute({
+  method: "get",
+  path: "/api/work-items/{workItemId}/events",
+  operationId: "listWorkItemEvents",
+  summary: "List immutable events for a work item",
+  description:
+    "Returns events in stable sequence order. Type and terminal-lifecycle filters expose decomposition, cancellation, and release history without separate mutable records.",
+  tags: ["work-items"],
+  security: accessSecurity,
+  request: {
+    params: workItemParamsSchema,
+    query: listWorkItemEventsQuerySchema,
+  },
+  responses: {
+    200: {
+      description: "Work-item events in stable sequence order",
+      content: { "application/json": { schema: eventListSchema } },
+    },
+    ...standardErrors,
+  },
+});
+
+const listWorkItemDependenciesRoute = createRoute({
+  method: "get",
+  path: "/api/work-items/{workItemId}/dependencies",
+  operationId: "listWorkItemDependencies",
+  summary: "List dependency edges involving a work item",
+  description:
+    "Returns current incoming and outgoing dependency edges in stable dependent-ID and blocker-ID order.",
+  tags: ["dependencies"],
+  security: accessSecurity,
+  request: {
+    params: workItemParamsSchema,
+    query: listWorkItemDependenciesQuerySchema,
+  },
+  responses: {
+    200: {
+      description: "Current dependency edges involving the work item",
+      content: { "application/json": { schema: dependencyListSchema } },
+    },
+    ...standardErrors,
+  },
+});
+
+const listWorkItemLeasesRoute = createRoute({
+  method: "get",
+  path: "/api/work-items/{workItemId}/leases",
+  operationId: "listWorkItemLeases",
+  summary: "List lease history for a work item",
+  description:
+    "Returns immutable lease history in monotonically increasing epoch order.",
+  tags: ["leases"],
+  security: accessSecurity,
+  request: {
+    params: workItemParamsSchema,
+    query: listWorkItemLeasesQuerySchema,
+  },
+  responses: {
+    200: {
+      description: "Work-item leases in epoch order",
+      content: { "application/json": { schema: leaseListSchema } },
+    },
+    ...standardErrors,
+  },
+});
+
 const listAttentionRequestsRoute = createRoute({
   method: "get",
   path: "/api/attention-requests",
@@ -949,6 +1142,14 @@ export interface WorkGraphApiRepository {
   ): Promise<void>;
   listWorkItems(): Promise<readonly WorkItemReadModel[]>;
   getWorkItem(workItemId: string): Promise<WorkItemReadModel>;
+  listNotes(input: ListWorkItemNotesInput): Promise<readonly StoredNote[]>;
+  listEvents(input?: ListEventsInput): Promise<readonly StoredEvent[]>;
+  listDependencies(
+    input: ListWorkItemDependenciesInput,
+  ): Promise<readonly WorkItemDependency[]>;
+  listLeases(
+    input: ListWorkItemLeasesInput,
+  ): Promise<readonly StoredLease[]>;
   listAttentionRequests(
     input?: ListAttentionRequestsInput,
   ): Promise<readonly AttentionRequestReadModel[]>;
@@ -1029,6 +1230,39 @@ const decodeKnowledgeScopeRelationshipCursor = (
   );
 };
 
+const dependencyCursorTupleSchema = z.tuple([
+  identifierSchema,
+  identifierSchema,
+]);
+
+const encodeWorkItemDependencyCursor = (
+  dependency: WorkItemDependency,
+): string =>
+  JSON.stringify([
+    dependency.dependentWorkItemId,
+    dependency.blockerWorkItemId,
+  ]);
+
+const decodeWorkItemDependencyCursor = (
+  cursor: string,
+): WorkItemDependencyCursor => {
+  try {
+    const parsed = dependencyCursorTupleSchema.safeParse(JSON.parse(cursor));
+    if (parsed.success) {
+      return {
+        dependentWorkItemId: parsed.data[0],
+        blockerWorkItemId: parsed.data[1],
+      };
+    }
+  } catch {
+    // The normalized error below keeps cursor internals out of API responses.
+  }
+  throw new WorkGraphError(
+    "invalid_work_item_dependency_cursor",
+    "The work-item dependency cursor is invalid.",
+  );
+};
+
 const serializeLease = (storedLease: StoredLease) => ({
   ...storedLease,
   acquiredAt: storedLease.acquiredAt.toISOString(),
@@ -1045,6 +1279,17 @@ const serializeNote = (storedNote: StoredNote) => ({
   ...storedNote,
   createdAt: storedNote.createdAt.toISOString(),
 });
+
+const serializeEvent = (storedEvent: StoredEvent) => {
+  if (!workGraphEventTypes.has(storedEvent.type)) {
+    throw new Error(`Unknown stored Work Graph event type ${storedEvent.type}.`);
+  }
+  return {
+    ...storedEvent,
+    type: storedEvent.type as (typeof WORK_GRAPH_EVENT_TYPES)[number],
+    occurredAt: storedEvent.occurredAt.toISOString(),
+  };
+};
 
 const serializeAttentionRequest = (stored: StoredAttentionRequest) => ({
   ...stored,
@@ -1313,10 +1558,102 @@ export const createWorkGraphApp = (
     return context.json(serializeNote(created), 201);
   });
 
+  app.openapi(listWorkItemNotesRoute, async (context) => {
+    const { workItemId } = context.req.valid("param");
+    const { cursor, limit } = context.req.valid("query");
+    await repository.getWorkItem(workItemId);
+    const notes = await repository.listNotes({
+      workItemId,
+      ...(cursor === undefined ? {} : { cursor }),
+      limit: limit + 1,
+    });
+    const page = notes.slice(0, limit);
+    const last = page.at(-1);
+    return context.json(
+      {
+        items: page.map(serializeNote),
+        nextCursor: notes.length > limit && last ? last.id : null,
+      },
+      200,
+    );
+  });
+
+  app.openapi(listWorkItemEventsRoute, async (context) => {
+    const { workItemId } = context.req.valid("param");
+    const { afterSequence, lifecycle, limit, type } =
+      context.req.valid("query");
+    await repository.getWorkItem(workItemId);
+    const events = await repository.listEvents({
+      workItemId,
+      ...(type === undefined ? {} : { type }),
+      ...(lifecycle === undefined ? {} : { lifecycle }),
+      ...(afterSequence === undefined ? {} : { afterSequence }),
+      limit: limit + 1,
+    });
+    const page = events.slice(0, limit);
+    return context.json(
+      {
+        items: page.map(serializeEvent),
+        nextCursor:
+          events.length > limit ? (page.at(-1)?.sequence ?? null) : null,
+      },
+      200,
+    );
+  });
+
+  app.openapi(listWorkItemDependenciesRoute, async (context) => {
+    const { workItemId } = context.req.valid("param");
+    const { cursor, limit } = context.req.valid("query");
+    await repository.getWorkItem(workItemId);
+    const dependencies = await repository.listDependencies({
+      workItemId,
+      ...(cursor === undefined
+        ? {}
+        : { cursor: decodeWorkItemDependencyCursor(cursor) }),
+      limit: limit + 1,
+    });
+    const page = dependencies.slice(0, limit);
+    const last = page.at(-1);
+    return context.json(
+      {
+        items: page,
+        nextCursor:
+          dependencies.length > limit && last
+            ? encodeWorkItemDependencyCursor(last)
+            : null,
+      },
+      200,
+    );
+  });
+
+  app.openapi(listWorkItemLeasesRoute, async (context) => {
+    const { workItemId } = context.req.valid("param");
+    const { afterEpoch, limit } = context.req.valid("query");
+    await repository.getWorkItem(workItemId);
+    const leases = await repository.listLeases({
+      workItemId,
+      ...(afterEpoch === undefined ? {} : { afterEpoch }),
+      limit: limit + 1,
+    });
+    const page = leases.slice(0, limit);
+    return context.json(
+      {
+        items: page.map(serializeLease),
+        nextCursor: leases.length > limit ? (page.at(-1)?.epoch ?? null) : null,
+      },
+      200,
+    );
+  });
+
   app.openapi(listAttentionRequestsRoute, async (context) => {
-    const { blocking, cursor, limit, state } = context.req.valid("query");
+    const { blocking, cursor, limit, state, workItemId } =
+      context.req.valid("query");
+    if (workItemId !== undefined) {
+      await repository.getWorkItem(workItemId);
+    }
     const requests = await repository.listAttentionRequests({
-      state,
+      ...(workItemId === undefined ? {} : { workItemId }),
+      ...(state === "all" ? {} : { state }),
       limit: limit + 1,
       ...(blocking === undefined ? {} : { blocking: blocking === "true" }),
       ...(cursor === undefined ? {} : { cursor }),

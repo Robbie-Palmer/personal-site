@@ -209,15 +209,41 @@ export interface AttentionRequestReadModel extends StoredAttentionRequest {
 }
 
 export interface ListAttentionRequestsInput {
+  readonly workItemId?: string;
   readonly state?: "unresolved" | "resolved";
   readonly blocking?: boolean;
   readonly cursor?: string;
   readonly limit?: number;
 }
 
+export interface ListWorkItemNotesInput {
+  readonly workItemId: string;
+  readonly cursor?: string;
+  readonly limit?: number;
+}
+
 export interface ListEventsInput {
   readonly workItemId?: string;
+  readonly type?: WorkGraphEventType;
+  readonly lifecycle?: TerminalWorkItemState;
   readonly afterSequence?: number;
+  readonly limit?: number;
+}
+
+export interface WorkItemDependencyCursor {
+  readonly dependentWorkItemId: string;
+  readonly blockerWorkItemId: string;
+}
+
+export interface ListWorkItemDependenciesInput {
+  readonly workItemId: string;
+  readonly cursor?: WorkItemDependencyCursor;
+  readonly limit?: number;
+}
+
+export interface ListWorkItemLeasesInput {
+  readonly workItemId: string;
+  readonly afterEpoch?: number;
   readonly limit?: number;
 }
 
@@ -1033,13 +1059,27 @@ export class WorkGraphRepository {
     }
   }
 
-  async listNotes(workItemId: string): Promise<readonly StoredNote[]> {
-    requireIdentifier(workItemId, "invalid_work_item_id");
-    return this.db
+  async listNotes(
+    input: ListWorkItemNotesInput | string,
+  ): Promise<readonly StoredNote[]> {
+    const parameters =
+      typeof input === "string" ? { workItemId: input } : input;
+    requireIdentifier(parameters.workItemId, "invalid_work_item_id");
+    const query = this.db
       .select()
       .from(note)
-      .where(eq(note.workItemId, workItemId))
-      .orderBy(note.createdAt, note.id);
+      .where(
+        and(
+          eq(note.workItemId, parameters.workItemId),
+          parameters.cursor === undefined
+            ? undefined
+            : gt(note.id, parameters.cursor),
+        ),
+      )
+      .orderBy(note.id);
+    return parameters.limit === undefined
+      ? query
+      : query.limit(parameters.limit);
   }
 
   async listEvents(
@@ -1056,6 +1096,10 @@ export class WorkGraphRepository {
           input.workItemId === undefined
             ? undefined
             : eq(event.workItemId, input.workItemId),
+          input.type === undefined ? undefined : eq(event.type, input.type),
+          input.lifecycle === undefined
+            ? undefined
+            : sql`${event.data} ->> 'to' = ${input.lifecycle}`,
           input.afterSequence === undefined
             ? undefined
             : gt(event.sequence, input.afterSequence),
@@ -1070,6 +1114,9 @@ export class WorkGraphRepository {
   ): Promise<
     readonly AttentionRequestReadModel[]
   > {
+    if (input.workItemId !== undefined) {
+      requireIdentifier(input.workItemId, "invalid_work_item_id");
+    }
     let stateCondition: SQL | undefined;
     if (input.state === "resolved") {
       stateCondition = isNotNull(attentionResolution.id);
@@ -1088,6 +1135,9 @@ export class WorkGraphRepository {
       )
       .where(
         and(
+          input.workItemId === undefined
+            ? undefined
+            : eq(attentionRequest.workItemId, input.workItemId),
           stateCondition,
           input.blocking === undefined
             ? undefined
@@ -1104,6 +1154,49 @@ export class WorkGraphRepository {
       ...row.attentionRequest,
       resolution: row.resolution,
     }));
+  }
+
+  async listDependencies(
+    input: ListWorkItemDependenciesInput,
+  ): Promise<readonly WorkItemDependency[]> {
+    requireIdentifier(input.workItemId, "invalid_work_item_id");
+    const query = this.db
+      .select({
+        dependentWorkItemId: workItemDependency.dependentWorkItemId,
+        blockerWorkItemId: workItemDependency.blockerWorkItemId,
+      })
+      .from(workItemDependency)
+      .where(
+        and(
+          or(
+            eq(workItemDependency.dependentWorkItemId, input.workItemId),
+            eq(workItemDependency.blockerWorkItemId, input.workItemId),
+          ),
+          input.cursor === undefined
+            ? undefined
+            : or(
+                gt(
+                  workItemDependency.dependentWorkItemId,
+                  input.cursor.dependentWorkItemId,
+                ),
+                and(
+                  eq(
+                    workItemDependency.dependentWorkItemId,
+                    input.cursor.dependentWorkItemId,
+                  ),
+                  gt(
+                    workItemDependency.blockerWorkItemId,
+                    input.cursor.blockerWorkItemId,
+                  ),
+                ),
+              ),
+        ),
+      )
+      .orderBy(
+        workItemDependency.dependentWorkItemId,
+        workItemDependency.blockerWorkItemId,
+      );
+    return input.limit === undefined ? query : query.limit(input.limit);
   }
 
   async createAttentionRequest(
@@ -1864,13 +1957,27 @@ export class WorkGraphRepository {
     });
   }
 
-  async listLeases(workItemId: string): Promise<readonly StoredLease[]> {
-    requireIdentifier(workItemId, "invalid_work_item_id");
-    return this.db
+  async listLeases(
+    input: ListWorkItemLeasesInput | string,
+  ): Promise<readonly StoredLease[]> {
+    const parameters =
+      typeof input === "string" ? { workItemId: input } : input;
+    requireIdentifier(parameters.workItemId, "invalid_work_item_id");
+    const query = this.db
       .select()
       .from(lease)
-      .where(eq(lease.workItemId, workItemId))
+      .where(
+        and(
+          eq(lease.workItemId, parameters.workItemId),
+          parameters.afterEpoch === undefined
+            ? undefined
+            : gt(lease.epoch, parameters.afterEpoch),
+        ),
+      )
       .orderBy(lease.epoch);
+    return parameters.limit === undefined
+      ? query
+      : query.limit(parameters.limit);
   }
 
   async getCurrentLease(workItemId: string): Promise<StoredLease | null> {

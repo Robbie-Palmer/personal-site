@@ -80,6 +80,36 @@ export type WorkItemNote = {
     createdAt: string;
 };
 
+export type WorkItemNoteList = {
+    items: Array<WorkItemNote>;
+    nextCursor: string | null;
+};
+
+export type WorkItemEventList = {
+    items: Array<WorkItemEvent>;
+    nextCursor: number | null;
+};
+
+export type WorkItemEvent = {
+    sequence: number;
+    type: 'attention.requested' | 'attention.resolved' | 'dependency.added' | 'dependency.removed' | 'knowledge_scope.put' | 'knowledge_scope_relationship.added' | 'knowledge_scope_relationship.removed' | 'lease.claimed' | 'lease.ended' | 'lease.renewed' | 'note.created' | 'work_item.created' | 'work_item.decomposed' | 'work_item.lifecycle_changed' | 'work_item.reparented';
+    workItemId: string | null;
+    data: {
+        [key: string]: unknown;
+    };
+    occurredAt: string;
+};
+
+export type WorkItemDependencyList = {
+    items: Array<WorkItemDependency>;
+    nextCursor: string | null;
+};
+
+export type WorkItemLeaseList = {
+    items: Array<Lease>;
+    nextCursor: number | null;
+};
+
 export type AttentionRequestList = {
     items: Array<AttentionRequestReadModel>;
     nextCursor: string | null;
@@ -142,7 +172,8 @@ export type ListAttentionRequestsData = {
     body?: never;
     path?: never;
     query?: {
-        state?: 'unresolved' | 'resolved';
+        workItemId?: string;
+        state?: 'all' | 'unresolved' | 'resolved';
         blocking?: 'true' | 'false';
         limit?: number;
         cursor?: string;
@@ -1166,6 +1197,224 @@ export type CreateWorkItemDecompositionResponses = {
 };
 
 export type CreateWorkItemDecompositionResponse = CreateWorkItemDecompositionResponses[keyof CreateWorkItemDecompositionResponses];
+
+export type ListWorkItemDependenciesData = {
+    body?: never;
+    path: {
+        workItemId: string;
+    };
+    query?: {
+        limit?: number;
+        cursor?: string;
+    };
+    url: '/api/work-items/{workItemId}/dependencies';
+};
+
+export type ListWorkItemDependenciesErrors = {
+    /**
+     * Invalid request
+     */
+    400: Error;
+    /**
+     * Cloudflare Access authentication required
+     */
+    401: Error;
+    /**
+     * Cloudflare Access denied the request
+     */
+    403: Error;
+    /**
+     * Resource not found
+     */
+    404: Error;
+    /**
+     * Request conflicts with current Work Graph state
+     */
+    409: Error;
+    /**
+     * Request validation failed
+     */
+    422: Error;
+    /**
+     * Unexpected server error
+     */
+    500: Error;
+};
+
+export type ListWorkItemDependenciesError = ListWorkItemDependenciesErrors[keyof ListWorkItemDependenciesErrors];
+
+export type ListWorkItemDependenciesResponses = {
+    /**
+     * Current dependency edges involving the work item
+     */
+    200: WorkItemDependencyList;
+};
+
+export type ListWorkItemDependenciesResponse = ListWorkItemDependenciesResponses[keyof ListWorkItemDependenciesResponses];
+
+export type ListWorkItemEventsData = {
+    body?: never;
+    path: {
+        workItemId: string;
+    };
+    query?: {
+        type?: 'attention.requested' | 'attention.resolved' | 'dependency.added' | 'dependency.removed' | 'knowledge_scope.put' | 'knowledge_scope_relationship.added' | 'knowledge_scope_relationship.removed' | 'lease.claimed' | 'lease.ended' | 'lease.renewed' | 'note.created' | 'work_item.created' | 'work_item.decomposed' | 'work_item.lifecycle_changed' | 'work_item.reparented';
+        lifecycle?: 'released' | 'cancelled';
+        limit?: number;
+        afterSequence?: number;
+    };
+    url: '/api/work-items/{workItemId}/events';
+};
+
+export type ListWorkItemEventsErrors = {
+    /**
+     * Invalid request
+     */
+    400: Error;
+    /**
+     * Cloudflare Access authentication required
+     */
+    401: Error;
+    /**
+     * Cloudflare Access denied the request
+     */
+    403: Error;
+    /**
+     * Resource not found
+     */
+    404: Error;
+    /**
+     * Request conflicts with current Work Graph state
+     */
+    409: Error;
+    /**
+     * Request validation failed
+     */
+    422: Error;
+    /**
+     * Unexpected server error
+     */
+    500: Error;
+};
+
+export type ListWorkItemEventsError = ListWorkItemEventsErrors[keyof ListWorkItemEventsErrors];
+
+export type ListWorkItemEventsResponses = {
+    /**
+     * Work-item events in stable sequence order
+     */
+    200: WorkItemEventList;
+};
+
+export type ListWorkItemEventsResponse = ListWorkItemEventsResponses[keyof ListWorkItemEventsResponses];
+
+export type ListWorkItemLeasesData = {
+    body?: never;
+    path: {
+        workItemId: string;
+    };
+    query?: {
+        limit?: number;
+        afterEpoch?: number;
+    };
+    url: '/api/work-items/{workItemId}/leases';
+};
+
+export type ListWorkItemLeasesErrors = {
+    /**
+     * Invalid request
+     */
+    400: Error;
+    /**
+     * Cloudflare Access authentication required
+     */
+    401: Error;
+    /**
+     * Cloudflare Access denied the request
+     */
+    403: Error;
+    /**
+     * Resource not found
+     */
+    404: Error;
+    /**
+     * Request conflicts with current Work Graph state
+     */
+    409: Error;
+    /**
+     * Request validation failed
+     */
+    422: Error;
+    /**
+     * Unexpected server error
+     */
+    500: Error;
+};
+
+export type ListWorkItemLeasesError = ListWorkItemLeasesErrors[keyof ListWorkItemLeasesErrors];
+
+export type ListWorkItemLeasesResponses = {
+    /**
+     * Work-item leases in epoch order
+     */
+    200: WorkItemLeaseList;
+};
+
+export type ListWorkItemLeasesResponse = ListWorkItemLeasesResponses[keyof ListWorkItemLeasesResponses];
+
+export type ListWorkItemNotesData = {
+    body?: never;
+    path: {
+        workItemId: string;
+    };
+    query?: {
+        limit?: number;
+        cursor?: string;
+    };
+    url: '/api/work-items/{workItemId}/notes';
+};
+
+export type ListWorkItemNotesErrors = {
+    /**
+     * Invalid request
+     */
+    400: Error;
+    /**
+     * Cloudflare Access authentication required
+     */
+    401: Error;
+    /**
+     * Cloudflare Access denied the request
+     */
+    403: Error;
+    /**
+     * Resource not found
+     */
+    404: Error;
+    /**
+     * Request conflicts with current Work Graph state
+     */
+    409: Error;
+    /**
+     * Request validation failed
+     */
+    422: Error;
+    /**
+     * Unexpected server error
+     */
+    500: Error;
+};
+
+export type ListWorkItemNotesError = ListWorkItemNotesErrors[keyof ListWorkItemNotesErrors];
+
+export type ListWorkItemNotesResponses = {
+    /**
+     * Work-item notes in stable order
+     */
+    200: WorkItemNoteList;
+};
+
+export type ListWorkItemNotesResponse = ListWorkItemNotesResponses[keyof ListWorkItemNotesResponses];
 
 export type CreateWorkItemNoteData = {
     body: {

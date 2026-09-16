@@ -17,6 +17,10 @@ import {
   listAttentionRequests,
   listKnowledgeScopeRelationships,
   listKnowledgeScopes,
+  listWorkItemDependencies,
+  listWorkItemEvents,
+  listWorkItemLeases,
+  listWorkItemNotes,
   listWorkItems,
   putKnowledgeScope,
 } from "./generated/client/sdk.gen.js";
@@ -35,6 +39,10 @@ import type {
   ListAttentionRequestsData,
   ListKnowledgeScopeRelationshipsData,
   ListKnowledgeScopesData,
+  ListWorkItemDependenciesData,
+  ListWorkItemEventsData,
+  ListWorkItemLeasesData,
+  ListWorkItemNotesData,
   ListWorkItemsData,
   PutKnowledgeScopeData,
 } from "./generated/client/types.gen.js";
@@ -222,6 +230,58 @@ export class WorkGraphClient {
   getWorkItem(workItemId: string) {
     return this.#unwrap(
       getWorkItem({ ...this.#options(), path: { workItemId } }),
+    );
+  }
+
+  listWorkItemNotes(
+    workItemId: string,
+    query: NonNullable<ListWorkItemNotesData["query"]>,
+  ) {
+    return this.#unwrap(
+      listWorkItemNotes({
+        ...this.#options(),
+        path: { workItemId },
+        query,
+      }),
+    );
+  }
+
+  listWorkItemEvents(
+    workItemId: string,
+    query: NonNullable<ListWorkItemEventsData["query"]>,
+  ) {
+    return this.#unwrap(
+      listWorkItemEvents({
+        ...this.#options(),
+        path: { workItemId },
+        query,
+      }),
+    );
+  }
+
+  listWorkItemDependencies(
+    workItemId: string,
+    query: NonNullable<ListWorkItemDependenciesData["query"]>,
+  ) {
+    return this.#unwrap(
+      listWorkItemDependencies({
+        ...this.#options(),
+        path: { workItemId },
+        query,
+      }),
+    );
+  }
+
+  listWorkItemLeases(
+    workItemId: string,
+    query: NonNullable<ListWorkItemLeasesData["query"]>,
+  ) {
+    return this.#unwrap(
+      listWorkItemLeases({
+        ...this.#options(),
+        path: { workItemId },
+        query,
+      }),
     );
   }
 

@@ -199,6 +199,120 @@ describe("Given agent-facing Work Graph commands", () => {
     );
   });
 
+  it("reads every work-item metadata family as paginated JSON", async () => {
+    const notes = harness(() => response({ items: [], nextCursor: null }));
+    const events = harness(() => response({ items: [], nextCursor: null }));
+    const dependencies = harness(() =>
+      response({ items: [], nextCursor: null }),
+    );
+    const decompositions = harness(() =>
+      response({ items: [], nextCursor: null }),
+    );
+    const leases = harness(() => response({ items: [], nextCursor: null }));
+    const attention = harness(() =>
+      response({ items: [], nextCursor: null }),
+    );
+    const cancellations = harness(() =>
+      response({ items: [], nextCursor: null }),
+    );
+    const releases = harness(() => response({ items: [], nextCursor: null }));
+
+    await notes.run([
+      "metadata",
+      "notes",
+      "work/a b",
+      "--limit",
+      "10",
+      "--cursor",
+      UUID,
+    ]);
+    await events.run([
+      "metadata",
+      "events",
+      "work/a b",
+      "--type",
+      "dependency.added",
+      "--limit",
+      "10",
+      "--after-sequence",
+      "20",
+    ]);
+    await dependencies.run([
+      "metadata",
+      "dependencies",
+      "work/a b",
+      "--limit",
+      "10",
+      "--cursor",
+      '["dependent","blocker"]',
+    ]);
+    await decompositions.run([
+      "metadata",
+      "decompositions",
+      "work/a b",
+      "--after-sequence",
+      "20",
+    ]);
+    await leases.run([
+      "metadata",
+      "leases",
+      "work/a b",
+      "--limit",
+      "10",
+      "--after-epoch",
+      "2",
+    ]);
+    await attention.run([
+      "metadata",
+      "attention",
+      "work/a b",
+      "--limit",
+      "10",
+      "--cursor",
+      UUID,
+    ]);
+    await cancellations.run([
+      "metadata",
+      "cancellations",
+      "work/a b",
+      "--after-sequence",
+      "20",
+    ]);
+    await releases.run([
+      "metadata",
+      "releases",
+      "work/a b",
+      "--after-sequence",
+      "20",
+    ]);
+
+    expect(notes.requests[0]?.url.href).toBe(
+      `https://work.example.test/root/api/work-items/work%2Fa%20b/notes?limit=10&cursor=${UUID}`,
+    );
+    expect(events.requests[0]?.url.href).toBe(
+      "https://work.example.test/root/api/work-items/work%2Fa%20b/events?type=dependency.added&limit=10&afterSequence=20",
+    );
+    expect(dependencies.requests[0]?.url.href).toBe(
+      "https://work.example.test/root/api/work-items/work%2Fa%20b/dependencies?limit=10&cursor=%5B%22dependent%22%2C%22blocker%22%5D",
+    );
+    expect(decompositions.requests[0]?.url.href).toBe(
+      "https://work.example.test/root/api/work-items/work%2Fa%20b/events?type=work_item.decomposed&afterSequence=20",
+    );
+    expect(leases.requests[0]?.url.href).toBe(
+      "https://work.example.test/root/api/work-items/work%2Fa%20b/leases?limit=10&afterEpoch=2",
+    );
+    expect(attention.requests[0]?.url.href).toBe(
+      `https://work.example.test/root/api/attention-requests?workItemId=work%2Fa%20b&state=all&limit=10&cursor=${UUID}`,
+    );
+    expect(cancellations.requests[0]?.url.href).toBe(
+      "https://work.example.test/root/api/work-items/work%2Fa%20b/events?type=work_item.lifecycle_changed&lifecycle=cancelled&afterSequence=20",
+    );
+    expect(releases.requests[0]?.url.href).toBe(
+      "https://work.example.test/root/api/work-items/work%2Fa%20b/events?type=work_item.lifecycle_changed&lifecycle=released&afterSequence=20",
+    );
+    expect(releases.stdout).toEqual(['{"items":[],"nextCursor":null}\n']);
+  });
+
   it("claims the next item or a specified item", async () => {
     const next = harness();
     const specified = harness();
