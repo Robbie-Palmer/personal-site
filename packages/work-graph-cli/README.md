@@ -78,6 +78,8 @@ work-graph scope link semi-autonomous-software-development work-graph
 work-graph scope links
 work-graph scope unlink semi-autonomous-software-development work-graph
 work-graph create cli-8 --title "Build the TypeScript CLI"
+work-graph dependency add cli-8 api-7
+work-graph dependency remove cli-8 api-7
 work-graph queue
 work-graph queue --all --limit 100
 work-graph claim --worker-id agent-a
@@ -101,6 +103,11 @@ work-graph release cli-8 \
 work-graph comment cli-8 --author agent-a --content "The production check found a follow-up."
 work-graph cancel cli-8 --lease-id "$LEASE_ID" --epoch 1
 ```
+
+`dependency add` rejects self-dependencies and edges that would create a cycle
+across dependency and hierarchy relationships. Both dependency mutations accept
+`--idempotency-key`. Removing an edge leaves its `dependency.added` event in the
+immutable event log and appends a `dependency.removed` event.
 
 The `metadata` commands expose the complete stored history needed to resume or
 audit one work item. Notes include their content, dependency results contain

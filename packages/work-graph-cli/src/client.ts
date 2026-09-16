@@ -3,6 +3,7 @@ import type { Client } from "./generated/client/client/index.js";
 import {
   createAttentionRequest,
   createAttentionResolution,
+  createDependency,
   createKnowledgeScopeRelationship,
   createLease,
   createLeaseRenewal,
@@ -12,6 +13,7 @@ import {
   createWorkItemDecomposition,
   createWorkItemNote,
   createWorkItemRelease,
+  deleteDependency,
   deleteKnowledgeScopeRelationship,
   getKnowledgeScope,
   getWorkItem,
@@ -28,6 +30,7 @@ import {
 import type {
   CreateAttentionRequestData,
   CreateAttentionResolutionData,
+  CreateDependencyData,
   CreateKnowledgeScopeRelationshipData,
   CreateLeaseData,
   CreateLeaseRenewalData,
@@ -37,6 +40,7 @@ import type {
   CreateWorkItemDecompositionData,
   CreateWorkItemNoteData,
   CreateWorkItemReleaseData,
+  DeleteDependencyData,
   DeleteKnowledgeScopeRelationshipData,
   ListAttentionRequestsData,
   ListKnowledgeScopeRelationshipsData,
@@ -218,6 +222,32 @@ export class WorkGraphClient {
   ) {
     return this.#unwrap(
       deleteKnowledgeScopeRelationship({
+        ...this.#options(),
+        body,
+        headers: idempotencyHeaders(idempotencyKey),
+      }),
+    );
+  }
+
+  addDependency(
+    body: CreateDependencyData["body"],
+    idempotencyKey?: string,
+  ) {
+    return this.#unwrap(
+      createDependency({
+        ...this.#options(),
+        body,
+        headers: idempotencyHeaders(idempotencyKey),
+      }),
+    );
+  }
+
+  removeDependency(
+    body: DeleteDependencyData["body"],
+    idempotencyKey?: string,
+  ) {
+    return this.#unwrap(
+      deleteDependency({
         ...this.#options(),
         body,
         headers: idempotencyHeaders(idempotencyKey),
