@@ -328,7 +328,7 @@ linkStyle default stroke:#1d1f1f,stroke-width:2px`,
     eyebrow: "The overlap gets ridiculous",
     heading: "I was already building the machine around the coding agent.",
     intro:
-      "PostHog Desktop combines a multiplayer product editor, parallel agents, multiple models, and cloud sandboxes. I arrived at the same shape from the infrastructure side, then kept going into shared planning, writing, and GPU services.",
+      "PostHog Desktop combines a multiplayer product editor, parallel agents, multiple models, and cloud sandboxes. I got here because my tools kept failing me in different ways. Since November 2025 I have coded from my phone with Claude Code for web, added Codex on my Mac and then t3-code, and set up a Hetzner server because I wanted agents to keep running when I stepped away. In parallel, the pain of sharing context while running a team led to Work Graph. Reading endless AI prose was doing my head in, so I started building an editor to unslop it. The GPUs are still my own local machines.",
     posthogLink: {
       label: "See the PostHog Desktop parallel",
       href: "https://posthog.com/desktop",
@@ -393,7 +393,8 @@ linkStyle default stroke:#1d1f1f,stroke-width:2px`,
         },
         {
           name: "Agent-first Writing Editor",
-          detail: "Plans and prose refined through shared GPU-backed models",
+          detail:
+            "Plans and prose refined with models running on my local GPUs",
           href: "/projects/agent-first-writing",
         },
         {
