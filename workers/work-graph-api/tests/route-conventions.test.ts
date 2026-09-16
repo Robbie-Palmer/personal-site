@@ -8,6 +8,12 @@ const unavailable = async (): Promise<never> => {
   throw new Error("Repository operations are unavailable in route tests.");
 };
 const app = createWorkGraphApp({
+  listKnowledgeScopes: unavailable,
+  getKnowledgeScope: unavailable,
+  putKnowledgeScope: unavailable,
+  listKnowledgeScopeRelationships: unavailable,
+  addKnowledgeScopeRelationship: unavailable,
+  removeKnowledgeScopeRelationship: unavailable,
   listWorkItems: unavailable,
   getWorkItem: unavailable,
   listAttentionRequests: unavailable,
@@ -72,12 +78,17 @@ describe("Given the Work Graph route registry", () => {
     ).toEqual(
       [
         "DELETE /api/dependencies",
+        "DELETE /api/knowledge-scope-relationships",
         "GET /api/attention-requests",
+        "GET /api/knowledge-scope-relationships",
+        "GET /api/knowledge-scopes",
+        "GET /api/knowledge-scopes/:knowledgeScopeId",
         "GET /api/work-items",
         "GET /api/work-items/:workItemId",
         "POST /api/attention-requests",
         "POST /api/attention-requests/:attentionRequestId/resolutions",
         "POST /api/dependencies",
+        "POST /api/knowledge-scope-relationships",
         "POST /api/leases",
         "POST /api/leases/:leaseId/renewals",
         "POST /api/work-items",
@@ -85,6 +96,7 @@ describe("Given the Work Graph route registry", () => {
         "POST /api/work-items/:workItemId/decompositions",
         "POST /api/work-items/:workItemId/notes",
         "POST /api/work-items/:workItemId/releases",
+        "PUT /api/knowledge-scopes/:knowledgeScopeId",
       ].sort(),
     );
   });

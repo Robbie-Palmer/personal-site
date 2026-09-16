@@ -20,7 +20,7 @@ const recordId = (suffix: number): string =>
 
 const requestJson = async (
   path: string,
-  method: "POST" | "DELETE" = "POST",
+  method: "POST" | "PUT" | "DELETE" = "POST",
   body?: unknown,
   idempotencyKey?: string,
 ): Promise<Response> =>
@@ -42,9 +42,93 @@ beforeEach(async () => {
     await transaction.delete(schema.note);
     await transaction.delete(schema.lease);
     await transaction.delete(schema.idempotencyKey);
+    await transaction.delete(schema.knowledgeScopeRelationship);
+    await transaction.delete(schema.knowledgeScope);
     await transaction.delete(schema.workItemDependency);
     await transaction.delete(schema.workItemHierarchy);
     await transaction.delete(schema.workItem);
+  });
+});
+
+describe("Given knowledge scopes mirrored over HTTP", () => {
+  it("upserts source snapshots and manages an acyclic relationship", async () => {
+    const initiative = {
+      kind: "initiative",
+      title: "Semi-autonomous software development",
+      canonicalUrl: "https://example.test/initiatives/semi-autonomous",
+      markdownUrl: "https://example.test/initiatives/semi-autonomous.md",
+      sourceRevision: "abc123",
+      rank: 1,
+      priorityWeight: 20,
+    };
+    const project = {
+      kind: "project",
+      title: "Work Graph",
+      canonicalUrl: "https://example.test/projects/work-graph",
+      markdownUrl: "https://example.test/projects/work-graph.md",
+    };
+
+    const initiativeResponse = await requestJson(
+      "/api/knowledge-scopes/semi-autonomous",
+      "PUT",
+      initiative,
+      recordId(401),
+    );
+    const projectResponse = await requestJson(
+      "/api/knowledge-scopes/work-graph",
+      "PUT",
+      project,
+      recordId(402),
+    );
+    expect(initiativeResponse.status).toBe(200);
+    expect(projectResponse.status).toBe(200);
+
+    const relationship = {
+      parentKnowledgeScopeId: "semi-autonomous",
+      childKnowledgeScopeId: "work-graph",
+    };
+    const linked = await requestJson(
+      "/api/knowledge-scope-relationships",
+      "POST",
+      relationship,
+      recordId(403),
+    );
+    expect(linked.status).toBe(201);
+
+    const listResponse = await app.request(
+      "/api/knowledge-scopes?kind=project",
+    );
+    expect(await listResponse.json()).toEqual({
+      items: [
+        {
+          id: "work-graph",
+          ...project,
+          sourceRevision: null,
+          rank: null,
+          priorityWeight: 0,
+        },
+      ],
+      nextCursor: null,
+    });
+    const linksResponse = await app.request(
+      "/api/knowledge-scope-relationships",
+    );
+    expect(await linksResponse.json()).toEqual({ items: [relationship] });
+
+    const cycle = await requestJson(
+      "/api/knowledge-scope-relationships",
+      "POST",
+      {
+        parentKnowledgeScopeId: "work-graph",
+        childKnowledgeScopeId: "semi-autonomous",
+      },
+    );
+    expect(cycle.status).toBe(409);
+    expect(await cycle.json()).toEqual(
+      expect.objectContaining({
+        error: expect.objectContaining({ code: "knowledge_scope_cycle" }),
+      }),
+    );
   });
 });
 

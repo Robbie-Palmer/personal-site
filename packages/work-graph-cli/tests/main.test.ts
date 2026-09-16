@@ -55,6 +55,102 @@ const harness = (
 };
 
 describe("Given agent-facing Work Graph commands", () => {
+  it("manages knowledge-scope mirrors and relationships", async () => {
+    const list = harness();
+    const show = harness();
+    const put = harness();
+    const links = harness();
+    const link = harness();
+    const unlink = harness();
+
+    await list.run([
+      "scope",
+      "list",
+      "--kind",
+      "project",
+      "--limit",
+      "10",
+      "--cursor",
+      "first",
+    ]);
+    await show.run(["scope", "show", "work/a b"]);
+    await put.run([
+      "scope",
+      "put",
+      "work-graph",
+      "--kind",
+      "project",
+      "--title",
+      "Work Graph",
+      "--canonical-url",
+      "https://example.test/projects/work-graph",
+      "--markdown-url",
+      "https://example.test/projects/work-graph.md",
+      "--source-revision",
+      "abc123",
+      "--rank",
+      "2",
+      "--priority-weight",
+      "10",
+      "--idempotency-key",
+      UUID,
+    ]);
+    await links.run(["scope", "links"]);
+    await link.run([
+      "scope",
+      "link",
+      "initiative",
+      "work-graph",
+      "--idempotency-key",
+      UUID,
+    ]);
+    await unlink.run([
+      "scope",
+      "unlink",
+      "initiative",
+      "work-graph",
+      "--idempotency-key",
+      UUID,
+    ]);
+
+    expect(list.requests[0]?.url.href).toBe(
+      "https://work.example.test/root/api/knowledge-scopes?kind=project&limit=10&cursor=first",
+    );
+    expect(show.requests[0]?.url.pathname).toBe(
+      "/root/api/knowledge-scopes/work%2Fa%20b",
+    );
+    expect(put.requests[0]).toMatchObject({
+      method: "PUT",
+      body: {
+        kind: "project",
+        title: "Work Graph",
+        canonicalUrl: "https://example.test/projects/work-graph",
+        markdownUrl: "https://example.test/projects/work-graph.md",
+        sourceRevision: "abc123",
+        rank: 2,
+        priorityWeight: 10,
+      },
+    });
+    expect(put.requests[0]?.headers.get("Idempotency-Key")).toBe(UUID);
+    expect(links.requests[0]?.url.pathname).toBe(
+      "/root/api/knowledge-scope-relationships",
+    );
+    expect(link.requests[0]).toMatchObject({
+      method: "POST",
+      body: {
+        parentKnowledgeScopeId: "initiative",
+        childKnowledgeScopeId: "work-graph",
+      },
+    });
+    expect(unlink.requests[0]).toMatchObject({
+      method: "DELETE",
+      body: {
+        parentKnowledgeScopeId: "initiative",
+        childKnowledgeScopeId: "work-graph",
+      },
+    });
+  });
+
   it("creates a work item and forwards its idempotency key", async () => {
     const test = harness();
     expect(

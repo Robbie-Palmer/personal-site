@@ -108,13 +108,22 @@ beforeAll(async () => {
     where pg_type.typname = 'lease_outcome'
     order by enumsortorder
   `);
+  const knowledgeScopeKindValues = await db.execute<{ enumlabel: string }>(sql`
+    select enumlabel
+    from pg_enum
+    join pg_type on pg_type.oid = pg_enum.enumtypid
+    where pg_type.typname = 'knowledge_scope_kind'
+    order by enumsortorder
+  `);
 
-  expect(migrationCount?.count).toBe(6);
+  expect(migrationCount?.count).toBe(7);
   expect(tables.map(({ table_name }) => table_name)).toEqual([
     "attention_requests",
     "attention_resolutions",
     "graph_mutation_locks",
     "idempotency_keys",
+    "knowledge_scope_relationships",
+    "knowledge_scopes",
     "leases",
     "notes",
     "work_item_dependencies",
@@ -133,6 +142,10 @@ beforeAll(async () => {
     "decomposed",
     "attention_requested",
     "expired",
+  ]);
+  expect(knowledgeScopeKindValues.map(({ enumlabel }) => enumlabel)).toEqual([
+    "initiative",
+    "project",
   ]);
 });
 
@@ -698,9 +711,153 @@ beforeEach(async () => {
     await transaction.delete(schema.note);
     await transaction.delete(schema.lease);
     await transaction.delete(schema.idempotencyKey);
+    await transaction.delete(schema.knowledgeScopeRelationship);
+    await transaction.delete(schema.knowledgeScope);
     await transaction.delete(schema.workItemDependency);
     await transaction.delete(schema.workItemHierarchy);
     await transaction.delete(schema.workItem);
+  });
+});
+
+describe("knowledge scope persistence", () => {
+  const putInitiative = () =>
+    repository.putKnowledgeScope({
+      id: "semi-autonomous-development",
+      kind: "initiative",
+      title: "Semi-autonomous software development",
+      canonicalUrl:
+        "https://example.test/initiatives/semi-autonomous-development",
+      markdownUrl:
+        "https://example.test/initiatives/semi-autonomous-development.md",
+      sourceRevision: "abc123",
+      rank: 1,
+      priorityWeight: 20,
+    });
+
+  const putProject = () =>
+    repository.putKnowledgeScope({
+      id: "work-graph",
+      kind: "project",
+      title: "Work Graph",
+      canonicalUrl: "https://example.test/projects/work-graph",
+      markdownUrl: "https://example.test/projects/work-graph.md",
+    });
+
+  it("upserts mirrors and lists them by stable source key", async () => {
+    await putProject();
+    await putInitiative();
+    await repository.putKnowledgeScope({
+      id: "work-graph",
+      kind: "project",
+      title: "Work Graph coordination service",
+      canonicalUrl: "https://example.test/projects/work-graph",
+      markdownUrl: "https://example.test/projects/work-graph.md",
+      sourceRevision: "def456",
+      rank: 2,
+      priorityWeight: -5,
+    });
+
+    await expect(repository.getKnowledgeScope("work-graph")).resolves.toEqual({
+      id: "work-graph",
+      kind: "project",
+      title: "Work Graph coordination service",
+      canonicalUrl: "https://example.test/projects/work-graph",
+      markdownUrl: "https://example.test/projects/work-graph.md",
+      sourceRevision: "def456",
+      rank: 2,
+      priorityWeight: -5,
+    });
+    await expect(
+      repository.listKnowledgeScopes({ kind: "project" }),
+    ).resolves.toEqual([
+      expect.objectContaining({ id: "work-graph", kind: "project" }),
+    ]);
+    await expect(
+      repository.listKnowledgeScopes({ cursor: "semi-autonomous-development" }),
+    ).resolves.toEqual([
+      expect.objectContaining({ id: "work-graph" }),
+    ]);
+  });
+
+  it("replays a scope upsert without accepting different input", async () => {
+    const options = { idempotencyKey: recordId(301) };
+    const input = {
+      id: "work-graph",
+      kind: "project" as const,
+      title: "Work Graph",
+      canonicalUrl: "https://example.test/projects/work-graph",
+      markdownUrl: "https://example.test/projects/work-graph.md",
+    };
+
+    const first = await repository.putKnowledgeScope(input, options);
+    await expect(repository.putKnowledgeScope(input, options)).resolves.toEqual(
+      first,
+    );
+    await expect(
+      repository.putKnowledgeScope({ ...input, title: "Changed" }, options),
+    ).rejects.toEqual(
+      expect.objectContaining<Partial<WorkGraphError>>({
+        code: "idempotency_key_reused",
+      }),
+    );
+  });
+
+  it("adds, removes, and rejects cyclic scope relationships", async () => {
+    await putInitiative();
+    await putProject();
+    const relationship = {
+      parentKnowledgeScopeId: "semi-autonomous-development",
+      childKnowledgeScopeId: "work-graph",
+    };
+    const addOptions = { idempotencyKey: recordId(302) };
+    const removeOptions = { idempotencyKey: recordId(303) };
+
+    await repository.addKnowledgeScopeRelationship(relationship, addOptions);
+    await repository.addKnowledgeScopeRelationship(relationship, addOptions);
+    await expect(repository.listKnowledgeScopeRelationships()).resolves.toEqual([
+      relationship,
+    ]);
+    await expect(
+      repository.addKnowledgeScopeRelationship({
+        parentKnowledgeScopeId: "work-graph",
+        childKnowledgeScopeId: "semi-autonomous-development",
+      }),
+    ).rejects.toEqual(
+      expect.objectContaining<Partial<WorkGraphError>>({
+        code: "knowledge_scope_cycle",
+      }),
+    );
+
+    await repository.removeKnowledgeScopeRelationship(
+      relationship,
+      removeOptions,
+    );
+    await repository.removeKnowledgeScopeRelationship(
+      relationship,
+      removeOptions,
+    );
+    await expect(repository.listKnowledgeScopeRelationships()).resolves.toEqual(
+      [],
+    );
+  });
+
+  it("rejects relationships with missing scopes", async () => {
+    await putProject();
+    await expect(
+      repository.addKnowledgeScopeRelationship({
+        parentKnowledgeScopeId: "missing",
+        childKnowledgeScopeId: "work-graph",
+      }),
+    ).rejects.toEqual(
+      expect.objectContaining<Partial<WorkGraphError>>({
+        code: "knowledge_scope_not_found",
+      }),
+    );
+    await expect(repository.getKnowledgeScope("missing")).rejects.toEqual(
+      expect.objectContaining<Partial<WorkGraphError>>({
+        code: "knowledge_scope_not_found",
+      }),
+    );
   });
 });
 

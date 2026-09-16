@@ -54,7 +54,38 @@ const item = (
 const responseJson = async (response: Response): Promise<unknown> =>
   response.json();
 
+const knowledgeScope = (id: string, kind: "initiative" | "project") => ({
+  id,
+  kind,
+  title: `${id} scope`,
+  canonicalUrl: `https://example.test/${id}`,
+  markdownUrl: `https://example.test/${id}.md`,
+  sourceRevision: null,
+  rank: null,
+  priorityWeight: 0,
+});
+
 const buildRepository = (): WorkGraphApiRepository => ({
+  listKnowledgeScopes: vi.fn(async () => []),
+  getKnowledgeScope: vi.fn(async (id) => ({
+    id,
+    kind: "project" as const,
+    title: "Work Graph",
+    canonicalUrl: "https://example.test/projects/work-graph",
+    markdownUrl: "https://example.test/projects/work-graph.md",
+    sourceRevision: null,
+    rank: null,
+    priorityWeight: 0,
+  })),
+  putKnowledgeScope: vi.fn(async (input) => ({
+    ...input,
+    sourceRevision: input.sourceRevision ?? null,
+    rank: input.rank ?? null,
+    priorityWeight: input.priorityWeight ?? 0,
+  })),
+  listKnowledgeScopeRelationships: vi.fn(async () => []),
+  addKnowledgeScopeRelationship: vi.fn(async () => undefined),
+  removeKnowledgeScopeRelationship: vi.fn(async () => undefined),
   listWorkItems: vi.fn(async () => []),
   getWorkItem: vi.fn(async (workItemId) => item(workItemId, "ready")),
   listAttentionRequests: vi.fn(async () => []),
@@ -134,6 +165,127 @@ const buildRepository = (): WorkGraphApiRepository => ({
         }
       : null,
   })),
+});
+
+describe("Given knowledge-scope mirrors", () => {
+  it("lists one filtered page and reads one stable source key", async () => {
+    const repository = buildRepository();
+    vi.mocked(repository.listKnowledgeScopes).mockResolvedValue([
+      knowledgeScope("initiative-a", "initiative"),
+      knowledgeScope("initiative-b", "initiative"),
+    ]);
+    vi.mocked(repository.getKnowledgeScope).mockResolvedValue(
+      knowledgeScope("initiative-a", "initiative"),
+    );
+    const app = createWorkGraphApp(repository);
+
+    const list = await app.request(
+      "/api/knowledge-scopes?kind=initiative&limit=1",
+    );
+    expect(list.status).toBe(200);
+    expect(repository.listKnowledgeScopes).toHaveBeenCalledWith({
+      kind: "initiative",
+      limit: 2,
+    });
+    expect(await responseJson(list)).toEqual({
+      items: [knowledgeScope("initiative-a", "initiative")],
+      nextCursor: "initiative-a",
+    });
+
+    const get = await app.request("/api/knowledge-scopes/initiative-a");
+    expect(get.status).toBe(200);
+    expect(await responseJson(get)).toEqual(
+      knowledgeScope("initiative-a", "initiative"),
+    );
+  });
+
+  it("creates or replaces a mirror at its stable source-key URL", async () => {
+    const repository = buildRepository();
+    const app = createWorkGraphApp(repository);
+    const body = {
+      kind: "project",
+      title: "Work Graph",
+      canonicalUrl: "https://example.test/projects/work-graph",
+      markdownUrl: "https://example.test/projects/work-graph.md",
+      sourceRevision: "abc123",
+      rank: 2,
+      priorityWeight: 10,
+    };
+
+    const response = await app.request("/api/knowledge-scopes/work-graph", {
+      method: "PUT",
+      headers: {
+        "content-type": "application/json",
+        "idempotency-key": idempotencyKey,
+      },
+      body: JSON.stringify(body),
+    });
+
+    expect(response.status).toBe(200);
+    expect(repository.putKnowledgeScope).toHaveBeenCalledWith(
+      { id: "work-graph", ...body },
+      { idempotencyKey },
+    );
+    expect(await responseJson(response)).toEqual({ id: "work-graph", ...body });
+  });
+
+  it("adds, lists, and removes scope relationships", async () => {
+    const relationship = {
+      parentKnowledgeScopeId: "initiative",
+      childKnowledgeScopeId: "project",
+    };
+    const repository = buildRepository();
+    vi.mocked(repository.listKnowledgeScopeRelationships).mockResolvedValue([
+      relationship,
+    ]);
+    const app = createWorkGraphApp(repository);
+
+    const created = await app.request(
+      "/api/knowledge-scope-relationships",
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(relationship),
+      },
+    );
+    expect(created.status).toBe(201);
+    expect(repository.addKnowledgeScopeRelationship).toHaveBeenCalledWith(
+      relationship,
+      {},
+    );
+
+    const listed = await app.request("/api/knowledge-scope-relationships");
+    expect(await responseJson(listed)).toEqual({ items: [relationship] });
+
+    const removed = await app.request(
+      "/api/knowledge-scope-relationships",
+      {
+        method: "DELETE",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(relationship),
+      },
+    );
+    expect(removed.status).toBe(200);
+    expect(repository.removeKnowledgeScopeRelationship).toHaveBeenCalledWith(
+      relationship,
+      {},
+    );
+  });
+
+  it("maps a missing scope to HTTP 404", async () => {
+    const repository = buildRepository();
+    vi.mocked(repository.getKnowledgeScope).mockRejectedValue(
+      new WorkGraphError(
+        "knowledge_scope_not_found",
+        "Knowledge scope missing does not exist.",
+      ),
+    );
+    const app = createWorkGraphApp(repository);
+
+    const response = await app.request("/api/knowledge-scopes/missing");
+
+    expect(response.status).toBe(404);
+  });
 });
 
 describe("Given work items with derived readiness", () => {

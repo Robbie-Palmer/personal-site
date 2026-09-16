@@ -1,4 +1,5 @@
 import {
+  KNOWLEDGE_SCOPE_KINDS,
   LEASE_OUTCOMES,
   PULL_REQUEST_ROLES,
   TERMINAL_WORK_ITEM_STATES,
@@ -7,6 +8,10 @@ import {
 } from "../src/index";
 
 describe("work graph vocabulary", () => {
+  it("limits knowledge mirrors to scheduling scope kinds", () => {
+    expect(KNOWLEDGE_SCOPE_KINDS).toEqual(["initiative", "project"]);
+  });
+
   it("shares canonical terminal values across lifecycle and board stage", () => {
     expect(TERMINAL_WORK_ITEM_STATES).toEqual(["released", "cancelled"]);
     expect(WORK_ITEM_LIFECYCLES).toEqual(["open", "released", "cancelled"]);
