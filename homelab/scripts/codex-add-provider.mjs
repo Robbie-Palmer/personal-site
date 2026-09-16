@@ -204,16 +204,21 @@ if (options.runLogin) {
     loginArgs.push("--device-auth");
   }
   console.log(`Signed-in credentials will be stored in ${shadowHome}/auth.json`);
+  const previousCodexHome = process.env.CODEX_HOME;
+  process.env.CODEX_HOME = shadowHome;
   try {
-    execFileSync("codex", loginArgs, {
-      env: { ...process.env, CODEX_HOME: shadowHome },
-      stdio: "inherit",
-    });
+    execFileSync("codex", loginArgs, { stdio: "inherit" });
   } catch (error) {
     if (error.code === "ENOENT") {
       fail("error: codex is not on PATH");
     }
     process.exitCode = 1;
+  } finally {
+    if (previousCodexHome === undefined) {
+      delete process.env.CODEX_HOME;
+    } else {
+      process.env.CODEX_HOME = previousCodexHome;
+    }
   }
 } else {
   const deviceFlag = options.loginMode === "device" ? " --device-auth" : "";
