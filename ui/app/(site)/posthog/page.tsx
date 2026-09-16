@@ -7,7 +7,6 @@ import {
   BookOpen,
   Check,
   Clapperboard,
-  Github,
   MapPin,
   Music,
   Network,
@@ -17,6 +16,7 @@ import localFont from "next/font/local";
 import Image from "next/image";
 import Link from "next/link";
 import type { CSSProperties } from "react";
+import { siGithub } from "simple-icons";
 import {
   type PostHogApplicationLink,
   posthogApplication,
@@ -27,6 +27,20 @@ import { CultureSection } from "./culture-section";
 import { PostHogFooterActions } from "./footer-actions";
 import { HomelabDiagramSwitcher } from "./homelab-diagram-switcher";
 import styles from "./posthog.module.css";
+
+function GitHubIcon({ className }: Readonly<{ className?: string }>) {
+  return (
+    <svg
+      aria-hidden="true"
+      className={className}
+      fill="currentColor"
+      role="img"
+      viewBox="0 0 24 24"
+    >
+      <path d={siGithub.path} />
+    </svg>
+  );
+}
 
 const roundHog = localFont({
   src: [
@@ -778,7 +792,7 @@ export default function PostHogApplicationPage() {
                 target="_blank"
                 rel="noreferrer"
               >
-                <Github className="size-4" aria-hidden="true" />
+                <GitHubIcon className="size-4" />
                 Inspect my GitHub
               </a>
               <a

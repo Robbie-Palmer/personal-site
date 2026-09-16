@@ -290,11 +290,12 @@ export function TechIcon({
   if (!iconData) return null;
 
   if (iconData.type === "custom") {
-    const colorFilter = fullColorCustomIcons.has(iconData.slug)
-      ? ""
-      : invertInDarkMode
-        ? "brightness-0 dark:invert"
-        : "brightness-0";
+    let colorFilter = "brightness-0";
+    if (fullColorCustomIcons.has(iconData.slug)) {
+      colorFilter = "";
+    } else if (invertInDarkMode) {
+      colorFilter = "brightness-0 dark:invert";
+    }
 
     return (
       // biome-ignore lint/performance/noImgElement: SSG site uses Cloudflare Images CDN, not Next.js Image

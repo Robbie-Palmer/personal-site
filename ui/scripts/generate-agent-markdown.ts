@@ -1023,9 +1023,7 @@ function buildHeadersFile(pages: GeneratedPage[]): string {
   for (const page of entryPages) {
     const linkHeader = `  Link: <${markdownUrl(page.htmlPath)}>; rel="alternate"; type="text/markdown"`;
     const lines = headers.split("\n");
-    const existingRuleIndex = lines.findIndex(
-      (line) => line === page.htmlPath,
-    );
+    const existingRuleIndex = lines.indexOf(page.htmlPath);
 
     if (existingRuleIndex === -1) {
       headers = `${headers}\n\n${page.htmlPath}\n${linkHeader}`;
