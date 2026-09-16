@@ -1631,6 +1631,7 @@ describe("lease-fenced notes and attention", () => {
     ).toEqual([{ ...last.attentionRequest, resolution: null }]);
     expect(
       await repository.listAttentionRequests({
+        workItemId: "resolved",
         state: "resolved",
         blocking: false,
         limit: 1,
@@ -1666,6 +1667,21 @@ describe("lease-fenced notes and attention", () => {
 
     expect(replay).toEqual(first);
     expect(await repository.listNotes("work")).toEqual([first]);
+    const second = await repository.createNote({
+      ...input,
+      id: recordId(206),
+      content: "The CLI exposes this second note through a cursor.",
+    });
+    expect(
+      await repository.listNotes({ workItemId: "work", limit: 1 }),
+    ).toEqual([first]);
+    expect(
+      await repository.listNotes({
+        workItemId: "work",
+        cursor: first.id,
+        limit: 1,
+      }),
+    ).toEqual([second]);
     await expect(
       repository.createNote(
         { ...input, id: recordId(204), epoch: claimed.epoch + 1 },
@@ -2445,6 +2461,21 @@ describe("immutable event history", () => {
       to: "released",
       ...completionEvidence,
     });
+    expect(
+      await repository.listEvents({
+        workItemId: "work",
+        type: "work_item.lifecycle_changed",
+        lifecycle: "released",
+        limit: 1,
+      }),
+    ).toEqual([events.at(-1)]);
+    expect(
+      await repository.listLeases({
+        workItemId: "work",
+        afterEpoch: firstLease.epoch,
+        limit: 1,
+      }),
+    ).toEqual([expect.objectContaining({ id: secondLease.id, epoch: 2 })]);
   });
 
   it("records decomposition graph and lease changes in the same transaction", async () => {
@@ -2482,6 +2513,12 @@ describe("immutable event history", () => {
       "lease.ended",
       "lease.claimed",
     ]);
+    expect(
+      await repository.listDependencies({
+        workItemId: "first",
+        limit: 1,
+      }),
+    ).toEqual([dependency("second", "first")]);
   });
 
   it("rejects updates, deletes, and truncation at the database boundary", async () => {

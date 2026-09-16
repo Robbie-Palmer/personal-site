@@ -36,6 +36,7 @@ export type WorkGraphErrorCode =
   | "invalid_parent_id"
   | "invalid_worker_id"
   | "invalid_work_item_id"
+  | "invalid_work_item_dependency_cursor"
   | "invalid_work_item_lifecycle"
   | "invalid_work_item_title"
   | "lease_not_current"

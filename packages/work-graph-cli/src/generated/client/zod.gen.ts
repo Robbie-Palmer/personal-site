@@ -96,6 +96,50 @@ export const zWorkItemNote = z.object({
     createdAt: z.iso.datetime().max(30)
 });
 
+export const zWorkItemNoteList = z.object({
+    items: z.array(zWorkItemNote).max(100),
+    nextCursor: z.uuid().max(36).nullable()
+});
+
+export const zWorkItemEvent = z.object({
+    sequence: z.int().gte(1).lte(2147483647),
+    type: z.enum([
+        'attention.requested',
+        'attention.resolved',
+        'dependency.added',
+        'dependency.removed',
+        'knowledge_scope.put',
+        'knowledge_scope_relationship.added',
+        'knowledge_scope_relationship.removed',
+        'lease.claimed',
+        'lease.ended',
+        'lease.renewed',
+        'note.created',
+        'work_item.created',
+        'work_item.decomposed',
+        'work_item.lifecycle_changed',
+        'work_item.reparented'
+    ]),
+    workItemId: z.string().min(1).max(200).nullable(),
+    data: z.record(z.string(), z.unknown()),
+    occurredAt: z.iso.datetime().max(30)
+});
+
+export const zWorkItemEventList = z.object({
+    items: z.array(zWorkItemEvent).max(100),
+    nextCursor: z.int().gte(1).lte(2147483647).nullable()
+});
+
+export const zWorkItemDependencyList = z.object({
+    items: z.array(zWorkItemDependency).max(100),
+    nextCursor: z.string().min(1).max(4096).nullable()
+});
+
+export const zWorkItemLeaseList = z.object({
+    items: z.array(zLease).max(100),
+    nextCursor: z.int().gte(1).lte(2147483647).nullable()
+});
+
 export const zAttentionResolution = z.object({
     id: z.uuid().max(36),
     attentionRequestId: z.uuid().max(36),
@@ -155,7 +199,12 @@ export const zWorkItemDecomposition = z.object({
 });
 
 export const zListAttentionRequestsQuery = z.object({
-    state: z.enum(['unresolved', 'resolved']).optional().default('unresolved'),
+    workItemId: z.string().min(1).max(200).optional(),
+    state: z.enum([
+        'all',
+        'unresolved',
+        'resolved'
+    ]).optional().default('unresolved'),
     blocking: z.enum(['true', 'false']).optional(),
     limit: z.int().gte(1).lte(100).optional().default(50),
     cursor: z.uuid().max(36).optional()
@@ -444,6 +493,80 @@ export const zCreateWorkItemDecompositionPath = z.object({
  * Work item decomposed or matching mutation replayed
  */
 export const zCreateWorkItemDecompositionResponse = zWorkItemDecomposition;
+
+export const zListWorkItemDependenciesPath = z.object({
+    workItemId: z.string().min(1).max(200)
+});
+
+export const zListWorkItemDependenciesQuery = z.object({
+    limit: z.int().gte(1).lte(100).optional().default(50),
+    cursor: z.string().min(1).max(4096).optional()
+});
+
+/**
+ * Current dependency edges involving the work item
+ */
+export const zListWorkItemDependenciesResponse = zWorkItemDependencyList;
+
+export const zListWorkItemEventsPath = z.object({
+    workItemId: z.string().min(1).max(200)
+});
+
+export const zListWorkItemEventsQuery = z.object({
+    type: z.enum([
+        'attention.requested',
+        'attention.resolved',
+        'dependency.added',
+        'dependency.removed',
+        'knowledge_scope.put',
+        'knowledge_scope_relationship.added',
+        'knowledge_scope_relationship.removed',
+        'lease.claimed',
+        'lease.ended',
+        'lease.renewed',
+        'note.created',
+        'work_item.created',
+        'work_item.decomposed',
+        'work_item.lifecycle_changed',
+        'work_item.reparented'
+    ]).optional(),
+    lifecycle: z.enum(['released', 'cancelled']).optional(),
+    limit: z.int().gte(1).lte(100).optional().default(50),
+    afterSequence: z.int().gte(1).lte(2147483647).optional()
+});
+
+/**
+ * Work-item events in stable sequence order
+ */
+export const zListWorkItemEventsResponse = zWorkItemEventList;
+
+export const zListWorkItemLeasesPath = z.object({
+    workItemId: z.string().min(1).max(200)
+});
+
+export const zListWorkItemLeasesQuery = z.object({
+    limit: z.int().gte(1).lte(100).optional().default(50),
+    afterEpoch: z.int().gte(1).lte(2147483647).optional()
+});
+
+/**
+ * Work-item leases in epoch order
+ */
+export const zListWorkItemLeasesResponse = zWorkItemLeaseList;
+
+export const zListWorkItemNotesPath = z.object({
+    workItemId: z.string().min(1).max(200)
+});
+
+export const zListWorkItemNotesQuery = z.object({
+    limit: z.int().gte(1).lte(100).optional().default(50),
+    cursor: z.uuid().max(36).optional()
+});
+
+/**
+ * Work-item notes in stable order
+ */
+export const zListWorkItemNotesResponse = zWorkItemNoteList;
 
 export const zCreateWorkItemNoteBody = z.object({
     id: z.uuid().max(36),

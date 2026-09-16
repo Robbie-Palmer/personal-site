@@ -28,6 +28,14 @@ import {
   zListAttentionRequestsQuery,
   zListKnowledgeScopeRelationshipsQuery,
   zListKnowledgeScopesQuery,
+  zListWorkItemDependenciesPath,
+  zListWorkItemDependenciesQuery,
+  zListWorkItemEventsPath,
+  zListWorkItemEventsQuery,
+  zListWorkItemLeasesPath,
+  zListWorkItemLeasesQuery,
+  zListWorkItemNotesPath,
+  zListWorkItemNotesQuery,
   zListWorkItemsQuery,
   zPutKnowledgeScopeBody,
   zPutKnowledgeScopeHeaders,
@@ -422,7 +430,178 @@ const releaseInput = terminationInput.extend({
   ),
 });
 
+const metadataNotesInput = z.object({
+  workItemId: positional(
+    zListWorkItemNotesPath.shape.workItemId,
+    "Work-item ID",
+  ),
+  limit: optional(
+    zListWorkItemNotesQuery.shape.limit.unwrap().unwrap(),
+    "Maximum number of notes",
+  ),
+  cursor: optional(
+    zListWorkItemNotesQuery.shape.cursor.unwrap(),
+    "Pagination cursor UUID",
+  ),
+});
+
+const metadataEventsInput = z.object({
+  workItemId: positional(
+    zListWorkItemEventsPath.shape.workItemId,
+    "Work-item ID",
+  ),
+  type: optional(
+    zListWorkItemEventsQuery.shape.type.unwrap(),
+    "Event type",
+  ),
+  limit: optional(
+    zListWorkItemEventsQuery.shape.limit.unwrap().unwrap(),
+    "Maximum number of events",
+  ),
+  afterSequence: optional(
+    zListWorkItemEventsQuery.shape.afterSequence.unwrap(),
+    "Continue after this event sequence",
+  ),
+});
+
+const metadataDependenciesInput = z.object({
+  workItemId: positional(
+    zListWorkItemDependenciesPath.shape.workItemId,
+    "Work-item ID",
+  ),
+  limit: optional(
+    zListWorkItemDependenciesQuery.shape.limit.unwrap().unwrap(),
+    "Maximum number of dependency edges",
+  ),
+  cursor: optional(
+    zListWorkItemDependenciesQuery.shape.cursor.unwrap(),
+    "Opaque dependency cursor",
+  ),
+});
+
+const metadataLeasesInput = z.object({
+  workItemId: positional(
+    zListWorkItemLeasesPath.shape.workItemId,
+    "Work-item ID",
+  ),
+  limit: optional(
+    zListWorkItemLeasesQuery.shape.limit.unwrap().unwrap(),
+    "Maximum number of leases",
+  ),
+  afterEpoch: optional(
+    zListWorkItemLeasesQuery.shape.afterEpoch.unwrap(),
+    "Continue after this lease epoch",
+  ),
+});
+
+const metadataAttentionInput = z.object({
+  workItemId: positional(
+    zListAttentionRequestsQuery.shape.workItemId.unwrap(),
+    "Work-item ID",
+  ),
+  limit: optional(
+    zListAttentionRequestsQuery.shape.limit.unwrap().unwrap(),
+    "Maximum number of attention requests",
+  ),
+  cursor: optional(
+    zListAttentionRequestsQuery.shape.cursor.unwrap(),
+    "Pagination cursor UUID",
+  ),
+});
+
 export const workGraphRouter = t.router({
+  metadata: t.router({
+    notes: command
+      .meta({ description: "List work-item notes" })
+      .input(metadataNotesInput)
+      .query(({ ctx, input }) =>
+        resolveClient(ctx).listWorkItemNotes(input.workItemId, {
+          ...(input.limit === undefined ? {} : { limit: input.limit }),
+          ...(input.cursor === undefined ? {} : { cursor: input.cursor }),
+        }),
+      ),
+    events: command
+      .meta({ description: "List immutable work-item events" })
+      .input(metadataEventsInput)
+      .query(({ ctx, input }) =>
+        resolveClient(ctx).listWorkItemEvents(input.workItemId, {
+          ...(input.type === undefined ? {} : { type: input.type }),
+          ...(input.limit === undefined ? {} : { limit: input.limit }),
+          ...(input.afterSequence === undefined
+            ? {}
+            : { afterSequence: input.afterSequence }),
+        }),
+      ),
+    dependencies: command
+      .meta({ description: "List dependency edges involving a work item" })
+      .input(metadataDependenciesInput)
+      .query(({ ctx, input }) =>
+        resolveClient(ctx).listWorkItemDependencies(input.workItemId, {
+          ...(input.limit === undefined ? {} : { limit: input.limit }),
+          ...(input.cursor === undefined ? {} : { cursor: input.cursor }),
+        }),
+      ),
+    decompositions: command
+      .meta({ description: "List work-item decomposition history" })
+      .input(metadataEventsInput.omit({ type: true }))
+      .query(({ ctx, input }) =>
+        resolveClient(ctx).listWorkItemEvents(input.workItemId, {
+          type: "work_item.decomposed",
+          ...(input.limit === undefined ? {} : { limit: input.limit }),
+          ...(input.afterSequence === undefined
+            ? {}
+            : { afterSequence: input.afterSequence }),
+        }),
+      ),
+    leases: command
+      .meta({ description: "List work-item lease history" })
+      .input(metadataLeasesInput)
+      .query(({ ctx, input }) =>
+        resolveClient(ctx).listWorkItemLeases(input.workItemId, {
+          ...(input.limit === undefined ? {} : { limit: input.limit }),
+          ...(input.afterEpoch === undefined
+            ? {}
+            : { afterEpoch: input.afterEpoch }),
+        }),
+      ),
+    attention: command
+      .meta({ description: "List work-item attention history" })
+      .input(metadataAttentionInput)
+      .query(({ ctx, input }) =>
+        resolveClient(ctx).listAttention({
+          workItemId: input.workItemId,
+          state: "all",
+          ...(input.limit === undefined ? {} : { limit: input.limit }),
+          ...(input.cursor === undefined ? {} : { cursor: input.cursor }),
+        }),
+      ),
+    cancellations: command
+      .meta({ description: "List work-item cancellation history" })
+      .input(metadataEventsInput.omit({ type: true }))
+      .query(({ ctx, input }) =>
+        resolveClient(ctx).listWorkItemEvents(input.workItemId, {
+          type: "work_item.lifecycle_changed",
+          lifecycle: "cancelled",
+          ...(input.limit === undefined ? {} : { limit: input.limit }),
+          ...(input.afterSequence === undefined
+            ? {}
+            : { afterSequence: input.afterSequence }),
+        }),
+      ),
+    releases: command
+      .meta({ description: "List work-item release evidence" })
+      .input(metadataEventsInput.omit({ type: true }))
+      .query(({ ctx, input }) =>
+        resolveClient(ctx).listWorkItemEvents(input.workItemId, {
+          type: "work_item.lifecycle_changed",
+          lifecycle: "released",
+          ...(input.limit === undefined ? {} : { limit: input.limit }),
+          ...(input.afterSequence === undefined
+            ? {}
+            : { afterSequence: input.afterSequence }),
+        }),
+      ),
+  }),
   scope: t.router({
     list: command
       .meta({ description: "List knowledge-scope mirrors" })

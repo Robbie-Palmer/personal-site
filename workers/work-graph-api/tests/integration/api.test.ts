@@ -234,6 +234,267 @@ describe("Given a claimed item that reveals more work", () => {
   });
 });
 
+describe("Given persisted work-item metadata", () => {
+  it("reads every metadata family through the paginated CLI", async () => {
+    // Runtime loading keeps the CLI's Node types out of the Worker compilation.
+    const cliModulePath = new URL(
+      "../../../../packages/work-graph-cli/src/main.ts",
+      import.meta.url,
+    ).href;
+    const { runCli } = (await import(cliModulePath)) as {
+      runCli: (
+        args: string[],
+        dependencies: {
+          environment: NodeJS.ProcessEnv;
+          fetch: typeof fetch;
+          stdout: (text: string) => void;
+          stderr: (text: string) => void;
+        },
+      ) => Promise<number>;
+    };
+    const readMetadata = async (...args: string[]): Promise<unknown> => {
+      const stdout: string[] = [];
+      const stderr: string[] = [];
+      const exitCode = await runCli(["metadata", ...args], {
+        environment: {
+          WORK_GRAPH_API_URL: "https://work-graph.example.test",
+        },
+        fetch: async (input, init) => {
+          const request =
+            input instanceof Request ? input : new Request(input, init);
+          return app.fetch(request);
+        },
+        stdout: (text) => stdout.push(text),
+        stderr: (text) => stderr.push(text),
+      });
+      expect(exitCode).toBe(0);
+      expect(stderr).toEqual([]);
+      return JSON.parse(stdout.join(""));
+    };
+    const createItem = async (id: string) => {
+      const response = await requestJson("/api/work-items", "POST", {
+        id,
+        title: `${id} work`,
+      });
+      expect(response.status).toBe(201);
+    };
+    const claimItem = async (id: string) => {
+      const response = await requestJson("/api/leases", "POST", {
+        workItemId: id,
+        workerId: "metadata-worker",
+        leaseDurationSeconds: 300,
+      });
+      expect(response.status).toBe(201);
+      return (await response.json()) as {
+        lease: { id: string; epoch: number };
+      };
+    };
+
+    for (const id of ["blocker", "work", "downstream", "parent", "cancelled"]) {
+      await createItem(id);
+    }
+
+    const blockerClaim = await claimItem("blocker");
+    await requestJson("/api/work-items/blocker/releases", "POST", {
+      leaseId: blockerClaim.lease.id,
+      epoch: blockerClaim.lease.epoch,
+      ...completionEvidence,
+    });
+    await requestJson("/api/dependencies", "POST", {
+      dependentWorkItemId: "work",
+      blockerWorkItemId: "blocker",
+    });
+    await requestJson("/api/dependencies", "POST", {
+      dependentWorkItemId: "downstream",
+      blockerWorkItemId: "work",
+    });
+
+    const workClaim = await claimItem("work");
+    for (const [id, content] of [
+      [recordId(810), "First metadata note"],
+      [recordId(811), "Second metadata note"],
+    ] as const) {
+      const response = await requestJson(
+        "/api/work-items/work/notes",
+        "POST",
+        {
+          id,
+          leaseId: workClaim.lease.id,
+          epoch: workClaim.lease.epoch,
+          content,
+        },
+      );
+      expect(response.status).toBe(201);
+    }
+    await requestJson("/api/attention-requests", "POST", {
+      id: recordId(812),
+      workItemId: "work",
+      leaseId: workClaim.lease.id,
+      epoch: workClaim.lease.epoch,
+      kind: "review",
+      question: "Does the metadata contract cover every stored record?",
+      blocking: false,
+    });
+    await requestJson(
+      `/api/attention-requests/${recordId(812)}/resolutions`,
+      "POST",
+      {
+        id: recordId(813),
+        resolution: "Yes, each record has a bounded JSON collection.",
+      },
+    );
+    await requestJson("/api/work-items/work/releases", "POST", {
+      leaseId: workClaim.lease.id,
+      epoch: workClaim.lease.epoch,
+      ...completionEvidence,
+    });
+
+    const parentClaim = await claimItem("parent");
+    await requestJson("/api/work-items/parent/decompositions", "POST", {
+      leaseId: parentClaim.lease.id,
+      epoch: parentClaim.lease.epoch,
+      children: [{ id: "child", title: "Child work", rank: 1 }],
+    });
+    const cancelledClaim = await claimItem("cancelled");
+    await requestJson("/api/work-items/cancelled/cancellations", "POST", {
+      leaseId: cancelledClaim.lease.id,
+      epoch: cancelledClaim.lease.epoch,
+    });
+
+    const firstNotes = (await readMetadata(
+      "notes",
+      "work",
+      "--limit",
+      "1",
+    )) as {
+      items: Array<{ id: string; content: string }>;
+      nextCursor: string | null;
+    };
+    const secondNotes = (await readMetadata(
+      "notes",
+      "work",
+      "--limit",
+      "1",
+      "--cursor",
+      firstNotes.nextCursor ?? "",
+    )) as {
+      items: Array<{ id: string; content: string }>;
+      nextCursor: string | null;
+    };
+    const events = await readMetadata("events", "work", "--limit", "100");
+    const dependencies = await readMetadata(
+      "dependencies",
+      "work",
+      "--limit",
+      "100",
+    );
+    const decompositions = await readMetadata(
+      "decompositions",
+      "parent",
+      "--limit",
+      "100",
+    );
+    const leases = await readMetadata("leases", "work", "--limit", "100");
+    const attention = await readMetadata(
+      "attention",
+      "work",
+      "--limit",
+      "100",
+    );
+    const cancellations = await readMetadata(
+      "cancellations",
+      "cancelled",
+      "--limit",
+      "100",
+    );
+    const releases = await readMetadata(
+      "releases",
+      "work",
+      "--limit",
+      "100",
+    );
+
+    expect(firstNotes).toEqual({
+      items: [
+        expect.objectContaining({
+          id: recordId(810),
+          content: "First metadata note",
+        }),
+      ],
+      nextCursor: recordId(810),
+    });
+    expect(secondNotes).toEqual({
+      items: [
+        expect.objectContaining({
+          id: recordId(811),
+          content: "Second metadata note",
+        }),
+      ],
+      nextCursor: null,
+    });
+    expect(events).toEqual(
+      expect.objectContaining({
+        items: expect.arrayContaining([
+          expect.objectContaining({ type: "note.created" }),
+          expect.objectContaining({ type: "attention.requested" }),
+          expect.objectContaining({ type: "attention.resolved" }),
+          expect.objectContaining({ type: "work_item.lifecycle_changed" }),
+        ]),
+      }),
+    );
+    expect(dependencies).toEqual({
+      items: [
+        { dependentWorkItemId: "downstream", blockerWorkItemId: "work" },
+        { dependentWorkItemId: "work", blockerWorkItemId: "blocker" },
+      ],
+      nextCursor: null,
+    });
+    expect(decompositions).toEqual({
+      items: [
+        expect.objectContaining({
+          type: "work_item.decomposed",
+          data: { childWorkItemIds: ["child"] },
+        }),
+      ],
+      nextCursor: null,
+    });
+    expect(leases).toEqual({
+      items: [
+        expect.objectContaining({
+          workItemId: "work",
+          workerId: "metadata-worker",
+          outcome: "released",
+        }),
+      ],
+      nextCursor: null,
+    });
+    expect(attention).toEqual({
+      items: [
+        expect.objectContaining({
+          resolution: expect.objectContaining({
+            resolution: "Yes, each record has a bounded JSON collection.",
+          }),
+        }),
+      ],
+      nextCursor: null,
+    });
+    expect(cancellations).toEqual({
+      items: [
+        expect.objectContaining({ data: { from: "open", to: "cancelled" } }),
+      ],
+      nextCursor: null,
+    });
+    expect(releases).toEqual({
+      items: [
+        expect.objectContaining({
+          data: { from: "open", to: "released", ...completionEvidence },
+        }),
+      ],
+      nextCursor: null,
+    });
+  });
+});
+
 afterAll(async () => {
   await closeDb(db);
 });
