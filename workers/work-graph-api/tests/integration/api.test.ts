@@ -53,7 +53,17 @@ beforeEach(async () => {
   await db.transaction(async (transaction) => {
     await transaction.delete(schema.attentionResolution);
     await transaction.delete(schema.attentionRequest);
-    await transaction.delete(schema.note);
+  });
+  await db.$client.begin(async (transaction) => {
+    await transaction.unsafe(
+      'alter table "notes" disable trigger notes_immutable',
+    );
+    await transaction.unsafe('delete from "notes"');
+    await transaction.unsafe(
+      'alter table "notes" enable trigger notes_immutable',
+    );
+  });
+  await db.transaction(async (transaction) => {
     await transaction.delete(schema.lease);
     await transaction.delete(schema.idempotencyKey);
     await transaction.delete(schema.knowledgeScopeRelationship);
@@ -975,6 +985,45 @@ describe("Given lease-backed work over HTTP", () => {
       stage: "released",
       currentLease: null,
     });
+
+    const commentRequest = () =>
+      requestJson(
+        "/api/work-items/work/comments",
+        "POST",
+        {
+          id: recordId(320),
+          author: "reviewer-a",
+          content: "Production exposed a follow-up.",
+        },
+        recordId(321),
+      );
+    const commentResponse = await commentRequest();
+    const commentReplay = await commentRequest();
+    const comment = await commentResponse.json();
+    expect(commentResponse.status).toBe(201);
+    expect(await commentReplay.json()).toEqual(comment);
+    expect(comment).toEqual(
+      expect.objectContaining({
+        kind: "post_release",
+        leaseId: null,
+        author: "reviewer-a",
+        createdAt: expect.any(String),
+      }),
+    );
+    expect(await repository.listNotes("work")).toHaveLength(1);
+    expect(await repository.getWorkItem("work")).toEqual(released.workItem);
+
+    await repository.createWorkItem({ id: "open", title: "Open" });
+    const openComment = await requestJson(
+      "/api/work-items/open/comments",
+      "POST",
+      {
+        id: recordId(322),
+        author: "reviewer-a",
+        content: "Too early.",
+      },
+    );
+    expect(openComment.status).toBe(409);
   });
 
   it("scheduler-selects an eligible item and can cancel it", async () => {

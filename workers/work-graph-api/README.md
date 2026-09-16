@@ -66,3 +66,12 @@ doppler run --project work-graph --config prd_work_graph -- work-graph queue
 Do not copy the Access pair into shell startup files. The CLI refuses to send
 it to an origin outside `WORK_GRAPH_CF_ACCESS_ALLOWED_ORIGINS` and refuses HTTP
 redirects.
+
+## Note history
+
+`POST /api/work-items/{workItemId}/notes` records lease-fenced notes while work
+is active. `POST /api/work-items/{workItemId}/comments` appends attributed
+discussion only after release. Both forms are append-only and appear in the
+notes collection. A comment does not change the work-item row, the release
+event or its evidence, or any lease. Cloudflare Access rejects unauthenticated
+and unauthorized requests before they reach the Worker with HTTP 401 or 403.

@@ -31,7 +31,7 @@
     },
     {
       "name": "notes",
-      "description": "Lease-fenced work notes."
+      "description": "Lease-fenced work notes and append-only discussion on released work."
     },
     {
       "name": "attention",
@@ -481,10 +481,29 @@
             "minLength": 1,
             "maxLength": 200
           },
-          "leaseId": {
+          "kind": {
             "type": "string",
-            "maxLength": 36,
-            "format": "uuid"
+            "enum": [
+              "work",
+              "post_release"
+            ]
+          },
+          "leaseId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 36,
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "author": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
           },
           "content": {
             "type": "string",
@@ -500,7 +519,9 @@
         "required": [
           "id",
           "workItemId",
+          "kind",
           "leaseId",
+          "author",
           "content",
           "createdAt"
         ]
@@ -3345,6 +3366,161 @@
         }
       }
     },
+    "/api/work-items/{workItemId}/comments": {
+      "post": {
+        "operationId": "createPostReleaseWorkItemNote",
+        "summary": "Append discussion to released work",
+        "description": "Appends an immutable, attributed note to a released work item without changing its lifecycle, release evidence, lease history, or timestamps. Cloudflare Access must authenticate the caller.",
+        "tags": [
+          "notes"
+        ],
+        "security": [
+          {
+            "cloudflareAccessClientId": [],
+            "cloudflareAccessClientSecret": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "required": true,
+            "name": "workItemId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "maxLength": 36,
+              "format": "uuid",
+              "description": "Client-generated mutation ID. Reusing it with the same request replays the committed effect. Reusing it for different input returns a conflict."
+            },
+            "required": false,
+            "description": "Client-generated mutation ID. Reusing it with the same request replays the committed effect. Reusing it for different input returns a conflict.",
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "maxLength": 36,
+                    "format": "uuid"
+                  },
+                  "author": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  "content": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 10000
+                  }
+                },
+                "required": [
+                  "id",
+                  "author",
+                  "content"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Post-release note appended or matching mutation replayed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkItemNote"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Cloudflare Access authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Cloudflare Access denied the request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Request conflicts with current Work Graph state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Request validation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/work-items/{workItemId}/decompositions": {
       "post": {
         "operationId": "createWorkItemDecomposition",
@@ -4178,7 +4354,7 @@
       "get": {
         "operationId": "listWorkItemNotes",
         "summary": "List notes for a work item",
-        "description": "Returns notes in stable note-ID order. Pass nextCursor to continue without offset drift.",
+        "description": "Returns immutable lease-fenced work notes and append-only post-release discussion in stable note-ID order. Pass nextCursor to continue without offset drift.",
         "tags": [
           "notes"
         ],

@@ -57,6 +57,13 @@
       "when": 1789560127273,
       "tag": "0007_immutable_events",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1789578352323,
+      "tag": "0008_immutable_post_release_notes",
+      "breakpoints": true
     }
   ]
 }

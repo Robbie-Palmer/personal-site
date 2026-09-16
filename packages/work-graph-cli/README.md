@@ -98,6 +98,7 @@ work-graph release cli-8 \
   --epoch 1 \
   --merge-evidence https://github.com/example/work-graph/pull/8 \
   --deployment-evidence https://work-graph.example.com/health
+work-graph comment cli-8 --author agent-a --content "The production check found a follow-up."
 work-graph cancel cli-8 --lease-id "$LEASE_ID" --epoch 1
 ```
 
@@ -107,6 +108,14 @@ current incoming and outgoing edges, leases retain every worker and outcome,
 and attention results include resolutions. Decomposition, cancellation, and
 release results come from the immutable event log. Release events include both
 merge and deployment evidence.
+
+`note` records immutable working history and requires the current lease ID and
+fencing epoch. `comment` appends immutable discussion after release. It cannot
+reopen work or change its release event, evidence, lease history, or
+timestamps. A comment requires `--author` or `WORK_GRAPH_WORKER_ID`. The stored
+note returns that provenance, a `post_release` kind, a null lease ID, and its
+database creation time. Both kinds appear in `metadata notes`. The API rejects
+comments on open or cancelled work.
 
 Every metadata response is a JSON object with `items` and `nextCursor`.
 `notes` uses a note UUID cursor and `dependencies` uses an opaque cursor.
@@ -147,11 +156,11 @@ work-graph attention request cli-8 \
 work-graph attention resolve "$ATTENTION_ID" --resolution "Use Cloudflare Workers"
 ```
 
-`create`, `note`, `decompose`, `attention request`, and `attention resolve`
-accept `--idempotency-key <uuid>`. Note and attention IDs are generated when
-`--id` is absent. When a mutation has an idempotency key, the CLI derives any
-missing mutation or child-lease UUID from that key. Retrying the same command
-therefore sends the same request fingerprint.
+`create`, `note`, `comment`, `decompose`, `attention request`, and
+`attention resolve` accept `--idempotency-key <uuid>`. Note and attention IDs
+are generated when `--id` is absent. When a mutation has an idempotency key,
+the CLI derives any missing mutation or child-lease UUID from that key.
+Retrying the same command therefore sends the same request fingerprint.
 
 ## JSON and exit codes
 

@@ -122,7 +122,7 @@ beforeAll(async () => {
     order by enumsortorder
   `);
 
-  expect(migrationCount?.count).toBe(8);
+  expect(migrationCount?.count).toBe(9);
   expect(tables.map(({ table_name }) => table_name)).toEqual([
     "attention_requests",
     "attention_resolutions",
@@ -724,9 +724,15 @@ beforeEach(async () => {
     );
   });
   await db.transaction(async (transaction) => {
+    await transaction.execute(
+      sql`alter table ${schema.note} disable trigger notes_immutable`,
+    );
     await transaction.delete(schema.attentionResolution);
     await transaction.delete(schema.attentionRequest);
     await transaction.delete(schema.note);
+    await transaction.execute(
+      sql`alter table ${schema.note} enable trigger notes_immutable`,
+    );
     await transaction.delete(schema.lease);
     await transaction.delete(schema.idempotencyKey);
     await transaction.delete(schema.knowledgeScopeRelationship);
@@ -1534,6 +1540,7 @@ describe("lease-fenced notes and attention", () => {
           id: recordId(231),
           workItemId: "other",
           leaseId: claimed.id,
+          author: "worker-a",
           content: "Mismatched provenance",
         }),
       ),
@@ -1692,6 +1699,109 @@ describe("lease-fenced notes and attention", () => {
         code: "lease_not_current",
       }),
     );
+  });
+
+  it("appends one immutable attributed note without changing released history", async () => {
+    await repository.createWorkItem({ id: "work", title: "Work" });
+    const claimed = await repository.claimWorkItem({
+      leaseId: recordId(250),
+      workerId: "worker-a",
+      leaseDurationSeconds: 300,
+      workItemId: "work",
+    });
+    if (!claimed) throw new Error("Expected work to be claimed.");
+    const workingNote = await repository.createNote({
+      id: recordId(251),
+      workItemId: "work",
+      leaseId: claimed.id,
+      epoch: claimed.epoch,
+      content: "Working history",
+    });
+    await repository.terminateClaimedWorkItem({
+      workItemId: "work",
+      leaseId: claimed.id,
+      epoch: claimed.epoch,
+      outcome: "released",
+      ...completionEvidence,
+    });
+
+    const [workItemBefore] = await db
+      .select()
+      .from(schema.workItem)
+      .where(eq(schema.workItem.id, "work"));
+    const leasesBefore = await repository.listLeases("work");
+    const releaseEventsBefore = await repository.listEvents({
+      workItemId: "work",
+      type: "work_item.lifecycle_changed",
+      lifecycle: "released",
+    });
+    const input = {
+      id: recordId(252),
+      workItemId: "work",
+      author: "reviewer-a",
+      content: "Production exposed a follow-up.",
+    };
+    const options = { idempotencyKey: recordId(253) };
+
+    const first = await repository.createPostReleaseNote(input, options);
+    const replay = await repository.createPostReleaseNote(input, options);
+
+    expect(replay).toEqual(first);
+    expect(first).toEqual(
+      expect.objectContaining({
+        leaseId: null,
+        author: "reviewer-a",
+        content: "Production exposed a follow-up.",
+        createdAt: expect.any(Date),
+      }),
+    );
+    expect(await repository.listNotes("work")).toEqual([workingNote, first]);
+    expect(await db.select().from(schema.workItem)).toContainEqual(
+      workItemBefore,
+    );
+    expect(await repository.listLeases("work")).toEqual(leasesBefore);
+    expect(
+      await repository.listEvents({
+        workItemId: "work",
+        type: "work_item.lifecycle_changed",
+        lifecycle: "released",
+      }),
+    ).toEqual(releaseEventsBefore);
+
+    expect(
+      await rejectedDatabaseError(
+        db
+          .update(schema.note)
+          .set({ content: "Edited history" })
+          .where(eq(schema.note.id, workingNote.id)),
+      ),
+    ).toEqual(expect.objectContaining({ code: "55000" }));
+    expect(
+      await rejectedDatabaseError(
+        db.delete(schema.note).where(eq(schema.note.id, first.id)),
+      ),
+    ).toEqual(expect.objectContaining({ code: "55000" }));
+  });
+
+  it("rejects post-release discussion on open and cancelled work", async () => {
+    await repository.createWorkItem({ id: "open", title: "Open" });
+    await repository.createWorkItem({ id: "cancelled", title: "Cancelled" });
+    await repository.cancelWorkItem("cancelled");
+
+    for (const [index, workItemId] of ["open", "cancelled"].entries()) {
+      await expect(
+        repository.createPostReleaseNote({
+          id: recordId(260 + index),
+          workItemId,
+          author: "reviewer-a",
+          content: "Should not be recorded.",
+        }),
+      ).rejects.toEqual(
+        expect.objectContaining<Partial<WorkGraphError>>({
+          code: "work_item_not_released",
+        }),
+      );
+    }
   });
 
   it("ends a lease for blocking attention and allows another worker after resolution", async () => {

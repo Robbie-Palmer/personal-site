@@ -26,6 +26,7 @@ const repository: WorkGraphApiRepository = {
   addDependency: unavailable,
   removeDependency: unavailable,
   createNote: unavailable,
+  createPostReleaseNote: unavailable,
   createAttentionRequest: unavailable,
   resolveAttentionRequest: unavailable,
   claimWorkItem: unavailable,
@@ -68,7 +69,8 @@ const document = app.getOpenAPI31Document({
     },
     {
       name: "notes",
-      description: "Lease-fenced work notes.",
+      description:
+        "Lease-fenced work notes and append-only discussion on released work.",
     },
     {
       name: "attention",

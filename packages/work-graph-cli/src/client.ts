@@ -6,6 +6,7 @@ import {
   createKnowledgeScopeRelationship,
   createLease,
   createLeaseRenewal,
+  createPostReleaseWorkItemNote,
   createWorkItem,
   createWorkItemCancellation,
   createWorkItemDecomposition,
@@ -27,9 +28,10 @@ import {
 import type {
   CreateAttentionRequestData,
   CreateAttentionResolutionData,
+  CreateKnowledgeScopeRelationshipData,
   CreateLeaseData,
   CreateLeaseRenewalData,
-  CreateKnowledgeScopeRelationshipData,
+  CreatePostReleaseWorkItemNoteData,
   CreateWorkItemCancellationData,
   CreateWorkItemData,
   CreateWorkItemDecompositionData,
@@ -302,6 +304,21 @@ export class WorkGraphClient {
   ) {
     return this.#unwrap(
       createWorkItemNote({
+        ...this.#options(),
+        body,
+        headers: idempotencyHeaders(idempotencyKey),
+        path: { workItemId },
+      }),
+    );
+  }
+
+  createPostReleaseNote(
+    workItemId: string,
+    body: CreatePostReleaseWorkItemNoteData["body"],
+    idempotencyKey?: string,
+  ) {
+    return this.#unwrap(
+      createPostReleaseWorkItemNote({
         ...this.#options(),
         body,
         headers: idempotencyHeaders(idempotencyKey),
