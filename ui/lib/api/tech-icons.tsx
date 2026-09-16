@@ -87,6 +87,7 @@ import {
   siTrivy,
   siTypescript,
   siVitest,
+  siX,
   siZod,
 } from "simple-icons";
 
@@ -178,6 +179,7 @@ const simpleIcons: Readonly<Record<string, SimpleIcon>> = {
   trivy: siTrivy,
   typescript: siTypescript,
   vitest: siVitest,
+  x: siX,
   zod: siZod,
 };
 
@@ -246,6 +248,7 @@ interface TechIconProps {
   name: string;
   iconSlug?: string; // Optional: use this slug instead of deriving from name
   className?: string;
+  invertInDarkMode?: boolean;
 }
 
 const getSimpleIcon = (iconSlug: string): SimpleIcon | null => {
@@ -281,6 +284,7 @@ export function TechIcon({
   name,
   iconSlug,
   className = "w-3 h-3",
+  invertInDarkMode = true,
 }: Readonly<TechIconProps>) {
   const iconData = resolveIconData(name, iconSlug);
   if (!iconData) return null;
@@ -288,7 +292,9 @@ export function TechIcon({
   if (iconData.type === "custom") {
     const colorFilter = fullColorCustomIcons.has(iconData.slug)
       ? ""
-      : "brightness-0 dark:invert";
+      : invertInDarkMode
+        ? "brightness-0 dark:invert"
+        : "brightness-0";
 
     return (
       // biome-ignore lint/performance/noImgElement: SSG site uses Cloudflare Images CDN, not Next.js Image

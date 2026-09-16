@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import PostHogApplicationPage, { metadata } from "@/app/(site)/posthog/page";
 
@@ -123,6 +123,9 @@ describe("PostHog application page", () => {
     ).toBeVisible();
     expect(screen.getByText("01 · Physical topology")).toBeVisible();
     expect(screen.getByText("02 · Inside the Mac mini")).toBeVisible();
+    fireEvent.click(
+      screen.getByRole("tab", { name: "02 · Inside the Mac mini" }),
+    );
     expect(
       screen.getByRole("img", {
         name: /Mac mini container topology showing DNS/i,
@@ -152,6 +155,26 @@ describe("PostHog application page", () => {
     expect(
       screen.getByRole("link", { name: /Inspect the Work Graph/i }),
     ).toHaveAttribute("href", "/projects/work-graph");
+    expect(
+      screen.getByRole("heading", {
+        name: /I was already building the machine around the coding agent/i,
+      }),
+    ).toBeVisible();
+    expect(screen.getByText("Codex × 2")).toBeVisible();
+    expect(screen.getByText("GLM 5.3 Flash")).toBeVisible();
+    expect(
+      screen.getByRole("link", {
+        name: /See the PostHog Desktop parallel/i,
+      }),
+    ).toHaveAttribute("href", "https://posthog.com/desktop");
+    expect(
+      screen.getByRole("link", {
+        name: /Inspect the remote development project/i,
+      }),
+    ).toHaveAttribute("href", "/projects/agent-friendly-remote-development");
+    expect(
+      screen.getByRole("link", { name: /Agent-first Writing Editor/i }),
+    ).toHaveAttribute("href", "/projects/agent-first-writing");
     expect(
       screen.getByRole("link", { name: /Try the product demo/i }),
     ).toHaveAttribute("href", "/recipes");

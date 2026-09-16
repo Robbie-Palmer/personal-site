@@ -204,7 +204,7 @@ export const posthogApplication = {
         title: "The home lab that runs my projects",
         meta: "K3s · Ansible · NixOS · Tailscale",
         description:
-          "The first diagram is the hardware. The second opens the Mac mini: DNS, photo backup, coding agents, monitoring, media, storage, and a VPN-gated automation stack that supervises its own download pipeline.",
+          "Switch between the hardware topology and the Mac mini service graph: DNS, photo backup, coding agents, monitoring, media, storage, and a VPN-gated automation stack that supervises its own download pipeline.",
         chartTitle: "01 · Physical topology",
         chart: `flowchart LR
 Phone["Phone or laptop"] -->|"Tailscale"| Mini["Mac mini<br/>Home hub"]
@@ -345,6 +345,90 @@ linkStyle default stroke:#1d1f1f,stroke-width:2px`,
       ],
     },
   ] satisfies readonly PostHogApplicationEvidence[],
+  agentPlatform: {
+    eyebrow: "The overlap gets ridiculous",
+    heading: "I was already building the machine around the coding agent.",
+    intro:
+      "PostHog Desktop combines a multiplayer product editor, parallel agents, multiple models, and cloud sandboxes. I arrived at the same shape from the infrastructure side, then kept going into shared planning, writing, and GPU services.",
+    posthogLink: {
+      label: "See the PostHog Desktop parallel",
+      href: "https://posthog.com/desktop",
+    },
+    workspace: {
+      number: "01",
+      eyebrow: "The place",
+      title: "Persistent K3s workspaces",
+      detail:
+        "Each person gets a private namespace, durable home directory, provider identities, and resource limits. They can leave from a phone or laptop without stopping the work.",
+      status: "Pilot infrastructure defined",
+      href: "/projects/agent-friendly-remote-development",
+      linkLabel: "Inspect the remote development project",
+    },
+    hub: {
+      number: "02",
+      eyebrow: "The control room",
+      title: "t3-code runs the room",
+      detail:
+        "Repos, worktrees, terminals, browser tools, and agent sessions stay together while several coding harnesses work in parallel.",
+      href: "/projects/homelab/adrs/006-t3-code",
+      linkLabel: "Read the t3-code decision",
+    },
+    harnesses: [
+      {
+        name: "Claude Code",
+        iconName: "Claude Code",
+        iconSlug: "claudecode",
+        detail: "Subscription",
+      },
+      {
+        name: "Codex × 2",
+        iconName: "Codex",
+        iconSlug: "codex",
+        detail: "Two accounts",
+      },
+      {
+        name: "OpenCode",
+        iconName: "opencode",
+        iconSlug: "opencode",
+        detail: "GLM 5.3 Flash",
+      },
+      {
+        name: "Grok Build",
+        iconName: "Grok Build",
+        iconSlug: "x",
+        detail: "Subscription",
+      },
+    ],
+    shared: {
+      number: "03",
+      eyebrow: "The shared brain",
+      title: "One plan, many workers",
+      detail:
+        "The agents should share priorities, dependencies, accepted knowledge, and expensive compute instead of rediscovering everything inside each session.",
+      services: [
+        {
+          name: "Work Graph",
+          detail:
+            "Ready work, dependencies, leases, and requests for attention",
+          href: "/projects/work-graph",
+        },
+        {
+          name: "Agent-first Writing Editor",
+          detail: "Plans and prose refined through shared GPU-backed models",
+          href: "/projects/agent-first-writing",
+        },
+        {
+          name: "Knowledge graph",
+          detail: "Decisions and accepted context available to every workspace",
+          href: "/projects/personal-knowledge-graph",
+        },
+      ],
+    },
+    writingPrinciple:
+      "Clear prose is an execution tool. If an agent cannot state the plan cleanly, I do not want it rushing into the code.",
+    routingPrinciple:
+      "The harness and model are routing choices, not the architecture. Use subscription capacity first, then move work when quality, limits, or cost change. Keep an escape hatch across providers.",
+  },
   experience: [
     {
       title: "Applied ML",
@@ -507,6 +591,40 @@ export function posthogApplicationMarkdown(): string {
       ...item.links.map((link) => "- " + markdownLink(link)),
       "",
     ]),
+    "## " + posthogApplication.agentPlatform.heading,
+    "",
+    posthogApplication.agentPlatform.intro,
+    "",
+    "[" +
+      posthogApplication.agentPlatform.posthogLink.label +
+      "](" +
+      posthogApplication.agentPlatform.posthogLink.href +
+      ")",
+    "",
+    ...[
+      posthogApplication.agentPlatform.workspace,
+      posthogApplication.agentPlatform.hub,
+      posthogApplication.agentPlatform.shared,
+    ].flatMap((stage) => [
+      "### " + stage.number + " · " + stage.title,
+      "",
+      stage.detail,
+      "",
+    ]),
+    "### Coding harnesses",
+    "",
+    ...posthogApplication.agentPlatform.harnesses.map(
+      (harness) => "- **" + harness.name + ":** " + harness.detail,
+    ),
+    "",
+    ...posthogApplication.agentPlatform.shared.services.flatMap((service) => [
+      "- [" + service.name + "](" + service.href + "): " + service.detail,
+    ]),
+    "",
+    posthogApplication.agentPlatform.writingPrinciple,
+    "",
+    posthogApplication.agentPlatform.routingPrinciple,
+    "",
     "## What I bring",
     "",
     ...posthogApplication.experience.map(
