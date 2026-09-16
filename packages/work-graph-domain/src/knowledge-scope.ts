@@ -16,7 +16,8 @@ const isIdentifier = (value: unknown): value is string =>
   typeof value === "string" && value.trim().length > 0;
 
 const isKnowledgeScopeKind = (value: unknown): value is KnowledgeScopeKind =>
-  KNOWLEDGE_SCOPE_KINDS.some((kind) => kind === value);
+  typeof value === "string" &&
+  (KNOWLEDGE_SCOPE_KINDS as readonly string[]).includes(value);
 
 const requireHttpUrl = (value: unknown, field: string): string => {
   if (typeof value !== "string") {
@@ -115,10 +116,13 @@ export const createKnowledgeScope = (
   };
 };
 
-export const validateKnowledgeScopeRelationships = (
+const indexKnowledgeScopeRelationships = (
   knowledgeScopeIds: ReadonlySet<string>,
   relationships: readonly KnowledgeScopeRelationship[],
-): void => {
+): {
+  childrenByParent: ReadonlyMap<string, ReadonlySet<string>>;
+  incomingEdges: Map<string, number>;
+} => {
   const childrenByParent = new Map<string, Set<string>>();
   const incomingEdges = new Map<string, number>();
   for (const id of knowledgeScopeIds) {
@@ -157,13 +161,20 @@ export const validateKnowledgeScopeRelationships = (
     incomingEdges.set(childId, (incomingEdges.get(childId) ?? 0) + 1);
   }
 
+  return { childrenByParent, incomingEdges };
+};
+
+const validateAcyclicKnowledgeScopeGraph = (
+  knowledgeScopeIds: ReadonlySet<string>,
+  childrenByParent: ReadonlyMap<string, ReadonlySet<string>>,
+  incomingEdges: Map<string, number>,
+): void => {
+
   const ready = [...incomingEdges]
     .filter(([, count]) => count === 0)
     .map(([id]) => id);
   let visited = 0;
-  for (let index = 0; index < ready.length; index += 1) {
-    const parentId = ready[index];
-    if (!parentId) continue;
+  for (const parentId of ready) {
     visited += 1;
     for (const childId of childrenByParent.get(parentId) ?? []) {
       const count = (incomingEdges.get(childId) ?? 0) - 1;
@@ -177,4 +188,19 @@ export const validateKnowledgeScopeRelationships = (
       "The change creates a knowledge-scope cycle.",
     );
   }
+};
+
+export const validateKnowledgeScopeRelationships = (
+  knowledgeScopeIds: ReadonlySet<string>,
+  relationships: readonly KnowledgeScopeRelationship[],
+): void => {
+  const { childrenByParent, incomingEdges } = indexKnowledgeScopeRelationships(
+    knowledgeScopeIds,
+    relationships,
+  );
+  validateAcyclicKnowledgeScopeGraph(
+    knowledgeScopeIds,
+    childrenByParent,
+    incomingEdges,
+  );
 };
