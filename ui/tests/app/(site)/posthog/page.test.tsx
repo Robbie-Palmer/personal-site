@@ -39,7 +39,7 @@ describe("PostHog application page", () => {
       screen.getByText(/cancer diagnostics, logistics yards/i),
     ).toBeVisible();
     expect(screen.getByText(/Gödel → data mesh/i)).toBeVisible();
-    expect(screen.getByText(/Shrek through Marx \(20m\)/i)).toBeVisible();
+    expect(screen.getByText(/Shrek through Marx/i)).toBeVisible();
     expect(
       screen.getByRole("heading", {
         name: "The work is public. You can inspect it.",
@@ -48,10 +48,10 @@ describe("PostHog application page", () => {
     expect(screen.getByText(/coordinate the work on this page/i)).toBeVisible();
     expect(
       screen.getByRole("heading", {
-        name: "The subjects jump. The obsession does not.",
+        name: "The subjects vary. The passion for building is consistent.",
       }),
     ).toBeVisible();
-    expect(screen.getByText(/Correct\. That is the point/i)).toBeVisible();
+    expect(screen.getByText(/I like discovering novelty/i)).toBeVisible();
     expect(screen.getByText(/DeskHog is a developer toy/i)).toBeVisible();
     expect(
       screen.getByRole("img", {
@@ -60,17 +60,17 @@ describe("PostHog application page", () => {
     ).toBeVisible();
     expect(
       screen.getByRole("heading", {
-        name: "The repository is only the organised part.",
+        name: "Outside the repository",
       }),
     ).toBeVisible();
     const workWeirdnessHeading = screen.getByRole("heading", {
       name: "What the weirdness looks like.",
     });
     const throughLineHeading = screen.getByRole("heading", {
-      name: "The subjects jump. The obsession does not.",
+      name: "The subjects vary. The passion for building is consistent.",
     });
     const personalWeirdnessHeading = screen.getByRole("heading", {
-      name: "The repository is only the organised part.",
+      name: "Outside the repository",
     });
     const agentPlatformHeading = screen.getByRole("heading", {
       name: /I was already building the machine around the coding agent/i,
@@ -98,14 +98,14 @@ describe("PostHog application page", () => {
       "href",
       "/blog/2022-03-02-the-philosophy-of-data-science",
     );
-    expect(screen.getByText("I perform solo jazz dancing.")).toBeVisible();
+    expect(screen.getByText("I perform jazz dance")).toBeVisible();
     expect(
       screen.getByRole("img", {
         name: /Flying Feet Jazz Dance Collective logo/i,
       }),
     ).toBeVisible();
     expect(
-      screen.getByRole("link", { name: /I perform solo jazz dancing/i }),
+      screen.getByRole("link", { name: /I perform jazz dance/i }),
     ).toHaveAttribute(
       "href",
       "https://linktr.ee/flyingfeetjazzdancecollective",
@@ -216,7 +216,7 @@ describe("PostHog application page", () => {
     ).toHaveAttribute("href", "/projects/agent-first-writing");
     expect(
       screen.getByRole("heading", {
-        name: "The culture I keep trying to build already exists here.",
+        name: "The culture I keep trying to build already exists here",
       }),
     ).toBeVisible();
     expect(
@@ -225,10 +225,10 @@ describe("PostHog application page", () => {
       }),
     ).toBeVisible();
     expect(screen.getByText(/He proved me wrong/i)).toBeVisible();
-    expect(screen.getByText(/lowest morale and productivity/i)).toBeVisible();
+    expect(screen.getByText(/lowest morale in the company/i)).toBeVisible();
     expect(
       screen.getByRole("heading", {
-        name: "That description feels uncomfortably specific.",
+        name: "The cracked-engineer connection",
       }),
     ).toBeVisible();
     expect(
@@ -238,6 +238,19 @@ describe("PostHog application page", () => {
     ).toHaveAttribute(
       "href",
       "https://newsletter.posthog.com/p/hiring-and-managing-cracked-engineers",
+    );
+    expect(
+      screen.getByRole("img", {
+        name: /PostHog's muscular cracked-engineer hedgehog/i,
+      }),
+    ).toBeVisible();
+    expect(
+      screen.getByRole("link", {
+        name: /even though better commercial products will eventually replace/i,
+      }),
+    ).toHaveAttribute(
+      "href",
+      "/blog/2026-08-18-crossing-the-chasm-with-ai-platform-teams",
     );
     expect(
       screen.getByRole("link", { name: /Try the product demo/i }),

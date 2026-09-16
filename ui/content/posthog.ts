@@ -20,7 +20,7 @@ export const posthogApplication = {
       "I am the sort of person who builds a recipe platform, an autonomic satellite-swarm simulation, cancer-research software, a Kubernetes-based homelab, and a Jira replacement at the same time.",
     attribution: "One review of this repository",
     intro:
-      "Correct. That is the point. I like building things that do not fit neatly on one roadmap. The subjects jump. The underlying questions do not.",
+      "I like building things that do not fit neatly on a roadmap. I like discovering novelty. I like shipping value. I like locking in on a different perspective.",
     threads: [
       "Data architecture",
       "Machine learning",
@@ -30,38 +30,38 @@ export const posthogApplication = {
       "A shared go-to-market stack",
     ],
     conclusion:
-      "The domains change. The work repeats: model a real system, connect its data, make it adaptive, then build whatever infrastructure is missing. I see things that should exist and keep going until they do. I do not want the project list to look normal.",
+      "The domains change; but the patterns repeat: model a real system, connect its data, make it adaptive, then build whatever infrastructure is missing. I see things that should exist and keep going until they do. I do not want the project list to look normal.",
     posthogParallel:
-      "DeskHog is a developer toy built for joy. I recognise the instinct. Curiosity is allowed to become infrastructure.",
+      "You encourage this kind of innovative exploration. DeskHog is a developer toy built for joy.",
     posthogParallelHref: "https://posthog.com/deskhog",
     posthogParallelImage:
       "https://res.cloudinary.com/dmukukwp6/image/upload/deskhog_smiling_36bb2647ff",
     posthogParallelImageAlt:
       "PostHog's turquoise DeskHog developer toy smiling beneath a shower of confetti",
     personality: {
-      heading: "The repository is only the organised part.",
-      introBefore:
-        "None of this is personal branding. It is what I do when nobody has assigned me a ticket. If ",
+      heading: "Outside the repository",
+      introBefore: "If ",
       introLink: {
         label: "pineapple-on-pizza telemetry",
         href: "https://posthog.com/careers#pizza",
       },
-      introAfter: " belongs on a company page, this belongs on an application.",
+      introAfter:
+        " belongs on a company page, then my weird hobbies belong on a job application",
       items: [
         {
           eyebrow: "Light reading · 6,907 words",
           title:
-            "I connected the philosophy of mathematics to data science and data mesh.",
+            "I connected the philosophy of mathematics to data science and data mesh",
           description:
-            "The essay asks what data scientists mean by knowledge, then brings in Gödel, Popper, Kuhn, postmodernism, and organisational architecture.",
+            "The essay asks what data scientists mean by knowledge, then brings in Gödel, Popper, Kuhn, postmodernism, and organisational architecture. Concluding we should practice Post-positivist Domain Driven Data Science.",
           href: "/blog/2022-03-02-the-philosophy-of-data-science",
           linkLabel: "Read the whole thing",
         },
         {
           eyebrow: "Live performance",
-          title: "I perform solo jazz dancing.",
+          title: "I perform jazz dance",
           description:
-            "A different kind of improvisation: rhythm, vocabulary, nerve, and no rollback button.",
+            "I've started performing a mixture of Charleston, Lindy Hop and Swing. The sillier the move the better. Most hilarious move: 'the bird'",
           image:
             "https://ugc.production.linktr.ee/4f88d739-d63c-434e-9683-0ca5142a4358_FF-CIRCULAR-DOUBLE-OUTLINE-SALMON-OUTER.png?io=true&size=avatar-v3_0",
           imageAlt:
@@ -94,7 +94,7 @@ export const posthogApplication = {
         label: "Satellite swarm",
         href: "/projects/autonomic-satellite-swarm",
       },
-      { label: "Cancer research", href: "/experience" },
+      { label: "Cancer research", href: "/initiatives/personalized-medicine" },
       { label: "Kubernetes homelab", href: "/projects/homelab" },
       { label: "Jira replacement", href: "/projects/work-graph" },
     ],
@@ -105,7 +105,7 @@ export const posthogApplication = {
         title: "Whole-slide pathology viewer",
         meta: "Leaflet · gigapixel tissue",
         description:
-          "A browser interface for navigating proprietary whole-slide images and inspecting model output in context.",
+          "A browser interface for navigating proprietary whole-slide images and inspecting model output",
         image: "/images/home/pathology-viewer.jpg",
         imageWidth: 1790,
         imageHeight: 1008,
@@ -120,7 +120,7 @@ export const posthogApplication = {
         title: "Autonomic satellite swarm",
         meta: "CesiumJS · C++ · WebAssembly",
         description:
-          "A deterministic mission replay where satellites negotiate leadership and assignment over a simulated network.",
+          "A deterministic mission replay where satellites negotiate leadership and assignment over a simulated network",
         image: "/images/home/satellite-swarm.jpg",
         imageWidth: 1550,
         imageHeight: 1024,
@@ -135,7 +135,7 @@ export const posthogApplication = {
         title: "The site as a knowledge graph",
         meta: "Cosmos.gl · 436 pages · connected data",
         description:
-          "Projects, ideas, decisions, roles, and technologies stored as a graph that people and agents can query.",
+          "Projects, ideas, decisions, roles, and technologies stored as a graph that people and agents can query",
         image: "/images/posthog/knowledge-graph.png",
         imageWidth: 1151,
         imageHeight: 679,
@@ -150,7 +150,7 @@ export const posthogApplication = {
         title: "A financial twin",
         meta: "Recharts · event ledger · projections",
         description:
-          "Accounts, assets, debts, transfers, and forecasts combined into a working model of household finances.",
+          "Accounts, assets, debts, transfers, and forecasts combined into a working model of household finances",
         image: "/images/home/asset-tracker-chart.jpg",
         imageWidth: 1874,
         imageHeight: 972,
@@ -165,7 +165,7 @@ export const posthogApplication = {
         title: "A yard that sees what is moving",
         meta: "Computer vision · Kafka · digital twin",
         description:
-          "At Terminal, I helped turn camera detections into a live record across gates and yards. My work covered the event plane, cross-camera fusion, cloud infrastructure, observability, analytics, and technical leadership.",
+          "At Terminal, I have helped turn camera detections into a live record across gates and yards. My work covers the event plane, cross-camera fusion, cloud infrastructure, observability, analytics, and technical leadership",
         image: "https://a.storyblok.com/f/337048/2882x1574/cb9f2cde65/y.webp",
         imageWidth: 2882,
         imageHeight: 1574,
@@ -325,7 +325,7 @@ linkStyle default stroke:#1d1f1f,stroke-width:2px`,
     },
   ] satisfies readonly PostHogApplicationEvidence[],
   agentPlatform: {
-    eyebrow: "The overlap gets ridiculous",
+    eyebrow: "The overlap is ridiculous",
     heading: "I was already building the machine around the coding agent.",
     intro:
       "PostHog Desktop combines a multiplayer product editor, parallel agents, multiple models, and cloud sandboxes. I got here because my tools kept failing me in different ways. Since November 2025 I have coded from my phone with Claude Code for web, added Codex on my Mac and then t3-code, and set up a Hetzner server because I wanted agents to keep running when I stepped away. In parallel, the pain of sharing context while running a team led to Work Graph. Reading endless AI prose was doing my head in, so I started building an editor to unslop it. The GPUs are still my own local machines.",
@@ -410,10 +410,9 @@ linkStyle default stroke:#1d1f1f,stroke-width:2px`,
       "The harness and model are routing choices, not the architecture. Use subscription capacity first, then move work when quality, limits, or cost change. Keep an escape hatch across providers.",
   },
   culture: {
-    eyebrow: "Culture, in practice",
-    heading: "The culture I keep trying to build already exists here.",
+    heading: "The culture I keep trying to build already exists here",
     intro:
-      "PostHog's culture is not a nice extra for me. It is the operating model I have repeatedly tried to create inside companies that were not designed for it. Managers who still do real work. Small teams trusted with whole products. Context instead of task assignment. High standards without approval theatre. Weird people given room to ship.",
+      "PostHog's culture is the model I have repeatedly tried to build inside companies that were not designed for it. Managers who still do real work. Small teams trusted with whole products. Context instead of task assignment. High standards without approval theatre. Weird people given room to ship.",
     stories: [
       {
         number: "01",
@@ -444,7 +443,7 @@ linkStyle default stroke:#1d1f1f,stroke-width:2px`,
         eyebrow: "Double down on strengths",
         title: "I inherited the team nobody wanted to be on.",
         description:
-          "At Terminal, I inherited the team with the lowest morale and productivity in the company. It became the happiest, most productive, and most ambitious team, and one that people elsewhere wanted to join. The mechanism was trust, clear context, high standards, and removing everything that slowed good people down. I work on weaknesses when they harm other people, only until they are good enough. Then I invest hard in strengths. People are investment centres, not cost centres.",
+          "At Terminal, I inherited the team with the lowest morale in the company. It became the happiest, most productive, and most ambitious team. With others desperate to join. This was the natural result of high trust, clear context, high standards, and removing everything that slowed good people down. I work on weaknesses when they harm other people, *only* until they are good enough. Then I invest hard in strengths. People are investment centres, not cost centres.",
         link: {
           label: "Why PostHog invests in people's strengths",
           href: "https://newsletter.posthog.com/p/hiring-and-managing-cracked-engineers",
@@ -464,27 +463,40 @@ linkStyle default stroke:#1d1f1f,stroke-width:2px`,
     ],
     publicWork: {
       eyebrow: "Make it public",
-      heading: "The repository is the evidence, not the performance.",
+      heading: "The repository hides nothing",
       description:
-        "It contains products, source code, architectural decisions, experiments, negative results, initiatives, and current thinking. I built it because I enjoy the craft and want the work to be inspectable, not because somebody assigned me a portfolio project.",
+        "It contains products, source code, architectural decisions, experiments, negative results, initiatives, and current thinking. I built it because I want these things to exist. And the best way to do that is by holding high standards in public, and enabling others to join you on the journey. Don't hide ideas; and encourage execution!",
       href: "https://github.com/Robbie-Palmer/hq",
       linkLabel: "Inspect the repository",
     },
     whyNow: {
       eyebrow: "Why not now?",
       heading: "The agent-tooling market is unsettled. I am building anyway.",
-      description:
-        "A lot of people I know are frightened by what coding agents can now do and want to step away. I am addicted to the possibility. I am building the missing review, planning, context, knowledge, and coordination systems now, even though better commercial products will eventually replace some of them. Agents have made ideas economical that once needed separate teams and budgets.",
+      descriptionBefore:
+        "A lot of people I know are frightened by what coding agents can now do and want to step away. I am addicted to the possibility. I am building the missing review, planning, context, knowledge, and coordination systems now, ",
+      descriptionLink: {
+        label:
+          "even though better commercial products will eventually replace some of them",
+        href: "/blog/2026-08-18-crossing-the-chasm-with-ai-platform-teams",
+      },
+      descriptionAfter:
+        ". Agents have made ideas economical that once needed large teams and budgets.",
     },
     closing: {
-      eyebrow: "The cracked-engineer connection",
-      heading: "That description feels uncomfortably specific.",
+      heading: "The cracked-engineer connection",
       paragraphs: [
-        "PostHog writes about people whose work speaks for itself, who love the craft, who do not need a FAANG name on the CV, and who may have held together failing companies. I have repeatedly held together teams, products, and startups that lacked product-market fit, sufficient capital, or a healthy operating culture.",
-        "I have spent years burning political capital to create this way of working. I would like to find out what I can do when it is the starting point, inside a company with real product-market fit, rather than another destination I have to drag a company towards through repeated feats of execution.",
+        "PostHog writes about people whose work speaks for itself, who love the craft, who do not have a FAANG name on the CV, and who have held together failing companies. I have held together teams, products, and startups that lacked product-market fit, sufficient capital, or a healthy operating culture.",
+        "I have spent years burning political capital to create this way of working. I would like to find out what I can do when it is the starting point, inside a company with real product-market fit.",
       ],
       href: "https://newsletter.posthog.com/p/hiring-and-managing-cracked-engineers",
       linkLabel: "Read PostHog's cracked-engineer essay",
+      meme: {
+        image: "/images/posthog/cracked-engineer-repositories.png",
+        imageWidth: 1672,
+        imageHeight: 941,
+        alt: "PostHog's muscular cracked-engineer hedgehog labelled PostHog/posthog with 39,817 GitHub stars beside the smaller also-cracked hedgehog labelled Robbie-Palmer/hq with zero stars",
+        credit: "Adapted from PostHog's cracked-engineer essay",
+      },
     },
   },
   experience: [
@@ -496,12 +508,12 @@ linkStyle default stroke:#1d1f1f,stroke-width:2px`,
     {
       title: "Product engineering",
       detail:
-        "TypeScript and React frontends, Python and Go services, streaming systems, infrastructure, and observability.",
+        "TypeScript / React frontends, Python services, real-time event-driven streaming systems, infrastructure, and observability.",
     },
     {
       title: "Users and outcomes",
       detail:
-        "Customer discovery, technical consulting, rapid prototypes, product ownership, and measuring what changed after shipping.",
+        "Customer discovery, technical consulting, rapid prototypes, product ownership, and success metrics.",
     },
     {
       title: "Technical leadership",
@@ -608,7 +620,7 @@ export function posthogApplicationMarkdown(): string {
         ? ["[" + artefact.credit + "](" + artefact.sourceHref + ")", ""]
         : []),
     ]),
-    "## The subjects jump. The obsession does not.",
+    "## The subjects vary. The passion for building is consistent.",
     "",
     "> " + posthogApplication.weirdness.quote,
     ">",
@@ -636,9 +648,7 @@ export function posthogApplicationMarkdown(): string {
       (project) => "- [" + project.label + "](" + project.href + ")",
     ),
     "",
-    "### Outside the repository",
-    "",
-    posthogApplication.weirdness.personality.heading,
+    "### " + posthogApplication.weirdness.personality.heading,
     "",
     posthogApplication.weirdness.personality.introBefore +
       "[" +
@@ -692,7 +702,13 @@ export function posthogApplicationMarkdown(): string {
     "",
     "### " + posthogApplication.culture.whyNow.heading,
     "",
-    posthogApplication.culture.whyNow.description,
+    posthogApplication.culture.whyNow.descriptionBefore +
+      "[" +
+      posthogApplication.culture.whyNow.descriptionLink.label +
+      "](" +
+      posthogApplication.culture.whyNow.descriptionLink.href +
+      ")" +
+      posthogApplication.culture.whyNow.descriptionAfter,
     "",
     "### " + posthogApplication.culture.closing.heading,
     "",
@@ -702,6 +718,18 @@ export function posthogApplicationMarkdown(): string {
     ]),
     "[" +
       posthogApplication.culture.closing.linkLabel +
+      "](" +
+      posthogApplication.culture.closing.href +
+      ")",
+    "",
+    "![" +
+      posthogApplication.culture.closing.meme.alt +
+      "](" +
+      posthogApplication.culture.closing.meme.image +
+      ")",
+    "",
+    "[" +
+      posthogApplication.culture.closing.meme.credit +
       "](" +
       posthogApplication.culture.closing.href +
       ")",

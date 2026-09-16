@@ -268,12 +268,12 @@ export default function PostHogApplicationPage() {
             </div>
           </a>
           <p className="mt-8 max-w-2xl text-lg font-medium leading-8 sm:text-xl">
-            You are building the context and tools that let products understand
-            what is happening and act on it. I keep arriving at the same problem
-            from wildly different directions: cancer diagnostics, logistics
-            yards, satellite swarms, household finance, recipes, and software
-            agents. I turn messy systems into models, then build the data and
-            feedback loops that let them adapt.
+            You are building the data context and tooling that enable products
+            to understand what is happening and to act on it. I keep arriving at
+            the same problem from wildly different directions: cancer
+            diagnostics, logistics yards, satellite swarms, household finance,
+            recipes, and software agents. I turn messy systems into models, then
+            build the data and feedback loops that make them adapt.
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
             <a
@@ -346,7 +346,7 @@ export default function PostHogApplicationPage() {
                 <dt className="text-white/45">dance</dt>
                 <dd>solo jazz</dd>
                 <dt className="text-white/45">watch</dt>
-                <dd>Shrek through Marx (20m)</dd>
+                <dd>Shrek through Marx</dd>
                 <dt className="text-white/45">next</dt>
                 <dd>1.5h Barbie deconstruction</dd>
               </dl>
@@ -371,16 +371,13 @@ export default function PostHogApplicationPage() {
           <div className="min-w-0 lg:col-span-2">
             <div className="mb-8 flex flex-wrap items-end justify-between gap-4 border-b-2 border-white/25 pb-5">
               <div>
-                <p className="text-xs font-black uppercase tracking-[0.2em] text-[var(--hog-red)]">
-                  Six exhibits
-                </p>
                 <h2 className="mt-2 text-4xl font-black tracking-[-0.04em] sm:text-6xl">
                   What the weirdness looks like.
                 </h2>
               </div>
               <p className="max-w-md text-sm font-bold leading-6 text-white/60">
-                Six interfaces. Six domains. The same urge to turn a messy
-                system into something visible, explorable, and useful.
+                Six domains. All with the same urge to turn a messy system into
+                something visible, explorable, and useful.
               </p>
             </div>
 
@@ -515,7 +512,7 @@ export default function PostHogApplicationPage() {
                 The through-line
               </p>
               <h3 className="mt-3 break-words text-4xl font-black tracking-[-0.04em] sm:text-6xl">
-                The subjects jump. The obsession does not.
+                The subjects vary. The passion for building is consistent.
               </h3>
               <blockquote
                 className={cn(
@@ -592,9 +589,6 @@ export default function PostHogApplicationPage() {
           <div className="mt-8 min-w-0 border-t-2 border-white/25 pt-12 lg:col-span-2">
             <div className="grid gap-6 lg:grid-cols-[0.8fr_1.2fr] lg:items-end">
               <div>
-                <p className="text-xs font-black uppercase tracking-[0.2em] text-[var(--hog-blue)]">
-                  Outside the repository
-                </p>
                 <h3 className="mt-2 text-3xl font-black sm:text-5xl">
                   {posthogApplication.weirdness.personality.heading}
                 </h3>
@@ -634,11 +628,6 @@ export default function PostHogApplicationPage() {
             <h2 className="mt-3 text-4xl font-black tracking-[-0.04em] sm:text-6xl">
               The work is public. You can inspect it.
             </h2>
-            <p className="mt-5 text-lg font-medium leading-8">
-              These are working systems and recorded decisions, not portfolio
-              mock-ups. Each link goes to the product, source, architecture, or
-              public decision behind the claim.
-            </p>
           </div>
 
           <div className="mt-12 grid gap-8 lg:grid-cols-3">
