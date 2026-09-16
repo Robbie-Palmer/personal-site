@@ -422,7 +422,7 @@ before the headless workflow is useful.
    optionally claiming a ready child.
 8. [x] Build the TypeScript CLI around create, queue, claim, show, note, renew,
    decompose, attention, release, and cancel operations.
-9. [ ] Provision the Worker, Neon project, Hyperdrive, Access application, service
+9. [x] Provision the Worker, Neon project, Hyperdrive, Access application, service
    token, and secrets through Terraform and Doppler.
 10. [ ] Enter this plan into Work Graph and use it to finish its own MVP.
 11. [ ] Add manual PR links and snapshot refresh. Automate GitHub events only after

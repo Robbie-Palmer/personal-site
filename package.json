@@ -50,6 +50,11 @@
       "mise run //infra/remote-development:precommit-lint",
       "mise run //infra/remote-development:lint:tflint"
     ],
+    "infra/work-graph/**/*.tf": [
+      "mise run //infra/work-graph:format",
+      "mise run //infra/work-graph:precommit-lint",
+      "bash -c 'mise run //infra/work-graph:lint:tflint' --"
+    ],
     "**/*.md": [
       "mise run //:lint:markdown",
       "mise run //:lint:prose:staged"
