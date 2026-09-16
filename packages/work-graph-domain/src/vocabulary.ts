@@ -37,3 +37,7 @@ export const PULL_REQUEST_ROLES = [
 ] as const;
 
 export type PullRequestRole = (typeof PULL_REQUEST_ROLES)[number];
+
+export const KNOWLEDGE_SCOPE_KINDS = ["initiative", "project"] as const;
+
+export type KnowledgeScopeKind = (typeof KNOWLEDGE_SCOPE_KINDS)[number];

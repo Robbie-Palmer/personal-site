@@ -41,6 +41,32 @@ export type Error = {
     };
 };
 
+export type KnowledgeScopeList = {
+    items: Array<KnowledgeScope>;
+    nextCursor: string | null;
+};
+
+export type KnowledgeScope = {
+    id: string;
+    kind: 'initiative' | 'project';
+    title: string;
+    canonicalUrl: string;
+    markdownUrl: string;
+    sourceRevision: string | null;
+    rank: number | null;
+    priorityWeight: number;
+};
+
+export type KnowledgeScopeRelationshipList = {
+    items: Array<KnowledgeScopeRelationship>;
+    nextCursor: string | null;
+};
+
+export type KnowledgeScopeRelationship = {
+    parentKnowledgeScopeId: string;
+    childKnowledgeScopeId: string;
+};
+
 export type WorkItemDependency = {
     dependentWorkItemId: string;
     blockerWorkItemId: string;
@@ -405,6 +431,343 @@ export type CreateDependencyResponses = {
 };
 
 export type CreateDependencyResponse = CreateDependencyResponses[keyof CreateDependencyResponses];
+
+export type DeleteKnowledgeScopeRelationshipData = {
+    body: {
+        parentKnowledgeScopeId: string;
+        childKnowledgeScopeId: string;
+    };
+    headers?: {
+        /**
+         * Client-generated mutation ID. Reusing it with the same request replays the committed effect. Reusing it for different input returns a conflict.
+         */
+        'idempotency-key'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/knowledge-scope-relationships';
+};
+
+export type DeleteKnowledgeScopeRelationshipErrors = {
+    /**
+     * Invalid request
+     */
+    400: Error;
+    /**
+     * Cloudflare Access authentication required
+     */
+    401: Error;
+    /**
+     * Cloudflare Access denied the request
+     */
+    403: Error;
+    /**
+     * Resource not found
+     */
+    404: Error;
+    /**
+     * Request conflicts with current Work Graph state
+     */
+    409: Error;
+    /**
+     * Request validation failed
+     */
+    422: Error;
+    /**
+     * Unexpected server error
+     */
+    500: Error;
+};
+
+export type DeleteKnowledgeScopeRelationshipError = DeleteKnowledgeScopeRelationshipErrors[keyof DeleteKnowledgeScopeRelationshipErrors];
+
+export type DeleteKnowledgeScopeRelationshipResponses = {
+    /**
+     * Knowledge-scope relationship removed or replayed
+     */
+    200: KnowledgeScopeRelationship;
+};
+
+export type DeleteKnowledgeScopeRelationshipResponse = DeleteKnowledgeScopeRelationshipResponses[keyof DeleteKnowledgeScopeRelationshipResponses];
+
+export type ListKnowledgeScopeRelationshipsData = {
+    body?: never;
+    path?: never;
+    query?: {
+        limit?: number;
+        cursor?: string;
+    };
+    url: '/api/knowledge-scope-relationships';
+};
+
+export type ListKnowledgeScopeRelationshipsErrors = {
+    /**
+     * Invalid request
+     */
+    400: Error;
+    /**
+     * Cloudflare Access authentication required
+     */
+    401: Error;
+    /**
+     * Cloudflare Access denied the request
+     */
+    403: Error;
+    /**
+     * Resource not found
+     */
+    404: Error;
+    /**
+     * Request conflicts with current Work Graph state
+     */
+    409: Error;
+    /**
+     * Request validation failed
+     */
+    422: Error;
+    /**
+     * Unexpected server error
+     */
+    500: Error;
+};
+
+export type ListKnowledgeScopeRelationshipsError = ListKnowledgeScopeRelationshipsErrors[keyof ListKnowledgeScopeRelationshipsErrors];
+
+export type ListKnowledgeScopeRelationshipsResponses = {
+    /**
+     * Knowledge-scope relationships
+     */
+    200: KnowledgeScopeRelationshipList;
+};
+
+export type ListKnowledgeScopeRelationshipsResponse = ListKnowledgeScopeRelationshipsResponses[keyof ListKnowledgeScopeRelationshipsResponses];
+
+export type CreateKnowledgeScopeRelationshipData = {
+    body: {
+        parentKnowledgeScopeId: string;
+        childKnowledgeScopeId: string;
+    };
+    headers?: {
+        /**
+         * Client-generated mutation ID. Reusing it with the same request replays the committed effect. Reusing it for different input returns a conflict.
+         */
+        'idempotency-key'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/knowledge-scope-relationships';
+};
+
+export type CreateKnowledgeScopeRelationshipErrors = {
+    /**
+     * Invalid request
+     */
+    400: Error;
+    /**
+     * Cloudflare Access authentication required
+     */
+    401: Error;
+    /**
+     * Cloudflare Access denied the request
+     */
+    403: Error;
+    /**
+     * Resource not found
+     */
+    404: Error;
+    /**
+     * Request conflicts with current Work Graph state
+     */
+    409: Error;
+    /**
+     * Request validation failed
+     */
+    422: Error;
+    /**
+     * Unexpected server error
+     */
+    500: Error;
+};
+
+export type CreateKnowledgeScopeRelationshipError = CreateKnowledgeScopeRelationshipErrors[keyof CreateKnowledgeScopeRelationshipErrors];
+
+export type CreateKnowledgeScopeRelationshipResponses = {
+    /**
+     * Knowledge-scope relationship added or replayed
+     */
+    201: KnowledgeScopeRelationship;
+};
+
+export type CreateKnowledgeScopeRelationshipResponse = CreateKnowledgeScopeRelationshipResponses[keyof CreateKnowledgeScopeRelationshipResponses];
+
+export type ListKnowledgeScopesData = {
+    body?: never;
+    path?: never;
+    query?: {
+        kind?: 'initiative' | 'project';
+        limit?: number;
+        cursor?: string;
+    };
+    url: '/api/knowledge-scopes';
+};
+
+export type ListKnowledgeScopesErrors = {
+    /**
+     * Invalid request
+     */
+    400: Error;
+    /**
+     * Cloudflare Access authentication required
+     */
+    401: Error;
+    /**
+     * Cloudflare Access denied the request
+     */
+    403: Error;
+    /**
+     * Resource not found
+     */
+    404: Error;
+    /**
+     * Request conflicts with current Work Graph state
+     */
+    409: Error;
+    /**
+     * Request validation failed
+     */
+    422: Error;
+    /**
+     * Unexpected server error
+     */
+    500: Error;
+};
+
+export type ListKnowledgeScopesError = ListKnowledgeScopesErrors[keyof ListKnowledgeScopesErrors];
+
+export type ListKnowledgeScopesResponses = {
+    /**
+     * Knowledge scopes in stable source-key order
+     */
+    200: KnowledgeScopeList;
+};
+
+export type ListKnowledgeScopesResponse = ListKnowledgeScopesResponses[keyof ListKnowledgeScopesResponses];
+
+export type GetKnowledgeScopeData = {
+    body?: never;
+    path: {
+        knowledgeScopeId: string;
+    };
+    query?: never;
+    url: '/api/knowledge-scopes/{knowledgeScopeId}';
+};
+
+export type GetKnowledgeScopeErrors = {
+    /**
+     * Invalid request
+     */
+    400: Error;
+    /**
+     * Cloudflare Access authentication required
+     */
+    401: Error;
+    /**
+     * Cloudflare Access denied the request
+     */
+    403: Error;
+    /**
+     * Resource not found
+     */
+    404: Error;
+    /**
+     * Request conflicts with current Work Graph state
+     */
+    409: Error;
+    /**
+     * Request validation failed
+     */
+    422: Error;
+    /**
+     * Unexpected server error
+     */
+    500: Error;
+};
+
+export type GetKnowledgeScopeError = GetKnowledgeScopeErrors[keyof GetKnowledgeScopeErrors];
+
+export type GetKnowledgeScopeResponses = {
+    /**
+     * Current knowledge-scope mirror
+     */
+    200: KnowledgeScope;
+};
+
+export type GetKnowledgeScopeResponse = GetKnowledgeScopeResponses[keyof GetKnowledgeScopeResponses];
+
+export type PutKnowledgeScopeData = {
+    body: {
+        kind: 'initiative' | 'project';
+        title: string;
+        canonicalUrl: string;
+        markdownUrl: string;
+        sourceRevision?: string | null;
+        rank?: number | null;
+        priorityWeight?: number;
+    };
+    headers?: {
+        /**
+         * Client-generated mutation ID. Reusing it with the same request replays the committed effect. Reusing it for different input returns a conflict.
+         */
+        'idempotency-key'?: string;
+    };
+    path: {
+        knowledgeScopeId: string;
+    };
+    query?: never;
+    url: '/api/knowledge-scopes/{knowledgeScopeId}';
+};
+
+export type PutKnowledgeScopeErrors = {
+    /**
+     * Invalid request
+     */
+    400: Error;
+    /**
+     * Cloudflare Access authentication required
+     */
+    401: Error;
+    /**
+     * Cloudflare Access denied the request
+     */
+    403: Error;
+    /**
+     * Resource not found
+     */
+    404: Error;
+    /**
+     * Request conflicts with current Work Graph state
+     */
+    409: Error;
+    /**
+     * Request validation failed
+     */
+    422: Error;
+    /**
+     * Unexpected server error
+     */
+    500: Error;
+};
+
+export type PutKnowledgeScopeError = PutKnowledgeScopeErrors[keyof PutKnowledgeScopeErrors];
+
+export type PutKnowledgeScopeResponses = {
+    /**
+     * Knowledge scope created, replaced, or replayed
+     */
+    200: KnowledgeScope;
+};
+
+export type PutKnowledgeScopeResponse = PutKnowledgeScopeResponses[keyof PutKnowledgeScopeResponses];
 
 export type CreateLeaseData = {
     body: {

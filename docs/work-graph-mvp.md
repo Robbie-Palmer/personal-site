@@ -339,6 +339,9 @@ need:
 - `/api/leases/{leaseId}/renewals`
 - `/api/attention-requests`
 - `/api/attention-requests/{attentionRequestId}/resolutions`
+- `/api/knowledge-scopes`
+- `/api/knowledge-scopes/{knowledgeScopeId}`
+- `/api/knowledge-scope-relationships`
 
 Creating a lease with no work-item ID means "claim the next eligible item".
 Supplying the ID means "atomically claim this item if it remains eligible".

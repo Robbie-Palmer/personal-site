@@ -67,6 +67,16 @@ absent. Run `work-graph <command> --help` for schema-derived argument and option
 help.
 
 ```sh
+work-graph scope put work-graph \
+  --kind project \
+  --title "Work Graph" \
+  --canonical-url https://robbiepalmer.me/projects/work-graph \
+  --markdown-url https://robbiepalmer.me/projects/work-graph.md
+work-graph scope list --kind project
+work-graph scope show work-graph
+work-graph scope link semi-autonomous-software-development work-graph
+work-graph scope links
+work-graph scope unlink semi-autonomous-software-development work-graph
 work-graph create cli-8 --title "Build the TypeScript CLI"
 work-graph queue
 work-graph queue --all --limit 100
@@ -78,6 +88,11 @@ work-graph renew "$LEASE_ID" --epoch 1 --lease-duration-seconds 600
 work-graph release cli-8 --lease-id "$LEASE_ID" --epoch 1
 work-graph cancel cli-8 --lease-id "$LEASE_ID" --epoch 1
 ```
+
+`scope put` uses its positional ID as the stable source key. Repeating it
+replaces the title, URLs, source revision, rank, and priority weight while
+preserving relationships to that ID. `scope link` adds a directed
+parent-to-child relationship and rejects cycles.
 
 Decomposition accepts contract-shaped JSON arrays. The optional child claim
 gets a generated lease ID unless `--claim-lease-id` supplies one.

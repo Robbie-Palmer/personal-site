@@ -6,13 +6,19 @@ import {
   isNotNull,
   isNull,
   lte,
+  or,
   sql,
   type SQL,
 } from "drizzle-orm";
 import {
+  createKnowledgeScope,
   createWorkGraph,
   projectWorkItemStage,
+  validateKnowledgeScopeRelationships,
   WorkGraphError,
+  type KnowledgeScope,
+  type KnowledgeScopeInput,
+  type KnowledgeScopeRelationship,
   type NewWorkItemInput,
   type TerminalWorkItemState,
   type WorkGraph,
@@ -31,6 +37,8 @@ import {
   attentionResolution,
   graphMutationLock,
   idempotencyKey,
+  knowledgeScope,
+  knowledgeScopeRelationship,
   lease,
   note,
   workItem,
@@ -47,6 +55,22 @@ export type StoredNote = typeof note.$inferSelect;
 export type StoredAttentionRequest = typeof attentionRequest.$inferSelect;
 export type StoredAttentionResolution =
   typeof attentionResolution.$inferSelect;
+
+export interface ListKnowledgeScopesInput {
+  readonly kind?: KnowledgeScope["kind"];
+  readonly cursor?: string;
+  readonly limit?: number;
+}
+
+export interface KnowledgeScopeRelationshipCursor {
+  readonly parentKnowledgeScopeId: string;
+  readonly childKnowledgeScopeId: string;
+}
+
+export interface ListKnowledgeScopeRelationshipsInput {
+  readonly cursor?: KnowledgeScopeRelationshipCursor;
+  readonly limit?: number;
+}
 
 export interface ClaimWorkItemInput {
   readonly leaseId: string;
@@ -196,6 +220,34 @@ const requireIdentifier = (
     );
   }
 };
+
+const requireKnowledgeScopeId = (value: string): void => {
+  if (typeof value !== "string" || value.trim().length === 0) {
+    throw new WorkGraphError(
+      "invalid_knowledge_scope_id",
+      "A knowledge scope ID cannot be empty.",
+    );
+  }
+};
+
+const knowledgeScopeNotFound = (id: string) =>
+  new WorkGraphError(
+    "knowledge_scope_not_found",
+    `Knowledge scope ${id} does not exist.`,
+  );
+
+const toKnowledgeScope = (
+  stored: typeof knowledgeScope.$inferSelect,
+): KnowledgeScope => ({
+  id: stored.id,
+  kind: stored.kind,
+  title: stored.title,
+  canonicalUrl: stored.canonicalUrl,
+  markdownUrl: stored.markdownUrl,
+  sourceRevision: stored.sourceRevision,
+  rank: stored.rank,
+  priorityWeight: stored.priorityWeight,
+});
 
 const requireLeaseId = (leaseId: string): void => {
   if (typeof leaseId !== "string" || !UUID_PATTERN.test(leaseId)) {
@@ -478,6 +530,196 @@ const translateForeignKeyError = (
 
 export class WorkGraphRepository {
   constructor(private readonly db: Db) {}
+
+  async listKnowledgeScopes(
+    input: ListKnowledgeScopesInput = {},
+  ): Promise<readonly KnowledgeScope[]> {
+    const query = this.db
+      .select()
+      .from(knowledgeScope)
+      .where(
+        and(
+          input.kind === undefined
+            ? undefined
+            : eq(knowledgeScope.kind, input.kind),
+          input.cursor === undefined
+            ? undefined
+            : gt(knowledgeScope.id, input.cursor),
+        ),
+      )
+      .orderBy(knowledgeScope.id);
+    const rows =
+      input.limit === undefined ? await query : await query.limit(input.limit);
+    return rows.map(toKnowledgeScope);
+  }
+
+  async getKnowledgeScope(id: string): Promise<KnowledgeScope> {
+    requireKnowledgeScopeId(id);
+    const [stored] = await this.db
+      .select()
+      .from(knowledgeScope)
+      .where(eq(knowledgeScope.id, id))
+      .limit(1);
+    if (!stored) throw knowledgeScopeNotFound(id);
+    return toKnowledgeScope(stored);
+  }
+
+  async putKnowledgeScope(
+    input: KnowledgeScopeInput,
+    options: IdempotentMutationOptions = {},
+  ): Promise<KnowledgeScope> {
+    const normalized = createKnowledgeScope(input);
+    if (options.idempotencyKey !== undefined) {
+      requireIdempotencyKey(options.idempotencyKey);
+    }
+
+    return this.db.transaction(async (transaction) => {
+      if (options.idempotencyKey !== undefined) {
+        const replayed = await this.beginIdempotentMutation(
+          transaction,
+          options.idempotencyKey,
+          "put-knowledge-scope",
+          JSON.stringify(normalized),
+        );
+        if (replayed) return normalized;
+      }
+
+      const [stored] = await transaction
+        .insert(knowledgeScope)
+        .values(normalized)
+        .onConflictDoUpdate({
+          target: knowledgeScope.id,
+          set: {
+            kind: normalized.kind,
+            title: normalized.title,
+            canonicalUrl: normalized.canonicalUrl,
+            markdownUrl: normalized.markdownUrl,
+            sourceRevision: normalized.sourceRevision,
+            rank: normalized.rank,
+            priorityWeight: normalized.priorityWeight,
+          },
+        })
+        .returning();
+      if (!stored) throw new Error("Knowledge scope upsert returned no row.");
+      return toKnowledgeScope(stored);
+    });
+  }
+
+  async listKnowledgeScopeRelationships(
+    input: ListKnowledgeScopeRelationshipsInput = {},
+  ): Promise<
+    readonly KnowledgeScopeRelationship[]
+  > {
+    const query = this.db
+      .select({
+        parentKnowledgeScopeId:
+          knowledgeScopeRelationship.parentKnowledgeScopeId,
+        childKnowledgeScopeId:
+          knowledgeScopeRelationship.childKnowledgeScopeId,
+      })
+      .from(knowledgeScopeRelationship)
+      .where(
+        input.cursor === undefined
+          ? undefined
+          : or(
+              gt(
+                knowledgeScopeRelationship.parentKnowledgeScopeId,
+                input.cursor.parentKnowledgeScopeId,
+              ),
+              and(
+                eq(
+                  knowledgeScopeRelationship.parentKnowledgeScopeId,
+                  input.cursor.parentKnowledgeScopeId,
+                ),
+                gt(
+                  knowledgeScopeRelationship.childKnowledgeScopeId,
+                  input.cursor.childKnowledgeScopeId,
+                ),
+              ),
+            ),
+      )
+      .orderBy(
+        knowledgeScopeRelationship.parentKnowledgeScopeId,
+        knowledgeScopeRelationship.childKnowledgeScopeId,
+      );
+    return input.limit === undefined ? query : query.limit(input.limit);
+  }
+
+  async addKnowledgeScopeRelationship(
+    relationship: KnowledgeScopeRelationship,
+    options: IdempotentMutationOptions = {},
+  ): Promise<void> {
+    if (options.idempotencyKey !== undefined) {
+      requireIdempotencyKey(options.idempotencyKey);
+    }
+
+    await this.db.transaction(async (transaction) => {
+      if (options.idempotencyKey !== undefined) {
+        const replayed = await this.beginIdempotentMutation(
+          transaction,
+          options.idempotencyKey,
+          "add-knowledge-scope-relationship",
+          JSON.stringify(relationship),
+        );
+        if (replayed) return;
+      }
+
+      await this.lockGraphMutation(transaction);
+      const graph = await this.loadKnowledgeScopeGraph(transaction);
+      validateKnowledgeScopeRelationships(graph.ids, [
+        ...graph.relationships,
+        relationship,
+      ]);
+      await transaction.insert(knowledgeScopeRelationship).values(relationship);
+    });
+  }
+
+  async removeKnowledgeScopeRelationship(
+    relationship: KnowledgeScopeRelationship,
+    options: IdempotentMutationOptions = {},
+  ): Promise<void> {
+    if (options.idempotencyKey !== undefined) {
+      requireIdempotencyKey(options.idempotencyKey);
+    }
+
+    await this.db.transaction(async (transaction) => {
+      if (options.idempotencyKey !== undefined) {
+        const replayed = await this.beginIdempotentMutation(
+          transaction,
+          options.idempotencyKey,
+          "remove-knowledge-scope-relationship",
+          JSON.stringify(relationship),
+        );
+        if (replayed) return;
+      }
+
+      await this.lockGraphMutation(transaction);
+      const removed = await transaction
+        .delete(knowledgeScopeRelationship)
+        .where(
+          and(
+            eq(
+              knowledgeScopeRelationship.parentKnowledgeScopeId,
+              relationship.parentKnowledgeScopeId,
+            ),
+            eq(
+              knowledgeScopeRelationship.childKnowledgeScopeId,
+              relationship.childKnowledgeScopeId,
+            ),
+          ),
+        )
+        .returning({
+          parentKnowledgeScopeId:
+            knowledgeScopeRelationship.parentKnowledgeScopeId,
+        });
+      if (removed.length === 0) {
+        throw new WorkGraphError(
+          "knowledge_scope_relationship_not_found",
+          `Knowledge scope relationship ${relationship.parentKnowledgeScopeId} -> ${relationship.childKnowledgeScopeId} does not exist.`,
+        );
+      }
+    });
+  }
 
   async load(): Promise<WorkGraph> {
     return this.db.transaction(
@@ -1672,6 +1914,28 @@ export class WorkGraphRepository {
       .limit(1);
     if (!stored) throw new Error(`Idempotent note ${noteId} is missing.`);
     return stored;
+  }
+
+  private async loadKnowledgeScopeGraph(transaction: DbTransaction): Promise<{
+    ids: ReadonlySet<string>;
+    relationships: readonly KnowledgeScopeRelationship[];
+  }> {
+    const ids = new Set(
+      (
+        await transaction
+          .select({ id: knowledgeScope.id })
+          .from(knowledgeScope)
+      ).map(({ id }) => id),
+    );
+    const relationships = await transaction
+      .select({
+        parentKnowledgeScopeId:
+          knowledgeScopeRelationship.parentKnowledgeScopeId,
+        childKnowledgeScopeId:
+          knowledgeScopeRelationship.childKnowledgeScopeId,
+      })
+      .from(knowledgeScopeRelationship);
+    return { ids, relationships };
   }
 
   private async requireStoredAttentionRequest(

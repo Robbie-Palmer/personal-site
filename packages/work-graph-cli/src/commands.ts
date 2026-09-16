@@ -12,6 +12,8 @@ import {
   zCreateAttentionResolutionHeaders,
   zCreateAttentionResolutionPath,
   zCreateLeaseBody,
+  zCreateKnowledgeScopeRelationshipBody,
+  zCreateKnowledgeScopeRelationshipHeaders,
   zCreateLeaseRenewalBody,
   zCreateLeaseRenewalPath,
   zCreateWorkItemBody,
@@ -21,9 +23,14 @@ import {
   zCreateWorkItemNoteBody,
   zCreateWorkItemNoteHeaders,
   zCreateWorkItemReleaseBody,
+  zGetKnowledgeScopePath,
   zGetWorkItemPath,
   zListAttentionRequestsQuery,
+  zListKnowledgeScopeRelationshipsQuery,
+  zListKnowledgeScopesQuery,
   zListWorkItemsQuery,
+  zPutKnowledgeScopeBody,
+  zPutKnowledgeScopeHeaders,
 } from "./generated/client/zod.gen.js";
 
 export type UuidFactory = () => string;
@@ -153,6 +160,80 @@ const createInput = z.object({
     "Parent work-item ID",
   ),
   idempotencyKey,
+});
+
+const scopeListInput = z.object({
+  kind: optional(
+    zListKnowledgeScopesQuery.shape.kind.unwrap(),
+    "Knowledge-scope kind",
+  ),
+  limit: optional(
+    zListKnowledgeScopesQuery.shape.limit.unwrap().unwrap(),
+    "Maximum number of knowledge scopes",
+  ),
+  cursor: optional(
+    zListKnowledgeScopesQuery.shape.cursor.unwrap(),
+    "Pagination cursor",
+  ),
+});
+
+const scopePutInput = z.object({
+  knowledgeScopeId: positional(
+    zGetKnowledgeScopePath.shape.knowledgeScopeId,
+    "Stable knowledge-scope source key",
+  ),
+  kind: described(zPutKnowledgeScopeBody.shape.kind, "Knowledge-scope kind"),
+  title: described(zPutKnowledgeScopeBody.shape.title, "Source title snapshot"),
+  canonicalUrl: described(
+    zPutKnowledgeScopeBody.shape.canonicalUrl,
+    "Canonical HTML URL",
+  ),
+  markdownUrl: described(
+    zPutKnowledgeScopeBody.shape.markdownUrl,
+    "Canonical Markdown URL",
+  ),
+  sourceRevision: optional(
+    zPutKnowledgeScopeBody.shape.sourceRevision.unwrap().unwrap(),
+    "Source revision",
+  ),
+  rank: optional(
+    zPutKnowledgeScopeBody.shape.rank.unwrap().unwrap(),
+    "Local positive rank",
+  ),
+  priorityWeight: optional(
+    zPutKnowledgeScopeBody.shape.priorityWeight.unwrap().unwrap(),
+    "Local priority weight",
+  ),
+  idempotencyKey: described(
+    zPutKnowledgeScopeHeaders.shape["idempotency-key"],
+    "Client-generated UUID used to replay a mutation safely",
+  ),
+});
+
+const scopeRelationshipInput = z.object({
+  parentKnowledgeScopeId: positional(
+    zCreateKnowledgeScopeRelationshipBody.shape.parentKnowledgeScopeId,
+    "Parent knowledge-scope source key",
+  ),
+  childKnowledgeScopeId: positional(
+    zCreateKnowledgeScopeRelationshipBody.shape.childKnowledgeScopeId,
+    "Child knowledge-scope source key",
+  ),
+  idempotencyKey: described(
+    zCreateKnowledgeScopeRelationshipHeaders.shape["idempotency-key"],
+    "Client-generated UUID used to replay a mutation safely",
+  ),
+});
+
+const scopeRelationshipListInput = z.object({
+  limit: optional(
+    zListKnowledgeScopeRelationshipsQuery.shape.limit.unwrap().unwrap(),
+    "Maximum number of knowledge-scope relationships",
+  ),
+  cursor: optional(
+    zListKnowledgeScopeRelationshipsQuery.shape.cursor.unwrap(),
+    "Opaque relationship cursor",
+  ),
 });
 
 const queueInput = z
@@ -331,6 +412,86 @@ const terminationInput = z.object({
 });
 
 export const workGraphRouter = t.router({
+  scope: t.router({
+    list: command
+      .meta({ description: "List knowledge-scope mirrors" })
+      .input(scopeListInput)
+      .query(({ ctx, input }) =>
+        resolveClient(ctx).listKnowledgeScopes({
+          ...(input.kind === undefined ? {} : { kind: input.kind }),
+          ...(input.limit === undefined ? {} : { limit: input.limit }),
+          ...(input.cursor === undefined ? {} : { cursor: input.cursor }),
+        }),
+      ),
+    show: command
+      .meta({ description: "Show a knowledge-scope mirror" })
+      .input(
+        z.object({
+          knowledgeScopeId: positional(
+            zGetKnowledgeScopePath.shape.knowledgeScopeId,
+            "Stable knowledge-scope source key",
+          ),
+        }),
+      )
+      .query(({ ctx, input }) =>
+        resolveClient(ctx).getKnowledgeScope(input.knowledgeScopeId),
+      ),
+    put: command
+      .meta({ description: "Create or replace a knowledge-scope mirror" })
+      .input(scopePutInput)
+      .mutation(({ ctx, input }) =>
+        resolveClient(ctx).putKnowledgeScope(
+          input.knowledgeScopeId,
+          {
+            kind: input.kind,
+            title: input.title,
+            canonicalUrl: input.canonicalUrl,
+            markdownUrl: input.markdownUrl,
+            ...(input.sourceRevision === undefined
+              ? {}
+              : { sourceRevision: input.sourceRevision }),
+            ...(input.rank === undefined ? {} : { rank: input.rank }),
+            ...(input.priorityWeight === undefined
+              ? {}
+              : { priorityWeight: input.priorityWeight }),
+          },
+          input.idempotencyKey,
+        ),
+      ),
+    links: command
+      .meta({ description: "List knowledge-scope relationships" })
+      .input(scopeRelationshipListInput)
+      .query(({ ctx, input }) =>
+        resolveClient(ctx).listKnowledgeScopeRelationships({
+          ...(input.limit === undefined ? {} : { limit: input.limit }),
+          ...(input.cursor === undefined ? {} : { cursor: input.cursor }),
+        }),
+      ),
+    link: command
+      .meta({ description: "Add a knowledge-scope relationship" })
+      .input(scopeRelationshipInput)
+      .mutation(({ ctx, input }) =>
+        resolveClient(ctx).addKnowledgeScopeRelationship(
+          {
+            parentKnowledgeScopeId: input.parentKnowledgeScopeId,
+            childKnowledgeScopeId: input.childKnowledgeScopeId,
+          },
+          input.idempotencyKey,
+        ),
+      ),
+    unlink: command
+      .meta({ description: "Remove a knowledge-scope relationship" })
+      .input(scopeRelationshipInput)
+      .mutation(({ ctx, input }) =>
+        resolveClient(ctx).removeKnowledgeScopeRelationship(
+          {
+            parentKnowledgeScopeId: input.parentKnowledgeScopeId,
+            childKnowledgeScopeId: input.childKnowledgeScopeId,
+          },
+          input.idempotencyKey,
+        ),
+      ),
+  }),
   create: command
     .meta({ description: "Create a work item" })
     .input(createInput)

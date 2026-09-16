@@ -13,7 +13,16 @@ import {
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
-import { LEASE_OUTCOMES, WORK_ITEM_LIFECYCLES } from "work-graph-domain";
+import {
+  KNOWLEDGE_SCOPE_KINDS,
+  LEASE_OUTCOMES,
+  WORK_ITEM_LIFECYCLES,
+} from "work-graph-domain";
+
+export const knowledgeScopeKindEnum = pgEnum(
+  "knowledge_scope_kind",
+  KNOWLEDGE_SCOPE_KINDS,
+);
 
 export const workItemLifecycleEnum = pgEnum(
   "work_item_lifecycle",
@@ -102,6 +111,72 @@ export const workItemDependency = pgTable(
 export const graphMutationLock = pgTable("graph_mutation_locks", {
   id: text().primaryKey(),
 });
+
+export const knowledgeScope = pgTable(
+  "knowledge_scopes",
+  {
+    id: text().primaryKey(),
+    kind: knowledgeScopeKindEnum().notNull(),
+    title: text().notNull(),
+    canonicalUrl: text().notNull(),
+    markdownUrl: text().notNull(),
+    sourceRevision: text(),
+    rank: integer(),
+    priorityWeight: integer().notNull().default(0),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp({ withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+  },
+  (table) => [
+    check("knowledge_scopes_id_not_blank_check", sql`btrim(${table.id}) <> ''`),
+    check(
+      "knowledge_scopes_title_not_blank_check",
+      sql`btrim(${table.title}) <> ''`,
+    ),
+    check(
+      "knowledge_scopes_source_revision_not_blank_check",
+      sql`${table.sourceRevision} is null or btrim(${table.sourceRevision}) <> ''`,
+    ),
+    check(
+      "knowledge_scopes_rank_positive_check",
+      sql`${table.rank} is null or ${table.rank} > 0`,
+    ),
+  ],
+);
+
+export const knowledgeScopeRelationship = pgTable(
+  "knowledge_scope_relationships",
+  {
+    parentKnowledgeScopeId: text().notNull(),
+    childKnowledgeScopeId: text().notNull(),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    primaryKey({
+      name: "knowledge_scope_relationships_pk",
+      columns: [table.parentKnowledgeScopeId, table.childKnowledgeScopeId],
+    }),
+    foreignKey({
+      name: "knowledge_scope_relationships_parent_fk",
+      columns: [table.parentKnowledgeScopeId],
+      foreignColumns: [knowledgeScope.id],
+    }).onDelete("restrict"),
+    foreignKey({
+      name: "knowledge_scope_relationships_child_fk",
+      columns: [table.childKnowledgeScopeId],
+      foreignColumns: [knowledgeScope.id],
+    }).onDelete("restrict"),
+    index("knowledge_scope_relationships_child_id_idx").on(
+      table.childKnowledgeScopeId,
+    ),
+    check(
+      "knowledge_scope_relationships_not_self_check",
+      sql`${table.parentKnowledgeScopeId} <> ${table.childKnowledgeScopeId}`,
+    ),
+  ],
+);
 
 export const idempotencyKey = pgTable(
   "idempotency_keys",

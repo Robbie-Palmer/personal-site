@@ -57,6 +57,32 @@ export const zError = z.object({
     })
 });
 
+export const zKnowledgeScope = z.object({
+    id: z.string().min(1).max(200),
+    kind: z.enum(['initiative', 'project']),
+    title: z.string().min(1).max(10000),
+    canonicalUrl: z.url().max(2048).regex(/^[hH][tT][tT][pP][sS]?:\/\/(?![^\/?#]*@)/),
+    markdownUrl: z.url().max(2048).regex(/^[hH][tT][tT][pP][sS]?:\/\/(?![^\/?#]*@)/),
+    sourceRevision: z.string().min(1).max(200).nullable(),
+    rank: z.int().gte(1).lte(2147483647).nullable(),
+    priorityWeight: z.int().gte(-2147483648).lte(2147483647)
+});
+
+export const zKnowledgeScopeList = z.object({
+    items: z.array(zKnowledgeScope).max(100),
+    nextCursor: z.string().min(1).max(200).nullable()
+});
+
+export const zKnowledgeScopeRelationship = z.object({
+    parentKnowledgeScopeId: z.string().min(1).max(200),
+    childKnowledgeScopeId: z.string().min(1).max(200)
+});
+
+export const zKnowledgeScopeRelationshipList = z.object({
+    items: z.array(zKnowledgeScopeRelationship).max(100),
+    nextCursor: z.string().min(1).max(4096).nullable()
+});
+
 export const zWorkItemDependency = z.object({
     dependentWorkItemId: z.string().min(1).max(200),
     blockerWorkItemId: z.string().min(1).max(200)
@@ -213,6 +239,93 @@ export const zCreateDependencyHeaders = z.object({
  * Dependency added or matching mutation replayed
  */
 export const zCreateDependencyResponse = zWorkItemDependency;
+
+export const zDeleteKnowledgeScopeRelationshipBody = z.object({
+    parentKnowledgeScopeId: z.string().min(1).max(200),
+    childKnowledgeScopeId: z.string().min(1).max(200)
+});
+
+export const zDeleteKnowledgeScopeRelationshipHeaders = z.object({
+    'idempotency-key': z.uuid().max(36).register(z.globalRegistry, {
+        description: 'Client-generated mutation ID. Reusing it with the same request replays the committed effect. Reusing it for different input returns a conflict.'
+    }).optional()
+});
+
+/**
+ * Knowledge-scope relationship removed or replayed
+ */
+export const zDeleteKnowledgeScopeRelationshipResponse = zKnowledgeScopeRelationship;
+
+export const zListKnowledgeScopeRelationshipsQuery = z.object({
+    limit: z.int().gte(1).lte(100).optional().default(50),
+    cursor: z.string().min(1).max(4096).optional()
+});
+
+/**
+ * Knowledge-scope relationships
+ */
+export const zListKnowledgeScopeRelationshipsResponse = zKnowledgeScopeRelationshipList;
+
+export const zCreateKnowledgeScopeRelationshipBody = z.object({
+    parentKnowledgeScopeId: z.string().min(1).max(200),
+    childKnowledgeScopeId: z.string().min(1).max(200)
+});
+
+export const zCreateKnowledgeScopeRelationshipHeaders = z.object({
+    'idempotency-key': z.uuid().max(36).register(z.globalRegistry, {
+        description: 'Client-generated mutation ID. Reusing it with the same request replays the committed effect. Reusing it for different input returns a conflict.'
+    }).optional()
+});
+
+/**
+ * Knowledge-scope relationship added or replayed
+ */
+export const zCreateKnowledgeScopeRelationshipResponse = zKnowledgeScopeRelationship;
+
+export const zListKnowledgeScopesQuery = z.object({
+    kind: z.enum(['initiative', 'project']).optional(),
+    limit: z.int().gte(1).lte(100).optional().default(50),
+    cursor: z.string().min(1).max(200).optional()
+});
+
+/**
+ * Knowledge scopes in stable source-key order
+ */
+export const zListKnowledgeScopesResponse = zKnowledgeScopeList;
+
+export const zGetKnowledgeScopePath = z.object({
+    knowledgeScopeId: z.string().min(1).max(200)
+});
+
+/**
+ * Current knowledge-scope mirror
+ */
+export const zGetKnowledgeScopeResponse = zKnowledgeScope;
+
+export const zPutKnowledgeScopeBody = z.object({
+    kind: z.enum(['initiative', 'project']),
+    title: z.string().min(1).max(10000),
+    canonicalUrl: z.url().max(2048).regex(/^[hH][tT][tT][pP][sS]?:\/\/(?![^\/?#]*@)/),
+    markdownUrl: z.url().max(2048).regex(/^[hH][tT][tT][pP][sS]?:\/\/(?![^\/?#]*@)/),
+    sourceRevision: z.string().min(1).max(200).nullish(),
+    rank: z.int().gte(1).lte(2147483647).nullish(),
+    priorityWeight: z.int().gte(-2147483648).lte(2147483647).optional().default(0)
+});
+
+export const zPutKnowledgeScopeHeaders = z.object({
+    'idempotency-key': z.uuid().max(36).register(z.globalRegistry, {
+        description: 'Client-generated mutation ID. Reusing it with the same request replays the committed effect. Reusing it for different input returns a conflict.'
+    }).optional()
+});
+
+export const zPutKnowledgeScopePath = z.object({
+    knowledgeScopeId: z.string().min(1).max(200)
+});
+
+/**
+ * Knowledge scope created, replaced, or replayed
+ */
+export const zPutKnowledgeScopeResponse = zKnowledgeScope;
 
 export const zCreateLeaseBody = z.object({
     workerId: z.string().min(1).max(200),

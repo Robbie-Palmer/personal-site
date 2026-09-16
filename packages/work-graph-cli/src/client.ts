@@ -3,6 +3,7 @@ import type { Client } from "./generated/client/client/index.js";
 import {
   createAttentionRequest,
   createAttentionResolution,
+  createKnowledgeScopeRelationship,
   createLease,
   createLeaseRenewal,
   createWorkItem,
@@ -10,22 +11,32 @@ import {
   createWorkItemDecomposition,
   createWorkItemNote,
   createWorkItemRelease,
+  deleteKnowledgeScopeRelationship,
+  getKnowledgeScope,
   getWorkItem,
   listAttentionRequests,
+  listKnowledgeScopeRelationships,
+  listKnowledgeScopes,
   listWorkItems,
+  putKnowledgeScope,
 } from "./generated/client/sdk.gen.js";
 import type {
   CreateAttentionRequestData,
   CreateAttentionResolutionData,
   CreateLeaseData,
   CreateLeaseRenewalData,
+  CreateKnowledgeScopeRelationshipData,
   CreateWorkItemCancellationData,
   CreateWorkItemData,
   CreateWorkItemDecompositionData,
   CreateWorkItemNoteData,
   CreateWorkItemReleaseData,
+  DeleteKnowledgeScopeRelationshipData,
   ListAttentionRequestsData,
+  ListKnowledgeScopeRelationshipsData,
+  ListKnowledgeScopesData,
   ListWorkItemsData,
+  PutKnowledgeScopeData,
 } from "./generated/client/types.gen.js";
 import type { WorkGraphClientConfig } from "./config.js";
 import { CliError, EXIT_CODES, exitCodeForStatus } from "./errors.js";
@@ -135,6 +146,68 @@ export class WorkGraphClient {
   createWorkItem(body: CreateWorkItemData["body"], idempotencyKey?: string) {
     return this.#unwrap(
       createWorkItem({
+        ...this.#options(),
+        body,
+        headers: idempotencyHeaders(idempotencyKey),
+      }),
+    );
+  }
+
+  listKnowledgeScopes(query: NonNullable<ListKnowledgeScopesData["query"]>) {
+    return this.#unwrap(listKnowledgeScopes({ ...this.#options(), query }));
+  }
+
+  getKnowledgeScope(knowledgeScopeId: string) {
+    return this.#unwrap(
+      getKnowledgeScope({
+        ...this.#options(),
+        path: { knowledgeScopeId },
+      }),
+    );
+  }
+
+  putKnowledgeScope(
+    knowledgeScopeId: string,
+    body: PutKnowledgeScopeData["body"],
+    idempotencyKey?: string,
+  ) {
+    return this.#unwrap(
+      putKnowledgeScope({
+        ...this.#options(),
+        body,
+        headers: idempotencyHeaders(idempotencyKey),
+        path: { knowledgeScopeId },
+      }),
+    );
+  }
+
+  listKnowledgeScopeRelationships(
+    query: NonNullable<ListKnowledgeScopeRelationshipsData["query"]>,
+  ) {
+    return this.#unwrap(
+      listKnowledgeScopeRelationships({ ...this.#options(), query }),
+    );
+  }
+
+  addKnowledgeScopeRelationship(
+    body: CreateKnowledgeScopeRelationshipData["body"],
+    idempotencyKey?: string,
+  ) {
+    return this.#unwrap(
+      createKnowledgeScopeRelationship({
+        ...this.#options(),
+        body,
+        headers: idempotencyHeaders(idempotencyKey),
+      }),
+    );
+  }
+
+  removeKnowledgeScopeRelationship(
+    body: DeleteKnowledgeScopeRelationshipData["body"],
+    idempotencyKey?: string,
+  ) {
+    return this.#unwrap(
+      deleteKnowledgeScopeRelationship({
         ...this.#options(),
         body,
         headers: idempotencyHeaders(idempotencyKey),

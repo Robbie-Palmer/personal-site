@@ -13,7 +13,10 @@ import type {
   DecomposeClaimedWorkItemInput,
   DecomposeClaimedWorkItemResult,
   IdempotentMutationOptions,
+  KnowledgeScopeRelationshipCursor,
   ListAttentionRequestsInput,
+  ListKnowledgeScopeRelationshipsInput,
+  ListKnowledgeScopesInput,
   ResolveAttentionRequestInput,
   ResolveAttentionRequestResult,
   RenewLeaseInput,
@@ -25,10 +28,14 @@ import type {
   WorkItemReadModel,
 } from "work-graph-db";
 import {
+  KNOWLEDGE_SCOPE_KINDS,
   LEASE_OUTCOMES,
   WORK_ITEM_LIFECYCLES,
   WORK_STAGES,
   WorkGraphError,
+  type KnowledgeScope,
+  type KnowledgeScopeInput,
+  type KnowledgeScopeRelationship,
   type NewWorkItemInput,
   type WorkItem,
   type WorkItemDependency,
@@ -41,6 +48,10 @@ const MAX_LEASE_DURATION_SECONDS = 86_400;
 const MAX_DECOMPOSITION_CHILDREN = 100;
 const MAX_DECOMPOSITION_DEPENDENCIES = 1_000;
 const DEFAULT_LIST_LIMIT = 50;
+const MAX_URL_LENGTH = 2_048;
+const MAX_RELATIONSHIP_CURSOR_LENGTH = 4_096;
+const CREDENTIAL_FREE_HTTP_URL_PATTERN =
+  /^[hH][tT][tT][pP][sS]?:\/\/(?![^/?#]*@)/;
 
 const identifierSchema = z.string().trim().min(1).max(MAX_IDENTIFIER_LENGTH);
 const leaseIdSchema = z.uuid().max(36);
@@ -119,6 +130,49 @@ const workItemListSchema = z
     nextCursor: z.union([identifierSchema, z.null()]),
   })
   .openapi("WorkItemList");
+const knowledgeScopeUrlSchema = z
+  .url()
+  .max(MAX_URL_LENGTH)
+  .regex(CREDENTIAL_FREE_HTTP_URL_PATTERN)
+  .openapi({ format: "uri" });
+const knowledgeScopeSchema = z
+  .object({
+    id: identifierSchema,
+    kind: z.enum(KNOWLEDGE_SCOPE_KINDS),
+    title: z.string().min(1).max(MAX_TITLE_LENGTH),
+    canonicalUrl: knowledgeScopeUrlSchema,
+    markdownUrl: knowledgeScopeUrlSchema,
+    sourceRevision: z.union([identifierSchema, z.null()]),
+    rank: z.union([childRankSchema, z.null()]),
+    priorityWeight: z
+      .number()
+      .int()
+      .min(-2_147_483_648)
+      .max(2_147_483_647)
+      .openapi({ format: "int32" }),
+  })
+  .openapi("KnowledgeScope");
+const knowledgeScopeListSchema = z
+  .object({
+    items: z.array(knowledgeScopeSchema).max(100),
+    nextCursor: z.union([identifierSchema, z.null()]),
+  })
+  .openapi("KnowledgeScopeList");
+const knowledgeScopeRelationshipSchema = z
+  .object({
+    parentKnowledgeScopeId: identifierSchema,
+    childKnowledgeScopeId: identifierSchema,
+  })
+  .openapi("KnowledgeScopeRelationship");
+const knowledgeScopeRelationshipListSchema = z
+  .object({
+    items: z.array(knowledgeScopeRelationshipSchema).max(100),
+    nextCursor: z.union([
+      z.string().min(1).max(MAX_RELATIONSHIP_CURSOR_LENGTH),
+      z.null(),
+    ]),
+  })
+  .openapi("KnowledgeScopeRelationshipList");
 const workItemDependencySchema = z
   .object({
     dependentWorkItemId: identifierSchema,
@@ -209,7 +263,35 @@ const listAttentionRequestsQuerySchema = z.object({
     .openapi({ format: "int32" }),
   cursor: z.uuid().max(36).optional(),
 });
+const listKnowledgeScopesQuerySchema = z.object({
+  kind: z.enum(KNOWLEDGE_SCOPE_KINDS).optional(),
+  limit: z.coerce
+    .number()
+    .int()
+    .min(1)
+    .max(100)
+    .default(DEFAULT_LIST_LIMIT)
+    .openapi({ format: "int32" }),
+  cursor: identifierSchema.optional(),
+});
+const listKnowledgeScopeRelationshipsQuerySchema = z.object({
+  limit: z.coerce
+    .number()
+    .int()
+    .min(1)
+    .max(100)
+    .default(DEFAULT_LIST_LIMIT)
+    .openapi({ format: "int32" }),
+  cursor: z
+    .string()
+    .min(1)
+    .max(MAX_RELATIONSHIP_CURSOR_LENGTH)
+    .optional(),
+});
 const workItemParamsSchema = z.object({ workItemId: identifierSchema });
+const knowledgeScopeParamsSchema = z.object({
+  knowledgeScopeId: identifierSchema,
+});
 const leaseParamsSchema = z.object({ leaseId: leaseIdSchema });
 const attentionRequestParamsSchema = z.object({
   attentionRequestId: z.uuid().max(36),
@@ -221,6 +303,16 @@ const createWorkItemBodySchema = z
     parentId: z.union([identifierSchema, z.null()]).optional(),
   })
   .strict();
+const putKnowledgeScopeBodySchema = knowledgeScopeSchema
+  .omit({ id: true })
+  .extend({
+    sourceRevision: z.union([identifierSchema, z.null()]).optional(),
+    rank: z.union([childRankSchema, z.null()]).optional(),
+    priorityWeight: knowledgeScopeSchema.shape.priorityWeight.default(0),
+  })
+  .strict();
+const knowledgeScopeRelationshipBodySchema =
+  knowledgeScopeRelationshipSchema.strict();
 const dependencyBodySchema = workItemDependencySchema.strict();
 const createNoteBodySchema = z
   .object({
@@ -344,6 +436,149 @@ const listWorkItemsRoute = createRoute({
     200: {
       description: "Work items in stable work-item ID order",
       content: { "application/json": { schema: workItemListSchema } },
+    },
+    ...standardErrors,
+  },
+});
+
+const listKnowledgeScopesRoute = createRoute({
+  method: "get",
+  path: "/api/knowledge-scopes",
+  operationId: "listKnowledgeScopes",
+  summary: "List knowledge-scope mirrors",
+  description:
+    "Returns initiative and project mirrors in stable source-key order. The optional kind filter does not change that order.",
+  tags: ["knowledge-scopes"],
+  security: accessSecurity,
+  request: { query: listKnowledgeScopesQuerySchema },
+  responses: {
+    200: {
+      description: "Knowledge scopes in stable source-key order",
+      content: { "application/json": { schema: knowledgeScopeListSchema } },
+    },
+    ...standardErrors,
+  },
+});
+
+const getKnowledgeScopeRoute = createRoute({
+  method: "get",
+  path: "/api/knowledge-scopes/{knowledgeScopeId}",
+  operationId: "getKnowledgeScope",
+  summary: "Read a knowledge-scope mirror",
+  description:
+    "Returns the current source snapshot and scheduling fields for one stable source key.",
+  tags: ["knowledge-scopes"],
+  security: accessSecurity,
+  request: { params: knowledgeScopeParamsSchema },
+  responses: {
+    200: {
+      description: "Current knowledge-scope mirror",
+      content: { "application/json": { schema: knowledgeScopeSchema } },
+    },
+    ...standardErrors,
+  },
+});
+
+const putKnowledgeScopeRoute = createRoute({
+  method: "put",
+  path: "/api/knowledge-scopes/{knowledgeScopeId}",
+  operationId: "putKnowledgeScope",
+  summary: "Create or replace a knowledge-scope mirror",
+  description:
+    "Uses the stable public source key as the resource ID. Replacing a mirror updates its source snapshot without changing relationship identity.",
+  tags: ["knowledge-scopes"],
+  security: accessSecurity,
+  request: {
+    params: knowledgeScopeParamsSchema,
+    headers: idempotencyHeadersSchema,
+    body: {
+      required: true,
+      content: { "application/json": { schema: putKnowledgeScopeBodySchema } },
+    },
+  },
+  responses: {
+    200: {
+      description: "Knowledge scope created, replaced, or replayed",
+      content: { "application/json": { schema: knowledgeScopeSchema } },
+    },
+    ...standardErrors,
+  },
+});
+
+const listKnowledgeScopeRelationshipsRoute = createRoute({
+  method: "get",
+  path: "/api/knowledge-scope-relationships",
+  operationId: "listKnowledgeScopeRelationships",
+  summary: "List knowledge-scope relationships",
+  description:
+    "Returns a bounded page of directed parent-to-child scope edges in stable order. Pass nextCursor unchanged to continue.",
+  tags: ["knowledge-scopes"],
+  security: accessSecurity,
+  request: { query: listKnowledgeScopeRelationshipsQuerySchema },
+  responses: {
+    200: {
+      description: "Knowledge-scope relationships",
+      content: {
+        "application/json": { schema: knowledgeScopeRelationshipListSchema },
+      },
+    },
+    ...standardErrors,
+  },
+});
+
+const createKnowledgeScopeRelationshipRoute = createRoute({
+  method: "post",
+  path: "/api/knowledge-scope-relationships",
+  operationId: "createKnowledgeScopeRelationship",
+  summary: "Add a knowledge-scope relationship",
+  description:
+    "Adds one parent-to-child edge after rejecting missing scopes, duplicates, self-links, and cycles.",
+  tags: ["knowledge-scopes"],
+  security: accessSecurity,
+  request: {
+    headers: idempotencyHeadersSchema,
+    body: {
+      required: true,
+      content: {
+        "application/json": { schema: knowledgeScopeRelationshipBodySchema },
+      },
+    },
+  },
+  responses: {
+    201: {
+      description: "Knowledge-scope relationship added or replayed",
+      content: {
+        "application/json": { schema: knowledgeScopeRelationshipSchema },
+      },
+    },
+    ...standardErrors,
+  },
+});
+
+const deleteKnowledgeScopeRelationshipRoute = createRoute({
+  method: "delete",
+  path: "/api/knowledge-scope-relationships",
+  operationId: "deleteKnowledgeScopeRelationship",
+  summary: "Remove a knowledge-scope relationship",
+  description:
+    "Removes one parent-to-child edge without deleting either scope mirror.",
+  tags: ["knowledge-scopes"],
+  security: accessSecurity,
+  request: {
+    headers: idempotencyHeadersSchema,
+    body: {
+      required: true,
+      content: {
+        "application/json": { schema: knowledgeScopeRelationshipBodySchema },
+      },
+    },
+  },
+  responses: {
+    200: {
+      description: "Knowledge-scope relationship removed or replayed",
+      content: {
+        "application/json": { schema: knowledgeScopeRelationshipSchema },
+      },
     },
     ...standardErrors,
   },
@@ -675,6 +910,27 @@ const createDecompositionRoute = createRoute({
 });
 
 export interface WorkGraphApiRepository {
+  listKnowledgeScopes(
+    input?: ListKnowledgeScopesInput,
+  ): Promise<readonly KnowledgeScope[]>;
+  getKnowledgeScope(id: string): Promise<KnowledgeScope>;
+  putKnowledgeScope(
+    input: KnowledgeScopeInput,
+    options?: IdempotentMutationOptions,
+  ): Promise<KnowledgeScope>;
+  listKnowledgeScopeRelationships(
+    input?: ListKnowledgeScopeRelationshipsInput,
+  ): Promise<
+    readonly KnowledgeScopeRelationship[]
+  >;
+  addKnowledgeScopeRelationship(
+    relationship: KnowledgeScopeRelationship,
+    options?: IdempotentMutationOptions,
+  ): Promise<void>;
+  removeKnowledgeScopeRelationship(
+    relationship: KnowledgeScopeRelationship,
+    options?: IdempotentMutationOptions,
+  ): Promise<void>;
   listWorkItems(): Promise<readonly WorkItemReadModel[]>;
   getWorkItem(workItemId: string): Promise<WorkItemReadModel>;
   listAttentionRequests(
@@ -723,6 +979,39 @@ const idempotencyOptions = (
   key: string | undefined,
 ): IdempotentMutationOptions =>
   key === undefined ? {} : { idempotencyKey: key };
+
+const relationshipCursorTupleSchema = z.tuple([
+  identifierSchema,
+  identifierSchema,
+]);
+
+const encodeKnowledgeScopeRelationshipCursor = (
+  relationship: KnowledgeScopeRelationship,
+): string =>
+  JSON.stringify([
+    relationship.parentKnowledgeScopeId,
+    relationship.childKnowledgeScopeId,
+  ]);
+
+const decodeKnowledgeScopeRelationshipCursor = (
+  cursor: string,
+): KnowledgeScopeRelationshipCursor => {
+  try {
+    const parsed = relationshipCursorTupleSchema.safeParse(JSON.parse(cursor));
+    if (parsed.success) {
+      return {
+        parentKnowledgeScopeId: parsed.data[0],
+        childKnowledgeScopeId: parsed.data[1],
+      };
+    }
+  } catch {
+    // The normalized error below keeps cursor internals out of API responses.
+  }
+  throw new WorkGraphError(
+    "invalid_knowledge_scope_relationship_cursor",
+    "The knowledge-scope relationship cursor is invalid.",
+  );
+};
 
 const serializeLease = (storedLease: StoredLease) => ({
   ...storedLease,
@@ -785,7 +1074,8 @@ const validationHook: Hook<unknown, Env, string, Response | void> = (
 const statusForWorkGraphError = (error: WorkGraphError): 400 | 404 | 409 => {
   if (
     error.code === "work_item_not_found" ||
-    error.code === "attention_request_not_found"
+    error.code === "attention_request_not_found" ||
+    error.code === "knowledge_scope_not_found"
   ) {
     return 404;
   }
@@ -873,6 +1163,86 @@ export const createWorkGraphApp = (
       },
       200,
     );
+  });
+
+  app.openapi(listKnowledgeScopesRoute, async (context) => {
+    const { cursor, kind, limit } = context.req.valid("query");
+    const scopes = await repository.listKnowledgeScopes({
+      ...(kind === undefined ? {} : { kind }),
+      ...(cursor === undefined ? {} : { cursor }),
+      limit: limit + 1,
+    });
+    const page = scopes.slice(0, limit);
+    return context.json(
+      {
+        items: page,
+        nextCursor: scopes.length > limit ? (page.at(-1)?.id ?? null) : null,
+      },
+      200,
+    );
+  });
+
+  app.openapi(getKnowledgeScopeRoute, async (context) => {
+    const { knowledgeScopeId } = context.req.valid("param");
+    return context.json(
+      await repository.getKnowledgeScope(knowledgeScopeId),
+      200,
+    );
+  });
+
+  app.openapi(putKnowledgeScopeRoute, async (context) => {
+    const { knowledgeScopeId } = context.req.valid("param");
+    const request = context.req.valid("json");
+    const headers = context.req.valid("header");
+    return context.json(
+      await repository.putKnowledgeScope(
+        { id: knowledgeScopeId, ...request },
+        idempotencyOptions(headers["idempotency-key"]),
+      ),
+      200,
+    );
+  });
+
+  app.openapi(listKnowledgeScopeRelationshipsRoute, async (context) => {
+    const { cursor, limit } = context.req.valid("query");
+    const relationships = await repository.listKnowledgeScopeRelationships({
+      ...(cursor === undefined
+        ? {}
+        : { cursor: decodeKnowledgeScopeRelationshipCursor(cursor) }),
+      limit: limit + 1,
+    });
+    const page = relationships.slice(0, limit);
+    const last = page.at(-1);
+    return context.json(
+      {
+        items: page,
+        nextCursor:
+          relationships.length > limit && last
+            ? encodeKnowledgeScopeRelationshipCursor(last)
+            : null,
+      },
+      200,
+    );
+  });
+
+  app.openapi(createKnowledgeScopeRelationshipRoute, async (context) => {
+    const relationship = context.req.valid("json");
+    const headers = context.req.valid("header");
+    await repository.addKnowledgeScopeRelationship(
+      relationship,
+      idempotencyOptions(headers["idempotency-key"]),
+    );
+    return context.json(relationship, 201);
+  });
+
+  app.openapi(deleteKnowledgeScopeRelationshipRoute, async (context) => {
+    const relationship = context.req.valid("json");
+    const headers = context.req.valid("header");
+    await repository.removeKnowledgeScopeRelationship(
+      relationship,
+      idempotencyOptions(headers["idempotency-key"]),
+    );
+    return context.json(relationship, 200);
   });
 
   app.openapi(getWorkItemRoute, async (context) => {

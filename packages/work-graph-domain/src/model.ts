@@ -1,4 +1,31 @@
-import type { WorkItemLifecycle } from "./vocabulary";
+import type { KnowledgeScopeKind, WorkItemLifecycle } from "./vocabulary";
+
+export interface KnowledgeScope {
+  readonly id: string;
+  readonly kind: KnowledgeScopeKind;
+  readonly title: string;
+  readonly canonicalUrl: string;
+  readonly markdownUrl: string;
+  readonly sourceRevision: string | null;
+  readonly rank: number | null;
+  readonly priorityWeight: number;
+}
+
+export interface KnowledgeScopeInput {
+  readonly id: string;
+  readonly kind: KnowledgeScopeKind;
+  readonly title: string;
+  readonly canonicalUrl: string;
+  readonly markdownUrl: string;
+  readonly sourceRevision?: string | null;
+  readonly rank?: number | null;
+  readonly priorityWeight?: number;
+}
+
+export interface KnowledgeScopeRelationship {
+  readonly parentKnowledgeScopeId: string;
+  readonly childKnowledgeScopeId: string;
+}
 
 export interface WorkItem {
   readonly id: string;

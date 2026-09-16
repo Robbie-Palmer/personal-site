@@ -9,6 +9,12 @@ const unavailable = async (): Promise<never> => {
   throw new Error("The OpenAPI generator cannot execute repository operations.");
 };
 const repository: WorkGraphApiRepository = {
+  listKnowledgeScopes: unavailable,
+  getKnowledgeScope: unavailable,
+  putKnowledgeScope: unavailable,
+  listKnowledgeScopeRelationships: unavailable,
+  addKnowledgeScopeRelationship: unavailable,
+  removeKnowledgeScopeRelationship: unavailable,
   listWorkItems: unavailable,
   getWorkItem: unavailable,
   listAttentionRequests: unavailable,
@@ -42,6 +48,11 @@ const document = app.getOpenAPI31Document({
     },
   ],
   tags: [
+    {
+      name: "knowledge-scopes",
+      description:
+        "Initiative and project mirrors used for scheduling and context.",
+    },
     {
       name: "work-items",
       description:
