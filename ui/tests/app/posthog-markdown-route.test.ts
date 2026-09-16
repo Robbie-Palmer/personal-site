@@ -40,5 +40,10 @@ describe("PostHog application Markdown route", () => {
     expect(markdown).toContain(
       "![PostHog's muscular cracked-engineer hedgehog labelled PostHog/posthog with 39,817 GitHub stars beside the smaller also-cracked hedgehog labelled Robbie-Palmer/hq with zero stars](/images/posthog/cracked-engineer-repositories.png)",
     );
+    expect(markdown).toContain(
+      "[Read the AI Research Team's Q3 2026 plan](https://github.com/PostHog/posthog.com/blob/master/contents/teams/ai-research/objectives.mdx#q3-2026-objectives)",
+    );
+    expect(markdown).toContain("- Train the end-to-end agent");
+    expect(markdown).toContain("Not with a PhD");
   });
 });

@@ -179,7 +179,7 @@ describe("PostHog application page", () => {
     ).toBeVisible();
     expect(screen.getByText(/Belfast is home/i)).toBeVisible();
     expect(screen.getByText(/cat who would object to the move/i)).toBeVisible();
-    expect(screen.getByText(/I write code regardless of title/i)).toBeVisible();
+    expect(screen.getByText(/producing more code than ever/i)).toBeVisible();
     expect(
       screen.queryByText(/I still want to write code/i),
     ).not.toBeInTheDocument();
@@ -228,7 +228,7 @@ describe("PostHog application page", () => {
     expect(screen.getByText(/lowest morale in the company/i)).toBeVisible();
     expect(
       screen.getByRole("heading", {
-        name: "The cracked-engineer connection",
+        name: "Cracked-engineers",
       }),
     ).toBeVisible();
     expect(
@@ -255,6 +255,17 @@ describe("PostHog application page", () => {
     expect(
       screen.getByRole("link", { name: /Try the product demo/i }),
     ).toHaveAttribute("href", "/recipes");
+    expect(
+      screen.getByRole("link", {
+        name: /Read the AI Research Team's Q3 2026 plan/i,
+      }),
+    ).toHaveAttribute(
+      "href",
+      "https://github.com/PostHog/posthog.com/blob/master/contents/teams/ai-research/objectives.mdx#q3-2026-objectives",
+    );
+    expect(screen.getByText("Data labeling suite")).toBeVisible();
+    expect(screen.getByText("Train the end-to-end agent")).toBeVisible();
+    expect(screen.getByText(/Not with a PhD/i)).toBeVisible();
     expect(
       screen.getByRole("link", { name: /Resume and experience/i }),
     ).toHaveAttribute("href", "/experience");

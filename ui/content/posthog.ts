@@ -483,7 +483,7 @@ linkStyle default stroke:#1d1f1f,stroke-width:2px`,
         ". Agents have made ideas economical that once needed large teams and budgets.",
     },
     closing: {
-      heading: "The cracked-engineer connection",
+      heading: "Cracked-engineers",
       paragraphs: [
         "PostHog writes about people whose work speaks for itself, who love the craft, who do not have a FAANG name on the CV, and who have held together failing companies. I have held together teams, products, and startups that lacked product-market fit, sufficient capital, or a healthy operating culture.",
         "I have spent years burning political capital to create this way of working. I would like to find out what I can do when it is the starting point, inside a company with real product-market fit.",
@@ -518,15 +518,44 @@ linkStyle default stroke:#1d1f1f,stroke-width:2px`,
     {
       title: "Technical leadership",
       detail:
-        "Currently a Principal Software Engineer and Engineering Manager, still writing code while setting direction and unblocking teams.",
+        "Currently a Principal Software Engineer and Engineering Manager, producing more code than ever while setting direction and unblocking teams.",
     },
   ],
   fit: [
-    "I can imagine being especially useful around Self-Driving, AI Observability, Workflows, MCP and developer experience, or on another small team turning product context into action.",
-    "I do my best work between disciplines: talking to users, building applied ML systems, shipping full-stack products, and helping a small team make good technical decisions. I write code regardless of title. It is how I test ideas and make them real.",
+    "I could be especially useful working on Self-Driving, AI Observability, Workflows, MCP and developer experience, or on another small team turning product context into action.",
+    "I do my best work between disciplines: talking to users, building applied ML systems, shipping full-stack products, and helping a small team make good technical decisions.",
     "Belfast is home. I have bought a house here, built a social life I care about, and have a wedding here next year. There is also a cat who would object to the move. I work on UK time and am looking for a remote role, with travel when being together matters.",
   ],
-  ask: "I do not see one advertised role that cleanly spans this mix. That is the point of the speculative application. If a team has a need close to it, I would rather be routed there than bend my experience around the nearest title.",
+  ask: {
+    headline: {
+      before:
+        "I see a company that is the perfect fit. I do not see an advertised role that ",
+      emphasis: "cleanly",
+      after: " matches me.",
+    },
+    plan: {
+      intro:
+        "The shape of the AI Research Team's Q3 2026 plan is strikingly familiar:",
+      href: "https://github.com/PostHog/posthog.com/blob/master/contents/teams/ai-research/objectives.mdx#q3-2026-objectives",
+      label: "Read the AI Research Team's Q3 2026 plan",
+      items: [
+        "Data labeling suite",
+        "Session replay text renderer",
+        "Write data prep pipeline",
+        "Build the sampling pipeline",
+        "Train the Replay encoder model",
+        "Train the end-to-end agent",
+        "Build the model observability suite",
+        "Build an eval dataset",
+      ],
+    },
+    evidence:
+      "Across pathology, document intelligence, logistics, and my own agent tooling, I have built the constituent parts of that plan, in different combinations, multiple times over: labelling suites and annotated datasets, data-preparation and sampling pipelines, trained models, evaluation datasets and benchmarks, production integrations, and model observability.",
+    background:
+      "Not with a PhD, a strong background in maths, or experience in low-level Rust, C, or CUDA. With relentless curiosity, a habit of learning whatever the problem needs, and a focus on turning technical work into customer value.",
+    closing:
+      "If that combination is useful, I would rather talk about the problem than contort myself into the nearest advertised role.",
+  },
   links: {
     experience: "/experience",
     initiative: "/initiatives/semi-autonomous-software-development",
@@ -762,7 +791,27 @@ export function posthogApplicationMarkdown(): string {
     ...posthogApplication.fit.flatMap((paragraph) => [paragraph, ""]),
     "## The ask",
     "",
-    posthogApplication.ask,
+    posthogApplication.ask.headline.before +
+      "*" +
+      posthogApplication.ask.headline.emphasis +
+      "*" +
+      posthogApplication.ask.headline.after,
+    "",
+    posthogApplication.ask.plan.intro,
+    "",
+    ...posthogApplication.ask.plan.items.map((item) => "- " + item),
+    "",
+    "[" +
+      posthogApplication.ask.plan.label +
+      "](" +
+      posthogApplication.ask.plan.href +
+      ")",
+    "",
+    posthogApplication.ask.evidence,
+    "",
+    posthogApplication.ask.background,
+    "",
+    posthogApplication.ask.closing,
     "",
     "- [Read my initiatives](" + posthogApplication.links.initiative + ")",
     "- [Inspect my projects](" + posthogApplication.links.projects + ")",

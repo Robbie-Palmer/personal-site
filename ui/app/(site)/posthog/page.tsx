@@ -698,7 +698,7 @@ export default function PostHogApplicationPage() {
         </div>
       </section>
 
-      <section className="mx-auto grid max-w-7xl gap-12 px-5 py-24 sm:px-8 lg:grid-cols-[1fr_0.82fr] lg:px-12">
+      <section className="mx-auto grid max-w-7xl gap-12 px-5 py-24 sm:px-8 lg:grid-cols-[0.78fr_1.22fr] lg:px-12">
         <div>
           <p className="text-xs font-black uppercase tracking-[0.2em] text-[var(--hog-green)]">
             Where I might fit
@@ -729,9 +729,40 @@ export default function PostHogApplicationPage() {
           <p className="text-xs font-black uppercase tracking-[0.2em] text-[var(--hog-red)]">
             The ask
           </p>
-          <p className="mt-5 text-3xl font-black leading-tight tracking-[-0.03em]">
-            {posthogApplication.ask}
+          <p className="mt-5 text-3xl font-black leading-tight tracking-[-0.03em] sm:text-4xl">
+            {posthogApplication.ask.headline.before}
+            <em>{posthogApplication.ask.headline.emphasis}</em>
+            {posthogApplication.ask.headline.after}
           </p>
+          <p className="mt-7 text-lg font-bold leading-7">
+            {posthogApplication.ask.plan.intro}
+          </p>
+          <ul className="mt-5 grid gap-x-6 gap-y-3 sm:grid-cols-2">
+            {posthogApplication.ask.plan.items.map((item) => (
+              <li className="flex items-start gap-2 font-bold" key={item}>
+                <Check
+                  className="mt-0.5 size-5 shrink-0 text-[var(--hog-green)]"
+                  strokeWidth={3}
+                  aria-hidden="true"
+                />
+                <span>{item}</span>
+              </li>
+            ))}
+          </ul>
+          <a
+            className="mt-6 inline-flex items-center gap-2 font-black underline decoration-2 underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-4"
+            href={posthogApplication.ask.plan.href}
+            target="_blank"
+            rel="noreferrer"
+          >
+            {posthogApplication.ask.plan.label}
+            <ArrowUpRight className="size-4" aria-hidden="true" />
+          </a>
+          <div className="mt-8 space-y-5 border-t-2 border-[var(--hog-ink)] pt-7 font-medium leading-7">
+            <p>{posthogApplication.ask.evidence}</p>
+            <p className="font-black">{posthogApplication.ask.background}</p>
+            <p>{posthogApplication.ask.closing}</p>
+          </div>
           <div className="mt-8 flex flex-col items-start gap-4">
             <Link
               className="inline-flex w-full items-center justify-between gap-3 border-2 border-[var(--hog-ink)] bg-[var(--hog-ink)] px-5 py-3 font-black text-[#fffdf8] shadow-[4px_4px_0_var(--hog-red)] focus-visible:outline-2 focus-visible:outline-offset-4"
