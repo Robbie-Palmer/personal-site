@@ -20,6 +20,28 @@ variable "github_repo_name" {
   }
 }
 
+variable "github_repo_owner_id" {
+  description = "Immutable GitHub ID of the repository owner used in OIDC subjects"
+  type        = string
+  default     = "8760191"
+
+  validation {
+    condition     = can(regex("^[0-9]+$", var.github_repo_owner_id))
+    error_message = "github_repo_owner_id must contain only numbers."
+  }
+}
+
+variable "github_repo_id" {
+  description = "Immutable GitHub repository ID used in OIDC subjects"
+  type        = string
+  default     = "1078839304"
+
+  validation {
+    condition     = can(regex("^[0-9]+$", var.github_repo_id))
+    error_message = "github_repo_id must contain only numbers."
+  }
+}
+
 variable "gcp_project_id" {
   description = "GCP project ID backing the recipe site's Google OAuth"
   type        = string
