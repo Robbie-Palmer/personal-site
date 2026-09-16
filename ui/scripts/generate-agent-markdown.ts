@@ -41,6 +41,10 @@ import {
 import type { RecipeCardView } from "@/lib/api/recipes";
 import { siteConfig } from "@/lib/config/site-config";
 import {
+  posthogApplication,
+  posthogApplicationMarkdown,
+} from "@/content/posthog";
+import {
   markdownUrl,
   mdxToAgentMarkdown,
   renderPage,
@@ -642,6 +646,17 @@ function buildSatelliteSwarmPage(): GeneratedPage {
   };
 }
 
+function buildPostHogApplicationPage(): GeneratedPage {
+  return {
+    htmlPath: "/posthog",
+    filePath: "posthog.md",
+    title: posthogApplication.title,
+    description: posthogApplication.description,
+    content: posthogApplicationMarkdown(),
+    facts: [["Location", "Belfast, UK"]],
+  };
+}
+
 function buildTechnologyPages(projects: ProjectWithADRs[]): GeneratedPage[] {
   const repository = loadDomainRepository();
   // ADR slugs are only unique within a project, so collect ADRs per
@@ -838,6 +853,7 @@ function buildHomePage(): GeneratedPage {
       `- [Blog](${markdownUrl("/blog")}): ${siteConfig.blog.description}`,
       `- [Recipes](${markdownUrl("/recipes")}): a digital recipe book`,
       `- [Satellite swarm](${markdownUrl("/satellite-swarm")}): a deterministic mission replay on a 3D globe`,
+      `- [PostHog application](${markdownUrl("/posthog")}): a speculative application backed by working systems and shipped code`,
       "",
       "## Links",
       "",
@@ -870,6 +886,7 @@ function buildLlmsTxt(
     `- [Projects](${markdownUrl("/projects")}): all projects plus the building philosophy that guides them`,
     `- [Ideas](${markdownUrl("/ideas")}): recurring laws, methods, and mental models`,
     `- [Satellite swarm](${markdownUrl("/satellite-swarm")}): a deterministic C++ WebAssembly mission on a CesiumJS globe`,
+    `- [PostHog application](${markdownUrl("/posthog")}): a speculative application backed by working systems and shipped code`,
     "",
     "## Initiatives",
     "",
@@ -980,6 +997,7 @@ function buildRoutesJson(): string {
         "/recipes",
         "/recipes/*",
         "/satellite-swarm",
+        "/posthog",
         "/technologies/*",
         "/ideas",
         "/ideas/*",
@@ -1057,6 +1075,7 @@ function main(): void {
     ...buildBlogPostPages(posts),
     buildRecipesIndexPage(recipes),
     buildSatelliteSwarmPage(),
+    buildPostHogApplicationPage(),
     ...technologyPages,
   ];
 

@@ -41,6 +41,7 @@ describe("agent markdown generation", () => {
       "blog.md",
       "recipes.md",
       "satellite-swarm.md",
+      "posthog.md",
       "llms.txt",
       "llms-full.txt",
       "_headers",
@@ -48,6 +49,20 @@ describe("agent markdown generation", () => {
     ]) {
       expect(fs.existsSync(path.join(OUT_DIR, file)), file).toBe(true);
     }
+  });
+
+  it("publishes the PostHog application with direct evidence", () => {
+    const application = read("posthog.md");
+
+    expect(application).toContain("# I want to help products drive themselves");
+    expect(application).toContain("## Direct evidence");
+    expect(application).toContain("## The specific weirdness");
+    expect(application).toContain("Correct. That is the point");
+    expect(application).toContain("### What the weirdness looks like");
+    expect(application).toContain("/images/posthog/knowledge-graph.png");
+    expect(application).toContain("I used it to pick up this page");
+    expect(application).toContain("/projects/agentic-code-review");
+    expect(read("llms.txt")).toContain("https://robbiepalmer.me/posthog.md");
   });
 
   it("generates a markdown twin for every idea page", () => {
