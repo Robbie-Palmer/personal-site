@@ -271,7 +271,8 @@ export const note = pgTable(
     workItemId: text()
       .notNull()
       .references(() => workItem.id, { onDelete: "restrict" }),
-    leaseId: uuid().notNull(),
+    leaseId: uuid(),
+    author: text().notNull(),
     content: text().notNull(),
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },
@@ -286,6 +287,7 @@ export const note = pgTable(
       table.createdAt,
     ),
     check("notes_content_not_blank_check", sql`btrim(${table.content}) <> ''`),
+    check("notes_author_not_blank_check", sql`btrim(${table.author}) <> ''`),
   ],
 );
 

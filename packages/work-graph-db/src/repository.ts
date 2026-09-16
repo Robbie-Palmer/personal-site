@@ -14,6 +14,7 @@ import {
   createKnowledgeScope,
   createWorkGraph,
   projectWorkItemStage,
+  validatePostReleaseNote,
   validateKnowledgeScopeRelationships,
   WorkGraphError,
   type KnowledgeScope,
@@ -174,6 +175,13 @@ export interface CreateNoteInput {
   readonly workItemId: string;
   readonly leaseId: string;
   readonly epoch: number;
+  readonly content: string;
+}
+
+export interface CreatePostReleaseNoteInput {
+  readonly id: string;
+  readonly workItemId: string;
+  readonly author: string;
   readonly content: string;
 }
 
@@ -1030,13 +1038,17 @@ export class WorkGraphRepository {
           }
         }
 
-        await this.lockWorkItemAndRequireLease(transaction, input);
+        const { storedLease } = await this.lockWorkItemAndRequireLease(
+          transaction,
+          input,
+        );
         const [created] = await transaction
           .insert(note)
           .values({
             id: input.id,
             workItemId: input.workItemId,
             leaseId: input.leaseId,
+            author: storedLease.workerId,
             content: input.content,
           })
           .returning();
@@ -1044,7 +1056,93 @@ export class WorkGraphRepository {
         await this.appendEvent(transaction, {
           type: "note.created",
           workItemId: input.workItemId,
-          data: { noteId: input.id, leaseId: input.leaseId },
+          data: {
+            noteId: input.id,
+            leaseId: input.leaseId,
+            author: storedLease.workerId,
+            kind: "work",
+          },
+        });
+        return created;
+      });
+    } catch (error) {
+      if (getDatabaseError(error)?.code === "23505") {
+        throw new WorkGraphError(
+          "duplicate_note",
+          `Note ${input.id} already exists.`,
+        );
+      }
+      throw error;
+    }
+  }
+
+  async createPostReleaseNote(
+    input: CreatePostReleaseNoteInput,
+    options: IdempotentMutationOptions = {},
+  ): Promise<StoredNote> {
+    requireUuid(input.id, "invalid_note_id", "A note ID must be a UUID.");
+    requireIdentifier(input.workItemId, "invalid_work_item_id");
+    requireText(
+      input.content,
+      "invalid_note_content",
+      "A note cannot be empty.",
+    );
+    if (options.idempotencyKey !== undefined) {
+      requireIdempotencyKey(options.idempotencyKey);
+    }
+
+    try {
+      return await this.db.transaction(async (transaction) => {
+        await this.lockEventSequence(transaction);
+        if (options.idempotencyKey !== undefined) {
+          const replayed = await this.beginIdempotentMutation(
+            transaction,
+            options.idempotencyKey,
+            "create-post-release-note",
+            JSON.stringify([
+              input.id,
+              input.workItemId,
+              input.author,
+              input.content,
+            ]),
+          );
+          if (replayed) {
+            return this.requireStoredNote(transaction, input.id);
+          }
+        }
+
+        const [lockedWorkItem] = await transaction
+          .select({ lifecycle: workItem.lifecycle })
+          .from(workItem)
+          .where(eq(workItem.id, input.workItemId))
+          .for("update");
+        if (!lockedWorkItem) throw workItemNotFound(input.workItemId);
+        validatePostReleaseNote({
+          workItemId: input.workItemId,
+          lifecycle: lockedWorkItem.lifecycle,
+          author: input.author,
+        });
+
+        const [created] = await transaction
+          .insert(note)
+          .values({
+            id: input.id,
+            workItemId: input.workItemId,
+            leaseId: null,
+            author: input.author,
+            content: input.content,
+          })
+          .returning();
+        if (!created) throw new Error("Note creation returned no note.");
+        await this.appendEvent(transaction, {
+          type: "note.created",
+          workItemId: input.workItemId,
+          data: {
+            noteId: input.id,
+            leaseId: null,
+            author: input.author,
+            kind: "post_release",
+          },
         });
         return created;
       });

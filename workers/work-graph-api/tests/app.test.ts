@@ -109,6 +109,15 @@ const buildRepository = (): WorkGraphApiRepository => ({
     id: input.id,
     workItemId: input.workItemId,
     leaseId: input.leaseId,
+    author: "worker-a",
+    content: input.content,
+    createdAt: acquiredAt,
+  })),
+  createPostReleaseNote: vi.fn(async (input) => ({
+    id: input.id,
+    workItemId: input.workItemId,
+    leaseId: null,
+    author: input.author,
     content: input.content,
     createdAt: acquiredAt,
   })),
@@ -669,8 +678,48 @@ describe("Given a worker recording progress and requesting attention", () => {
     expect(await responseJson(response)).toEqual({
       id: noteId,
       workItemId: "ready",
+      kind: "work",
       leaseId,
+      author: "worker-a",
       content: "Checked the generated contract.",
+      createdAt: acquiredAt.toISOString(),
+    });
+  });
+
+  it("appends attributed discussion through the post-release route", async () => {
+    const repository = buildRepository();
+    const app = createWorkGraphApp(repository);
+
+    const response = await app.request("/api/work-items/released/comments", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "idempotency-key": idempotencyKey,
+      },
+      body: JSON.stringify({
+        id: noteId,
+        author: "agent-a",
+        content: "Production exposed a follow-up.",
+      }),
+    });
+
+    expect(response.status).toBe(201);
+    expect(repository.createPostReleaseNote).toHaveBeenCalledWith(
+      {
+        id: noteId,
+        workItemId: "released",
+        author: "agent-a",
+        content: "Production exposed a follow-up.",
+      },
+      { idempotencyKey },
+    );
+    expect(await responseJson(response)).toEqual({
+      id: noteId,
+      workItemId: "released",
+      kind: "post_release",
+      leaseId: null,
+      author: "agent-a",
+      content: "Production exposed a follow-up.",
       createdAt: acquiredAt.toISOString(),
     });
   });
@@ -683,6 +732,7 @@ describe("Given a worker recording progress and requesting attention", () => {
         id: noteId,
         workItemId: "ready",
         leaseId,
+        author: "worker-a",
         content: "First note",
         createdAt: acquiredAt,
       },
@@ -690,6 +740,7 @@ describe("Given a worker recording progress and requesting attention", () => {
         id: secondId,
         workItemId: "ready",
         leaseId,
+        author: "worker-a",
         content: "Second note",
         createdAt: expiresAt,
       },

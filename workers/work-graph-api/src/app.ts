@@ -10,6 +10,7 @@ import type {
   CreateAttentionRequestInput,
   CreateAttentionRequestResult,
   CreateNoteInput,
+  CreatePostReleaseNoteInput,
   DecomposeClaimedWorkItemInput,
   DecomposeClaimedWorkItemResult,
   IdempotentMutationOptions,
@@ -193,7 +194,9 @@ const noteSchema = z
   .object({
     id: z.uuid().max(36),
     workItemId: identifierSchema,
-    leaseId: leaseIdSchema,
+    kind: z.enum(["work", "post_release"]),
+    leaseId: z.union([leaseIdSchema, z.null()]),
+    author: identifierSchema,
     content: z.string().min(1).max(MAX_TITLE_LENGTH),
     createdAt: timestampSchema,
   })
@@ -424,6 +427,13 @@ const createNoteBodySchema = z
     id: z.uuid().max(36),
     leaseId: leaseIdSchema,
     epoch: leaseEpochSchema,
+    content: z.string().trim().min(1).max(MAX_TITLE_LENGTH),
+  })
+  .strict();
+const createPostReleaseNoteBodySchema = z
+  .object({
+    id: z.uuid().max(36),
+    author: identifierSchema,
     content: z.string().trim().min(1).max(MAX_TITLE_LENGTH),
   })
   .strict();
@@ -825,13 +835,41 @@ const createNoteRoute = createRoute({
   },
 });
 
+const createPostReleaseNoteRoute = createRoute({
+  method: "post",
+  path: "/api/work-items/{workItemId}/comments",
+  operationId: "createPostReleaseWorkItemNote",
+  summary: "Append discussion to released work",
+  description:
+    "Appends an immutable, attributed note to a released work item without changing its lifecycle, release evidence, lease history, or timestamps. Cloudflare Access must authenticate the caller.",
+  tags: ["notes"],
+  security: accessSecurity,
+  request: {
+    params: workItemParamsSchema,
+    headers: idempotencyHeadersSchema,
+    body: {
+      required: true,
+      content: {
+        "application/json": { schema: createPostReleaseNoteBodySchema },
+      },
+    },
+  },
+  responses: {
+    201: {
+      description: "Post-release note appended or matching mutation replayed",
+      content: { "application/json": { schema: noteSchema } },
+    },
+    ...standardErrors,
+  },
+});
+
 const listWorkItemNotesRoute = createRoute({
   method: "get",
   path: "/api/work-items/{workItemId}/notes",
   operationId: "listWorkItemNotes",
   summary: "List notes for a work item",
   description:
-    "Returns notes in stable note-ID order. Pass nextCursor to continue without offset drift.",
+    "Returns immutable lease-fenced work notes and append-only post-release discussion in stable note-ID order. Pass nextCursor to continue without offset drift.",
   tags: ["notes"],
   security: accessSecurity,
   request: {
@@ -1169,6 +1207,10 @@ export interface WorkGraphApiRepository {
     input: CreateNoteInput,
     options?: IdempotentMutationOptions,
   ): Promise<StoredNote>;
+  createPostReleaseNote(
+    input: CreatePostReleaseNoteInput,
+    options?: IdempotentMutationOptions,
+  ): Promise<StoredNote>;
   createAttentionRequest(
     input: CreateAttentionRequestInput,
     options?: IdempotentMutationOptions,
@@ -1277,6 +1319,10 @@ const serializeWorkItem = (item: WorkItemReadModel) => ({
 
 const serializeNote = (storedNote: StoredNote) => ({
   ...storedNote,
+  kind:
+    storedNote.leaseId === null
+      ? ("post_release" as const)
+      : ("work" as const),
   createdAt: storedNote.createdAt.toISOString(),
 });
 
@@ -1552,6 +1598,17 @@ export const createWorkGraphApp = (
     const request = context.req.valid("json");
     const headers = context.req.valid("header");
     const created = await repository.createNote(
+      { ...request, workItemId },
+      idempotencyOptions(headers["idempotency-key"]),
+    );
+    return context.json(serializeNote(created), 201);
+  });
+
+  app.openapi(createPostReleaseNoteRoute, async (context) => {
+    const { workItemId } = context.req.valid("param");
+    const request = context.req.valid("json");
+    const headers = context.req.valid("header");
+    const created = await repository.createPostReleaseNote(
       { ...request, workItemId },
       idempotencyOptions(headers["idempotency-key"]),
     );

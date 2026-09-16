@@ -32,6 +32,7 @@ export type WorkGraphErrorCode =
   | "invalid_lease_epoch"
   | "invalid_lease_id"
   | "invalid_note_content"
+  | "invalid_note_author"
   | "invalid_note_id"
   | "invalid_parent_id"
   | "invalid_worker_id"
@@ -47,6 +48,7 @@ export type WorkGraphErrorCode =
   | "self_dependency"
   | "work_item_already_terminal"
   | "work_item_has_current_lease"
+  | "work_item_not_released"
   | "work_item_not_found";
 
 export class WorkGraphError extends Error {

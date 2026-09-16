@@ -91,7 +91,9 @@ export const zWorkItemDependency = z.object({
 export const zWorkItemNote = z.object({
     id: z.uuid().max(36),
     workItemId: z.string().min(1).max(200),
-    leaseId: z.uuid().max(36),
+    kind: z.enum(['work', 'post_release']),
+    leaseId: z.uuid().max(36).nullable(),
+    author: z.string().min(1).max(200),
     content: z.string().min(1).max(10000),
     createdAt: z.iso.datetime().max(30)
 });
@@ -459,6 +461,27 @@ export const zCreateWorkItemCancellationPath = z.object({
  * Work item cancelled and lease ended
  */
 export const zCreateWorkItemCancellationResponse = zLeaseWithWorkItem;
+
+export const zCreatePostReleaseWorkItemNoteBody = z.object({
+    id: z.uuid().max(36),
+    author: z.string().min(1).max(200),
+    content: z.string().min(1).max(10000)
+});
+
+export const zCreatePostReleaseWorkItemNoteHeaders = z.object({
+    'idempotency-key': z.uuid().max(36).register(z.globalRegistry, {
+        description: 'Client-generated mutation ID. Reusing it with the same request replays the committed effect. Reusing it for different input returns a conflict.'
+    }).optional()
+});
+
+export const zCreatePostReleaseWorkItemNotePath = z.object({
+    workItemId: z.string().min(1).max(200)
+});
+
+/**
+ * Post-release note appended or matching mutation replayed
+ */
+export const zCreatePostReleaseWorkItemNoteResponse = zWorkItemNote;
 
 export const zCreateWorkItemDecompositionBody = z.object({
     leaseId: z.uuid().max(36),

@@ -369,6 +369,52 @@ describe("Given agent-facing Work Graph commands", () => {
     );
   });
 
+  it("appends attributed post-release discussion", async () => {
+    const test = harness();
+    await test.run([
+      "comment",
+      "item-1",
+      "--author",
+      "agent-a",
+      "--content",
+      "Production exposed a follow-up.",
+      "--idempotency-key",
+      UUID,
+    ]);
+    expect(test.requests[0]).toMatchObject({
+      body: {
+        id: expect.stringMatching(
+          /^[0-9a-f]{8}-[0-9a-f]{4}-[89ab][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
+        ),
+        author: "agent-a",
+        content: "Production exposed a follow-up.",
+      },
+      method: "POST",
+    });
+    expect(test.requests[0]?.url.pathname).toBe(
+      "/root/api/work-items/item-1/comments",
+    );
+    expect(test.requests[0]?.headers.get("Idempotency-Key")).toBe(UUID);
+  });
+
+  it("uses the worker identity as comment provenance", async () => {
+    const test = harness(undefined, {
+      WORK_GRAPH_API_URL: API_URL,
+      WORK_GRAPH_WORKER_ID: "agent-a",
+    });
+    await test.run([
+      "comment",
+      "item-1",
+      "--content",
+      "Production exposed a follow-up.",
+    ]);
+    expect(test.requests[0]?.body).toEqual({
+      id: UUID,
+      author: "agent-a",
+      content: "Production exposed a follow-up.",
+    });
+  });
+
   it("renews a fenced lease", async () => {
     const test = harness();
     await test.run(["renew", UUID, "--epoch", "4"]);
@@ -763,6 +809,22 @@ describe("Given CLI and HTTP failures", () => {
     });
   });
 
+  it("requires provenance before sending a post-release comment", async () => {
+    const test = harness();
+    expect(
+      await test.run([
+        "comment",
+        "item-1",
+        "--content",
+        "Production exposed a follow-up.",
+      ]),
+    ).toBe(EXIT_CODES.usage);
+    expect(test.fetch).not.toHaveBeenCalled();
+    expect(test.stderr.join("")).toContain(
+      "Set WORK_GRAPH_WORKER_ID or pass --author for provenance.",
+    );
+  });
+
   it("enforces generated OpenAPI constraints before making a request", async () => {
     const test = harness();
     expect(
@@ -832,6 +894,27 @@ describe("Given CLI and HTTP failures", () => {
         code: "HTTP_403",
         message: "The Work Graph API returned HTTP 403.",
         status: 403,
+      },
+    });
+  });
+
+  it("reports Access denial for a post-release comment", async () => {
+    const test = harness(() => new Response("Access denied", { status: 401 }));
+    expect(
+      await test.run([
+        "comment",
+        "item-1",
+        "--author",
+        "agent-a",
+        "--content",
+        "Production exposed a follow-up.",
+      ]),
+    ).toBe(EXIT_CODES.authentication);
+    expect(JSON.parse(test.stderr[0] ?? "null")).toEqual({
+      error: {
+        code: "HTTP_401",
+        message: "The Work Graph API returned HTTP 401.",
+        status: 401,
       },
     });
   });

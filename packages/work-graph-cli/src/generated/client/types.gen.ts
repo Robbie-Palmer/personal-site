@@ -75,7 +75,9 @@ export type WorkItemDependency = {
 export type WorkItemNote = {
     id: string;
     workItemId: string;
-    leaseId: string;
+    kind: 'work' | 'post_release';
+    leaseId: string | null;
+    author: string;
     content: string;
     createdAt: string;
 };
@@ -1123,6 +1125,67 @@ export type CreateWorkItemCancellationResponses = {
 };
 
 export type CreateWorkItemCancellationResponse = CreateWorkItemCancellationResponses[keyof CreateWorkItemCancellationResponses];
+
+export type CreatePostReleaseWorkItemNoteData = {
+    body: {
+        id: string;
+        author: string;
+        content: string;
+    };
+    headers?: {
+        /**
+         * Client-generated mutation ID. Reusing it with the same request replays the committed effect. Reusing it for different input returns a conflict.
+         */
+        'idempotency-key'?: string;
+    };
+    path: {
+        workItemId: string;
+    };
+    query?: never;
+    url: '/api/work-items/{workItemId}/comments';
+};
+
+export type CreatePostReleaseWorkItemNoteErrors = {
+    /**
+     * Invalid request
+     */
+    400: Error;
+    /**
+     * Cloudflare Access authentication required
+     */
+    401: Error;
+    /**
+     * Cloudflare Access denied the request
+     */
+    403: Error;
+    /**
+     * Resource not found
+     */
+    404: Error;
+    /**
+     * Request conflicts with current Work Graph state
+     */
+    409: Error;
+    /**
+     * Request validation failed
+     */
+    422: Error;
+    /**
+     * Unexpected server error
+     */
+    500: Error;
+};
+
+export type CreatePostReleaseWorkItemNoteError = CreatePostReleaseWorkItemNoteErrors[keyof CreatePostReleaseWorkItemNoteErrors];
+
+export type CreatePostReleaseWorkItemNoteResponses = {
+    /**
+     * Post-release note appended or matching mutation replayed
+     */
+    201: WorkItemNote;
+};
+
+export type CreatePostReleaseWorkItemNoteResponse = CreatePostReleaseWorkItemNoteResponses[keyof CreatePostReleaseWorkItemNoteResponses];
 
 export type CreateWorkItemDecompositionData = {
     body: {
