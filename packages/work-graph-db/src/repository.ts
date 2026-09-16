@@ -6,6 +6,7 @@ import {
   isNotNull,
   isNull,
   lte,
+  or,
   sql,
   type SQL,
 } from "drizzle-orm";
@@ -58,6 +59,16 @@ export type StoredAttentionResolution =
 export interface ListKnowledgeScopesInput {
   readonly kind?: KnowledgeScope["kind"];
   readonly cursor?: string;
+  readonly limit?: number;
+}
+
+export interface KnowledgeScopeRelationshipCursor {
+  readonly parentKnowledgeScopeId: string;
+  readonly childKnowledgeScopeId: string;
+}
+
+export interface ListKnowledgeScopeRelationshipsInput {
+  readonly cursor?: KnowledgeScopeRelationshipCursor;
   readonly limit?: number;
 }
 
@@ -594,10 +605,12 @@ export class WorkGraphRepository {
     });
   }
 
-  async listKnowledgeScopeRelationships(): Promise<
+  async listKnowledgeScopeRelationships(
+    input: ListKnowledgeScopeRelationshipsInput = {},
+  ): Promise<
     readonly KnowledgeScopeRelationship[]
   > {
-    return this.db
+    const query = this.db
       .select({
         parentKnowledgeScopeId:
           knowledgeScopeRelationship.parentKnowledgeScopeId,
@@ -605,10 +618,31 @@ export class WorkGraphRepository {
           knowledgeScopeRelationship.childKnowledgeScopeId,
       })
       .from(knowledgeScopeRelationship)
+      .where(
+        input.cursor === undefined
+          ? undefined
+          : or(
+              gt(
+                knowledgeScopeRelationship.parentKnowledgeScopeId,
+                input.cursor.parentKnowledgeScopeId,
+              ),
+              and(
+                eq(
+                  knowledgeScopeRelationship.parentKnowledgeScopeId,
+                  input.cursor.parentKnowledgeScopeId,
+                ),
+                gt(
+                  knowledgeScopeRelationship.childKnowledgeScopeId,
+                  input.cursor.childKnowledgeScopeId,
+                ),
+              ),
+            ),
+      )
       .orderBy(
         knowledgeScopeRelationship.parentKnowledgeScopeId,
         knowledgeScopeRelationship.childKnowledgeScopeId,
       );
+    return input.limit === undefined ? query : query.limit(input.limit);
   }
 
   async addKnowledgeScopeRelationship(

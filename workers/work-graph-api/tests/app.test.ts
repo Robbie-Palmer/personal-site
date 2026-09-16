@@ -229,6 +229,29 @@ describe("Given knowledge-scope mirrors", () => {
     expect(await responseJson(response)).toEqual({ id: "work-graph", ...body });
   });
 
+  it.each([
+    "ftp://example.test/projects/work-graph",
+    "https://",
+    "https://user:password@example.test/projects/work-graph",
+  ])("rejects a scope URL outside the public HTTP contract: %s", async (canonicalUrl) => {
+    const repository = buildRepository();
+    const app = createWorkGraphApp(repository);
+
+    const response = await app.request("/api/knowledge-scopes/work-graph", {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        kind: "project",
+        title: "Work Graph",
+        canonicalUrl,
+        markdownUrl: "https://example.test/projects/work-graph.md",
+      }),
+    });
+
+    expect(response.status).toBe(422);
+    expect(repository.putKnowledgeScope).not.toHaveBeenCalled();
+  });
+
   it("adds, lists, and removes scope relationships", async () => {
     const relationship = {
       parentKnowledgeScopeId: "initiative",
@@ -255,7 +278,13 @@ describe("Given knowledge-scope mirrors", () => {
     );
 
     const listed = await app.request("/api/knowledge-scope-relationships");
-    expect(await responseJson(listed)).toEqual({ items: [relationship] });
+    expect(await responseJson(listed)).toEqual({
+      items: [relationship],
+      nextCursor: null,
+    });
+    expect(repository.listKnowledgeScopeRelationships).toHaveBeenCalledWith({
+      limit: 51,
+    });
 
     const removed = await app.request(
       "/api/knowledge-scope-relationships",
@@ -270,6 +299,62 @@ describe("Given knowledge-scope mirrors", () => {
       relationship,
       {},
     );
+  });
+
+  it("paginates scope relationships with an opaque compound cursor", async () => {
+    const first = {
+      parentKnowledgeScopeId: "initiative",
+      childKnowledgeScopeId: "first-project",
+    };
+    const second = {
+      parentKnowledgeScopeId: "initiative",
+      childKnowledgeScopeId: "second-project",
+    };
+    const repository = buildRepository();
+    vi.mocked(repository.listKnowledgeScopeRelationships).mockResolvedValue([
+      first,
+      second,
+    ]);
+    const app = createWorkGraphApp(repository);
+    const cursor = JSON.stringify(["earlier-initiative", "earlier-project"]);
+
+    const response = await app.request(
+      `/api/knowledge-scope-relationships?limit=1&cursor=${encodeURIComponent(cursor)}`,
+    );
+
+    expect(response.status).toBe(200);
+    expect(repository.listKnowledgeScopeRelationships).toHaveBeenCalledWith({
+      cursor: {
+        parentKnowledgeScopeId: "earlier-initiative",
+        childKnowledgeScopeId: "earlier-project",
+      },
+      limit: 2,
+    });
+    expect(await responseJson(response)).toEqual({
+      items: [first],
+      nextCursor: JSON.stringify([
+        first.parentKnowledgeScopeId,
+        first.childKnowledgeScopeId,
+      ]),
+    });
+  });
+
+  it("rejects malformed scope relationship cursors", async () => {
+    const repository = buildRepository();
+    const app = createWorkGraphApp(repository);
+
+    const response = await app.request(
+      "/api/knowledge-scope-relationships?cursor=not-json",
+    );
+
+    expect(response.status).toBe(400);
+    expect(await responseJson(response)).toEqual({
+      error: {
+        code: "invalid_knowledge_scope_relationship_cursor",
+        message: "The knowledge-scope relationship cursor is invalid.",
+      },
+    });
+    expect(repository.listKnowledgeScopeRelationships).not.toHaveBeenCalled();
   });
 
   it("maps a missing scope to HTTP 404", async () => {

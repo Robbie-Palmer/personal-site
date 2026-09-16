@@ -59,6 +59,7 @@ export type KnowledgeScope = {
 
 export type KnowledgeScopeRelationshipList = {
     items: Array<KnowledgeScopeRelationship>;
+    nextCursor: string | null;
 };
 
 export type KnowledgeScopeRelationship = {
@@ -492,7 +493,10 @@ export type DeleteKnowledgeScopeRelationshipResponse = DeleteKnowledgeScopeRelat
 export type ListKnowledgeScopeRelationshipsData = {
     body?: never;
     path?: never;
-    query?: never;
+    query?: {
+        limit?: number;
+        cursor?: string;
+    };
     url: '/api/knowledge-scope-relationships';
 };
 

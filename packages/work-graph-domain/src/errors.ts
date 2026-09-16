@@ -23,6 +23,7 @@ export type WorkGraphErrorCode =
   | "invalid_knowledge_scope_kind"
   | "invalid_knowledge_scope_priority_weight"
   | "invalid_knowledge_scope_rank"
+  | "invalid_knowledge_scope_relationship_cursor"
   | "invalid_knowledge_scope_source_revision"
   | "invalid_knowledge_scope_title"
   | "invalid_knowledge_scope_url"

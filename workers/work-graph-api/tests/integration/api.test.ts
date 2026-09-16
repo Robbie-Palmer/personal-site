@@ -113,7 +113,10 @@ describe("Given knowledge scopes mirrored over HTTP", () => {
     const linksResponse = await app.request(
       "/api/knowledge-scope-relationships",
     );
-    expect(await linksResponse.json()).toEqual({ items: [relationship] });
+    expect(await linksResponse.json()).toEqual({
+      items: [relationship],
+      nextCursor: null,
+    });
 
     const cycle = await requestJson(
       "/api/knowledge-scope-relationships",

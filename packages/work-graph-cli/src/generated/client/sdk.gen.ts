@@ -97,7 +97,7 @@ export const deleteKnowledgeScopeRelationship = <ThrowOnError extends boolean = 
 /**
  * List knowledge-scope relationships
  *
- * Returns directed parent-to-child scope edges in stable order.
+ * Returns a bounded page of directed parent-to-child scope edges in stable order. Pass nextCursor unchanged to continue.
  */
 export const listKnowledgeScopeRelationships = <ThrowOnError extends boolean = false>(options: Options<ListKnowledgeScopeRelationshipsData, ThrowOnError>): RequestResult<ListKnowledgeScopeRelationshipsResponses, ListKnowledgeScopeRelationshipsErrors, ThrowOnError> => options.client.get<ListKnowledgeScopeRelationshipsResponses, ListKnowledgeScopeRelationshipsErrors, ThrowOnError>({ url: '/api/knowledge-scope-relationships', ...options });
 

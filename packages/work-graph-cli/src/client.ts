@@ -33,6 +33,7 @@ import type {
   CreateWorkItemReleaseData,
   DeleteKnowledgeScopeRelationshipData,
   ListAttentionRequestsData,
+  ListKnowledgeScopeRelationshipsData,
   ListKnowledgeScopesData,
   ListWorkItemsData,
   PutKnowledgeScopeData,
@@ -180,9 +181,11 @@ export class WorkGraphClient {
     );
   }
 
-  listKnowledgeScopeRelationships() {
+  listKnowledgeScopeRelationships(
+    query: NonNullable<ListKnowledgeScopeRelationshipsData["query"]>,
+  ) {
     return this.#unwrap(
-      listKnowledgeScopeRelationships({ ...this.#options() }),
+      listKnowledgeScopeRelationships({ ...this.#options(), query }),
     );
   }
 

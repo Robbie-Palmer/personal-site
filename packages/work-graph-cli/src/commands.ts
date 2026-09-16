@@ -26,6 +26,7 @@ import {
   zGetKnowledgeScopePath,
   zGetWorkItemPath,
   zListAttentionRequestsQuery,
+  zListKnowledgeScopeRelationshipsQuery,
   zListKnowledgeScopesQuery,
   zListWorkItemsQuery,
   zPutKnowledgeScopeBody,
@@ -221,6 +222,17 @@ const scopeRelationshipInput = z.object({
   idempotencyKey: described(
     zCreateKnowledgeScopeRelationshipHeaders.shape["idempotency-key"],
     "Client-generated UUID used to replay a mutation safely",
+  ),
+});
+
+const scopeRelationshipListInput = z.object({
+  limit: optional(
+    zListKnowledgeScopeRelationshipsQuery.shape.limit.unwrap().unwrap(),
+    "Maximum number of knowledge-scope relationships",
+  ),
+  cursor: optional(
+    zListKnowledgeScopeRelationshipsQuery.shape.cursor.unwrap(),
+    "Opaque relationship cursor",
   ),
 });
 
@@ -448,8 +460,13 @@ export const workGraphRouter = t.router({
       ),
     links: command
       .meta({ description: "List knowledge-scope relationships" })
-      .input(z.object({}))
-      .query(({ ctx }) => resolveClient(ctx).listKnowledgeScopeRelationships()),
+      .input(scopeRelationshipListInput)
+      .query(({ ctx, input }) =>
+        resolveClient(ctx).listKnowledgeScopeRelationships({
+          ...(input.limit === undefined ? {} : { limit: input.limit }),
+          ...(input.cursor === undefined ? {} : { cursor: input.cursor }),
+        }),
+      ),
     link: command
       .meta({ description: "Add a knowledge-scope relationship" })
       .input(scopeRelationshipInput)

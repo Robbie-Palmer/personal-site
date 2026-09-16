@@ -350,12 +350,14 @@
           "canonicalUrl": {
             "type": "string",
             "maxLength": 2048,
-            "format": "uri"
+            "format": "uri",
+            "pattern": "^[hH][tT][tT][pP][sS]?:\\/\\/(?![^/?#]*@)"
           },
           "markdownUrl": {
             "type": "string",
             "maxLength": 2048,
-            "format": "uri"
+            "format": "uri",
+            "pattern": "^[hH][tT][tT][pP][sS]?:\\/\\/(?![^/?#]*@)"
           },
           "sourceRevision": {
             "anyOf": [
@@ -408,11 +410,24 @@
             "items": {
               "$ref": "#/components/schemas/KnowledgeScopeRelationship"
             },
-            "maxItems": 1000
+            "maxItems": 100
+          },
+          "nextCursor": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 4096
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
-          "items"
+          "items",
+          "nextCursor"
         ]
       },
       "KnowledgeScopeRelationship": {
@@ -1509,7 +1524,7 @@
       "get": {
         "operationId": "listKnowledgeScopeRelationships",
         "summary": "List knowledge-scope relationships",
-        "description": "Returns directed parent-to-child scope edges in stable order.",
+        "description": "Returns a bounded page of directed parent-to-child scope edges in stable order. Pass nextCursor unchanged to continue.",
         "tags": [
           "knowledge-scopes"
         ],
@@ -1517,6 +1532,30 @@
           {
             "cloudflareAccessClientId": [],
             "cloudflareAccessClientSecret": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50,
+              "format": "int32"
+            },
+            "required": false,
+            "name": "limit",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096
+            },
+            "required": false,
+            "name": "cursor",
+            "in": "query"
           }
         ],
         "responses": {
@@ -2179,12 +2218,14 @@
                   "canonicalUrl": {
                     "type": "string",
                     "maxLength": 2048,
-                    "format": "uri"
+                    "format": "uri",
+                    "pattern": "^[hH][tT][tT][pP][sS]?:\\/\\/(?![^/?#]*@)"
                   },
                   "markdownUrl": {
                     "type": "string",
                     "maxLength": 2048,
-                    "format": "uri"
+                    "format": "uri",
+                    "pattern": "^[hH][tT][tT][pP][sS]?:\\/\\/(?![^/?#]*@)"
                   },
                   "sourceRevision": {
                     "anyOf": [

@@ -61,8 +61,8 @@ export const zKnowledgeScope = z.object({
     id: z.string().min(1).max(200),
     kind: z.enum(['initiative', 'project']),
     title: z.string().min(1).max(10000),
-    canonicalUrl: z.url().max(2048),
-    markdownUrl: z.url().max(2048),
+    canonicalUrl: z.url().max(2048).regex(/^[hH][tT][tT][pP][sS]?:\/\/(?![^\/?#]*@)/),
+    markdownUrl: z.url().max(2048).regex(/^[hH][tT][tT][pP][sS]?:\/\/(?![^\/?#]*@)/),
     sourceRevision: z.string().min(1).max(200).nullable(),
     rank: z.int().gte(1).lte(2147483647).nullable(),
     priorityWeight: z.int().gte(-2147483648).lte(2147483647)
@@ -79,7 +79,8 @@ export const zKnowledgeScopeRelationship = z.object({
 });
 
 export const zKnowledgeScopeRelationshipList = z.object({
-    items: z.array(zKnowledgeScopeRelationship).max(1000)
+    items: z.array(zKnowledgeScopeRelationship).max(100),
+    nextCursor: z.string().min(1).max(4096).nullable()
 });
 
 export const zWorkItemDependency = z.object({
@@ -255,6 +256,11 @@ export const zDeleteKnowledgeScopeRelationshipHeaders = z.object({
  */
 export const zDeleteKnowledgeScopeRelationshipResponse = zKnowledgeScopeRelationship;
 
+export const zListKnowledgeScopeRelationshipsQuery = z.object({
+    limit: z.int().gte(1).lte(100).optional().default(50),
+    cursor: z.string().min(1).max(4096).optional()
+});
+
 /**
  * Knowledge-scope relationships
  */
@@ -299,8 +305,8 @@ export const zGetKnowledgeScopeResponse = zKnowledgeScope;
 export const zPutKnowledgeScopeBody = z.object({
     kind: z.enum(['initiative', 'project']),
     title: z.string().min(1).max(10000),
-    canonicalUrl: z.url().max(2048),
-    markdownUrl: z.url().max(2048),
+    canonicalUrl: z.url().max(2048).regex(/^[hH][tT][tT][pP][sS]?:\/\/(?![^\/?#]*@)/),
+    markdownUrl: z.url().max(2048).regex(/^[hH][tT][tT][pP][sS]?:\/\/(?![^\/?#]*@)/),
     sourceRevision: z.string().min(1).max(200).nullish(),
     rank: z.int().gte(1).lte(2147483647).nullish(),
     priorityWeight: z.int().gte(-2147483648).lte(2147483647).optional().default(0)

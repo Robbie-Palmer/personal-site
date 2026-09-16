@@ -13,7 +13,9 @@ import type {
   DecomposeClaimedWorkItemInput,
   DecomposeClaimedWorkItemResult,
   IdempotentMutationOptions,
+  KnowledgeScopeRelationshipCursor,
   ListAttentionRequestsInput,
+  ListKnowledgeScopeRelationshipsInput,
   ListKnowledgeScopesInput,
   ResolveAttentionRequestInput,
   ResolveAttentionRequestResult,
@@ -47,6 +49,9 @@ const MAX_DECOMPOSITION_CHILDREN = 100;
 const MAX_DECOMPOSITION_DEPENDENCIES = 1_000;
 const DEFAULT_LIST_LIMIT = 50;
 const MAX_URL_LENGTH = 2_048;
+const MAX_RELATIONSHIP_CURSOR_LENGTH = 4_096;
+const CREDENTIAL_FREE_HTTP_URL_PATTERN =
+  /^[hH][tT][tT][pP][sS]?:\/\/(?![^/?#]*@)/;
 
 const identifierSchema = z.string().trim().min(1).max(MAX_IDENTIFIER_LENGTH);
 const leaseIdSchema = z.uuid().max(36);
@@ -125,13 +130,18 @@ const workItemListSchema = z
     nextCursor: z.union([identifierSchema, z.null()]),
   })
   .openapi("WorkItemList");
+const knowledgeScopeUrlSchema = z
+  .url()
+  .max(MAX_URL_LENGTH)
+  .regex(CREDENTIAL_FREE_HTTP_URL_PATTERN)
+  .openapi({ format: "uri" });
 const knowledgeScopeSchema = z
   .object({
     id: identifierSchema,
     kind: z.enum(KNOWLEDGE_SCOPE_KINDS),
     title: z.string().min(1).max(MAX_TITLE_LENGTH),
-    canonicalUrl: z.url().max(MAX_URL_LENGTH),
-    markdownUrl: z.url().max(MAX_URL_LENGTH),
+    canonicalUrl: knowledgeScopeUrlSchema,
+    markdownUrl: knowledgeScopeUrlSchema,
     sourceRevision: z.union([identifierSchema, z.null()]),
     rank: z.union([childRankSchema, z.null()]),
     priorityWeight: z
@@ -155,7 +165,13 @@ const knowledgeScopeRelationshipSchema = z
   })
   .openapi("KnowledgeScopeRelationship");
 const knowledgeScopeRelationshipListSchema = z
-  .object({ items: z.array(knowledgeScopeRelationshipSchema).max(1_000) })
+  .object({
+    items: z.array(knowledgeScopeRelationshipSchema).max(100),
+    nextCursor: z.union([
+      z.string().min(1).max(MAX_RELATIONSHIP_CURSOR_LENGTH),
+      z.null(),
+    ]),
+  })
   .openapi("KnowledgeScopeRelationshipList");
 const workItemDependencySchema = z
   .object({
@@ -257,6 +273,20 @@ const listKnowledgeScopesQuerySchema = z.object({
     .default(DEFAULT_LIST_LIMIT)
     .openapi({ format: "int32" }),
   cursor: identifierSchema.optional(),
+});
+const listKnowledgeScopeRelationshipsQuerySchema = z.object({
+  limit: z.coerce
+    .number()
+    .int()
+    .min(1)
+    .max(100)
+    .default(DEFAULT_LIST_LIMIT)
+    .openapi({ format: "int32" }),
+  cursor: z
+    .string()
+    .min(1)
+    .max(MAX_RELATIONSHIP_CURSOR_LENGTH)
+    .optional(),
 });
 const workItemParamsSchema = z.object({ workItemId: identifierSchema });
 const knowledgeScopeParamsSchema = z.object({
@@ -480,9 +510,11 @@ const listKnowledgeScopeRelationshipsRoute = createRoute({
   path: "/api/knowledge-scope-relationships",
   operationId: "listKnowledgeScopeRelationships",
   summary: "List knowledge-scope relationships",
-  description: "Returns directed parent-to-child scope edges in stable order.",
+  description:
+    "Returns a bounded page of directed parent-to-child scope edges in stable order. Pass nextCursor unchanged to continue.",
   tags: ["knowledge-scopes"],
   security: accessSecurity,
+  request: { query: listKnowledgeScopeRelationshipsQuerySchema },
   responses: {
     200: {
       description: "Knowledge-scope relationships",
@@ -886,7 +918,9 @@ export interface WorkGraphApiRepository {
     input: KnowledgeScopeInput,
     options?: IdempotentMutationOptions,
   ): Promise<KnowledgeScope>;
-  listKnowledgeScopeRelationships(): Promise<
+  listKnowledgeScopeRelationships(
+    input?: ListKnowledgeScopeRelationshipsInput,
+  ): Promise<
     readonly KnowledgeScopeRelationship[]
   >;
   addKnowledgeScopeRelationship(
@@ -945,6 +979,39 @@ const idempotencyOptions = (
   key: string | undefined,
 ): IdempotentMutationOptions =>
   key === undefined ? {} : { idempotencyKey: key };
+
+const relationshipCursorTupleSchema = z.tuple([
+  identifierSchema,
+  identifierSchema,
+]);
+
+const encodeKnowledgeScopeRelationshipCursor = (
+  relationship: KnowledgeScopeRelationship,
+): string =>
+  JSON.stringify([
+    relationship.parentKnowledgeScopeId,
+    relationship.childKnowledgeScopeId,
+  ]);
+
+const decodeKnowledgeScopeRelationshipCursor = (
+  cursor: string,
+): KnowledgeScopeRelationshipCursor => {
+  try {
+    const parsed = relationshipCursorTupleSchema.safeParse(JSON.parse(cursor));
+    if (parsed.success) {
+      return {
+        parentKnowledgeScopeId: parsed.data[0],
+        childKnowledgeScopeId: parsed.data[1],
+      };
+    }
+  } catch {
+    // The normalized error below keeps cursor internals out of API responses.
+  }
+  throw new WorkGraphError(
+    "invalid_knowledge_scope_relationship_cursor",
+    "The knowledge-scope relationship cursor is invalid.",
+  );
+};
 
 const serializeLease = (storedLease: StoredLease) => ({
   ...storedLease,
@@ -1136,12 +1203,27 @@ export const createWorkGraphApp = (
     );
   });
 
-  app.openapi(listKnowledgeScopeRelationshipsRoute, async (context) =>
-    context.json(
-      { items: [...(await repository.listKnowledgeScopeRelationships())] },
+  app.openapi(listKnowledgeScopeRelationshipsRoute, async (context) => {
+    const { cursor, limit } = context.req.valid("query");
+    const relationships = await repository.listKnowledgeScopeRelationships({
+      ...(cursor === undefined
+        ? {}
+        : { cursor: decodeKnowledgeScopeRelationshipCursor(cursor) }),
+      limit: limit + 1,
+    });
+    const page = relationships.slice(0, limit);
+    const last = page.at(-1);
+    return context.json(
+      {
+        items: page,
+        nextCursor:
+          relationships.length > limit && last
+            ? encodeKnowledgeScopeRelationshipCursor(last)
+            : null,
+      },
       200,
-    ),
-  );
+    );
+  });
 
   app.openapi(createKnowledgeScopeRelationshipRoute, async (context) => {
     const relationship = context.req.valid("json");

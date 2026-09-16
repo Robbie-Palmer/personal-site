@@ -841,6 +841,38 @@ describe("knowledge scope persistence", () => {
     );
   });
 
+  it("pages scope relationships by parent and child ID", async () => {
+    await putInitiative();
+    for (const id of ["project-a", "project-b"]) {
+      await repository.putKnowledgeScope({
+        id,
+        kind: "project",
+        title: id,
+        canonicalUrl: `https://example.test/projects/${id}`,
+        markdownUrl: `https://example.test/projects/${id}.md`,
+      });
+      await repository.addKnowledgeScopeRelationship({
+        parentKnowledgeScopeId: "semi-autonomous-development",
+        childKnowledgeScopeId: id,
+      });
+    }
+
+    const first = {
+      parentKnowledgeScopeId: "semi-autonomous-development",
+      childKnowledgeScopeId: "project-a",
+    };
+    const second = {
+      parentKnowledgeScopeId: "semi-autonomous-development",
+      childKnowledgeScopeId: "project-b",
+    };
+    await expect(
+      repository.listKnowledgeScopeRelationships({ limit: 1 }),
+    ).resolves.toEqual([first]);
+    await expect(
+      repository.listKnowledgeScopeRelationships({ cursor: first, limit: 1 }),
+    ).resolves.toEqual([second]);
+  });
+
   it("rejects relationships with missing scopes", async () => {
     await putProject();
     await expect(

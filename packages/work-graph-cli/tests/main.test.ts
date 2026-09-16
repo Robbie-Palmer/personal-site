@@ -95,7 +95,14 @@ describe("Given agent-facing Work Graph commands", () => {
       "--idempotency-key",
       UUID,
     ]);
-    await links.run(["scope", "links"]);
+    await links.run([
+      "scope",
+      "links",
+      "--limit",
+      "10",
+      "--cursor",
+      '["initiative","work-graph"]',
+    ]);
     await link.run([
       "scope",
       "link",
@@ -132,8 +139,8 @@ describe("Given agent-facing Work Graph commands", () => {
       },
     });
     expect(put.requests[0]?.headers.get("Idempotency-Key")).toBe(UUID);
-    expect(links.requests[0]?.url.pathname).toBe(
-      "/root/api/knowledge-scope-relationships",
+    expect(links.requests[0]?.url.href).toBe(
+      "https://work.example.test/root/api/knowledge-scope-relationships?limit=10&cursor=%5B%22initiative%22%2C%22work-graph%22%5D",
     );
     expect(link.requests[0]).toMatchObject({
       method: "POST",
@@ -590,6 +597,30 @@ describe("Given CLI and HTTP failures", () => {
     expect(test.stderr.join("")).toContain("title");
     expect(test.stderr.join("")).toContain("10000");
   });
+
+  it.each(["ftp://example.test/projects/work-graph", "https://"])(
+    "rejects a scope URL outside the generated HTTP contract: %s",
+    async (canonicalUrl) => {
+      const test = harness();
+      expect(
+        await test.run([
+          "scope",
+          "put",
+          "work-graph",
+          "--kind",
+          "project",
+          "--title",
+          "Work Graph",
+          "--canonical-url",
+          canonicalUrl,
+          "--markdown-url",
+          "https://example.test/projects/work-graph.md",
+        ]),
+      ).toBe(EXIT_CODES.usage);
+      expect(test.fetch).not.toHaveBeenCalled();
+      expect(test.stderr.join("")).toContain("canonicalUrl");
+    },
+  );
 
   it("accepts complete command input as JSON for agents", async () => {
     const test = harness();
