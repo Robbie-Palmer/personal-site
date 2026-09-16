@@ -207,7 +207,7 @@ if (options.runLogin) {
   const previousCodexHome = process.env.CODEX_HOME;
   process.env.CODEX_HOME = shadowHome;
   try {
-    execFileSync("codex", loginArgs, { stdio: "inherit" });
+    execFileSync("codex", loginArgs, { stdio: "inherit" }); // NOSONAR javascript:S4036 - runs the user-installed codex CLI from PATH by design
   } catch (error) {
     if (error.code === "ENOENT") {
       fail("error: codex is not on PATH");
