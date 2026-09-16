@@ -470,11 +470,6 @@ linkStyle default stroke:#1d1f1f,stroke-width:2px`,
       description:
         "A lot of people I know are frightened by what coding agents can now do and want to step away. I am addicted to the possibility. I am building the missing review, planning, context, knowledge, and coordination systems now, even though better commercial products will eventually replace some of them. Agents have made ideas economical that once needed separate teams and budgets.",
     },
-    weird: {
-      eyebrow: "Do more weird",
-      quote:
-        "I am the sort of person who builds a recipe platform, an autonomic satellite-swarm simulation, cancer-research software and a Jira replacement at the same time. Most companies might read that as a lack of focus. PostHog seems unusually likely to recognise it as what it actually is: I cannot stop building products.",
-    },
     closing: {
       eyebrow: "The cracked-engineer connection",
       heading: "That description feels uncomfortably specific.",
@@ -510,7 +505,7 @@ linkStyle default stroke:#1d1f1f,stroke-width:2px`,
   ],
   fit: [
     "I can imagine being especially useful around Self-Driving, AI Observability, Workflows, MCP and developer experience, or on another small team turning product context into action.",
-    "I do my best work between disciplines: talking to users, building applied ML systems, shipping full-stack products, and helping a small team make good technical decisions. I still want to write code.",
+    "I do my best work between disciplines: talking to users, building applied ML systems, shipping full-stack products, and helping a small team make good technical decisions. I write code regardless of title. It is how I test ideas and make them real.",
     "Belfast is home. I have bought a house here, built a social life I care about, and have a wedding here next year. There is also a cat who would object to the move. I work on UK time and am looking for a remote role, with travel when being together matters.",
   ],
   ask: "I do not see one advertised role that cleanly spans this mix. That is the point of the speculative application. If a team has a need close to it, I would rather be routed there than bend my experience around the nearest title.",
@@ -686,8 +681,6 @@ export function posthogApplicationMarkdown(): string {
     "### " + posthogApplication.culture.whyNow.heading,
     "",
     posthogApplication.culture.whyNow.description,
-    "",
-    "> " + posthogApplication.culture.weird.quote,
     "",
     "### " + posthogApplication.culture.closing.heading,
     "",

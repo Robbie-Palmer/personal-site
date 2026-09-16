@@ -100,16 +100,7 @@ export function CultureSection() {
           </article>
         </div>
 
-        <blockquote className="mt-12 border-2 border-[var(--hog-ink)] bg-[var(--hog-ink)] p-7 text-[#fffdf8] shadow-[8px_8px_0_var(--hog-red)] sm:p-10">
-          <p className="font-mono text-xs font-black uppercase tracking-[0.2em] text-[var(--hog-yellow)]">
-            {culture.weird.eyebrow}
-          </p>
-          <p className="mt-5 text-2xl font-black leading-snug sm:text-4xl">
-            &ldquo;{culture.weird.quote}&rdquo;
-          </p>
-        </blockquote>
-
-        <div className="mt-16 grid gap-8 border-t-2 border-[var(--hog-ink)] pt-12 lg:grid-cols-[0.8fr_1.2fr] lg:gap-16">
+        <div className="mt-12 grid gap-8 border-t-2 border-[var(--hog-ink)] pt-12 lg:grid-cols-[0.8fr_1.2fr] lg:gap-16">
           <div>
             <p className="text-xs font-black uppercase tracking-[0.2em] text-[var(--hog-blue)]">
               {culture.closing.eyebrow}

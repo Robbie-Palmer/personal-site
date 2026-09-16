@@ -176,6 +176,13 @@ describe("PostHog application page", () => {
     ).toBeVisible();
     expect(screen.getByText(/Belfast is home/i)).toBeVisible();
     expect(screen.getByText(/cat who would object to the move/i)).toBeVisible();
+    expect(screen.getByText(/I write code regardless of title/i)).toBeVisible();
+    expect(
+      screen.queryByText(/I still want to write code/i),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(/I cannot stop building products/i),
+    ).not.toBeInTheDocument();
     expect(
       screen.getByRole("img", {
         name: /Max the PostHog hedgehog holding a heart/i,
