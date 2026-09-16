@@ -1233,6 +1233,8 @@ export type CreateWorkItemReleaseData = {
     body: {
         leaseId: string;
         epoch: number;
+        mergeEvidence: string;
+        deploymentEvidence: string;
     };
     path: {
         workItemId: string;
@@ -1276,7 +1278,7 @@ export type CreateWorkItemReleaseError = CreateWorkItemReleaseErrors[keyof Creat
 
 export type CreateWorkItemReleaseResponses = {
     /**
-     * Work item released and lease ended
+     * Completed work released and lease ended
      */
     201: LeaseWithWorkItem;
 };

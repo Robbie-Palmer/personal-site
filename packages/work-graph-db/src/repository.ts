@@ -35,6 +35,7 @@ import {
 import {
   attentionRequest,
   attentionResolution,
+  event,
   graphMutationLock,
   idempotencyKey,
   knowledgeScope,
@@ -47,11 +48,33 @@ import {
 } from "./schema";
 
 const GRAPH_MUTATION_LOCK_ID = "global";
+const EVENT_SEQUENCE_LOCK_ID = "event-sequence";
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+export const WORK_GRAPH_EVENT_TYPES = [
+  "attention.requested",
+  "attention.resolved",
+  "dependency.added",
+  "dependency.removed",
+  "knowledge_scope.put",
+  "knowledge_scope_relationship.added",
+  "knowledge_scope_relationship.removed",
+  "lease.claimed",
+  "lease.ended",
+  "lease.renewed",
+  "note.created",
+  "work_item.created",
+  "work_item.decomposed",
+  "work_item.lifecycle_changed",
+  "work_item.reparented",
+] as const;
+
+export type WorkGraphEventType = (typeof WORK_GRAPH_EVENT_TYPES)[number];
+
 export type StoredLease = typeof lease.$inferSelect;
 export type StoredNote = typeof note.$inferSelect;
+export type StoredEvent = typeof event.$inferSelect;
 export type StoredAttentionRequest = typeof attentionRequest.$inferSelect;
 export type StoredAttentionResolution =
   typeof attentionResolution.$inferSelect;
@@ -85,12 +108,22 @@ export interface RenewLeaseInput {
   readonly leaseDurationSeconds: number;
 }
 
-export interface TerminateClaimedWorkItemInput {
+export interface CompletionEvidence {
+  readonly mergeEvidence: string;
+  readonly deploymentEvidence: string;
+}
+
+interface ClaimedWorkItemTermination {
   readonly leaseId: string;
   readonly epoch: number;
   readonly workItemId: string;
-  readonly outcome: TerminalWorkItemState;
 }
+
+export type TerminateClaimedWorkItemInput = ClaimedWorkItemTermination &
+  (
+    | ({ readonly outcome: "released" } & CompletionEvidence)
+    | { readonly outcome: "cancelled" }
+  );
 
 export interface DecompositionChildInput
   extends Omit<NewWorkItemInput, "parentId"> {
@@ -180,6 +213,19 @@ export interface ListAttentionRequestsInput {
   readonly blocking?: boolean;
   readonly cursor?: string;
   readonly limit?: number;
+}
+
+export interface ListEventsInput {
+  readonly workItemId?: string;
+  readonly afterSequence?: number;
+  readonly limit?: number;
+}
+
+interface AppendEventInput {
+  readonly type: WorkGraphEventType;
+  readonly workItemId?: string;
+  readonly data: Record<string, unknown>;
+  readonly occurredAt?: Date;
 }
 
 export interface WorkItemReadModel extends WorkItem {
@@ -291,6 +337,20 @@ const requireText = (
 ): void => {
   if (typeof value !== "string" || value.trim().length === 0) {
     throw new WorkGraphError(code, message);
+  }
+};
+
+const requireCompletionEvidence = (evidence: CompletionEvidence): void => {
+  for (const [name, value] of [
+    ["Merge", evidence.mergeEvidence],
+    ["Deployment", evidence.deploymentEvidence],
+  ] as const) {
+    if (typeof value !== "string" || value.trim().length === 0) {
+      throw new WorkGraphError(
+        "invalid_completion_evidence",
+        `${name} evidence cannot be empty when releasing completed work.`,
+      );
+    }
   }
 };
 
@@ -574,6 +634,7 @@ export class WorkGraphRepository {
     }
 
     return this.db.transaction(async (transaction) => {
+      await this.lockEventSequence(transaction);
       if (options.idempotencyKey !== undefined) {
         const replayed = await this.beginIdempotentMutation(
           transaction,
@@ -601,6 +662,19 @@ export class WorkGraphRepository {
         })
         .returning();
       if (!stored) throw new Error("Knowledge scope upsert returned no row.");
+      await this.appendEvent(transaction, {
+        type: "knowledge_scope.put",
+        data: {
+          id: normalized.id,
+          kind: normalized.kind,
+          title: normalized.title,
+          canonicalUrl: normalized.canonicalUrl,
+          markdownUrl: normalized.markdownUrl,
+          sourceRevision: normalized.sourceRevision,
+          rank: normalized.rank,
+          priorityWeight: normalized.priorityWeight,
+        },
+      });
       return toKnowledgeScope(stored);
     });
   }
@@ -654,6 +728,7 @@ export class WorkGraphRepository {
     }
 
     await this.db.transaction(async (transaction) => {
+      await this.lockEventSequence(transaction);
       if (options.idempotencyKey !== undefined) {
         const replayed = await this.beginIdempotentMutation(
           transaction,
@@ -671,6 +746,13 @@ export class WorkGraphRepository {
         relationship,
       ]);
       await transaction.insert(knowledgeScopeRelationship).values(relationship);
+      await this.appendEvent(transaction, {
+        type: "knowledge_scope_relationship.added",
+        data: {
+          parentKnowledgeScopeId: relationship.parentKnowledgeScopeId,
+          childKnowledgeScopeId: relationship.childKnowledgeScopeId,
+        },
+      });
     });
   }
 
@@ -683,6 +765,7 @@ export class WorkGraphRepository {
     }
 
     await this.db.transaction(async (transaction) => {
+      await this.lockEventSequence(transaction);
       if (options.idempotencyKey !== undefined) {
         const replayed = await this.beginIdempotentMutation(
           transaction,
@@ -718,6 +801,13 @@ export class WorkGraphRepository {
           `Knowledge scope relationship ${relationship.parentKnowledgeScopeId} -> ${relationship.childKnowledgeScopeId} does not exist.`,
         );
       }
+      await this.appendEvent(transaction, {
+        type: "knowledge_scope_relationship.removed",
+        data: {
+          parentKnowledgeScopeId: relationship.parentKnowledgeScopeId,
+          childKnowledgeScopeId: relationship.childKnowledgeScopeId,
+        },
+      });
     });
   }
 
@@ -819,6 +909,7 @@ export class WorkGraphRepository {
 
     try {
       return await this.db.transaction(async (transaction) => {
+        await this.lockEventSequence(transaction);
         if (options.idempotencyKey !== undefined) {
           const replayed = await this.beginIdempotentMutation(
             transaction,
@@ -845,6 +936,12 @@ export class WorkGraphRepository {
           });
           await this.rejectCycle(transaction);
         }
+
+        await this.appendEvent(transaction, {
+          type: "work_item.created",
+          workItemId: normalized.id,
+          data: { title: normalized.title, parentId, rank: null },
+        });
 
         return { ...normalized, parentId };
       });
@@ -888,6 +985,7 @@ export class WorkGraphRepository {
 
     try {
       return await this.db.transaction(async (transaction) => {
+        await this.lockEventSequence(transaction);
         if (options.idempotencyKey !== undefined) {
           const replayed = await this.beginIdempotentMutation(
             transaction,
@@ -917,6 +1015,11 @@ export class WorkGraphRepository {
           })
           .returning();
         if (!created) throw new Error("Note creation returned no note.");
+        await this.appendEvent(transaction, {
+          type: "note.created",
+          workItemId: input.workItemId,
+          data: { noteId: input.id, leaseId: input.leaseId },
+        });
         return created;
       });
     } catch (error) {
@@ -937,6 +1040,29 @@ export class WorkGraphRepository {
       .from(note)
       .where(eq(note.workItemId, workItemId))
       .orderBy(note.createdAt, note.id);
+  }
+
+  async listEvents(
+    input: ListEventsInput = {},
+  ): Promise<readonly StoredEvent[]> {
+    if (input.workItemId !== undefined) {
+      requireIdentifier(input.workItemId, "invalid_work_item_id");
+    }
+    const query = this.db
+      .select()
+      .from(event)
+      .where(
+        and(
+          input.workItemId === undefined
+            ? undefined
+            : eq(event.workItemId, input.workItemId),
+          input.afterSequence === undefined
+            ? undefined
+            : gt(event.sequence, input.afterSequence),
+        ),
+      )
+      .orderBy(event.sequence);
+    return input.limit === undefined ? query : query.limit(input.limit);
   }
 
   async listAttentionRequests(
@@ -1015,6 +1141,7 @@ export class WorkGraphRepository {
 
     try {
       return await this.db.transaction(async (transaction) => {
+        await this.lockEventSequence(transaction);
         if (options.idempotencyKey !== undefined) {
           const replayed = await this.beginIdempotentMutation(
             transaction,
@@ -1063,6 +1190,20 @@ export class WorkGraphRepository {
           throw new Error("Attention request creation returned no request.");
         }
 
+        await this.appendEvent(transaction, {
+          type: "attention.requested",
+          workItemId: input.workItemId,
+          occurredAt: now,
+          data: {
+            attentionRequestId: input.id,
+            leaseId: input.leaseId,
+            kind: input.kind,
+            question: input.question,
+            note: input.note ?? null,
+            blocking: input.blocking,
+          },
+        });
+
         if (!input.blocking) {
           return { attentionRequest: created, endedLease: null };
         }
@@ -1079,6 +1220,17 @@ export class WorkGraphRepository {
           )
           .returning();
         if (!endedLease) throw leaseNotCurrent(input.leaseId, input.epoch);
+        await this.appendEvent(transaction, {
+          type: "lease.ended",
+          workItemId: input.workItemId,
+          occurredAt: now,
+          data: {
+            leaseId: endedLease.id,
+            epoch: endedLease.epoch,
+            workerId: endedLease.workerId,
+            outcome: endedLease.outcome,
+          },
+        });
         return { attentionRequest: created, endedLease };
       });
     } catch (error) {
@@ -1117,6 +1269,7 @@ export class WorkGraphRepository {
 
     try {
       return await this.db.transaction(async (transaction) => {
+        await this.lockEventSequence(transaction);
         if (options.idempotencyKey !== undefined) {
           const replayed = await this.beginIdempotentMutation(
             transaction,
@@ -1162,6 +1315,16 @@ export class WorkGraphRepository {
         if (!created) {
           throw new Error("Attention resolution creation returned no row.");
         }
+        await this.appendEvent(transaction, {
+          type: "attention.resolved",
+          workItemId: lockedRequest.workItemId,
+          occurredAt: created.createdAt,
+          data: {
+            attentionRequestId: input.attentionRequestId,
+            attentionResolutionId: input.id,
+            resolution: input.resolution,
+          },
+        });
         return { resolution: created, workItemId: lockedRequest.workItemId };
       });
     } catch (error) {
@@ -1196,49 +1359,14 @@ export class WorkGraphRepository {
     try {
       return await this.db.transaction(
         async (transaction) => {
+          await this.lockEventSequence(transaction);
           await this.lockGraphSnapshot(transaction);
 
-          const excludedWorkItemIds: string[] = [];
-          let candidateId: string | undefined;
-          while (candidateId === undefined) {
-            const [candidate] = await transaction
-              .select({ id: workItem.id })
-              .from(workItem)
-              .where(
-                claimableWorkItemWhere(
-                  input.workItemId,
-                  excludedWorkItemIds,
-                ),
-              )
-              .orderBy(workItem.createdAt, workItem.id)
-              .limit(1)
-              .for("update", { of: workItem, skipLocked: true });
-            if (!candidate) {
-              if (input.workItemId !== undefined) {
-                const [existing] = await transaction
-                  .select({ id: workItem.id })
-                  .from(workItem)
-                  .where(eq(workItem.id, input.workItemId))
-                  .limit(1);
-                if (!existing) throw workItemNotFound(input.workItemId);
-              }
-              return null;
-            }
-
-            // A concurrent claimant can commit between predicate evaluation
-            // and row locking. Recheck in a new READ COMMITTED statement after
-            // the lock is held, then move on if it is no longer eligible.
-            const [stillClaimable] = await transaction
-              .select({ id: workItem.id })
-              .from(workItem)
-              .where(claimableWorkItemWhere(candidate.id))
-              .limit(1);
-            if (stillClaimable) {
-              candidateId = candidate.id;
-            } else {
-              excludedWorkItemIds.push(candidate.id);
-            }
-          }
+          const candidateId = await this.findClaimableWorkItemId(
+            transaction,
+            input.workItemId,
+          );
+          if (candidateId === null) return null;
 
           const acquiredAt = await readDatabaseClock(transaction);
           const expiresAt = calculateLeaseExpiry(
@@ -1246,7 +1374,7 @@ export class WorkGraphRepository {
             input.leaseDurationSeconds,
           );
 
-          await transaction
+          const expiredLeases = await transaction
             .update(lease)
             .set({ endedAt: acquiredAt, outcome: "expired" })
             .where(
@@ -1255,7 +1383,21 @@ export class WorkGraphRepository {
                 isNull(lease.endedAt),
                 lte(lease.expiresAt, acquiredAt),
               ),
-            );
+            )
+            .returning();
+          for (const expiredLease of expiredLeases) {
+            await this.appendEvent(transaction, {
+              type: "lease.ended",
+              workItemId: candidateId,
+              occurredAt: acquiredAt,
+              data: {
+                leaseId: expiredLease.id,
+                epoch: expiredLease.epoch,
+                workerId: expiredLease.workerId,
+                outcome: expiredLease.outcome,
+              },
+            });
+          }
 
           const [epochRow] = await transaction
             .select({
@@ -1281,6 +1423,17 @@ export class WorkGraphRepository {
           if (!claimedLease) {
             throw new Error("Lease creation returned no lease.");
           }
+          await this.appendEvent(transaction, {
+            type: "lease.claimed",
+            workItemId: candidateId,
+            occurredAt: acquiredAt,
+            data: {
+              leaseId: claimedLease.id,
+              epoch: claimedLease.epoch,
+              workerId: claimedLease.workerId,
+              expiresAt: claimedLease.expiresAt.toISOString(),
+            },
+          });
           return claimedLease;
         },
         { isolationLevel: "read committed" },
@@ -1306,6 +1459,7 @@ export class WorkGraphRepository {
     requireLeaseDuration(input.leaseDurationSeconds);
 
     return this.db.transaction(async (transaction) => {
+      await this.lockEventSequence(transaction);
       const [storedLease] = await transaction
         .select({ workItemId: lease.workItemId })
         .from(lease)
@@ -1343,6 +1497,17 @@ export class WorkGraphRepository {
       if (!renewedLease) {
         throw leaseNotCurrent(input.leaseId, input.epoch);
       }
+      await this.appendEvent(transaction, {
+        type: "lease.renewed",
+        workItemId: storedLease.workItemId,
+        occurredAt: renewedAt,
+        data: {
+          leaseId: renewedLease.id,
+          epoch: renewedLease.epoch,
+          workerId: renewedLease.workerId,
+          expiresAt: renewedLease.expiresAt.toISOString(),
+        },
+      });
       return renewedLease;
     });
   }
@@ -1354,9 +1519,15 @@ export class WorkGraphRepository {
     const validated = validateDecomposition(input, options);
 
     try {
-      return await this.db.transaction((transaction) =>
-        this.executeDecomposition(transaction, input, validated, options),
-      );
+      return await this.db.transaction(async (transaction) => {
+        await this.lockEventSequence(transaction);
+        return this.executeDecomposition(
+          transaction,
+          input,
+          validated,
+          options,
+        );
+      });
     } catch (error) {
       return throwDecompositionDatabaseError(error, input);
     }
@@ -1399,6 +1570,60 @@ export class WorkGraphRepository {
       storedLease.workerId,
       now,
     );
+    for (const { workItem: child, rank } of validated.children) {
+      await this.appendEvent(transaction, {
+        type: "work_item.created",
+        workItemId: child.id,
+        occurredAt: now,
+        data: {
+          title: child.title,
+          parentId: input.workItemId,
+          rank,
+        },
+      });
+    }
+    for (const dependency of validated.dependencies) {
+      await this.appendEvent(transaction, {
+        type: "dependency.added",
+        workItemId: dependency.dependentWorkItemId,
+        occurredAt: now,
+        data: { blockerWorkItemId: dependency.blockerWorkItemId },
+      });
+    }
+    await this.appendEvent(transaction, {
+      type: "work_item.decomposed",
+      workItemId: input.workItemId,
+      occurredAt: now,
+      data: {
+        childWorkItemIds: validated.children.map(
+          ({ workItem: child }) => child.id,
+        ),
+      },
+    });
+    await this.appendEvent(transaction, {
+      type: "lease.ended",
+      workItemId: input.workItemId,
+      occurredAt: now,
+      data: {
+        leaseId: endedLease.id,
+        epoch: endedLease.epoch,
+        workerId: endedLease.workerId,
+        outcome: endedLease.outcome,
+      },
+    });
+    if (claimedLease !== null) {
+      await this.appendEvent(transaction, {
+        type: "lease.claimed",
+        workItemId: claimedLease.workItemId,
+        occurredAt: now,
+        data: {
+          leaseId: claimedLease.id,
+          epoch: claimedLease.epoch,
+          workerId: claimedLease.workerId,
+          expiresAt: claimedLease.expiresAt.toISOString(),
+        },
+      });
+    }
     return {
       children: validated.children,
       dependencies: validated.dependencies,
@@ -1554,8 +1779,12 @@ export class WorkGraphRepository {
     requireLeaseId(input.leaseId);
     requireLeaseEpoch(input.epoch);
     requireIdentifier(input.workItemId, "invalid_work_item_id");
+    if (input.outcome === "released") {
+      requireCompletionEvidence(input);
+    }
 
     return this.db.transaction(async (transaction) => {
+      await this.lockEventSequence(transaction);
       const [lockedWorkItem] = await transaction
         .select({ id: workItem.id })
         .from(workItem)
@@ -1604,6 +1833,33 @@ export class WorkGraphRepository {
         );
       }
 
+      await this.appendEvent(transaction, {
+        type: "lease.ended",
+        workItemId: input.workItemId,
+        occurredAt: completedAt,
+        data: {
+          leaseId: completedLease.id,
+          epoch: completedLease.epoch,
+          workerId: completedLease.workerId,
+          outcome: completedLease.outcome,
+        },
+      });
+      await this.appendEvent(transaction, {
+        type: "work_item.lifecycle_changed",
+        workItemId: input.workItemId,
+        occurredAt: completedAt,
+        data: {
+          from: "open",
+          to: input.outcome,
+          ...(input.outcome === "released"
+            ? {
+                mergeEvidence: input.mergeEvidence,
+                deploymentEvidence: input.deploymentEvidence,
+              }
+            : {}),
+        },
+      });
+
       return completedLease;
     });
   }
@@ -1638,22 +1894,24 @@ export class WorkGraphRepository {
 
     try {
       await this.db.transaction(async (transaction) => {
+        await this.lockEventSequence(transaction);
         await this.lockGraphMutation(transaction);
         await this.requireStoredWorkItem(transaction, workItemId);
+
+        const [currentHierarchy] = await transaction
+          .select({
+            parentWorkItemId: workItemHierarchy.parentWorkItemId,
+            rank: workItemHierarchy.rank,
+          })
+          .from(workItemHierarchy)
+          .where(eq(workItemHierarchy.childWorkItemId, workItemId))
+          .limit(1);
 
         if (parentId === null) {
           await transaction
             .delete(workItemHierarchy)
             .where(eq(workItemHierarchy.childWorkItemId, workItemId));
         } else {
-          const [currentHierarchy] = await transaction
-            .select({
-              parentWorkItemId: workItemHierarchy.parentWorkItemId,
-              rank: workItemHierarchy.rank,
-            })
-            .from(workItemHierarchy)
-            .where(eq(workItemHierarchy.childWorkItemId, workItemId))
-            .limit(1);
           const preservedRank =
             currentHierarchy?.parentWorkItemId === parentId
               ? currentHierarchy.rank
@@ -1672,6 +1930,21 @@ export class WorkGraphRepository {
         }
 
         await this.rejectCycle(transaction);
+        const previousParentId = currentHierarchy?.parentWorkItemId ?? null;
+        if (previousParentId !== parentId) {
+          await this.appendEvent(transaction, {
+            type: "work_item.reparented",
+            workItemId,
+            data: {
+              previousParentId,
+              parentId,
+              rank:
+                currentHierarchy?.parentWorkItemId === parentId
+                  ? currentHierarchy.rank
+                  : null,
+            },
+          });
+        }
       });
     } catch (error) {
       const databaseError = getDatabaseError(error);
@@ -1698,6 +1971,7 @@ export class WorkGraphRepository {
 
     try {
       await this.db.transaction(async (transaction) => {
+        await this.lockEventSequence(transaction);
         if (options.idempotencyKey !== undefined) {
           const replayed = await this.beginIdempotentMutation(
             transaction,
@@ -1722,6 +1996,11 @@ export class WorkGraphRepository {
         );
         await transaction.insert(workItemDependency).values(dependency);
         await this.rejectCycle(transaction);
+        await this.appendEvent(transaction, {
+          type: "dependency.added",
+          workItemId: dependency.dependentWorkItemId,
+          data: { blockerWorkItemId: dependency.blockerWorkItemId },
+        });
       });
     } catch (error) {
       const databaseError = getDatabaseError(error);
@@ -1754,6 +2033,7 @@ export class WorkGraphRepository {
     }
 
     await this.db.transaction(async (transaction) => {
+      await this.lockEventSequence(transaction);
       if (options.idempotencyKey !== undefined) {
         const replayed = await this.beginIdempotentMutation(
           transaction,
@@ -1792,11 +2072,20 @@ export class WorkGraphRepository {
         );
       }
       await this.rejectCycle(transaction);
+      await this.appendEvent(transaction, {
+        type: "dependency.removed",
+        workItemId: dependency.dependentWorkItemId,
+        data: { blockerWorkItemId: dependency.blockerWorkItemId },
+      });
     });
   }
 
-  async releaseWorkItem(workItemId: string): Promise<void> {
-    await this.terminateWorkItem(workItemId, "released");
+  async releaseWorkItem(
+    workItemId: string,
+    evidence: CompletionEvidence,
+  ): Promise<void> {
+    requireCompletionEvidence(evidence);
+    await this.terminateWorkItem(workItemId, "released", evidence);
   }
 
   async cancelWorkItem(workItemId: string): Promise<void> {
@@ -1806,10 +2095,12 @@ export class WorkGraphRepository {
   private async terminateWorkItem(
     workItemId: string,
     lifecycle: TerminalWorkItemState,
+    completionEvidence?: CompletionEvidence,
   ): Promise<void> {
     requireIdentifier(workItemId, "invalid_work_item_id");
 
     await this.db.transaction(async (transaction) => {
+      await this.lockEventSequence(transaction);
       const [existing] = await transaction
         .select({ lifecycle: workItem.lifecycle })
         .from(workItem)
@@ -1821,7 +2112,7 @@ export class WorkGraphRepository {
       }
 
       const terminatedAt = await readDatabaseClock(transaction);
-      await transaction
+      const expiredLeases = await transaction
         .update(lease)
         .set({ endedAt: terminatedAt, outcome: "expired" })
         .where(
@@ -1830,7 +2121,8 @@ export class WorkGraphRepository {
             isNull(lease.endedAt),
             lte(lease.expiresAt, terminatedAt),
           ),
-        );
+        )
+        .returning();
 
       // Claims serialize on the same row. Check for a lease in a fresh
       // READ COMMITTED statement after acquiring the lock.
@@ -1856,6 +2148,31 @@ export class WorkGraphRepository {
         .update(workItem)
         .set({ lifecycle })
         .where(eq(workItem.id, workItemId));
+      for (const expiredLease of expiredLeases) {
+        await this.appendEvent(transaction, {
+          type: "lease.ended",
+          workItemId,
+          occurredAt: terminatedAt,
+          data: {
+            leaseId: expiredLease.id,
+            epoch: expiredLease.epoch,
+            workerId: expiredLease.workerId,
+            outcome: expiredLease.outcome,
+          },
+        });
+      }
+      await this.appendEvent(transaction, {
+        type: "work_item.lifecycle_changed",
+        workItemId,
+        occurredAt: terminatedAt,
+        data: {
+          from: "open",
+          to: lifecycle,
+          ...(lifecycle === "released" && completionEvidence !== undefined
+            ? completionEvidence
+            : {}),
+        },
+      });
     });
   }
 
@@ -1868,6 +2185,18 @@ export class WorkGraphRepository {
     if (locked.length !== 1) {
       throw new Error("The global graph mutation lock row is missing.");
     }
+  }
+
+  private async appendEvent(
+    transaction: DbTransaction,
+    input: AppendEventInput,
+  ): Promise<void> {
+    await transaction.insert(event).values({
+      type: input.type,
+      workItemId: input.workItemId ?? null,
+      data: input.data,
+      occurredAt: input.occurredAt,
+    });
   }
 
   private async lockWorkItemAndRequireLease(
@@ -2095,6 +2424,52 @@ export class WorkGraphRepository {
       .for("share");
     if (locked.length !== 1) {
       throw new Error("The global graph mutation lock row is missing.");
+    }
+  }
+
+  private async lockEventSequence(transaction: DbTransaction): Promise<void> {
+    const locked = await transaction
+      .select({ id: graphMutationLock.id })
+      .from(graphMutationLock)
+      .where(eq(graphMutationLock.id, EVENT_SEQUENCE_LOCK_ID))
+      .for("update");
+    if (locked.length !== 1) {
+      throw new Error("The event sequence lock row is missing.");
+    }
+  }
+
+  private async findClaimableWorkItemId(
+    transaction: DbTransaction,
+    requestedWorkItemId?: string,
+  ): Promise<string | null> {
+    const excludedWorkItemIds: string[] = [];
+    while (true) {
+      const [candidate] = await transaction
+        .select({ id: workItem.id })
+        .from(workItem)
+        .where(
+          claimableWorkItemWhere(requestedWorkItemId, excludedWorkItemIds),
+        )
+        .orderBy(workItem.createdAt, workItem.id)
+        .limit(1)
+        .for("update", { of: workItem, skipLocked: true });
+      if (!candidate) {
+        if (requestedWorkItemId !== undefined) {
+          await this.requireStoredWorkItem(transaction, requestedWorkItemId);
+        }
+        return null;
+      }
+
+      // A concurrent claimant can commit between predicate evaluation and row
+      // locking. Recheck in a new READ COMMITTED statement after the lock is
+      // held, then move on if it is no longer eligible.
+      const [stillClaimable] = await transaction
+        .select({ id: workItem.id })
+        .from(workItem)
+        .where(claimableWorkItemWhere(candidate.id))
+        .limit(1);
+      if (stillClaimable) return candidate.id;
+      excludedWorkItemIds.push(candidate.id);
     }
   }
 

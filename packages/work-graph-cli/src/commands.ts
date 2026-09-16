@@ -411,6 +411,17 @@ const terminationInput = z.object({
   epoch,
 });
 
+const releaseInput = terminationInput.extend({
+  mergeEvidence: described(
+    zCreateWorkItemReleaseBody.shape.mergeEvidence,
+    "Merged pull request, commit, or equivalent evidence",
+  ),
+  deploymentEvidence: described(
+    zCreateWorkItemReleaseBody.shape.deploymentEvidence,
+    "Production deployment and verification evidence",
+  ),
+});
+
 export const workGraphRouter = t.router({
   scope: t.router({
     list: command
@@ -650,12 +661,16 @@ export const workGraphRouter = t.router({
       ),
   }),
   release: command
-    .meta({ description: "Release claimed work back to the queue" })
-    .input(terminationInput)
+    .meta({
+      description: "Complete claimed work after it is merged and deployed",
+    })
+    .input(releaseInput)
     .mutation(({ ctx, input }) =>
       resolveClient(ctx).release(input.workItemId, {
         leaseId: input.leaseId,
         epoch: input.epoch,
+        mergeEvidence: input.mergeEvidence,
+        deploymentEvidence: input.deploymentEvidence,
       }),
     ),
   cancel: command

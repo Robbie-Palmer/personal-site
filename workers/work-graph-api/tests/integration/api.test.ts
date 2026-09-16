@@ -18,6 +18,11 @@ const app = createWorkGraphApp(repository);
 const recordId = (suffix: number): string =>
   `00000000-0000-4000-8000-${suffix.toString().padStart(12, "0")}`;
 
+const completionEvidence = {
+  mergeEvidence: "https://github.com/example/work-graph/pull/1",
+  deploymentEvidence: "https://work-graph.example.test/health",
+} as const;
+
 const requestJson = async (
   path: string,
   method: "POST" | "PUT" | "DELETE" = "POST",
@@ -36,6 +41,15 @@ const requestJson = async (
   });
 
 beforeEach(async () => {
+  await db.$client.begin(async (transaction) => {
+    await transaction.unsafe(
+      'alter table "events" disable trigger events_immutable_truncate',
+    );
+    await transaction.unsafe('truncate table "events" restart identity');
+    await transaction.unsafe(
+      'alter table "events" enable trigger events_immutable_truncate',
+    );
+  });
   await db.transaction(async (transaction) => {
     await transaction.delete(schema.attentionResolution);
     await transaction.delete(schema.attentionRequest);
@@ -669,7 +683,11 @@ describe("Given lease-backed work over HTTP", () => {
     const releaseResponse = await requestJson(
       "/api/work-items/work/releases",
       "POST",
-      { leaseId: claim.lease.id, epoch: claim.lease.epoch },
+      {
+        leaseId: claim.lease.id,
+        epoch: claim.lease.epoch,
+        ...completionEvidence,
+      },
     );
     const released = (await releaseResponse.json()) as {
       lease: { outcome: string; endedAt: string | null };
@@ -712,7 +730,10 @@ describe("Given lease-backed work over HTTP", () => {
     const cancelResponse = await requestJson(
       `/api/work-items/${claim.lease.workItemId}/cancellations`,
       "POST",
-      { leaseId: claim.lease.id, epoch: claim.lease.epoch },
+      {
+        leaseId: claim.lease.id,
+        epoch: claim.lease.epoch,
+      },
     );
     const cancelled = (await cancelResponse.json()) as {
       workItem: { lifecycle: string; stage: string };
@@ -741,7 +762,11 @@ describe("Given lease-backed work over HTTP", () => {
     const response = await requestJson(
       "/api/work-items/other/releases",
       "POST",
-      { leaseId: claim.lease.id, epoch: claim.lease.epoch },
+      {
+        leaseId: claim.lease.id,
+        epoch: claim.lease.epoch,
+        ...completionEvidence,
+      },
     );
 
     expect(response.status).toBe(409);

@@ -3560,8 +3560,8 @@
     "/api/work-items/{workItemId}/releases": {
       "post": {
         "operationId": "createWorkItemRelease",
-        "summary": "Release claimed work at its fenced lease epoch",
-        "description": "Ends the current lease and changes the named work item's stored lifecycle to released.",
+        "summary": "Complete merged and deployed work at its fenced lease epoch",
+        "description": "Ends the current lease and changes the named work item's stored lifecycle to released only when the request identifies the merge and deployment evidence.",
         "tags": [
           "work-items"
         ],
@@ -3600,11 +3600,25 @@
                     "minimum": 1,
                     "maximum": 2147483647,
                     "format": "int32"
+                  },
+                  "mergeEvidence": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 10000,
+                    "pattern": "\\S"
+                  },
+                  "deploymentEvidence": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 10000,
+                    "pattern": "\\S"
                   }
                 },
                 "required": [
                   "leaseId",
-                  "epoch"
+                  "epoch",
+                  "mergeEvidence",
+                  "deploymentEvidence"
                 ],
                 "additionalProperties": false
               }
@@ -3613,7 +3627,7 @@
         },
         "responses": {
           "201": {
-            "description": "Work item released and lease ended",
+            "description": "Completed work released and lease ended",
             "content": {
               "application/json": {
                 "schema": {

@@ -12,6 +12,8 @@ interface CapturedRequest {
 
 const API_URL = "https://work.example.test/root";
 const UUID = "00000000-0000-4000-8000-000000000001";
+const MERGE_EVIDENCE = "https://github.com/example/work-graph/pull/1";
+const DEPLOYMENT_EVIDENCE = "https://work-graph.example.test/health";
 
 const response = (body: unknown = { ok: true }, status = 200): Response =>
   new Response(JSON.stringify(body), {
@@ -435,27 +437,86 @@ describe("Given agent-facing Work Graph commands", () => {
     expect(makeUuid).not.toHaveBeenCalled();
   });
 
-  it.each(["release", "cancel"] as const)(
-    "%ss claimed work",
-    async (command) => {
-      const test = harness();
+  it("completes merged and deployed claimed work", async () => {
+    const test = harness();
+    await test.run([
+      "release",
+      "item-1",
+      "--lease-id",
+      UUID,
+      "--epoch",
+      "6",
+      "--merge-evidence",
+      MERGE_EVIDENCE,
+      "--deployment-evidence",
+      DEPLOYMENT_EVIDENCE,
+    ]);
+    expect(test.requests[0]).toMatchObject({
+      body: {
+        leaseId: UUID,
+        epoch: 6,
+        mergeEvidence: MERGE_EVIDENCE,
+        deploymentEvidence: DEPLOYMENT_EVIDENCE,
+      },
+      method: "POST",
+    });
+    expect(test.requests[0]?.url.pathname).toBe(
+      "/root/api/work-items/item-1/releases",
+    );
+  });
+
+  it("refuses to release work without merge and deployment evidence", async () => {
+    const test = harness();
+    expect(
       await test.run([
-        command,
+        "release",
         "item-1",
         "--lease-id",
         UUID,
         "--epoch",
         "6",
-      ]);
-      expect(test.requests[0]).toMatchObject({
-        body: { leaseId: UUID, epoch: 6 },
-        method: "POST",
-      });
-      expect(test.requests[0]?.url.pathname).toBe(
-        `/root/api/work-items/item-1/${command === "release" ? "releases" : "cancellations"}`,
-      );
-    },
-  );
+      ]),
+    ).toBe(EXIT_CODES.usage);
+    expect(test.requests).toEqual([]);
+  });
+
+  it("refuses whitespace-only release evidence before making a request", async () => {
+    const test = harness();
+    expect(
+      await test.run([
+        "release",
+        "item-1",
+        "--lease-id",
+        UUID,
+        "--epoch",
+        "6",
+        "--merge-evidence",
+        " ",
+        "--deployment-evidence",
+        DEPLOYMENT_EVIDENCE,
+      ]),
+    ).toBe(EXIT_CODES.usage);
+    expect(test.requests).toEqual([]);
+  });
+
+  it("cancels claimed work", async () => {
+    const test = harness();
+    await test.run([
+      "cancel",
+      "item-1",
+      "--lease-id",
+      UUID,
+      "--epoch",
+      "6",
+    ]);
+    expect(test.requests[0]).toMatchObject({
+      body: { leaseId: UUID, epoch: 6 },
+      method: "POST",
+    });
+    expect(test.requests[0]?.url.pathname).toBe(
+      "/root/api/work-items/item-1/cancellations",
+    );
+  });
 });
 
 describe("Given Cloudflare Access service-token credentials", () => {
@@ -677,6 +738,19 @@ describe("Given CLI and HTTP failures", () => {
     expect(test.stdout.join("")).toContain("Work-item ID");
     expect(test.stdout.join("")).toContain("--title <string>");
     expect(test.stdout.join("")).toContain("Work-item title");
+    expect(test.fetch).not.toHaveBeenCalled();
+  });
+
+  it("describes release as completion after merge and deployment", async () => {
+    const test = harness(undefined, {});
+    expect(await test.run(["release", "--help"])).toBe(EXIT_CODES.success);
+    const help = test.stdout.join("");
+    expect(help).toContain(
+      "Complete claimed work after it is merged and deployed",
+    );
+    expect(help).toContain("--merge-evidence <string>");
+    expect(help).toContain("--deployment-evidence <string>");
+    expect(help).not.toContain("back to the queue");
     expect(test.fetch).not.toHaveBeenCalled();
   });
 });

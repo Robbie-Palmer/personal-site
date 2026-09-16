@@ -5,6 +5,7 @@ import {
   foreignKey,
   index,
   integer,
+  jsonb,
   pgEnum,
   pgTable,
   primaryKey,
@@ -195,6 +196,28 @@ export const idempotencyKey = pgTable(
       "idempotency_keys_request_fingerprint_not_blank_check",
       sql`btrim(${table.requestFingerprint}) <> ''`,
     ),
+  ],
+);
+
+export const event = pgTable(
+  "events",
+  {
+    // The migration serializes inserts until commit so this identity is a
+    // stable cursor watermark even when writers run concurrently.
+    sequence: integer().primaryKey().generatedAlwaysAsIdentity(),
+    type: text().notNull(),
+    workItemId: text().references(() => workItem.id, {
+      onDelete: "restrict",
+    }),
+    data: jsonb().$type<Record<string, unknown>>().notNull(),
+    occurredAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("events_work_item_id_sequence_idx").on(
+      table.workItemId,
+      table.sequence,
+    ),
+    check("events_type_not_blank_check", sql`btrim(${table.type}) <> ''`),
   ],
 );
 

@@ -469,7 +469,9 @@ export const zCreateWorkItemNoteResponse = zWorkItemNote;
 
 export const zCreateWorkItemReleaseBody = z.object({
     leaseId: z.uuid().max(36),
-    epoch: z.int().gte(1).lte(2147483647)
+    epoch: z.int().gte(1).lte(2147483647),
+    mergeEvidence: z.string().min(1).max(10000).regex(/\S/),
+    deploymentEvidence: z.string().min(1).max(10000).regex(/\S/)
 });
 
 export const zCreateWorkItemReleasePath = z.object({
@@ -477,6 +479,6 @@ export const zCreateWorkItemReleasePath = z.object({
 });
 
 /**
- * Work item released and lease ended
+ * Completed work released and lease ended
  */
 export const zCreateWorkItemReleaseResponse = zLeaseWithWorkItem;
