@@ -79,6 +79,13 @@ export const posthogApplication = {
           title: "I perform solo jazz dancing.",
           description:
             "A different kind of improvisation: rhythm, vocabulary, nerve, and no rollback button.",
+          image:
+            "https://ugc.production.linktr.ee/4f88d739-d63c-434e-9683-0ca5142a4358_FF-CIRCULAR-DOUBLE-OUTLINE-SALMON-OUTER.png?io=true&size=avatar-v3_0",
+          imageAlt:
+            "Flying Feet Jazz Dance Collective logo showing two dancers",
+          href: "https://linktr.ee/flyingfeetjazzdancecollective",
+          linkLabel: "Meet Flying Feet",
+          external: true,
         },
         {
           eyebrow: "Normal evening plans · 3 hours",
@@ -254,9 +261,9 @@ export const posthogApplication = {
     },
   ],
   fit: [
-    "The strongest overlap is with Self-Driving, AI Observability, Workflows, MCP and developer experience, or another small team turning product context into action.",
-    "I am not applying as a pure research scientist or as a manager detached from the code. My useful range is between product discovery, applied ML, full-stack delivery, and the systems that let small teams ship safely.",
-    "I am based in Belfast and work on UK time. I am looking for a remote role and am happy to travel for team work, but I am not relocating.",
+    "I can imagine being especially useful around Self-Driving, AI Observability, Workflows, MCP and developer experience, or on another small team turning product context into action.",
+    "I do my best work between disciplines: talking to users, building applied ML systems, shipping full-stack products, and helping a small team make good technical decisions. I still want to write code.",
+    "Belfast is home. I have bought a house here, built a social life I care about, and have a wedding here next year. There is also a cat who would object to the move. I work on UK time and am looking for a remote role, with travel when being together matters.",
   ],
   ask: "I do not see one advertised role that cleanly spans this mix. That is the point of the speculative application. If a team has a need close to it, I would rather be routed there than bend my experience around the nearest title.",
   links: {
@@ -326,6 +333,9 @@ export function posthogApplicationMarkdown(): string {
           ? "[" + item.title + "](" + item.href + ")"
           : item.title),
       "",
+      ...("image" in item
+        ? ["![" + item.imageAlt + "](" + item.image + ")", ""]
+        : []),
       item.description,
       "",
     ]),

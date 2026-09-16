@@ -30,6 +30,12 @@ function createNextConfig(phase: string): NextConfig {
           hostname: "a.storyblok.com",
           pathname: "/f/337048/**",
         },
+        {
+          protocol: "https",
+          hostname: "ugc.production.linktr.ee",
+          pathname:
+            "/4f88d739-d63c-434e-9683-0ca5142a4358_FF-CIRCULAR-DOUBLE-OUTLINE-SALMON-OUTER.png",
+        },
       ],
     },
     // `next build` runs its own `tsc` type-check, but a dedicated `//ui:check`

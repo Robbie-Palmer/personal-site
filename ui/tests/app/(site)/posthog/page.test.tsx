@@ -68,6 +68,17 @@ describe("PostHog application page", () => {
     );
     expect(screen.getByText("I perform solo jazz dancing.")).toBeVisible();
     expect(
+      screen.getByRole("img", {
+        name: /Flying Feet Jazz Dance Collective logo/i,
+      }),
+    ).toBeVisible();
+    expect(
+      screen.getByRole("link", { name: /I perform solo jazz dancing/i }),
+    ).toHaveAttribute(
+      "href",
+      "https://linktr.ee/flyingfeetjazzdancecollective",
+    );
+    expect(
       screen.getByText("I watch postmodernist analyses of Shrek for fun."),
     ).toBeVisible();
     expect(
@@ -102,6 +113,8 @@ describe("PostHog application page", () => {
     expect(
       screen.getByText(/Public product footage · Terminal Industries/i),
     ).toBeVisible();
+    expect(screen.getByText(/Belfast is home/i)).toBeVisible();
+    expect(screen.getByText(/cat who would object to the move/i)).toBeVisible();
     expect(
       screen.getByRole("link", { name: /Inspect the Work Graph/i }),
     ).toHaveAttribute("href", "/projects/work-graph");

@@ -122,12 +122,22 @@ function PersonalityCard({
   const content = (
     <>
       <div className="flex items-center gap-3">
-        <span
-          className="flex size-10 shrink-0 items-center justify-center rounded-full border-2 border-[var(--hog-ink)]"
-          style={{ backgroundColor: stageColours[index] }}
-        >
-          <Icon className="size-5" aria-hidden="true" />
-        </span>
+        {"image" in item ? (
+          <Image
+            alt={item.imageAlt}
+            className="size-20 shrink-0 rounded-full border-2 border-[var(--hog-ink)] object-cover shadow-[3px_3px_0_var(--hog-ink)]"
+            height={96}
+            src={item.image}
+            width={96}
+          />
+        ) : (
+          <span
+            className="flex size-10 shrink-0 items-center justify-center rounded-full border-2 border-[var(--hog-ink)]"
+            style={{ backgroundColor: stageColours[index] }}
+          >
+            <Icon className="size-5" aria-hidden="true" />
+          </span>
+        )}
         <p className="font-mono text-[0.65rem] font-black uppercase tracking-[0.12em] text-black/55">
           {item.eyebrow}
         </p>
@@ -139,13 +149,31 @@ function PersonalityCard({
       {"href" in item && (
         <span className="mt-6 inline-flex items-center gap-2 font-black underline decoration-2 underline-offset-4">
           {item.linkLabel}
-          <ArrowRight className="size-4" aria-hidden="true" />
+          {"external" in item && item.external ? (
+            <ArrowUpRight className="size-4" aria-hidden="true" />
+          ) : (
+            <ArrowRight className="size-4" aria-hidden="true" />
+          )}
         </span>
       )}
     </>
   );
 
   if ("href" in item) {
+    if ("external" in item && item.external) {
+      return (
+        <a
+          className={className}
+          href={item.href}
+          rel="noreferrer"
+          style={style}
+          target="_blank"
+        >
+          {content}
+        </a>
+      );
+    }
+
     return (
       <Link className={className} href={item.href} style={style}>
         {content}
@@ -288,7 +316,7 @@ export default function PostHogApplicationPage() {
             <div className="space-y-5 font-mono text-sm leading-6 sm:text-base">
               <p className="text-white/55">$ cat ~/current-obsessions</p>
               <p className="break-words text-[var(--hog-yellow)]">
-                the laptop is only part of the problem
+                work is not the only place I get weird
               </p>
               <dl className="grid grid-cols-[auto_1fr] gap-x-5 gap-y-2 border-y border-white/20 py-5">
                 <dt className="text-white/45">essay</dt>
@@ -625,7 +653,7 @@ export default function PostHogApplicationPage() {
             Where I might fit
           </p>
           <h2 className="mt-3 text-4xl font-black tracking-[-0.035em] sm:text-5xl">
-            Useful range, without pretending the constraints do not exist.
+            A few places I might be useful.
           </h2>
           <div className="mt-8 space-y-5 text-lg font-medium leading-8">
             {posthogApplication.fit.map((paragraph) => (
