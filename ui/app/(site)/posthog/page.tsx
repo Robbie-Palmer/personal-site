@@ -111,6 +111,49 @@ export default function PostHogApplicationPage() {
             I want to help products{" "}
             <span className={styles.scribble}>drive themselves</span>.
           </h1>
+          <a
+            className={cn(styles.heroTeaser, "group mt-7 block max-w-2xl")}
+            href="#specific-weirdness"
+          >
+            <div className="flex items-center justify-between gap-4 border-b-2 border-[var(--hog-ink)] px-3 py-2.5 sm:px-4">
+              <p className="text-xs font-black uppercase tracking-[0.15em] sm:text-sm">
+                A preview of the weirdness
+              </p>
+              <span className="shrink-0 text-xs font-black underline decoration-2 underline-offset-2">
+                See the through-line ↓
+              </span>
+            </div>
+            <div className="grid grid-cols-4">
+              {posthogApplication.weirdness.artefacts
+                .slice(0, 4)
+                .map((artefact) => (
+                  <div
+                    className={cn(
+                      styles.heroTeaserItem,
+                      "relative aspect-square overflow-hidden",
+                    )}
+                    key={artefact.title}
+                  >
+                    <Image
+                      alt=""
+                      className={
+                        artefact.imageFit === "contain"
+                          ? "size-full object-contain"
+                          : "size-full object-cover"
+                      }
+                      height={artefact.imageHeight}
+                      priority
+                      sizes="(min-width: 640px) 160px, 25vw"
+                      src={artefact.image}
+                      width={artefact.imageWidth}
+                    />
+                    <span className="absolute inset-x-0 bottom-0 bg-[var(--hog-ink)]/90 px-1.5 py-1 text-center text-[0.58rem] font-black uppercase tracking-[0.08em] text-white sm:px-2 sm:py-1.5 sm:text-xs">
+                      {artefact.shortTitle}
+                    </span>
+                  </div>
+                ))}
+            </div>
+          </a>
           <p className="mt-8 max-w-2xl text-lg font-medium leading-8 sm:text-xl">
             You are building the context and tools that let products understand
             what is happening and act on it. I have been building the loop
@@ -247,7 +290,10 @@ export default function PostHogApplicationPage() {
         </div>
       </section>
 
-      <section className="border-b-2 border-[var(--hog-ink)] bg-[var(--hog-ink)] text-[#fffdf8]">
+      <section
+        id="specific-weirdness"
+        className="scroll-mt-20 border-b-2 border-[var(--hog-ink)] bg-[var(--hog-ink)] text-[#fffdf8]"
+      >
         <div className="mx-auto grid max-w-7xl gap-14 px-5 py-24 sm:px-8 lg:grid-cols-[0.9fr_1.1fr] lg:px-12">
           <div>
             <p className="text-xs font-black uppercase tracking-[0.2em] text-[var(--hog-yellow)]">
@@ -316,14 +362,14 @@ export default function PostHogApplicationPage() {
             <div className="mb-8 flex flex-wrap items-end justify-between gap-4 border-b-2 border-white/25 pb-5">
               <div>
                 <p className="text-xs font-black uppercase tracking-[0.2em] text-[var(--hog-red)]">
-                  Exhibit A through D
+                  Exhibit A through E
                 </p>
                 <h3 className="mt-2 text-3xl font-black sm:text-4xl">
                   What the weirdness looks like.
                 </h3>
               </div>
               <p className="max-w-md text-sm font-bold leading-6 text-white/60">
-                Four interfaces. Four domains. The same urge to turn a messy
+                Five interfaces. Five domains. The same urge to turn a messy
                 system into something visible, explorable, and useful.
               </p>
             </div>
@@ -334,7 +380,10 @@ export default function PostHogApplicationPage() {
                   className={cn(
                     styles.artefactCard,
                     "group block",
-                    index % 2 === 0 ? "rotate-[-0.35deg]" : "rotate-[0.35deg]",
+                    index === 4 && "md:col-span-2",
+                    index % 2 === 0
+                      ? "md:rotate-[-0.35deg]"
+                      : "md:rotate-[0.35deg]",
                   )}
                   href={artefact.href}
                   key={artefact.title}
@@ -385,6 +434,11 @@ export default function PostHogApplicationPage() {
                   </div>
                   <p className="p-5 font-bold leading-7 sm:p-6">
                     {artefact.description}
+                    {"credit" in artefact && (
+                      <span className="mt-3 block font-mono text-[0.65rem] font-black uppercase tracking-[0.12em] text-black/50">
+                        {artefact.credit}
+                      </span>
+                    )}
                   </p>
                 </Link>
               ))}

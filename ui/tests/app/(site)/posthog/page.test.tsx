@@ -7,6 +7,8 @@ vi.mock("@/app/(site)/posthog/posthog.module.css", () => ({
     artefactCard: "artefactCard",
     artefactImage: "artefactImage",
     evidenceCard: "evidenceCard",
+    heroTeaser: "heroTeaser",
+    heroTeaserItem: "heroTeaserItem",
     hoggie: "hoggie",
     loopStage: "loopStage",
     page: "page",
@@ -47,6 +49,11 @@ describe("PostHog application page", () => {
     expect(screen.getByText(/Correct\. That is the point/i)).toBeVisible();
     expect(screen.getByText(/DeskHog is a developer toy/i)).toBeVisible();
     expect(
+      screen.getByRole("link", {
+        name: /A preview of the weirdness.*See the through-line/i,
+      }),
+    ).toHaveAttribute("href", "#specific-weirdness");
+    expect(
       screen.getByRole("link", { name: /^Satellite swarm$/i }),
     ).toHaveAttribute("href", "/projects/autonomic-satellite-swarm");
     expect(
@@ -58,6 +65,20 @@ describe("PostHog application page", () => {
       screen.getByRole("img", {
         name: /site's knowledge graph with hundreds/i,
       }),
+    ).toBeVisible();
+    expect(
+      screen.getByRole("img", {
+        name: /Terminal Industries computer vision identifying a truck/i,
+      }),
+    ).toBeVisible();
+    expect(
+      screen.getByRole("link", { name: /A yard that sees what is moving/i }),
+    ).toHaveAttribute(
+      "href",
+      "/projects/real-time-multi-camera-video-analytics",
+    );
+    expect(
+      screen.getByText(/Public product footage · Terminal Industries/i),
     ).toBeVisible();
     expect(
       screen.getByRole("link", { name: /Inspect the Work Graph/i }),

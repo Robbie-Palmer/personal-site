@@ -90,6 +90,34 @@
   filter: drop-shadow(8px 10px 0 rgb(29 31 31 / 0.16));
 }
 
+.heroTeaser {
+  background: #fffdf8;
+  border: 2px solid var(--hog-ink);
+  box-shadow: 5px 5px 0 var(--hog-blue);
+  color: var(--hog-ink);
+  rotate: -0.35deg;
+  transition:
+    box-shadow 160ms ease,
+    translate 160ms ease;
+}
+
+.heroTeaser:hover {
+  box-shadow: 8px 8px 0 var(--hog-blue);
+  translate: -3px -3px;
+}
+
+.heroTeaserItem {
+  background: #101212;
+}
+
+.heroTeaserItem:not(:last-child) {
+  border-right: 2px solid var(--hog-ink);
+}
+
+.heroTeaserItem img {
+  transition: scale 240ms ease;
+}
+
 .weirdQuote {
   background: var(--hog-yellow);
   border: 2px solid #fffdf8;
@@ -139,6 +167,10 @@
   scale: 1.025;
 }
 
+.heroTeaser:hover .heroTeaserItem img {
+  scale: 1.04;
+}
+
 @media (max-width: 1023px) {
   .loopStage:not(:last-child)::after,
   .loopStage:not(:last-child)::before {
@@ -146,7 +178,23 @@
   }
 }
 
+@media (max-width: 639px) {
+  .scribble {
+    text-decoration-color: var(--hog-red);
+    text-decoration-line: underline;
+    text-decoration-thickness: 0.12em;
+    text-underline-offset: 0.04em;
+    white-space: normal;
+  }
+
+  .scribble::after {
+    display: none;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .heroTeaser,
+  .heroTeaserItem img,
   .evidenceCard {
     transition: none;
   }

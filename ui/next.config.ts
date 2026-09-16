@@ -24,6 +24,13 @@ function createNextConfig(phase: string): NextConfig {
     output: "export",
     images: {
       unoptimized: true,
+      remotePatterns: [
+        {
+          protocol: "https",
+          hostname: "a.storyblok.com",
+          pathname: "/f/337048/**",
+        },
+      ],
     },
     // `next build` runs its own `tsc` type-check, but a dedicated `//ui:check`
     // (PR CI) / `//ui:check:static` (deploy workflows) step already does, so the

@@ -73,6 +73,7 @@ export const posthogApplication = {
     artefacts: [
       {
         number: "01",
+        shortTitle: "Pathology",
         title: "Whole-slide pathology viewer",
         meta: "Leaflet · gigapixel tissue",
         description:
@@ -87,6 +88,7 @@ export const posthogApplication = {
       },
       {
         number: "02",
+        shortTitle: "Satellites",
         title: "Autonomic satellite swarm",
         meta: "CesiumJS · C++ · WebAssembly",
         description:
@@ -101,6 +103,7 @@ export const posthogApplication = {
       },
       {
         number: "03",
+        shortTitle: "Knowledge graph",
         title: "The site as a knowledge graph",
         meta: "Cosmos.gl · 436 pages · connected data",
         description:
@@ -115,6 +118,7 @@ export const posthogApplication = {
       },
       {
         number: "04",
+        shortTitle: "Finance twin",
         title: "A financial twin",
         meta: "Recharts · event ledger · projections",
         description:
@@ -126,6 +130,24 @@ export const posthogApplication = {
         alt: "A personal finance chart plotting net worth and account balances over time",
         href: "/assettracker",
         accent: "#f5c842",
+      },
+      {
+        number: "05",
+        shortTitle: "Yard automation",
+        title: "A yard that sees what is moving",
+        meta: "Computer vision · Kafka · digital twin",
+        description:
+          "At Terminal, I helped turn camera detections into a live record across gates and yards. My work covered the event plane, cross-camera fusion, cloud infrastructure, observability, analytics, and technical leadership.",
+        image: "https://a.storyblok.com/f/337048/2882x1574/cb9f2cde65/y.webp",
+        imageWidth: 2882,
+        imageHeight: 1574,
+        imageFit: "cover",
+        alt: "Terminal Industries computer vision identifying a truck and its lane in a logistics yard",
+        href: "/projects/real-time-multi-camera-video-analytics",
+        accent: "#f05b52",
+        credit: "Public product footage · Terminal Industries",
+        sourceHref:
+          "https://terminal-industries.com/terminal-ai-computer-vision",
       },
     ],
   },
@@ -269,10 +291,19 @@ export function posthogApplicationMarkdown(): string {
     ...posthogApplication.weirdness.artefacts.flatMap((artefact) => [
       "#### [" + artefact.title + "](" + artefact.href + ")",
       "",
-      "![" + artefact.alt + "](https://robbiepalmer.me" + artefact.image + ")",
+      "![" +
+        artefact.alt +
+        "](" +
+        (artefact.image.startsWith("http")
+          ? artefact.image
+          : "https://robbiepalmer.me" + artefact.image) +
+        ")",
       "",
       artefact.description,
       "",
+      ...("sourceHref" in artefact
+        ? ["[" + artefact.credit + "](" + artefact.sourceHref + ")", ""]
+        : []),
     ]),
     "## Direct evidence",
     "",
