@@ -625,7 +625,7 @@ function buildSatelliteSwarmPage(): GeneratedPage {
       ["Project", markdownUrl("/projects/autonomic-satellite-swarm")],
       [
         "Source code",
-        "https://github.com/Robbie-Palmer/personal-site/tree/main/cpp/autonomic-satellite-swarm",
+        "https://github.com/Robbie-Palmer/hq/tree/main/cpp/autonomic-satellite-swarm",
       ],
     ],
     content: [

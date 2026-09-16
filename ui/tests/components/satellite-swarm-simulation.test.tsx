@@ -185,7 +185,7 @@ describe("SatelliteSwarmSimulation", () => {
     expect(screen.getByText(/ran as WebAssembly/i)).toBeVisible();
     expect(screen.getByRole("link", { name: "0123456789ab" })).toHaveAttribute(
       "href",
-      "https://github.com/Robbie-Palmer/personal-site/commit/0123456789abcdef0123456789abcdef01234567",
+      "https://github.com/Robbie-Palmer/hq/commit/0123456789abcdef0123456789abcdef01234567",
     );
   });
 

@@ -12,7 +12,7 @@ variable "github_repo_owner" {
 variable "github_repo_name" {
   description = "GitHub repository name"
   type        = string
-  default     = "personal-site"
+  default     = "hq"
 
   validation {
     condition     = can(regex("^[A-Za-z0-9._-]+$", var.github_repo_name))
