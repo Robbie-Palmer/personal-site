@@ -92,13 +92,13 @@ work-graph metadata attention cli-8
 work-graph metadata cancellations cli-8
 work-graph metadata releases cli-8
 work-graph note cli-8 --lease-id "$LEASE_ID" --epoch 1 --content "HTTP tests pass"
-work-graph comment cli-8 --author agent-a --content "The production check found a follow-up."
 work-graph renew "$LEASE_ID" --epoch 1 --lease-duration-seconds 600
 work-graph release cli-8 \
   --lease-id "$LEASE_ID" \
   --epoch 1 \
   --merge-evidence https://github.com/example/work-graph/pull/8 \
   --deployment-evidence https://work-graph.example.com/health
+work-graph comment cli-8 --author agent-a --content "The production check found a follow-up."
 work-graph cancel cli-8 --lease-id "$LEASE_ID" --epoch 1
 ```
 
