@@ -253,9 +253,6 @@ describe("PostHog application page", () => {
       "/blog/2026-08-18-crossing-the-chasm-with-ai-platform-teams",
     );
     expect(
-      screen.getByRole("link", { name: /Try the product demo/i }),
-    ).toHaveAttribute("href", "/recipes");
-    expect(
       screen.getByRole("link", {
         name: /Read the AI Research Team's Q3 2026 plan/i,
       }),
@@ -266,6 +263,15 @@ describe("PostHog application page", () => {
     expect(screen.getByText("Data labeling suite")).toBeVisible();
     expect(screen.getByText("Train the end-to-end agent")).toBeVisible();
     expect(screen.getByText(/Not with a PhD/i)).toBeVisible();
+    expect(
+      screen.getByRole("button", { name: /View the mobile layout/i }),
+    ).toHaveClass("hidden", "lg:inline-flex");
+    expect(
+      screen.getByRole("button", { name: /View the desktop layout/i }),
+    ).toHaveClass("inline-flex", "lg:hidden");
+    expect(
+      screen.getByRole("link", { name: /Read the agent-friendly Markdown/i }),
+    ).toHaveAttribute("href", "/posthog.md");
     expect(
       screen.getByRole("link", { name: /Resume and experience/i }),
     ).toHaveAttribute("href", "/experience");

@@ -328,7 +328,7 @@ linkStyle default stroke:#1d1f1f,stroke-width:2px`,
     eyebrow: "The overlap is ridiculous",
     heading: "I was already building the machine around the coding agent.",
     intro:
-      "PostHog Desktop combines a multiplayer product editor, parallel agents, multiple models, and cloud sandboxes. I got here because my tools kept failing me in different ways. Since November 2025 I have coded from my phone with Claude Code for web, added Codex on my Mac and then t3-code, and set up a Hetzner server because I wanted agents to keep running when I stepped away. In parallel, the pain of sharing context while running a team led to Work Graph. Reading endless AI prose was doing my head in, so I started building an editor to unslop it. The GPUs are still my own local machines.",
+      "PostHog Desktop combines a multiplayer product editor, parallel agents, multiple models, and cloud sandboxes. I got here because my tools kept failing me in different ways. Since November 2025 I have coded from my phone with Claude Code for web, added Codex on my Mac and then t3-code, and set up a Hetzner server because I wanted agents to keep running when I stepped away. In parallel, the pain of sharing context while running a team led to Work Graph. Reading endless AI prose was doing my head in, so I started building an editor to unslop it.",
     posthogLink: {
       label: "See the PostHog Desktop parallel",
       href: "https://posthog.com/desktop",
@@ -407,7 +407,7 @@ linkStyle default stroke:#1d1f1f,stroke-width:2px`,
     writingPrinciple:
       "Clear prose is an execution tool. If an agent cannot state the plan cleanly, I do not want it rushing into the code.",
     routingPrinciple:
-      "The harness and model are routing choices, not the architecture. Use subscription capacity first, then move work when quality, limits, or cost change. Keep an escape hatch across providers.",
+      "The harness and model are routing choices. Use the best tool for the job, use subscription capacity first, then move work when quality, limits, or cost change. Keep an escape hatch across providers.",
   },
   culture: {
     heading: "The culture I keep trying to build already exists here",
@@ -535,7 +535,7 @@ linkStyle default stroke:#1d1f1f,stroke-width:2px`,
     },
     plan: {
       intro:
-        "The shape of the AI Research Team's Q3 2026 plan is strikingly familiar:",
+        "The shape of the AI Research Team's Q3 2026 plan is extremely familiar:",
       href: "https://github.com/PostHog/posthog.com/blob/master/contents/teams/ai-research/objectives.mdx#q3-2026-objectives",
       label: "Read the AI Research Team's Q3 2026 plan",
       items: [
@@ -552,9 +552,7 @@ linkStyle default stroke:#1d1f1f,stroke-width:2px`,
     evidence:
       "Across pathology, document intelligence, logistics, and my own agent tooling, I have built the constituent parts of that plan, in different combinations, multiple times over: labelling suites and annotated datasets, data-preparation and sampling pipelines, trained models, evaluation datasets and benchmarks, production integrations, and model observability.",
     background:
-      "Not with a PhD, a strong background in maths, or experience in low-level Rust, C, or CUDA. With relentless curiosity, a habit of learning whatever the problem needs, and a focus on turning technical work into customer value.",
-    closing:
-      "If that combination is useful, I would rather talk about the problem than contort myself into the nearest advertised role.",
+      "Not with a PhD, a strong background in maths, or experience in low-level Rust, C, or CUDA. But with relentless curiosity, fast learning, and a focus on delivering customer value.",
   },
   links: {
     experience: "/experience",
@@ -810,8 +808,6 @@ export function posthogApplicationMarkdown(): string {
     posthogApplication.ask.evidence,
     "",
     posthogApplication.ask.background,
-    "",
-    posthogApplication.ask.closing,
     "",
     "- [Read my initiatives](" + posthogApplication.links.initiative + ")",
     "- [Inspect my projects](" + posthogApplication.links.projects + ")",

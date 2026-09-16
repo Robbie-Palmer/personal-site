@@ -24,6 +24,7 @@ import {
 import { cn } from "@/lib/generic/styles";
 import { AgentPlatformSection } from "./agent-platform-section";
 import { CultureSection } from "./culture-section";
+import { PostHogFooterActions } from "./footer-actions";
 import { HomelabDiagramSwitcher } from "./homelab-diagram-switcher";
 import styles from "./posthog.module.css";
 
@@ -761,7 +762,6 @@ export default function PostHogApplicationPage() {
           <div className="mt-8 space-y-5 border-t-2 border-[var(--hog-ink)] pt-7 font-medium leading-7">
             <p>{posthogApplication.ask.evidence}</p>
             <p className="font-black">{posthogApplication.ask.background}</p>
-            <p>{posthogApplication.ask.closing}</p>
           </div>
           <div className="mt-8 flex flex-col items-start gap-4">
             <Link
@@ -771,41 +771,30 @@ export default function PostHogApplicationPage() {
               Read what I am building toward
               <ArrowRight className="size-4" aria-hidden="true" />
             </Link>
-            <Link
-              className="inline-flex items-center gap-2 font-black underline decoration-2 underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-4"
-              href={posthogApplication.links.productDemo}
-            >
-              Try the product demo
-              <ArrowRight className="size-4" aria-hidden="true" />
-            </Link>
-            <Link
-              className="inline-flex items-center gap-2 font-black underline decoration-2 underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-4"
-              href={posthogApplication.links.technicalDemo}
-            >
-              Run the technical demo
-              <ArrowRight className="size-4" aria-hidden="true" />
-            </Link>
-            <a
-              className="inline-flex items-center gap-2 font-black underline decoration-2 underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-4"
-              href={posthogApplication.links.github}
-              target="_blank"
-              rel="noreferrer"
-            >
-              <Github className="size-4" aria-hidden="true" />
-              Inspect my GitHub
-            </a>
-            <a
-              className="inline-flex items-center gap-2 font-black underline decoration-2 underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-4"
-              href={posthogApplication.links.linkedin}
-              target="_blank"
-              rel="noreferrer"
-            >
-              Connect on LinkedIn
-              <ArrowUpRight className="size-4" aria-hidden="true" />
-            </a>
+            <div className="flex flex-col items-start gap-4 sm:flex-row sm:flex-wrap sm:gap-x-6">
+              <a
+                className="inline-flex items-center gap-2 font-black underline decoration-2 underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-4"
+                href={posthogApplication.links.github}
+                target="_blank"
+                rel="noreferrer"
+              >
+                <Github className="size-4" aria-hidden="true" />
+                Inspect my GitHub
+              </a>
+              <a
+                className="inline-flex items-center gap-2 font-black underline decoration-2 underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-4"
+                href={posthogApplication.links.linkedin}
+                target="_blank"
+                rel="noreferrer"
+              >
+                Connect on LinkedIn
+                <ArrowUpRight className="size-4" aria-hidden="true" />
+              </a>
+            </div>
           </div>
         </aside>
       </section>
+      <PostHogFooterActions />
     </div>
   );
 }
