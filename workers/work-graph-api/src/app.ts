@@ -130,6 +130,12 @@ const workItemSchema = z
     lifecycle: z.enum(WORK_ITEM_LIFECYCLES),
     parentId: z.union([identifierSchema, z.null()]),
     rank: z.union([childRankSchema, z.null()]),
+    priorityWeight: z
+      .number()
+      .int()
+      .min(-2_147_483_648)
+      .max(2_147_483_647)
+      .openapi({ format: "int32" }),
     stage: z.enum(WORK_STAGES),
     currentLease: z.union([leaseSchema, z.null()]),
   })
@@ -409,6 +415,7 @@ const createWorkItemBodySchema = z
     id: identifierSchema,
     title: z.string().trim().min(1).max(MAX_TITLE_LENGTH),
     parentId: z.union([identifierSchema, z.null()]).optional(),
+    priorityWeight: workItemSchema.shape.priorityWeight.default(0),
   })
   .strict();
 const putKnowledgeScopeBodySchema = knowledgeScopeSchema
@@ -492,6 +499,7 @@ const decompositionChildSchema = z
     id: identifierSchema,
     title: z.string().trim().min(1).max(MAX_TITLE_LENGTH),
     rank: childRankSchema,
+    priorityWeight: workItemSchema.shape.priorityWeight.default(0),
   })
   .strict();
 const decompositionClaimSchema = z
@@ -559,13 +567,13 @@ const listWorkItemsRoute = createRoute({
   operationId: "listWorkItems",
   summary: "List work items with their derived stage",
   description:
-    "Returns one bounded page in stable work-item ID order. The optional stage filter uses the current derived projection. Pass nextCursor to continue after the last observed ID without offset drift during lease transitions.",
+    "Returns one bounded page in priority order. The optional stage filter keeps the relative global order. Pass nextCursor to continue after the last observed item without offset drift during lease transitions.",
   tags: ["work-items"],
   security: accessSecurity,
   request: { query: listWorkItemsQuerySchema },
   responses: {
     200: {
-      description: "Work items in stable work-item ID order",
+      description: "Work items in deterministic priority order",
       content: { "application/json": { schema: workItemListSchema } },
     },
     ...standardErrors,
@@ -1035,7 +1043,7 @@ const createLeaseRoute = createRoute({
   operationId: "createLease",
   summary: "Claim a specified or first eligible work item",
   description:
-    "Creates a fenced lease for the requested item, or for the first eligible item in stable fallback order when workItemId is absent.",
+    "Creates a fenced lease for the requested item, or for the highest-priority eligible item when workItemId is absent.",
   tags: ["leases"],
   security: accessSecurity,
   request: {
@@ -1451,13 +1459,16 @@ export const createWorkGraphApp = (
   app.openapi(listWorkItemsRoute, async (context) => {
     const { cursor, limit, stage } = context.req.valid("query");
     const items = await repository.listWorkItems();
-    const matchingItems = items.filter(
-      (item) =>
-        (stage === undefined || item.stage === stage) &&
-        (cursor === undefined || item.id > cursor),
-    );
-    matchingItems.sort((left, right) =>
-      left.id < right.id ? -1 : left.id > right.id ? 1 : 0,
+    const cursorIndex =
+      cursor === undefined
+        ? -1
+        : items.findIndex((item) => item.id === cursor);
+    const remainingItems =
+      cursor !== undefined && cursorIndex === -1
+        ? []
+        : items.slice(cursorIndex + 1);
+    const matchingItems = remainingItems.filter(
+      (item) => stage === undefined || item.stage === stage,
     );
     const page = matchingItems.slice(0, limit);
     return context.json(

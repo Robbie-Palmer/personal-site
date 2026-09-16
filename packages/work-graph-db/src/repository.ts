@@ -13,6 +13,7 @@ import {
 import {
   createKnowledgeScope,
   createWorkGraph,
+  orderWorkItemsByPriority,
   projectWorkItemStage,
   validatePostReleaseNote,
   validateKnowledgeScopeRelationships,
@@ -457,7 +458,13 @@ const validateDecompositionChild = (
   state: DecompositionValidationState,
 ): RankedWorkItem => {
   const normalized = createWorkGraph({
-    workItems: [{ id: child.id, title: child.title }],
+    workItems: [
+      {
+        id: child.id,
+        title: child.title,
+        priorityWeight: child.priorityWeight,
+      },
+    ],
   }).workItems[0]!;
   if (
     !Number.isSafeInteger(child.rank) ||
@@ -552,7 +559,12 @@ const validateDecomposition = (
       input.leaseId,
       input.epoch,
       input.workItemId,
-      children.map(({ workItem: child, rank }) => [child.id, child.title, rank]),
+      children.map(({ workItem: child, rank }) => [
+        child.id,
+        child.title,
+        rank,
+        child.priorityWeight,
+      ]),
       dependencies.map((dependency) => [
         dependency.dependentWorkItemId,
         dependency.blockerWorkItemId,
@@ -890,7 +902,7 @@ export class WorkGraphRepository {
           unresolvedBlockingAttention.map(({ workItemId }) => workItemId),
         );
 
-        return graph.workItems.map((item) => {
+        return orderWorkItemsByPriority(graph).map((item) => {
           const currentLease = leasesByWorkItemId.get(item.id) ?? null;
           return {
             ...item,
@@ -949,7 +961,12 @@ export class WorkGraphRepository {
             transaction,
             options.idempotencyKey,
             "create-work-item",
-            JSON.stringify([normalized.id, normalized.title, parentId]),
+            JSON.stringify([
+              normalized.id,
+              normalized.title,
+              parentId,
+              normalized.priorityWeight,
+            ]),
           );
           if (replayed) return { ...normalized, parentId };
         }
@@ -961,6 +978,7 @@ export class WorkGraphRepository {
         await transaction.insert(workItem).values({
           id: normalized.id,
           title: normalized.title,
+          priorityWeight: normalized.priorityWeight,
         });
 
         if (parentId !== null) {
@@ -974,7 +992,12 @@ export class WorkGraphRepository {
         await this.appendEvent(transaction, {
           type: "work_item.created",
           workItemId: normalized.id,
-          data: { title: normalized.title, parentId, rank: null },
+          data: {
+            title: normalized.title,
+            parentId,
+            rank: null,
+            priorityWeight: normalized.priorityWeight,
+          },
         });
 
         return { ...normalized, parentId };
@@ -1770,6 +1793,7 @@ export class WorkGraphRepository {
           title: child.title,
           parentId: input.workItemId,
           rank,
+          priorityWeight: child.priorityWeight,
         },
       });
     }
@@ -1878,6 +1902,7 @@ export class WorkGraphRepository {
       validated.children.map(({ workItem: child }) => ({
         id: child.id,
         title: child.title,
+        priorityWeight: child.priorityWeight,
       })),
     );
     await transaction.insert(workItemHierarchy).values(
@@ -2529,6 +2554,7 @@ export class WorkGraphRepository {
         id: workItem.id,
         title: workItem.title,
         lifecycle: workItem.lifecycle,
+        priorityWeight: workItem.priorityWeight,
         parentId: workItemHierarchy.parentWorkItemId,
         rank: workItemHierarchy.rank,
       })
@@ -2598,6 +2624,7 @@ export class WorkGraphRepository {
         id: workItem.id,
         title: workItem.title,
         lifecycle: workItem.lifecycle,
+        priorityWeight: workItem.priorityWeight,
         parentId: workItemHierarchy.parentWorkItemId,
         rank: workItemHierarchy.rank,
       })
@@ -2647,23 +2674,21 @@ export class WorkGraphRepository {
     transaction: DbTransaction,
     requestedWorkItemId?: string,
   ): Promise<string | null> {
-    const excludedWorkItemIds: string[] = [];
-    while (true) {
+    const candidateIds =
+      requestedWorkItemId === undefined
+        ? orderWorkItemsByPriority(await this.loadGraph(transaction)).map(
+            ({ id }) => id,
+          )
+        : [requestedWorkItemId];
+
+    for (const candidateId of candidateIds) {
       const [candidate] = await transaction
         .select({ id: workItem.id })
         .from(workItem)
-        .where(
-          claimableWorkItemWhere(requestedWorkItemId, excludedWorkItemIds),
-        )
-        .orderBy(workItem.createdAt, workItem.id)
+        .where(claimableWorkItemWhere(candidateId))
         .limit(1)
         .for("update", { of: workItem, skipLocked: true });
-      if (!candidate) {
-        if (requestedWorkItemId !== undefined) {
-          await this.requireStoredWorkItem(transaction, requestedWorkItemId);
-        }
-        return null;
-      }
+      if (!candidate) continue;
 
       // A concurrent claimant can commit between predicate evaluation and row
       // locking. Recheck in a new READ COMMITTED statement after the lock is
@@ -2674,8 +2699,12 @@ export class WorkGraphRepository {
         .where(claimableWorkItemWhere(candidate.id))
         .limit(1);
       if (stillClaimable) return candidate.id;
-      excludedWorkItemIds.push(candidate.id);
     }
+
+    if (requestedWorkItemId !== undefined) {
+      await this.requireStoredWorkItem(transaction, requestedWorkItemId);
+    }
+    return null;
   }
 
   private async requireStoredWorkItem(

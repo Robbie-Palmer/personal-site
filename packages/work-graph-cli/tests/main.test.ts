@@ -219,12 +219,19 @@ describe("Given agent-facing Work Graph commands", () => {
         "Build the CLI",
         "--parent-id",
         "mvp",
+        "--priority-weight",
+        "25",
         "--idempotency-key",
         UUID,
       ]),
     ).toBe(EXIT_CODES.success);
     expect(test.requests[0]).toMatchObject({
-      body: { id: "cli-8", title: "Build the CLI", parentId: "mvp" },
+      body: {
+        id: "cli-8",
+        title: "Build the CLI",
+        parentId: "mvp",
+        priorityWeight: 25,
+      },
       method: "POST",
     });
     expect(test.requests[0]?.url.href).toBe(
@@ -501,7 +508,7 @@ describe("Given agent-facing Work Graph commands", () => {
     expect(test.requests[0]?.body).toEqual({
       leaseId: UUID,
       epoch: 3,
-      children,
+      children: children.map((child) => ({ ...child, priorityWeight: 0 })),
       dependencies,
       claim: {
         workItemId: "child-1",

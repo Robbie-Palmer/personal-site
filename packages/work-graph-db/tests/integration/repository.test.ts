@@ -122,7 +122,7 @@ beforeAll(async () => {
     order by enumsortorder
   `);
 
-  expect(migrationCount?.count).toBe(9);
+  expect(migrationCount?.count).toBe(10);
   expect(tables.map(({ table_name }) => table_name)).toEqual([
     "attention_requests",
     "attention_resolutions",
@@ -202,6 +202,7 @@ describe("transactional decomposition", () => {
           title: "First child",
           lifecycle: "open",
           parentId: "parent",
+          priorityWeight: 0,
           rank: 10,
         },
       },
@@ -212,6 +213,7 @@ describe("transactional decomposition", () => {
           title: "Second child",
           lifecycle: "open",
           parentId: "parent",
+          priorityWeight: 0,
           rank: 20,
         },
       },
@@ -1129,6 +1131,52 @@ describe("lease-backed claiming", () => {
     }
   });
 
+  it("uses the same fixture-driven order for queue reads and scheduler claims", async () => {
+    await repository.createWorkItem({
+      id: "routine",
+      title: "Routine maintenance",
+      priorityWeight: 5,
+    });
+    await repository.createWorkItem({
+      id: "release",
+      title: "Release",
+      priorityWeight: 20,
+    });
+    await repository.createWorkItem({ id: "database", title: "Database" });
+    const releaseLease = await repository.claimWorkItem({
+      leaseId: leaseId(21),
+      workerId: "planner",
+      leaseDurationSeconds: 300,
+      workItemId: "release",
+    });
+    if (!releaseLease) throw new Error("Expected the release claim to succeed.");
+    await repository.decomposeClaimedWorkItem({
+      leaseId: releaseLease.id,
+      epoch: releaseLease.epoch,
+      workItemId: "release",
+      children: [
+        { id: "release-api", title: "Release API", rank: 1 },
+        { id: "release-ui", title: "Release UI", rank: 2 },
+      ],
+      dependencies: [dependency("release-api", "database")],
+    });
+
+    expect((await repository.listWorkItems()).map(({ id }) => id)).toEqual([
+      "release",
+      "release-api",
+      "database",
+      "release-ui",
+      "routine",
+    ]);
+    await expect(
+      repository.claimWorkItem({
+        leaseId: leaseId(22),
+        workerId: "worker-a",
+        leaseDurationSeconds: 300,
+      }),
+    ).resolves.toEqual(expect.objectContaining({ workItemId: "database" }));
+  });
+
   it("reclaims stale work with a higher epoch and expires the old lease", async () => {
     await repository.createWorkItem({ id: "work", title: "Stale work" });
     const firstLease = await repository.claimWorkItem({
@@ -2009,6 +2057,7 @@ describe("Work Graph PostgreSQL persistence", () => {
           title: "Sparse work item",
           lifecycle: "open",
           parentId: null,
+          priorityWeight: 0,
           rank: null,
         },
       ],
@@ -2027,6 +2076,7 @@ describe("Work Graph PostgreSQL persistence", () => {
       "lifecycle",
       "created_at",
       "updated_at",
+      "priority_weight",
     ]);
   });
 
@@ -2047,6 +2097,7 @@ describe("Work Graph PostgreSQL persistence", () => {
         title: "Created once",
         lifecycle: "open",
         parentId: null,
+        priorityWeight: 0,
         rank: null,
       },
     ]);
@@ -2136,6 +2187,7 @@ describe("Work Graph PostgreSQL persistence", () => {
       title: "Stable work",
       lifecycle: "released",
       parentId: "new-parent",
+      priorityWeight: 0,
       rank: null,
     });
   });
@@ -2435,6 +2487,7 @@ describe("immutable event history", () => {
     expect(childEvents[0]?.data).toEqual({
       title: "Child",
       parentId: "parent",
+      priorityWeight: 0,
       rank: null,
     });
 

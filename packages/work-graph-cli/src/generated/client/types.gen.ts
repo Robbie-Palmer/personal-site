@@ -15,6 +15,7 @@ export type WorkItem = {
     lifecycle: 'open' | 'released' | 'cancelled';
     parentId: string | null;
     rank: number | null;
+    priorityWeight: number;
     stage: 'blocked' | 'ready' | 'in_progress' | 'stale' | 'needs_attention' | 'released' | 'cancelled';
     currentLease: Lease | null;
 };
@@ -955,7 +956,7 @@ export type ListWorkItemsError = ListWorkItemsErrors[keyof ListWorkItemsErrors];
 
 export type ListWorkItemsResponses = {
     /**
-     * Work items in stable work-item ID order
+     * Work items in deterministic priority order
      */
     200: WorkItemList;
 };
@@ -967,6 +968,7 @@ export type CreateWorkItemData = {
         id: string;
         title: string;
         parentId?: string | null;
+        priorityWeight?: number;
     };
     headers?: {
         /**
@@ -1195,6 +1197,7 @@ export type CreateWorkItemDecompositionData = {
             id: string;
             title: string;
             rank: number;
+            priorityWeight?: number;
         }>;
         dependencies?: Array<{
             dependentWorkItemId: string;

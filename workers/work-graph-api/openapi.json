@@ -132,6 +132,12 @@
               }
             ]
           },
+          "priorityWeight": {
+            "type": "integer",
+            "minimum": -2147483648,
+            "maximum": 2147483647,
+            "format": "int32"
+          },
           "stage": {
             "type": "string",
             "enum": [
@@ -161,6 +167,7 @@
           "lifecycle",
           "parentId",
           "rank",
+          "priorityWeight",
           "stage",
           "currentLease"
         ]
@@ -2564,7 +2571,7 @@
       "post": {
         "operationId": "createLease",
         "summary": "Claim a specified or first eligible work item",
-        "description": "Creates a fenced lease for the requested item, or for the first eligible item in stable fallback order when workItemId is absent.",
+        "description": "Creates a fenced lease for the requested item, or for the highest-priority eligible item when workItemId is absent.",
         "tags": [
           "leases"
         ],
@@ -2834,7 +2841,7 @@
       "get": {
         "operationId": "listWorkItems",
         "summary": "List work items with their derived stage",
-        "description": "Returns one bounded page in stable work-item ID order. The optional stage filter uses the current derived projection. Pass nextCursor to continue after the last observed ID without offset drift during lease transitions.",
+        "description": "Returns one bounded page in priority order. The optional stage filter keeps the relative global order. Pass nextCursor to continue after the last observed item without offset drift during lease transitions.",
         "tags": [
           "work-items"
         ],
@@ -2887,7 +2894,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Work items in stable work-item ID order",
+            "description": "Work items in deterministic priority order",
             "content": {
               "application/json": {
                 "schema": {
@@ -3023,6 +3030,13 @@
                         "type": "null"
                       }
                     ]
+                  },
+                  "priorityWeight": {
+                    "type": "integer",
+                    "minimum": -2147483648,
+                    "maximum": 2147483647,
+                    "default": 0,
+                    "format": "int32"
                   }
                 },
                 "required": [
@@ -3596,6 +3610,13 @@
                           "type": "integer",
                           "minimum": 1,
                           "maximum": 2147483647,
+                          "format": "int32"
+                        },
+                        "priorityWeight": {
+                          "type": "integer",
+                          "minimum": -2147483648,
+                          "maximum": 2147483647,
+                          "default": 0,
                           "format": "int32"
                         }
                       },

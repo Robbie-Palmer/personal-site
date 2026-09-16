@@ -183,6 +183,15 @@ No weighting formula may become part of a migration or public API until
 fixture-driven tests compare it with realistic queue-ordering cases. Ordinal
 ranks must not accidentally gain misleading arithmetic meaning.
 
+The first fixture-backed policy adds each work item's priority weight to its
+ancestors' weights. Higher totals run first. Equal totals use the hierarchy
+path from the root, comparing sibling ranks at each level and putting ranked
+siblings before unranked siblings. IDs break the final tie. A dependency
+blocker inherits the best position of any open work item waiting on it,
+including descendants that inherit an ancestor's dependency. Queue filters run
+after this global order is calculated, and scheduler-selected claims use the
+same order.
+
 Once work is claimed, a newly higher-priority item does not pre-empt it. The
 worker continues until it completes the work, cancels it, decomposes it,
 requests attention, or loses a stale lease.
@@ -423,7 +432,7 @@ before the headless workflow is useful.
 
 1. [x] Create a dependency-free Work Graph domain package and add the scenario
    catalogue as `it.todo` tests.
-2. [ ] Implement lifecycle and readiness projection, hierarchy checks, and the
+2. [x] Implement lifecycle and readiness projection, hierarchy checks, and the
    first deterministic priority policy against in-memory fixtures.
 3. [x] Add the PostgreSQL schema, migrations, and integration-test database.
 4. [x] Persist lease history and implement atomic specified and first-eligible

@@ -146,7 +146,7 @@ export const putKnowledgeScope = <ThrowOnError extends boolean = false>(options:
 /**
  * Claim a specified or first eligible work item
  *
- * Creates a fenced lease for the requested item, or for the first eligible item in stable fallback order when workItemId is absent.
+ * Creates a fenced lease for the requested item, or for the highest-priority eligible item when workItemId is absent.
  */
 export const createLease = <ThrowOnError extends boolean = false>(options: Options<CreateLeaseData, ThrowOnError>): RequestResult<CreateLeaseResponses, CreateLeaseErrors, ThrowOnError> => options.client.post<CreateLeaseResponses, CreateLeaseErrors, ThrowOnError>({
     url: '/api/leases',
@@ -174,7 +174,7 @@ export const createLeaseRenewal = <ThrowOnError extends boolean = false>(options
 /**
  * List work items with their derived stage
  *
- * Returns one bounded page in stable work-item ID order. The optional stage filter uses the current derived projection. Pass nextCursor to continue after the last observed ID without offset drift during lease transitions.
+ * Returns one bounded page in priority order. The optional stage filter keeps the relative global order. Pass nextCursor to continue after the last observed item without offset drift during lease transitions.
  */
 export const listWorkItems = <ThrowOnError extends boolean = false>(options: Options<ListWorkItemsData, ThrowOnError>): RequestResult<ListWorkItemsResponses, ListWorkItemsErrors, ThrowOnError> => options.client.get<ListWorkItemsResponses, ListWorkItemsErrors, ThrowOnError>({ url: '/api/work-items', ...options });
 

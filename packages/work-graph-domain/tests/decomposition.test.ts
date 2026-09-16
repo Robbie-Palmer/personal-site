@@ -235,6 +235,7 @@ describe("decomposition and hierarchy", () => {
       title: "Stable work",
       lifecycle: "open",
       parentId: "new-parent",
+      priorityWeight: 0,
       rank: null,
     });
   });

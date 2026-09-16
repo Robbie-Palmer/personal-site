@@ -38,6 +38,7 @@ export const workItem = pgTable(
     id: text().primaryKey(),
     title: text().notNull(),
     lifecycle: workItemLifecycleEnum().notNull().default("open"),
+    priorityWeight: integer().notNull().default(0),
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp({ withTimezone: true })
       .notNull()

@@ -3,5 +3,6 @@ export * from "./graph";
 export * from "./knowledge-scope";
 export * from "./model";
 export * from "./notes";
+export * from "./priority";
 export * from "./readiness";
 export * from "./vocabulary";

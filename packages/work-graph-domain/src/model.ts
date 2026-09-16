@@ -33,6 +33,7 @@ export interface WorkItem {
   readonly lifecycle: WorkItemLifecycle;
   readonly parentId: string | null;
   readonly rank: number | null;
+  readonly priorityWeight: number;
 }
 
 export interface WorkItemInput {
@@ -41,6 +42,7 @@ export interface WorkItemInput {
   readonly lifecycle?: WorkItemLifecycle;
   readonly parentId?: string | null;
   readonly rank?: number | null;
+  readonly priorityWeight?: number;
 }
 
 export type NewWorkItemInput = Omit<WorkItemInput, "lifecycle" | "rank">;

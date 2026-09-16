@@ -170,6 +170,10 @@ const createInput = z.object({
     zCreateWorkItemBody.shape.parentId.unwrap().unwrap(),
     "Parent work-item ID",
   ),
+  priorityWeight: optional(
+    zCreateWorkItemBody.shape.priorityWeight.unwrap().unwrap(),
+    "Local priority weight",
+  ),
   idempotencyKey,
 });
 
@@ -752,6 +756,9 @@ export const workGraphRouter = t.router({
           id: input.id,
           title: input.title,
           ...(input.parentId === undefined ? {} : { parentId: input.parentId }),
+          ...(input.priorityWeight === undefined
+            ? {}
+            : { priorityWeight: input.priorityWeight }),
         },
         input.idempotencyKey,
       ),

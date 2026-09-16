@@ -51,6 +51,7 @@ const item = (
   lifecycle,
   parentId: null,
   rank: null,
+  priorityWeight: 0,
   stage,
   currentLease,
 });
@@ -102,6 +103,7 @@ const buildRepository = (): WorkGraphApiRepository => ({
     lifecycle: "open" as const,
     parentId: input.parentId ?? null,
     rank: null,
+    priorityWeight: input.priorityWeight ?? 0,
   })),
   addDependency: vi.fn(async () => undefined),
   removeDependency: vi.fn(async () => undefined),
@@ -164,6 +166,7 @@ const buildRepository = (): WorkGraphApiRepository => ({
           ...child,
           lifecycle: "open" as const,
           parentId: input.workItemId,
+          priorityWeight: child.priorityWeight ?? 0,
           rank,
         },
       }))
@@ -391,6 +394,22 @@ describe("Given knowledge-scope mirrors", () => {
 });
 
 describe("Given work items with derived readiness", () => {
+  it("keeps repository priority order instead of sorting by ID", async () => {
+    const repository = buildRepository();
+    vi.mocked(repository.listWorkItems).mockResolvedValue([
+      { ...item("z-high", "ready"), priorityWeight: 20 },
+      { ...item("a-low", "ready"), priorityWeight: 0 },
+    ]);
+    const app = createWorkGraphApp(repository);
+
+    const response = await app.request("/api/work-items?stage=ready");
+    const body = (await responseJson(response)) as {
+      items: Array<{ id: string }>;
+    };
+
+    expect(body.items.map(({ id }) => id)).toEqual(["z-high", "a-low"]);
+  });
+
   it("lists a stage with a cursor that survives readiness changes", async () => {
     const repository = buildRepository();
     vi.mocked(repository.listWorkItems)
@@ -415,6 +434,7 @@ describe("Given work items with derived readiness", () => {
           title: "a-ready work",
           lifecycle: "open",
           parentId: null,
+          priorityWeight: 0,
           rank: null,
           stage: "ready",
           currentLease: null,
@@ -433,6 +453,7 @@ describe("Given work items with derived readiness", () => {
           title: "b-ready work",
           lifecycle: "open",
           parentId: null,
+          priorityWeight: 0,
           rank: null,
           stage: "ready",
           currentLease: null,
@@ -484,7 +505,7 @@ describe("Given idempotent graph mutation requests", () => {
 
     expect(response.status).toBe(201);
     expect(repository.createWorkItem).toHaveBeenCalledWith(
-      { id: "sparse", title: "Sparse work item" },
+      { id: "sparse", title: "Sparse work item", priorityWeight: 0 },
       {},
     );
     expect(await responseJson(response)).toEqual({
@@ -492,6 +513,7 @@ describe("Given idempotent graph mutation requests", () => {
       title: "Sparse work item",
       lifecycle: "open",
       parentId: null,
+      priorityWeight: 0,
       rank: null,
       stage: "ready",
       currentLease: null,
@@ -1024,7 +1046,14 @@ describe("Given a worker managing a lease", () => {
 
     expect(response.status).toBe(201);
     expect(repository.decomposeClaimedWorkItem).toHaveBeenCalledWith(
-      { ...body, workItemId: "parent" },
+      {
+        ...body,
+        workItemId: "parent",
+        children: body.children.map((child) => ({
+          ...child,
+          priorityWeight: 0,
+        })),
+      },
       { idempotencyKey },
     );
     expect(repository.listWorkItems).toHaveBeenCalledOnce();

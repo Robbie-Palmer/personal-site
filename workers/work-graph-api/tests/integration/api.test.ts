@@ -607,6 +607,7 @@ describe("Given graph mutations over HTTP", () => {
         title: "Sparse work item",
         lifecycle: "open",
         parentId: null,
+        priorityWeight: 0,
         rank: null,
       },
     ]);
@@ -915,6 +916,37 @@ describe("Given claimed work that needs notes or attention", () => {
 });
 
 describe("Given lease-backed work over HTTP", () => {
+  it("returns and claims ready work in priority order", async () => {
+    await requestJson("/api/work-items", "POST", {
+      id: "a-low",
+      title: "Low priority",
+      priorityWeight: 1,
+    });
+    await requestJson("/api/work-items", "POST", {
+      id: "z-high",
+      title: "High priority",
+      priorityWeight: 20,
+    });
+
+    const queueResponse = await app.request("/api/work-items?stage=ready");
+    const queue = (await queueResponse.json()) as {
+      items: Array<{ id: string; priorityWeight: number }>;
+    };
+    const claimResponse = await requestJson("/api/leases", "POST", {
+      workerId: "worker-a",
+      leaseDurationSeconds: 300,
+    });
+    const claim = (await claimResponse.json()) as {
+      workItem: { id: string };
+    };
+
+    expect(queue.items).toEqual([
+      expect.objectContaining({ id: "z-high", priorityWeight: 20 }),
+      expect.objectContaining({ id: "a-low", priorityWeight: 1 }),
+    ]);
+    expect(claim.workItem.id).toBe("z-high");
+  });
+
   it("distinguishes a missing specified item from ineligible work", async () => {
     const response = await requestJson("/api/leases", "POST", {
       workItemId: "missing",
@@ -981,6 +1013,7 @@ describe("Given lease-backed work over HTTP", () => {
       title: "Release me",
       lifecycle: "released",
       parentId: null,
+      priorityWeight: 0,
       rank: null,
       stage: "released",
       currentLease: null,

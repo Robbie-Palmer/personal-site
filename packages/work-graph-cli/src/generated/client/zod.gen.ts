@@ -29,6 +29,7 @@ export const zWorkItem = z.object({
     ]),
     parentId: z.string().min(1).max(200).nullable(),
     rank: z.int().gte(1).lte(2147483647).nullable(),
+    priorityWeight: z.int().gte(-2147483648).lte(2147483647),
     stage: z.enum([
         'blocked',
         'ready',
@@ -418,14 +419,15 @@ export const zListWorkItemsQuery = z.object({
 });
 
 /**
- * Work items in stable work-item ID order
+ * Work items in deterministic priority order
  */
 export const zListWorkItemsResponse = zWorkItemList;
 
 export const zCreateWorkItemBody = z.object({
     id: z.string().min(1).max(200),
     title: z.string().min(1).max(10000),
-    parentId: z.string().min(1).max(200).nullish()
+    parentId: z.string().min(1).max(200).nullish(),
+    priorityWeight: z.int().gte(-2147483648).lte(2147483647).optional().default(0)
 });
 
 export const zCreateWorkItemHeaders = z.object({
@@ -489,7 +491,8 @@ export const zCreateWorkItemDecompositionBody = z.object({
     children: z.array(z.object({
         id: z.string().min(1).max(200),
         title: z.string().min(1).max(10000),
-        rank: z.int().gte(1).lte(2147483647)
+        rank: z.int().gte(1).lte(2147483647),
+        priorityWeight: z.int().gte(-2147483648).lte(2147483647).optional().default(0)
     })).min(1).max(100),
     dependencies: z.array(z.object({
         dependentWorkItemId: z.string().min(1).max(200),

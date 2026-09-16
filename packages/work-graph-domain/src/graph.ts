@@ -56,6 +56,16 @@ const validateWorkItemFields = (workItem: WorkItem): void => {
       `Work item ${workItem.id} must have a positive whole-number rank.`,
     );
   }
+  if (
+    !Number.isSafeInteger(workItem.priorityWeight) ||
+    workItem.priorityWeight < -2_147_483_648 ||
+    workItem.priorityWeight > 2_147_483_647
+  ) {
+    throw new WorkGraphError(
+      "invalid_work_item_priority_weight",
+      `Work item ${workItem.id} must have a 32-bit integer priority weight.`,
+    );
+  }
 };
 
 const normalizeWorkItem = (input: WorkItemInput): WorkItem => {
@@ -90,6 +100,7 @@ const normalizeWorkItem = (input: WorkItemInput): WorkItem => {
   }
 
   const rank = input.rank ?? null;
+  const priorityWeight = input.priorityWeight ?? 0;
 
   return {
     id: input.id,
@@ -97,6 +108,7 @@ const normalizeWorkItem = (input: WorkItemInput): WorkItem => {
     lifecycle,
     parentId,
     rank,
+    priorityWeight,
   };
 };
 
