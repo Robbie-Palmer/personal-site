@@ -11,8 +11,11 @@ interface PriorityKey {
   readonly weight: bigint;
 }
 
-const compareText = (left: string, right: string): number =>
-  left < right ? -1 : left > right ? 1 : 0;
+const compareText = (left: string, right: string): number => {
+  if (left < right) return -1;
+  if (left > right) return 1;
+  return 0;
+};
 
 const comparePathSegment = (
   left: PriorityPathSegment,
