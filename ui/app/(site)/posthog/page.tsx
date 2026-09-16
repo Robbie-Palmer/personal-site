@@ -392,27 +392,29 @@ export default function PostHogApplicationPage() {
         className="scroll-mt-20 border-b-2 border-[var(--hog-ink)] bg-[var(--hog-ink)] text-[#fffdf8]"
       >
         <div className="mx-auto grid max-w-7xl gap-14 px-5 py-24 sm:px-8 lg:grid-cols-[0.9fr_1.1fr] lg:px-12">
-          <div>
+          <div className="min-w-0">
             <p className="text-xs font-black uppercase tracking-[0.2em] text-[var(--hog-yellow)]">
               The specific weirdness
             </p>
-            <h2 className="mt-3 text-4xl font-black tracking-[-0.04em] sm:text-6xl">
+            <h2 className="mt-3 break-words text-4xl font-black tracking-[-0.04em] sm:text-6xl">
               The subjects jump. The obsession does not.
             </h2>
             <blockquote
               className={cn(
                 styles.weirdQuote,
-                "mt-10 p-6 text-2xl font-black leading-tight sm:p-8 sm:text-3xl",
+                "mt-10 w-full max-w-full p-6 text-2xl font-black leading-tight sm:p-8 sm:text-3xl",
               )}
             >
-              <p>&ldquo;{posthogApplication.weirdness.quote}&rdquo;</p>
+              <p className="break-words">
+                &ldquo;{posthogApplication.weirdness.quote}&rdquo;
+              </p>
               <footer className="mt-5 text-sm font-bold">
                 {posthogApplication.weirdness.attribution}
               </footer>
             </blockquote>
           </div>
 
-          <div className="flex flex-col justify-center">
+          <div className="flex min-w-0 flex-col justify-center">
             <p className="text-2xl font-black leading-snug sm:text-3xl">
               {posthogApplication.weirdness.intro}
             </p>
@@ -455,7 +457,7 @@ export default function PostHogApplicationPage() {
             </div>
           </div>
 
-          <div className="mt-8 border-t-2 border-white/25 pt-12 lg:col-span-2">
+          <div className="mt-8 min-w-0 border-t-2 border-white/25 pt-12 lg:col-span-2">
             <div className="grid gap-6 lg:grid-cols-[0.8fr_1.2fr] lg:items-end">
               <div>
                 <p className="text-xs font-black uppercase tracking-[0.2em] text-[var(--hog-blue)]">
@@ -478,7 +480,7 @@ export default function PostHogApplicationPage() {
             </div>
           </div>
 
-          <div className="mt-10 lg:col-span-2">
+          <div className="mt-10 min-w-0 lg:col-span-2">
             <div className="mb-8 flex flex-wrap items-end justify-between gap-4 border-b-2 border-white/25 pb-5">
               <div>
                 <p className="text-xs font-black uppercase tracking-[0.2em] text-[var(--hog-red)]">
