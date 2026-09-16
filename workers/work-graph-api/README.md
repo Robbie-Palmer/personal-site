@@ -49,9 +49,10 @@ creates a mode-0600 temporary Wrangler config. It unlinks that file on exit.
 Terraform's secure helper installs the database password in Hyperdrive before
 this step. The Worker has no database secret.
 
-CI performs the same sequence after changes reach `main`. The production
-GitHub environment should require review until the first deploy and restore
-test have passed.
+CI performs the same sequence after changes reach `main`. Restrict the
+`production-work-graph` environment to protected branches without required
+reviewers so a merge automatically runs migrations, deploys the Worker, and
+smoke-tests production.
 
 ## Client use
 

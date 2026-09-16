@@ -66,7 +66,8 @@ Create these before the first apply:
   `prd_work_graph`. The separate project avoids coupling Work Graph access to
   the personal-site runtime configs.
 - GitHub environments `production-work-graph-infra` and
-  `production-work-graph`. Require review on both environments.
+  `production-work-graph`. Restrict both environments to protected branches
+  without required reviewers so merges to `main` deploy automatically.
 - A Doppler service token that can update `prd_work_graph`. Store it only as
   masked `WORK_GRAPH_DOPPLER_SERVICE_TOKEN` in `prd_work_graph_infra`.
 - `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, `NEON_API_KEY`,
@@ -91,9 +92,10 @@ scripts/sync-doppler-github-envs.sh production-work-graph-infra
 ```
 
 Pull-request CI validates formatting, Terraform configuration, shell syntax,
-and the credential boundary without provider credentials. Run live plans only
-from a trusted checkout or dispatch the protected infrastructure workflow from
-`main` with `apply` disabled.
+and the credential boundary without provider credentials. Merges that change
+`infra/work-graph/**` create and apply a saved Terraform plan automatically
+from protected `main`. Manual dispatch from `main` reruns the same
+plan-and-apply flow.
 
 ## Plan and apply
 
@@ -105,8 +107,10 @@ mise run //infra/work-graph:check
 mise run //infra/work-graph:apply
 ```
 
-Review `.planfile` before applying. The first apply returns IDs and other public
-metadata in its outputs. It writes these runtime values to `prd_work_graph`:
+When applying locally, review `.planfile` before applying. The protected
+main-branch workflow records its plan in the run summary and applies that same
+plan automatically. The first apply returns IDs and other public metadata in
+its outputs. It writes these runtime values to `prd_work_graph`:
 
 - `DATABASE_URL`
 - `WORK_GRAPH_HYPERDRIVE_ID`
