@@ -16,7 +16,7 @@ export const posthogApplication = {
   description:
     "A speculative application to PostHog from Robbie Palmer, backed by working product infrastructure, public decisions, and shipped code.",
   thesis: [
-    "My route into this problem started before I had the phrase for it. I have been building a product loop in public: product and operational signals become prioritised work, agents execute under explicit authority, automated review checks the change, and delivery evidence closes the task.",
+    "I was building pieces of a self-driving product loop before I knew PostHog used that phrase. Product and operational signals become prioritised work. Agents execute with explicit authority. Automated review checks the result. Work Graph marks the task complete only after it records the merged pull request and successful deployment.",
     "You are assembling the context and tools that let a product participate in that loop. I have been building the engineering system around it. That overlap is why I am applying to PostHog.",
   ],
   loop: [

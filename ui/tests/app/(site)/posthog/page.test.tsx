@@ -36,6 +36,14 @@ describe("PostHog application page", () => {
       }),
     ).toBeVisible();
     expect(
+      screen.getByText(
+        /a record of whether each change was merged and deployed/i,
+      ),
+    ).toBeVisible();
+    expect(
+      screen.getByText(/before I knew PostHog used that phrase/i),
+    ).toBeVisible();
+    expect(
       screen.getByRole("heading", {
         name: "The work is public. You can inspect it.",
       }),

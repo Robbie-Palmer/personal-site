@@ -156,9 +156,10 @@ export default function PostHogApplicationPage() {
           </a>
           <p className="mt-8 max-w-2xl text-lg font-medium leading-8 sm:text-xl">
             You are building the context and tools that let products understand
-            what is happening and act on it. I have been building the loop
-            around that thesis: prioritised work, bounded agents, strong review,
-            and evidence that the change reached production.
+            what is happening and act on it. I have been building the
+            engineering system around that idea: work chosen from live
+            priorities, agents operating within explicit limits, automated code
+            review, and a record of whether each change was merged and deployed.
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
             <a
