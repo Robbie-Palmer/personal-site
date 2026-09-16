@@ -94,7 +94,8 @@ scripts/sync-doppler-github-envs.sh production-work-graph-infra
 Pull-request CI validates formatting, Terraform configuration, shell syntax,
 and the credential boundary without provider credentials. Merges that change
 `infra/work-graph/**` create and apply a saved Terraform plan automatically
-from protected `main`. Manual dispatch reruns the same plan-and-apply flow.
+from protected `main`. Manual dispatch from `main` reruns the same
+plan-and-apply flow.
 
 ## Plan and apply
 
