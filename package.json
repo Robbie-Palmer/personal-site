@@ -1,10 +1,10 @@
 {
-  "name": "personal-site",
+  "name": "hq",
   "version": "0.1.0",
   "packageManager": "pnpm@12.4.1",
   "private": true,
   "type": "module",
-  "description": "Personal website mono-repo - root package for repo-wide tooling",
+  "description": "Root package for projects, writing, infrastructure, and homelab",
   "dependencies": {
     "observability": "workspace:*",
     "recipe-domain": "workspace:*",

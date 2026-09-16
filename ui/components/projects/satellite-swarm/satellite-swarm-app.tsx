@@ -38,7 +38,7 @@ export function SatelliteSwarmApp() {
             </Button>
             <Button asChild variant="outline">
               <a
-                href="https://github.com/Robbie-Palmer/personal-site/tree/main/cpp/autonomic-satellite-swarm"
+                href="https://github.com/Robbie-Palmer/hq/tree/main/cpp/autonomic-satellite-swarm"
                 target="_blank"
                 rel="noopener noreferrer"
               >

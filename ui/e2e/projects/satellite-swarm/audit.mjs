@@ -217,7 +217,7 @@ async function auditProfile(browser, profile) {
     );
 
     const revisionLink = page.locator(
-      'a[href^="https://github.com/Robbie-Palmer/personal-site/commit/"]',
+      'a[href^="https://github.com/Robbie-Palmer/hq/commit/"]',
     );
     await revisionLink.waitFor();
     const sourceRevision = (await revisionLink.textContent())?.trim() ?? "";
