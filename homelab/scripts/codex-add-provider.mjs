@@ -165,9 +165,10 @@ if (!isRecord(settings)) {
   fail(`${base.settingsPath} must contain a JSON object`);
 }
 
-const instances = isRecord(settings.providerInstances)
-  ? settings.providerInstances
-  : (settings.providerInstances = {});
+if (!isRecord(settings.providerInstances)) {
+  settings.providerInstances = {};
+}
+const instances = settings.providerInstances;
 const existing = isRecord(instances[options.name]) ? instances[options.name] : {};
 
 const usedAccents = new Set(
