@@ -66,7 +66,8 @@ Create these before the first apply:
   `prd_work_graph`. The separate project avoids coupling Work Graph access to
   the personal-site runtime configs.
 - GitHub environments `production-work-graph-infra` and
-  `production-work-graph`. Require review on both environments.
+  `production-work-graph`. Require review on the infrastructure environment.
+  Let the application environment deploy protected `main` automatically.
 - A Doppler service token that can update `prd_work_graph`. Store it only as
   masked `WORK_GRAPH_DOPPLER_SERVICE_TOKEN` in `prd_work_graph_infra`.
 - `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, `NEON_API_KEY`,
