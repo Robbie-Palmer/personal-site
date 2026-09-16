@@ -56,11 +56,14 @@ describe("agent markdown generation", () => {
 
     expect(application).toContain("# I want to help products drive themselves");
     expect(application).toContain("## Direct evidence");
-    expect(application).toContain("## The specific weirdness");
-    expect(application).toContain("Correct. That is the point");
-    expect(application).toContain("### What the weirdness looks like");
+    expect(application).toContain("## What the weirdness looks like");
+    expect(application).toContain(
+      "## The subjects vary. The passion for building is consistent.",
+    );
     expect(application).toContain("/images/posthog/knowledge-graph.png");
-    expect(application).toContain("I used it to pick up this page");
+    expect(application).toContain(
+      "I used it to coordinate the work on this page",
+    );
     expect(application).toContain("/projects/agentic-code-review");
     expect(read("llms.txt")).toContain("https://robbiepalmer.me/posthog.md");
   });
@@ -306,5 +309,21 @@ describe("agent markdown generation", () => {
     expect(headers).toContain("Strict-Transport-Security: max-age=31536000");
     expect(headers).toContain("X-Content-Type-Options: nosniff");
     expect(headers).toContain("X-Frame-Options: DENY");
+  });
+
+  it("merges the PostHog alternate link into its security exception", () => {
+    const headers = read("_headers");
+    const posthogRules = headers.match(/^\/posthog$/gm) ?? [];
+    const posthogRule = headers.split("/posthog\n")[1]?.split("\n\n")[0];
+
+    expect(posthogRules).toHaveLength(1);
+    expect(posthogRule).toContain("! X-Frame-Options");
+    expect(posthogRule).toContain("frame-ancestors 'self'");
+    expect(posthogRule).toContain("https://a.storyblok.com");
+    expect(posthogRule).toContain("https://res.cloudinary.com");
+    expect(posthogRule).toContain("https://ugc.production.linktr.ee");
+    expect(posthogRule).toContain(
+      'Link: <https://robbiepalmer.me/posthog.md>; rel="alternate"; type="text/markdown"',
+    );
   });
 });

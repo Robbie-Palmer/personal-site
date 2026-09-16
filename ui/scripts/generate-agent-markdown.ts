@@ -1018,14 +1018,29 @@ function buildHeadersFile(pages: GeneratedPage[]): string {
   const entryPages = pages.filter(
     (page) => page.htmlPath.split("/").filter(Boolean).length <= 1,
   );
-  const blocks = entryPages.map((page) =>
-    [
-      page.htmlPath,
-      `  Link: <${markdownUrl(page.htmlPath)}>; rel="alternate"; type="text/markdown"`,
-    ].join("\n"),
-  );
-  const baseHeaders = fs.readFileSync(BASE_HEADERS_PATH, "utf8").trimEnd();
-  return `${baseHeaders}\n${blocks.join("\n")}\n`;
+  let headers = fs.readFileSync(BASE_HEADERS_PATH, "utf8").trimEnd();
+
+  for (const page of entryPages) {
+    const linkHeader = `  Link: <${markdownUrl(page.htmlPath)}>; rel="alternate"; type="text/markdown"`;
+    const lines = headers.split("\n");
+    const existingRuleIndex = lines.findIndex(
+      (line) => line === page.htmlPath,
+    );
+
+    if (existingRuleIndex === -1) {
+      headers = `${headers}\n\n${page.htmlPath}\n${linkHeader}`;
+      continue;
+    }
+
+    const nextBlankLine = lines.findIndex(
+      (line, index) => index > existingRuleIndex && line === "",
+    );
+    const insertAt = nextBlankLine === -1 ? lines.length : nextBlankLine;
+    lines.splice(insertAt, 0, linkHeader);
+    headers = lines.join("\n");
+  }
+
+  return `${headers}\n`;
 }
 
 function writeFile(relativePath: string, content: string): void {
