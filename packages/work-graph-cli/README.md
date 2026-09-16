@@ -85,9 +85,17 @@ work-graph claim cli-8 --worker-id agent-a
 work-graph show cli-8
 work-graph note cli-8 --lease-id "$LEASE_ID" --epoch 1 --content "HTTP tests pass"
 work-graph renew "$LEASE_ID" --epoch 1 --lease-duration-seconds 600
-work-graph release cli-8 --lease-id "$LEASE_ID" --epoch 1
+work-graph release cli-8 \
+  --lease-id "$LEASE_ID" \
+  --epoch 1 \
+  --merge-evidence https://github.com/example/work-graph/pull/8 \
+  --deployment-evidence https://work-graph.example.com/health
 work-graph cancel cli-8 --lease-id "$LEASE_ID" --epoch 1
 ```
+
+`release` is the successful terminal transition. For repository-backed work,
+use it only after the change is merged and deployed. The command requires
+evidence for both. It does not return unfinished work to the queue.
 
 `scope put` uses its positional ID as the stable source key. Repeating it
 replaces the title, URLs, source revision, rank, and priority weight while

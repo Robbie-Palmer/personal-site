@@ -17,6 +17,7 @@ export type WorkGraphErrorCode =
   | "invalid_attention_resolution"
   | "invalid_attention_resolution_id"
   | "invalid_child_rank"
+  | "invalid_completion_evidence"
   | "invalid_decomposition"
   | "invalid_idempotency_key"
   | "invalid_knowledge_scope_id"

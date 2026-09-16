@@ -23,6 +23,11 @@ const repository = new WorkGraphRepository(db);
 const recordId = (suffix: number): string =>
   `00000000-0000-4000-8000-${suffix.toString().padStart(12, "0")}`;
 
+const completionEvidence = {
+  mergeEvidence: "https://github.com/example/work-graph/pull/1",
+  deploymentEvidence: "https://work-graph.example.test/health",
+} as const;
+
 const dependency = (
   dependentWorkItemId: string,
   blockerWorkItemId: string,
@@ -93,7 +98,8 @@ beforeAll(async () => {
   `);
   const locks = await db
     .select({ id: schema.graphMutationLock.id })
-    .from(schema.graphMutationLock);
+    .from(schema.graphMutationLock)
+    .orderBy(schema.graphMutationLock.id);
   const lifecycleValues = await db.execute<{ enumlabel: string }>(sql`
     select enumlabel
     from pg_enum
@@ -116,10 +122,11 @@ beforeAll(async () => {
     order by enumsortorder
   `);
 
-  expect(migrationCount?.count).toBe(7);
+  expect(migrationCount?.count).toBe(8);
   expect(tables.map(({ table_name }) => table_name)).toEqual([
     "attention_requests",
     "attention_resolutions",
+    "events",
     "graph_mutation_locks",
     "idempotency_keys",
     "knowledge_scope_relationships",
@@ -130,7 +137,7 @@ beforeAll(async () => {
     "work_item_hierarchy",
     "work_items",
   ]);
-  expect(locks).toEqual([{ id: "global" }]);
+  expect(locks).toEqual([{ id: "event-sequence" }, { id: "global" }]);
   expect(lifecycleValues.map(({ enumlabel }) => enumlabel)).toEqual([
     "open",
     "released",
@@ -612,7 +619,7 @@ describe("transactional decomposition", () => {
       workItemId: "parent",
       children: [{ id: "later", title: "Later", rank: 20 }],
     });
-    await repository.releaseWorkItem("later");
+    await repository.releaseWorkItem("later", completionEvidence);
     const secondLease = await repository.claimWorkItem({
       leaseId: recordId(224),
       workerId: "worker-a",
@@ -654,7 +661,7 @@ describe("transactional decomposition", () => {
       expect.objectContaining({ rank: 10 }),
     );
 
-    await repository.releaseWorkItem("first");
+    await repository.releaseWorkItem("first", completionEvidence);
     const thirdLease = await repository.claimWorkItem({
       leaseId: recordId(225),
       workerId: "worker-a",
@@ -705,6 +712,17 @@ describe("transactional decomposition", () => {
 });
 
 beforeEach(async () => {
+  await db.transaction(async (transaction) => {
+    await transaction.execute(
+      sql`alter table ${schema.event} disable trigger events_immutable_truncate`,
+    );
+    await transaction.execute(
+      sql`truncate table ${schema.event} restart identity`,
+    );
+    await transaction.execute(
+      sql`alter table ${schema.event} enable trigger events_immutable_truncate`,
+    );
+  });
   await db.transaction(async (transaction) => {
     await transaction.delete(schema.attentionResolution);
     await transaction.delete(schema.attentionRequest);
@@ -929,7 +947,7 @@ describe("lease-backed claiming", () => {
       }),
     ).resolves.toBeNull();
 
-    await repository.releaseWorkItem("child");
+    await repository.releaseWorkItem("child", completionEvidence);
     await repository.cancelWorkItem("blocker");
 
     const parentLease = await repository.claimWorkItem({
@@ -987,7 +1005,7 @@ describe("lease-backed claiming", () => {
       }),
     ).resolves.toBeNull();
 
-    await repository.releaseWorkItem("blocker");
+    await repository.releaseWorkItem("blocker", completionEvidence);
     await expect(
       repository.claimWorkItem({
         leaseId: leaseId(6),
@@ -1168,6 +1186,7 @@ describe("lease-backed claiming", () => {
         epoch: firstLease.epoch,
         workItemId: "work",
         outcome: "released",
+        ...completionEvidence,
       }),
     ).rejects.toEqual(
       expect.objectContaining<Partial<WorkGraphError>>({
@@ -1272,7 +1291,9 @@ describe("lease-backed claiming", () => {
     });
     if (!claimed) throw new Error("Expected the claim to succeed.");
 
-    await expect(repository.releaseWorkItem("work")).rejects.toEqual(
+    await expect(
+      repository.releaseWorkItem("work", completionEvidence),
+    ).rejects.toEqual(
       expect.objectContaining<Partial<WorkGraphError>>({
         code: "work_item_has_current_lease",
       }),
@@ -1283,6 +1304,7 @@ describe("lease-backed claiming", () => {
       epoch: claimed.epoch,
       workItemId: "work",
       outcome: "released",
+      ...completionEvidence,
     });
 
     expect(completed.outcome).toBe("released");
@@ -1342,7 +1364,7 @@ describe("lease-backed claiming", () => {
     await itemLocked;
 
     const terminationResult = Promise.allSettled([
-      repository.releaseWorkItem("work"),
+      repository.releaseWorkItem("work", completionEvidence),
     ]);
     try {
       await waitForDatabaseLock();
@@ -1393,7 +1415,9 @@ describe("lease-backed claiming", () => {
 
   it("fails closed when claim coordination cannot lock the graph", async () => {
     await repository.createWorkItem({ id: "work", title: "Unclaimable work" });
-    await db.delete(schema.graphMutationLock);
+    await db
+      .delete(schema.graphMutationLock)
+      .where(eq(schema.graphMutationLock.id, "global"));
 
     try {
       await expect(
@@ -1411,6 +1435,17 @@ describe("lease-backed claiming", () => {
 
   it("rejects malformed lease commands before reaching PostgreSQL", async () => {
     await repository.createWorkItem({ id: "work", title: "Valid work" });
+
+    await expect(
+      repository.releaseWorkItem("work", {
+        mergeEvidence: " ",
+        deploymentEvidence: completionEvidence.deploymentEvidence,
+      }),
+    ).rejects.toEqual(
+      expect.objectContaining<Partial<WorkGraphError>>({
+        code: "invalid_completion_evidence",
+      }),
+    );
 
     await expect(
       repository.claimWorkItem({
@@ -1451,6 +1486,7 @@ describe("lease-backed claiming", () => {
         epoch: 1,
         workItemId: "work",
         outcome: "released",
+        ...completionEvidence,
       }),
     ).rejects.toEqual(
       expect.objectContaining<Partial<WorkGraphError>>({
@@ -1915,7 +1951,7 @@ describe("Work Graph PostgreSQL persistence", () => {
     expect(blocked.find(({ id }) => id === "parent")?.stage).toBe("blocked");
     expect(blocked.find(({ id }) => id === "child")?.stage).toBe("blocked");
 
-    await repository.releaseWorkItem("child");
+    await repository.releaseWorkItem("child", completionEvidence);
     await repository.cancelWorkItem("blocker");
 
     const ready = await repository.getWorkItem("parent");
@@ -1936,7 +1972,7 @@ describe("Work Graph PostgreSQL persistence", () => {
     await repository.createWorkItem({ id: "released", title: "Released" });
     await repository.createWorkItem({ id: "cancelled", title: "Cancelled" });
 
-    await repository.releaseWorkItem("released");
+    await repository.releaseWorkItem("released", completionEvidence);
     await repository.cancelWorkItem("cancelled");
 
     const graph = await repository.load();
@@ -1963,7 +1999,7 @@ describe("Work Graph PostgreSQL persistence", () => {
       title: "Stable work",
       parentId: "old-parent",
     });
-    await repository.releaseWorkItem("work");
+    await repository.releaseWorkItem("work", completionEvidence);
 
     await repository.reparentWorkItem("work", "new-parent");
 
@@ -2026,7 +2062,9 @@ describe("Work Graph PostgreSQL persistence", () => {
         code: "invalid_parent_id",
       }),
     );
-    await expect(repository.releaseWorkItem("missing")).rejects.toEqual(
+    await expect(
+      repository.releaseWorkItem("missing", completionEvidence),
+    ).rejects.toEqual(
       expect.objectContaining<Partial<WorkGraphError>>({
         code: "work_item_not_found",
       }),
@@ -2119,7 +2157,9 @@ describe("atomic graph mutations", () => {
   it("fails closed when the graph-mutation lock is missing", async () => {
     await repository.createWorkItem({ id: "a", title: "A" });
     await repository.createWorkItem({ id: "b", title: "B" });
-    await db.delete(schema.graphMutationLock);
+    await db
+      .delete(schema.graphMutationLock)
+      .where(eq(schema.graphMutationLock.id, "global"));
 
     try {
       await expect(
@@ -2236,5 +2276,245 @@ describe("atomic graph mutations", () => {
         code: "dependency_not_found",
       }),
     );
+  });
+});
+
+describe("immutable event history", () => {
+  it("records graph changes once and lists them by work item and sequence", async () => {
+    const createOptions = { idempotencyKey: recordId(901) };
+    await repository.createWorkItem(
+      { id: "parent", title: "Parent" },
+      createOptions,
+    );
+    await repository.createWorkItem(
+      { id: "parent", title: "Parent" },
+      createOptions,
+    );
+    await repository.createWorkItem({
+      id: "child",
+      title: "Child",
+      parentId: "parent",
+    });
+    await repository.reparentWorkItem("child", null);
+    await repository.addDependency(dependency("child", "parent"));
+    await repository.removeDependency(dependency("child", "parent"));
+
+    const childEvents = await repository.listEvents({ workItemId: "child" });
+    expect(childEvents.map(({ type }) => type)).toEqual([
+      "work_item.created",
+      "work_item.reparented",
+      "dependency.added",
+      "dependency.removed",
+    ]);
+    expect(childEvents[0]?.data).toEqual({
+      title: "Child",
+      parentId: "parent",
+      rank: null,
+    });
+
+    const afterFirst = await repository.listEvents({
+      afterSequence: childEvents[0]?.sequence,
+      limit: 2,
+    });
+    expect(afterFirst).toHaveLength(2);
+    expect(
+      afterFirst.every(
+        ({ sequence }) => sequence > (childEvents[0]?.sequence ?? 0),
+      ),
+    ).toBe(true);
+    expect(
+      (await repository.listEvents()).filter(
+        ({ type, workItemId }) =>
+          type === "work_item.created" && workItemId === "parent",
+      ),
+    ).toHaveLength(1);
+  });
+
+  it("keeps sequence cursors stable across concurrent transaction commits", async () => {
+    const concurrentDb = createDb(databaseURL);
+    let markFirstInsertComplete: () => void = () => undefined;
+    const firstInsertComplete = new Promise<void>((resolve) => {
+      markFirstInsertComplete = resolve;
+    });
+    let allowFirstCommit: () => void = () => undefined;
+    const firstMayCommit = new Promise<void>((resolve) => {
+      allowFirstCommit = resolve;
+    });
+
+    const firstTransaction = db.transaction(async (transaction) => {
+      await transaction
+        .insert(schema.event)
+        .values({ type: "test.first", data: {} });
+      markFirstInsertComplete();
+      await firstMayCommit;
+    });
+    await firstInsertComplete;
+
+    const secondTransaction = concurrentDb.transaction(async (transaction) => {
+      await transaction
+        .insert(schema.event)
+        .values({ type: "test.second", data: {} });
+    });
+
+    try {
+      await waitForDatabaseLock();
+      await expect(repository.listEvents()).resolves.toEqual([]);
+    } finally {
+      allowFirstCommit();
+      await Promise.all([firstTransaction, secondTransaction]);
+      await closeDb(concurrentDb);
+    }
+
+    const storedEvents = await repository.listEvents();
+    expect(storedEvents.map(({ type }) => type)).toEqual([
+      "test.first",
+      "test.second",
+    ]);
+    await expect(
+      repository.listEvents({ afterSequence: storedEvents[0]?.sequence }),
+    ).resolves.toEqual([storedEvents[1]]);
+  });
+
+  it("records lease, attention, and lifecycle changes", async () => {
+    await repository.createWorkItem({ id: "work", title: "Work" });
+    const firstLease = await repository.claimWorkItem({
+      leaseId: recordId(910),
+      workerId: "worker-a",
+      leaseDurationSeconds: 300,
+      workItemId: "work",
+    });
+    if (!firstLease) throw new Error("Expected the first claim to succeed.");
+    await repository.renewLease({
+      leaseId: firstLease.id,
+      epoch: firstLease.epoch,
+      leaseDurationSeconds: 600,
+    });
+    await repository.createAttentionRequest({
+      id: recordId(911),
+      workItemId: "work",
+      leaseId: firstLease.id,
+      epoch: firstLease.epoch,
+      kind: "context",
+      question: "Where is the brief?",
+      blocking: false,
+    });
+    await repository.createAttentionRequest({
+      id: recordId(912),
+      workItemId: "work",
+      leaseId: firstLease.id,
+      epoch: firstLease.epoch,
+      kind: "decision",
+      question: "Ship this change?",
+      blocking: true,
+    });
+    await repository.resolveAttentionRequest({
+      id: recordId(913),
+      attentionRequestId: recordId(912),
+      resolution: "Ship it.",
+    });
+    const secondLease = await repository.claimWorkItem({
+      leaseId: recordId(914),
+      workerId: "worker-b",
+      leaseDurationSeconds: 300,
+      workItemId: "work",
+    });
+    if (!secondLease) throw new Error("Expected the second claim to succeed.");
+    await repository.terminateClaimedWorkItem({
+      leaseId: secondLease.id,
+      epoch: secondLease.epoch,
+      workItemId: "work",
+      outcome: "released",
+      ...completionEvidence,
+    });
+
+    const events = await repository.listEvents({ workItemId: "work" });
+    expect(events.map(({ type }) => type)).toEqual([
+      "work_item.created",
+      "lease.claimed",
+      "lease.renewed",
+      "attention.requested",
+      "attention.requested",
+      "lease.ended",
+      "attention.resolved",
+      "lease.claimed",
+      "lease.ended",
+      "work_item.lifecycle_changed",
+    ]);
+    expect(events.at(-1)?.data).toEqual({
+      from: "open",
+      to: "released",
+      ...completionEvidence,
+    });
+  });
+
+  it("records decomposition graph and lease changes in the same transaction", async () => {
+    await repository.createWorkItem({ id: "parent", title: "Parent" });
+    const parentLease = await repository.claimWorkItem({
+      leaseId: recordId(920),
+      workerId: "worker-a",
+      leaseDurationSeconds: 300,
+      workItemId: "parent",
+    });
+    if (!parentLease) throw new Error("Expected the parent claim to succeed.");
+    await repository.decomposeClaimedWorkItem({
+      leaseId: parentLease.id,
+      epoch: parentLease.epoch,
+      workItemId: "parent",
+      children: [
+        { id: "first", title: "First", rank: 1 },
+        { id: "second", title: "Second", rank: 2 },
+      ],
+      dependencies: [dependency("second", "first")],
+      claim: {
+        workItemId: "first",
+        leaseId: recordId(921),
+        leaseDurationSeconds: 300,
+      },
+    });
+
+    expect((await repository.listEvents()).map(({ type }) => type)).toEqual([
+      "work_item.created",
+      "lease.claimed",
+      "work_item.created",
+      "work_item.created",
+      "dependency.added",
+      "work_item.decomposed",
+      "lease.ended",
+      "lease.claimed",
+    ]);
+  });
+
+  it("rejects updates, deletes, and truncation at the database boundary", async () => {
+    await repository.createWorkItem({ id: "work", title: "Work" });
+    const [storedEvent] = await repository.listEvents();
+    if (!storedEvent) throw new Error("Expected a creation event.");
+
+    expect(
+      (
+        await rejectedDatabaseError(
+          db
+            .update(schema.event)
+            .set({ type: "work_item.reparented" })
+            .where(eq(schema.event.sequence, storedEvent.sequence)),
+        )
+      )?.code,
+    ).toBe("55000");
+    expect(
+      (
+        await rejectedDatabaseError(
+          db
+            .delete(schema.event)
+            .where(eq(schema.event.sequence, storedEvent.sequence)),
+        )
+      )?.code,
+    ).toBe("55000");
+    expect(
+      (
+        await rejectedDatabaseError(
+          db.execute(sql`truncate table ${schema.event}`),
+        )
+      )?.code,
+    ).toBe("55000");
+    await expect(repository.listEvents()).resolves.toEqual([storedEvent]);
   });
 });

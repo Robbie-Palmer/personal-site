@@ -242,9 +242,9 @@ export const createWorkItemNote = <ThrowOnError extends boolean = false>(options
 });
 
 /**
- * Release claimed work at its fenced lease epoch
+ * Complete merged and deployed work at its fenced lease epoch
  *
- * Ends the current lease and changes the named work item's stored lifecycle to released.
+ * Ends the current lease and changes the named work item's stored lifecycle to released only when the request identifies the merge and deployment evidence.
  */
 export const createWorkItemRelease = <ThrowOnError extends boolean = false>(options: Options<CreateWorkItemReleaseData, ThrowOnError>): RequestResult<CreateWorkItemReleaseResponses, CreateWorkItemReleaseErrors, ThrowOnError> => options.client.post<CreateWorkItemReleaseResponses, CreateWorkItemReleaseErrors, ThrowOnError>({
     url: '/api/work-items/{workItemId}/releases',

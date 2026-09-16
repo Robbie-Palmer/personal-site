@@ -24,6 +24,10 @@ const attentionRequestId = "00000000-0000-4000-8000-000000000005";
 const attentionResolutionId = "00000000-0000-4000-8000-000000000006";
 const secondAttentionRequestId = "00000000-0000-4000-8000-000000000007";
 const childLeaseId = "00000000-0000-4000-8000-000000000008";
+const completionEvidence = {
+  mergeEvidence: "https://github.com/example/work-graph/pull/1",
+  deploymentEvidence: "https://work-graph.example.test/health",
+} as const;
 
 const lease = (workItemId = "ready"): StoredLease => ({
   id: leaseId,
@@ -852,7 +856,7 @@ describe("Given a worker managing a lease", () => {
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ epoch: 1, leaseDurationSeconds: 600 }),
     });
-    const releaseResponse = await app.request(
+    const releaseWithoutEvidenceResponse = await app.request(
       "/api/work-items/ready/releases",
       {
         method: "POST",
@@ -860,9 +864,32 @@ describe("Given a worker managing a lease", () => {
         body: JSON.stringify({ leaseId, epoch: 1 }),
       },
     );
+    const releaseWithBlankEvidenceResponse = await app.request(
+      "/api/work-items/ready/releases",
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          leaseId,
+          epoch: 1,
+          mergeEvidence: " ",
+          deploymentEvidence: completionEvidence.deploymentEvidence,
+        }),
+      },
+    );
+    const releaseResponse = await app.request(
+      "/api/work-items/ready/releases",
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ leaseId, epoch: 1, ...completionEvidence }),
+      },
+    );
 
     expect(claimResponse.status).toBe(201);
     expect(renewResponse.status).toBe(200);
+    expect(releaseWithoutEvidenceResponse.status).toBe(422);
+    expect(releaseWithBlankEvidenceResponse.status).toBe(422);
     expect(releaseResponse.status).toBe(201);
     expect(repository.claimWorkItem).toHaveBeenCalledWith({
       leaseId,
@@ -880,6 +907,7 @@ describe("Given a worker managing a lease", () => {
       epoch: 1,
       workItemId: "ready",
       outcome: "released",
+      ...completionEvidence,
     });
     expect(await responseJson(releaseResponse)).toEqual(
       expect.objectContaining({

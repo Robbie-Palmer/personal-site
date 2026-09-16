@@ -210,6 +210,11 @@ Adding children to claimed work makes the parent wait. Once those children
 terminate, the parent can be claimed again for synthesis or completion. The
 system never terminates the parent automatically.
 
+Released work is successfully complete. Release is not a way to give up a
+lease or return unfinished work to the queue. For repository-backed work, the
+release transition requires evidence that the change was merged and deployed.
+A passing local build, a commit, or an open pull request does not qualify.
+
 The system needs a history of changes even if the main interface shows only
 current state. Otherwise an expired lease or rewritten plan can erase the
 context needed by the next actor.

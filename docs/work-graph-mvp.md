@@ -184,8 +184,8 @@ fixture-driven tests compare it with realistic queue-ordering cases. Ordinal
 ranks must not accidentally gain misleading arithmetic meaning.
 
 Once work is claimed, a newly higher-priority item does not pre-empt it. The
-worker continues until it releases, cancels, decomposes, requests attention,
-or loses a stale lease.
+worker continues until it completes the work, cancels it, decomposes it,
+requests attention, or loses a stale lease.
 
 ## Leases and workers
 
@@ -251,6 +251,13 @@ by stored lifecycle and projected stage. A lease may record either value as its
 outcome when that lease performed the terminal transition. The lease outcome
 remains immutable history rather than another source of current work-item
 state.
+
+`released` means successful completion. It never means returning unfinished
+work to the queue. Repository-backed work may move to `released` only after its
+change is merged and deployed. The release request must record evidence for
+both. Local verification, a commit, or an open pull request is not completion.
+Work that cannot reach completion stays open and uses attention, decomposition,
+cancellation, or lease expiry as appropriate.
 
 This avoids contradictory combinations such as a stored `ready` state with an
 unresolved blocker. Event history explains every transition.
@@ -318,6 +325,10 @@ The likely minimum relational model is:
 
 The schema can combine records where doing so preserves their semantics. Avoid
 generic relationship and metadata bags merely to reduce the table count.
+
+Event rows are append-only. The database rejects updates, deletes, and
+truncation, and serializes event inserts until commit. A sequence cursor can
+therefore advance without skipping a lower-sequence event that commits later.
 
 ## REST resources
 

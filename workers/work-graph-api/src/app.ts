@@ -356,6 +356,22 @@ const renewLeaseBodySchema = z
 const terminateWorkItemBodySchema = z
   .object({ leaseId: leaseIdSchema, epoch: leaseEpochSchema })
   .strict();
+const releaseWorkItemBodySchema = terminateWorkItemBodySchema
+  .extend({
+    mergeEvidence: z
+      .string()
+      .trim()
+      .min(1)
+      .max(MAX_TITLE_LENGTH)
+      .regex(/\S/),
+    deploymentEvidence: z
+      .string()
+      .trim()
+      .min(1)
+      .max(MAX_TITLE_LENGTH)
+      .regex(/\S/),
+  })
+  .strict();
 const decompositionChildSchema = z
   .object({
     id: identifierSchema,
@@ -835,21 +851,21 @@ const releaseWorkItemRoute = createRoute({
   method: "post",
   path: "/api/work-items/{workItemId}/releases",
   operationId: "createWorkItemRelease",
-  summary: "Release claimed work at its fenced lease epoch",
+  summary: "Complete merged and deployed work at its fenced lease epoch",
   description:
-    "Ends the current lease and changes the named work item's stored lifecycle to released.",
+    "Ends the current lease and changes the named work item's stored lifecycle to released only when the request identifies the merge and deployment evidence.",
   tags: ["work-items"],
   security: accessSecurity,
   request: {
     params: workItemParamsSchema,
     body: {
       required: true,
-      content: { "application/json": { schema: terminateWorkItemBodySchema } },
+      content: { "application/json": { schema: releaseWorkItemBodySchema } },
     },
   },
   responses: {
     201: {
-      description: "Work item released and lease ended",
+      description: "Completed work released and lease ended",
       content: { "application/json": { schema: leaseWithWorkItemSchema } },
     },
     ...standardErrors,
