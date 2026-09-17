@@ -326,7 +326,7 @@ export default function PostHogApplicationPage() {
                 className="size-4 text-[var(--hog-green)]"
                 aria-hidden="true"
               />
-              Remote role · no weekly London commute
+              Remote role
             </span>
           </div>
         </div>

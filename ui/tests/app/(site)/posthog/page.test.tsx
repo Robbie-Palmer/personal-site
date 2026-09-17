@@ -202,7 +202,7 @@ describe("PostHog application page", () => {
     expect(
       screen.getByText(/cannot commute to London every week/i),
     ).toBeVisible();
-    expect(screen.getByText(/no weekly London commute/i)).toBeVisible();
+    expect(screen.getByText(/^Remote role$/i)).toBeVisible();
     expect(screen.getByText(/producing more code than ever/i)).toBeVisible();
     expect(
       screen.queryByText(/I still want to write code/i),
