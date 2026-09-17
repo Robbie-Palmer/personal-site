@@ -15,12 +15,6 @@ export const posthogApplication = {
   title: "I want to help products drive themselves",
   description:
     "A speculative application to PostHog from Robbie Palmer, backed by working product infrastructure, public decisions, and shipped code.",
-  summary: {
-    heading: "The 30-second case",
-    paragraphs: [
-      "Ten years shipping ML-enabled products. Principal Software Engineer and Engineering Manager at the same time. I am applying through AI Research because self-driving product is the closest open role to what I want to build. I am not your Rust or CUDA model researcher. I am a Belfast-based product and systems engineer looking for a remote small team that turns product context into action.",
-    ],
-  },
   weirdness: {
     quote:
       "I am the sort of person who builds a recipe platform, an autonomic satellite-swarm simulation, cancer-research software, a Kubernetes-based homelab, and a Jira replacement at the same time.",
@@ -576,16 +570,6 @@ function markdownLink(link: PostHogApplicationLink): string {
 }
 
 export function posthogApplicationMarkdown(): string {
-  const summary = [
-    "## " + posthogApplication.summary.heading,
-    "",
-    ...posthogApplication.summary.paragraphs.flatMap((paragraph) => [
-      paragraph,
-      "",
-    ]),
-    "[Jump to where I might fit](#where-i-might-fit)",
-    "",
-  ];
   const agentPlatform = [
     "## " + posthogApplication.agentPlatform.heading,
     "",
@@ -779,7 +763,6 @@ export function posthogApplicationMarkdown(): string {
     "",
   ];
   const lines = [
-    ...summary,
     ...agentPlatform,
     ...workWeirdness,
     ...culture,

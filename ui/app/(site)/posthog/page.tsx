@@ -237,16 +237,6 @@ export default function PostHogApplicationPage() {
             I want to help products{" "}
             <span className={styles.scribble}>drive themselves</span>.
           </h1>
-          <div className="mt-8 max-w-2xl border-l-4 border-[var(--hog-red)] pl-5 sm:pl-6">
-            <p className="font-mono text-xs font-black uppercase tracking-[0.18em] text-[var(--hog-red)]">
-              {posthogApplication.summary.heading}
-            </p>
-            <div className="mt-4 space-y-4 text-lg font-bold leading-8">
-              {posthogApplication.summary.paragraphs.map((paragraph) => (
-                <p key={paragraph}>{paragraph}</p>
-              ))}
-            </div>
-          </div>
           <a
             className={cn(styles.heroTeaser, "group mt-7 block max-w-2xl")}
             href="#specific-weirdness"

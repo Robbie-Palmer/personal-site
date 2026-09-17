@@ -55,7 +55,6 @@ describe("agent markdown generation", () => {
     const application = read("posthog.md");
 
     expect(application).toContain("# I want to help products drive themselves");
-    expect(application).toContain("## The 30-second case");
     expect(application).toContain("## Direct evidence");
     expect(application).toContain("## What the weirdness looks like");
     expect(application).toContain(

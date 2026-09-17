@@ -35,10 +35,6 @@ describe("PostHog application page", () => {
         name: "I want to help products drive themselves.",
       }),
     ).toBeVisible();
-    expect(screen.getByText("The 30-second case")).toBeVisible();
-    expect(
-      screen.getByText(/Ten years shipping ML-enabled products/i),
-    ).toBeVisible();
     expect(
       screen.getByRole("link", { name: /See where I might fit/i }),
     ).toHaveAttribute("href", "#fit");
