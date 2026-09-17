@@ -15,12 +15,18 @@ export const posthogApplication = {
   title: "I want to help products drive themselves",
   description:
     "A speculative application to PostHog from Robbie Palmer, backed by working product infrastructure, public decisions, and shipped code.",
+  summary: {
+    heading: "The 30-second case",
+    paragraphs: [
+      "Ten years shipping ML-enabled products. Principal Software Engineer and Engineering Manager at the same time. I am applying through AI Research because self-driving product is the closest open role to what I want to build. I am not your Rust or CUDA model researcher. I am a Belfast-based product and systems engineer looking for a remote small team that turns product context into action.",
+    ],
+  },
   weirdness: {
     quote:
       "I am the sort of person who builds a recipe platform, an autonomic satellite-swarm simulation, cancer-research software, a Kubernetes-based homelab, and a Jira replacement at the same time.",
-    attribution: "One review of this repository",
+    attribution: "An AI reviewing this repository",
     intro:
-      "I like building things that do not fit neatly on a roadmap. I like discovering novelty. I like shipping value. I like locking in on a different perspective.",
+      "I build things that do not fit neatly on one roadmap. The subject can be cancer research, satellite coordination, household finance, recipes, or agent tooling. What hooks me is finding a new angle and shipping something useful.",
     threads: [
       "Data architecture",
       "Machine learning",
@@ -30,9 +36,9 @@ export const posthogApplication = {
       "A shared go-to-market stack",
     ],
     conclusion:
-      "The domains change; but the patterns repeat: model a real system, connect its data, make it adaptive, then build whatever infrastructure is missing. I see things that should exist and keep going until they do. I do not want the project list to look normal.",
+      "The domains change, but the patterns repeat: model a real system, connect its data, make it adaptive, then build whatever infrastructure is missing. I see things that should exist and keep going until they do. I do not want the project list to look normal.",
     posthogParallel:
-      "You encourage this kind of innovative exploration. DeskHog is a developer toy built for joy.",
+      "You make room for this kind of exploration. DeskHog is a developer toy built for joy.",
     posthogParallelHref: "https://posthog.com/deskhog",
     posthogParallelImage:
       "https://res.cloudinary.com/dmukukwp6/image/upload/deskhog_smiling_36bb2647ff",
@@ -463,9 +469,9 @@ linkStyle default stroke:#1d1f1f,stroke-width:2px`,
     ],
     publicWork: {
       eyebrow: "Make it public",
-      heading: "The repository hides nothing",
+      heading: "I build in public",
       description:
-        "It contains products, source code, architectural decisions, experiments, negative results, initiatives, and current thinking. I built it because I want these things to exist. And the best way to do that is by holding high standards in public, and enabling others to join you on the journey. Don't hide ideas; and encourage execution!",
+        "This repository contains products, source code, architectural decisions, experiments, negative results, initiatives, and current thinking. I publish the work because doing it in public raises the standard and gives other people enough context to contribute. Ideas are cheap. Execution should be inspectable.",
       href: "https://github.com/Robbie-Palmer/hq",
       linkLabel: "Inspect the repository",
     },
@@ -483,7 +489,7 @@ linkStyle default stroke:#1d1f1f,stroke-width:2px`,
         ". Agents have made ideas economical that once needed large teams and budgets.",
     },
     closing: {
-      heading: "Cracked-engineers",
+      heading: "Cracked engineers",
       paragraphs: [
         "PostHog writes about people whose work speaks for itself, who love the craft, who do not have a FAANG name on the CV, and who have held together failing companies. I have held together teams, products, and startups that lacked product-market fit, sufficient capital, or a healthy operating culture.",
         "I have spent years burning political capital to create this way of working. I would like to find out what I can do when it is the starting point, inside a company with real product-market fit.",
@@ -524,7 +530,7 @@ linkStyle default stroke:#1d1f1f,stroke-width:2px`,
   fit: [
     "I could be especially useful working on Self-Driving, AI Observability, Workflows, MCP and developer experience, or on another small team turning product context into action.",
     "I do my best work between disciplines: talking to users, building applied ML systems, shipping full-stack products, and helping a small team make good technical decisions.",
-    "Belfast is home. I have bought a house here, built a social life I care about, and have a wedding here next year. There is also a cat who would object to the move. I work on UK time and am looking for a remote role, with travel when being together matters.",
+    "Belfast is home. I have bought a house here, built a social life I care about, and have a wedding here next year. There is also a cat who would object to the move. I am looking for a remote role and cannot commute to London every week. I can travel when being together has a clear purpose.",
   ],
   ask: {
     headline: {
@@ -552,7 +558,7 @@ linkStyle default stroke:#1d1f1f,stroke-width:2px`,
     evidence:
       "Across pathology, document intelligence, logistics, and my own agent tooling, I have built the constituent parts of that plan, in different combinations, multiple times over: labelling suites and annotated datasets, data-preparation and sampling pipelines, trained models, evaluation datasets and benchmarks, production integrations, and model observability.",
     background:
-      "Not with a PhD, a strong background in maths, or experience in low-level Rust, C, or CUDA. But with relentless curiosity, fast learning, and a focus on delivering customer value.",
+      "I do not have a PhD, a deep mathematical research background, or low-level Rust, C, or CUDA experience. My case rests on ten years of choosing the right level of ML investment, shaping data and evaluation, and turning model capability into products people use.",
   },
   links: {
     experience: "/experience",
@@ -570,6 +576,16 @@ function markdownLink(link: PostHogApplicationLink): string {
 }
 
 export function posthogApplicationMarkdown(): string {
+  const summary = [
+    "## " + posthogApplication.summary.heading,
+    "",
+    ...posthogApplication.summary.paragraphs.flatMap((paragraph) => [
+      paragraph,
+      "",
+    ]),
+    "[Jump to where I might fit](#where-i-might-fit)",
+    "",
+  ];
   const agentPlatform = [
     "## " + posthogApplication.agentPlatform.heading,
     "",
@@ -763,6 +779,7 @@ export function posthogApplicationMarkdown(): string {
     "",
   ];
   const lines = [
+    ...summary,
     ...agentPlatform,
     ...workWeirdness,
     ...culture,
