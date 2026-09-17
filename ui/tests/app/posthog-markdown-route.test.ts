@@ -10,7 +10,7 @@ describe("PostHog application Markdown route", () => {
       "text/markdown; charset=utf-8",
     );
     expect(markdown).toContain("# I want to help products drive themselves");
-    expect(markdown).toContain("cannot commute to London every week");
+    expect(markdown).toContain("I love getting together in person");
     expect(
       markdown.indexOf(
         "## I was already building the machine around the coding agent.",

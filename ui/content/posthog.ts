@@ -524,7 +524,7 @@ linkStyle default stroke:#1d1f1f,stroke-width:2px`,
   fit: [
     "I could be especially useful working on Self-Driving, AI Observability, Workflows, MCP and developer experience, or on another small team turning product context into action.",
     "I do my best work between disciplines: talking to users, building applied ML systems, shipping full-stack products, and helping a small team make good technical decisions.",
-    "Belfast is home. I have bought a house here, built a social life I care about, and have a wedding here next year. There is also a cat who would object to the move. I am looking for a remote role and cannot commute to London every week. I can travel when being together has a clear purpose.",
+    "Belfast is home. I have bought a house here, built a social life I care about, and have a wedding here next year. There is also a cat who would object to the move. I am looking for a remote role. I love getting together in person and am happy to travel for it.",
   ],
   ask: {
     headline: {
