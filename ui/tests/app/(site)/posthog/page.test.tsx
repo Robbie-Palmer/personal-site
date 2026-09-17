@@ -36,6 +36,9 @@ describe("PostHog application page", () => {
       }),
     ).toBeVisible();
     expect(
+      screen.getByRole("link", { name: /See where I might fit/i }),
+    ).toHaveAttribute("href", "#fit");
+    expect(
       screen.getByText(/cancer diagnostics, logistics yards/i),
     ).toBeVisible();
     expect(screen.getByText(/Gödel → data mesh/i)).toBeVisible();
@@ -51,7 +54,9 @@ describe("PostHog application page", () => {
         name: "The subjects vary. The passion for building is consistent.",
       }),
     ).toBeVisible();
-    expect(screen.getByText(/I like discovering novelty/i)).toBeVisible();
+    expect(
+      screen.getByText(/What hooks me is finding a new angle/i),
+    ).toBeVisible();
     expect(screen.getByText(/DeskHog is a developer toy/i)).toBeVisible();
     expect(
       screen.getByRole("img", {
@@ -194,6 +199,10 @@ describe("PostHog application page", () => {
     ).toBeVisible();
     expect(screen.getByText(/Belfast is home/i)).toBeVisible();
     expect(screen.getByText(/cat who would object to the move/i)).toBeVisible();
+    expect(
+      screen.getByText(/I love getting together in person/i),
+    ).toBeVisible();
+    expect(screen.getByText(/^Remote role$/i)).toBeVisible();
     expect(screen.getByText(/producing more code than ever/i)).toBeVisible();
     expect(
       screen.queryByText(/I still want to write code/i),
@@ -243,8 +252,11 @@ describe("PostHog application page", () => {
     expect(screen.getByText(/lowest morale in the company/i)).toBeVisible();
     expect(
       screen.getByRole("heading", {
-        name: "Cracked-engineers",
+        name: "Cracked engineers",
       }),
+    ).toBeVisible();
+    expect(
+      screen.getByRole("heading", { name: "I build in public" }),
     ).toBeVisible();
     expect(
       screen.getByRole("link", {
@@ -277,7 +289,7 @@ describe("PostHog application page", () => {
     );
     expect(screen.getByText("Data labeling suite")).toBeVisible();
     expect(screen.getByText("Train the end-to-end agent")).toBeVisible();
-    expect(screen.getByText(/Not with a PhD/i)).toBeVisible();
+    expect(screen.getByText(/I do not have a PhD/i)).toBeVisible();
     expect(
       screen.getByRole("button", { name: /View the mobile layout/i }),
     ).toHaveClass("hidden", "lg:inline-flex");

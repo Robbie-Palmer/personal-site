@@ -10,6 +10,7 @@ describe("PostHog application Markdown route", () => {
       "text/markdown; charset=utf-8",
     );
     expect(markdown).toContain("# I want to help products drive themselves");
+    expect(markdown).toContain("I love getting together in person");
     expect(
       markdown.indexOf(
         "## I was already building the machine around the coding agent.",
@@ -44,6 +45,6 @@ describe("PostHog application Markdown route", () => {
       "[Read the AI Research Team's Q3 2026 plan](https://github.com/PostHog/posthog.com/blob/master/contents/teams/ai-research/objectives.mdx#q3-2026-objectives)",
     );
     expect(markdown).toContain("- Train the end-to-end agent");
-    expect(markdown).toContain("Not with a PhD");
+    expect(markdown).toContain("I do not have a PhD");
   });
 });

@@ -293,18 +293,18 @@ export default function PostHogApplicationPage() {
           <div className="mt-8 flex flex-wrap gap-3">
             <a
               className="inline-flex items-center gap-2 border-2 border-[var(--hog-ink)] bg-[var(--hog-ink)] px-5 py-3 font-black text-[#fffdf8] shadow-[4px_4px_0_var(--hog-red)] transition-transform hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-4"
+              href="#fit"
+            >
+              See where I might fit
+              <ArrowRight className="size-4" aria-hidden="true" />
+            </a>
+            <a
+              className="inline-flex items-center gap-2 border-2 border-[var(--hog-ink)] bg-[#fffdf8] px-5 py-3 font-black shadow-[4px_4px_0_var(--hog-ink)] transition-transform hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-4"
               href="#agent-platform"
             >
               See the PostHog parallel
               <ArrowRight className="size-4" aria-hidden="true" />
             </a>
-            <Link
-              className="inline-flex items-center gap-2 border-2 border-[var(--hog-ink)] bg-[#fffdf8] px-5 py-3 font-black shadow-[4px_4px_0_var(--hog-ink)] transition-transform hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-4"
-              href={posthogApplication.links.projects}
-            >
-              Explore my projects
-              <ArrowRight className="size-4" aria-hidden="true" />
-            </Link>
           </div>
           <div className="mt-9 flex flex-wrap gap-x-6 gap-y-3 text-sm font-bold">
             <span className="inline-flex items-center gap-2">
@@ -320,6 +320,13 @@ export default function PostHogApplicationPage() {
                 aria-hidden="true"
               />
               Product · ML · systems · teams
+            </span>
+            <span className="inline-flex items-center gap-2">
+              <Check
+                className="size-4 text-[var(--hog-green)]"
+                aria-hidden="true"
+              />
+              Remote role
             </span>
           </div>
         </div>
@@ -713,7 +720,10 @@ export default function PostHogApplicationPage() {
         </div>
       </section>
 
-      <section className="mx-auto grid max-w-7xl gap-12 px-5 py-24 sm:px-8 lg:grid-cols-[0.78fr_1.22fr] lg:px-12">
+      <section
+        id="fit"
+        className="mx-auto grid max-w-7xl scroll-mt-20 gap-12 px-5 py-24 sm:px-8 lg:grid-cols-[0.78fr_1.22fr] lg:px-12"
+      >
         <div>
           <p className="text-xs font-black uppercase tracking-[0.2em] text-[var(--hog-green)]">
             Where I might fit
