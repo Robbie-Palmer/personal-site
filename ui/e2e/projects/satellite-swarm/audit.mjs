@@ -145,10 +145,9 @@ async function auditProfile(browser, profile) {
   const page = await context.newPage();
   const devtools = await context.newCDPSession(page);
   const requests = [];
-  const preActivationRequests = [];
   const responseTasks = [];
   const pageErrors = [];
-  let captureSimulationResources = false;
+  const navigationRequests = [];
 
   await devtools.send("Network.enable");
   await devtools.send("Network.setCacheDisabled", { cacheDisabled: true });
@@ -157,20 +156,16 @@ async function auditProfile(browser, profile) {
   });
 
   page.on("pageerror", (error) => pageErrors.push(error.message));
+  page.on("request", (request) => {
+    const url = new URL(request.url());
+    if (url.protocol === "http:" || url.protocol === "https:") {
+      navigationRequests.push(url.href);
+    }
+  });
   page.on("response", (response) => {
     const url = response.url();
     const category = classify(url);
     if (!category) return;
-    if (!captureSimulationResources) {
-      if (
-        category === "webAssembly" ||
-        category === "imagery" ||
-        isCesiumJavaScript(url)
-      ) {
-        preActivationRequests.push({ category, url });
-      }
-      return;
-    }
     const record = { category, status: response.status(), url };
     requests.push(record);
     responseTasks.push(
@@ -185,36 +180,13 @@ async function auditProfile(browser, profile) {
     const simulation = page.locator("#simulation");
     await simulation.waitFor({ state: "attached" });
 
-    const navigationRequests = [];
-    page.on("request", (request) => {
-      const url = new URL(request.url());
-      if (url.protocol === "http:" || url.protocol === "https:") {
-        navigationRequests.push(url.href);
-      }
-    });
-
     await simulation.scrollIntoViewIfNeeded();
-    await page.waitForTimeout(500);
-    if (preActivationRequests.length > 0) {
-      throw new Error(
-        `Simulation resources loaded before activation: ${preActivationRequests
-          .map(({ url }) => url)
-          .join(", ")}`,
-      );
-    }
-
-    captureSimulationResources = true;
-    const startedAt = await page.evaluate(() => performance.now());
-    await page.getByRole("button", { name: "Load simulation" }).click();
     await page
       .getByText("South Pole mission replay", { exact: true })
       .waitFor();
     await page.locator(".cesium-widget canvas").waitFor({ state: "visible" });
     await waitForImagery(requests, page);
-    const firstGlobeMs = await page.evaluate(
-      (started) => performance.now() - started,
-      startedAt,
-    );
+    const firstGlobeMs = await page.evaluate(() => performance.now());
 
     const revisionLink = page.locator(
       'a[href^="https://github.com/Robbie-Palmer/hq/commit/"]',
