@@ -701,7 +701,7 @@ export default function PostHogApplicationPage() {
                 className="mt-7 inline-flex items-center gap-2 font-black underline decoration-2 underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-4"
                 href={posthogApplication.links.experience}
               >
-                Resume and experience
+                CV and experience
                 <ArrowRight className="size-4" aria-hidden="true" />
               </Link>
             </div>
@@ -792,7 +792,7 @@ export default function PostHogApplicationPage() {
               className="inline-flex w-full items-center justify-between gap-3 border-2 border-[var(--hog-ink)] bg-[var(--hog-ink)] px-5 py-3 font-black text-[#fffdf8] shadow-[4px_4px_0_var(--hog-red)] focus-visible:outline-2 focus-visible:outline-offset-4"
               href={posthogApplication.links.initiative}
             >
-              Read what I am building toward
+              Read what I am building towards
               <ArrowRight className="size-4" aria-hidden="true" />
             </Link>
             <div className="flex flex-col items-start gap-4 sm:flex-row sm:flex-wrap sm:gap-x-6">
