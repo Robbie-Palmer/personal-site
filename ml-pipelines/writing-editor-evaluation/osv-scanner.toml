@@ -6,4 +6,4 @@ reason = "The runtime does not call torch.jit.script, and the first fixed PyTorc
 [[IgnoredVulns]]
 id = "PYSEC-2026-3447"
 ignoreUntil = 2026-12-18
-reason = "PyTorch requires setuptools below 82; the vulnerable sdist path is not used, and the fixed PyTorch release is not yet available."
+reason = "PyTorch 2.11 constrains setuptools below 82, blocking the fixed setuptools 83.0.0; this environment installs the wheel and does not use the vulnerable sdist path."
