@@ -287,8 +287,8 @@ describe("PostHog application page", () => {
       "href",
       "https://github.com/PostHog/posthog.com/blob/master/contents/teams/ai-research/objectives.mdx#q3-2026-objectives",
     );
-    expect(screen.getByText("Data labeling suite")).toBeVisible();
-    expect(screen.getByText("Train the end-to-end agent")).toBeVisible();
+    expect(screen.getByText("Data labelling suite")).toBeVisible();
+    expect(screen.getByText("Train the end-to-end agent.")).toBeVisible();
     expect(screen.getByText(/I do not have a PhD/i)).toBeVisible();
     expect(
       screen.getByRole("button", { name: /View the mobile layout/i }),
@@ -300,7 +300,7 @@ describe("PostHog application page", () => {
       screen.getByRole("link", { name: /Read the agent-friendly Markdown/i }),
     ).toHaveAttribute("href", "/posthog.md");
     expect(
-      screen.getByRole("link", { name: /Resume and experience/i }),
+      screen.getByRole("link", { name: /CV and experience/i }),
     ).toHaveAttribute("href", "/experience");
   });
 

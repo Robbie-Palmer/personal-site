@@ -45,6 +45,10 @@ describe("PostHog application Markdown route", () => {
       "[Read the AI Research Team's Q3 2026 plan](https://github.com/PostHog/posthog.com/blob/master/contents/teams/ai-research/objectives.mdx#q3-2026-objectives)",
     );
     expect(markdown).toContain("- Train the end-to-end agent");
+    expect(markdown).toContain("### 01 · Persistent K3s workspaces");
+    expect(markdown).toContain("- Data labelling suite");
+    expect(markdown).not.toContain("—");
+    expect(markdown).not.toContain("–");
     expect(markdown).toContain("I do not have a PhD");
   });
 });

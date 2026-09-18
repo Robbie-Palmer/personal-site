@@ -17,7 +17,7 @@ export const posthogApplication = {
     "A speculative application to PostHog from Robbie Palmer, backed by working product infrastructure, public decisions, and shipped code.",
   weirdness: {
     quote:
-      "I am the sort of person who builds a recipe platform, an autonomic satellite-swarm simulation, cancer-research software, a Kubernetes-based homelab, and a Jira replacement at the same time.",
+      "I am the sort of person who builds a recipe platform, an autonomous satellite-swarm simulation, cancer-research software, a Kubernetes-based homelab, and a Jira replacement at the same time.",
     attribution: "An AI reviewing this repository",
     intro:
       "I build things that do not fit neatly on one roadmap. The subject can be cancer research, satellite coordination, household finance, recipes, or agent tooling. What hooks me is finding a new angle and shipping something useful.",
@@ -53,7 +53,7 @@ export const posthogApplication = {
           title:
             "I connected the philosophy of mathematics to data science and data mesh",
           description:
-            "The essay asks what data scientists mean by knowledge, then brings in Gödel, Popper, Kuhn, postmodernism, and organisational architecture. Concluding we should practice Post-positivist Domain Driven Data Science.",
+            "The essay asks what data scientists mean by knowledge, then brings in Gödel, Popper, Kuhn, postmodernism, and organisational architecture. It concludes that we should practise Post-positivist Domain Driven Data Science.",
           href: "/blog/2022-03-02-the-philosophy-of-data-science",
           linkLabel: "Read the whole thing",
         },
@@ -61,7 +61,7 @@ export const posthogApplication = {
           eyebrow: "Live performance",
           title: "I perform jazz dance",
           description:
-            "I've started performing a mixture of Charleston, Lindy Hop and Swing. The sillier the move the better. Most hilarious move: 'the bird'",
+            "I've started performing a mixture of Charleston, Lindy Hop, and Swing. The sillier the move, the better. Most hilarious move: 'the bird'.",
           image:
             "https://ugc.production.linktr.ee/4f88d739-d63c-434e-9683-0ca5142a4358_FF-CIRCULAR-DOUBLE-OUTLINE-SALMON-OUTER.png?io=true&size=avatar-v3_0",
           imageAlt:
@@ -328,7 +328,7 @@ linkStyle default stroke:#1d1f1f,stroke-width:2px`,
     eyebrow: "The overlap is ridiculous",
     heading: "I was already building the machine around the coding agent.",
     intro:
-      "PostHog Desktop combines a multiplayer product editor, parallel agents, multiple models, and cloud sandboxes. I got here because my tools kept failing me in different ways. Since November 2025 I have coded from my phone with Claude Code for web, added Codex on my Mac and then t3-code, and set up a Hetzner server because I wanted agents to keep running when I stepped away. In parallel, the pain of sharing context while running a team led to Work Graph. Reading endless AI prose was doing my head in, so I started building an editor to unslop it.",
+      "PostHog Desktop combines a multiplayer product editor, parallel agents, multiple models, and cloud sandboxes. I got here because my tools kept failing me in different ways. Since November 2025, I have coded from my phone with Claude Code for web, added Codex on my Mac and then t3-code, and set up a Hetzner server so agents could keep running when I stepped away. In parallel, the pain of sharing context while running a team led to Work Graph. Reading endless AI prose was doing my head in, so I started building an editor to unslop it.",
     posthogLink: {
       label: "See the PostHog Desktop parallel",
       href: "https://posthog.com/desktop",
@@ -383,7 +383,7 @@ linkStyle default stroke:#1d1f1f,stroke-width:2px`,
       eyebrow: "The shared brain",
       title: "One plan, many workers",
       detail:
-        "The agents should share priorities, dependencies, accepted knowledge, and expensive compute instead of rediscovering everything inside each session.",
+        "Agents should share priorities, dependencies, accepted knowledge, and expensive compute instead of rediscovering everything in each session.",
       services: [
         {
           name: "Work Graph",
@@ -405,9 +405,9 @@ linkStyle default stroke:#1d1f1f,stroke-width:2px`,
       ],
     },
     writingPrinciple:
-      "Clear prose is an execution tool. If an agent cannot state the plan cleanly, I do not want it rushing into the code.",
+      "Clear prose is an execution tool. If an agent cannot state the plan cleanly, I do not want it rushing into code.",
     routingPrinciple:
-      "The harness and model are routing choices. Use the best tool for the job, use subscription capacity first, then move work when quality, limits, or cost change. Keep an escape hatch across providers.",
+      "The harness and model are routing choices. Use the best tool for the job; use subscription capacity first, then move work when quality, limits, or cost change. Keep an escape hatch across providers.",
   },
   culture: {
     heading: "The culture I keep trying to build already exists here",
@@ -443,7 +443,7 @@ linkStyle default stroke:#1d1f1f,stroke-width:2px`,
         eyebrow: "Double down on strengths",
         title: "I inherited the team nobody wanted to be on.",
         description:
-          "At Terminal, I inherited the team with the lowest morale in the company. It became the happiest, most productive, and most ambitious team. With others desperate to join. This was the natural result of high trust, clear context, high standards, and removing everything that slowed good people down. I work on weaknesses when they harm other people, *only* until they are good enough. Then I invest hard in strengths. People are investment centres, not cost centres.",
+          "At Terminal, I inherited the team with the lowest morale in the company. It became the happiest, most productive, and most ambitious team. With others desperate to join. This was the natural result of high trust, clear context, high standards, and removing everything that slowed good people down. I work on weaknesses when they harm other people, *only* until they are good enough. Then I invest hard in strengths. People are investment centres.",
         link: {
           label: "Why PostHog invests in people's strengths",
           href: "https://newsletter.posthog.com/p/hiring-and-managing-cracked-engineers",
@@ -454,7 +454,7 @@ linkStyle default stroke:#1d1f1f,stroke-width:2px`,
         eyebrow: "Small teams, whole products",
         title: "Tiny teams leave nowhere to hide. Good.",
         description:
-          "Most of my career has been spent in teams too small for narrow job boundaries. I have talked to customers, made product decisions, built ML and data systems, written backends and frontends, owned infrastructure, delivered projects, and led the team. That is the job I want: engineers owning the customer, the product, its quality, and its economics.",
+          "I've spent most of my career on teams too small for narrow job boundaries. I have talked to customers, made product decisions, built ML and data systems, written backends and frontends, owned infrastructure, delivered projects, and led the team. That is the job I want: engineers owning the customer, the product, its quality, and its economics.",
         link: {
           label: "How PostHog's small teams work",
           href: "https://newsletter.posthog.com/p/the-magic-of-small-engineering-teams",
@@ -465,7 +465,7 @@ linkStyle default stroke:#1d1f1f,stroke-width:2px`,
       eyebrow: "Make it public",
       heading: "I build in public",
       description:
-        "This repository contains products, source code, architectural decisions, experiments, negative results, initiatives, and current thinking. I publish the work because doing it in public raises the standard and gives other people enough context to contribute. Ideas are cheap. Execution should be inspectable.",
+        "This repository contains products, source code, architectural decisions, experiments, negative results, initiatives, and current thinking. I publish the work because doing it in public raises the bar and gives others enough context to contribute. Ideas are cheap. Execution should be inspectable.",
       href: "https://github.com/Robbie-Palmer/hq",
       linkLabel: "Inspect the repository",
     },
@@ -486,7 +486,7 @@ linkStyle default stroke:#1d1f1f,stroke-width:2px`,
       heading: "Cracked engineers",
       paragraphs: [
         "PostHog writes about people whose work speaks for itself, who love the craft, who do not have a FAANG name on the CV, and who have held together failing companies. I have held together teams, products, and startups that lacked product-market fit, sufficient capital, or a healthy operating culture.",
-        "I have spent years burning political capital to create this way of working. I would like to find out what I can do when it is the starting point, inside a company with real product-market fit.",
+        "I have spent years burning political capital to create this way of working. I want to find out what I can do when it is the starting point, inside a company with real product-market fit.",
       ],
       href: "https://newsletter.posthog.com/p/hiring-and-managing-cracked-engineers",
       linkLabel: "Read PostHog's cracked-engineer essay",
@@ -522,9 +522,9 @@ linkStyle default stroke:#1d1f1f,stroke-width:2px`,
     },
   ],
   fit: [
-    "I could be especially useful working on Self-Driving, AI Observability, Workflows, MCP and developer experience, or on another small team turning product context into action.",
+    "I could be especially useful working on Self-Driving, AI Observability, Workflows, MCP, and developer experience, or on another small team turning product context into action.",
     "I do my best work between disciplines: talking to users, building applied ML systems, shipping full-stack products, and helping a small team make good technical decisions.",
-    "Belfast is home. I have bought a house here, built a social life I care about, and have a wedding here next year. There is also a cat who would object to the move. I am looking for a remote role. I love getting together in person and am happy to travel for it.",
+    "Belfast is home. I have bought a house here, built a social life I care about, and have a wedding here next year. I also have a cat who would object to the move. I am looking for a remote role. I love getting together in person and am happy to travel for it.",
   ],
   ask: {
     headline: {
@@ -539,14 +539,14 @@ linkStyle default stroke:#1d1f1f,stroke-width:2px`,
       href: "https://github.com/PostHog/posthog.com/blob/master/contents/teams/ai-research/objectives.mdx#q3-2026-objectives",
       label: "Read the AI Research Team's Q3 2026 plan",
       items: [
-        "Data labeling suite",
+        "Data labelling suite",
         "Session replay text renderer",
-        "Write data prep pipeline",
-        "Build the sampling pipeline",
-        "Train the Replay encoder model",
-        "Train the end-to-end agent",
-        "Build the model observability suite",
-        "Build an eval dataset",
+        "Write data prep pipeline.",
+        "Build the sampling pipeline.",
+        "Train the Replay encoder model.",
+        "Train the end-to-end agent.",
+        "Build the model observability suite.",
+        "Build an eval dataset.",
       ],
     },
     evidence:
@@ -815,7 +815,7 @@ export function posthogApplicationMarkdown(): string {
     "- [Run the satellite swarm](" +
       posthogApplication.links.technicalDemo +
       ")",
-    "- [Read my resume and experience](" +
+    "- [Read my CV and experience](" +
       posthogApplication.links.experience +
       ")",
     "- [View GitHub](" + posthogApplication.links.github + ")",
