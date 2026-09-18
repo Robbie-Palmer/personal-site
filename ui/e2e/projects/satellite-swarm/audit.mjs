@@ -33,6 +33,7 @@ const profiles = {
 
 function classify(url) {
   const pathname = new URL(url).pathname;
+  if (pathname.startsWith("/ingest/")) return null;
   if (pathname.endsWith(".wasm")) return "webAssembly";
   if (/\.(?:m?js)$/.test(pathname)) return "javaScript";
   if (
