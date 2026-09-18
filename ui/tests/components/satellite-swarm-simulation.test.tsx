@@ -1,5 +1,6 @@
 import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { StrictMode } from "react";
 import {
   afterAll,
   afterEach,
@@ -239,6 +240,19 @@ describe("SatelliteSwarmSimulation", () => {
       screen.getByText("Preparing the deterministic mission replay..."),
     ).toBeVisible();
     expect(screen.queryByText("Cesium globe")).not.toBeInTheDocument();
+  });
+
+  it("starts once without IntersectionObserver under Strict Mode", async () => {
+    vi.stubGlobal("IntersectionObserver", undefined);
+
+    render(
+      <StrictMode>
+        <DeferredSatelliteSwarmSimulation />
+      </StrictMode>,
+    );
+
+    expect(await screen.findByText("trace v4 · 0 ms")).toBeVisible();
+    expect(workerClient.run).toHaveBeenCalledOnce();
   });
 
   it("runs a caller-provided mission objective", async () => {

@@ -293,10 +293,8 @@ export function DeferredSatelliteSwarmSimulation() {
     };
 
     if (typeof IntersectionObserver === "undefined") {
-      start();
-      return () => {
-        hasStartedRef.current = false;
-      };
+      const timer = window.setTimeout(start, 0);
+      return () => window.clearTimeout(timer);
     }
 
     const observer = new IntersectionObserver(([entry]) => {
@@ -308,7 +306,6 @@ export function DeferredSatelliteSwarmSimulation() {
 
     return () => {
       observer.disconnect();
-      hasStartedRef.current = false;
     };
   }, [run]);
 
