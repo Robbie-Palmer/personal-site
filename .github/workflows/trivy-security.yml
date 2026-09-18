@@ -20,6 +20,7 @@ on:
       - "**/kubernetes/**"
       - "**/k8s/**"
       - "**/helm/**"
+      - ".trivyignore.yaml"
       # Dependencies
       - "**/pnpm-lock.yaml"
       - "**/package.json"
@@ -66,6 +67,8 @@ jobs:
           format: "sarif"
           output: "trivy-iac-results.sarif"
           severity: "CRITICAL,HIGH"
+          limit-severities-for-sarif: true
+          trivyignores: ".trivyignore.yaml"
           timeout: "10m"
           skip-dirs: "node_modules,.pnpm-store,.terraform,homelab/k3s"
 
@@ -96,6 +99,7 @@ jobs:
           format: "sarif"
           output: "trivy-deps-results.sarif"
           severity: "CRITICAL,HIGH"
+          limit-severities-for-sarif: true
           timeout: "10m"
 
       - name: Upload Trivy results to GitHub Security
