@@ -44,9 +44,16 @@ explicit.
 
 [mise](https://mise.jdx.dev/) pins the developer tools and exposes the supported commands:
 
+- On Linux, install Git and a C++20 build toolchain. On Debian or Ubuntu, install the `git` and
+  `build-essential` packages.
+- On macOS, install Git and the Xcode Command Line Tools with `xcode-select --install`.
+
+Then run these commands from this directory:
+
 ```shell
 mise trust
 mise install
+mise run doctor
 mise run test
 mise run simulate
 mise run simulate:json
@@ -92,9 +99,10 @@ Run every host, firmware, formatting, lint, and spelling check with:
 mise run check
 ```
 
-`mise run coverage` also writes SonarQube's generic coverage report and rejects line coverage below
-80% or branch coverage below 70%. The monorepo's SonarQube workflow imports that report alongside
-its JavaScript and Python coverage.
+`mise run coverage` uses the pinned GNU toolchain on Linux and Apple Clang with `llvm-cov` on macOS.
+It writes SonarQube's generic coverage report and rejects line coverage below 80% or branch coverage
+below 70%. The monorepo's SonarQube workflow imports that report alongside its JavaScript and Python
+coverage.
 
 ## Architecture
 
