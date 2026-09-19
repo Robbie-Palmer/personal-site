@@ -244,20 +244,35 @@ export const projectWorkItemPriority = (
   workItemId: string,
   scopes: readonly KnowledgeScope[] = [],
 ): WorkItemPriorityProjection => {
-  const { base, effective } = priorityState(graph, scopes);
-  const basePriority = base.get(workItemId);
-  const effectivePriority = effective.get(workItemId);
-  if (!basePriority || !effectivePriority) {
+  const projection = projectWorkItemPriorities(graph, scopes).get(workItemId);
+  if (!projection) {
     throw new Error(`Work item ${workItemId} has no priority projection.`);
   }
-  return {
-    initiativeRank: basePriority.initiativeRank,
-    projectRank: basePriority.projectRank,
-    ticketRank: basePriority.ticketRank,
-    expedited: basePriority.key.expedited,
-    effectiveExpedited: effectivePriority.key.expedited,
-    donatedFromWorkItemId: effectivePriority.donatedFromWorkItemId,
-  };
+  return projection;
+};
+
+export const projectWorkItemPriorities = (
+  graph: WorkGraph,
+  scopes: readonly KnowledgeScope[] = [],
+): ReadonlyMap<string, WorkItemPriorityProjection> => {
+  const { base, effective } = priorityState(graph, scopes);
+  return new Map(
+    graph.workItems.map((item) => {
+      const basePriority = base.get(item.id)!;
+      const effectivePriority = effective.get(item.id)!;
+      return [
+        item.id,
+        {
+          initiativeRank: basePriority.initiativeRank,
+          projectRank: basePriority.projectRank,
+          ticketRank: basePriority.ticketRank,
+          expedited: basePriority.key.expedited,
+          effectiveExpedited: effectivePriority.key.expedited,
+          donatedFromWorkItemId: effectivePriority.donatedFromWorkItemId,
+        },
+      ];
+    }),
+  );
 };
 
 export const orderWorkItemsByPriority = (

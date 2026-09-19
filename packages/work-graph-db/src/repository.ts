@@ -14,7 +14,7 @@ import {
   createKnowledgeScope,
   createWorkGraph,
   orderWorkItemsByPriority,
-  projectWorkItemPriority,
+  projectWorkItemPriorities,
   projectWorkItemStage,
   validatePostReleaseNote,
   validateKnowledgeScopeRelationships,
@@ -1033,6 +1033,7 @@ export class WorkGraphRepository {
         const workItemIdsNeedingAttention = new Set(
           unresolvedBlockingAttention.map(({ workItemId }) => workItemId),
         );
+        const priorities = projectWorkItemPriorities(graph, scopes);
 
         return orderWorkItemsByPriority(graph, scopes).map((item) => {
           const currentLease = leasesByWorkItemId.get(item.id) ?? null;
@@ -1047,7 +1048,7 @@ export class WorkGraphRepository {
                 workItemIdsNeedingAttention.has(item.id),
             }),
             currentLease,
-            priority: projectWorkItemPriority(graph, item.id, scopes),
+            priority: priorities.get(item.id)!,
           };
         });
       },
@@ -1100,6 +1101,8 @@ export class WorkGraphRepository {
               parentId,
               normalized.schedulingInitiativeId,
               normalized.schedulingProjectId,
+              normalized.expedited,
+              normalized.expediteReason,
             ]),
           );
           if (replayed) {
@@ -3290,13 +3293,25 @@ export class WorkGraphRepository {
     transaction: DbTransaction,
     requestedWorkItemId?: string,
   ): Promise<string | null> {
-    const candidateIds =
-      requestedWorkItemId === undefined
-        ? orderWorkItemsByPriority(
-            await this.loadGraph(transaction),
-            await this.loadKnowledgeScopes(transaction),
-          ).map(({ id }) => id)
-        : [requestedWorkItemId];
+    let candidateIds: readonly string[];
+    if (requestedWorkItemId === undefined) {
+      const claimableIds = new Set(
+        (
+          await transaction
+            .select({ id: workItem.id })
+            .from(workItem)
+            .where(claimableWorkItemWhere())
+        ).map(({ id }) => id),
+      );
+      candidateIds = orderWorkItemsByPriority(
+        await this.loadGraph(transaction),
+        await this.loadKnowledgeScopes(transaction),
+      )
+        .map(({ id }) => id)
+        .filter((id) => claimableIds.has(id));
+    } else {
+      candidateIds = [requestedWorkItemId];
+    }
 
     for (const candidateId of candidateIds) {
       const [candidate] = await transaction

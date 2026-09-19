@@ -2,7 +2,9 @@ import {
   createKnowledgeScope,
   createWorkGraph,
   orderWorkItemsByPriority,
+  projectWorkItemPriorities,
   projectWorkItemPriority,
+  validateWorkGraph,
   WorkGraphError,
 } from "../src/index";
 import { priorityFixtures } from "./fixtures/priority";
@@ -34,6 +36,18 @@ describe("priority projection", () => {
     expect(projectWorkItemPriority(graph, "child").ticketRank).toBe(1);
     expect(projectWorkItemPriority(graph, "grandchild").ticketRank).toBe(1);
     expect(projectWorkItemPriority(graph, "other").ticketRank).toBe(2);
+  });
+
+  it("projects every work item from one priority state", () => {
+    const graph = createWorkGraph(priorityFixtures[2]!.graph);
+    const projections = projectWorkItemPriorities(graph);
+
+    expect([...projections]).toEqual(
+      graph.workItems.map((item) => [
+        item.id,
+        projectWorkItemPriority(graph, item.id),
+      ]),
+    );
   });
 
   it("preserves relative order when a queue is filtered", () => {
@@ -125,6 +139,26 @@ describe("priority projection", () => {
     ).toThrowError(
       expect.objectContaining<Partial<WorkGraphError>>({
         code: "invalid_scheduling_scope",
+      }),
+    );
+
+    const graph = createWorkGraph({
+      workItems: [{ id: "work", title: "Work" }],
+    });
+    expect(() =>
+      validateWorkGraph({
+        ...graph,
+        workItems: [
+          {
+            ...graph.workItems[0]!,
+            expedited: true,
+            expediteReason: 42 as unknown as string,
+          },
+        ],
+      }),
+    ).toThrowError(
+      expect.objectContaining<Partial<WorkGraphError>>({
+        code: "invalid_expedite_reason",
       }),
     );
   });

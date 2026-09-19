@@ -2266,6 +2266,31 @@ describe("Work Graph PostgreSQL persistence", () => {
     expect(await db.select().from(schema.idempotencyKey)).toHaveLength(1);
   });
 
+  it("includes expedite state in work-item creation idempotency", async () => {
+    const key = "00000000-0000-4000-8000-000000000082";
+    const options = { idempotencyKey: key };
+    await repository.createWorkItem(
+      {
+        id: "urgent",
+        title: "Urgent work",
+        expedited: true,
+        expediteReason: "Restore production.",
+      },
+      options,
+    );
+
+    await expect(
+      repository.createWorkItem(
+        { id: "urgent", title: "Urgent work" },
+        options,
+      ),
+    ).rejects.toEqual(
+      expect.objectContaining<Partial<WorkGraphError>>({
+        code: "idempotency_key_reused",
+      }),
+    );
+  });
+
   it("derives readiness from persisted hierarchy, dependencies, and lifecycle", async () => {
     await repository.createWorkItem({ id: "parent", title: "Parent" });
     await repository.createWorkItem({

@@ -106,7 +106,7 @@ export type WorkItemEventList = {
 
 export type WorkItemEvent = {
     sequence: number;
-    type: 'attention.requested' | 'attention.resolved' | 'dependency.added' | 'dependency.removed' | 'knowledge_scope.put' | 'knowledge_scope_relationship.added' | 'knowledge_scope_relationship.removed' | 'lease.claimed' | 'lease.ended' | 'lease.renewed' | 'note.created' | 'work_item.created' | 'work_item.decomposed' | 'work_item.expedited' | 'work_item.priority_moved' | 'work_item.lifecycle_changed' | 'work_item.reparented' | 'work_item.unexpedited' | 'knowledge_scope.priority_moved';
+    type: 'attention.requested' | 'attention.resolved' | 'dependency.added' | 'dependency.removed' | 'lease.claimed' | 'lease.ended' | 'lease.renewed' | 'note.created' | 'work_item.created' | 'work_item.decomposed' | 'work_item.expedited' | 'work_item.priority_moved' | 'work_item.lifecycle_changed' | 'work_item.reparented' | 'work_item.unexpedited';
     workItemId: string | null;
     data: {
         [key: string]: unknown;
@@ -814,8 +814,11 @@ export type PutKnowledgeScopeResponse = PutKnowledgeScopeResponses[keyof PutKnow
 
 export type MoveKnowledgeScopePriorityData = {
     body: {
-        higherThanId?: string;
+        higherThanId: string;
         lowerThanId?: string;
+    } | {
+        higherThanId?: string;
+        lowerThanId: string;
     };
     headers?: {
         /**
@@ -1393,7 +1396,7 @@ export type ListWorkItemEventsData = {
         workItemId: string;
     };
     query?: {
-        type?: 'attention.requested' | 'attention.resolved' | 'dependency.added' | 'dependency.removed' | 'knowledge_scope.put' | 'knowledge_scope_relationship.added' | 'knowledge_scope_relationship.removed' | 'lease.claimed' | 'lease.ended' | 'lease.renewed' | 'note.created' | 'work_item.created' | 'work_item.decomposed' | 'work_item.expedited' | 'work_item.priority_moved' | 'work_item.lifecycle_changed' | 'work_item.reparented' | 'work_item.unexpedited' | 'knowledge_scope.priority_moved';
+        type?: 'attention.requested' | 'attention.resolved' | 'dependency.added' | 'dependency.removed' | 'lease.claimed' | 'lease.ended' | 'lease.renewed' | 'note.created' | 'work_item.created' | 'work_item.decomposed' | 'work_item.expedited' | 'work_item.priority_moved' | 'work_item.lifecycle_changed' | 'work_item.reparented' | 'work_item.unexpedited';
         lifecycle?: 'released' | 'cancelled';
         limit?: number;
         afterSequence?: number;
@@ -1731,8 +1734,11 @@ export type CreateWorkItemNoteResponse = CreateWorkItemNoteResponses[keyof Creat
 
 export type MoveWorkItemPriorityData = {
     body: {
-        higherThanId?: string;
+        higherThanId: string;
         lowerThanId?: string;
+    } | {
+        higherThanId?: string;
+        lowerThanId: string;
     };
     headers?: {
         /**

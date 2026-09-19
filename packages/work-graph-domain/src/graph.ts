@@ -58,7 +58,8 @@ const validatePriorityFields = (workItem: WorkItem): void => {
 const validateExpediteFields = (workItem: WorkItem): void => {
   if (
     workItem.expediteReason !== null &&
-    workItem.expediteReason.trim().length === 0
+    (typeof workItem.expediteReason !== "string" ||
+      workItem.expediteReason.trim().length === 0)
   ) {
     throw new WorkGraphError(
       "invalid_expedite_reason",
@@ -429,6 +430,11 @@ export const reparentWorkItem = (
             ...workItem,
             parentId,
             rank: workItem.parentId === parentId ? workItem.rank : null,
+            priorityRank: parentId === null ? workItem.priorityRank : null,
+            schedulingInitiativeId:
+              parentId === null ? workItem.schedulingInitiativeId : null,
+            schedulingProjectId:
+              parentId === null ? workItem.schedulingProjectId : null,
           }
         : workItem,
     ),

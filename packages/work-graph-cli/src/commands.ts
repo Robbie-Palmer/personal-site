@@ -42,9 +42,7 @@ import {
   zListWorkItemNotesPath,
   zListWorkItemNotesQuery,
   zListWorkItemsQuery,
-  zMoveKnowledgeScopePriorityBody,
   zMoveKnowledgeScopePriorityHeaders,
-  zMoveWorkItemPriorityBody,
   zMoveWorkItemPriorityHeaders,
   zPutKnowledgeScopeBody,
   zPutKnowledgeScopeHeaders,
@@ -230,13 +228,29 @@ const scopePutInput = z.object({
 
 const priorityMoveFields = {
   above: optional(
-    zMoveWorkItemPriorityBody.shape.higherThanId.unwrap(),
+    zGetWorkItemPath.shape.workItemId,
     "Place immediately above this ID",
   ),
   below: optional(
-    zMoveWorkItemPriorityBody.shape.lowerThanId.unwrap(),
+    zGetWorkItemPath.shape.workItemId,
     "Place immediately below this ID",
   ),
+};
+
+const priorityMoveBody = (
+  above: string | undefined,
+  below: string | undefined,
+):
+  | { readonly higherThanId: string; readonly lowerThanId?: string }
+  | { readonly higherThanId?: string; readonly lowerThanId: string } => {
+  if (above !== undefined) {
+    return {
+      higherThanId: above,
+      ...(below === undefined ? {} : { lowerThanId: below }),
+    };
+  }
+  if (below !== undefined) return { lowerThanId: below };
+  throw usageError("Pass --above or --below.");
 };
 
 const workItemPriorityMoveInput = z
@@ -259,11 +273,11 @@ const scopePriorityMoveInput = z
       "Knowledge-scope ID",
     ),
     above: optional(
-      zMoveKnowledgeScopePriorityBody.shape.higherThanId.unwrap(),
+      zGetKnowledgeScopePath.shape.knowledgeScopeId,
       "Place immediately above this scope",
     ),
     below: optional(
-      zMoveKnowledgeScopePriorityBody.shape.lowerThanId.unwrap(),
+      zGetKnowledgeScopePath.shape.knowledgeScopeId,
       "Place immediately below this scope",
     ),
     idempotencyKey: described(
@@ -782,14 +796,7 @@ export const workGraphRouter = t.router({
       .mutation(({ ctx, input }) =>
         resolveClient(ctx).moveKnowledgeScopePriority(
           input.knowledgeScopeId,
-          {
-            ...(input.above === undefined
-              ? {}
-              : { higherThanId: input.above }),
-            ...(input.below === undefined
-              ? {}
-              : { lowerThanId: input.below }),
-          },
+          priorityMoveBody(input.above, input.below),
           input.idempotencyKey,
         ),
       ),
@@ -853,14 +860,7 @@ export const workGraphRouter = t.router({
       .mutation(({ ctx, input }) =>
         resolveClient(ctx).moveWorkItemPriority(
           input.workItemId,
-          {
-            ...(input.above === undefined
-              ? {}
-              : { higherThanId: input.above }),
-            ...(input.below === undefined
-              ? {}
-              : { lowerThanId: input.below }),
-          },
+          priorityMoveBody(input.above, input.below),
           input.idempotencyKey,
         ),
       ),

@@ -61,7 +61,24 @@ const MAX_URL_LENGTH = 2_048;
 const MAX_RELATIONSHIP_CURSOR_LENGTH = 4_096;
 const MAX_METADATA_CURSOR_LENGTH = 4_096;
 const MAX_INT32 = 2_147_483_647;
-const workGraphEventTypes = new Set<string>(WORK_GRAPH_EVENT_TYPES);
+const WORK_ITEM_EVENT_TYPES = [
+  "attention.requested",
+  "attention.resolved",
+  "dependency.added",
+  "dependency.removed",
+  "lease.claimed",
+  "lease.ended",
+  "lease.renewed",
+  "note.created",
+  "work_item.created",
+  "work_item.decomposed",
+  "work_item.expedited",
+  "work_item.priority_moved",
+  "work_item.lifecycle_changed",
+  "work_item.reparented",
+  "work_item.unexpedited",
+] as const satisfies readonly (typeof WORK_GRAPH_EVENT_TYPES)[number][];
+const workItemEventTypes = new Set<string>(WORK_ITEM_EVENT_TYPES);
 const CREDENTIAL_FREE_HTTP_URL_PATTERN =
   /^[hH][tT][tT][pP][sS]?:\/\/(?![^/?#]*@)/;
 
@@ -226,7 +243,7 @@ const eventSchema = z
       .min(1)
       .max(MAX_INT32)
       .openapi({ format: "int32" }),
-    type: z.enum(WORK_GRAPH_EVENT_TYPES),
+    type: z.enum(WORK_ITEM_EVENT_TYPES),
     workItemId: z.union([identifierSchema, z.null()]),
     data: z.record(z.string(), z.unknown()),
     occurredAt: timestampSchema,
@@ -348,7 +365,7 @@ const listWorkItemNotesQuerySchema = z.object({
 });
 const listWorkItemEventsQuerySchema = z
   .object({
-    type: z.enum(WORK_GRAPH_EVENT_TYPES).optional(),
+    type: z.enum(WORK_ITEM_EVENT_TYPES).optional(),
     lifecycle: z.enum(["released", "cancelled"]).optional(),
     limit: metadataPageLimitSchema,
     afterSequence: z.coerce
@@ -432,17 +449,20 @@ const putKnowledgeScopeBodySchema = knowledgeScopeSchema
     sourceRevision: z.union([identifierSchema, z.null()]).optional(),
   })
   .strict();
-const priorityMoveBodySchema = z
-  .object({
-    higherThanId: identifierSchema.optional(),
-    lowerThanId: identifierSchema.optional(),
-  })
-  .strict()
-  .refine(
-    ({ higherThanId, lowerThanId }) =>
-      higherThanId !== undefined || lowerThanId !== undefined,
-    { message: "Provide a higher-than or lower-than anchor." },
-  );
+const priorityMoveBodySchema = z.union([
+  z
+    .object({
+      higherThanId: identifierSchema,
+      lowerThanId: identifierSchema.optional(),
+    })
+    .strict(),
+  z
+    .object({
+      higherThanId: identifierSchema.optional(),
+      lowerThanId: identifierSchema,
+    })
+    .strict(),
+]);
 const expediteWorkItemBodySchema = z
   .object({
     reason: z.string().trim().min(1).max(MAX_TITLE_LENGTH),
@@ -1475,12 +1495,12 @@ const serializeNote = (storedNote: StoredNote) => ({
 });
 
 const serializeEvent = (storedEvent: StoredEvent) => {
-  if (!workGraphEventTypes.has(storedEvent.type)) {
-    throw new Error(`Unknown stored Work Graph event type ${storedEvent.type}.`);
+  if (!workItemEventTypes.has(storedEvent.type)) {
+    throw new Error(`Unknown stored work-item event type ${storedEvent.type}.`);
   }
   return {
     ...storedEvent,
-    type: storedEvent.type as (typeof WORK_GRAPH_EVENT_TYPES)[number],
+    type: storedEvent.type as (typeof WORK_ITEM_EVENT_TYPES)[number],
     occurredAt: storedEvent.occurredAt.toISOString(),
   };
 };

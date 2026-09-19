@@ -122,9 +122,6 @@ export const zWorkItemEvent = z.object({
         'attention.resolved',
         'dependency.added',
         'dependency.removed',
-        'knowledge_scope.put',
-        'knowledge_scope_relationship.added',
-        'knowledge_scope_relationship.removed',
         'lease.claimed',
         'lease.ended',
         'lease.renewed',
@@ -135,8 +132,7 @@ export const zWorkItemEvent = z.object({
         'work_item.priority_moved',
         'work_item.lifecycle_changed',
         'work_item.reparented',
-        'work_item.unexpedited',
-        'knowledge_scope.priority_moved'
+        'work_item.unexpedited'
     ]),
     workItemId: z.string().min(1).max(200).nullable(),
     data: z.record(z.string(), z.unknown()),
@@ -392,10 +388,16 @@ export const zPutKnowledgeScopePath = z.object({
  */
 export const zPutKnowledgeScopeResponse = zKnowledgeScope;
 
-export const zMoveKnowledgeScopePriorityBody = z.object({
-    higherThanId: z.string().min(1).max(200).optional(),
-    lowerThanId: z.string().min(1).max(200).optional()
-});
+export const zMoveKnowledgeScopePriorityBody = z.union([
+    z.object({
+        higherThanId: z.string().min(1).max(200),
+        lowerThanId: z.string().min(1).max(200).optional()
+    }),
+    z.object({
+        higherThanId: z.string().min(1).max(200).optional(),
+        lowerThanId: z.string().min(1).max(200)
+    })
+]);
 
 export const zMoveKnowledgeScopePriorityHeaders = z.object({
     'idempotency-key': z.uuid().max(36).register(z.globalRegistry, {
@@ -577,9 +579,6 @@ export const zListWorkItemEventsQuery = z.object({
         'attention.resolved',
         'dependency.added',
         'dependency.removed',
-        'knowledge_scope.put',
-        'knowledge_scope_relationship.added',
-        'knowledge_scope_relationship.removed',
         'lease.claimed',
         'lease.ended',
         'lease.renewed',
@@ -590,8 +589,7 @@ export const zListWorkItemEventsQuery = z.object({
         'work_item.priority_moved',
         'work_item.lifecycle_changed',
         'work_item.reparented',
-        'work_item.unexpedited',
-        'knowledge_scope.priority_moved'
+        'work_item.unexpedited'
     ]).optional(),
     lifecycle: z.enum(['released', 'cancelled']).optional(),
     limit: z.int().gte(1).lte(100).optional().default(50),
@@ -687,10 +685,16 @@ export const zCreateWorkItemNotePath = z.object({
  */
 export const zCreateWorkItemNoteResponse = zWorkItemNote;
 
-export const zMoveWorkItemPriorityBody = z.object({
-    higherThanId: z.string().min(1).max(200).optional(),
-    lowerThanId: z.string().min(1).max(200).optional()
-});
+export const zMoveWorkItemPriorityBody = z.union([
+    z.object({
+        higherThanId: z.string().min(1).max(200),
+        lowerThanId: z.string().min(1).max(200).optional()
+    }),
+    z.object({
+        higherThanId: z.string().min(1).max(200).optional(),
+        lowerThanId: z.string().min(1).max(200)
+    })
+]);
 
 export const zMoveWorkItemPriorityHeaders = z.object({
     'idempotency-key': z.uuid().max(36).register(z.globalRegistry, {

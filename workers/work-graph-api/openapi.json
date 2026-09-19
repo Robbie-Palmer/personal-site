@@ -699,9 +699,6 @@
               "attention.resolved",
               "dependency.added",
               "dependency.removed",
-              "knowledge_scope.put",
-              "knowledge_scope_relationship.added",
-              "knowledge_scope_relationship.removed",
               "lease.claimed",
               "lease.ended",
               "lease.renewed",
@@ -712,8 +709,7 @@
               "work_item.priority_moved",
               "work_item.lifecycle_changed",
               "work_item.reparented",
-              "work_item.unexpedited",
-              "knowledge_scope.priority_moved"
+              "work_item.unexpedited"
             ]
           },
           "workItemId": {
@@ -2687,20 +2683,46 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "properties": {
-                  "higherThanId": {
-                    "type": "string",
-                    "minLength": 1,
-                    "maxLength": 200
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "higherThanId": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 200
+                      },
+                      "lowerThanId": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 200
+                      }
+                    },
+                    "required": [
+                      "higherThanId"
+                    ],
+                    "additionalProperties": false
                   },
-                  "lowerThanId": {
-                    "type": "string",
-                    "minLength": 1,
-                    "maxLength": 200
+                  {
+                    "type": "object",
+                    "properties": {
+                      "higherThanId": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 200
+                      },
+                      "lowerThanId": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 200
+                      }
+                    },
+                    "required": [
+                      "lowerThanId"
+                    ],
+                    "additionalProperties": false
                   }
-                },
-                "additionalProperties": false
+                ]
               }
             }
           }
@@ -4173,9 +4195,6 @@
                 "attention.resolved",
                 "dependency.added",
                 "dependency.removed",
-                "knowledge_scope.put",
-                "knowledge_scope_relationship.added",
-                "knowledge_scope_relationship.removed",
                 "lease.claimed",
                 "lease.ended",
                 "lease.renewed",
@@ -4186,8 +4205,7 @@
                 "work_item.priority_moved",
                 "work_item.lifecycle_changed",
                 "work_item.reparented",
-                "work_item.unexpedited",
-                "knowledge_scope.priority_moved"
+                "work_item.unexpedited"
               ]
             },
             "required": false,
@@ -5045,20 +5063,46 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "properties": {
-                  "higherThanId": {
-                    "type": "string",
-                    "minLength": 1,
-                    "maxLength": 200
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "higherThanId": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 200
+                      },
+                      "lowerThanId": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 200
+                      }
+                    },
+                    "required": [
+                      "higherThanId"
+                    ],
+                    "additionalProperties": false
                   },
-                  "lowerThanId": {
-                    "type": "string",
-                    "minLength": 1,
-                    "maxLength": 200
+                  {
+                    "type": "object",
+                    "properties": {
+                      "higherThanId": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 200
+                      },
+                      "lowerThanId": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 200
+                      }
+                    },
+                    "required": [
+                      "lowerThanId"
+                    ],
+                    "additionalProperties": false
                   }
-                },
-                "additionalProperties": false
+                ]
               }
             }
           }

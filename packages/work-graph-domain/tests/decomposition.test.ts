@@ -244,6 +244,29 @@ describe("decomposition and hierarchy", () => {
     });
   });
 
+  it("clears owned scheduling priority when a root becomes a child", () => {
+    const graph = createWorkGraph({
+      workItems: [
+        { id: "parent", title: "Parent", priorityRank: 1_024 },
+        {
+          id: "work",
+          title: "Work",
+          priorityRank: 2_048,
+          schedulingInitiativeId: "initiative",
+          schedulingProjectId: "project",
+        },
+      ],
+    });
+
+    expect(getWorkItem(reparentWorkItem(graph, "work", "parent"), "work"))
+      .toMatchObject({
+        parentId: "parent",
+        priorityRank: null,
+        schedulingInitiativeId: null,
+        schedulingProjectId: null,
+      });
+  });
+
   it("rejects a hierarchy cycle", () => {
     const graph = createWorkGraph({
       workItems: [

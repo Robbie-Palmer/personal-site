@@ -308,6 +308,22 @@ describe("Given knowledge-scope mirrors", () => {
     );
   });
 
+  it("rejects a priority move without a relative anchor", async () => {
+    const repository = buildRepository();
+    const app = createWorkGraphApp(repository);
+    const response = await app.request(
+      "/api/knowledge-scopes/project-a/priority-moves",
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({}),
+      },
+    );
+
+    expect(response.status).toBe(422);
+    expect(repository.moveKnowledgeScopePriority).not.toHaveBeenCalled();
+  });
+
   it.each([
     "ftp://example.test/projects/work-graph",
     "https://",
@@ -932,6 +948,9 @@ describe("Given a worker recording progress and requesting attention", () => {
     const releases = await app.request(
       "/api/work-items/ready/events?type=work_item.lifecycle_changed&lifecycle=released&limit=1",
     );
+    const scopeEvents = await app.request(
+      "/api/work-items/ready/events?type=knowledge_scope.priority_moved",
+    );
 
     expect(await responseJson(notes)).toEqual({
       items: [expect.objectContaining({ content: "First note" })],
@@ -941,6 +960,7 @@ describe("Given a worker recording progress and requesting attention", () => {
       items: [expect.objectContaining({ sequence: 21 })],
       nextCursor: 21,
     });
+    expect(scopeEvents.status).toBe(422);
     expect(await responseJson(dependencies)).toEqual({
       items: [
         { dependentWorkItemId: "ready", blockerWorkItemId: "blocker-a" },
