@@ -813,8 +813,8 @@ export class WorkGraphRepository {
         .select({ id: knowledgeScope.id, rank: knowledgeScope.rank })
         .from(knowledgeScope)
         .where(eq(knowledgeScope.kind, target.kind));
+      rows.sort(compareStoredRanks);
       const orderedIds = rows
-        .sort(compareStoredRanks)
         .map(({ id: candidateId }) => candidateId)
         .filter((candidateId) => candidateId !== id);
       const index = this.insertionIndex(orderedIds, input);
@@ -3199,13 +3199,8 @@ export class WorkGraphRepository {
           ? isNull(workItemPriorityContext.schedulingProjectId)
           : eq(workItemPriorityContext.schedulingProjectId, projectId),
       );
-    return rows
-      .sort((left, right) =>
-        (left.rank ?? Number.MAX_SAFE_INTEGER) -
-          (right.rank ?? Number.MAX_SAFE_INTEGER) ||
-        left.id.localeCompare(right.id),
-      )
-      .map(({ id }) => id);
+    rows.sort(compareStoredRanks);
+    return rows.map(({ id }) => id);
   }
 
   private async placeWorkItemAtMedian(

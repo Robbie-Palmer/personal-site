@@ -19,6 +19,60 @@ const isWorkItemLifecycle = (value: unknown): value is WorkItemLifecycle =>
 const validateWorkItemId = (value: unknown): value is string =>
   typeof value === "string" && value.trim().length > 0;
 
+const validatePriorityFields = (workItem: WorkItem): void => {
+  if (
+    workItem.priorityRank !== null &&
+    (!Number.isSafeInteger(workItem.priorityRank) ||
+      workItem.priorityRank <= 0 ||
+      workItem.priorityRank > 2_147_483_647)
+  ) {
+    throw new WorkGraphError(
+      "invalid_priority_rank",
+      `Work item ${workItem.id} must have a positive whole-number priority rank.`,
+    );
+  }
+  if (
+    (workItem.schedulingInitiativeId !== null &&
+      !validateWorkItemId(workItem.schedulingInitiativeId)) ||
+    (workItem.schedulingProjectId !== null &&
+      !validateWorkItemId(workItem.schedulingProjectId))
+  ) {
+    throw new WorkGraphError(
+      "invalid_scheduling_scope",
+      `Work item ${workItem.id} has an invalid scheduling scope.`,
+    );
+  }
+  if (
+    workItem.parentId !== null &&
+    (workItem.priorityRank !== null ||
+      workItem.schedulingInitiativeId !== null ||
+      workItem.schedulingProjectId !== null)
+  ) {
+    throw new WorkGraphError(
+      "invalid_scheduling_scope",
+      `Work item ${workItem.id} inherits scheduling priority from its parent.`,
+    );
+  }
+};
+
+const validateExpediteFields = (workItem: WorkItem): void => {
+  if (
+    workItem.expediteReason !== null &&
+    workItem.expediteReason.trim().length === 0
+  ) {
+    throw new WorkGraphError(
+      "invalid_expedite_reason",
+      `Work item ${workItem.id} has an empty expedite reason.`,
+    );
+  }
+  if (workItem.expedited !== (workItem.expediteReason !== null)) {
+    throw new WorkGraphError(
+      "invalid_expedite_reason",
+      `Work item ${workItem.id} must record a reason exactly when it is expedited.`,
+    );
+  }
+};
+
 const validateWorkItemFields = (workItem: WorkItem): void => {
   if (!validateWorkItemId(workItem.id)) {
     throw new WorkGraphError(
@@ -56,54 +110,8 @@ const validateWorkItemFields = (workItem: WorkItem): void => {
       `Work item ${workItem.id} must have a positive whole-number rank.`,
     );
   }
-  if (
-    workItem.priorityRank !== null &&
-    (!Number.isSafeInteger(workItem.priorityRank) ||
-      workItem.priorityRank <= 0 ||
-      workItem.priorityRank > 2_147_483_647)
-  ) {
-    throw new WorkGraphError(
-      "invalid_priority_rank",
-      `Work item ${workItem.id} must have a positive whole-number priority rank.`,
-    );
-  }
-  if (
-    (workItem.schedulingInitiativeId !== null &&
-      !validateWorkItemId(workItem.schedulingInitiativeId)) ||
-    (workItem.schedulingProjectId !== null &&
-      !validateWorkItemId(workItem.schedulingProjectId))
-  ) {
-    throw new WorkGraphError(
-      "invalid_scheduling_scope",
-      `Work item ${workItem.id} has an invalid scheduling scope.`,
-    );
-  }
-  if (
-    workItem.parentId !== null &&
-    (workItem.priorityRank !== null ||
-      workItem.schedulingInitiativeId !== null ||
-      workItem.schedulingProjectId !== null)
-  ) {
-    throw new WorkGraphError(
-      "invalid_scheduling_scope",
-      `Work item ${workItem.id} inherits scheduling priority from its parent.`,
-    );
-  }
-  if (
-    workItem.expediteReason !== null &&
-    workItem.expediteReason.trim().length === 0
-  ) {
-    throw new WorkGraphError(
-      "invalid_expedite_reason",
-      `Work item ${workItem.id} has an empty expedite reason.`,
-    );
-  }
-  if (workItem.expedited !== (workItem.expediteReason !== null)) {
-    throw new WorkGraphError(
-      "invalid_expedite_reason",
-      `Work item ${workItem.id} must record a reason exactly when it is expedited.`,
-    );
-  }
+  validatePriorityFields(workItem);
+  validateExpediteFields(workItem);
 };
 
 const normalizeWorkItem = (input: WorkItemInput): WorkItem => {
