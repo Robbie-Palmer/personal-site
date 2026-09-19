@@ -139,10 +139,6 @@ describe("Given agent-facing Work Graph commands", () => {
       "https://example.test/projects/work-graph.md",
       "--source-revision",
       "abc123",
-      "--rank",
-      "2",
-      "--priority-weight",
-      "10",
       "--idempotency-key",
       UUID,
     ]);
@@ -185,8 +181,6 @@ describe("Given agent-facing Work Graph commands", () => {
         canonicalUrl: "https://example.test/projects/work-graph",
         markdownUrl: "https://example.test/projects/work-graph.md",
         sourceRevision: "abc123",
-        rank: 2,
-        priorityWeight: 10,
       },
     });
     expect(put.requests[0]?.headers.get("Idempotency-Key")).toBe(UUID);
@@ -217,14 +211,21 @@ describe("Given agent-facing Work Graph commands", () => {
         "cli-8",
         "--title",
         "Build the CLI",
-        "--parent-id",
-        "mvp",
+        "--scheduling-initiative-id",
+        "initiative-a",
+        "--scheduling-project-id",
+        "project-a",
         "--idempotency-key",
         UUID,
       ]),
     ).toBe(EXIT_CODES.success);
     expect(test.requests[0]).toMatchObject({
-      body: { id: "cli-8", title: "Build the CLI", parentId: "mvp" },
+      body: {
+        id: "cli-8",
+        title: "Build the CLI",
+        schedulingInitiativeId: "initiative-a",
+        schedulingProjectId: "project-a",
+      },
       method: "POST",
     });
     expect(test.requests[0]?.url.href).toBe(
@@ -233,6 +234,57 @@ describe("Given agent-facing Work Graph commands", () => {
     expect(test.requests[0]?.headers.get("Idempotency-Key")).toBe(UUID);
     expect(test.stdout).toEqual(['{"ok":true}\n']);
     expect(test.stderr).toEqual([]);
+  });
+
+  it("moves contextual priority and manages an expedite", async () => {
+    const ticketMove = harness();
+    const scopeMove = harness();
+    const expedite = harness();
+    const unexpedite = harness();
+
+    await ticketMove.run([
+      "priority",
+      "move",
+      "ticket-a",
+      "--above",
+      "ticket-b",
+      "--idempotency-key",
+      UUID,
+    ]);
+    await scopeMove.run([
+      "scope",
+      "move",
+      "project-a",
+      "--below",
+      "project-b",
+    ]);
+    await expedite.run([
+      "expedite",
+      "ticket-a",
+      "--reason",
+      "Production release blocker",
+    ]);
+    await unexpedite.run(["unexpedite", "ticket-a"]);
+
+    expect(ticketMove.requests[0]).toMatchObject({
+      method: "POST",
+      body: { higherThanId: "ticket-b" },
+    });
+    expect(ticketMove.requests[0]?.url.pathname).toBe(
+      "/root/api/work-items/ticket-a/priority-moves",
+    );
+    expect(scopeMove.requests[0]).toMatchObject({
+      method: "POST",
+      body: { lowerThanId: "project-b" },
+    });
+    expect(scopeMove.requests[0]?.url.pathname).toBe(
+      "/root/api/knowledge-scopes/project-a/priority-moves",
+    );
+    expect(expedite.requests[0]).toMatchObject({
+      method: "POST",
+      body: { reason: "Production release blocker" },
+    });
+    expect(unexpedite.requests[0]?.method).toBe("DELETE");
   });
 
   it("lists the ready queue by default and supports an unfiltered page", async () => {

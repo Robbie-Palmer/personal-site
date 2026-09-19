@@ -26,6 +26,8 @@ import {
   zCreateWorkItemNoteBody,
   zCreateWorkItemNoteHeaders,
   zCreateWorkItemReleaseBody,
+  zExpediteWorkItemBody,
+  zExpediteWorkItemHeaders,
   zGetKnowledgeScopePath,
   zGetWorkItemPath,
   zListAttentionRequestsQuery,
@@ -40,8 +42,11 @@ import {
   zListWorkItemNotesPath,
   zListWorkItemNotesQuery,
   zListWorkItemsQuery,
+  zMoveKnowledgeScopePriorityHeaders,
+  zMoveWorkItemPriorityHeaders,
   zPutKnowledgeScopeBody,
   zPutKnowledgeScopeHeaders,
+  zUnexpediteWorkItemHeaders,
 } from "./generated/client/zod.gen.js";
 
 export type UuidFactory = () => string;
@@ -170,6 +175,14 @@ const createInput = z.object({
     zCreateWorkItemBody.shape.parentId.unwrap().unwrap(),
     "Parent work-item ID",
   ),
+  schedulingInitiativeId: optional(
+    zCreateWorkItemBody.shape.schedulingInitiativeId.unwrap().unwrap(),
+    "Initiative used for scheduling",
+  ),
+  schedulingProjectId: optional(
+    zCreateWorkItemBody.shape.schedulingProjectId.unwrap().unwrap(),
+    "Project used for ticket ranking",
+  ),
   idempotencyKey,
 });
 
@@ -207,16 +220,88 @@ const scopePutInput = z.object({
     zPutKnowledgeScopeBody.shape.sourceRevision.unwrap().unwrap(),
     "Source revision",
   ),
-  rank: optional(
-    zPutKnowledgeScopeBody.shape.rank.unwrap().unwrap(),
-    "Local positive rank",
-  ),
-  priorityWeight: optional(
-    zPutKnowledgeScopeBody.shape.priorityWeight.unwrap().unwrap(),
-    "Local priority weight",
-  ),
   idempotencyKey: described(
     zPutKnowledgeScopeHeaders.shape["idempotency-key"],
+    "Client-generated UUID used to replay a mutation safely",
+  ),
+});
+
+const priorityMoveFields = {
+  above: optional(
+    zGetWorkItemPath.shape.workItemId,
+    "Place immediately above this ID",
+  ),
+  below: optional(
+    zGetWorkItemPath.shape.workItemId,
+    "Place immediately below this ID",
+  ),
+};
+
+const priorityMoveBody = (
+  above: string | undefined,
+  below: string | undefined,
+):
+  | { readonly higherThanId: string; readonly lowerThanId?: string }
+  | { readonly higherThanId?: string; readonly lowerThanId: string } => {
+  if (above !== undefined) {
+    return {
+      higherThanId: above,
+      ...(below === undefined ? {} : { lowerThanId: below }),
+    };
+  }
+  if (below !== undefined) return { lowerThanId: below };
+  throw usageError("Pass --above or --below.");
+};
+
+const workItemPriorityMoveInput = z
+  .object({
+    workItemId: positional(zGetWorkItemPath.shape.workItemId, "Work-item ID"),
+    ...priorityMoveFields,
+    idempotencyKey: described(
+      zMoveWorkItemPriorityHeaders.shape["idempotency-key"],
+      "Client-generated UUID used to replay a mutation safely",
+    ),
+  })
+  .refine(({ above, below }) => above || below, {
+    message: "Pass --above or --below.",
+  });
+
+const scopePriorityMoveInput = z
+  .object({
+    knowledgeScopeId: positional(
+      zGetKnowledgeScopePath.shape.knowledgeScopeId,
+      "Knowledge-scope ID",
+    ),
+    above: optional(
+      zGetKnowledgeScopePath.shape.knowledgeScopeId,
+      "Place immediately above this scope",
+    ),
+    below: optional(
+      zGetKnowledgeScopePath.shape.knowledgeScopeId,
+      "Place immediately below this scope",
+    ),
+    idempotencyKey: described(
+      zMoveKnowledgeScopePriorityHeaders.shape["idempotency-key"],
+      "Client-generated UUID used to replay a mutation safely",
+    ),
+  })
+  .refine(({ above, below }) => above || below, {
+    message: "Pass --above or --below.",
+  });
+
+const expediteInput = z.object({
+  workItemId: positional(zGetWorkItemPath.shape.workItemId, "Work-item ID"),
+  reason: described(zExpediteWorkItemBody.shape.reason, "Expedite reason"),
+  idempotencyKey: described(
+    zExpediteWorkItemHeaders.shape["idempotency-key"],
+    "Client-generated UUID used to replay a mutation safely",
+  ),
+});
+
+const unexpediteInput = z.object({
+  workItemId: positional(zGetWorkItemPath.shape.workItemId, "Work-item ID"),
+  idempotencyKey: described(
+    zUnexpediteWorkItemHeaders.shape["idempotency-key"],
     "Client-generated UUID used to replay a mutation safely",
   ),
 });
@@ -701,11 +786,17 @@ export const workGraphRouter = t.router({
             ...(input.sourceRevision === undefined
               ? {}
               : { sourceRevision: input.sourceRevision }),
-            ...(input.rank === undefined ? {} : { rank: input.rank }),
-            ...(input.priorityWeight === undefined
-              ? {}
-              : { priorityWeight: input.priorityWeight }),
           },
+          input.idempotencyKey,
+        ),
+      ),
+    move: command
+      .meta({ description: "Move a scope within its contextual priority list" })
+      .input(scopePriorityMoveInput)
+      .mutation(({ ctx, input }) =>
+        resolveClient(ctx).moveKnowledgeScopePriority(
+          input.knowledgeScopeId,
+          priorityMoveBody(input.above, input.below),
           input.idempotencyKey,
         ),
       ),
@@ -752,7 +843,44 @@ export const workGraphRouter = t.router({
           id: input.id,
           title: input.title,
           ...(input.parentId === undefined ? {} : { parentId: input.parentId }),
+          ...(input.schedulingInitiativeId === undefined
+            ? {}
+            : { schedulingInitiativeId: input.schedulingInitiativeId }),
+          ...(input.schedulingProjectId === undefined
+            ? {}
+            : { schedulingProjectId: input.schedulingProjectId }),
         },
+        input.idempotencyKey,
+      ),
+    ),
+  priority: t.router({
+    move: command
+      .meta({ description: "Move a ticket within its project priority list" })
+      .input(workItemPriorityMoveInput)
+      .mutation(({ ctx, input }) =>
+        resolveClient(ctx).moveWorkItemPriority(
+          input.workItemId,
+          priorityMoveBody(input.above, input.below),
+          input.idempotencyKey,
+        ),
+      ),
+  }),
+  expedite: command
+    .meta({ description: "Expedite a ticket and donate urgency to blockers" })
+    .input(expediteInput)
+    .mutation(({ ctx, input }) =>
+      resolveClient(ctx).expediteWorkItem(
+        input.workItemId,
+        { reason: input.reason },
+        input.idempotencyKey,
+      ),
+    ),
+  unexpedite: command
+    .meta({ description: "Remove a ticket expedite" })
+    .input(unexpediteInput)
+    .mutation(({ ctx, input }) =>
+      resolveClient(ctx).unexpediteWorkItem(
+        input.workItemId,
         input.idempotencyKey,
       ),
     ),

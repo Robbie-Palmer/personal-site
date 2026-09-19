@@ -15,6 +15,19 @@ export type WorkItem = {
     lifecycle: 'open' | 'released' | 'cancelled';
     parentId: string | null;
     rank: number | null;
+    priorityRank: number | null;
+    schedulingInitiativeId: string | null;
+    schedulingProjectId: string | null;
+    expedited: boolean;
+    expediteReason: string | null;
+    priority: {
+        initiativeRank: number;
+        projectRank: number;
+        ticketRank: number;
+        expedited: boolean;
+        effectiveExpedited: boolean;
+        donatedFromWorkItemId: string | null;
+    };
     stage: 'blocked' | 'ready' | 'in_progress' | 'stale' | 'needs_attention' | 'released' | 'cancelled';
     currentLease: Lease | null;
 };
@@ -54,7 +67,6 @@ export type KnowledgeScope = {
     markdownUrl: string;
     sourceRevision: string | null;
     rank: number | null;
-    priorityWeight: number;
 };
 
 export type KnowledgeScopeRelationshipList = {
@@ -94,7 +106,7 @@ export type WorkItemEventList = {
 
 export type WorkItemEvent = {
     sequence: number;
-    type: 'attention.requested' | 'attention.resolved' | 'dependency.added' | 'dependency.removed' | 'knowledge_scope.put' | 'knowledge_scope_relationship.added' | 'knowledge_scope_relationship.removed' | 'lease.claimed' | 'lease.ended' | 'lease.renewed' | 'note.created' | 'work_item.created' | 'work_item.decomposed' | 'work_item.lifecycle_changed' | 'work_item.reparented';
+    type: 'attention.requested' | 'attention.resolved' | 'dependency.added' | 'dependency.removed' | 'lease.claimed' | 'lease.ended' | 'lease.renewed' | 'note.created' | 'work_item.created' | 'work_item.decomposed' | 'work_item.expedited' | 'work_item.priority_moved' | 'work_item.lifecycle_changed' | 'work_item.reparented' | 'work_item.unexpedited';
     workItemId: string | null;
     data: {
         [key: string]: unknown;
@@ -744,8 +756,6 @@ export type PutKnowledgeScopeData = {
         canonicalUrl: string;
         markdownUrl: string;
         sourceRevision?: string | null;
-        rank?: number | null;
-        priorityWeight?: number;
     };
     headers?: {
         /**
@@ -801,6 +811,69 @@ export type PutKnowledgeScopeResponses = {
 };
 
 export type PutKnowledgeScopeResponse = PutKnowledgeScopeResponses[keyof PutKnowledgeScopeResponses];
+
+export type MoveKnowledgeScopePriorityData = {
+    body: {
+        higherThanId: string;
+        lowerThanId?: string;
+    } | {
+        higherThanId?: string;
+        lowerThanId: string;
+    };
+    headers?: {
+        /**
+         * Client-generated mutation ID. Reusing it with the same request replays the committed effect. Reusing it for different input returns a conflict.
+         */
+        'idempotency-key'?: string;
+    };
+    path: {
+        knowledgeScopeId: string;
+    };
+    query?: never;
+    url: '/api/knowledge-scopes/{knowledgeScopeId}/priority-moves';
+};
+
+export type MoveKnowledgeScopePriorityErrors = {
+    /**
+     * Invalid request
+     */
+    400: Error;
+    /**
+     * Cloudflare Access authentication required
+     */
+    401: Error;
+    /**
+     * Cloudflare Access denied the request
+     */
+    403: Error;
+    /**
+     * Resource not found
+     */
+    404: Error;
+    /**
+     * Request conflicts with current Work Graph state
+     */
+    409: Error;
+    /**
+     * Request validation failed
+     */
+    422: Error;
+    /**
+     * Unexpected server error
+     */
+    500: Error;
+};
+
+export type MoveKnowledgeScopePriorityError = MoveKnowledgeScopePriorityErrors[keyof MoveKnowledgeScopePriorityErrors];
+
+export type MoveKnowledgeScopePriorityResponses = {
+    /**
+     * Knowledge scope moved or matching mutation replayed
+     */
+    200: KnowledgeScope;
+};
+
+export type MoveKnowledgeScopePriorityResponse = MoveKnowledgeScopePriorityResponses[keyof MoveKnowledgeScopePriorityResponses];
 
 export type CreateLeaseData = {
     body: {
@@ -955,7 +1028,7 @@ export type ListWorkItemsError = ListWorkItemsErrors[keyof ListWorkItemsErrors];
 
 export type ListWorkItemsResponses = {
     /**
-     * Work items in stable work-item ID order
+     * Work items in deterministic priority order
      */
     200: WorkItemList;
 };
@@ -967,6 +1040,8 @@ export type CreateWorkItemData = {
         id: string;
         title: string;
         parentId?: string | null;
+        schedulingInitiativeId?: string | null;
+        schedulingProjectId?: string | null;
     };
     headers?: {
         /**
@@ -1321,7 +1396,7 @@ export type ListWorkItemEventsData = {
         workItemId: string;
     };
     query?: {
-        type?: 'attention.requested' | 'attention.resolved' | 'dependency.added' | 'dependency.removed' | 'knowledge_scope.put' | 'knowledge_scope_relationship.added' | 'knowledge_scope_relationship.removed' | 'lease.claimed' | 'lease.ended' | 'lease.renewed' | 'note.created' | 'work_item.created' | 'work_item.decomposed' | 'work_item.lifecycle_changed' | 'work_item.reparented';
+        type?: 'attention.requested' | 'attention.resolved' | 'dependency.added' | 'dependency.removed' | 'lease.claimed' | 'lease.ended' | 'lease.renewed' | 'note.created' | 'work_item.created' | 'work_item.decomposed' | 'work_item.expedited' | 'work_item.priority_moved' | 'work_item.lifecycle_changed' | 'work_item.reparented' | 'work_item.unexpedited';
         lifecycle?: 'released' | 'cancelled';
         limit?: number;
         afterSequence?: number;
@@ -1370,6 +1445,122 @@ export type ListWorkItemEventsResponses = {
 };
 
 export type ListWorkItemEventsResponse = ListWorkItemEventsResponses[keyof ListWorkItemEventsResponses];
+
+export type UnexpediteWorkItemData = {
+    body?: never;
+    headers?: {
+        /**
+         * Client-generated mutation ID. Reusing it with the same request replays the committed effect. Reusing it for different input returns a conflict.
+         */
+        'idempotency-key'?: string;
+    };
+    path: {
+        workItemId: string;
+    };
+    query?: never;
+    url: '/api/work-items/{workItemId}/expedites';
+};
+
+export type UnexpediteWorkItemErrors = {
+    /**
+     * Invalid request
+     */
+    400: Error;
+    /**
+     * Cloudflare Access authentication required
+     */
+    401: Error;
+    /**
+     * Cloudflare Access denied the request
+     */
+    403: Error;
+    /**
+     * Resource not found
+     */
+    404: Error;
+    /**
+     * Request conflicts with current Work Graph state
+     */
+    409: Error;
+    /**
+     * Request validation failed
+     */
+    422: Error;
+    /**
+     * Unexpected server error
+     */
+    500: Error;
+};
+
+export type UnexpediteWorkItemError = UnexpediteWorkItemErrors[keyof UnexpediteWorkItemErrors];
+
+export type UnexpediteWorkItemResponses = {
+    /**
+     * Ticket expedite removed or matching mutation replayed
+     */
+    200: WorkItem;
+};
+
+export type UnexpediteWorkItemResponse = UnexpediteWorkItemResponses[keyof UnexpediteWorkItemResponses];
+
+export type ExpediteWorkItemData = {
+    body: {
+        reason: string;
+    };
+    headers?: {
+        /**
+         * Client-generated mutation ID. Reusing it with the same request replays the committed effect. Reusing it for different input returns a conflict.
+         */
+        'idempotency-key'?: string;
+    };
+    path: {
+        workItemId: string;
+    };
+    query?: never;
+    url: '/api/work-items/{workItemId}/expedites';
+};
+
+export type ExpediteWorkItemErrors = {
+    /**
+     * Invalid request
+     */
+    400: Error;
+    /**
+     * Cloudflare Access authentication required
+     */
+    401: Error;
+    /**
+     * Cloudflare Access denied the request
+     */
+    403: Error;
+    /**
+     * Resource not found
+     */
+    404: Error;
+    /**
+     * Request conflicts with current Work Graph state
+     */
+    409: Error;
+    /**
+     * Request validation failed
+     */
+    422: Error;
+    /**
+     * Unexpected server error
+     */
+    500: Error;
+};
+
+export type ExpediteWorkItemError = ExpediteWorkItemErrors[keyof ExpediteWorkItemErrors];
+
+export type ExpediteWorkItemResponses = {
+    /**
+     * Ticket expedited or matching mutation replayed
+     */
+    200: WorkItem;
+};
+
+export type ExpediteWorkItemResponse = ExpediteWorkItemResponses[keyof ExpediteWorkItemResponses];
 
 export type ListWorkItemLeasesData = {
     body?: never;
@@ -1540,6 +1731,69 @@ export type CreateWorkItemNoteResponses = {
 };
 
 export type CreateWorkItemNoteResponse = CreateWorkItemNoteResponses[keyof CreateWorkItemNoteResponses];
+
+export type MoveWorkItemPriorityData = {
+    body: {
+        higherThanId: string;
+        lowerThanId?: string;
+    } | {
+        higherThanId?: string;
+        lowerThanId: string;
+    };
+    headers?: {
+        /**
+         * Client-generated mutation ID. Reusing it with the same request replays the committed effect. Reusing it for different input returns a conflict.
+         */
+        'idempotency-key'?: string;
+    };
+    path: {
+        workItemId: string;
+    };
+    query?: never;
+    url: '/api/work-items/{workItemId}/priority-moves';
+};
+
+export type MoveWorkItemPriorityErrors = {
+    /**
+     * Invalid request
+     */
+    400: Error;
+    /**
+     * Cloudflare Access authentication required
+     */
+    401: Error;
+    /**
+     * Cloudflare Access denied the request
+     */
+    403: Error;
+    /**
+     * Resource not found
+     */
+    404: Error;
+    /**
+     * Request conflicts with current Work Graph state
+     */
+    409: Error;
+    /**
+     * Request validation failed
+     */
+    422: Error;
+    /**
+     * Unexpected server error
+     */
+    500: Error;
+};
+
+export type MoveWorkItemPriorityError = MoveWorkItemPriorityErrors[keyof MoveWorkItemPriorityErrors];
+
+export type MoveWorkItemPriorityResponses = {
+    /**
+     * Ticket moved or matching mutation replayed
+     */
+    200: WorkItem;
+};
+
+export type MoveWorkItemPriorityResponse = MoveWorkItemPriorityResponses[keyof MoveWorkItemPriorityResponses];
 
 export type CreateWorkItemReleaseData = {
     body: {

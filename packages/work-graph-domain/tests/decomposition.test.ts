@@ -235,8 +235,36 @@ describe("decomposition and hierarchy", () => {
       title: "Stable work",
       lifecycle: "open",
       parentId: "new-parent",
+      priorityRank: null,
+      schedulingInitiativeId: null,
+      schedulingProjectId: null,
+      expedited: false,
+      expediteReason: null,
       rank: null,
     });
+  });
+
+  it("clears owned scheduling priority when a root becomes a child", () => {
+    const graph = createWorkGraph({
+      workItems: [
+        { id: "parent", title: "Parent", priorityRank: 1_024 },
+        {
+          id: "work",
+          title: "Work",
+          priorityRank: 2_048,
+          schedulingInitiativeId: "initiative",
+          schedulingProjectId: "project",
+        },
+      ],
+    });
+
+    expect(getWorkItem(reparentWorkItem(graph, "work", "parent"), "work"))
+      .toMatchObject({
+        parentId: "parent",
+        priorityRank: null,
+        schedulingInitiativeId: null,
+        schedulingProjectId: null,
+      });
   });
 
   it("rejects a hierarchy cycle", () => {

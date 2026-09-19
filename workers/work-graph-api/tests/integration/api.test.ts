@@ -67,6 +67,7 @@ beforeEach(async () => {
     await transaction.delete(schema.lease);
     await transaction.delete(schema.idempotencyKey);
     await transaction.delete(schema.knowledgeScopeRelationship);
+    await transaction.delete(schema.workItemPriorityContext);
     await transaction.delete(schema.knowledgeScope);
     await transaction.delete(schema.workItemDependency);
     await transaction.delete(schema.workItemHierarchy);
@@ -82,8 +83,6 @@ describe("Given knowledge scopes mirrored over HTTP", () => {
       canonicalUrl: "https://example.test/initiatives/semi-autonomous",
       markdownUrl: "https://example.test/initiatives/semi-autonomous.md",
       sourceRevision: "abc123",
-      rank: 1,
-      priorityWeight: 20,
     };
     const project = {
       kind: "project",
@@ -128,8 +127,7 @@ describe("Given knowledge scopes mirrored over HTTP", () => {
           id: "work-graph",
           ...project,
           sourceRevision: null,
-          rank: null,
-          priorityWeight: 0,
+          rank: 1024,
         },
       ],
       nextCursor: null,
@@ -608,6 +606,11 @@ describe("Given graph mutations over HTTP", () => {
         lifecycle: "open",
         parentId: null,
         rank: null,
+        priorityRank: 1024,
+        schedulingInitiativeId: null,
+        schedulingProjectId: null,
+        expedited: false,
+        expediteReason: null,
       },
     ]);
     expect(await db.select().from(schema.idempotencyKey)).toHaveLength(1);
@@ -915,6 +918,42 @@ describe("Given claimed work that needs notes or attention", () => {
 });
 
 describe("Given lease-backed work over HTTP", () => {
+  it("returns and claims ready work in priority order", async () => {
+    await requestJson("/api/work-items", "POST", {
+      id: "a-low",
+      title: "Low priority",
+    });
+    await requestJson("/api/work-items", "POST", {
+      id: "z-high",
+      title: "High priority",
+    });
+    const moved = await requestJson(
+      "/api/work-items/z-high/priority-moves",
+      "POST",
+      { higherThanId: "a-low" },
+      recordId(490),
+    );
+    expect(moved.status).toBe(200);
+
+    const queueResponse = await app.request("/api/work-items?stage=ready");
+    const queue = (await queueResponse.json()) as {
+      items: Array<{ id: string; priorityRank: number }>;
+    };
+    const claimResponse = await requestJson("/api/leases", "POST", {
+      workerId: "worker-a",
+      leaseDurationSeconds: 300,
+    });
+    const claim = (await claimResponse.json()) as {
+      workItem: { id: string };
+    };
+
+    expect(queue.items).toEqual([
+      expect.objectContaining({ id: "z-high", priorityRank: 1024 }),
+      expect.objectContaining({ id: "a-low", priorityRank: 2048 }),
+    ]);
+    expect(claim.workItem.id).toBe("z-high");
+  });
+
   it("distinguishes a missing specified item from ineligible work", async () => {
     const response = await requestJson("/api/leases", "POST", {
       workItemId: "missing",
@@ -976,15 +1015,18 @@ describe("Given lease-backed work over HTTP", () => {
     expect(releaseResponse.status).toBe(201);
     expect(released.lease.outcome).toBe("released");
     expect(released.lease.endedAt).not.toBeNull();
-    expect(released.workItem).toEqual({
-      id: "work",
-      title: "Release me",
-      lifecycle: "released",
-      parentId: null,
-      rank: null,
-      stage: "released",
-      currentLease: null,
-    });
+    expect(released.workItem).toEqual(
+      expect.objectContaining({
+        id: "work",
+        title: "Release me",
+        lifecycle: "released",
+        parentId: null,
+        priorityRank: 1024,
+        rank: null,
+        stage: "released",
+        currentLease: null,
+      }),
+    );
 
     const commentRequest = () =>
       requestJson(

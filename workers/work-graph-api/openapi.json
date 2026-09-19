@@ -132,6 +132,107 @@
               }
             ]
           },
+          "priorityRank": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 2147483647,
+                "format": "int32"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "schedulingInitiativeId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "schedulingProjectId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "expedited": {
+            "type": "boolean"
+          },
+          "expediteReason": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 10000
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "priority": {
+            "type": "object",
+            "properties": {
+              "initiativeRank": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 2147483647,
+                "format": "int32"
+              },
+              "projectRank": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 2147483647,
+                "format": "int32"
+              },
+              "ticketRank": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 2147483647,
+                "format": "int32"
+              },
+              "expedited": {
+                "type": "boolean"
+              },
+              "effectiveExpedited": {
+                "type": "boolean"
+              },
+              "donatedFromWorkItemId": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "initiativeRank",
+              "projectRank",
+              "ticketRank",
+              "expedited",
+              "effectiveExpedited",
+              "donatedFromWorkItemId"
+            ]
+          },
           "stage": {
             "type": "string",
             "enum": [
@@ -161,6 +262,12 @@
           "lifecycle",
           "parentId",
           "rank",
+          "priorityRank",
+          "schedulingInitiativeId",
+          "schedulingProjectId",
+          "expedited",
+          "expediteReason",
+          "priority",
           "stage",
           "currentLease"
         ]
@@ -383,12 +490,6 @@
                 "type": "null"
               }
             ]
-          },
-          "priorityWeight": {
-            "type": "integer",
-            "minimum": -2147483648,
-            "maximum": 2147483647,
-            "format": "int32"
           }
         },
         "required": [
@@ -398,8 +499,7 @@
           "canonicalUrl",
           "markdownUrl",
           "sourceRevision",
-          "rank",
-          "priorityWeight"
+          "rank"
         ]
       },
       "KnowledgeScopeRelationshipList": {
@@ -599,17 +699,17 @@
               "attention.resolved",
               "dependency.added",
               "dependency.removed",
-              "knowledge_scope.put",
-              "knowledge_scope_relationship.added",
-              "knowledge_scope_relationship.removed",
               "lease.claimed",
               "lease.ended",
               "lease.renewed",
               "note.created",
               "work_item.created",
               "work_item.decomposed",
+              "work_item.expedited",
+              "work_item.priority_moved",
               "work_item.lifecycle_changed",
-              "work_item.reparented"
+              "work_item.reparented",
+              "work_item.unexpedited"
             ]
           },
           "workItemId": {
@@ -2443,26 +2543,6 @@
                         "type": "null"
                       }
                     ]
-                  },
-                  "rank": {
-                    "anyOf": [
-                      {
-                        "type": "integer",
-                        "minimum": 1,
-                        "maximum": 2147483647,
-                        "format": "int32"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
-                  },
-                  "priorityWeight": {
-                    "type": "integer",
-                    "minimum": -2147483648,
-                    "maximum": 2147483647,
-                    "default": 0,
-                    "format": "int32"
                   }
                 },
                 "required": [
@@ -2560,11 +2640,182 @@
         }
       }
     },
+    "/api/knowledge-scopes/{knowledgeScopeId}/priority-moves": {
+      "post": {
+        "operationId": "moveKnowledgeScopePriority",
+        "summary": "Move a knowledge scope within its priority list",
+        "description": "Places an initiative among initiatives or a project among projects using relative anchors. The service owns numeric ranks.",
+        "tags": [
+          "knowledge-scopes"
+        ],
+        "security": [
+          {
+            "cloudflareAccessClientId": [],
+            "cloudflareAccessClientSecret": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "required": true,
+            "name": "knowledgeScopeId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "maxLength": 36,
+              "format": "uuid",
+              "description": "Client-generated mutation ID. Reusing it with the same request replays the committed effect. Reusing it for different input returns a conflict."
+            },
+            "required": false,
+            "description": "Client-generated mutation ID. Reusing it with the same request replays the committed effect. Reusing it for different input returns a conflict.",
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "higherThanId": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 200
+                      },
+                      "lowerThanId": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 200
+                      }
+                    },
+                    "required": [
+                      "higherThanId"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "higherThanId": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 200
+                      },
+                      "lowerThanId": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 200
+                      }
+                    },
+                    "required": [
+                      "lowerThanId"
+                    ],
+                    "additionalProperties": false
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Knowledge scope moved or matching mutation replayed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KnowledgeScope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Cloudflare Access authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Cloudflare Access denied the request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Request conflicts with current Work Graph state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Request validation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/leases": {
       "post": {
         "operationId": "createLease",
         "summary": "Claim a specified or first eligible work item",
-        "description": "Creates a fenced lease for the requested item, or for the first eligible item in stable fallback order when workItemId is absent.",
+        "description": "Creates a fenced lease for the requested item, or for the highest-priority eligible item when workItemId is absent.",
         "tags": [
           "leases"
         ],
@@ -2834,7 +3085,7 @@
       "get": {
         "operationId": "listWorkItems",
         "summary": "List work items with their derived stage",
-        "description": "Returns one bounded page in stable work-item ID order. The optional stage filter uses the current derived projection. Pass nextCursor to continue after the last observed ID without offset drift during lease transitions.",
+        "description": "Returns one bounded page in priority order. The optional stage filter keeps the relative global order. Pass nextCursor to continue after the last observed item without offset drift during lease transitions.",
         "tags": [
           "work-items"
         ],
@@ -2887,7 +3138,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Work items in stable work-item ID order",
+            "description": "Work items in deterministic priority order",
             "content": {
               "application/json": {
                 "schema": {
@@ -3013,6 +3264,30 @@
                     "maxLength": 10000
                   },
                   "parentId": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 200
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "schedulingInitiativeId": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 200
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "schedulingProjectId": {
                     "anyOf": [
                       {
                         "type": "string",
@@ -3920,17 +4195,17 @@
                 "attention.resolved",
                 "dependency.added",
                 "dependency.removed",
-                "knowledge_scope.put",
-                "knowledge_scope_relationship.added",
-                "knowledge_scope_relationship.removed",
                 "lease.claimed",
                 "lease.ended",
                 "lease.renewed",
                 "note.created",
                 "work_item.created",
                 "work_item.decomposed",
+                "work_item.expedited",
+                "work_item.priority_moved",
                 "work_item.lifecycle_changed",
-                "work_item.reparented"
+                "work_item.reparented",
+                "work_item.unexpedited"
               ]
             },
             "required": false,
@@ -3980,6 +4255,269 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/WorkItemEventList"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Cloudflare Access authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Cloudflare Access denied the request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Request conflicts with current Work Graph state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Request validation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/work-items/{workItemId}/expedites": {
+      "post": {
+        "operationId": "expediteWorkItem",
+        "summary": "Expedite a ticket",
+        "description": "Places a ticket ahead of normal fused priority and donates that urgency to unresolved blockers without permanently expediting them.",
+        "tags": [
+          "work-items"
+        ],
+        "security": [
+          {
+            "cloudflareAccessClientId": [],
+            "cloudflareAccessClientSecret": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "required": true,
+            "name": "workItemId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "maxLength": 36,
+              "format": "uuid",
+              "description": "Client-generated mutation ID. Reusing it with the same request replays the committed effect. Reusing it for different input returns a conflict."
+            },
+            "required": false,
+            "description": "Client-generated mutation ID. Reusing it with the same request replays the committed effect. Reusing it for different input returns a conflict.",
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "reason": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 10000
+                  }
+                },
+                "required": [
+                  "reason"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Ticket expedited or matching mutation replayed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkItem"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Cloudflare Access authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Cloudflare Access denied the request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Request conflicts with current Work Graph state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Request validation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "unexpediteWorkItem",
+        "summary": "Remove a ticket expedite",
+        "description": "Returns a ticket to the fused normal queue and removes its donated urgency from unresolved blockers.",
+        "tags": [
+          "work-items"
+        ],
+        "security": [
+          {
+            "cloudflareAccessClientId": [],
+            "cloudflareAccessClientSecret": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "required": true,
+            "name": "workItemId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "maxLength": 36,
+              "format": "uuid",
+              "description": "Client-generated mutation ID. Reusing it with the same request replays the committed effect. Reusing it for different input returns a conflict."
+            },
+            "required": false,
+            "description": "Client-generated mutation ID. Reusing it with the same request replays the committed effect. Reusing it for different input returns a conflict.",
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Ticket expedite removed or matching mutation replayed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkItem"
                 }
               }
             }
@@ -4405,6 +4943,177 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/WorkItemNoteList"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Cloudflare Access authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Cloudflare Access denied the request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Request conflicts with current Work Graph state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Request validation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/work-items/{workItemId}/priority-moves": {
+      "post": {
+        "operationId": "moveWorkItemPriority",
+        "summary": "Move a ticket within its project priority list",
+        "description": "Places a priority-owning ticket relative to tickets in the same scheduling project. Decomposed children inherit their ticket's position.",
+        "tags": [
+          "work-items"
+        ],
+        "security": [
+          {
+            "cloudflareAccessClientId": [],
+            "cloudflareAccessClientSecret": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "required": true,
+            "name": "workItemId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "maxLength": 36,
+              "format": "uuid",
+              "description": "Client-generated mutation ID. Reusing it with the same request replays the committed effect. Reusing it for different input returns a conflict."
+            },
+            "required": false,
+            "description": "Client-generated mutation ID. Reusing it with the same request replays the committed effect. Reusing it for different input returns a conflict.",
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "higherThanId": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 200
+                      },
+                      "lowerThanId": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 200
+                      }
+                    },
+                    "required": [
+                      "higherThanId"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "higherThanId": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 200
+                      },
+                      "lowerThanId": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 200
+                      }
+                    },
+                    "required": [
+                      "lowerThanId"
+                    ],
+                    "additionalProperties": false
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Ticket moved or matching mutation replayed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkItem"
                 }
               }
             }

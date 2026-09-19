@@ -8,7 +8,6 @@ export interface KnowledgeScope {
   readonly markdownUrl: string;
   readonly sourceRevision: string | null;
   readonly rank: number | null;
-  readonly priorityWeight: number;
 }
 
 export interface KnowledgeScopeInput {
@@ -19,7 +18,6 @@ export interface KnowledgeScopeInput {
   readonly markdownUrl: string;
   readonly sourceRevision?: string | null;
   readonly rank?: number | null;
-  readonly priorityWeight?: number;
 }
 
 export interface KnowledgeScopeRelationship {
@@ -33,6 +31,11 @@ export interface WorkItem {
   readonly lifecycle: WorkItemLifecycle;
   readonly parentId: string | null;
   readonly rank: number | null;
+  readonly priorityRank: number | null;
+  readonly schedulingInitiativeId: string | null;
+  readonly schedulingProjectId: string | null;
+  readonly expedited: boolean;
+  readonly expediteReason: string | null;
 }
 
 export interface WorkItemInput {
@@ -41,6 +44,11 @@ export interface WorkItemInput {
   readonly lifecycle?: WorkItemLifecycle;
   readonly parentId?: string | null;
   readonly rank?: number | null;
+  readonly priorityRank?: number | null;
+  readonly schedulingInitiativeId?: string | null;
+  readonly schedulingProjectId?: string | null;
+  readonly expedited?: boolean;
+  readonly expediteReason?: string | null;
 }
 
 export type NewWorkItemInput = Omit<WorkItemInput, "lifecycle" | "rank">;

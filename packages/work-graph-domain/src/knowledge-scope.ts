@@ -10,7 +10,6 @@ import {
 } from "./vocabulary";
 
 const MAX_INT32 = 2_147_483_647;
-const MIN_INT32 = -2_147_483_648;
 
 const isIdentifier = (value: unknown): value is string =>
   typeof value === "string" && value.trim().length > 0;
@@ -92,18 +91,6 @@ export const createKnowledgeScope = (
       `Knowledge scope ${input.id} must have a positive whole-number rank.`,
     );
   }
-  const priorityWeight = input.priorityWeight ?? 0;
-  if (
-    !Number.isSafeInteger(priorityWeight) ||
-    priorityWeight < MIN_INT32 ||
-    priorityWeight > MAX_INT32
-  ) {
-    throw new WorkGraphError(
-      "invalid_knowledge_scope_priority_weight",
-      `Knowledge scope ${input.id} must have a 32-bit integer priority weight.`,
-    );
-  }
-
   return {
     id: input.id,
     kind: input.kind,
@@ -112,7 +99,6 @@ export const createKnowledgeScope = (
     markdownUrl: requireHttpUrl(input.markdownUrl, "Markdown URL"),
     sourceRevision: input.sourceRevision ?? null,
     rank,
-    priorityWeight,
   };
 };
 

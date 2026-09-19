@@ -1,4 +1,4 @@
-import { and, eq, notInArray, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import {
   attentionRequest,
@@ -12,16 +12,10 @@ import {
 const blockingWorkItem = alias(workItem, "blocking_work_item");
 const childWorkItem = alias(workItem, "child_work_item");
 
-export const claimableWorkItemWhere = (
-  workItemId?: string,
-  excludedWorkItemIds: string[] = [],
-) =>
+export const claimableWorkItemWhere = (workItemId?: string) =>
   and(
     eq(workItem.lifecycle, "open"),
     workItemId === undefined ? undefined : eq(workItem.id, workItemId),
-    excludedWorkItemIds.length === 0
-      ? undefined
-      : notInArray(workItem.id, excludedWorkItemIds),
     sql`not exists (
       select 1
       from ${attentionRequest}

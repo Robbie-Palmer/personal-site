@@ -51,6 +51,19 @@ const item = (
   lifecycle,
   parentId: null,
   rank: null,
+  priorityRank: 1024,
+  schedulingInitiativeId: null,
+  schedulingProjectId: null,
+  expedited: false,
+  expediteReason: null,
+  priority: {
+    initiativeRank: 1,
+    projectRank: 1,
+    ticketRank: 1,
+    expedited: false,
+    effectiveExpedited: false,
+    donatedFromWorkItemId: null,
+  },
   stage,
   currentLease,
 });
@@ -66,7 +79,6 @@ const knowledgeScope = (id: string, kind: "initiative" | "project") => ({
   markdownUrl: `https://example.test/${id}.md`,
   sourceRevision: null,
   rank: null,
-  priorityWeight: 0,
 });
 
 const buildRepository = (): WorkGraphApiRepository => ({
@@ -79,14 +91,15 @@ const buildRepository = (): WorkGraphApiRepository => ({
     markdownUrl: "https://example.test/projects/work-graph.md",
     sourceRevision: null,
     rank: null,
-    priorityWeight: 0,
   })),
   putKnowledgeScope: vi.fn(async (input) => ({
     ...input,
     sourceRevision: input.sourceRevision ?? null,
     rank: input.rank ?? null,
-    priorityWeight: input.priorityWeight ?? 0,
   })),
+  moveKnowledgeScopePriority: vi.fn(async (id) =>
+    knowledgeScope(id, "project"),
+  ),
   listKnowledgeScopeRelationships: vi.fn(async () => []),
   addKnowledgeScopeRelationship: vi.fn(async () => undefined),
   removeKnowledgeScopeRelationship: vi.fn(async () => undefined),
@@ -102,6 +115,22 @@ const buildRepository = (): WorkGraphApiRepository => ({
     lifecycle: "open" as const,
     parentId: input.parentId ?? null,
     rank: null,
+    priorityRank: 1024,
+    schedulingInitiativeId: input.schedulingInitiativeId ?? null,
+    schedulingProjectId: input.schedulingProjectId ?? null,
+    expedited: false,
+    expediteReason: null,
+  })),
+  moveWorkItemPriority: vi.fn(async (workItemId) => ({
+    ...item(workItemId, "ready"),
+  })),
+  expediteWorkItem: vi.fn(async (workItemId, reason) => ({
+    ...item(workItemId, "ready"),
+    expedited: true,
+    expediteReason: reason,
+  })),
+  unexpediteWorkItem: vi.fn(async (workItemId) => ({
+    ...item(workItemId, "ready"),
   })),
   addDependency: vi.fn(async () => undefined),
   removeDependency: vi.fn(async () => undefined),
@@ -165,6 +194,11 @@ const buildRepository = (): WorkGraphApiRepository => ({
           lifecycle: "open" as const,
           parentId: input.workItemId,
           rank,
+          priorityRank: null,
+          schedulingInitiativeId: null,
+          schedulingProjectId: null,
+          expedited: false,
+          expediteReason: null,
         },
       }))
       .sort((left, right) => left.rank - right.rank),
@@ -225,8 +259,6 @@ describe("Given knowledge-scope mirrors", () => {
       canonicalUrl: "https://example.test/projects/work-graph",
       markdownUrl: "https://example.test/projects/work-graph.md",
       sourceRevision: "abc123",
-      rank: 2,
-      priorityWeight: 10,
     };
 
     const response = await app.request("/api/knowledge-scopes/work-graph", {
@@ -243,7 +275,53 @@ describe("Given knowledge-scope mirrors", () => {
       { id: "work-graph", ...body },
       { idempotencyKey },
     );
-    expect(await responseJson(response)).toEqual({ id: "work-graph", ...body });
+    expect(await responseJson(response)).toEqual({
+      id: "work-graph",
+      ...body,
+      rank: null,
+    });
+  });
+
+  it("moves a scope with relative priority anchors", async () => {
+    const repository = buildRepository();
+    const app = createWorkGraphApp(repository);
+    const response = await app.request(
+      "/api/knowledge-scopes/project-a/priority-moves",
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "idempotency-key": idempotencyKey,
+        },
+        body: JSON.stringify({
+          higherThanId: "project-b",
+          lowerThanId: "project-c",
+        }),
+      },
+    );
+
+    expect(response.status).toBe(200);
+    expect(repository.moveKnowledgeScopePriority).toHaveBeenCalledWith(
+      "project-a",
+      { higherThanId: "project-b", lowerThanId: "project-c" },
+      { idempotencyKey },
+    );
+  });
+
+  it("rejects a priority move without a relative anchor", async () => {
+    const repository = buildRepository();
+    const app = createWorkGraphApp(repository);
+    const response = await app.request(
+      "/api/knowledge-scopes/project-a/priority-moves",
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({}),
+      },
+    );
+
+    expect(response.status).toBe(422);
+    expect(repository.moveKnowledgeScopePriority).not.toHaveBeenCalled();
   });
 
   it.each([
@@ -391,6 +469,22 @@ describe("Given knowledge-scope mirrors", () => {
 });
 
 describe("Given work items with derived readiness", () => {
+  it("keeps repository priority order instead of sorting by ID", async () => {
+    const repository = buildRepository();
+    vi.mocked(repository.listWorkItems).mockResolvedValue([
+      item("z-high", "ready"),
+      item("a-low", "ready"),
+    ]);
+    const app = createWorkGraphApp(repository);
+
+    const response = await app.request("/api/work-items?stage=ready");
+    const body = (await responseJson(response)) as {
+      items: Array<{ id: string }>;
+    };
+
+    expect(body.items.map(({ id }) => id)).toEqual(["z-high", "a-low"]);
+  });
+
   it("lists a stage with a cursor that survives readiness changes", async () => {
     const repository = buildRepository();
     vi.mocked(repository.listWorkItems)
@@ -409,17 +503,7 @@ describe("Given work items with derived readiness", () => {
 
     expect(response.status).toBe(200);
     expect(await responseJson(response)).toEqual({
-      items: [
-        {
-          id: "a-ready",
-          title: "a-ready work",
-          lifecycle: "open",
-          parentId: null,
-          rank: null,
-          stage: "ready",
-          currentLease: null,
-        },
-      ],
+      items: [item("a-ready", "ready")],
       nextCursor: "a-ready",
     });
 
@@ -427,17 +511,7 @@ describe("Given work items with derived readiness", () => {
       "/api/work-items?stage=ready&limit=1&cursor=a-ready",
     );
     expect(await responseJson(nextResponse)).toEqual({
-      items: [
-        {
-          id: "b-ready",
-          title: "b-ready work",
-          lifecycle: "open",
-          parentId: null,
-          rank: null,
-          stage: "ready",
-          currentLease: null,
-        },
-      ],
+      items: [item("b-ready", "ready")],
       nextCursor: null,
     });
   });
@@ -488,13 +562,8 @@ describe("Given idempotent graph mutation requests", () => {
       {},
     );
     expect(await responseJson(response)).toEqual({
-      id: "sparse",
+      ...item("sparse", "ready"),
       title: "Sparse work item",
-      lifecycle: "open",
-      parentId: null,
-      rank: null,
-      stage: "ready",
-      currentLease: null,
     });
 
     const rejected = await app.request("/api/work-items", {
@@ -507,6 +576,47 @@ describe("Given idempotent graph mutation requests", () => {
       }),
     });
     expect(rejected.status).toBe(422);
+  });
+
+  it("moves, expedites, and unexpedites a ticket", async () => {
+    const repository = buildRepository();
+    const app = createWorkGraphApp(repository);
+
+    const moved = await app.request(
+      "/api/work-items/ticket-a/priority-moves",
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ higherThanId: "ticket-b" }),
+      },
+    );
+    const expedited = await app.request("/api/work-items/ticket-a/expedites", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ reason: "Restore production." }),
+    });
+    const unexpedited = await app.request(
+      "/api/work-items/ticket-a/expedites",
+      { method: "DELETE" },
+    );
+
+    expect(moved.status).toBe(200);
+    expect(expedited.status).toBe(200);
+    expect(unexpedited.status).toBe(200);
+    expect(repository.moveWorkItemPriority).toHaveBeenCalledWith(
+      "ticket-a",
+      { higherThanId: "ticket-b" },
+      {},
+    );
+    expect(repository.expediteWorkItem).toHaveBeenCalledWith(
+      "ticket-a",
+      "Restore production.",
+      {},
+    );
+    expect(repository.unexpediteWorkItem).toHaveBeenCalledWith(
+      "ticket-a",
+      {},
+    );
   });
 
   it("adds and removes one dependency with the caller's retry key", async () => {
@@ -838,6 +948,9 @@ describe("Given a worker recording progress and requesting attention", () => {
     const releases = await app.request(
       "/api/work-items/ready/events?type=work_item.lifecycle_changed&lifecycle=released&limit=1",
     );
+    const scopeEvents = await app.request(
+      "/api/work-items/ready/events?type=knowledge_scope.priority_moved",
+    );
 
     expect(await responseJson(notes)).toEqual({
       items: [expect.objectContaining({ content: "First note" })],
@@ -847,6 +960,7 @@ describe("Given a worker recording progress and requesting attention", () => {
       items: [expect.objectContaining({ sequence: 21 })],
       nextCursor: 21,
     });
+    expect(scopeEvents.status).toBe(422);
     expect(await responseJson(dependencies)).toEqual({
       items: [
         { dependentWorkItemId: "ready", blockerWorkItemId: "blocker-a" },
@@ -1024,7 +1138,11 @@ describe("Given a worker managing a lease", () => {
 
     expect(response.status).toBe(201);
     expect(repository.decomposeClaimedWorkItem).toHaveBeenCalledWith(
-      { ...body, workItemId: "parent" },
+      {
+        ...body,
+        workItemId: "parent",
+        children: body.children,
+      },
       { idempotencyKey },
     );
     expect(repository.listWorkItems).toHaveBeenCalledOnce();

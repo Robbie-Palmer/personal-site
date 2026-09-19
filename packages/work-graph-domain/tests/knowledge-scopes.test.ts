@@ -23,7 +23,6 @@ describe("knowledge scope mirrors", () => {
       markdownUrl: "https://example.test/projects/work-graph.md",
       sourceRevision: null,
       rank: null,
-      priorityWeight: 0,
     });
   });
 
@@ -43,10 +42,6 @@ describe("knowledge scope mirrors", () => {
       "invalid_knowledge_scope_source_revision",
     ],
     [{ id: "scope", kind: "project", rank: 0 }, "invalid_knowledge_scope_rank"],
-    [
-      { id: "scope", kind: "project", priorityWeight: 2_147_483_648 },
-      "invalid_knowledge_scope_priority_weight",
-    ],
   ] as const)("rejects invalid mirror fields", (override, code) => {
     expect(() =>
       createKnowledgeScope(
