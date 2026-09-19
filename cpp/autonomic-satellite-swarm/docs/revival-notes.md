@@ -64,8 +64,10 @@ small embedded target and the tooling available at the time:
 - Safe-disabled still inhibits participation in software when no physical adapter exists. The core
   now makes one request through an explicit actuator port. The reference firmware omits that port
   because no safe-state hardware has been validated, so the controller records a rejected result.
+  When an adapter accepts a request, the controller polls until it records one terminal success or
+  failure result.
 
-Telemetry, deterministic equal-score rotation, and the portable safe-state hook are now
+Telemetry, deterministic equal-score rotation, and the portable safe-state lifecycle are now
 implemented. Resource-aware scoring, controlled mission-control intervention, and physical
 safe-state implementations remain scoped in [Next research cycle](next-research-cycle.md). They are
 not implied by the current behavior.

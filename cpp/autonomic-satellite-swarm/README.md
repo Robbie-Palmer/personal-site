@@ -29,7 +29,8 @@ explicit.
 - Health policy can place a node into reversible quiescence or a safe-disabled state latched for
   the controller lifetime.
 - Entering safe-disabled can make one idempotent platform request. The controller records whether
-  the platform accepts it and stays latched when the platform rejects it.
+  the platform accepts it, polls accepted work until success or failure, and stays latched for every
+  outcome.
 - Repeated failure to receive acknowledgements can trigger the historical "death by default" rule.
 - Deterministic trace inputs can drop, delay, or duplicate deliveries, change directed links, and
   reset a node so protocol failures can be replayed exactly.
@@ -123,7 +124,7 @@ The core depends on five interfaces:
 - `HealthMonitor` maps platform observations to nominal, quiescent, or fatal health.
 - `CandidacyScorer` ranks a satellite for a mission objective.
 - `SafeStateActuator` accepts or rejects one non-blocking, idempotent request when the controller
-  first enters safe-disabled.
+  first enters safe-disabled and reports its eventual terminal status.
 - `TelemetrySink` accepts a diagnostic record when the platform grants output-channel access.
 
 See [Architecture](docs/architecture.md) and [Wire protocol](docs/wire-protocol.md) for the detailed

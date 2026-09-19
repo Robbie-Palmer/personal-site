@@ -109,11 +109,12 @@ bool SwarmController::initiateMission(const Coordinate& objective, uint32_t now_
 void SwarmController::update(uint32_t now_ms) {
   const HealthStatus health = health_monitor_.poll();
   observeHealth(health, now_ms);
-  if (health == HealthStatus::Fatal) {
-    enterSafeDisabled(TelemetryReason::HealthFatal, SafeStateReason::FatalHealth, now_ms);
+  if (state_ == ControllerState::SafeDisabled) {
+    observeSafeState(now_ms);
     return;
   }
-  if (state_ == ControllerState::SafeDisabled) {
+  if (health == HealthStatus::Fatal) {
+    enterSafeDisabled(TelemetryReason::HealthFatal, SafeStateReason::FatalHealth, now_ms);
     return;
   }
   if (health == HealthStatus::Quiescent) {
@@ -373,16 +374,41 @@ void SwarmController::enterSafeDisabled(TelemetryReason telemetry_reason,
 
   const SafeStateRequest request{SafeStateRequestId(node_id_, boot_epoch_), safe_state_reason,
                                  current_mission_.mission_key};
+  safe_state_reason_ = telemetry_reason;
   recordTelemetry(TelemetryEventType::SafeStateRequested, telemetry_reason,
                   TelemetryPriority::Critical, now_ms, request.mission_key, node_id_);
   transitionTo(ControllerState::SafeDisabled, telemetry_reason, now_ms,
                TelemetryPriority::Critical);
-  const SafeStateResult result = safe_state_actuator_ == nullptr
-                                     ? SafeStateResult::Rejected
-                                     : safe_state_actuator_->request(request);
+  const SafeStateResult requested_result = safe_state_actuator_ == nullptr
+                                               ? SafeStateResult::Rejected
+                                               : safe_state_actuator_->request(request);
+  const SafeStateResult result = requested_result == SafeStateResult::Accepted
+                                     ? SafeStateResult::Accepted
+                                     : SafeStateResult::Rejected;
+  safe_state_execution_pending_ = result == SafeStateResult::Accepted;
   recordTelemetry(TelemetryEventType::SafeStateResult, telemetry_reason,
                   TelemetryPriority::Critical, now_ms, request.mission_key, node_id_,
                   static_cast<uint8_t>(result));
+}
+
+void SwarmController::observeSafeState(uint32_t now_ms) {
+  if (!safe_state_execution_pending_ || safe_state_actuator_ == nullptr) {
+    return;
+  }
+
+  SafeStateExecutionStatus status =
+      safe_state_actuator_->status(SafeStateRequestId(node_id_, boot_epoch_));
+  if (status == SafeStateExecutionStatus::Pending) {
+    return;
+  }
+  if (status != SafeStateExecutionStatus::Succeeded && status != SafeStateExecutionStatus::Failed) {
+    status = SafeStateExecutionStatus::Failed;
+  }
+
+  safe_state_execution_pending_ = false;
+  recordTelemetry(TelemetryEventType::SafeStateExecutionResult, safe_state_reason_,
+                  TelemetryPriority::Critical, now_ms, current_mission_.mission_key, node_id_,
+                  static_cast<uint8_t>(status));
 }
 
 void SwarmController::observeHealth(HealthStatus health, uint32_t now_ms) {

@@ -115,6 +115,8 @@ struct SafeStateRequest {
 
 enum class SafeStateResult : uint8_t { Rejected, Accepted };
 
+enum class SafeStateExecutionStatus : uint8_t { Pending, Succeeded, Failed };
+
 enum class ControllerState : uint8_t {
   Idle,
   Leading,

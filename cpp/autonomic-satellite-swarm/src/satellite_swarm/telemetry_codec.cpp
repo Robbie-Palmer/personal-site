@@ -3,7 +3,7 @@
 namespace satellite_swarm {
 namespace {
 
-constexpr uint8_t kMagicAndVersion = 0xB2U;
+constexpr uint8_t kMagicAndVersion = 0xB3U;
 
 void writeUint16(uint16_t value, uint8_t* output) {
   output[0] = static_cast<uint8_t>(value >> 8U);
@@ -28,7 +28,7 @@ uint32_t readUint32(const uint8_t* input) {
 }
 
 bool isKnownEventType(uint8_t value) {
-  return value <= static_cast<uint8_t>(TelemetryEventType::SafeStateResult);
+  return value <= static_cast<uint8_t>(TelemetryEventType::SafeStateExecutionResult);
 }
 
 bool isKnownReason(uint8_t value) {
@@ -61,6 +61,12 @@ bool hasValidTypeSpecificFields(const TelemetryEvent& event) {
   if (event.type == TelemetryEventType::SafeStateResult) {
     return event.priority == TelemetryPriority::Critical && event.related_node == event.node_id &&
            event.value <= static_cast<uint8_t>(SafeStateResult::Accepted) &&
+           isSafeStateReason(event.reason);
+  }
+  if (event.type == TelemetryEventType::SafeStateExecutionResult) {
+    return event.priority == TelemetryPriority::Critical && event.related_node == event.node_id &&
+           event.value >= static_cast<uint8_t>(SafeStateExecutionStatus::Succeeded) &&
+           event.value <= static_cast<uint8_t>(SafeStateExecutionStatus::Failed) &&
            isSafeStateReason(event.reason);
   }
   return true;

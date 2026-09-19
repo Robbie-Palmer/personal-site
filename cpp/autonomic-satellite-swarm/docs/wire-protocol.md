@@ -78,7 +78,7 @@ frame:
 
 | Offset | Size | Field | Encoding |
 | --- | ---: | --- | --- |
-| 0 | 1 | Magic and version | `0xB2`: family `B`, version `2` |
+| 0 | 1 | Magic and version | `0xB3`: family `B`, version `3` |
 | 1 | 1 | Event type | `TelemetryEventType` value |
 | 2 | 1 | Reason | `TelemetryReason` value |
 | 3 | 1 | Priority | Routine `0`, operational `1`, critical `2` |
@@ -100,11 +100,12 @@ frame:
 The mission key must be valid or entirely absent as `{255, 0, 0}`. The decoder rejects unknown enum
 values, invalid nodes, malformed mission keys, a nonzero reserved byte, and checksum failure.
 
-For `SafeStateRequested` and `SafeStateResult`, the emitter node and boot epoch form the request ID,
-and `related node` repeats the emitter. Both records are critical and use one of the three
-safe-disable reasons. `SafeStateResult` uses event value `0` for rejected and `1` for accepted.
-Acceptance records adapter intake, not completed physical action. These event codes advance the
-telemetry frame from `0xB1` to `0xB2`; the codec deliberately rejects the older version.
+For `SafeStateRequested`, `SafeStateResult`, and `SafeStateExecutionResult`, the emitter node and boot
+epoch form the request ID, and `related node` repeats the emitter. All three records are critical and
+use one of the three safe-disable reasons. `SafeStateResult` uses event value `0` for rejected and `1`
+for accepted. `SafeStateExecutionResult` uses `1` for success and `2` for failure. Pending status is
+not emitted. Adding terminal execution results advances the telemetry frame from `0xB2` to `0xB3`;
+the codec deliberately rejects older versions.
 
 The reference firmware sends these frames over its serial diagnostic link at a configured maximum
 rate. It does not send them over the IR or ESP-NOW coordination transport. The format detects

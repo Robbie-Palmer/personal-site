@@ -264,6 +264,7 @@ TEST_CASE("safe-disable makes one correlated platform request and remains latche
   controller.update(43U);
   CHECK(controller.state() == ControllerState::SafeDisabled);
   CHECK(actuator.request_count == 1U);
+  CHECK(actuator.status_count == 0U);
 
   std::array<TelemetryEventType, 4U> event_types{};
   std::array<uint8_t, 4U> event_values{};
@@ -283,6 +284,79 @@ TEST_CASE("safe-disable makes one correlated platform request and remains latche
                                                           TelemetryEventType::StateTransition,
                                                           TelemetryEventType::SafeStateResult});
   CHECK(event_values.back() == static_cast<uint8_t>(SafeStateResult::Rejected));
+}
+
+TEST_CASE("an accepted safe-state request reports one terminal execution result") {
+  FakeTransport transport;
+  FakeHealthMonitor health;
+  FixedScorer scorer(50U);
+  FakeSafeStateActuator actuator;
+  SwarmController controller(2U, 7U, SatelliteSnapshot(), transport, health, scorer, fastConfig(),
+                             &actuator);
+
+  health.current = HealthStatus::Fatal;
+  controller.update(42U);
+  REQUIRE(controller.state() == ControllerState::SafeDisabled);
+  CHECK(actuator.request_count == 1U);
+  CHECK(actuator.status_count == 0U);
+
+  controller.update(43U);
+  CHECK(actuator.status_count == 1U);
+  CHECK(actuator.last_status_request == SafeStateRequestId(2U, 7U));
+
+  actuator.execution_status = SafeStateExecutionStatus::Succeeded;
+  controller.update(44U);
+  CHECK(actuator.status_count == 2U);
+  controller.update(45U);
+  CHECK(actuator.status_count == 2U);
+
+  std::array<TelemetryEventType, 5U> event_types{};
+  TelemetryEvent telemetry;
+  std::size_t event_count = 0U;
+  while (controller.readTelemetry(telemetry)) {
+    REQUIRE(event_count < event_types.size());
+    event_types[event_count] = telemetry.type;
+    if (telemetry.type == TelemetryEventType::SafeStateExecutionResult) {
+      CHECK(telemetry.value == static_cast<uint8_t>(SafeStateExecutionStatus::Succeeded));
+      CHECK(telemetry.reason == TelemetryReason::HealthFatal);
+      CHECK(telemetry.priority == TelemetryPriority::Critical);
+      CHECK(telemetry.related_node == 2U);
+    }
+    ++event_count;
+  }
+
+  REQUIRE(event_count == event_types.size());
+  CHECK(event_types == std::array<TelemetryEventType, 5U>{
+                           TelemetryEventType::HealthChanged,
+                           TelemetryEventType::SafeStateRequested,
+                           TelemetryEventType::StateTransition, TelemetryEventType::SafeStateResult,
+                           TelemetryEventType::SafeStateExecutionResult});
+}
+
+TEST_CASE("a failed safe-state action reports failure and stops status polling") {
+  FakeTransport transport;
+  FakeHealthMonitor health;
+  FixedScorer scorer(50U);
+  FakeSafeStateActuator actuator;
+  actuator.execution_status = SafeStateExecutionStatus::Failed;
+  SwarmController controller(2U, 7U, SatelliteSnapshot(), transport, health, scorer, fastConfig(),
+                             &actuator);
+
+  health.current = HealthStatus::Fatal;
+  controller.update(42U);
+  controller.update(43U);
+  controller.update(44U);
+
+  CHECK(actuator.status_count == 1U);
+  TelemetryEvent telemetry;
+  bool saw_failure = false;
+  while (controller.readTelemetry(telemetry)) {
+    if (telemetry.type == TelemetryEventType::SafeStateExecutionResult) {
+      CHECK(telemetry.value == static_cast<uint8_t>(SafeStateExecutionStatus::Failed));
+      saw_failure = true;
+    }
+  }
+  CHECK(saw_failure);
 }
 
 TEST_CASE("communication-failure safe-disable identifies the mission in its platform request") {
@@ -306,6 +380,19 @@ TEST_CASE("communication-failure safe-disable identifies the mission in its plat
   CHECK(actuator.last_request.id == SafeStateRequestId(2U, 7U));
   CHECK(actuator.last_request.reason == SafeStateReason::CommunicationFailureLimit);
   CHECK(actuator.last_request.mission_key == key);
+
+  actuator.execution_status = SafeStateExecutionStatus::Succeeded;
+  controller.update(config.retry_interval_ms * 2U + 1U);
+  TelemetryEvent telemetry;
+  bool saw_execution_result = false;
+  while (controller.readTelemetry(telemetry)) {
+    if (telemetry.type == TelemetryEventType::SafeStateExecutionResult) {
+      CHECK(telemetry.reason == TelemetryReason::RetryLimitReached);
+      CHECK(telemetry.mission_key == key);
+      saw_execution_result = true;
+    }
+  }
+  CHECK(saw_execution_result);
 }
 
 TEST_CASE("a direct assignment completes the negotiation and clears earlier failures") {

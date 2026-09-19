@@ -241,6 +241,11 @@ const controllerTelemetryEventSchema = z.discriminatedUnion("event", [
     event: z.literal("safe-state-result"),
     value: z.union([z.literal(0), z.literal(1)]),
   }),
+  z.object({
+    ...safeStateTelemetryEventFields,
+    event: z.literal("safe-state-execution-result"),
+    value: z.union([z.literal(1), z.literal(2)]),
+  }),
 ]);
 
 const simulationSchema = z.object({
@@ -270,10 +275,10 @@ const simulationSchema = z.object({
   objective: coordinateSchema,
   positionModel: z.string().min(1),
   scenario: z.string().min(1),
-  schemaVersion: z.literal(5),
+  schemaVersion: z.literal(6),
   source: z.literal("portable C++ SimulationTrace"),
   sourceRevision: z.string().regex(/^[0-9a-f]{40}$/),
-  traceVersion: z.literal(4),
+  traceVersion: z.literal(5),
 });
 
 export type SatelliteSwarmSimulation = z.infer<typeof simulationSchema>;
@@ -356,6 +361,10 @@ function describeControllerTelemetryEvent(
     case "safe-state-result": {
       const result = event.value === 1 ? "accepted" : "rejected";
       return `${sequence} records that the platform ${result} its safe-state request.${dropped}`;
+    }
+    case "safe-state-execution-result": {
+      const result = event.value === 1 ? "succeeded" : "failed";
+      return `${sequence} records that the platform safe-state action ${result}.${dropped}`;
     }
   }
 }

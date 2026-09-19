@@ -44,7 +44,7 @@ TEST_CASE("the telemetry codec round-trips every record field in a fixed frame")
   std::array<uint8_t, TelemetryCodec::kFrameSize> frame{};
 
   REQUIRE(TelemetryCodec::encode(original, frame.data(), frame.size()));
-  CHECK(frame[0] == 0xB2U);
+  CHECK(frame[0] == 0xB3U);
   CHECK(frame[4] == 3U);
   CHECK(frame[9] == 0x45U);
   CHECK(frame[10] == 0x67U);
@@ -103,7 +103,7 @@ TEST_CASE("the telemetry codec rejects malformed and corrupted frames") {
   CHECK_FALSE(TelemetryCodec::decode(frame.data(), frame.size(), decoded));
 
   REQUIRE(TelemetryCodec::encode(original, frame.data(), frame.size()));
-  frame[0] = 0xB1U;
+  frame[0] = 0xB2U;
   frame[33] = frameChecksum(frame.data(), frame.size() - 1U);
   CHECK_FALSE(TelemetryCodec::decode(frame.data(), frame.size(), decoded));
 
@@ -144,5 +144,23 @@ TEST_CASE("safe-state telemetry enforces its result and correlation fields") {
   CHECK_FALSE(TelemetryCodec::encode(event, frame.data(), frame.size()));
   event.priority = TelemetryPriority::Critical;
   event.reason = TelemetryReason::MissionCompleted;
+  CHECK_FALSE(TelemetryCodec::encode(event, frame.data(), frame.size()));
+}
+
+TEST_CASE("safe-state execution telemetry accepts only terminal results") {
+  TelemetryEvent event = completeEvent();
+  event.type = TelemetryEventType::SafeStateExecutionResult;
+  event.reason = TelemetryReason::RetryLimitReached;
+  event.node_id = 3U;
+  event.related_node = 3U;
+  event.value = static_cast<uint8_t>(SafeStateExecutionStatus::Succeeded);
+  std::array<uint8_t, TelemetryCodec::kFrameSize> frame{};
+
+  REQUIRE(TelemetryCodec::encode(event, frame.data(), frame.size()));
+  event.value = static_cast<uint8_t>(SafeStateExecutionStatus::Failed);
+  REQUIRE(TelemetryCodec::encode(event, frame.data(), frame.size()));
+  event.value = static_cast<uint8_t>(SafeStateExecutionStatus::Pending);
+  CHECK_FALSE(TelemetryCodec::encode(event, frame.data(), frame.size()));
+  event.value = 3U;
   CHECK_FALSE(TelemetryCodec::encode(event, frame.data(), frame.size()));
 }

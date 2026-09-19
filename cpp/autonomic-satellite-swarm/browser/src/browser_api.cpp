@@ -22,7 +22,7 @@
 
 namespace {
 
-constexpr uint32_t kBrowserApiVersion = 6U;
+constexpr uint32_t kBrowserApiVersion = 7U;
 constexpr std::size_t kBrowserErrorCapacity = 256U;
 
 satellite_swarm::simulation::BrowserScenario parseScenario(uint32_t scenario) {
@@ -32,6 +32,10 @@ satellite_swarm::simulation::BrowserScenario parseScenario(uint32_t scenario) {
   if (scenario ==
       static_cast<uint32_t>(satellite_swarm::simulation::BrowserScenario::LostAssignment)) {
     return satellite_swarm::simulation::BrowserScenario::LostAssignment;
+  }
+  if (scenario ==
+      static_cast<uint32_t>(satellite_swarm::simulation::BrowserScenario::SafeStateSuccess)) {
+    return satellite_swarm::simulation::BrowserScenario::SafeStateSuccess;
   }
   throw std::invalid_argument("unknown browser simulation scenario");
 }

@@ -79,6 +79,8 @@ private:
   uint8_t attempts_ = 0U;
   uint8_t communication_failures_ = 0U;
   HealthStatus last_health_ = HealthStatus::Nominal;
+  TelemetryReason safe_state_reason_ = TelemetryReason::None;
+  bool safe_state_execution_pending_ = false;
   Candidate candidates_[kMaximumNodes]{};
   BoundedTelemetryBuffer telemetry_{};
 
@@ -95,6 +97,7 @@ private:
                     TelemetryPriority priority = TelemetryPriority::Operational);
   void enterSafeDisabled(TelemetryReason telemetry_reason, SafeStateReason safe_state_reason,
                          uint32_t now_ms);
+  void observeSafeState(uint32_t now_ms);
   void observeHealth(HealthStatus health, uint32_t now_ms);
   bool matchesCurrentMission(const Message& message) const;
   bool elapsed(uint32_t now_ms, uint32_t since_ms, uint32_t duration_ms) const;

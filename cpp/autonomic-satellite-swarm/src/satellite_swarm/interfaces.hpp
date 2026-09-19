@@ -36,6 +36,9 @@ public:
 
   // Requests must be idempotent by request ID and must return without blocking controller work.
   virtual SafeStateResult request(const SafeStateRequest& request) = 0;
+  // Status checks must return without blocking. The controller stops polling after a terminal
+  // result, so implementations must retain that result for the request's lifetime.
+  virtual SafeStateExecutionStatus status(const SafeStateRequestId& request_id) = 0;
 };
 
 class TelemetrySink {
