@@ -1,10 +1,12 @@
 #!/usr/bin/env node
 
 import { spawnSync } from "node:child_process";
+import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import {
   DOPPLER_BOOTSTRAP_MARKER,
   dopplerBootstrapArgs,
+  resolveDopplerExecutable,
 } from "./bootstrap.js";
 import { runCli } from "./main.js";
 
@@ -19,14 +21,14 @@ const bootstrapArgs = dopplerBootstrapArgs(
 if (bootstrapArgs === undefined) {
   process.exitCode = await runCli(args);
 } else {
-  const child = spawnSync("doppler", bootstrapArgs, {
-    env: { ...process.env, [DOPPLER_BOOTSTRAP_MARKER]: "1" },
-    stdio: "inherit",
-  });
-  const dopplerMissing =
-    child.error !== undefined &&
-    "code" in child.error &&
-    child.error.code === "ENOENT";
+  const dopplerExecutable = resolveDopplerExecutable(process.env, existsSync);
+  const child =
+    dopplerExecutable === undefined
+      ? undefined
+      : spawnSync(dopplerExecutable, bootstrapArgs, {
+          env: { ...process.env, [DOPPLER_BOOTSTRAP_MARKER]: "1" },
+          stdio: "inherit",
+        });
   process.exitCode =
-    dopplerMissing ? await runCli(args) : (child.status ?? 1);
+    child === undefined ? await runCli(args) : (child.status ?? 1);
 }

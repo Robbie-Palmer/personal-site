@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   DOPPLER_BOOTSTRAP_MARKER,
+  DOPPLER_EXECUTABLE_ENV,
   dopplerBootstrapArgs,
+  resolveDopplerExecutable,
 } from "../src/bootstrap.js";
 
 describe("Given Work Graph CLI startup", () => {
@@ -37,5 +39,35 @@ describe("Given Work Graph CLI startup", () => {
     expect(
       dopplerBootstrapArgs(args, environment, "/node", "/cli.js"),
     ).toBeUndefined();
+  });
+});
+
+describe("Given Doppler executable discovery", () => {
+  it("uses a configured absolute executable path", () => {
+    const exists = (path: string) => path === "/tools/doppler";
+
+    expect(
+      resolveDopplerExecutable(
+        { [DOPPLER_EXECUTABLE_ENV]: "/tools/doppler" },
+        exists,
+      ),
+    ).toBe("/tools/doppler");
+  });
+
+  it("rejects configured relative executable paths", () => {
+    expect(
+      resolveDopplerExecutable(
+        { [DOPPLER_EXECUTABLE_ENV]: "bin/doppler" },
+        () => true,
+      ),
+    ).toBeUndefined();
+  });
+
+  it("finds Doppler in a fixed installation directory", () => {
+    const exists = (path: string) => path === "/usr/local/bin/doppler";
+
+    expect(resolveDopplerExecutable({}, exists)).toBe(
+      "/usr/local/bin/doppler",
+    );
   });
 });

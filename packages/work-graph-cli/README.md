@@ -57,7 +57,9 @@ The CLI requires HTTPS except for `localhost`, `127.0.0.1`, and `[::1]`.
 
 When `WORK_GRAPH_API_URL` is absent, an API command automatically re-runs under
 the `work-graph/prd_work_graph` Doppler config. Help and `prime` do not contact
-Doppler. The explicit form remains available for scripts:
+Doppler. The CLI looks in the standard Homebrew and system binary directories;
+set `WORK_GRAPH_DOPPLER_BIN` to an absolute path for another installation. The
+explicit form remains available for scripts:
 
 ```sh
 doppler run --project work-graph --config prd_work_graph -- work-graph ready

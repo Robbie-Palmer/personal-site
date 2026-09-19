@@ -146,7 +146,7 @@ const resolveLeaseFence = async (
 
   const workItem = await client.getWorkItem(workItemId);
   const lease = workItem.currentLease;
-  if (lease === null || lease.endedAt !== null) {
+  if (lease?.endedAt !== null) {
     throw usageError(
       `Ticket ${workItemId} has no active lease. Claim it first with: work-graph claim ${workItemId}`,
     );

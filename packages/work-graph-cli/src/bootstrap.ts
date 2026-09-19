@@ -1,4 +1,27 @@
+import { isAbsolute } from "node:path";
+
 export const DOPPLER_BOOTSTRAP_MARKER = "WORK_GRAPH_DOPPLER_BOOTSTRAPPED";
+export const DOPPLER_EXECUTABLE_ENV = "WORK_GRAPH_DOPPLER_BIN";
+
+const DOPPLER_EXECUTABLE_CANDIDATES = [
+  "/opt/homebrew/bin/doppler",
+  "/usr/local/bin/doppler",
+  "/usr/bin/doppler",
+] as const;
+
+export const resolveDopplerExecutable = (
+  environment: NodeJS.ProcessEnv,
+  exists: (path: string) => boolean,
+): string | undefined => {
+  const configuredPath = environment[DOPPLER_EXECUTABLE_ENV];
+  if (configuredPath !== undefined) {
+    return isAbsolute(configuredPath) && exists(configuredPath)
+      ? configuredPath
+      : undefined;
+  }
+
+  return DOPPLER_EXECUTABLE_CANDIDATES.find(exists);
+};
 
 const doesNotNeedApi = (args: readonly string[]): boolean =>
   args.length === 0 ||
