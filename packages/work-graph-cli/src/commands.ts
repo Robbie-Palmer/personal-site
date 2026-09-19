@@ -143,6 +143,11 @@ const resolveLeaseFence = async (
   if (leaseId !== undefined && leaseEpoch !== undefined) {
     return { leaseId, epoch: leaseEpoch };
   }
+  if (workerId === undefined) {
+    throw usageError(
+      "Set WORK_GRAPH_WORKER_ID or use a supported agent identity before resolving the ticket's active lease.",
+    );
+  }
 
   const workItem = await client.getWorkItem(workItemId);
   const lease = workItem.currentLease;
@@ -151,7 +156,7 @@ const resolveLeaseFence = async (
       `Ticket ${workItemId} has no active lease. Claim it first with: work-graph claim ${workItemId}`,
     );
   }
-  if (workerId !== undefined && lease.workerId !== workerId) {
+  if (lease.workerId !== workerId) {
     throw usageError(
       `Ticket ${workItemId} is claimed by ${lease.workerId}, not ${workerId}.`,
     );

@@ -5,6 +5,7 @@ import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import {
   DOPPLER_BOOTSTRAP_MARKER,
+  dopplerSpawnExitCode,
   dopplerBootstrapArgs,
   resolveDopplerExecutable,
 } from "./bootstrap.js";
@@ -30,5 +31,7 @@ if (bootstrapArgs === undefined) {
           stdio: "inherit",
         });
   process.exitCode =
-    child === undefined ? await runCli(args) : (child.status ?? 1);
+    child === undefined
+      ? await runCli(args)
+      : dopplerSpawnExitCode(child, (text) => process.stderr.write(text));
 }

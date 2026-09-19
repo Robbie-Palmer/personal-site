@@ -568,6 +568,18 @@ describe("Given agent-facing Work Graph commands", () => {
     );
   });
 
+  it("requires a worker identity before inferring an active lease", async () => {
+    const test = harness();
+
+    expect(
+      await test.run(["note", "item-1", "--content", "Tests pass"]),
+    ).toBe(EXIT_CODES.usage);
+    expect(test.requests).toEqual([]);
+    expect(test.stderr.join(" ")).toContain(
+      "Set WORK_GRAPH_WORKER_ID or use a supported agent identity",
+    );
+  });
+
   it("requires explicit lease fields as a pair", async () => {
     const test = harness();
 

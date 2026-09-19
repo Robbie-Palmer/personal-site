@@ -37,10 +37,10 @@ work-graph release cli-8 \
   --deployment-evidence https://work-graph.example.com/health
 ```
 
-Codex sessions use their thread ID as worker provenance. Other clients can set
-`WORK_GRAPH_WORKER_ID` once or pass `--worker-id` when claiming. Commands that
-already name a ticket find its active lease and fencing epoch. Scripts may still
-pass `--lease-id` and `--epoch` together to avoid the lookup.
+Codex sessions use their thread ID as worker provenance. Other clients should
+set `WORK_GRAPH_WORKER_ID` once. Commands that already name a ticket find that
+worker's active lease and fencing epoch. Scripts may instead pass `--lease-id`
+and `--epoch` together to avoid the lookup.
 
 ## Configure
 

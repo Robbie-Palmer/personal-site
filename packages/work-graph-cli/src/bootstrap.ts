@@ -1,4 +1,5 @@
 import { isAbsolute } from "node:path";
+import { CliError, errorDocument, EXIT_CODES } from "./errors.js";
 
 export const DOPPLER_BOOTSTRAP_MARKER = "WORK_GRAPH_DOPPLER_BOOTSTRAPPED";
 export const DOPPLER_EXECUTABLE_ENV = "WORK_GRAPH_DOPPLER_BIN";
@@ -21,6 +22,22 @@ export const resolveDopplerExecutable = (
   }
 
   return DOPPLER_EXECUTABLE_CANDIDATES.find(exists);
+};
+
+export const dopplerSpawnExitCode = (
+  child: { error?: Error; status: number | null },
+  stderr: (text: string) => void,
+): number => {
+  if (child.error === undefined) return child.status ?? EXIT_CODES.transport;
+
+  const error = new CliError(
+    "DOPPLER_SPAWN_FAILED",
+    `Failed to start Doppler: ${child.error.message}`,
+    EXIT_CODES.transport,
+    { cause: child.error },
+  );
+  stderr(`${JSON.stringify(errorDocument(error))}\n`);
+  return error.exitCode;
 };
 
 const doesNotNeedApi = (args: readonly string[]): boolean =>

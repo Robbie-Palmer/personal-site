@@ -18,7 +18,7 @@ doppler run --project work-graph --config prd_work_graph -- work-graph <command>
 
 Never print, copy, or persist the Cloudflare Access values. Codex sessions use
 their thread ID as worker provenance. `WORK_GRAPH_WORKER_ID` overrides it; other
-clients must set that variable or pass `--worker-id` when claiming.
+clients must set that variable to use the implicit active-lease workflow.
 
 ## Normal loop
 

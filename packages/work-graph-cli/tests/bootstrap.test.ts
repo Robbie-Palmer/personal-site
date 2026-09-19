@@ -2,9 +2,11 @@ import { describe, expect, it } from "vitest";
 import {
   DOPPLER_BOOTSTRAP_MARKER,
   DOPPLER_EXECUTABLE_ENV,
+  dopplerSpawnExitCode,
   dopplerBootstrapArgs,
   resolveDopplerExecutable,
 } from "../src/bootstrap.js";
+import { EXIT_CODES } from "../src/errors.js";
 
 describe("Given Work Graph CLI startup", () => {
   it("wraps API commands with the fixed production Doppler config", () => {
@@ -69,5 +71,26 @@ describe("Given Doppler executable discovery", () => {
     expect(resolveDopplerExecutable({}, exists)).toBe(
       "/usr/local/bin/doppler",
     );
+  });
+
+  it("reports spawn failures as structured transport errors", () => {
+    const stderr: string[] = [];
+
+    expect(
+      dopplerSpawnExitCode(
+        { error: new Error("permission denied"), status: null },
+        (text) => stderr.push(text),
+      ),
+    ).toBe(EXIT_CODES.transport);
+    expect(JSON.parse(stderr[0] ?? "null")).toEqual({
+      error: {
+        code: "DOPPLER_SPAWN_FAILED",
+        message: "Failed to start Doppler: permission denied",
+      },
+    });
+  });
+
+  it("preserves the Doppler process exit status", () => {
+    expect(dopplerSpawnExitCode({ status: 42 }, () => undefined)).toBe(42);
   });
 });
