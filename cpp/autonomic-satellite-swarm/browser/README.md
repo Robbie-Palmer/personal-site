@@ -20,11 +20,11 @@ Returned pointers refer to adapter-owned strings and remain valid until the next
 copies each string into JavaScript before making another call. The adapter catches C++ exceptions so
 none cross the C boundary.
 
-The worker protocol and JSON display record are at version `4`; the C ABI is at version `6`, and the
-simulation trace is at version `4`. These independent version fields prevent a change to one
-boundary from silently reinterpreting another. Display version 4 adds typed controller telemetry
-and per-node drop counts. Trace version 4 adds explicit mission-completion commands for repeated
-workloads.
+The worker protocol is at version `4`, the JSON display record is at version `5`, the C ABI is at
+version `6`, and the simulation trace is at version `4`. These independent version fields prevent a
+change to one boundary from silently reinterpreting another. Display version 5 adds safe-state
+request and adapter-result telemetry. Trace version 4 adds explicit mission-completion commands for
+repeated workloads.
 
 ## Build and parity check
 

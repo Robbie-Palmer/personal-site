@@ -77,6 +77,10 @@ const char* telemetryEventName(TelemetryEventType type) {
     return "health-changed";
   case TelemetryEventType::TransportFailure:
     return "transport-failure";
+  case TelemetryEventType::SafeStateRequested:
+    return "safe-state-requested";
+  case TelemetryEventType::SafeStateResult:
+    return "safe-state-result";
   }
   return "unknown";
 }

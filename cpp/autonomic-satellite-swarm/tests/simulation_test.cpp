@@ -93,16 +93,17 @@ TEST_CASE("browser serialization names every telemetry event, reason, priority, 
   SimulationResult result = runSimulationTrace(simulation.trace);
   result.events.clear();
 
-  constexpr std::array<TelemetryEventType, 9> kEventTypes = {
-      TelemetryEventType::StateTransition, TelemetryEventType::MissionProposed,
-      TelemetryEventType::CandidacySent,   TelemetryEventType::CandidacyAccepted,
-      TelemetryEventType::MissionAssigned, TelemetryEventType::MissionCompleted,
-      TelemetryEventType::MissionFailed,   TelemetryEventType::HealthChanged,
-      TelemetryEventType::TransportFailure};
-  constexpr std::array<const char*, 9> kEventNames = {
-      "state-transition",   "mission-proposed", "candidacy-sent",
-      "candidacy-accepted", "mission-assigned", "mission-completed",
-      "mission-failed",     "health-changed",   "transport-failure"};
+  constexpr std::array<TelemetryEventType, 11> kEventTypes = {
+      TelemetryEventType::StateTransition,  TelemetryEventType::MissionProposed,
+      TelemetryEventType::CandidacySent,    TelemetryEventType::CandidacyAccepted,
+      TelemetryEventType::MissionAssigned,  TelemetryEventType::MissionCompleted,
+      TelemetryEventType::MissionFailed,    TelemetryEventType::HealthChanged,
+      TelemetryEventType::TransportFailure, TelemetryEventType::SafeStateRequested,
+      TelemetryEventType::SafeStateResult};
+  constexpr std::array<const char*, 11> kEventNames = {
+      "state-transition",  "mission-proposed",     "candidacy-sent",   "candidacy-accepted",
+      "mission-assigned",  "mission-completed",    "mission-failed",   "health-changed",
+      "transport-failure", "safe-state-requested", "safe-state-result"};
   constexpr std::array<TelemetryReason, 14> kReasons = {TelemetryReason::None,
                                                         TelemetryReason::MissionInitiated,
                                                         TelemetryReason::MissionRequestAccepted,

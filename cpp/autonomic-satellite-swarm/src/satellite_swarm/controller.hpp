@@ -21,10 +21,13 @@ struct ControllerConfig {
 
 class SwarmController {
 public:
+  // A null actuator records a rejected safe-state result while preserving the latch. A supplied
+  // actuator must outlive the controller.
   SwarmController(NodeId node_id, BootEpoch boot_epoch, const SatelliteSnapshot& satellite,
                   Transport& transport, HealthMonitor& health_monitor,
                   const CandidacyScorer& scorer,
-                  const ControllerConfig& config = ControllerConfig());
+                  const ControllerConfig& config = ControllerConfig(),
+                  SafeStateActuator* safe_state_actuator = nullptr);
 
   // now_ms must use one modulo-2^32 monotonic tick source for every call. Unsigned elapsed-time
   // comparisons support one clock rollover when configured durations are shorter than that period.
@@ -65,6 +68,7 @@ private:
   Transport& transport_;
   HealthMonitor& health_monitor_;
   const CandidacyScorer& scorer_;
+  SafeStateActuator* safe_state_actuator_;
   ControllerConfig config_;
   ControllerState state_ = ControllerState::Idle;
   Message current_mission_{};
@@ -89,6 +93,8 @@ private:
                        NodeId related_node = kBroadcastNode, uint8_t value = 0U);
   void transitionTo(ControllerState state, TelemetryReason reason, uint32_t now_ms,
                     TelemetryPriority priority = TelemetryPriority::Operational);
+  void enterSafeDisabled(TelemetryReason telemetry_reason, SafeStateReason safe_state_reason,
+                         uint32_t now_ms);
   void observeHealth(HealthStatus health, uint32_t now_ms);
   bool matchesCurrentMission(const Message& message) const;
   bool elapsed(uint32_t now_ms, uint32_t since_ms, uint32_t duration_ms) const;

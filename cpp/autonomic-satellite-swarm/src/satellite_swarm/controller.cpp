@@ -52,9 +52,11 @@ TelemetryReason healthReason(HealthStatus health) {
 SwarmController::SwarmController(NodeId node_id, BootEpoch boot_epoch,
                                  const SatelliteSnapshot& satellite, Transport& transport,
                                  HealthMonitor& health_monitor, const CandidacyScorer& scorer,
-                                 const ControllerConfig& config)
+                                 const ControllerConfig& config,
+                                 SafeStateActuator* safe_state_actuator)
     : node_id_(node_id), boot_epoch_(boot_epoch), satellite_(satellite), transport_(transport),
-      health_monitor_(health_monitor), scorer_(scorer), config_(config) {
+      health_monitor_(health_monitor), scorer_(scorer), safe_state_actuator_(safe_state_actuator),
+      config_(config) {
   if (config_.node_capacity == 0U || config_.node_capacity > kMaximumNodes) {
     config_.node_capacity = kMaximumNodes;
   }
@@ -69,8 +71,8 @@ SwarmController::SwarmController(NodeId node_id, BootEpoch boot_epoch,
   }
   resetCandidates();
   if (node_id_ >= config_.node_capacity || boot_epoch_ == 0U) {
-    transitionTo(ControllerState::SafeDisabled, TelemetryReason::InvalidConfiguration, 0U,
-                 TelemetryPriority::Critical);
+    enterSafeDisabled(TelemetryReason::InvalidConfiguration, SafeStateReason::InvalidConfiguration,
+                      0U);
   }
 }
 
@@ -108,8 +110,7 @@ void SwarmController::update(uint32_t now_ms) {
   const HealthStatus health = health_monitor_.poll();
   observeHealth(health, now_ms);
   if (health == HealthStatus::Fatal) {
-    transitionTo(ControllerState::SafeDisabled, TelemetryReason::HealthFatal, now_ms,
-                 TelemetryPriority::Critical);
+    enterSafeDisabled(TelemetryReason::HealthFatal, SafeStateReason::FatalHealth, now_ms);
     return;
   }
   if (state_ == ControllerState::SafeDisabled) {
@@ -319,8 +320,8 @@ void SwarmController::abandonUnacknowledgedMission(uint32_t now_ms) {
                   TelemetryPriority::Critical, now_ms, current_mission_.mission_key,
                   current_mission_.mission_key.origin_node, communication_failures_);
   if (communication_failures_ >= config_.failed_missions_before_safe_disable) {
-    transitionTo(ControllerState::SafeDisabled, TelemetryReason::RetryLimitReached, now_ms,
-                 TelemetryPriority::Critical);
+    enterSafeDisabled(TelemetryReason::RetryLimitReached,
+                      SafeStateReason::CommunicationFailureLimit, now_ms);
   } else {
     transitionTo(ControllerState::Idle, TelemetryReason::RetryLimitReached, now_ms,
                  TelemetryPriority::Critical);
@@ -362,6 +363,26 @@ void SwarmController::transitionTo(ControllerState state, TelemetryReason reason
   event.current_state = state;
   telemetry_.record(event);
   state_ = state;
+}
+
+void SwarmController::enterSafeDisabled(TelemetryReason telemetry_reason,
+                                        SafeStateReason safe_state_reason, uint32_t now_ms) {
+  if (state_ == ControllerState::SafeDisabled) {
+    return;
+  }
+
+  const SafeStateRequest request{SafeStateRequestId(node_id_, boot_epoch_), safe_state_reason,
+                                 current_mission_.mission_key};
+  recordTelemetry(TelemetryEventType::SafeStateRequested, telemetry_reason,
+                  TelemetryPriority::Critical, now_ms, request.mission_key, node_id_);
+  transitionTo(ControllerState::SafeDisabled, telemetry_reason, now_ms,
+               TelemetryPriority::Critical);
+  const SafeStateResult result = safe_state_actuator_ == nullptr
+                                     ? SafeStateResult::Rejected
+                                     : safe_state_actuator_->request(request);
+  recordTelemetry(TelemetryEventType::SafeStateResult, telemetry_reason,
+                  TelemetryPriority::Critical, now_ms, request.mission_key, node_id_,
+                  static_cast<uint8_t>(result));
 }
 
 void SwarmController::observeHealth(HealthStatus health, uint32_t now_ms) {

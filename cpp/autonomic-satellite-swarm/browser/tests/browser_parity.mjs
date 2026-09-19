@@ -26,7 +26,7 @@ function run(longitudeDegrees, latitudeDegrees, scenario = 0) {
 }
 
 const fixtureUrl = new URL(
-  "../../../../ui/public/simulations/autonomic-satellite-swarm/demonstration.v4.json",
+  "../../../../ui/public/simulations/autonomic-satellite-swarm/demonstration.v5.json",
   import.meta.url,
 );
 const nativeFixture = await readFile(fixtureUrl, "utf8");

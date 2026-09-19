@@ -34,6 +34,13 @@ candidacy score in `value`. The repeated equal-score simulation counts these rec
 allocation policy. A receiving node records the assignee but leaves `value` at zero because the
 assignment wire message does not carry the winning score.
 
+Entering safe-disabled adds three critical records in order: `SafeStateRequested`, the state
+transition, and `SafeStateResult`. The emitter node and boot epoch identify the one request allowed
+during that controller boot. Both safe-state records store the emitter in `related_node` and retain
+the triggering reason and current mission key. `SafeStateResult.value` is `0` when the platform
+rejects the request and `1` when it accepts it. Acceptance only means the adapter accepted the
+request. It is not evidence that a physical action completed.
+
 Sequence zero is reserved. After record `4,294,967,295`, the buffer stops storing telemetry and
 counts later attempts as drops, up to the saturating drop-counter limit. This preserves unique
 record identities within a boot without widening every record on SRAM-constrained targets.
@@ -62,7 +69,7 @@ and consumes no record while access is withheld. The Uno and ESP32 reference ske
 dedicated serial diagnostic channel, call the controller first, and grant telemetry afterward. They
 attempt one frame per second.
 
-Export uses a fixed 34-byte binary frame identified by `0xB1`. It contains every record field in
+Export uses a fixed 34-byte binary frame identified by `0xB2`. It contains every record field in
 big-endian order, one reserved zero byte, and a CRC-8. This is separate from the 18-byte coordination
 packet. The serial experiment has no delivery acknowledgement, authentication, encryption, replay
 protection, or routing. A parser must use the magic byte and checksum to find frames after startup

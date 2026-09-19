@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 4,
+  "schemaVersion": 5,
   "traceVersion": 4,
   "scenario": "three-node-objective-pass",
   "source": "portable C++ SimulationTrace",

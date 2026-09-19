@@ -29,7 +29,7 @@ const validResult = {
   objective: { latitudeDegrees: -90, longitudeDegrees: 0 },
   positionModel: "scripted simulation data; not orbit propagation",
   scenario: "three-node-objective-pass",
-  schemaVersion: 4,
+  schemaVersion: 5,
   source: "portable C++ SimulationTrace",
   traceVersion: 4,
 };

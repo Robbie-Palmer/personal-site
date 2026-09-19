@@ -17,7 +17,7 @@ vi.mock("@/components/technology/cesium/offline-viewer", () => ({
 }));
 
 const data = parseSatelliteSwarmSimulation({
-  schemaVersion: 4,
+  schemaVersion: 5,
   traceVersion: 4,
   scenario: "test",
   source: "portable C++ SimulationTrace",

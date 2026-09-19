@@ -26,7 +26,10 @@ explicit.
 - A separate transmitter exports fixed telemetry frames at a bounded rate and retains a record when
   its sink rejects the write.
 - A busy node does not accept more work.
-- Health policy can place a node into reversible quiescence or a safe-disabled state latched for the controller lifetime.
+- Health policy can place a node into reversible quiescence or a safe-disabled state latched for
+  the controller lifetime.
+- Entering safe-disabled can make one idempotent platform request. The controller records whether
+  the platform accepts it and stays latched when the platform rejects it.
 - Repeated failure to receive acknowledgements can trigger the historical "death by default" rule.
 - Deterministic trace inputs can drop, delay, or duplicate deliveries, change directed links, and
   reset a node so protocol failures can be replayed exactly.
@@ -106,11 +109,13 @@ tests/                     host-side behavior and characterization tests
 docs/                      architecture, protocol, and modernization notes
 ```
 
-The core depends on four interfaces:
+The core depends on five interfaces:
 
 - `Transport` moves semantic messages without exposing radio details.
 - `HealthMonitor` maps platform observations to nominal, quiescent, or fatal health.
 - `CandidacyScorer` ranks a satellite for a mission objective.
+- `SafeStateActuator` accepts or rejects one non-blocking, idempotent request when the controller
+  first enters safe-disabled.
 - `TelemetrySink` accepts a diagnostic record when the platform grants output-channel access.
 
 See [Architecture](docs/architecture.md) and [Wire protocol](docs/wire-protocol.md) for the detailed
@@ -151,7 +156,9 @@ The firmware build accepts `SATELLITE_SWARM_BOOT_EPOCH`, which defaults to `1` f
 use. A real deployment must advance that value in durable storage before the controller starts after
 a reset. Initial coordinates remain deliberately simple constants in each sketch. A real deployment
 also needs calibrated health inputs, authenticated transport with replay protection, mission
-persistence, and a genuine guidance/navigation/control implementation.
+persistence, a hardware-specific safe-state actuator, and a genuine guidance/navigation/control
+implementation. The reference sketches do not supply a physical safe-state actuator. Without one,
+the controller records a rejected result and preserves its software latch.
 
 ## Documentation
 

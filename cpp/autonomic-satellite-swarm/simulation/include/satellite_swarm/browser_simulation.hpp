@@ -7,7 +7,7 @@
 
 namespace satellite_swarm::simulation {
 
-constexpr uint8_t kBrowserSimulationSchemaVersion = 4U;
+constexpr uint8_t kBrowserSimulationSchemaVersion = 5U;
 enum class BrowserScenario : uint8_t { Nominal = 0U, LostAssignment = 1U };
 
 struct BrowserSimulation {

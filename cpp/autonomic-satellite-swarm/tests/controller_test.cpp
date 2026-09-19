@@ -227,7 +227,7 @@ TEST_CASE("controller telemetry records health reasons and drop accounting") {
   controller.update(20U);
   CHECK(controller.state() == ControllerState::SafeDisabled);
   CHECK(controller.pendingTelemetryEvents() == kTelemetryBufferCapacity);
-  CHECK(controller.droppedTelemetryEvents() == 10U);
+  CHECK(controller.droppedTelemetryEvents() == 12U);
 
   bool saw_fatal_transition = false;
   TelemetryEvent telemetry;
@@ -236,11 +236,76 @@ TEST_CASE("controller telemetry records health reasons and drop accounting") {
         telemetry.current_state == ControllerState::SafeDisabled) {
       CHECK(telemetry.reason == TelemetryReason::HealthFatal);
       CHECK(telemetry.priority == TelemetryPriority::Critical);
-      CHECK(telemetry.dropped_before == 10U);
+      CHECK(telemetry.dropped_before == 11U);
       saw_fatal_transition = true;
     }
   }
   CHECK(saw_fatal_transition);
+}
+
+TEST_CASE("safe-disable makes one correlated platform request and remains latched on rejection") {
+  FakeTransport transport;
+  FakeHealthMonitor health;
+  FixedScorer scorer(50U);
+  FakeSafeStateActuator actuator;
+  actuator.result = SafeStateResult::Rejected;
+  SwarmController controller(2U, 7U, SatelliteSnapshot(), transport, health, scorer, fastConfig(),
+                             &actuator);
+
+  health.current = HealthStatus::Fatal;
+  controller.update(42U);
+
+  CHECK(controller.state() == ControllerState::SafeDisabled);
+  REQUIRE(actuator.request_count == 1U);
+  CHECK(actuator.last_request.id == SafeStateRequestId(2U, 7U));
+  CHECK(actuator.last_request.reason == SafeStateReason::FatalHealth);
+  CHECK(actuator.last_request.mission_key == MissionKey());
+
+  controller.update(43U);
+  CHECK(controller.state() == ControllerState::SafeDisabled);
+  CHECK(actuator.request_count == 1U);
+
+  std::array<TelemetryEventType, 4U> event_types{};
+  std::array<uint8_t, 4U> event_values{};
+  TelemetryEvent telemetry;
+  std::size_t event_count = 0U;
+  while (controller.readTelemetry(telemetry)) {
+    REQUIRE(event_count < event_types.size());
+    event_types[event_count] = telemetry.type;
+    event_values[event_count] = telemetry.value;
+    CHECK(telemetry.reason == TelemetryReason::HealthFatal);
+    ++event_count;
+  }
+
+  REQUIRE(event_count == event_types.size());
+  CHECK(event_types == std::array<TelemetryEventType, 4U>{TelemetryEventType::HealthChanged,
+                                                          TelemetryEventType::SafeStateRequested,
+                                                          TelemetryEventType::StateTransition,
+                                                          TelemetryEventType::SafeStateResult});
+  CHECK(event_values.back() == static_cast<uint8_t>(SafeStateResult::Rejected));
+}
+
+TEST_CASE("communication-failure safe-disable identifies the mission in its platform request") {
+  FakeTransport transport;
+  FakeHealthMonitor health;
+  FixedScorer scorer(50U);
+  FakeSafeStateActuator actuator;
+  ControllerConfig config = fastConfig();
+  config.failed_missions_before_safe_disable = 1U;
+  SwarmController controller(2U, 7U, SatelliteSnapshot(), transport, health, scorer, config,
+                             &actuator);
+  const MissionKey key = mission(0U, 19U, 3U);
+
+  transport.deliver(Message::missionRequest(0U, key, Coordinate()));
+  controller.update(0U);
+  controller.update(config.retry_interval_ms);
+  controller.update(config.retry_interval_ms * 2U);
+
+  REQUIRE(controller.state() == ControllerState::SafeDisabled);
+  REQUIRE(actuator.request_count == 1U);
+  CHECK(actuator.last_request.id == SafeStateRequestId(2U, 7U));
+  CHECK(actuator.last_request.reason == SafeStateReason::CommunicationFailureLimit);
+  CHECK(actuator.last_request.mission_key == key);
 }
 
 TEST_CASE("a direct assignment completes the negotiation and clears earlier failures") {

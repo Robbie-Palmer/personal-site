@@ -78,7 +78,7 @@ vi.mock("@/lib/browser/satellite-swarm-worker-client", () => ({
 }));
 
 const data = parseSatelliteSwarmSimulation({
-  schemaVersion: 4,
+  schemaVersion: 5,
   traceVersion: 4,
   scenario: "test",
   source: "portable C++ SimulationTrace",
