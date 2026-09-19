@@ -22,6 +22,7 @@ import type {
   ListWorkItemDependenciesInput,
   ListWorkItemLeasesInput,
   ListWorkItemNotesInput,
+  PriorityMoveInput,
   ResolveAttentionRequestInput,
   ResolveAttentionRequestResult,
   RenewLeaseInput,
@@ -130,12 +131,22 @@ const workItemSchema = z
     lifecycle: z.enum(WORK_ITEM_LIFECYCLES),
     parentId: z.union([identifierSchema, z.null()]),
     rank: z.union([childRankSchema, z.null()]),
-    priorityWeight: z
-      .number()
-      .int()
-      .min(-2_147_483_648)
-      .max(2_147_483_647)
-      .openapi({ format: "int32" }),
+    priorityRank: z.union([childRankSchema, z.null()]),
+    schedulingInitiativeId: z.union([identifierSchema, z.null()]),
+    schedulingProjectId: z.union([identifierSchema, z.null()]),
+    expedited: z.boolean(),
+    expediteReason: z.union([
+      z.string().trim().min(1).max(MAX_TITLE_LENGTH),
+      z.null(),
+    ]),
+    priority: z.object({
+      initiativeRank: childRankSchema,
+      projectRank: childRankSchema,
+      ticketRank: childRankSchema,
+      expedited: z.boolean(),
+      effectiveExpedited: z.boolean(),
+      donatedFromWorkItemId: z.union([identifierSchema, z.null()]),
+    }),
     stage: z.enum(WORK_STAGES),
     currentLease: z.union([leaseSchema, z.null()]),
   })
@@ -161,12 +172,6 @@ const knowledgeScopeSchema = z
     markdownUrl: knowledgeScopeUrlSchema,
     sourceRevision: z.union([identifierSchema, z.null()]),
     rank: z.union([childRankSchema, z.null()]),
-    priorityWeight: z
-      .number()
-      .int()
-      .min(-2_147_483_648)
-      .max(2_147_483_647)
-      .openapi({ format: "int32" }),
   })
   .openapi("KnowledgeScope");
 const knowledgeScopeListSchema = z
@@ -415,15 +420,32 @@ const createWorkItemBodySchema = z
     id: identifierSchema,
     title: z.string().trim().min(1).max(MAX_TITLE_LENGTH),
     parentId: z.union([identifierSchema, z.null()]).optional(),
-    priorityWeight: workItemSchema.shape.priorityWeight.default(0),
+    schedulingInitiativeId: z
+      .union([identifierSchema, z.null()])
+      .optional(),
+    schedulingProjectId: z.union([identifierSchema, z.null()]).optional(),
   })
   .strict();
 const putKnowledgeScopeBodySchema = knowledgeScopeSchema
-  .omit({ id: true })
+  .omit({ id: true, rank: true })
   .extend({
     sourceRevision: z.union([identifierSchema, z.null()]).optional(),
-    rank: z.union([childRankSchema, z.null()]).optional(),
-    priorityWeight: knowledgeScopeSchema.shape.priorityWeight.default(0),
+  })
+  .strict();
+const priorityMoveBodySchema = z
+  .object({
+    higherThanId: identifierSchema.optional(),
+    lowerThanId: identifierSchema.optional(),
+  })
+  .strict()
+  .refine(
+    ({ higherThanId, lowerThanId }) =>
+      higherThanId !== undefined || lowerThanId !== undefined,
+    { message: "Provide a higher-than or lower-than anchor." },
+  );
+const expediteWorkItemBodySchema = z
+  .object({
+    reason: z.string().trim().min(1).max(MAX_TITLE_LENGTH),
   })
   .strict();
 const knowledgeScopeRelationshipBodySchema =
@@ -499,7 +521,6 @@ const decompositionChildSchema = z
     id: identifierSchema,
     title: z.string().trim().min(1).max(MAX_TITLE_LENGTH),
     rank: childRankSchema,
-    priorityWeight: workItemSchema.shape.priorityWeight.default(0),
   })
   .strict();
 const decompositionClaimSchema = z
@@ -644,6 +665,32 @@ const putKnowledgeScopeRoute = createRoute({
   },
 });
 
+const moveKnowledgeScopePriorityRoute = createRoute({
+  method: "post",
+  path: "/api/knowledge-scopes/{knowledgeScopeId}/priority-moves",
+  operationId: "moveKnowledgeScopePriority",
+  summary: "Move a knowledge scope within its priority list",
+  description:
+    "Places an initiative among initiatives or a project among projects using relative anchors. The service owns numeric ranks.",
+  tags: ["knowledge-scopes"],
+  security: accessSecurity,
+  request: {
+    params: knowledgeScopeParamsSchema,
+    headers: idempotencyHeadersSchema,
+    body: {
+      required: true,
+      content: { "application/json": { schema: priorityMoveBodySchema } },
+    },
+  },
+  responses: {
+    200: {
+      description: "Knowledge scope moved or matching mutation replayed",
+      content: { "application/json": { schema: knowledgeScopeSchema } },
+    },
+    ...standardErrors,
+  },
+});
+
 const listKnowledgeScopeRelationshipsRoute = createRoute({
   method: "get",
   path: "/api/knowledge-scope-relationships",
@@ -761,6 +808,80 @@ const createWorkItemRoute = createRoute({
   responses: {
     201: {
       description: "Work item created or matching mutation replayed",
+      content: { "application/json": { schema: workItemSchema } },
+    },
+    ...standardErrors,
+  },
+});
+
+const moveWorkItemPriorityRoute = createRoute({
+  method: "post",
+  path: "/api/work-items/{workItemId}/priority-moves",
+  operationId: "moveWorkItemPriority",
+  summary: "Move a ticket within its project priority list",
+  description:
+    "Places a priority-owning ticket relative to tickets in the same scheduling project. Decomposed children inherit their ticket's position.",
+  tags: ["work-items"],
+  security: accessSecurity,
+  request: {
+    params: workItemParamsSchema,
+    headers: idempotencyHeadersSchema,
+    body: {
+      required: true,
+      content: { "application/json": { schema: priorityMoveBodySchema } },
+    },
+  },
+  responses: {
+    200: {
+      description: "Ticket moved or matching mutation replayed",
+      content: { "application/json": { schema: workItemSchema } },
+    },
+    ...standardErrors,
+  },
+});
+
+const expediteWorkItemRoute = createRoute({
+  method: "post",
+  path: "/api/work-items/{workItemId}/expedites",
+  operationId: "expediteWorkItem",
+  summary: "Expedite a ticket",
+  description:
+    "Places a ticket ahead of normal fused priority and donates that urgency to unresolved blockers without permanently expediting them.",
+  tags: ["work-items"],
+  security: accessSecurity,
+  request: {
+    params: workItemParamsSchema,
+    headers: idempotencyHeadersSchema,
+    body: {
+      required: true,
+      content: { "application/json": { schema: expediteWorkItemBodySchema } },
+    },
+  },
+  responses: {
+    200: {
+      description: "Ticket expedited or matching mutation replayed",
+      content: { "application/json": { schema: workItemSchema } },
+    },
+    ...standardErrors,
+  },
+});
+
+const unexpediteWorkItemRoute = createRoute({
+  method: "delete",
+  path: "/api/work-items/{workItemId}/expedites",
+  operationId: "unexpediteWorkItem",
+  summary: "Remove a ticket expedite",
+  description:
+    "Returns a ticket to the fused normal queue and removes its donated urgency from unresolved blockers.",
+  tags: ["work-items"],
+  security: accessSecurity,
+  request: {
+    params: workItemParamsSchema,
+    headers: idempotencyHeadersSchema,
+  },
+  responses: {
+    200: {
+      description: "Ticket expedite removed or matching mutation replayed",
       content: { "application/json": { schema: workItemSchema } },
     },
     ...standardErrors,
@@ -1173,6 +1294,11 @@ export interface WorkGraphApiRepository {
     input: KnowledgeScopeInput,
     options?: IdempotentMutationOptions,
   ): Promise<KnowledgeScope>;
+  moveKnowledgeScopePriority(
+    id: string,
+    input: PriorityMoveInput,
+    options?: IdempotentMutationOptions,
+  ): Promise<KnowledgeScope>;
   listKnowledgeScopeRelationships(
     input?: ListKnowledgeScopeRelationshipsInput,
   ): Promise<
@@ -1201,6 +1327,20 @@ export interface WorkGraphApiRepository {
   ): Promise<readonly AttentionRequestReadModel[]>;
   createWorkItem(
     input: NewWorkItemInput,
+    options?: IdempotentMutationOptions,
+  ): Promise<WorkItem>;
+  moveWorkItemPriority(
+    workItemId: string,
+    input: PriorityMoveInput,
+    options?: IdempotentMutationOptions,
+  ): Promise<WorkItem>;
+  expediteWorkItem(
+    workItemId: string,
+    reason: string,
+    options?: IdempotentMutationOptions,
+  ): Promise<WorkItem>;
+  unexpediteWorkItem(
+    workItemId: string,
     options?: IdempotentMutationOptions,
   ): Promise<WorkItem>;
   addDependency(
@@ -1521,6 +1661,20 @@ export const createWorkGraphApp = (
     );
   });
 
+  app.openapi(moveKnowledgeScopePriorityRoute, async (context) => {
+    const { knowledgeScopeId } = context.req.valid("param");
+    const request = context.req.valid("json");
+    const headers = context.req.valid("header");
+    return context.json(
+      await repository.moveKnowledgeScopePriority(
+        knowledgeScopeId,
+        request,
+        idempotencyOptions(headers["idempotency-key"]),
+      ),
+      200,
+    );
+  });
+
   app.openapi(listKnowledgeScopeRelationshipsRoute, async (context) => {
     const { cursor, limit } = context.req.valid("query");
     const relationships = await repository.listKnowledgeScopeRelationships({
@@ -1581,6 +1735,49 @@ export const createWorkGraphApp = (
     return context.json(
       serializeWorkItem(await repository.getWorkItem(request.id)),
       201,
+    );
+  });
+
+  app.openapi(moveWorkItemPriorityRoute, async (context) => {
+    const { workItemId } = context.req.valid("param");
+    const request = context.req.valid("json");
+    const headers = context.req.valid("header");
+    await repository.moveWorkItemPriority(
+      workItemId,
+      request,
+      idempotencyOptions(headers["idempotency-key"]),
+    );
+    return context.json(
+      serializeWorkItem(await repository.getWorkItem(workItemId)),
+      200,
+    );
+  });
+
+  app.openapi(expediteWorkItemRoute, async (context) => {
+    const { workItemId } = context.req.valid("param");
+    const { reason } = context.req.valid("json");
+    const headers = context.req.valid("header");
+    await repository.expediteWorkItem(
+      workItemId,
+      reason,
+      idempotencyOptions(headers["idempotency-key"]),
+    );
+    return context.json(
+      serializeWorkItem(await repository.getWorkItem(workItemId)),
+      200,
+    );
+  });
+
+  app.openapi(unexpediteWorkItemRoute, async (context) => {
+    const { workItemId } = context.req.valid("param");
+    const headers = context.req.valid("header");
+    await repository.unexpediteWorkItem(
+      workItemId,
+      idempotencyOptions(headers["idempotency-key"]),
+    );
+    return context.json(
+      serializeWorkItem(await repository.getWorkItem(workItemId)),
+      200,
     );
   });
 

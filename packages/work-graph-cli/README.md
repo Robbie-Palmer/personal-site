@@ -77,7 +77,11 @@ work-graph scope show work-graph
 work-graph scope link semi-autonomous-software-development work-graph
 work-graph scope links
 work-graph scope unlink semi-autonomous-software-development work-graph
-work-graph create cli-8 --title "Build the TypeScript CLI" --priority-weight 10
+work-graph create cli-8 --title "Build the TypeScript CLI" --scheduling-project-id work-graph
+work-graph priority move cli-8 --above cli-9
+work-graph scope move work-graph --below another-project
+work-graph expedite cli-8 --reason "Production release blocker"
+work-graph unexpedite cli-8
 work-graph dependency add cli-8 api-7
 work-graph dependency remove cli-8 api-7
 work-graph queue
@@ -135,9 +139,15 @@ use it only after the change is merged and deployed. The command requires
 evidence for both. It does not return unfinished work to the queue.
 
 `scope put` uses its positional ID as the stable source key. Repeating it
-replaces the title, URLs, source revision, rank, and priority weight while
-preserving relationships to that ID. `scope link` adds a directed
+replaces the title, URLs, and source revision while preserving relationships
+and scheduling position for that ID. `scope link` adds a directed
 parent-to-child relationship and rejects cycles.
+
+Priority commands use relative anchors. `scope move` compares initiatives only
+with initiatives and projects only with projects. `priority move` compares a
+ticket only with tickets in the same scheduling project. New entries start at
+the median. Expedites require a reason and temporarily donate their urgency to
+unresolved blockers.
 
 Decomposition accepts contract-shaped JSON arrays. The optional child claim
 gets a generated lease ID unless `--claim-lease-id` supplies one.

@@ -235,7 +235,11 @@ describe("decomposition and hierarchy", () => {
       title: "Stable work",
       lifecycle: "open",
       parentId: "new-parent",
-      priorityWeight: 0,
+      priorityRank: null,
+      schedulingInitiativeId: null,
+      schedulingProjectId: null,
+      expedited: false,
+      expediteReason: null,
       rank: null,
     });
   });

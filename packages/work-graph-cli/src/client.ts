@@ -15,6 +15,7 @@ import {
   createWorkItemRelease,
   deleteDependency,
   deleteKnowledgeScopeRelationship,
+  expediteWorkItem,
   getKnowledgeScope,
   getWorkItem,
   listAttentionRequests,
@@ -25,7 +26,10 @@ import {
   listWorkItemLeases,
   listWorkItemNotes,
   listWorkItems,
+  moveKnowledgeScopePriority,
+  moveWorkItemPriority,
   putKnowledgeScope,
+  unexpediteWorkItem,
 } from "./generated/client/sdk.gen.js";
 import type {
   CreateAttentionRequestData,
@@ -42,6 +46,7 @@ import type {
   CreateWorkItemReleaseData,
   DeleteDependencyData,
   DeleteKnowledgeScopeRelationshipData,
+  ExpediteWorkItemData,
   ListAttentionRequestsData,
   ListKnowledgeScopeRelationshipsData,
   ListKnowledgeScopesData,
@@ -50,6 +55,8 @@ import type {
   ListWorkItemLeasesData,
   ListWorkItemNotesData,
   ListWorkItemsData,
+  MoveKnowledgeScopePriorityData,
+  MoveWorkItemPriorityData,
   PutKnowledgeScopeData,
 } from "./generated/client/types.gen.js";
 import type { WorkGraphClientConfig } from "./config.js";
@@ -191,6 +198,64 @@ export class WorkGraphClient {
         body,
         headers: idempotencyHeaders(idempotencyKey),
         path: { knowledgeScopeId },
+      }),
+    );
+  }
+
+  moveKnowledgeScopePriority(
+    knowledgeScopeId: string,
+    body: MoveKnowledgeScopePriorityData["body"],
+    idempotencyKey?: string,
+  ) {
+    return this.#unwrap(
+      moveKnowledgeScopePriority({
+        ...this.#options(),
+        body,
+        headers: idempotencyHeaders(idempotencyKey),
+        path: { knowledgeScopeId },
+      }),
+    );
+  }
+
+  moveWorkItemPriority(
+    workItemId: string,
+    body: MoveWorkItemPriorityData["body"],
+    idempotencyKey?: string,
+  ) {
+    return this.#unwrap(
+      moveWorkItemPriority({
+        ...this.#options(),
+        body,
+        headers: idempotencyHeaders(idempotencyKey),
+        path: { workItemId },
+      }),
+    );
+  }
+
+  expediteWorkItem(
+    workItemId: string,
+    body: ExpediteWorkItemData["body"],
+    idempotencyKey?: string,
+  ) {
+    return this.#unwrap(
+      expediteWorkItem({
+        ...this.#options(),
+        body,
+        headers: idempotencyHeaders(idempotencyKey),
+        path: { workItemId },
+      }),
+    );
+  }
+
+  unexpediteWorkItem(
+    workItemId: string,
+    idempotencyKey?: string,
+  ) {
+    return this.#unwrap(
+      unexpediteWorkItem({
+        ...this.#options(),
+        headers: idempotencyHeaders(idempotencyKey),
+        path: { workItemId },
       }),
     );
   }

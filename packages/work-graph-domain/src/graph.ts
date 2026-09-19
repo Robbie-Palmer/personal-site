@@ -57,13 +57,51 @@ const validateWorkItemFields = (workItem: WorkItem): void => {
     );
   }
   if (
-    !Number.isSafeInteger(workItem.priorityWeight) ||
-    workItem.priorityWeight < -2_147_483_648 ||
-    workItem.priorityWeight > 2_147_483_647
+    workItem.priorityRank !== null &&
+    (!Number.isSafeInteger(workItem.priorityRank) ||
+      workItem.priorityRank <= 0 ||
+      workItem.priorityRank > 2_147_483_647)
   ) {
     throw new WorkGraphError(
-      "invalid_work_item_priority_weight",
-      `Work item ${workItem.id} must have a 32-bit integer priority weight.`,
+      "invalid_priority_rank",
+      `Work item ${workItem.id} must have a positive whole-number priority rank.`,
+    );
+  }
+  if (
+    (workItem.schedulingInitiativeId !== null &&
+      !validateWorkItemId(workItem.schedulingInitiativeId)) ||
+    (workItem.schedulingProjectId !== null &&
+      !validateWorkItemId(workItem.schedulingProjectId))
+  ) {
+    throw new WorkGraphError(
+      "invalid_scheduling_scope",
+      `Work item ${workItem.id} has an invalid scheduling scope.`,
+    );
+  }
+  if (
+    workItem.parentId !== null &&
+    (workItem.priorityRank !== null ||
+      workItem.schedulingInitiativeId !== null ||
+      workItem.schedulingProjectId !== null)
+  ) {
+    throw new WorkGraphError(
+      "invalid_scheduling_scope",
+      `Work item ${workItem.id} inherits scheduling priority from its parent.`,
+    );
+  }
+  if (
+    workItem.expediteReason !== null &&
+    workItem.expediteReason.trim().length === 0
+  ) {
+    throw new WorkGraphError(
+      "invalid_expedite_reason",
+      `Work item ${workItem.id} has an empty expedite reason.`,
+    );
+  }
+  if (workItem.expedited !== (workItem.expediteReason !== null)) {
+    throw new WorkGraphError(
+      "invalid_expedite_reason",
+      `Work item ${workItem.id} must record a reason exactly when it is expedited.`,
     );
   }
 };
@@ -100,7 +138,11 @@ const normalizeWorkItem = (input: WorkItemInput): WorkItem => {
   }
 
   const rank = input.rank ?? null;
-  const priorityWeight = input.priorityWeight ?? 0;
+  const priorityRank = input.priorityRank ?? null;
+  const schedulingInitiativeId = input.schedulingInitiativeId ?? null;
+  const schedulingProjectId = input.schedulingProjectId ?? null;
+  const expedited = input.expedited ?? false;
+  const expediteReason = input.expediteReason ?? null;
 
   return {
     id: input.id,
@@ -108,7 +150,11 @@ const normalizeWorkItem = (input: WorkItemInput): WorkItem => {
     lifecycle,
     parentId,
     rank,
-    priorityWeight,
+    priorityRank,
+    schedulingInitiativeId,
+    schedulingProjectId,
+    expedited,
+    expediteReason,
   };
 };
 
@@ -163,6 +209,24 @@ const validateHierarchy = (
     }
     siblingRanks.add(workItem.rank);
     ranksByParent.set(workItem.parentId, siblingRanks);
+  }
+};
+
+const validatePriorityRanks = (workItems: readonly WorkItem[]): void => {
+  const ranksByProject = new Map<string, Set<number>>();
+
+  for (const workItem of workItems) {
+    if (workItem.priorityRank === null) continue;
+    const projectKey = workItem.schedulingProjectId ?? "";
+    const ranks = ranksByProject.get(projectKey) ?? new Set<number>();
+    if (ranks.has(workItem.priorityRank)) {
+      throw new WorkGraphError(
+        "invalid_priority_rank",
+        `Priority rank ${workItem.priorityRank} is used more than once in scheduling project ${workItem.schedulingProjectId ?? "the unscoped queue"}.`,
+      );
+    }
+    ranks.add(workItem.priorityRank);
+    ranksByProject.set(projectKey, ranks);
   }
 };
 
@@ -299,6 +363,7 @@ export const validateWorkGraph = (graph: WorkGraph): void => {
 
   const workItemsById = indexWorkItems(graph.workItems);
   validateHierarchy(graph.workItems, workItemsById);
+  validatePriorityRanks(graph.workItems);
   validateDependencies(graph.dependencies, workItemsById);
 
   if (hasCycle(buildWaitsForGraph(graph))) {

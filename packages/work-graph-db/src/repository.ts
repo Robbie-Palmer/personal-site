@@ -14,6 +14,7 @@ import {
   createKnowledgeScope,
   createWorkGraph,
   orderWorkItemsByPriority,
+  projectWorkItemPriority,
   projectWorkItemStage,
   validatePostReleaseNote,
   validateKnowledgeScopeRelationships,
@@ -26,6 +27,7 @@ import {
   type WorkGraph,
   type WorkItem,
   type WorkItemDependency,
+  type WorkItemPriorityProjection,
   type WorkStage,
 } from "work-graph-domain";
 import type { Db, DbTransaction } from "./connection";
@@ -47,10 +49,12 @@ import {
   workItem,
   workItemDependency,
   workItemHierarchy,
+  workItemPriorityContext,
 } from "./schema";
 
 const GRAPH_MUTATION_LOCK_ID = "global";
 const EVENT_SEQUENCE_LOCK_ID = "event-sequence";
+const PRIORITY_RANK_GAP = 1_024;
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -68,8 +72,12 @@ export const WORK_GRAPH_EVENT_TYPES = [
   "note.created",
   "work_item.created",
   "work_item.decomposed",
+  "work_item.expedited",
+  "work_item.priority_moved",
   "work_item.lifecycle_changed",
   "work_item.reparented",
+  "work_item.unexpedited",
+  "knowledge_scope.priority_moved",
 ] as const;
 
 export type WorkGraphEventType = (typeof WORK_GRAPH_EVENT_TYPES)[number];
@@ -128,7 +136,15 @@ export type TerminateClaimedWorkItemInput = ClaimedWorkItemTermination &
   );
 
 export interface DecompositionChildInput
-  extends Omit<NewWorkItemInput, "parentId"> {
+  extends Omit<
+    NewWorkItemInput,
+    | "parentId"
+    | "priorityRank"
+    | "schedulingInitiativeId"
+    | "schedulingProjectId"
+    | "expedited"
+    | "expediteReason"
+  > {
   readonly rank: number;
 }
 
@@ -266,6 +282,12 @@ interface AppendEventInput {
 export interface WorkItemReadModel extends WorkItem {
   readonly stage: WorkStage;
   readonly currentLease: StoredLease | null;
+  readonly priority: WorkItemPriorityProjection;
+}
+
+export interface PriorityMoveInput {
+  readonly higherThanId?: string;
+  readonly lowerThanId?: string;
 }
 
 export interface IdempotentMutationOptions {
@@ -311,6 +333,17 @@ const requireKnowledgeScopeId = (value: string): void => {
   }
 };
 
+const compareStoredRanks = (
+  left: { readonly id: string; readonly rank: number | null },
+  right: { readonly id: string; readonly rank: number | null },
+): number => {
+  if (left.rank === null) {
+    return right.rank === null ? left.id.localeCompare(right.id) : 1;
+  }
+  if (right.rank === null) return -1;
+  return left.rank - right.rank || left.id.localeCompare(right.id);
+};
+
 const knowledgeScopeNotFound = (id: string) =>
   new WorkGraphError(
     "knowledge_scope_not_found",
@@ -327,7 +360,6 @@ const toKnowledgeScope = (
   markdownUrl: stored.markdownUrl,
   sourceRevision: stored.sourceRevision,
   rank: stored.rank,
-  priorityWeight: stored.priorityWeight,
 });
 
 const requireLeaseId = (leaseId: string): void => {
@@ -462,7 +494,6 @@ const validateDecompositionChild = (
       {
         id: child.id,
         title: child.title,
-        priorityWeight: child.priorityWeight,
       },
     ],
   }).workItems[0]!;
@@ -563,7 +594,6 @@ const validateDecomposition = (
         child.id,
         child.title,
         rank,
-        child.priorityWeight,
       ]),
       dependencies.map((dependency) => [
         dependency.dependentWorkItemId,
@@ -688,12 +718,27 @@ export class WorkGraphRepository {
           "put-knowledge-scope",
           JSON.stringify(normalized),
         );
-        if (replayed) return normalized;
+        if (replayed) {
+          return this.requireStoredKnowledgeScope(transaction, normalized.id);
+        }
+      }
+
+      await this.lockGraphMutation(transaction);
+      const [existing] = await transaction
+        .select({ kind: knowledgeScope.kind, rank: knowledgeScope.rank })
+        .from(knowledgeScope)
+        .where(eq(knowledgeScope.id, normalized.id))
+        .limit(1);
+      if (existing && existing.kind !== normalized.kind) {
+        throw new WorkGraphError(
+          "invalid_knowledge_scope_kind",
+          `Knowledge scope ${normalized.id} cannot change kind after creation.`,
+        );
       }
 
       const [stored] = await transaction
         .insert(knowledgeScope)
-        .values(normalized)
+        .values({ ...normalized, rank: existing?.rank ?? null })
         .onConflictDoUpdate({
           target: knowledgeScope.id,
           set: {
@@ -702,12 +747,22 @@ export class WorkGraphRepository {
             canonicalUrl: normalized.canonicalUrl,
             markdownUrl: normalized.markdownUrl,
             sourceRevision: normalized.sourceRevision,
-            rank: normalized.rank,
-            priorityWeight: normalized.priorityWeight,
+            rank: existing?.rank ?? null,
           },
         })
         .returning();
       if (!stored) throw new Error("Knowledge scope upsert returned no row.");
+      if (!existing) {
+        await this.placeKnowledgeScopeAtMedian(
+          transaction,
+          normalized.id,
+          normalized.kind,
+        );
+      }
+      const result = await this.requireStoredKnowledgeScope(
+        transaction,
+        normalized.id,
+      );
       await this.appendEvent(transaction, {
         type: "knowledge_scope.put",
         data: {
@@ -717,11 +772,65 @@ export class WorkGraphRepository {
           canonicalUrl: normalized.canonicalUrl,
           markdownUrl: normalized.markdownUrl,
           sourceRevision: normalized.sourceRevision,
-          rank: normalized.rank,
-          priorityWeight: normalized.priorityWeight,
+          rank: result.rank,
         },
       });
-      return toKnowledgeScope(stored);
+      return result;
+    });
+  }
+
+  async moveKnowledgeScopePriority(
+    id: string,
+    input: PriorityMoveInput,
+    options: IdempotentMutationOptions = {},
+  ): Promise<KnowledgeScope> {
+    requireKnowledgeScopeId(id);
+    if (input.higherThanId !== undefined) {
+      requireKnowledgeScopeId(input.higherThanId);
+    }
+    if (input.lowerThanId !== undefined) {
+      requireKnowledgeScopeId(input.lowerThanId);
+    }
+    if (options.idempotencyKey !== undefined) {
+      requireIdempotencyKey(options.idempotencyKey);
+    }
+
+    return this.db.transaction(async (transaction) => {
+      await this.lockEventSequence(transaction);
+      if (options.idempotencyKey !== undefined) {
+        const replayed = await this.beginIdempotentMutation(
+          transaction,
+          options.idempotencyKey,
+          "move-knowledge-scope-priority",
+          JSON.stringify([id, input.higherThanId, input.lowerThanId]),
+        );
+        if (replayed) return this.requireStoredKnowledgeScope(transaction, id);
+      }
+
+      await this.lockGraphMutation(transaction);
+      const target = await this.requireStoredKnowledgeScope(transaction, id);
+      const rows = await transaction
+        .select({ id: knowledgeScope.id, rank: knowledgeScope.rank })
+        .from(knowledgeScope)
+        .where(eq(knowledgeScope.kind, target.kind));
+      const orderedIds = rows
+        .sort(compareStoredRanks)
+        .map(({ id: candidateId }) => candidateId)
+        .filter((candidateId) => candidateId !== id);
+      const index = this.insertionIndex(orderedIds, input);
+      orderedIds.splice(index, 0, id);
+      await this.writeKnowledgeScopeRanks(transaction, orderedIds);
+      const moved = await this.requireStoredKnowledgeScope(transaction, id);
+      await this.appendEvent(transaction, {
+        type: "knowledge_scope.priority_moved",
+        data: {
+          id,
+          higherThanId: input.higherThanId ?? null,
+          lowerThanId: input.lowerThanId ?? null,
+          rank: moved.rank,
+        },
+      });
+      return moved;
     });
   }
 
@@ -823,6 +932,28 @@ export class WorkGraphRepository {
       }
 
       await this.lockGraphMutation(transaction);
+      const [scheduledWork] = await transaction
+        .select({ workItemId: workItemPriorityContext.workItemId })
+        .from(workItemPriorityContext)
+        .where(
+          and(
+            eq(
+              workItemPriorityContext.schedulingInitiativeId,
+              relationship.parentKnowledgeScopeId,
+            ),
+            eq(
+              workItemPriorityContext.schedulingProjectId,
+              relationship.childKnowledgeScopeId,
+            ),
+          ),
+        )
+        .limit(1);
+      if (scheduledWork) {
+        throw new WorkGraphError(
+          "invalid_scheduling_scope",
+          `Knowledge scope relationship ${relationship.parentKnowledgeScopeId} -> ${relationship.childKnowledgeScopeId} schedules work item ${scheduledWork.workItemId} and cannot be removed.`,
+        );
+      }
       const removed = await transaction
         .delete(knowledgeScopeRelationship)
         .where(
@@ -871,6 +1002,7 @@ export class WorkGraphRepository {
     return this.db.transaction(
       async (transaction) => {
         const graph = await this.loadGraph(transaction);
+        const scopes = await this.loadKnowledgeScopes(transaction);
         const currentLeases = await transaction
           .select()
           .from(lease)
@@ -902,7 +1034,7 @@ export class WorkGraphRepository {
           unresolvedBlockingAttention.map(({ workItemId }) => workItemId),
         );
 
-        return orderWorkItemsByPriority(graph).map((item) => {
+        return orderWorkItemsByPriority(graph, scopes).map((item) => {
           const currentLease = leasesByWorkItemId.get(item.id) ?? null;
           return {
             ...item,
@@ -915,6 +1047,7 @@ export class WorkGraphRepository {
                 workItemIdsNeedingAttention.has(item.id),
             }),
             currentLease,
+            priority: projectWorkItemPriority(graph, item.id, scopes),
           };
         });
       },
@@ -965,20 +1098,41 @@ export class WorkGraphRepository {
               normalized.id,
               normalized.title,
               parentId,
-              normalized.priorityWeight,
+              normalized.schedulingInitiativeId,
+              normalized.schedulingProjectId,
             ]),
           );
-          if (replayed) return { ...normalized, parentId };
+          if (replayed) {
+            const replayedGraph = await this.loadGraph(transaction);
+            const replayedItem = replayedGraph.workItems.find(
+              ({ id }) => id === normalized.id,
+            );
+            if (!replayedItem) throw workItemNotFound(normalized.id);
+            return replayedItem;
+          }
         }
 
-        if (parentId !== null) {
-          await this.lockGraphMutation(transaction);
+        await this.lockGraphMutation(transaction);
+        if (
+          parentId !== null &&
+          (normalized.schedulingInitiativeId !== null ||
+            normalized.schedulingProjectId !== null)
+        ) {
+          throw new WorkGraphError(
+            "invalid_scheduling_scope",
+            "Only a priority-owning ticket can set scheduling scopes; children inherit them.",
+          );
         }
+        const scheduling =
+          parentId === null
+            ? await this.validateSchedulingScopes(transaction, normalized)
+            : { initiativeId: null, projectId: null };
 
         await transaction.insert(workItem).values({
           id: normalized.id,
           title: normalized.title,
-          priorityWeight: normalized.priorityWeight,
+          expedited: normalized.expedited,
+          expediteReason: normalized.expediteReason,
         });
 
         if (parentId !== null) {
@@ -987,6 +1141,18 @@ export class WorkGraphRepository {
             parentWorkItemId: parentId,
           });
           await this.rejectCycle(transaction);
+        } else {
+          await transaction.insert(workItemPriorityContext).values({
+            workItemId: normalized.id,
+            schedulingInitiativeId: scheduling.initiativeId,
+            schedulingProjectId: scheduling.projectId,
+            rank: null,
+          });
+          await this.placeWorkItemAtMedian(
+            transaction,
+            normalized.id,
+            scheduling.projectId,
+          );
         }
 
         await this.appendEvent(transaction, {
@@ -996,11 +1162,22 @@ export class WorkGraphRepository {
             title: normalized.title,
             parentId,
             rank: null,
-            priorityWeight: normalized.priorityWeight,
+            priorityRank:
+              parentId === null
+                ? (
+                    await this.requireStoredPriorityContext(
+                      transaction,
+                      normalized.id,
+                    )
+                  ).rank
+                : null,
+            schedulingInitiativeId: scheduling.initiativeId,
+            schedulingProjectId: scheduling.projectId,
           },
         });
 
-        return { ...normalized, parentId };
+        const createdGraph = await this.loadGraph(transaction);
+        return createdGraph.workItems.find(({ id }) => id === normalized.id)!;
       });
     } catch (error) {
       const databaseError = getDatabaseError(error);
@@ -1021,6 +1198,147 @@ export class WorkGraphRepository {
       }
       return translateForeignKeyError(error, parentId ?? normalized.id);
     }
+  }
+
+  async moveWorkItemPriority(
+    workItemId: string,
+    input: PriorityMoveInput,
+    options: IdempotentMutationOptions = {},
+  ): Promise<WorkItem> {
+    requireIdentifier(workItemId, "invalid_work_item_id");
+    if (input.higherThanId !== undefined) {
+      requireIdentifier(input.higherThanId, "invalid_work_item_id");
+    }
+    if (input.lowerThanId !== undefined) {
+      requireIdentifier(input.lowerThanId, "invalid_work_item_id");
+    }
+    if (options.idempotencyKey !== undefined) {
+      requireIdempotencyKey(options.idempotencyKey);
+    }
+
+    return this.db.transaction(async (transaction) => {
+      await this.lockEventSequence(transaction);
+      if (options.idempotencyKey !== undefined) {
+        const replayed = await this.beginIdempotentMutation(
+          transaction,
+          options.idempotencyKey,
+          "move-work-item-priority",
+          JSON.stringify([workItemId, input.higherThanId, input.lowerThanId]),
+        );
+        if (replayed) {
+          return this.requireGraphWorkItem(transaction, workItemId);
+        }
+      }
+
+      await this.lockGraphMutation(transaction);
+      const context = await this.requireStoredPriorityContext(
+        transaction,
+        workItemId,
+      );
+      const orderedIds = (
+        await this.listPriorityOwnerIds(
+          transaction,
+          context.schedulingProjectId,
+        )
+      ).filter((id) => id !== workItemId);
+      const index = this.insertionIndex(orderedIds, input);
+      orderedIds.splice(index, 0, workItemId);
+      await this.writeWorkItemPriorityRanks(transaction, orderedIds);
+      const moved = await this.requireStoredPriorityContext(
+        transaction,
+        workItemId,
+      );
+      await this.appendEvent(transaction, {
+        type: "work_item.priority_moved",
+        workItemId,
+        data: {
+          higherThanId: input.higherThanId ?? null,
+          lowerThanId: input.lowerThanId ?? null,
+          priorityRank: moved.rank,
+          schedulingProjectId: moved.schedulingProjectId,
+        },
+      });
+      return this.requireGraphWorkItem(transaction, workItemId);
+    });
+  }
+
+  async expediteWorkItem(
+    workItemId: string,
+    reason: string,
+    options: IdempotentMutationOptions = {},
+  ): Promise<WorkItem> {
+    requireIdentifier(workItemId, "invalid_work_item_id");
+    if (reason.trim().length === 0) {
+      throw new WorkGraphError(
+        "invalid_expedite_reason",
+        "An expedite reason cannot be empty.",
+      );
+    }
+    if (options.idempotencyKey !== undefined) {
+      requireIdempotencyKey(options.idempotencyKey);
+    }
+
+    return this.db.transaction(async (transaction) => {
+      await this.lockEventSequence(transaction);
+      if (options.idempotencyKey !== undefined) {
+        const replayed = await this.beginIdempotentMutation(
+          transaction,
+          options.idempotencyKey,
+          "expedite-work-item",
+          JSON.stringify([workItemId, reason]),
+        );
+        if (replayed) return this.requireGraphWorkItem(transaction, workItemId);
+      }
+      await this.lockGraphMutation(transaction);
+      await this.requireStoredPriorityContext(transaction, workItemId);
+      await this.requireOpenWorkItem(transaction, workItemId);
+      await transaction
+        .update(workItem)
+        .set({ expedited: true, expediteReason: reason })
+        .where(eq(workItem.id, workItemId));
+      await this.appendEvent(transaction, {
+        type: "work_item.expedited",
+        workItemId,
+        data: { reason },
+      });
+      return this.requireGraphWorkItem(transaction, workItemId);
+    });
+  }
+
+  async unexpediteWorkItem(
+    workItemId: string,
+    options: IdempotentMutationOptions = {},
+  ): Promise<WorkItem> {
+    requireIdentifier(workItemId, "invalid_work_item_id");
+    if (options.idempotencyKey !== undefined) {
+      requireIdempotencyKey(options.idempotencyKey);
+    }
+
+    return this.db.transaction(async (transaction) => {
+      await this.lockEventSequence(transaction);
+      if (options.idempotencyKey !== undefined) {
+        const replayed = await this.beginIdempotentMutation(
+          transaction,
+          options.idempotencyKey,
+          "unexpedite-work-item",
+          workItemId,
+        );
+        if (replayed) return this.requireGraphWorkItem(transaction, workItemId);
+      }
+      await this.lockGraphMutation(transaction);
+      await this.requireStoredPriorityContext(transaction, workItemId);
+      await this.requireOpenWorkItem(transaction, workItemId);
+      await transaction
+        .update(workItem)
+        .set({ expedited: false, expediteReason: null })
+        .where(eq(workItem.id, workItemId));
+      await this.appendEvent(transaction, {
+        type: "work_item.unexpedited",
+        workItemId,
+        data: {},
+      });
+      return this.requireGraphWorkItem(transaction, workItemId);
+    });
   }
 
   async createNote(
@@ -1793,7 +2111,7 @@ export class WorkGraphRepository {
           title: child.title,
           parentId: input.workItemId,
           rank,
-          priorityWeight: child.priorityWeight,
+          priorityRank: null,
         },
       });
     }
@@ -1902,7 +2220,8 @@ export class WorkGraphRepository {
       validated.children.map(({ workItem: child }) => ({
         id: child.id,
         title: child.title,
-        priorityWeight: child.priorityWeight,
+        expedited: child.expedited,
+        expediteReason: child.expediteReason,
       })),
     );
     await transaction.insert(workItemHierarchy).values(
@@ -2136,11 +2455,25 @@ export class WorkGraphRepository {
           .from(workItemHierarchy)
           .where(eq(workItemHierarchy.childWorkItemId, workItemId))
           .limit(1);
+        const [priorityContext] = await transaction
+          .select()
+          .from(workItemPriorityContext)
+          .where(eq(workItemPriorityContext.workItemId, workItemId))
+          .limit(1);
 
         if (parentId === null) {
           await transaction
             .delete(workItemHierarchy)
             .where(eq(workItemHierarchy.childWorkItemId, workItemId));
+          if (currentHierarchy && !priorityContext) {
+            await transaction.insert(workItemPriorityContext).values({
+              workItemId,
+              schedulingInitiativeId: null,
+              schedulingProjectId: null,
+              rank: null,
+            });
+            await this.placeWorkItemAtMedian(transaction, workItemId, null);
+          }
         } else {
           const preservedRank =
             currentHierarchy?.parentWorkItemId === parentId
@@ -2157,6 +2490,18 @@ export class WorkGraphRepository {
               target: workItemHierarchy.childWorkItemId,
               set: { parentWorkItemId: parentId, rank: preservedRank },
             });
+          if (!currentHierarchy && priorityContext) {
+            await transaction
+              .delete(workItemPriorityContext)
+              .where(eq(workItemPriorityContext.workItemId, workItemId));
+            await this.writeWorkItemPriorityRanks(
+              transaction,
+              await this.listPriorityOwnerIds(
+                transaction,
+                priorityContext.schedulingProjectId,
+              ),
+            );
+          }
         }
 
         await this.rejectCycle(transaction);
@@ -2554,7 +2899,12 @@ export class WorkGraphRepository {
         id: workItem.id,
         title: workItem.title,
         lifecycle: workItem.lifecycle,
-        priorityWeight: workItem.priorityWeight,
+        expedited: workItem.expedited,
+        expediteReason: workItem.expediteReason,
+        priorityRank: workItemPriorityContext.rank,
+        schedulingInitiativeId:
+          workItemPriorityContext.schedulingInitiativeId,
+        schedulingProjectId: workItemPriorityContext.schedulingProjectId,
         parentId: workItemHierarchy.parentWorkItemId,
         rank: workItemHierarchy.rank,
       })
@@ -2562,6 +2912,10 @@ export class WorkGraphRepository {
       .innerJoin(
         workItemHierarchy,
         eq(workItemHierarchy.childWorkItemId, workItem.id),
+      )
+      .leftJoin(
+        workItemPriorityContext,
+        eq(workItemPriorityContext.workItemId, workItem.id),
       )
       .where(
         and(
@@ -2618,13 +2972,266 @@ export class WorkGraphRepository {
     );
   }
 
+  private async loadKnowledgeScopes(
+    transaction: DbTransaction,
+  ): Promise<readonly KnowledgeScope[]> {
+    const rows = await transaction
+      .select()
+      .from(knowledgeScope)
+      .orderBy(knowledgeScope.kind, knowledgeScope.rank, knowledgeScope.id);
+    return rows.map(toKnowledgeScope);
+  }
+
+  private async requireStoredKnowledgeScope(
+    transaction: DbTransaction,
+    id: string,
+  ): Promise<KnowledgeScope> {
+    const [stored] = await transaction
+      .select()
+      .from(knowledgeScope)
+      .where(eq(knowledgeScope.id, id))
+      .limit(1);
+    if (!stored) throw knowledgeScopeNotFound(id);
+    return toKnowledgeScope(stored);
+  }
+
+  private async requireStoredPriorityContext(
+    transaction: DbTransaction,
+    workItemId: string,
+  ): Promise<typeof workItemPriorityContext.$inferSelect> {
+    const [stored] = await transaction
+      .select()
+      .from(workItemPriorityContext)
+      .where(eq(workItemPriorityContext.workItemId, workItemId))
+      .limit(1);
+    if (!stored) {
+      throw new WorkGraphError(
+        "invalid_priority_move",
+        `Work item ${workItemId} inherits priority from a parent and cannot be moved independently.`,
+      );
+    }
+    return stored;
+  }
+
+  private async validateSchedulingScopes(
+    transaction: DbTransaction,
+    input: Pick<
+      WorkItem,
+      "schedulingInitiativeId" | "schedulingProjectId"
+    >,
+  ): Promise<{
+    readonly initiativeId: string | null;
+    readonly projectId: string | null;
+  }> {
+    let initiativeId = input.schedulingInitiativeId;
+    const projectId = input.schedulingProjectId;
+
+    if (initiativeId !== null) {
+      const initiative = await this.requireStoredKnowledgeScope(
+        transaction,
+        initiativeId,
+      );
+      if (initiative.kind !== "initiative") {
+        throw new WorkGraphError(
+          "invalid_scheduling_scope",
+          `Knowledge scope ${initiativeId} is not an initiative.`,
+        );
+      }
+    }
+    if (projectId !== null) {
+      const project = await this.requireStoredKnowledgeScope(
+        transaction,
+        projectId,
+      );
+      if (project.kind !== "project") {
+        throw new WorkGraphError(
+          "invalid_scheduling_scope",
+          `Knowledge scope ${projectId} is not a project.`,
+        );
+      }
+
+      const parents = await transaction
+        .select({ id: knowledgeScope.id })
+        .from(knowledgeScopeRelationship)
+        .innerJoin(
+          knowledgeScope,
+          eq(
+            knowledgeScope.id,
+            knowledgeScopeRelationship.parentKnowledgeScopeId,
+          ),
+        )
+        .where(
+          and(
+            eq(knowledgeScopeRelationship.childKnowledgeScopeId, projectId),
+            eq(knowledgeScope.kind, "initiative"),
+          ),
+        )
+        .orderBy(knowledgeScope.rank, knowledgeScope.id);
+
+      if (initiativeId === null && parents.length === 1) {
+        initiativeId = parents[0]!.id;
+      } else if (initiativeId === null && parents.length > 1) {
+        throw new WorkGraphError(
+          "invalid_scheduling_scope",
+          `Project ${projectId} has several initiative parents; choose one scheduling initiative.`,
+        );
+      } else if (
+        initiativeId !== null &&
+        !parents.some(({ id }) => id === initiativeId)
+      ) {
+        throw new WorkGraphError(
+          "invalid_scheduling_scope",
+          `Project ${projectId} is not linked to scheduling initiative ${initiativeId}.`,
+        );
+      }
+    }
+
+    return { initiativeId, projectId };
+  }
+
+  private insertionIndex(
+    orderedIds: readonly string[],
+    input: PriorityMoveInput,
+  ): number {
+    if (input.higherThanId === undefined && input.lowerThanId === undefined) {
+      throw new WorkGraphError(
+        "invalid_priority_move",
+        "A priority move requires a higher-than or lower-than anchor.",
+      );
+    }
+    const higherIndex =
+      input.higherThanId === undefined
+        ? orderedIds.length
+        : orderedIds.indexOf(input.higherThanId);
+    const lowerIndex =
+      input.lowerThanId === undefined
+        ? -1
+        : orderedIds.indexOf(input.lowerThanId);
+    if (
+      (input.higherThanId !== undefined && higherIndex < 0) ||
+      (input.lowerThanId !== undefined && lowerIndex < 0)
+    ) {
+      throw new WorkGraphError(
+        "invalid_priority_move",
+        "Priority anchors must exist in the same contextual ranking.",
+      );
+    }
+    const minimum = lowerIndex + 1;
+    const maximum = higherIndex;
+    if (minimum > maximum) {
+      throw new WorkGraphError(
+        "invalid_priority_move",
+        "The requested higher-than and lower-than anchors contradict their current order.",
+      );
+    }
+    if (input.lowerThanId === undefined) return maximum;
+    if (input.higherThanId === undefined) return minimum;
+    return Math.floor((minimum + maximum) / 2);
+  }
+
+  private async writeKnowledgeScopeRanks(
+    transaction: DbTransaction,
+    orderedIds: readonly string[],
+  ): Promise<void> {
+    if (orderedIds.length === 0) return;
+    await transaction
+      .update(knowledgeScope)
+      .set({ rank: null })
+      .where(inArray(knowledgeScope.id, [...orderedIds]));
+    for (const [index, id] of orderedIds.entries()) {
+      await transaction
+        .update(knowledgeScope)
+        .set({ rank: (index + 1) * PRIORITY_RANK_GAP })
+        .where(eq(knowledgeScope.id, id));
+    }
+  }
+
+  private async placeKnowledgeScopeAtMedian(
+    transaction: DbTransaction,
+    id: string,
+    kind: KnowledgeScope["kind"],
+  ): Promise<void> {
+    const rows = await transaction
+      .select({ id: knowledgeScope.id, rank: knowledgeScope.rank })
+      .from(knowledgeScope)
+      .where(eq(knowledgeScope.kind, kind));
+    const orderedIds = rows
+      .filter((row) => row.id !== id)
+      .sort((left, right) =>
+        (left.rank ?? Number.MAX_SAFE_INTEGER) -
+          (right.rank ?? Number.MAX_SAFE_INTEGER) ||
+        left.id.localeCompare(right.id),
+      )
+      .map(({ id: candidateId }) => candidateId);
+    orderedIds.splice(Math.ceil(orderedIds.length / 2), 0, id);
+    await this.writeKnowledgeScopeRanks(transaction, orderedIds);
+  }
+
+  private async writeWorkItemPriorityRanks(
+    transaction: DbTransaction,
+    orderedIds: readonly string[],
+  ): Promise<void> {
+    if (orderedIds.length === 0) return;
+    await transaction
+      .update(workItemPriorityContext)
+      .set({ rank: null })
+      .where(inArray(workItemPriorityContext.workItemId, [...orderedIds]));
+    for (const [index, id] of orderedIds.entries()) {
+      await transaction
+        .update(workItemPriorityContext)
+        .set({ rank: (index + 1) * PRIORITY_RANK_GAP })
+        .where(eq(workItemPriorityContext.workItemId, id));
+    }
+  }
+
+  private async listPriorityOwnerIds(
+    transaction: DbTransaction,
+    projectId: string | null,
+  ): Promise<string[]> {
+    const rows = await transaction
+      .select({
+        id: workItemPriorityContext.workItemId,
+        rank: workItemPriorityContext.rank,
+      })
+      .from(workItemPriorityContext)
+      .where(
+        projectId === null
+          ? isNull(workItemPriorityContext.schedulingProjectId)
+          : eq(workItemPriorityContext.schedulingProjectId, projectId),
+      );
+    return rows
+      .sort((left, right) =>
+        (left.rank ?? Number.MAX_SAFE_INTEGER) -
+          (right.rank ?? Number.MAX_SAFE_INTEGER) ||
+        left.id.localeCompare(right.id),
+      )
+      .map(({ id }) => id);
+  }
+
+  private async placeWorkItemAtMedian(
+    transaction: DbTransaction,
+    workItemId: string,
+    projectId: string | null,
+  ): Promise<void> {
+    const orderedIds = (
+      await this.listPriorityOwnerIds(transaction, projectId)
+    ).filter((id) => id !== workItemId);
+    orderedIds.splice(Math.ceil(orderedIds.length / 2), 0, workItemId);
+    await this.writeWorkItemPriorityRanks(transaction, orderedIds);
+  }
+
   private async loadGraph(transaction: DbTransaction): Promise<WorkGraph> {
     const workItems = await transaction
       .select({
         id: workItem.id,
         title: workItem.title,
         lifecycle: workItem.lifecycle,
-        priorityWeight: workItem.priorityWeight,
+        expedited: workItem.expedited,
+        expediteReason: workItem.expediteReason,
+        priorityRank: workItemPriorityContext.rank,
+        schedulingInitiativeId:
+          workItemPriorityContext.schedulingInitiativeId,
+        schedulingProjectId: workItemPriorityContext.schedulingProjectId,
         parentId: workItemHierarchy.parentWorkItemId,
         rank: workItemHierarchy.rank,
       })
@@ -2632,6 +3239,10 @@ export class WorkGraphRepository {
       .leftJoin(
         workItemHierarchy,
         eq(workItemHierarchy.childWorkItemId, workItem.id),
+      )
+      .leftJoin(
+        workItemPriorityContext,
+        eq(workItemPriorityContext.workItemId, workItem.id),
       )
       .orderBy(workItem.createdAt, workItem.id);
     const dependencies = await transaction
@@ -2646,6 +3257,16 @@ export class WorkGraphRepository {
       );
 
     return createWorkGraph({ workItems, dependencies });
+  }
+
+  private async requireGraphWorkItem(
+    transaction: DbTransaction,
+    workItemId: string,
+  ): Promise<WorkItem> {
+    const graph = await this.loadGraph(transaction);
+    const item = graph.workItems.find(({ id }) => id === workItemId);
+    if (!item) throw workItemNotFound(workItemId);
+    return item;
   }
 
   private async lockGraphSnapshot(transaction: DbTransaction): Promise<void> {
@@ -2676,9 +3297,10 @@ export class WorkGraphRepository {
   ): Promise<string | null> {
     const candidateIds =
       requestedWorkItemId === undefined
-        ? orderWorkItemsByPriority(await this.loadGraph(transaction)).map(
-            ({ id }) => id,
-          )
+        ? orderWorkItemsByPriority(
+            await this.loadGraph(transaction),
+            await this.loadKnowledgeScopes(transaction),
+          ).map(({ id }) => id)
         : [requestedWorkItemId];
 
     for (const candidateId of candidateIds) {

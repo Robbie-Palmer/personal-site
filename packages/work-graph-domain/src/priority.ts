@@ -1,5 +1,7 @@
 import { getAncestors, getUnsatisfiedDependencies } from "./graph";
-import type { WorkGraph, WorkItem } from "./model";
+import type { KnowledgeScope, WorkGraph, WorkItem } from "./model";
+
+const RANK_FUSION_OFFSET = 10;
 
 interface PriorityPathSegment {
   readonly id: string;
@@ -7,8 +9,30 @@ interface PriorityPathSegment {
 }
 
 interface PriorityKey {
+  readonly expedited: boolean;
   readonly path: readonly PriorityPathSegment[];
-  readonly weight: bigint;
+  readonly score: number;
+}
+
+interface BasePriority {
+  readonly initiativeRank: number;
+  readonly key: PriorityKey;
+  readonly projectRank: number;
+  readonly ticketRank: number;
+}
+
+interface EffectivePriority {
+  readonly donatedFromWorkItemId: string | null;
+  readonly key: PriorityKey;
+}
+
+export interface WorkItemPriorityProjection {
+  readonly donatedFromWorkItemId: string | null;
+  readonly effectiveExpedited: boolean;
+  readonly expedited: boolean;
+  readonly initiativeRank: number;
+  readonly projectRank: number;
+  readonly ticketRank: number;
 }
 
 const compareText = (left: string, right: string): number => {
@@ -30,9 +54,8 @@ const comparePathSegment = (
 };
 
 const comparePriorityKey = (left: PriorityKey, right: PriorityKey): number => {
-  if (left.weight !== right.weight) {
-    return left.weight > right.weight ? -1 : 1;
-  }
+  if (left.expedited !== right.expedited) return left.expedited ? -1 : 1;
+  if (left.score !== right.score) return left.score > right.score ? -1 : 1;
 
   const sharedLength = Math.min(left.path.length, right.path.length);
   for (let index = 0; index < sharedLength; index += 1) {
@@ -45,16 +68,112 @@ const comparePriorityKey = (left: PriorityKey, right: PriorityKey): number => {
   return left.path.length - right.path.length;
 };
 
-const priorityKeyFor = (graph: WorkGraph, item: WorkItem): PriorityKey => {
-  const lineage = [...getAncestors(graph, item.id)].reverse();
-  lineage.push(item);
-  return {
-    weight: lineage.reduce(
-      (total, ancestor) => total + BigInt(ancestor.priorityWeight),
-      0n,
-    ),
-    path: lineage.map(({ id, rank }) => ({ id, rank })),
-  };
+const compareRanked = (
+  left: { readonly id: string; readonly rank: number | null },
+  right: { readonly id: string; readonly rank: number | null },
+): number => {
+  if (left.rank === null) {
+    return right.rank === null ? compareText(left.id, right.id) : 1;
+  }
+  if (right.rank === null) return -1;
+  return left.rank - right.rank || compareText(left.id, right.id);
+};
+
+const ordinalRanks = <
+  T extends { readonly id: string; readonly rank: number | null },
+>(
+  items: readonly T[],
+): ReadonlyMap<string, number> =>
+  new Map(
+    [...items]
+      .sort(compareRanked)
+      .map((item, index) => [item.id, index + 1]),
+  );
+
+const medianRank = (count: number): number => Math.floor(count / 2) + 1;
+
+const schedulingOwnerFor = (graph: WorkGraph, item: WorkItem): WorkItem => {
+  const lineage = [item, ...getAncestors(graph, item.id)];
+  return lineage.find(({ priorityRank }) => priorityRank !== null) ?? item;
+};
+
+const scopeRanks = (
+  scopes: readonly KnowledgeScope[],
+  kind: KnowledgeScope["kind"],
+): { readonly count: number; readonly ranks: ReadonlyMap<string, number> } => {
+  const matching = scopes.filter((scope) => scope.kind === kind);
+  return { count: matching.length, ranks: ordinalRanks(matching) };
+};
+
+const ticketRanks = (graph: WorkGraph): ReadonlyMap<string, number> => {
+  const ownersByProject = new Map<string, WorkItem[]>();
+  for (const item of graph.workItems) {
+    if (item.priorityRank === null) continue;
+    const projectId = item.schedulingProjectId ?? "";
+    const owners = ownersByProject.get(projectId) ?? [];
+    owners.push({ ...item, rank: item.priorityRank });
+    ownersByProject.set(projectId, owners);
+  }
+
+  const result = new Map<string, number>();
+  for (const owners of ownersByProject.values()) {
+    for (const [id, rank] of ordinalRanks(owners)) result.set(id, rank);
+  }
+  return result;
+};
+
+const reciprocalRank = (rank: number): number =>
+  1 / (RANK_FUSION_OFFSET + rank);
+
+const basePriorities = (
+  graph: WorkGraph,
+  scopes: readonly KnowledgeScope[],
+): ReadonlyMap<string, BasePriority> => {
+  const initiative = scopeRanks(scopes, "initiative");
+  const project = scopeRanks(scopes, "project");
+  const tickets = ticketRanks(graph);
+  const ticketCounts = new Map<string, number>();
+  for (const item of graph.workItems) {
+    if (item.priorityRank === null) continue;
+    const projectId = item.schedulingProjectId ?? "";
+    ticketCounts.set(projectId, (ticketCounts.get(projectId) ?? 0) + 1);
+  }
+
+  return new Map(
+    graph.workItems.map((item) => {
+      const lineage = [...getAncestors(graph, item.id)].reverse();
+      lineage.push(item);
+      const owner = schedulingOwnerFor(graph, item);
+      const projectId = owner.schedulingProjectId ?? "";
+      const initiativeRank =
+        (owner.schedulingInitiativeId
+          ? initiative.ranks.get(owner.schedulingInitiativeId)
+          : undefined) ?? medianRank(initiative.count);
+      const projectRank =
+        (owner.schedulingProjectId
+          ? project.ranks.get(owner.schedulingProjectId)
+          : undefined) ?? medianRank(project.count);
+      const ticketRank =
+        tickets.get(owner.id) ?? medianRank(ticketCounts.get(projectId) ?? 0);
+
+      return [
+        item.id,
+        {
+          initiativeRank,
+          projectRank,
+          ticketRank,
+          key: {
+            expedited: lineage.some(({ expedited }) => expedited),
+            score:
+              reciprocalRank(initiativeRank) +
+              reciprocalRank(projectRank) +
+              reciprocalRank(ticketRank),
+            path: lineage.map(({ id, rank }) => ({ id, rank })),
+          },
+        },
+      ];
+    }),
+  );
 };
 
 const dependencyWaits = (graph: WorkGraph): ReadonlyMap<string, string[]> => {
@@ -71,17 +190,22 @@ const dependencyWaits = (graph: WorkGraph): ReadonlyMap<string, string[]> => {
   return waits;
 };
 
-const effectivePriorityKeys = (
+const effectivePriorities = (
   graph: WorkGraph,
-  baseKeys: ReadonlyMap<string, PriorityKey>,
-): ReadonlyMap<string, PriorityKey> => {
-  const effectiveKeys = new Map(baseKeys);
+  base: ReadonlyMap<string, BasePriority>,
+): ReadonlyMap<string, EffectivePriority> => {
+  const effective = new Map<string, EffectivePriority>(
+    [...base].map(([id, priority]) => [
+      id,
+      { donatedFromWorkItemId: null, key: priority.key },
+    ]),
+  );
   const waits = dependencyWaits(graph);
 
   for (const waitingItem of graph.workItems) {
     if (waitingItem.lifecycle !== "open") continue;
-    const inheritedKey = baseKeys.get(waitingItem.id);
-    if (!inheritedKey) continue;
+    const inherited = effective.get(waitingItem.id);
+    if (!inherited) continue;
 
     const pending = [...(waits.get(waitingItem.id) ?? [])];
     const visited = new Set<string>();
@@ -90,37 +214,68 @@ const effectivePriorityKeys = (
       if (!blockerId || visited.has(blockerId)) continue;
       visited.add(blockerId);
 
-      const currentKey = effectiveKeys.get(blockerId);
+      const current = effective.get(blockerId);
       if (
-        currentKey === undefined ||
-        comparePriorityKey(inheritedKey, currentKey) < 0
+        current === undefined ||
+        comparePriorityKey(inherited.key, current.key) < 0
       ) {
-        effectiveKeys.set(blockerId, inheritedKey);
+        effective.set(blockerId, {
+          donatedFromWorkItemId:
+            inherited.donatedFromWorkItemId ?? waitingItem.id,
+          key: inherited.key,
+        });
       }
       pending.push(...(waits.get(blockerId) ?? []));
     }
   }
-  return effectiveKeys;
+  return effective;
+};
+
+const priorityState = (
+  graph: WorkGraph,
+  scopes: readonly KnowledgeScope[],
+) => {
+  const base = basePriorities(graph, scopes);
+  return { base, effective: effectivePriorities(graph, base) };
+};
+
+export const projectWorkItemPriority = (
+  graph: WorkGraph,
+  workItemId: string,
+  scopes: readonly KnowledgeScope[] = [],
+): WorkItemPriorityProjection => {
+  const { base, effective } = priorityState(graph, scopes);
+  const basePriority = base.get(workItemId);
+  const effectivePriority = effective.get(workItemId);
+  if (!basePriority || !effectivePriority) {
+    throw new Error(`Work item ${workItemId} has no priority projection.`);
+  }
+  return {
+    initiativeRank: basePriority.initiativeRank,
+    projectRank: basePriority.projectRank,
+    ticketRank: basePriority.ticketRank,
+    expedited: basePriority.key.expedited,
+    effectiveExpedited: effectivePriority.key.expedited,
+    donatedFromWorkItemId: effectivePriority.donatedFromWorkItemId,
+  };
 };
 
 export const orderWorkItemsByPriority = (
   graph: WorkGraph,
+  scopes: readonly KnowledgeScope[] = [],
 ): readonly WorkItem[] => {
-  const baseKeys = new Map(
-    graph.workItems.map((item) => [item.id, priorityKeyFor(graph, item)]),
-  );
-  const effectiveKeys = effectivePriorityKeys(graph, baseKeys);
+  const { base, effective } = priorityState(graph, scopes);
 
   return [...graph.workItems].sort((left, right) => {
     const effectiveComparison = comparePriorityKey(
-      effectiveKeys.get(left.id)!,
-      effectiveKeys.get(right.id)!,
+      effective.get(left.id)!.key,
+      effective.get(right.id)!.key,
     );
     if (effectiveComparison !== 0) return effectiveComparison;
 
     const baseComparison = comparePriorityKey(
-      baseKeys.get(left.id)!,
-      baseKeys.get(right.id)!,
+      base.get(left.id)!.key,
+      base.get(right.id)!.key,
     );
     return baseComparison !== 0
       ? baseComparison

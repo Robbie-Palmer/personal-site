@@ -29,7 +29,19 @@ export const zWorkItem = z.object({
     ]),
     parentId: z.string().min(1).max(200).nullable(),
     rank: z.int().gte(1).lte(2147483647).nullable(),
-    priorityWeight: z.int().gte(-2147483648).lte(2147483647),
+    priorityRank: z.int().gte(1).lte(2147483647).nullable(),
+    schedulingInitiativeId: z.string().min(1).max(200).nullable(),
+    schedulingProjectId: z.string().min(1).max(200).nullable(),
+    expedited: z.boolean(),
+    expediteReason: z.string().min(1).max(10000).nullable(),
+    priority: z.object({
+        initiativeRank: z.int().gte(1).lte(2147483647),
+        projectRank: z.int().gte(1).lte(2147483647),
+        ticketRank: z.int().gte(1).lte(2147483647),
+        expedited: z.boolean(),
+        effectiveExpedited: z.boolean(),
+        donatedFromWorkItemId: z.string().min(1).max(200).nullable()
+    }),
     stage: z.enum([
         'blocked',
         'ready',
@@ -65,8 +77,7 @@ export const zKnowledgeScope = z.object({
     canonicalUrl: z.url().max(2048).regex(/^[hH][tT][tT][pP][sS]?:\/\/(?![^\/?#]*@)/),
     markdownUrl: z.url().max(2048).regex(/^[hH][tT][tT][pP][sS]?:\/\/(?![^\/?#]*@)/),
     sourceRevision: z.string().min(1).max(200).nullable(),
-    rank: z.int().gte(1).lte(2147483647).nullable(),
-    priorityWeight: z.int().gte(-2147483648).lte(2147483647)
+    rank: z.int().gte(1).lte(2147483647).nullable()
 });
 
 export const zKnowledgeScopeList = z.object({
@@ -120,8 +131,12 @@ export const zWorkItemEvent = z.object({
         'note.created',
         'work_item.created',
         'work_item.decomposed',
+        'work_item.expedited',
+        'work_item.priority_moved',
         'work_item.lifecycle_changed',
-        'work_item.reparented'
+        'work_item.reparented',
+        'work_item.unexpedited',
+        'knowledge_scope.priority_moved'
     ]),
     workItemId: z.string().min(1).max(200).nullable(),
     data: z.record(z.string(), z.unknown()),
@@ -359,9 +374,7 @@ export const zPutKnowledgeScopeBody = z.object({
     title: z.string().min(1).max(10000),
     canonicalUrl: z.url().max(2048).regex(/^[hH][tT][tT][pP][sS]?:\/\/(?![^\/?#]*@)/),
     markdownUrl: z.url().max(2048).regex(/^[hH][tT][tT][pP][sS]?:\/\/(?![^\/?#]*@)/),
-    sourceRevision: z.string().min(1).max(200).nullish(),
-    rank: z.int().gte(1).lte(2147483647).nullish(),
-    priorityWeight: z.int().gte(-2147483648).lte(2147483647).optional().default(0)
+    sourceRevision: z.string().min(1).max(200).nullish()
 });
 
 export const zPutKnowledgeScopeHeaders = z.object({
@@ -378,6 +391,26 @@ export const zPutKnowledgeScopePath = z.object({
  * Knowledge scope created, replaced, or replayed
  */
 export const zPutKnowledgeScopeResponse = zKnowledgeScope;
+
+export const zMoveKnowledgeScopePriorityBody = z.object({
+    higherThanId: z.string().min(1).max(200).optional(),
+    lowerThanId: z.string().min(1).max(200).optional()
+});
+
+export const zMoveKnowledgeScopePriorityHeaders = z.object({
+    'idempotency-key': z.uuid().max(36).register(z.globalRegistry, {
+        description: 'Client-generated mutation ID. Reusing it with the same request replays the committed effect. Reusing it for different input returns a conflict.'
+    }).optional()
+});
+
+export const zMoveKnowledgeScopePriorityPath = z.object({
+    knowledgeScopeId: z.string().min(1).max(200)
+});
+
+/**
+ * Knowledge scope moved or matching mutation replayed
+ */
+export const zMoveKnowledgeScopePriorityResponse = zKnowledgeScope;
 
 export const zCreateLeaseBody = z.object({
     workerId: z.string().min(1).max(200),
@@ -427,7 +460,8 @@ export const zCreateWorkItemBody = z.object({
     id: z.string().min(1).max(200),
     title: z.string().min(1).max(10000),
     parentId: z.string().min(1).max(200).nullish(),
-    priorityWeight: z.int().gte(-2147483648).lte(2147483647).optional().default(0)
+    schedulingInitiativeId: z.string().min(1).max(200).nullish(),
+    schedulingProjectId: z.string().min(1).max(200).nullish()
 });
 
 export const zCreateWorkItemHeaders = z.object({
@@ -491,8 +525,7 @@ export const zCreateWorkItemDecompositionBody = z.object({
     children: z.array(z.object({
         id: z.string().min(1).max(200),
         title: z.string().min(1).max(10000),
-        rank: z.int().gte(1).lte(2147483647),
-        priorityWeight: z.int().gte(-2147483648).lte(2147483647).optional().default(0)
+        rank: z.int().gte(1).lte(2147483647)
     })).min(1).max(100),
     dependencies: z.array(z.object({
         dependentWorkItemId: z.string().min(1).max(200),
@@ -553,8 +586,12 @@ export const zListWorkItemEventsQuery = z.object({
         'note.created',
         'work_item.created',
         'work_item.decomposed',
+        'work_item.expedited',
+        'work_item.priority_moved',
         'work_item.lifecycle_changed',
-        'work_item.reparented'
+        'work_item.reparented',
+        'work_item.unexpedited',
+        'knowledge_scope.priority_moved'
     ]).optional(),
     lifecycle: z.enum(['released', 'cancelled']).optional(),
     limit: z.int().gte(1).lte(100).optional().default(50),
@@ -565,6 +602,40 @@ export const zListWorkItemEventsQuery = z.object({
  * Work-item events in stable sequence order
  */
 export const zListWorkItemEventsResponse = zWorkItemEventList;
+
+export const zUnexpediteWorkItemHeaders = z.object({
+    'idempotency-key': z.uuid().max(36).register(z.globalRegistry, {
+        description: 'Client-generated mutation ID. Reusing it with the same request replays the committed effect. Reusing it for different input returns a conflict.'
+    }).optional()
+});
+
+export const zUnexpediteWorkItemPath = z.object({
+    workItemId: z.string().min(1).max(200)
+});
+
+/**
+ * Ticket expedite removed or matching mutation replayed
+ */
+export const zUnexpediteWorkItemResponse = zWorkItem;
+
+export const zExpediteWorkItemBody = z.object({
+    reason: z.string().min(1).max(10000)
+});
+
+export const zExpediteWorkItemHeaders = z.object({
+    'idempotency-key': z.uuid().max(36).register(z.globalRegistry, {
+        description: 'Client-generated mutation ID. Reusing it with the same request replays the committed effect. Reusing it for different input returns a conflict.'
+    }).optional()
+});
+
+export const zExpediteWorkItemPath = z.object({
+    workItemId: z.string().min(1).max(200)
+});
+
+/**
+ * Ticket expedited or matching mutation replayed
+ */
+export const zExpediteWorkItemResponse = zWorkItem;
 
 export const zListWorkItemLeasesPath = z.object({
     workItemId: z.string().min(1).max(200)
@@ -615,6 +686,26 @@ export const zCreateWorkItemNotePath = z.object({
  * Note recorded or matching mutation replayed
  */
 export const zCreateWorkItemNoteResponse = zWorkItemNote;
+
+export const zMoveWorkItemPriorityBody = z.object({
+    higherThanId: z.string().min(1).max(200).optional(),
+    lowerThanId: z.string().min(1).max(200).optional()
+});
+
+export const zMoveWorkItemPriorityHeaders = z.object({
+    'idempotency-key': z.uuid().max(36).register(z.globalRegistry, {
+        description: 'Client-generated mutation ID. Reusing it with the same request replays the committed effect. Reusing it for different input returns a conflict.'
+    }).optional()
+});
+
+export const zMoveWorkItemPriorityPath = z.object({
+    workItemId: z.string().min(1).max(200)
+});
+
+/**
+ * Ticket moved or matching mutation replayed
+ */
+export const zMoveWorkItemPriorityResponse = zWorkItem;
 
 export const zCreateWorkItemReleaseBody = z.object({
     leaseId: z.uuid().max(36),

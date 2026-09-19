@@ -122,7 +122,7 @@ beforeAll(async () => {
     order by enumsortorder
   `);
 
-  expect(migrationCount?.count).toBe(10);
+  expect(migrationCount?.count).toBe(11);
   expect(tables.map(({ table_name }) => table_name)).toEqual([
     "attention_requests",
     "attention_resolutions",
@@ -135,6 +135,7 @@ beforeAll(async () => {
     "notes",
     "work_item_dependencies",
     "work_item_hierarchy",
+    "work_item_priority_contexts",
     "work_items",
   ]);
   expect(locks).toEqual([{ id: "event-sequence" }, { id: "global" }]);
@@ -202,8 +203,12 @@ describe("transactional decomposition", () => {
           title: "First child",
           lifecycle: "open",
           parentId: "parent",
-          priorityWeight: 0,
           rank: 10,
+          priorityRank: null,
+          schedulingInitiativeId: null,
+          schedulingProjectId: null,
+          expedited: false,
+          expediteReason: null,
         },
       },
       {
@@ -213,8 +218,12 @@ describe("transactional decomposition", () => {
           title: "Second child",
           lifecycle: "open",
           parentId: "parent",
-          priorityWeight: 0,
           rank: 20,
+          priorityRank: null,
+          schedulingInitiativeId: null,
+          schedulingProjectId: null,
+          expedited: false,
+          expediteReason: null,
         },
       },
     ]);
@@ -738,6 +747,7 @@ beforeEach(async () => {
     await transaction.delete(schema.lease);
     await transaction.delete(schema.idempotencyKey);
     await transaction.delete(schema.knowledgeScopeRelationship);
+    await transaction.delete(schema.workItemPriorityContext);
     await transaction.delete(schema.knowledgeScope);
     await transaction.delete(schema.workItemDependency);
     await transaction.delete(schema.workItemHierarchy);
@@ -756,8 +766,6 @@ describe("knowledge scope persistence", () => {
       markdownUrl:
         "https://example.test/initiatives/semi-autonomous-development.md",
       sourceRevision: "abc123",
-      rank: 1,
-      priorityWeight: 20,
     });
 
   const putProject = () =>
@@ -779,8 +787,6 @@ describe("knowledge scope persistence", () => {
       canonicalUrl: "https://example.test/projects/work-graph",
       markdownUrl: "https://example.test/projects/work-graph.md",
       sourceRevision: "def456",
-      rank: 2,
-      priorityWeight: -5,
     });
 
     await expect(repository.getKnowledgeScope("work-graph")).resolves.toEqual({
@@ -790,8 +796,7 @@ describe("knowledge scope persistence", () => {
       canonicalUrl: "https://example.test/projects/work-graph",
       markdownUrl: "https://example.test/projects/work-graph.md",
       sourceRevision: "def456",
-      rank: 2,
-      priorityWeight: -5,
+      rank: 1024,
     });
     await expect(
       repository.listKnowledgeScopes({ kind: "project" }),
@@ -803,6 +808,60 @@ describe("knowledge scope persistence", () => {
     ).resolves.toEqual([
       expect.objectContaining({ id: "work-graph" }),
     ]);
+  });
+
+  it("inserts scopes at the median and moves them beside relative anchors", async () => {
+    const put = (id: string) =>
+      repository.putKnowledgeScope({
+        id,
+        kind: "project",
+        title: id,
+        canonicalUrl: `https://example.test/projects/${id}`,
+        markdownUrl: `https://example.test/projects/${id}.md`,
+      });
+    await put("alpha");
+    await put("bravo");
+    await put("charlie");
+    await put("delta");
+
+    const before = await Promise.all(
+      ["alpha", "bravo", "charlie", "delta"].map((id) =>
+        repository.getKnowledgeScope(id),
+      ),
+    );
+    expect(
+      [...before]
+        .sort((left, right) => left.rank! - right.rank!)
+        .map(({ id }) => id),
+    ).toEqual(["alpha", "charlie", "delta", "bravo"]);
+
+    await repository.moveKnowledgeScopePriority("bravo", {
+      higherThanId: "delta",
+    });
+    const afterAbove = await Promise.all(
+      ["alpha", "bravo", "charlie", "delta"].map((id) =>
+        repository.getKnowledgeScope(id),
+      ),
+    );
+    expect(
+      [...afterAbove]
+        .sort((left, right) => left.rank! - right.rank!)
+        .map(({ id }) => id),
+    ).toEqual(["alpha", "charlie", "bravo", "delta"]);
+
+    await repository.moveKnowledgeScopePriority("alpha", {
+      lowerThanId: "charlie",
+    });
+    const afterBelow = await Promise.all(
+      ["alpha", "bravo", "charlie", "delta"].map((id) =>
+        repository.getKnowledgeScope(id),
+      ),
+    );
+    expect(
+      [...afterBelow]
+        .sort((left, right) => left.rank! - right.rank!)
+        .map(({ id }) => id),
+    ).toEqual(["charlie", "alpha", "bravo", "delta"]);
   });
 
   it("replays a scope upsert without accepting different input", async () => {
@@ -865,6 +924,32 @@ describe("knowledge scope persistence", () => {
     await expect(repository.listKnowledgeScopeRelationships()).resolves.toEqual(
       [],
     );
+  });
+
+  it("keeps the relationship selected by a ticket scheduling context", async () => {
+    await putInitiative();
+    await putProject();
+    const relationship = {
+      parentKnowledgeScopeId: "semi-autonomous-development",
+      childKnowledgeScopeId: "work-graph",
+    };
+    await repository.addKnowledgeScopeRelationship(relationship);
+    await repository.createWorkItem({
+      id: "ticket",
+      title: "Ticket",
+      schedulingProjectId: "work-graph",
+    });
+
+    await expect(
+      repository.removeKnowledgeScopeRelationship(relationship),
+    ).rejects.toEqual(
+      expect.objectContaining<Partial<WorkGraphError>>({
+        code: "invalid_scheduling_scope",
+      }),
+    );
+    await expect(repository.listKnowledgeScopeRelationships()).resolves.toEqual([
+      relationship,
+    ]);
   });
 
   it("pages scope relationships by parent and child ID", async () => {
@@ -1135,12 +1220,13 @@ describe("lease-backed claiming", () => {
     await repository.createWorkItem({
       id: "routine",
       title: "Routine maintenance",
-      priorityWeight: 5,
     });
     await repository.createWorkItem({
       id: "release",
       title: "Release",
-      priorityWeight: 20,
+    });
+    await repository.moveWorkItemPriority("release", {
+      higherThanId: "routine",
     });
     await repository.createWorkItem({ id: "database", title: "Database" });
     const releaseLease = await repository.claimWorkItem({
@@ -1175,6 +1261,46 @@ describe("lease-backed claiming", () => {
         leaseDurationSeconds: 300,
       }),
     ).resolves.toEqual(expect.objectContaining({ workItemId: "database" }));
+  });
+
+  it("donates an explicit expedite to unresolved blockers", async () => {
+    await repository.createWorkItem({ id: "normal", title: "Normal work" });
+    await repository.createWorkItem({ id: "shared", title: "Shared blocker" });
+    await repository.createWorkItem({ id: "urgent", title: "Urgent work" });
+    await repository.addDependency(dependency("urgent", "shared"));
+    await repository.expediteWorkItem(
+      "urgent",
+      "Restore production authentication.",
+    );
+
+    const ordered = await repository.listWorkItems();
+    expect(ordered.map(({ id }) => id)).toEqual([
+      "urgent",
+      "shared",
+      "normal",
+    ]);
+    expect(ordered.find(({ id }) => id === "shared")?.priority).toEqual(
+      expect.objectContaining({
+        expedited: false,
+        effectiveExpedited: true,
+        donatedFromWorkItemId: "urgent",
+      }),
+    );
+    await expect(
+      repository.claimWorkItem({
+        leaseId: leaseId(23),
+        workerId: "worker-a",
+        leaseDurationSeconds: 300,
+      }),
+    ).resolves.toEqual(expect.objectContaining({ workItemId: "shared" }));
+
+    await repository.unexpediteWorkItem("urgent");
+    expect((await repository.getWorkItem("urgent")).expedited).toBe(false);
+    expect((await repository.listWorkItems()).map(({ id }) => id)).toEqual([
+      "normal",
+      "urgent",
+      "shared",
+    ]);
   });
 
   it("reclaims stale work with a higher epoch and expires the old lease", async () => {
@@ -2057,8 +2183,12 @@ describe("Work Graph PostgreSQL persistence", () => {
           title: "Sparse work item",
           lifecycle: "open",
           parentId: null,
-          priorityWeight: 0,
           rank: null,
+          priorityRank: 1024,
+          schedulingInitiativeId: null,
+          schedulingProjectId: null,
+          expedited: false,
+          expediteReason: null,
         },
       ],
       dependencies: [],
@@ -2076,8 +2206,26 @@ describe("Work Graph PostgreSQL persistence", () => {
       "lifecycle",
       "created_at",
       "updated_at",
-      "priority_weight",
+      "expedited",
+      "expedite_reason",
     ]);
+  });
+
+  it("rejects scheduling scopes on work that inherits parent priority", async () => {
+    await repository.createWorkItem({ id: "parent", title: "Parent" });
+
+    await expect(
+      repository.createWorkItem({
+        id: "child",
+        title: "Child",
+        parentId: "parent",
+        schedulingInitiativeId: "initiative",
+      }),
+    ).rejects.toEqual(
+      expect.objectContaining<Partial<WorkGraphError>>({
+        code: "invalid_scheduling_scope",
+      }),
+    );
   });
 
   it("serializes concurrent retries of one sparse work-item creation", async () => {
@@ -2097,8 +2245,12 @@ describe("Work Graph PostgreSQL persistence", () => {
         title: "Created once",
         lifecycle: "open",
         parentId: null,
-        priorityWeight: 0,
         rank: null,
+        priorityRank: 1024,
+        schedulingInitiativeId: null,
+        schedulingProjectId: null,
+        expedited: false,
+        expediteReason: null,
       },
     ]);
     await expect(
@@ -2187,8 +2339,12 @@ describe("Work Graph PostgreSQL persistence", () => {
       title: "Stable work",
       lifecycle: "released",
       parentId: "new-parent",
-      priorityWeight: 0,
       rank: null,
+      priorityRank: null,
+      schedulingInitiativeId: null,
+      schedulingProjectId: null,
+      expedited: false,
+      expediteReason: null,
     });
   });
 
@@ -2487,8 +2643,10 @@ describe("immutable event history", () => {
     expect(childEvents[0]?.data).toEqual({
       title: "Child",
       parentId: "parent",
-      priorityWeight: 0,
       rank: null,
+      priorityRank: null,
+      schedulingInitiativeId: null,
+      schedulingProjectId: null,
     });
 
     const afterFirst = await repository.listEvents({

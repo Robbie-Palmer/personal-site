@@ -38,7 +38,8 @@ export const workItem = pgTable(
     id: text().primaryKey(),
     title: text().notNull(),
     lifecycle: workItemLifecycleEnum().notNull().default("open"),
-    priorityWeight: integer().notNull().default(0),
+    expedited: boolean().notNull().default(false),
+    expediteReason: text(),
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp({ withTimezone: true })
       .notNull()
@@ -50,6 +51,10 @@ export const workItem = pgTable(
     check(
       "work_items_title_not_blank_check",
       sql`btrim(${table.title}) <> ''`,
+    ),
+    check(
+      "work_items_expedite_reason_check",
+      sql`${table.expedited} = (${table.expediteReason} is not null and btrim(${table.expediteReason}) <> '')`,
     ),
   ],
 );
@@ -124,7 +129,6 @@ export const knowledgeScope = pgTable(
     markdownUrl: text().notNull(),
     sourceRevision: text(),
     rank: integer(),
-    priorityWeight: integer().notNull().default(0),
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp({ withTimezone: true })
       .notNull()
@@ -132,6 +136,9 @@ export const knowledgeScope = pgTable(
       .$onUpdate(() => new Date()),
   },
   (table) => [
+    uniqueIndex("knowledge_scopes_kind_rank_uidx")
+      .on(table.kind, table.rank)
+      .where(sql`${table.rank} is not null`),
     check("knowledge_scopes_id_not_blank_check", sql`btrim(${table.id}) <> ''`),
     check(
       "knowledge_scopes_title_not_blank_check",
@@ -143,6 +150,42 @@ export const knowledgeScope = pgTable(
     ),
     check(
       "knowledge_scopes_rank_positive_check",
+      sql`${table.rank} is null or ${table.rank} > 0`,
+    ),
+  ],
+);
+
+export const workItemPriorityContext = pgTable(
+  "work_item_priority_contexts",
+  {
+    workItemId: text()
+      .primaryKey()
+      .references(() => workItem.id, { onDelete: "restrict" }),
+    schedulingInitiativeId: text().references(() => knowledgeScope.id, {
+      onDelete: "restrict",
+    }),
+    schedulingProjectId: text().references(() => knowledgeScope.id, {
+      onDelete: "restrict",
+    }),
+    rank: integer(),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp({ withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+  },
+  (table) => [
+    uniqueIndex("work_item_priority_contexts_project_rank_uidx")
+      .on(table.schedulingProjectId, table.rank)
+      .where(sql`${table.schedulingProjectId} is not null`),
+    uniqueIndex("work_item_priority_contexts_unscoped_rank_uidx")
+      .on(table.rank)
+      .where(sql`${table.schedulingProjectId} is null`),
+    index("work_item_priority_contexts_initiative_id_idx").on(
+      table.schedulingInitiativeId,
+    ),
+    check(
+      "work_item_priority_contexts_rank_positive_check",
       sql`${table.rank} is null or ${table.rank} > 0`,
     ),
   ],
