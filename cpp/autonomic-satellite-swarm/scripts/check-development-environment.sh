@@ -21,14 +21,16 @@ require_executable() {
   fi
 }
 
+mise_install_hint='Run mise install from the project directory.'
+
 require_command git 'Install Git with your operating system package manager.'
-require_command cmake 'Run mise install from the project directory.'
-require_command ninja 'Run mise install from the project directory.'
-require_command clang-format 'Run mise install from the project directory.'
-require_command clang-tidy 'Run mise install from the project directory.'
-require_command gcovr 'Run mise install from the project directory.'
+require_command cmake "$mise_install_hint"
+require_command ninja "$mise_install_hint"
+require_command clang-format "$mise_install_hint"
+require_command clang-tidy "$mise_install_hint"
+require_command gcovr "$mise_install_hint"
 require_command node 'Run mise install from the repository root.'
-require_command arduino-cli 'Run mise install from the project directory.'
+require_command arduino-cli "$mise_install_hint"
 
 host_system=$(uname -s)
 host_architecture=$(uname -m)

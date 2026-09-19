@@ -274,6 +274,20 @@ void validateNodeId(NodeId node_id, std::size_t node_count) {
   }
 }
 
+void validateDeliveryFault(const DeliveryFault& fault, std::size_t node_count) {
+  validateNodeId(fault.sender, node_count);
+  validateNodeId(fault.recipient, node_count);
+  if (fault.sender == fault.recipient || !isKnown(fault.message_type) || !isKnown(fault.type)) {
+    throw std::invalid_argument("simulation frame has an invalid delivery fault");
+  }
+  const auto maximum_unambiguous_delay = static_cast<uint32_t>(std::numeric_limits<int32_t>::max());
+  if ((fault.type == DeliveryFaultType::Delay &&
+       (fault.delay_ms == 0U || fault.delay_ms > maximum_unambiguous_delay)) ||
+      (fault.type != DeliveryFaultType::Delay && fault.delay_ms != 0U)) {
+    throw std::invalid_argument("simulation delivery fault has an invalid delay");
+  }
+}
+
 void validateFrame(const SimulationFrame& frame, std::size_t node_count) {
   for (const SatelliteUpdate& update : frame.satellite_updates) {
     validateNodeId(update.node_id, node_count);
@@ -301,18 +315,7 @@ void validateFrame(const SimulationFrame& frame, std::size_t node_count) {
     }
   }
   for (const DeliveryFault& fault : frame.delivery_faults) {
-    validateNodeId(fault.sender, node_count);
-    validateNodeId(fault.recipient, node_count);
-    if (fault.sender == fault.recipient || !isKnown(fault.message_type) || !isKnown(fault.type)) {
-      throw std::invalid_argument("simulation frame has an invalid delivery fault");
-    }
-    const auto maximum_unambiguous_delay =
-        static_cast<uint32_t>(std::numeric_limits<int32_t>::max());
-    if ((fault.type == DeliveryFaultType::Delay &&
-         (fault.delay_ms == 0U || fault.delay_ms > maximum_unambiguous_delay)) ||
-        (fault.type != DeliveryFaultType::Delay && fault.delay_ms != 0U)) {
-      throw std::invalid_argument("simulation delivery fault has an invalid delay");
-    }
+    validateDeliveryFault(fault, node_count);
   }
   for (const NodeReset& reset : frame.node_resets) {
     validateNodeId(reset.node_id, node_count);
@@ -438,8 +441,10 @@ SimulationResult runSimulationTrace(const SimulationTrace& trace) {
   for (const NodeConfiguration& node : trace.nodes) {
     const auto index = static_cast<std::size_t>(node.node_id);
     controllers.push_back(std::make_unique<SwarmController>(
-        node.node_id, node.boot_epoch, node.satellite, *transports[index], *health_monitors[index],
-        scorer, controller_config, safe_state_actuators[index].get()));
+        node.node_id, node.boot_epoch, node.satellite,
+        ControllerDependencies{*transports[index], *health_monitors[index], scorer,
+                               safe_state_actuators[index].get()},
+        controller_config));
   }
 
   for (const SimulationFrame& frame : trace.frames) {
@@ -468,8 +473,10 @@ SimulationResult runSimulationTrace(const SimulationTrace& trace) {
       bus.reset(reset.node_id);
       safe_state_actuators[index]->reset();
       controllers[index] = std::make_unique<SwarmController>(
-          reset.node_id, boot_epochs[index], satellite, *transports[index], *health_monitors[index],
-          scorer, controller_config, safe_state_actuators[index].get());
+          reset.node_id, boot_epochs[index], satellite,
+          ControllerDependencies{*transports[index], *health_monitors[index], scorer,
+                                 safe_state_actuators[index].get()},
+          controller_config);
 
       SimulationEvent event;
       event.type = SimulationEventType::NodeReset;

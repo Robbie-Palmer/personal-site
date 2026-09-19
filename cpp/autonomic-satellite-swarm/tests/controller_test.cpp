@@ -249,8 +249,9 @@ TEST_CASE("safe-disable makes one correlated platform request and remains latche
   FixedScorer scorer(50U);
   FakeSafeStateActuator actuator;
   actuator.result = SafeStateResult::Rejected;
-  SwarmController controller(2U, 7U, SatelliteSnapshot(), transport, health, scorer, fastConfig(),
-                             &actuator);
+  SwarmController controller(2U, 7U, SatelliteSnapshot(),
+                             ControllerDependencies{transport, health, scorer, &actuator},
+                             fastConfig());
 
   health.current = HealthStatus::Fatal;
   controller.update(42U);
@@ -291,8 +292,9 @@ TEST_CASE("an accepted safe-state request reports one terminal execution result"
   FakeHealthMonitor health;
   FixedScorer scorer(50U);
   FakeSafeStateActuator actuator;
-  SwarmController controller(2U, 7U, SatelliteSnapshot(), transport, health, scorer, fastConfig(),
-                             &actuator);
+  SwarmController controller(2U, 7U, SatelliteSnapshot(),
+                             ControllerDependencies{transport, health, scorer, &actuator},
+                             fastConfig());
 
   health.current = HealthStatus::Fatal;
   controller.update(42U);
@@ -339,8 +341,9 @@ TEST_CASE("a failed safe-state action reports failure and stops status polling")
   FixedScorer scorer(50U);
   FakeSafeStateActuator actuator;
   actuator.execution_status = SafeStateExecutionStatus::Failed;
-  SwarmController controller(2U, 7U, SatelliteSnapshot(), transport, health, scorer, fastConfig(),
-                             &actuator);
+  SwarmController controller(2U, 7U, SatelliteSnapshot(),
+                             ControllerDependencies{transport, health, scorer, &actuator},
+                             fastConfig());
 
   health.current = HealthStatus::Fatal;
   controller.update(42U);
@@ -366,8 +369,8 @@ TEST_CASE("communication-failure safe-disable identifies the mission in its plat
   FakeSafeStateActuator actuator;
   ControllerConfig config = fastConfig();
   config.failed_missions_before_safe_disable = 1U;
-  SwarmController controller(2U, 7U, SatelliteSnapshot(), transport, health, scorer, config,
-                             &actuator);
+  SwarmController controller(2U, 7U, SatelliteSnapshot(),
+                             ControllerDependencies{transport, health, scorer, &actuator}, config);
   const MissionKey key = mission(0U, 19U, 3U);
 
   transport.deliver(Message::missionRequest(0U, key, Coordinate()));

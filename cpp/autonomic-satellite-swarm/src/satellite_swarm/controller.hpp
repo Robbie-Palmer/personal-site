@@ -19,6 +19,19 @@ struct ControllerConfig {
   ControllerConfig() = default;
 };
 
+struct ControllerDependencies {
+  Transport& transport;
+  HealthMonitor& health_monitor;
+  const CandidacyScorer& scorer;
+  SafeStateActuator* safe_state_actuator;
+
+  ControllerDependencies(Transport& controller_transport, HealthMonitor& controller_health_monitor,
+                         const CandidacyScorer& controller_scorer,
+                         SafeStateActuator* controller_safe_state_actuator = nullptr)
+      : transport(controller_transport), health_monitor(controller_health_monitor),
+        scorer(controller_scorer), safe_state_actuator(controller_safe_state_actuator) {}
+};
+
 class SwarmController {
 public:
   // A null actuator records a rejected safe-state result while preserving the latch. A supplied
@@ -26,8 +39,10 @@ public:
   SwarmController(NodeId node_id, BootEpoch boot_epoch, const SatelliteSnapshot& satellite,
                   Transport& transport, HealthMonitor& health_monitor,
                   const CandidacyScorer& scorer,
-                  const ControllerConfig& config = ControllerConfig(),
-                  SafeStateActuator* safe_state_actuator = nullptr);
+                  const ControllerConfig& config = ControllerConfig());
+  SwarmController(NodeId node_id, BootEpoch boot_epoch, const SatelliteSnapshot& satellite,
+                  ControllerDependencies dependencies,
+                  const ControllerConfig& config = ControllerConfig());
 
   // now_ms must use one modulo-2^32 monotonic tick source for every call. Unsigned elapsed-time
   // comparisons support one clock rollover when configured durations are shorter than that period.
@@ -62,6 +77,11 @@ private:
     uint8_t score = 0U;
   };
 
+  struct SafeStateExecution {
+    TelemetryReason reason = TelemetryReason::None;
+    bool pending = false;
+  };
+
   NodeId node_id_;
   BootEpoch boot_epoch_;
   SatelliteSnapshot satellite_;
@@ -79,8 +99,7 @@ private:
   uint8_t attempts_ = 0U;
   uint8_t communication_failures_ = 0U;
   HealthStatus last_health_ = HealthStatus::Nominal;
-  TelemetryReason safe_state_reason_ = TelemetryReason::None;
-  bool safe_state_execution_pending_ = false;
+  SafeStateExecution safe_state_execution_{};
   Candidate candidates_[kMaximumNodes]{};
   BoundedTelemetryBuffer telemetry_{};
 
