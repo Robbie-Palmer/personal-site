@@ -27,14 +27,14 @@ accepted, rejected, or changed a native editor suggestion. Treating the
 published text as blanket acceptance would corrupt the evaluation before it
 starts.
 
-The Vale producer runs the pinned `3.20.0` binary against every frozen source
-artifact with the repository's merge-blocking Unslop rules. It writes stable
-finding IDs, rule provenance, severity, line and column positions, and exact
-UTF-8 source spans to `outputs/producers/vale.json`. The producer hashes the
-Vale config and rule directory into its version, so a rule change creates new
-finding identities and invalidates the DVC stage. The producer disables Vale's
-finding-based exit code, fails on process errors, and enforces the timeout in
-`params.yaml`.
+The Vale producer runs the binary version pinned in `params.yaml` against every
+frozen source artifact with the repository's merge-blocking Unslop rules. It
+writes stable finding IDs, rule provenance, severity, line and column positions,
+and exact UTF-8 source spans to `outputs/producers/vale.json`. The producer
+hashes the Vale config and rule directory into its version, so a rule change
+creates new finding identities and invalidates the DVC stage. The producer
+disables Vale's finding-based exit code, fails on process errors, and enforces
+the timeout in `params.yaml`.
 
 DVC invokes each stage through a checked-in shell script. Stage dependencies
 cover the script, source, lockfile, parameters, and data inputs, but exclude the

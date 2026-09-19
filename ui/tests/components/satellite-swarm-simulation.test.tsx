@@ -1,5 +1,6 @@
 import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { StrictMode } from "react";
 import {
   afterAll,
   afterEach,
@@ -20,6 +21,16 @@ const globeState = vi.hoisted(() => ({
 const workerClient = vi.hoisted(() => ({
   run: vi.fn(),
 }));
+let intersectionCallback: IntersectionObserverCallback;
+
+function enterSimulationViewport() {
+  act(() => {
+    intersectionCallback(
+      [{ isIntersecting: true } as IntersectionObserverEntry],
+      {} as IntersectionObserver,
+    );
+  });
+}
 
 const originalScrollIntoView = Element.prototype.scrollIntoView;
 
@@ -162,6 +173,16 @@ describe("SatelliteSwarmSimulation", () => {
   beforeEach(() => {
     workerClient.run.mockReset();
     workerClient.run.mockResolvedValue(data);
+    class MockIntersectionObserver {
+      constructor(callback: IntersectionObserverCallback) {
+        intersectionCallback = callback;
+      }
+
+      disconnect() {}
+
+      observe() {}
+    }
+    vi.stubGlobal("IntersectionObserver", MockIntersectionObserver);
   });
 
   afterEach(() => {
@@ -171,12 +192,9 @@ describe("SatelliteSwarmSimulation", () => {
   });
 
   it("runs the South Pole mission through the worker at the project boundary", async () => {
-    const user = userEvent.setup();
-
     render(<DeferredSatelliteSwarmSimulation />);
 
-    expect(workerClient.run).not.toHaveBeenCalled();
-    await user.click(screen.getByRole("button", { name: "Load simulation" }));
+    enterSimulationViewport();
     expect(await screen.findByText("trace v4 · 0 ms")).toBeVisible();
     expect(workerClient.run).toHaveBeenCalledWith(
       { latitudeDegrees: -90, longitudeDegrees: 0 },
@@ -190,35 +208,57 @@ describe("SatelliteSwarmSimulation", () => {
   });
 
   it("aborts the worker request when unmounted", async () => {
-    const user = userEvent.setup();
     let requestSignal: AbortSignal | undefined;
     workerClient.run.mockImplementation((_objective, options) => {
       requestSignal = options?.signal;
       return new Promise(() => undefined);
     });
     const { unmount } = render(<DeferredSatelliteSwarmSimulation />);
-    await user.click(screen.getByRole("button", { name: "Load simulation" }));
-    expect(requestSignal?.aborted).toBe(false);
+    enterSimulationViewport();
+    await waitFor(() => expect(requestSignal?.aborted).toBe(false));
 
     unmount();
 
     expect(requestSignal?.aborted).toBe(true);
   });
 
-  it("does not download the simulation before explicit activation", () => {
+  it("starts the simulation when it enters the viewport", () => {
+    workerClient.run.mockImplementation(() => new Promise(() => undefined));
+
     render(<DeferredSatelliteSwarmSimulation />);
 
     expect(workerClient.run).not.toHaveBeenCalled();
+    expect(screen.getByText("Waiting to load the simulation...")).toBeVisible();
+
+    enterSimulationViewport();
+
+    expect(workerClient.run).toHaveBeenCalledWith(
+      { latitudeDegrees: -90, longitudeDegrees: 0 },
+      { scenario: "nominal", signal: expect.any(AbortSignal) },
+    );
     expect(
-      screen.getByRole("button", { name: "Load simulation" }),
+      screen.getByText("Preparing the deterministic mission replay..."),
     ).toBeVisible();
     expect(screen.queryByText("Cesium globe")).not.toBeInTheDocument();
+  });
+
+  it("starts once without IntersectionObserver under Strict Mode", async () => {
+    vi.stubGlobal("IntersectionObserver", undefined);
+
+    render(
+      <StrictMode>
+        <DeferredSatelliteSwarmSimulation />
+      </StrictMode>,
+    );
+
+    expect(await screen.findByText("trace v4 · 0 ms")).toBeVisible();
+    expect(workerClient.run).toHaveBeenCalledOnce();
   });
 
   it("runs a caller-provided mission objective", async () => {
     const user = userEvent.setup();
     render(<DeferredSatelliteSwarmSimulation />);
-    await user.click(screen.getByRole("button", { name: "Load simulation" }));
+    enterSimulationViewport();
     expect(await screen.findByText("trace v4 · 0 ms")).toBeVisible();
 
     const longitude = screen.getByRole("spinbutton", { name: "Longitude" });
@@ -241,7 +281,7 @@ describe("SatelliteSwarmSimulation", () => {
   it("runs the deterministic assignment-loss scenario", async () => {
     const user = userEvent.setup();
     render(<DeferredSatelliteSwarmSimulation />);
-    await user.click(screen.getByRole("button", { name: "Load simulation" }));
+    enterSimulationViewport();
     expect(await screen.findByText("trace v4 · 0 ms")).toBeVisible();
 
     const scenario = screen.getByRole("combobox", {
@@ -268,7 +308,7 @@ describe("SatelliteSwarmSimulation", () => {
   it("restarts playback when rerunning the same objective", async () => {
     const user = userEvent.setup();
     render(<DeferredSatelliteSwarmSimulation />);
-    await user.click(screen.getByRole("button", { name: "Load simulation" }));
+    enterSimulationViewport();
     expect(await screen.findByText("trace v4 · 0 ms")).toBeVisible();
 
     await user.click(screen.getByRole("button", { name: "Next frame" }));
@@ -283,7 +323,7 @@ describe("SatelliteSwarmSimulation", () => {
   it("keeps the latest mission running when an earlier request settles", async () => {
     const user = userEvent.setup();
     render(<DeferredSatelliteSwarmSimulation />);
-    await user.click(screen.getByRole("button", { name: "Load simulation" }));
+    enterSimulationViewport();
     expect(await screen.findByText("trace v4 · 0 ms")).toBeVisible();
 
     let rejectEarlier: ((error: unknown) => void) | undefined;
