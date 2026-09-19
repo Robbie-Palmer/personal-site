@@ -22,6 +22,26 @@ npm install --global ./work-graph-cli-0.1.0.tgz
 Node.js 22.18 or newer is required. The generated Fetch client and Zod schemas
 are included in the package.
 
+## Agent quick start
+
+`prime` prints the current short workflow without contacting the API:
+
+```sh
+work-graph prime
+work-graph ready
+work-graph claim cli-8
+work-graph note cli-8 --content "HTTP tests pass"
+work-graph touch cli-8
+work-graph release cli-8 \
+  --merge-evidence https://github.com/example/work-graph/pull/8 \
+  --deployment-evidence https://work-graph.example.com/health
+```
+
+Codex sessions use their thread ID as worker provenance. Other clients should
+set `WORK_GRAPH_WORKER_ID` once. Commands that already name a ticket find that
+worker's active lease and fencing epoch. Scripts may instead pass `--lease-id`
+and `--epoch` together to avoid the lookup.
+
 ## Configure
 
 Set the API URL in the environment or pass it before the command:
@@ -35,7 +55,18 @@ work-graph --api-url http://127.0.0.1:8787 queue
 
 The CLI requires HTTPS except for `localhost`, `127.0.0.1`, and `[::1]`.
 
-Set both Cloudflare Access service-token variables when the API is protected:
+When `WORK_GRAPH_API_URL` is absent, an API command automatically re-runs under
+the `work-graph/prd_work_graph` Doppler config. Help and `prime` do not contact
+Doppler. The CLI looks in the standard Homebrew and system binary directories;
+set `WORK_GRAPH_DOPPLER_BIN` to an absolute path for another installation. The
+explicit form remains available for scripts:
+
+```sh
+doppler run --project work-graph --config prd_work_graph -- work-graph ready
+```
+
+Without Doppler, set the API URL and both Cloudflare Access service-token
+variables when the API is protected:
 
 ```sh
 export CF_ACCESS_CLIENT_ID=example.access
@@ -52,11 +83,7 @@ values are read only from the environment. The command parser has no credential
 flags.
 
 For the production service, Doppler supplies the URL, allowlist, and Access
-pair as one unit:
-
-```sh
-doppler run --project work-graph --config prd_work_graph -- work-graph queue
-```
+pair as one unit. The CLI's fixed bootstrap config keeps those values together.
 
 ## Commands
 
@@ -65,6 +92,8 @@ Run `work-graph --help` for the compact command list. `queue` selects the
 priority order used by an unscoped `claim`. Lease duration defaults to 900
 seconds. `claim` also reads `WORK_GRAPH_WORKER_ID` when `--worker-id` is absent.
 Run `work-graph <command> --help` for schema-derived argument and option help.
+`ready` is the concise form of the default `queue`; `touch <ticket>` renews its
+active lease.
 
 ```sh
 work-graph scope put work-graph \
@@ -85,6 +114,7 @@ work-graph unexpedite cli-8
 work-graph dependency add cli-8 api-7
 work-graph dependency remove cli-8 api-7
 work-graph queue
+work-graph ready
 work-graph queue --all --limit 100
 work-graph claim --worker-id agent-a
 work-graph claim cli-8 --worker-id agent-a
@@ -97,15 +127,14 @@ work-graph metadata leases cli-8 --after-epoch 2
 work-graph metadata attention cli-8
 work-graph metadata cancellations cli-8
 work-graph metadata releases cli-8
-work-graph note cli-8 --lease-id "$LEASE_ID" --epoch 1 --content "HTTP tests pass"
+work-graph note cli-8 --content "HTTP tests pass"
+work-graph touch cli-8 --lease-duration-seconds 600
 work-graph renew "$LEASE_ID" --epoch 1 --lease-duration-seconds 600
 work-graph release cli-8 \
-  --lease-id "$LEASE_ID" \
-  --epoch 1 \
   --merge-evidence https://github.com/example/work-graph/pull/8 \
   --deployment-evidence https://work-graph.example.com/health
 work-graph comment cli-8 --author agent-a --content "The production check found a follow-up."
-work-graph cancel cli-8 --lease-id "$LEASE_ID" --epoch 1
+work-graph cancel cli-8
 ```
 
 `dependency add` rejects self-dependencies and edges that would create a cycle
@@ -120,8 +149,9 @@ and attention results include resolutions. Decomposition, cancellation, and
 release results come from the immutable event log. Release events include both
 merge and deployment evidence.
 
-`note` records immutable working history and requires the current lease ID and
-fencing epoch. `comment` appends immutable discussion after release. It cannot
+`note` records immutable working history. It uses the ticket's active lease by
+default; pass the current lease ID and fencing epoch together when a script
+already has them. `comment` appends immutable discussion after release. It cannot
 reopen work or change its release event, evidence, lease history, or
 timestamps. A comment requires `--author` or `WORK_GRAPH_WORKER_ID`. The stored
 note returns that provenance, a `post_release` kind, a null lease ID, and its
@@ -154,8 +184,6 @@ gets a generated lease ID unless `--claim-lease-id` supplies one.
 
 ```sh
 work-graph decompose parent-1 \
-  --lease-id "$LEASE_ID" \
-  --epoch 1 \
   --children-json '[{"id":"child-1","title":"First child","rank":1}]' \
   --dependencies-json '[]' \
   --claim-work-item-id child-1
@@ -166,8 +194,6 @@ Attention has three subcommands:
 ```sh
 work-graph attention list
 work-graph attention request cli-8 \
-  --lease-id "$LEASE_ID" \
-  --epoch 1 \
   --kind decision \
   --question "Which deployment target should I use?"
 work-graph attention resolve "$ATTENTION_ID" --resolution "Use Cloudflare Workers"

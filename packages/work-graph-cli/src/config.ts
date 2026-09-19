@@ -67,7 +67,7 @@ export const resolveClientConfig = (
   const apiUrlInput = options.apiUrl ?? environment.WORK_GRAPH_API_URL;
   if (!apiUrlInput) {
     throw usageError(
-      "Set WORK_GRAPH_API_URL or pass --api-url before the command.",
+      "Work Graph is not configured. Install and authenticate the Doppler CLI, or set WORK_GRAPH_API_URL.",
     );
   }
 

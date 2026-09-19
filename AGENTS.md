@@ -23,6 +23,13 @@ Idea pages explain concepts independently of the projects or initiatives that us
 Keep them domain-agnostic unless the concept itself belongs to a specific domain. Do not
 add project or initiative links to idea-page prose; link from projects and initiatives to ideas.
 
+## Work Graph
+
+When asked to take or update Work Graph tickets, read
+`.agents/skills/work-graph/SKILL.md`. Run `work-graph prime` for the current short workflow. The
+CLI can infer lease fencing fields for ticket commands, so do not carry lease UUIDs through the
+conversation unless a recovery or audit needs them.
+
 ## Protected Preview QA
 
 PR previews remain behind Cloudflare Access. Agent runtimes receive the preview-only

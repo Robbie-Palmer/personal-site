@@ -20,7 +20,6 @@ import {
   zCreateLeaseRenewalPath,
   zCreatePostReleaseWorkItemNoteBody,
   zCreateWorkItemBody,
-  zCreateWorkItemCancellationBody,
   zCreateWorkItemDecompositionBody,
   zCreateWorkItemDecompositionHeaders,
   zCreateWorkItemNoteBody,
@@ -110,13 +109,60 @@ const idempotencyKey = described(
 
 const leaseDuration = described(
   zCreateLeaseBody.shape.leaseDurationSeconds.default(900),
-  "Lease duration in seconds (default: 900)",
+  "Lease duration in seconds",
 );
 
 const epoch = described(
   zCreateLeaseRenewalBody.shape.epoch,
   "Current lease fencing epoch",
 );
+
+const leaseFenceFields = {
+  leaseId: optional(
+    zCreateWorkItemNoteBody.shape.leaseId,
+    "Lease UUID; omit with --epoch to use the ticket's active lease",
+  ),
+  epoch: optional(
+    zCreateLeaseRenewalBody.shape.epoch,
+    "Fencing epoch; omit with --lease-id to use the ticket's active lease",
+  ),
+};
+
+const resolveLeaseFence = async (
+  client: WorkGraphClient,
+  workItemId: string,
+  workerId: string | undefined,
+  leaseId: string | undefined,
+  leaseEpoch: number | undefined,
+): Promise<{ leaseId: string; epoch: number }> => {
+  if ((leaseId === undefined) !== (leaseEpoch === undefined)) {
+    throw usageError(
+      "Pass --lease-id and --epoch together, or omit both to use the ticket's active lease.",
+    );
+  }
+  if (leaseId !== undefined && leaseEpoch !== undefined) {
+    return { leaseId, epoch: leaseEpoch };
+  }
+  if (workerId === undefined) {
+    throw usageError(
+      "Set WORK_GRAPH_WORKER_ID or use a supported agent identity before resolving the ticket's active lease.",
+    );
+  }
+
+  const workItem = await client.getWorkItem(workItemId);
+  const lease = workItem.currentLease;
+  if (lease?.endedAt !== null) {
+    throw usageError(
+      `Ticket ${workItemId} has no active lease. Claim it first with: work-graph claim ${workItemId}`,
+    );
+  }
+  if (lease.workerId !== workerId) {
+    throw usageError(
+      `Ticket ${workItemId} is claimed by ${lease.workerId}, not ${workerId}.`,
+    );
+  }
+  return { leaseId: lease.id, epoch: lease.epoch };
+};
 
 const jsonArray = <Schema extends z.ZodArray>(
   schema: Schema,
@@ -162,6 +208,14 @@ const resolveClient = (context: CommandContext): WorkGraphClient => {
   return new WorkGraphClient(config, context.fetch);
 };
 
+const workerIdentity = (environment: NodeJS.ProcessEnv): string | undefined => {
+  if (environment.WORK_GRAPH_WORKER_ID) {
+    return environment.WORK_GRAPH_WORKER_ID;
+  }
+  const codexId = environment.CODEX_THREAD_ID ?? environment.CODEX_SESSION_ID;
+  return codexId === undefined ? undefined : `codex:${codexId}`;
+};
+
 const t = initTRPC
   .context<CommandContext>()
   .meta<TrpcCliMeta>()
@@ -169,11 +223,11 @@ const t = initTRPC
 const command = t.procedure;
 
 const createInput = z.object({
-  id: positional(zCreateWorkItemBody.shape.id, "Work-item ID"),
-  title: described(zCreateWorkItemBody.shape.title, "Work-item title"),
+  id: positional(zCreateWorkItemBody.shape.id, "Ticket ID"),
+  title: described(zCreateWorkItemBody.shape.title, "Ticket title"),
   parentId: optional(
     zCreateWorkItemBody.shape.parentId.unwrap().unwrap(),
-    "Parent work-item ID",
+    "Parent ticket ID",
   ),
   schedulingInitiativeId: optional(
     zCreateWorkItemBody.shape.schedulingInitiativeId.unwrap().unwrap(),
@@ -255,7 +309,7 @@ const priorityMoveBody = (
 
 const workItemPriorityMoveInput = z
   .object({
-    workItemId: positional(zGetWorkItemPath.shape.workItemId, "Work-item ID"),
+    workItemId: positional(zGetWorkItemPath.shape.workItemId, "Ticket ID"),
     ...priorityMoveFields,
     idempotencyKey: described(
       zMoveWorkItemPriorityHeaders.shape["idempotency-key"],
@@ -290,7 +344,7 @@ const scopePriorityMoveInput = z
   });
 
 const expediteInput = z.object({
-  workItemId: positional(zGetWorkItemPath.shape.workItemId, "Work-item ID"),
+  workItemId: positional(zGetWorkItemPath.shape.workItemId, "Ticket ID"),
   reason: described(zExpediteWorkItemBody.shape.reason, "Expedite reason"),
   idempotencyKey: described(
     zExpediteWorkItemHeaders.shape["idempotency-key"],
@@ -299,7 +353,7 @@ const expediteInput = z.object({
 });
 
 const unexpediteInput = z.object({
-  workItemId: positional(zGetWorkItemPath.shape.workItemId, "Work-item ID"),
+  workItemId: positional(zGetWorkItemPath.shape.workItemId, "Ticket ID"),
   idempotencyKey: described(
     zUnexpediteWorkItemHeaders.shape["idempotency-key"],
     "Client-generated UUID used to replay a mutation safely",
@@ -335,11 +389,11 @@ const scopeRelationshipListInput = z.object({
 const dependencyInput = z.object({
   dependentWorkItemId: positional(
     zCreateDependencyBody.shape.dependentWorkItemId,
-    "Dependent work-item ID",
+    "Dependent ticket ID",
   ),
   blockerWorkItemId: positional(
     zCreateDependencyBody.shape.blockerWorkItemId,
-    "Blocker work-item ID",
+    "Blocker ticket ID",
   ),
   idempotencyKey: described(
     zCreateDependencyHeaders.shape["idempotency-key"],
@@ -356,7 +410,7 @@ const queueInput = z
       .describe("List all stages instead of the ready queue"),
     limit: optional(
       zListWorkItemsQuery.shape.limit.unwrap().unwrap(),
-      "Maximum number of work items",
+      "Maximum number of tickets",
     ),
     cursor: optional(
       zListWorkItemsQuery.shape.cursor.unwrap(),
@@ -368,29 +422,39 @@ const queueInput = z
     path: ["all"],
   });
 
+const readyInput = z.object({
+  limit: optional(
+    zListWorkItemsQuery.shape.limit.unwrap().unwrap(),
+    "Maximum number of tickets",
+  ),
+  cursor: optional(
+    zListWorkItemsQuery.shape.cursor.unwrap(),
+    "Pagination cursor",
+  ),
+});
+
 const claimInput = z.object({
   workItemId: positional(
-    optional(zCreateLeaseBody.shape.workItemId.unwrap(), "Work-item ID"),
-    "Work-item ID",
+    optional(zCreateLeaseBody.shape.workItemId.unwrap(), "Ticket ID"),
+    "Ticket ID",
   ),
   workerId: optional(zCreateLeaseBody.shape.workerId, "Worker identity"),
   leaseDurationSeconds: leaseDuration,
 });
 
 const noteInput = z.object({
-  workItemId: positional(zGetWorkItemPath.shape.workItemId, "Work-item ID"),
+  workItemId: positional(zGetWorkItemPath.shape.workItemId, "Ticket ID"),
   id: optional(
     zCreateWorkItemNoteBody.shape.id,
     "Note UUID (generated by default)",
   ),
-  leaseId: described(zCreateWorkItemNoteBody.shape.leaseId, "Lease UUID"),
-  epoch,
+  ...leaseFenceFields,
   content: described(zCreateWorkItemNoteBody.shape.content, "Note text"),
   idempotencyKey,
 });
 
 const commentInput = z.object({
-  workItemId: positional(zGetWorkItemPath.shape.workItemId, "Work-item ID"),
+  workItemId: positional(zGetWorkItemPath.shape.workItemId, "Ticket ID"),
   id: optional(
     zCreatePostReleaseWorkItemNoteBody.shape.id,
     "Note UUID (generated by default)",
@@ -419,15 +483,11 @@ const decompositionClaim = zCreateWorkItemDecompositionBody.shape.claim.unwrap()
 
 const decomposeInput = z
   .object({
-    workItemId: positional(zGetWorkItemPath.shape.workItemId, "Work-item ID"),
-    leaseId: described(
-      zCreateWorkItemDecompositionBody.shape.leaseId,
-      "Lease UUID",
-    ),
-    epoch,
+    workItemId: positional(zGetWorkItemPath.shape.workItemId, "Ticket ID"),
+    ...leaseFenceFields,
     childrenJson: jsonArray(
       decompositionChildren,
-      "Contract-shaped JSON array of child work items",
+      "Contract-shaped JSON array of child tickets",
     ),
     dependenciesJson: jsonArray(
       decompositionDependencies,
@@ -435,7 +495,7 @@ const decomposeInput = z
     ).optional(),
     claimWorkItemId: optional(
       decompositionClaim.shape.workItemId,
-      "Child work-item ID to claim atomically",
+      "Child ticket ID to claim atomically",
     ),
     claimLeaseId: optional(
       decompositionClaim.shape.leaseId,
@@ -490,14 +550,13 @@ const attentionListInput = z.object({
 const attentionRequestInput = z.object({
   workItemId: positional(
     zCreateAttentionRequestBody.shape.workItemId,
-    "Work-item ID",
+    "Ticket ID",
   ),
   id: optional(
     zCreateAttentionRequestBody.shape.id,
     "Attention-request UUID (generated by default)",
   ),
-  leaseId: described(zCreateAttentionRequestBody.shape.leaseId, "Lease UUID"),
-  epoch,
+  ...leaseFenceFields,
   kind: described(zCreateAttentionRequestBody.shape.kind, "Request kind"),
   question: described(
     zCreateAttentionRequestBody.shape.question,
@@ -534,9 +593,8 @@ const attentionResolveInput = z.object({
 });
 
 const terminationInput = z.object({
-  workItemId: positional(zGetWorkItemPath.shape.workItemId, "Work-item ID"),
-  leaseId: described(zCreateWorkItemReleaseBody.shape.leaseId, "Lease UUID"),
-  epoch,
+  workItemId: positional(zGetWorkItemPath.shape.workItemId, "Ticket ID"),
+  ...leaseFenceFields,
 });
 
 const releaseInput = terminationInput.extend({
@@ -553,7 +611,7 @@ const releaseInput = terminationInput.extend({
 const metadataNotesInput = z.object({
   workItemId: positional(
     zListWorkItemNotesPath.shape.workItemId,
-    "Work-item ID",
+    "Ticket ID",
   ),
   limit: optional(
     zListWorkItemNotesQuery.shape.limit.unwrap().unwrap(),
@@ -568,7 +626,7 @@ const metadataNotesInput = z.object({
 const metadataEventsInput = z.object({
   workItemId: positional(
     zListWorkItemEventsPath.shape.workItemId,
-    "Work-item ID",
+    "Ticket ID",
   ),
   type: optional(
     zListWorkItemEventsQuery.shape.type.unwrap(),
@@ -587,7 +645,7 @@ const metadataEventsInput = z.object({
 const metadataDependenciesInput = z.object({
   workItemId: positional(
     zListWorkItemDependenciesPath.shape.workItemId,
-    "Work-item ID",
+    "Ticket ID",
   ),
   limit: optional(
     zListWorkItemDependenciesQuery.shape.limit.unwrap().unwrap(),
@@ -602,7 +660,7 @@ const metadataDependenciesInput = z.object({
 const metadataLeasesInput = z.object({
   workItemId: positional(
     zListWorkItemLeasesPath.shape.workItemId,
-    "Work-item ID",
+    "Ticket ID",
   ),
   limit: optional(
     zListWorkItemLeasesQuery.shape.limit.unwrap().unwrap(),
@@ -617,7 +675,7 @@ const metadataLeasesInput = z.object({
 const metadataAttentionInput = z.object({
   workItemId: positional(
     zListAttentionRequestsQuery.shape.workItemId.unwrap(),
-    "Work-item ID",
+    "Ticket ID",
   ),
   limit: optional(
     zListAttentionRequestsQuery.shape.limit.unwrap().unwrap(),
@@ -629,10 +687,45 @@ const metadataAttentionInput = z.object({
   ),
 });
 
+const listQueue = (
+  context: CommandContext,
+  input: z.infer<typeof queueInput>,
+) =>
+  resolveClient(context).listWorkItems({
+    ...(input.all ? {} : { stage: input.stage ?? "ready" }),
+    ...(input.limit === undefined ? {} : { limit: input.limit }),
+    ...(input.cursor === undefined ? {} : { cursor: input.cursor }),
+  });
+
 export const workGraphRouter = t.router({
+  prime: command
+    .meta({ description: "Print the short agent workflow" })
+    .input(z.object({}))
+    .query(({ ctx }) => ({
+      workerId: workerIdentity(ctx.environment) ?? null,
+      auth:
+        ctx.environment.WORK_GRAPH_API_URL === undefined
+          ? "Doppler loads production credentials automatically for API commands."
+          : "configured",
+      workflow: [
+        "work-graph ready",
+        "work-graph claim [ticket]",
+        'work-graph note <ticket> --content "progress or handoff"',
+        "work-graph release <ticket> --merge-evidence <url> --deployment-evidence <url>",
+      ],
+      rules: [
+        "Codex thread identity is automatic; WORK_GRAPH_WORKER_ID overrides it.",
+        "Ticket commands find the active lease and fencing epoch automatically.",
+        "Use attention request for a blocking decision; use cancel only when the outcome is no longer wanted.",
+      ],
+    })),
+  ready: command
+    .meta({ description: "List ready tickets in priority order" })
+    .input(readyInput)
+    .query(({ ctx, input }) => listQueue(ctx, input)),
   metadata: t.router({
     notes: command
-      .meta({ description: "List work-item notes" })
+      .meta({ description: "List ticket notes" })
       .input(metadataNotesInput)
       .query(({ ctx, input }) =>
         resolveClient(ctx).listWorkItemNotes(input.workItemId, {
@@ -641,7 +734,7 @@ export const workGraphRouter = t.router({
         }),
       ),
     events: command
-      .meta({ description: "List immutable work-item events" })
+      .meta({ description: "List immutable ticket events" })
       .input(metadataEventsInput)
       .query(({ ctx, input }) =>
         resolveClient(ctx).listWorkItemEvents(input.workItemId, {
@@ -653,7 +746,7 @@ export const workGraphRouter = t.router({
         }),
       ),
     dependencies: command
-      .meta({ description: "List dependency edges involving a work item" })
+      .meta({ description: "List dependency edges involving a ticket" })
       .input(metadataDependenciesInput)
       .query(({ ctx, input }) =>
         resolveClient(ctx).listWorkItemDependencies(input.workItemId, {
@@ -662,7 +755,7 @@ export const workGraphRouter = t.router({
         }),
       ),
     decompositions: command
-      .meta({ description: "List work-item decomposition history" })
+      .meta({ description: "List ticket decomposition history" })
       .input(metadataEventsInput.omit({ type: true }))
       .query(({ ctx, input }) =>
         resolveClient(ctx).listWorkItemEvents(input.workItemId, {
@@ -674,7 +767,7 @@ export const workGraphRouter = t.router({
         }),
       ),
     leases: command
-      .meta({ description: "List work-item lease history" })
+      .meta({ description: "List ticket lease history" })
       .input(metadataLeasesInput)
       .query(({ ctx, input }) =>
         resolveClient(ctx).listWorkItemLeases(input.workItemId, {
@@ -685,7 +778,7 @@ export const workGraphRouter = t.router({
         }),
       ),
     attention: command
-      .meta({ description: "List work-item attention history" })
+      .meta({ description: "List ticket attention history" })
       .input(metadataAttentionInput)
       .query(({ ctx, input }) =>
         resolveClient(ctx).listAttention({
@@ -696,7 +789,7 @@ export const workGraphRouter = t.router({
         }),
       ),
     cancellations: command
-      .meta({ description: "List work-item cancellation history" })
+      .meta({ description: "List ticket cancellation history" })
       .input(metadataEventsInput.omit({ type: true }))
       .query(({ ctx, input }) =>
         resolveClient(ctx).listWorkItemEvents(input.workItemId, {
@@ -709,7 +802,7 @@ export const workGraphRouter = t.router({
         }),
       ),
     releases: command
-      .meta({ description: "List work-item release evidence" })
+      .meta({ description: "List ticket release evidence" })
       .input(metadataEventsInput.omit({ type: true }))
       .query(({ ctx, input }) =>
         resolveClient(ctx).listWorkItemEvents(input.workItemId, {
@@ -724,7 +817,7 @@ export const workGraphRouter = t.router({
   }),
   dependency: t.router({
     add: command
-      .meta({ description: "Add a work-item dependency" })
+      .meta({ description: "Add a ticket dependency" })
       .input(dependencyInput)
       .mutation(({ ctx, input }) =>
         resolveClient(ctx).addDependency(
@@ -736,7 +829,7 @@ export const workGraphRouter = t.router({
         ),
       ),
     remove: command
-      .meta({ description: "Remove a work-item dependency" })
+      .meta({ description: "Remove a ticket dependency" })
       .input(dependencyInput)
       .mutation(({ ctx, input }) =>
         resolveClient(ctx).removeDependency(
@@ -835,7 +928,7 @@ export const workGraphRouter = t.router({
       ),
   }),
   create: command
-    .meta({ description: "Create a work item" })
+    .meta({ description: "Create a ticket" })
     .input(createInput)
     .mutation(({ ctx, input }) =>
       resolveClient(ctx).createWorkItem(
@@ -885,20 +978,14 @@ export const workGraphRouter = t.router({
       ),
     ),
   queue: command
-    .meta({ description: "List queued work items" })
+    .meta({ description: "List queued tickets" })
     .input(queueInput)
-    .query(({ ctx, input }) =>
-      resolveClient(ctx).listWorkItems({
-        ...(input.all ? {} : { stage: input.stage ?? "ready" }),
-        ...(input.limit === undefined ? {} : { limit: input.limit }),
-        ...(input.cursor === undefined ? {} : { cursor: input.cursor }),
-      }),
-    ),
+    .query(({ ctx, input }) => listQueue(ctx, input)),
   claim: command
-    .meta({ description: "Claim the next ready work item or a specified item" })
+    .meta({ description: "Claim the next ready ticket or a specified ticket" })
     .input(claimInput)
     .mutation(({ ctx, input }) => {
-      const workerId = input.workerId ?? ctx.environment.WORK_GRAPH_WORKER_ID;
+      const workerId = input.workerId ?? workerIdentity(ctx.environment);
       if (!workerId) {
         throw usageError("Set WORK_GRAPH_WORKER_ID or pass --worker-id.");
       }
@@ -911,36 +998,43 @@ export const workGraphRouter = t.router({
       });
     }),
   show: command
-    .meta({ description: "Show a work item" })
+    .meta({ description: "Show a ticket" })
     .input(
       z.object({
         workItemId: positional(
           zGetWorkItemPath.shape.workItemId,
-          "Work-item ID",
+          "Ticket ID",
         ),
       }),
     )
     .query(({ ctx, input }) => resolveClient(ctx).getWorkItem(input.workItemId)),
   note: command
-    .meta({ description: "Record a lease-fenced note on a work item" })
+    .meta({ description: "Record progress or handoff notes on claimed work" })
     .input(noteInput)
-    .mutation(({ ctx, input }) =>
-      resolveClient(ctx).createNote(
+    .mutation(async ({ ctx, input }) => {
+      const client = resolveClient(ctx);
+      const fence = await resolveLeaseFence(
+        client,
+        input.workItemId,
+        workerIdentity(ctx.environment),
+        input.leaseId,
+        input.epoch,
+      );
+      return client.createNote(
         input.workItemId,
         {
           id: input.id ?? mutationUuid(ctx, input.idempotencyKey, "note"),
-          leaseId: input.leaseId,
-          epoch: input.epoch,
+          ...fence,
           content: input.content,
         },
         input.idempotencyKey,
-      ),
-    ),
+      );
+    }),
   comment: command
     .meta({ description: "Append a note to released work" })
     .input(commentInput)
     .mutation(({ ctx, input }) => {
-      const author = input.author ?? ctx.environment.WORK_GRAPH_WORKER_ID;
+      const author = input.author ?? workerIdentity(ctx.environment);
       if (!author) {
         throw usageError(
           "Set WORK_GRAPH_WORKER_ID or pass --author for provenance.",
@@ -967,15 +1061,47 @@ export const workGraphRouter = t.router({
         leaseDurationSeconds: input.leaseDurationSeconds,
       }),
     ),
+  touch: command
+    .meta({ description: "Renew a ticket's active lease" })
+    .input(
+      z.object({
+        workItemId: positional(
+          zGetWorkItemPath.shape.workItemId,
+          "Ticket ID",
+        ),
+        leaseDurationSeconds: leaseDuration,
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const client = resolveClient(ctx);
+      const fence = await resolveLeaseFence(
+        client,
+        input.workItemId,
+        workerIdentity(ctx.environment),
+        undefined,
+        undefined,
+      );
+      return client.renew(fence.leaseId, {
+        epoch: fence.epoch,
+        leaseDurationSeconds: input.leaseDurationSeconds,
+      });
+    }),
   decompose: command
-    .meta({ description: "Decompose a work item into children" })
+    .meta({ description: "Decompose a ticket into children" })
     .input(decomposeInput)
-    .mutation(({ ctx, input }) =>
-      resolveClient(ctx).decompose(
+    .mutation(async ({ ctx, input }) => {
+      const client = resolveClient(ctx);
+      const fence = await resolveLeaseFence(
+        client,
+        input.workItemId,
+        workerIdentity(ctx.environment),
+        input.leaseId,
+        input.epoch,
+      );
+      return client.decompose(
         input.workItemId,
         {
-          leaseId: input.leaseId,
-          epoch: input.epoch,
+          ...fence,
           children: input.childrenJson,
           ...(input.dependenciesJson === undefined
             ? {}
@@ -998,8 +1124,8 @@ export const workGraphRouter = t.router({
               }),
         },
         input.idempotencyKey,
-      ),
-    ),
+      );
+    }),
   attention: t.router({
     list: command
       .meta({ description: "List attention requests" })
@@ -1017,23 +1143,30 @@ export const workGraphRouter = t.router({
     request: command
       .meta({ description: "Request human or agent attention" })
       .input(attentionRequestInput)
-      .mutation(({ ctx, input }) =>
-        resolveClient(ctx).requestAttention(
+      .mutation(async ({ ctx, input }) => {
+        const client = resolveClient(ctx);
+        const fence = await resolveLeaseFence(
+          client,
+          input.workItemId,
+          workerIdentity(ctx.environment),
+          input.leaseId,
+          input.epoch,
+        );
+        return client.requestAttention(
           {
             id:
               input.id ??
               mutationUuid(ctx, input.idempotencyKey, "attention-request"),
             workItemId: input.workItemId,
-            leaseId: input.leaseId,
-            epoch: input.epoch,
+            ...fence,
             kind: input.kind,
             question: input.question,
             ...(input.note === undefined ? {} : { note: input.note }),
             blocking: input.nonBlocking !== true,
           },
           input.idempotencyKey,
-        ),
-      ),
+        );
+      }),
     resolve: command
       .meta({ description: "Resolve an attention request" })
       .input(attentionResolveInput)
@@ -1055,30 +1188,35 @@ export const workGraphRouter = t.router({
       description: "Complete claimed work after it is merged and deployed",
     })
     .input(releaseInput)
-    .mutation(({ ctx, input }) =>
-      resolveClient(ctx).release(input.workItemId, {
-        leaseId: input.leaseId,
-        epoch: input.epoch,
+    .mutation(async ({ ctx, input }) => {
+      const client = resolveClient(ctx);
+      const fence = await resolveLeaseFence(
+        client,
+        input.workItemId,
+        workerIdentity(ctx.environment),
+        input.leaseId,
+        input.epoch,
+      );
+      return client.release(input.workItemId, {
+        ...fence,
         mergeEvidence: input.mergeEvidence,
         deploymentEvidence: input.deploymentEvidence,
-      }),
-    ),
+      });
+    }),
   cancel: command
     .meta({ description: "Cancel claimed work" })
-    .input(
-      terminationInput.extend({
-        leaseId: described(
-          zCreateWorkItemCancellationBody.shape.leaseId,
-          "Lease UUID",
-        ),
-      }),
-    )
-    .mutation(({ ctx, input }) =>
-      resolveClient(ctx).cancel(input.workItemId, {
-        leaseId: input.leaseId,
-        epoch: input.epoch,
-      }),
-    ),
+    .input(terminationInput)
+    .mutation(async ({ ctx, input }) => {
+      const client = resolveClient(ctx);
+      const fence = await resolveLeaseFence(
+        client,
+        input.workItemId,
+        workerIdentity(ctx.environment),
+        input.leaseId,
+        input.epoch,
+      );
+      return client.cancel(input.workItemId, fence);
+    }),
 });
 
 export const createCommandContext = (
