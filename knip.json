@@ -32,7 +32,8 @@
     },
     "packages/work-graph-cli": {
       "entry": ["src/cli.ts"],
-      "ignore": ["src/generated/**"]
+      "ignore": ["src/generated/**"],
+      "ignoreBinaries": ["doppler"]
     },
     "packages/work-graph-db": {
       "entry": ["vitest.integration.config.ts"]
