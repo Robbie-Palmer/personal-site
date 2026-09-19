@@ -56,11 +56,11 @@ smoke-tests production.
 
 ## Client use
 
-Run the CLI through the production Doppler config so its Access headers and
-origin allowlist arrive together:
+The CLI loads the production Doppler config automatically when its API URL is
+not already set. The equivalent explicit invocation is:
 
 ```bash
-doppler run --project work-graph --config prd_work_graph -- work-graph queue
+doppler run --project work-graph --config prd_work_graph -- work-graph ready
 ```
 
 Do not copy the Access pair into shell startup files. The CLI refuses to send

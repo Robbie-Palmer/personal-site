@@ -32,6 +32,21 @@ const collect = (value: string, previous: string[]): string[] => [
   value,
 ];
 
+const schemaDetail =
+  /; (?:Min length|Max length|Minimum|Maximum|Format|Pattern):.*$/u;
+
+interface HelpCommand {
+  readonly commands: readonly HelpCommand[];
+  readonly options: readonly { description: string }[];
+}
+
+const compactHelp = (command: HelpCommand): void => {
+  for (const option of command.options) {
+    option.description = option.description.replace(schemaDetail, "");
+  }
+  for (const child of command.commands) compactHelp(child);
+};
+
 const nestedCause = (error: unknown): unknown =>
   typeof error === "object" && error !== null && "cause" in error
     ? error.cause
@@ -123,6 +138,21 @@ export const runCli = async (
     collect,
     [],
   );
+  program.addHelpText(
+    "after",
+    [
+      "",
+      "Agent loop:",
+      "  work-graph prime",
+      "  work-graph ready",
+      "  work-graph claim [ticket]",
+      '  work-graph note <ticket> --content "progress or handoff"',
+      "  work-graph release <ticket> --merge-evidence <url> --deployment-evidence <url>",
+      "",
+      "Production credentials load from Doppler automatically when needed.",
+    ].join("\n"),
+  );
+  compactHelp(program);
 
   try {
     await cli.run(runParameters, program);

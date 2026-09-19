@@ -15,6 +15,38 @@ const UUID = "00000000-0000-4000-8000-000000000001";
 const MERGE_EVIDENCE = "https://github.com/example/work-graph/pull/1";
 const DEPLOYMENT_EVIDENCE = "https://work-graph.example.test/health";
 
+const activeWorkItem = (workerId = "agent-a") => ({
+  id: "item-1",
+  title: "Test the short agent workflow",
+  lifecycle: "open",
+  parentId: null,
+  rank: null,
+  priorityRank: 1,
+  schedulingInitiativeId: null,
+  schedulingProjectId: null,
+  expedited: false,
+  expediteReason: null,
+  priority: {
+    initiativeRank: 1,
+    projectRank: 1,
+    ticketRank: 1,
+    expedited: false,
+    effectiveExpedited: false,
+    donatedFromWorkItemId: null,
+  },
+  stage: "in_progress",
+  currentLease: {
+    id: UUID,
+    workItemId: "item-1",
+    workerId,
+    epoch: 3,
+    acquiredAt: "2026-09-19T10:00:00.000Z",
+    expiresAt: "2026-09-19T10:15:00.000Z",
+    endedAt: null,
+    outcome: null,
+  },
+});
+
 const response = (body: unknown = { ok: true }, status = 200): Response =>
   new Response(JSON.stringify(body), {
     status,
@@ -57,6 +89,23 @@ const harness = (
 };
 
 describe("Given agent-facing Work Graph commands", () => {
+  it("prints the short workflow without API configuration", async () => {
+    const test = harness(undefined, {});
+
+    expect(await test.run(["prime"])).toBe(EXIT_CODES.success);
+    expect(test.requests).toEqual([]);
+    expect(JSON.parse(test.stdout[0] ?? "null")).toMatchObject({
+      workerId: null,
+      auth: expect.stringContaining("automatically"),
+      workflow: [
+        "work-graph ready",
+        "work-graph claim [ticket]",
+        expect.stringContaining("work-graph note"),
+        expect.stringContaining("work-graph release"),
+      ],
+    });
+  });
+
   it("adds and removes dependency edges", async () => {
     const add = harness();
     const remove = harness();
@@ -289,14 +338,19 @@ describe("Given agent-facing Work Graph commands", () => {
 
   it("lists the ready queue by default and supports an unfiltered page", async () => {
     const ready = harness();
+    const familiarReady = harness();
     const all = harness();
     await ready.run(["queue", "--limit", "7", "--cursor", "item-1"]);
+    await familiarReady.run(["ready", "--limit", "7", "--cursor", "item-1"]);
     await all.run(["queue", "--all"]);
     expect(ready.requests[0]?.url.href).toBe(
       "https://work.example.test/root/api/work-items?stage=ready&limit=7&cursor=item-1",
     );
     expect(all.requests[0]?.url.href).toBe(
       "https://work.example.test/root/api/work-items",
+    );
+    expect(familiarReady.requests[0]?.url.href).toBe(
+      "https://work.example.test/root/api/work-items?stage=ready&limit=7&cursor=item-1",
     );
   });
 
@@ -417,6 +471,10 @@ describe("Given agent-facing Work Graph commands", () => {
   it("claims the next item or a specified item", async () => {
     const next = harness();
     const specified = harness();
+    const codex = harness(undefined, {
+      WORK_GRAPH_API_URL: API_URL,
+      CODEX_THREAD_ID: "thread-123",
+    });
     await next.run(["claim", "--worker-id", "agent-a"]);
     await specified.run([
       "claim",
@@ -426,6 +484,7 @@ describe("Given agent-facing Work Graph commands", () => {
       "--lease-duration-seconds",
       "120",
     ]);
+    await codex.run(["claim"]);
     expect(next.requests[0]?.body).toEqual({
       workerId: "agent-a",
       leaseDurationSeconds: 900,
@@ -434,6 +493,10 @@ describe("Given agent-facing Work Graph commands", () => {
       workerId: "agent-a",
       leaseDurationSeconds: 120,
       workItemId: "work/a b",
+    });
+    expect(codex.requests[0]?.body).toEqual({
+      workerId: "codex:thread-123",
+      leaseDurationSeconds: 900,
     });
   });
 
@@ -467,6 +530,60 @@ describe("Given agent-facing Work Graph commands", () => {
     });
     expect(test.requests[0]?.url.pathname).toBe(
       "/root/api/work-items/item-1/notes",
+    );
+  });
+
+  it("finds the active lease when recording a note", async () => {
+    const test = harness((request) =>
+      request.method === "GET" ? response(activeWorkItem()) : response(),
+      {
+        WORK_GRAPH_API_URL: API_URL,
+        WORK_GRAPH_WORKER_ID: "agent-a",
+      },
+    );
+
+    await test.run(["note", "item-1", "--content", "Tests pass"]);
+
+    expect(test.requests).toHaveLength(2);
+    expect(test.requests[0]?.url.pathname).toBe("/root/api/work-items/item-1");
+    expect(test.requests[1]?.body).toMatchObject({
+      leaseId: UUID,
+      epoch: 3,
+      content: "Tests pass",
+    });
+  });
+
+  it("does not infer another worker's lease", async () => {
+    const test = harness(() => response(activeWorkItem("agent-b")), {
+      WORK_GRAPH_API_URL: API_URL,
+      WORK_GRAPH_WORKER_ID: "agent-a",
+    });
+
+    expect(
+      await test.run(["note", "item-1", "--content", "Tests pass"]),
+    ).toBe(EXIT_CODES.usage);
+    expect(test.requests).toHaveLength(1);
+    expect(test.stderr.join(" ")).toContain(
+      "Ticket item-1 is claimed by agent-b, not agent-a.",
+    );
+  });
+
+  it("requires explicit lease fields as a pair", async () => {
+    const test = harness();
+
+    expect(
+      await test.run([
+        "note",
+        "item-1",
+        "--lease-id",
+        UUID,
+        "--content",
+        "Tests pass",
+      ]),
+    ).toBe(EXIT_CODES.usage);
+    expect(test.requests).toEqual([]);
+    expect(test.stderr.join(" ")).toContain(
+      "Pass --lease-id and --epoch together",
     );
   });
 
@@ -526,6 +643,24 @@ describe("Given agent-facing Work Graph commands", () => {
     expect(test.requests[0]?.url.pathname).toBe(
       `/root/api/leases/${UUID}/renewals`,
     );
+  });
+
+  it("renews a ticket without copying its lease fields", async () => {
+    const test = harness((request) =>
+      request.method === "GET" ? response(activeWorkItem()) : response(),
+      {
+        WORK_GRAPH_API_URL: API_URL,
+        WORK_GRAPH_WORKER_ID: "agent-a",
+      },
+    );
+
+    await test.run(["touch", "item-1", "--lease-duration-seconds", "600"]);
+
+    expect(test.requests[1]).toMatchObject({
+      body: { epoch: 3, leaseDurationSeconds: 600 },
+      method: "POST",
+    });
+    expect(test.requests[1]?.url.pathname).toBe(`/root/api/leases/${UUID}/renewals`);
   });
 
   it("decomposes work and can claim one child in the same request", async () => {
@@ -1025,17 +1160,30 @@ describe("Given CLI and HTTP failures", () => {
     expect(await test.run(["--help"])).toBe(EXIT_CODES.success);
     expect(test.stdout.join("")).toContain("Usage: work-graph");
     expect(test.stdout.join("")).toContain("create");
-    expect(test.stdout.join("")).toContain("Create a work item");
+    expect(test.stdout.join("")).toContain("Create a ticket");
     expect(test.fetch).not.toHaveBeenCalled();
   });
 
   it("derives command help from Zod field descriptions", async () => {
     const test = harness(undefined, {});
     expect(await test.run(["create", "--help"])).toBe(EXIT_CODES.success);
-    expect(test.stdout.join("")).toContain("Create a work item");
-    expect(test.stdout.join("")).toContain("Work-item ID");
+    expect(test.stdout.join("")).toContain("Create a ticket");
+    expect(test.stdout.join("")).toContain("Ticket ID");
     expect(test.stdout.join("")).toContain("--title <string>");
-    expect(test.stdout.join("")).toContain("Work-item title");
+    expect(test.stdout.join("")).toContain("Ticket title");
+    expect(test.fetch).not.toHaveBeenCalled();
+  });
+
+  it("keeps schema validation details out of agent help", async () => {
+    const test = harness(undefined, {});
+
+    expect(await test.run(["note", "--help"])).toBe(EXIT_CODES.success);
+    const help = test.stdout.join(" ").replace(/\s+/gu, " ");
+    expect(help).toContain(
+      "Lease UUID; omit with --epoch to use the ticket's active lease",
+    );
+    expect(help).not.toContain("Pattern:");
+    expect(help).not.toContain("Max length:");
     expect(test.fetch).not.toHaveBeenCalled();
   });
 
